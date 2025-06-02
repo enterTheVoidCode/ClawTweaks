@@ -3,18 +3,16 @@
 #include "App.h"
 #include "MainPage.h"
 #include "Widget1.h"
-#include "Widget2.h"
 
-using namespace winrt;
-using namespace Windows::ApplicationModel;
-using namespace Windows::ApplicationModel::Activation;
-using namespace Windows::Foundation;
-using namespace Windows::UI::Xaml;
-using namespace Windows::UI::Xaml::Controls;
-using namespace Windows::UI::Xaml::Navigation;
-using namespace WidgetAdvSample;
-using namespace WidgetAdvSample::implementation;
-using namespace Microsoft::Gaming::XboxGameBar;
+using namespace winrt::Windows::ApplicationModel;
+using namespace winrt::Windows::ApplicationModel::Activation;
+using namespace winrt::Windows::Foundation;
+using namespace winrt::Windows::UI::Xaml;
+using namespace winrt::Windows::UI::Xaml::Controls;
+using namespace winrt::Windows::UI::Xaml::Navigation;
+using namespace winrt::WidgetFTSample;
+using namespace winrt::WidgetFTSample::implementation;
+using namespace winrt::Microsoft::Gaming::XboxGameBar;
 
 /// <summary>
 /// Initializes the singleton application object.  This is the first line of authored code
@@ -45,7 +43,6 @@ void App::OnActivated(IActivatedEventArgs const& e)
         auto protocolArgs = e.try_as<IProtocolActivatedEventArgs>();
         if (protocolArgs)
         {
-            // If scheme name is ms-gamebarwidget, Xbox Game Bar is activating us.
             const wchar_t* scheme = protocolArgs.Uri().SchemeName().c_str();
             if (0 == wcscmp(scheme, L"ms-gamebarwidget"))
             {
@@ -55,8 +52,6 @@ void App::OnActivated(IActivatedEventArgs const& e)
     }
     if (widgetArgs)
     {
-        std::wstring appExtId{ widgetArgs.AppExtensionId() };
-
         //
         // Activation Notes:
         //
@@ -83,68 +78,24 @@ void App::OnActivated(IActivatedEventArgs const& e)
         if (widgetArgs.IsLaunchActivation())
         {
             auto rootFrame = Frame();
-
-            // Set FlowDirection for RTL/LTR languages.
-            auto flowDirectionSetting = Resources::Core::ResourceContext::GetForCurrentView().QualifierValues().Lookup(L"LayoutDirection");
-            rootFrame.FlowDirection((flowDirectionSetting == L"RTL") ? FlowDirection::RightToLeft : FlowDirection::LeftToRight);
-
             rootFrame.NavigationFailed({ this, &App::OnNavigationFailed });
             Window::Current().Content(rootFrame);
-          
-            if (0 == appExtId.compare(L"Widget1"))
-            {
-                m_widget1 = XboxGameBarWidget(
-                    widgetArgs,
-                    Window::Current().CoreWindow(),
-                    rootFrame);
-                rootFrame.Navigate(xaml_typename<WidgetAdvSample::Widget1>(), m_widget1);
 
-                m_widget1WindowClosedHandlerToken = Window::Current().Closed(
-                    { get_weak(), &App::Widget1WindowClosedHandler });
-            }
-            else if (0 == appExtId.compare(L"Widget1Settings"))
-            {
-                m_widget1Settings = XboxGameBarWidget(
-                    widgetArgs,
-                    Window::Current().CoreWindow(),
-                    rootFrame);
-                rootFrame.Navigate(xaml_typename<WidgetAdvSample::Widget1Settings>());
+            // Create Game Bar widget object which bootstraps the connection with Game Bar
+            m_widget1 = XboxGameBarWidget(
+                widgetArgs,
+                Window::Current().CoreWindow(),
+                rootFrame);
+            rootFrame.Navigate(xaml_typename<WidgetFTSample::Widget1>());
 
-                m_widget1SettingsWindowClosedHandlerToken = Window::Current().Closed(
-                    { get_weak(), &App::Widget1SettingsWindowClosedHandler });
-            }
-            else if (0 == appExtId.compare(L"Widget2"))
-            {
-                m_widget2 = XboxGameBarWidget(
-                    widgetArgs,
-                    Window::Current().CoreWindow(),
-                    rootFrame);
-                rootFrame.Navigate(xaml_typename<WidgetAdvSample::Widget2>(), widgetArgs.Uri());
-
-                m_widget2WindowClosedHandlerToken = Window::Current().Closed(
-                    { get_weak(), &App::Widget2WindowClosedHandler });
-            }
-            else
-            {
-                // Unknown - Game Bar should never send you an unknown App Extension Id
-                return;
-            }
+            m_widget1WindowClosedHandlerToken = Window::Current().Closed(
+                { get_weak(), &App::Widget1WindowClosedHandler });
 
             Window::Current().Activate();
         }
-        else if (0 == appExtId.compare(L"Widget2"))
+        else
         {
-            // You can perform whatever behavior you need based on the URI payload. In our case
-            // we're simply renavigating to Widget2 and displaying the absolute URI.  You
-            // define your URI schema (subpath + query + fragment). 
-            Frame rootFrame{ nullptr };
-            auto content = Window::Current().Content();
-            if (content)
-            {
-                rootFrame = content.try_as<Frame>();
-            }
-            rootFrame.NavigationFailed({ this, &App::OnNavigationFailed });
-            rootFrame.Navigate(xaml_typename<WidgetAdvSample::Widget2>(), widgetArgs.Uri());
+            // You can perform whatever behavior you need based on the URI payload.
         }
     }
 }
@@ -153,18 +104,6 @@ void App::Widget1WindowClosedHandler(IInspectable const&, IInspectable const&)
 {
     m_widget1 = nullptr;
     Window::Current().Closed(m_widget1WindowClosedHandlerToken);
-}
-
-void App::Widget1SettingsWindowClosedHandler(IInspectable const&, IInspectable const&)
-{
-    m_widget1Settings = nullptr;
-    Window::Current().Closed(m_widget1SettingsWindowClosedHandlerToken);
-}
-
-void App::Widget2WindowClosedHandler(IInspectable const&, IInspectable const&)
-{
-    m_widget2 = nullptr;
-    Window::Current().Closed(m_widget2WindowClosedHandlerToken);
 }
 
 /// <summary>
@@ -204,7 +143,7 @@ void App::OnLaunched(LaunchActivatedEventArgs const& e)
                 // When the navigation stack isn't restored navigate to the first page,
                 // configuring the new page by passing required information as a navigation
                 // parameter
-                rootFrame.Navigate(xaml_typename<WidgetAdvSample::MainPage>(), box_value(e.Arguments()));
+                rootFrame.Navigate(xaml_typename<WidgetFTSample::MainPage>(), box_value(e.Arguments()));
             }
             // Place the frame in the current Window
             Window::Current().Content(rootFrame);
@@ -221,7 +160,7 @@ void App::OnLaunched(LaunchActivatedEventArgs const& e)
                 // When the navigation stack isn't restored navigate to the first page,
                 // configuring the new page by passing required information as a navigation
                 // parameter
-                rootFrame.Navigate(xaml_typename<WidgetAdvSample::MainPage>(), box_value(e.Arguments()));
+                rootFrame.Navigate(xaml_typename<WidgetFTSample::MainPage>(), box_value(e.Arguments()));
             }
             // Ensure the current window is active
             Window::Current().Activate();
@@ -244,8 +183,6 @@ void App::OnLaunched(LaunchActivatedEventArgs const& e)
 void App::OnSuspending([[maybe_unused]] IInspectable const& sender, [[maybe_unused]] SuspendingEventArgs const& e)
 {
     m_widget1 = nullptr;
-    m_widget1Settings = nullptr;
-    m_widget2 = nullptr;
 }
 
 /// <summary>
