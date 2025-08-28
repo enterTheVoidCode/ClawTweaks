@@ -47,8 +47,8 @@
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
     <CppWinRTOptimized>true</CppWinRTOptimized>
     <CppWinRTLibs>true</CppWinRTLibs>
-    <WindowsTargetPlatformVersion Condition="'$(TargetPlatformVersion)' == ''">10.0.19041.0</WindowsTargetPlatformVersion>
-    <WindowsTargetPlatformMinVersion>10.0.18362.0</WindowsTargetPlatformMinVersion>
+    <WindowsTargetPlatformVersion Condition="'$(TargetPlatformVersion)' == ''">10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.26100.0</WindowsTargetPlatformMinVersion>
     <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>v143</PlatformToolset>
     <PlatformToolset Condition="'$(VisualStudioVersion)' == '16.0'">v142</PlatformToolset>
