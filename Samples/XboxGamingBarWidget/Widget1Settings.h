@@ -2,7 +2,7 @@
 
 #include "Widget1Settings.g.h"
 
-namespace winrt::WidgetAdvSample::implementation
+namespace winrt::XboxGamingBarWidget::implementation
 {
     struct Widget1Settings : Widget1SettingsT<Widget1Settings>
     {
@@ -12,7 +12,7 @@ namespace winrt::WidgetAdvSample::implementation
     };
 }
 
-namespace winrt::WidgetAdvSample::factory_implementation
+namespace winrt::XboxGamingBarWidget::factory_implementation
 {
     struct Widget1Settings : Widget1SettingsT<Widget1Settings, implementation::Widget1Settings>
     {
