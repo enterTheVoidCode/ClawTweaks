@@ -2,7 +2,7 @@
 #include "App.xaml.g.h"
 #include <winrt/Microsoft.Gaming.XboxGameBar.h>
 
-namespace winrt::XboxGamingBarWidget::implementation
+namespace winrt::XboxGamingBar::implementation
 {
     struct App : AppT<App>
     {

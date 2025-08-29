@@ -1,4 +1,4 @@
-namespace XboxGamingBarWidget
+namespace XboxGamingBar
 {
     [default_interface]
     runtimeclass Widget2 : Windows.UI.Xaml.Controls.Page

@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "Widget1.g.h"
 
-namespace winrt::XboxGamingBarWidget::implementation
+namespace winrt::XboxGamingBar::implementation
 {
     struct Widget1 : Widget1T<Widget1>
     {
@@ -102,7 +102,7 @@ namespace winrt::XboxGamingBarWidget::implementation
     };
 }
 
-namespace winrt::XboxGamingBarWidget::factory_implementation
+namespace winrt::XboxGamingBar::factory_implementation
 {
     struct Widget1 : Widget1T<Widget1, implementation::Widget1>
     {

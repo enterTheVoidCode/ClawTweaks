@@ -7,7 +7,7 @@ using namespace winrt::Windows::Foundation;
 using namespace winrt::Windows::UI::Xaml;
 using namespace winrt::Windows::UI::Xaml::Navigation;
 
-namespace winrt::XboxGamingBarWidget::implementation
+namespace winrt::XboxGamingBar::implementation
 {
     Widget2::Widget2()
     {

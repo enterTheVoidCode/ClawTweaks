@@ -1,5 +1,5 @@
 ﻿<Application
-    x:Class="XboxGamingBarWidget.App"
+    x:Class="XboxGamingBar.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:XboxGamingBarWidget" />
+    xmlns:local="using:XboxGamingBar" />

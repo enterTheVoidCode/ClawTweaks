@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.7.34024.191
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "XboxGamingBarWidget", "XboxGamingBarWidget\XboxGamingBarWidget.vcxproj", "{C528C799-626F-4433-A96F-9D64C600B84A}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "XboxGamingBar", "XboxGamingBar\XboxGamingBar.vcxproj", "{C528C799-626F-4433-A96F-9D64C600B84A}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WidgetSample", "WidgetSample\WidgetSample.vcxproj", "{D92D2EDC-0097-4C14-A1B7-3AFECB07251D}"
 EndProject
