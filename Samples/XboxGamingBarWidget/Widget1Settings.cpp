@@ -7,7 +7,7 @@
 using namespace winrt;
 using namespace Windows::UI::Xaml;
 
-namespace winrt::WidgetAdvSample::implementation
+namespace winrt::XboxGamingBarWidget::implementation
 {
     Widget1Settings::Widget1Settings()
     {

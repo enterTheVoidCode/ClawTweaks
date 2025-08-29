@@ -5,7 +5,7 @@
 using namespace winrt;
 using namespace Windows::UI::Xaml;
 
-namespace winrt::WidgetAdvSample::implementation
+namespace winrt::XboxGamingBarWidget::implementation
 {
     MainPage::MainPage()
     {
