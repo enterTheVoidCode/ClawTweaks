@@ -3,7 +3,7 @@
 #include "Widget2.g.h"
 #include <winrt/Windows.UI.Xaml.Navigation.h>
 
-namespace winrt::WidgetAdvSample::implementation
+namespace winrt::XboxGamingBarWidget::implementation
 {
     struct Widget2 : Widget2T<Widget2>
     {
@@ -18,7 +18,7 @@ namespace winrt::WidgetAdvSample::implementation
     };
 }
 
-namespace winrt::WidgetAdvSample::factory_implementation
+namespace winrt::XboxGamingBarWidget::factory_implementation
 {
     struct Widget2 : Widget2T<Widget2, implementation::Widget2>
     {

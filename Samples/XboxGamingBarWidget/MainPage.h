@@ -2,7 +2,7 @@
 
 #include "MainPage.g.h"
 
-namespace winrt::WidgetAdvSample::implementation
+namespace winrt::XboxGamingBarWidget::implementation
 {
     struct MainPage : MainPageT<MainPage>
     {
@@ -15,7 +15,7 @@ namespace winrt::WidgetAdvSample::implementation
     };
 }
 
-namespace winrt::WidgetAdvSample::factory_implementation
+namespace winrt::XboxGamingBarWidget::factory_implementation
 {
     struct MainPage : MainPageT<MainPage, implementation::MainPage>
     {
