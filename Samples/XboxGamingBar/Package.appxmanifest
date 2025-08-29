@@ -7,15 +7,15 @@
          IgnorableNamespaces="uap uap3 mp">
 
   <Identity
-    Name="XboxGamingBarWidget"
+    Name="XboxGamingBar"
     Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="c7568c8f-e7bf-4f5e-af4c-ba76d1ca5987" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>XboxGamingBarWidget</DisplayName>
-    <PublisherDisplayName>Microsoft Corporation</PublisherDisplayName>
+    <DisplayName>Xbox Gaming Bar</DisplayName>
+    <PublisherDisplayName>Nam Nguyen</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 

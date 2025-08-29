@@ -5,8 +5,8 @@
     <CppWinRTOptimized>true</CppWinRTOptimized>
     <CppWinRTRootNamespaceAutoMerge>true</CppWinRTRootNamespaceAutoMerge>
     <ProjectGuid>{c528c799-626f-4433-a96f-9d64c600b84a}</ProjectGuid>
-    <ProjectName>XboxGamingBarWidget</ProjectName>
-    <RootNamespace>XboxGamingBarWidget</RootNamespace>
+    <ProjectName>XboxGamingBar</ProjectName>
+    <RootNamespace>XboxGamingBar</RootNamespace>
     <DefaultLanguage>en-US</DefaultLanguage>
     <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
     <AppContainerApplication>true</AppContainerApplication>
