@@ -25,7 +25,7 @@ namespace winrt
     namespace MGXA = Microsoft::Gaming::XboxGameBar::Authentication;
 }
 
-namespace winrt::XboxGamingBarWidget::implementation
+namespace winrt::XboxGamingBar::implementation
 {
     Widget1::Widget1()
     {

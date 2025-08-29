@@ -12,8 +12,8 @@ using namespace Windows::Foundation;
 using namespace Windows::UI::Xaml;
 using namespace Windows::UI::Xaml::Controls;
 using namespace Windows::UI::Xaml::Navigation;
-using namespace XboxGamingBarWidget;
-using namespace XboxGamingBarWidget::implementation;
+using namespace XboxGamingBar;
+using namespace XboxGamingBar::implementation;
 using namespace Microsoft::Gaming::XboxGameBar;
 
 /// <summary>
@@ -97,7 +97,7 @@ void App::OnActivated(IActivatedEventArgs const& e)
                     widgetArgs,
                     Window::Current().CoreWindow(),
                     rootFrame);
-                rootFrame.Navigate(xaml_typename<XboxGamingBarWidget::Widget1>(), m_widget1);
+                rootFrame.Navigate(xaml_typename<XboxGamingBar::Widget1>(), m_widget1);
 
                 m_widget1WindowClosedHandlerToken = Window::Current().Closed(
                     { get_weak(), &App::Widget1WindowClosedHandler });
@@ -108,7 +108,7 @@ void App::OnActivated(IActivatedEventArgs const& e)
                     widgetArgs,
                     Window::Current().CoreWindow(),
                     rootFrame);
-                rootFrame.Navigate(xaml_typename<XboxGamingBarWidget::Widget1Settings>());
+                rootFrame.Navigate(xaml_typename<XboxGamingBar::Widget1Settings>());
 
                 m_widget1SettingsWindowClosedHandlerToken = Window::Current().Closed(
                     { get_weak(), &App::Widget1SettingsWindowClosedHandler });
@@ -119,7 +119,7 @@ void App::OnActivated(IActivatedEventArgs const& e)
                     widgetArgs,
                     Window::Current().CoreWindow(),
                     rootFrame);
-                rootFrame.Navigate(xaml_typename<XboxGamingBarWidget::Widget2>(), widgetArgs.Uri());
+                rootFrame.Navigate(xaml_typename<XboxGamingBar::Widget2>(), widgetArgs.Uri());
 
                 m_widget2WindowClosedHandlerToken = Window::Current().Closed(
                     { get_weak(), &App::Widget2WindowClosedHandler });
@@ -144,7 +144,7 @@ void App::OnActivated(IActivatedEventArgs const& e)
                 rootFrame = content.try_as<Frame>();
             }
             rootFrame.NavigationFailed({ this, &App::OnNavigationFailed });
-            rootFrame.Navigate(xaml_typename<XboxGamingBarWidget::Widget2>(), widgetArgs.Uri());
+            rootFrame.Navigate(xaml_typename<XboxGamingBar::Widget2>(), widgetArgs.Uri());
         }
     }
 }
@@ -204,7 +204,7 @@ void App::OnLaunched(LaunchActivatedEventArgs const& e)
                 // When the navigation stack isn't restored navigate to the first page,
                 // configuring the new page by passing required information as a navigation
                 // parameter
-                rootFrame.Navigate(xaml_typename<XboxGamingBarWidget::MainPage>(), box_value(e.Arguments()));
+                rootFrame.Navigate(xaml_typename<XboxGamingBar::MainPage>(), box_value(e.Arguments()));
             }
             // Place the frame in the current Window
             Window::Current().Content(rootFrame);
@@ -221,7 +221,7 @@ void App::OnLaunched(LaunchActivatedEventArgs const& e)
                 // When the navigation stack isn't restored navigate to the first page,
                 // configuring the new page by passing required information as a navigation
                 // parameter
-                rootFrame.Navigate(xaml_typename<XboxGamingBarWidget::MainPage>(), box_value(e.Arguments()));
+                rootFrame.Navigate(xaml_typename<XboxGamingBar::MainPage>(), box_value(e.Arguments()));
             }
             // Ensure the current window is active
             Window::Current().Activate();
