@@ -3,7 +3,6 @@
 #include "App.h"
 #include "MainPage.h"
 #include "Widget1.h"
-#include "Widget2.h"
 
 using namespace winrt;
 using namespace Windows::ApplicationModel;
@@ -113,17 +112,6 @@ void App::OnActivated(IActivatedEventArgs const& e)
                 m_widget1SettingsWindowClosedHandlerToken = Window::Current().Closed(
                     { get_weak(), &App::Widget1SettingsWindowClosedHandler });
             }
-            else if (0 == appExtId.compare(L"Widget2"))
-            {
-                m_widget2 = XboxGameBarWidget(
-                    widgetArgs,
-                    Window::Current().CoreWindow(),
-                    rootFrame);
-                rootFrame.Navigate(xaml_typename<XboxGamingBar::Widget2>(), widgetArgs.Uri());
-
-                m_widget2WindowClosedHandlerToken = Window::Current().Closed(
-                    { get_weak(), &App::Widget2WindowClosedHandler });
-            }
             else
             {
                 // Unknown - Game Bar should never send you an unknown App Extension Id
@@ -131,20 +119,6 @@ void App::OnActivated(IActivatedEventArgs const& e)
             }
 
             Window::Current().Activate();
-        }
-        else if (0 == appExtId.compare(L"Widget2"))
-        {
-            // You can perform whatever behavior you need based on the URI payload. In our case
-            // we're simply renavigating to Widget2 and displaying the absolute URI.  You
-            // define your URI schema (subpath + query + fragment). 
-            Frame rootFrame{ nullptr };
-            auto content = Window::Current().Content();
-            if (content)
-            {
-                rootFrame = content.try_as<Frame>();
-            }
-            rootFrame.NavigationFailed({ this, &App::OnNavigationFailed });
-            rootFrame.Navigate(xaml_typename<XboxGamingBar::Widget2>(), widgetArgs.Uri());
         }
     }
 }
@@ -159,12 +133,6 @@ void App::Widget1SettingsWindowClosedHandler(IInspectable const&, IInspectable c
 {
     m_widget1Settings = nullptr;
     Window::Current().Closed(m_widget1SettingsWindowClosedHandlerToken);
-}
-
-void App::Widget2WindowClosedHandler(IInspectable const&, IInspectable const&)
-{
-    m_widget2 = nullptr;
-    Window::Current().Closed(m_widget2WindowClosedHandlerToken);
 }
 
 /// <summary>
@@ -245,7 +213,6 @@ void App::OnSuspending([[maybe_unused]] IInspectable const& sender, [[maybe_unus
 {
     m_widget1 = nullptr;
     m_widget1Settings = nullptr;
-    m_widget2 = nullptr;
 }
 
 /// <summary>

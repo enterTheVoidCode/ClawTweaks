@@ -15,7 +15,6 @@ namespace winrt::XboxGamingBar::implementation
 
         void Widget1WindowClosedHandler(IInspectable const&, IInspectable const&);
         void Widget1SettingsWindowClosedHandler(IInspectable const&, IInspectable const&);
-        void Widget2WindowClosedHandler(IInspectable const&, IInspectable const&);
 
     private:
 
@@ -24,8 +23,5 @@ namespace winrt::XboxGamingBar::implementation
 
         Microsoft::Gaming::XboxGameBar::XboxGameBarWidget m_widget1Settings{ nullptr };
         event_token m_widget1SettingsWindowClosedHandlerToken{};
-
-        Microsoft::Gaming::XboxGameBar::XboxGameBarWidget m_widget2{ nullptr };
-        event_token m_widget2WindowClosedHandlerToken{};
     };
 }
