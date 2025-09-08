@@ -118,9 +118,6 @@
     <ClInclude Include="Widget1.h">
       <DependentUpon>Widget1.xaml</DependentUpon>
     </ClInclude>
-    <ClInclude Include="Widget2.h">
-      <DependentUpon>Widget2.xaml</DependentUpon>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
@@ -133,9 +130,6 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Widget1.xaml">
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Widget2.xaml">
       <SubType>Designer</SubType>
     </Page>
   </ItemGroup>
@@ -199,18 +193,6 @@
     <Image Include="Widget1\Icons\icon.targetsize-44.png" />
     <Image Include="Widget1\Notifications\SamplePrimaryImage.png" />
     <Image Include="Widget1\Notifications\SampleSecondaryImage.png" />
-    <Image Include="Widget2\Icons\icon.light.targetsize-16.png" />
-    <Image Include="Widget2\Icons\icon.light.targetsize-20.png" />
-    <Image Include="Widget2\Icons\icon.light.targetsize-24.png" />
-    <Image Include="Widget2\Icons\icon.light.targetsize-256.png" />
-    <Image Include="Widget2\Icons\icon.light.targetsize-32.png" />
-    <Image Include="Widget2\Icons\icon.light.targetsize-44.png" />
-    <Image Include="Widget2\Icons\icon.targetsize-16.png" />
-    <Image Include="Widget2\Icons\icon.targetsize-20.png" />
-    <Image Include="Widget2\Icons\icon.targetsize-24.png" />
-    <Image Include="Widget2\Icons\icon.targetsize-256.png" />
-    <Image Include="Widget2\Icons\icon.targetsize-32.png" />
-    <Image Include="Widget2\Icons\icon.targetsize-44.png" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Widget1Settings.cpp">
@@ -228,9 +210,6 @@
     <ClCompile Include="Widget1.cpp">
       <DependentUpon>Widget1.xaml</DependentUpon>
     </ClCompile>
-    <ClCompile Include="Widget2.cpp">
-      <DependentUpon>Widget2.xaml</DependentUpon>
-    </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -245,9 +224,6 @@
     </Midl>
     <Midl Include="Widget1.idl">
       <DependentUpon>Widget1.xaml</DependentUpon>
-    </Midl>
-    <Midl Include="Widget2.idl">
-      <DependentUpon>Widget2.xaml</DependentUpon>
     </Midl>
   </ItemGroup>
   <ItemGroup>
