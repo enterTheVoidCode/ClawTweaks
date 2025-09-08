@@ -2,7 +2,7 @@
 
 #include "App.h"
 #include "MainPage.h"
-#include "Widget1.h"
+#include "MainWidget.h"
 
 using namespace winrt;
 using namespace Windows::ApplicationModel;
@@ -90,27 +90,27 @@ void App::OnActivated(IActivatedEventArgs const& e)
             rootFrame.NavigationFailed({ this, &App::OnNavigationFailed });
             Window::Current().Content(rootFrame);
           
-            if (0 == appExtId.compare(L"Widget1"))
+            if (0 == appExtId.compare(L"MainWidget"))
             {
-                m_widget1 = XboxGameBarWidget(
+                m_mainWidget = XboxGameBarWidget(
                     widgetArgs,
                     Window::Current().CoreWindow(),
                     rootFrame);
-                rootFrame.Navigate(xaml_typename<XboxGamingBar::Widget1>(), m_widget1);
+                rootFrame.Navigate(xaml_typename<XboxGamingBar::MainWidget>(), m_mainWidget);
 
-                m_widget1WindowClosedHandlerToken = Window::Current().Closed(
-                    { get_weak(), &App::Widget1WindowClosedHandler });
+                m_mainWidgetWindowClosedHandlerToken = Window::Current().Closed(
+                    { get_weak(), &App::MainWidgetWindowClosedHandler });
             }
-            else if (0 == appExtId.compare(L"Widget1Settings"))
+            else if (0 == appExtId.compare(L"MainWidgetSettings"))
             {
-                m_widget1Settings = XboxGameBarWidget(
+                m_mainWidgetSettings = XboxGameBarWidget(
                     widgetArgs,
                     Window::Current().CoreWindow(),
                     rootFrame);
-                rootFrame.Navigate(xaml_typename<XboxGamingBar::Widget1Settings>());
+                rootFrame.Navigate(xaml_typename<XboxGamingBar::MainWidgetSettings>());
 
-                m_widget1SettingsWindowClosedHandlerToken = Window::Current().Closed(
-                    { get_weak(), &App::Widget1SettingsWindowClosedHandler });
+                m_mainWidgetSettingsWindowClosedHandlerToken = Window::Current().Closed(
+                    { get_weak(), &App::MainWidgetSettingsWindowClosedHandler });
             }
             else
             {
@@ -123,16 +123,16 @@ void App::OnActivated(IActivatedEventArgs const& e)
     }
 }
 
-void App::Widget1WindowClosedHandler(IInspectable const&, IInspectable const&)
+void App::MainWidgetWindowClosedHandler(IInspectable const&, IInspectable const&)
 {
-    m_widget1 = nullptr;
-    Window::Current().Closed(m_widget1WindowClosedHandlerToken);
+    m_mainWidget = nullptr;
+    Window::Current().Closed(m_mainWidgetWindowClosedHandlerToken);
 }
 
-void App::Widget1SettingsWindowClosedHandler(IInspectable const&, IInspectable const&)
+void App::MainWidgetSettingsWindowClosedHandler(IInspectable const&, IInspectable const&)
 {
-    m_widget1Settings = nullptr;
-    Window::Current().Closed(m_widget1SettingsWindowClosedHandlerToken);
+    m_mainWidgetSettings = nullptr;
+    Window::Current().Closed(m_mainWidgetSettingsWindowClosedHandlerToken);
 }
 
 /// <summary>
@@ -211,8 +211,8 @@ void App::OnLaunched(LaunchActivatedEventArgs const& e)
 /// <param name="e">Details about the suspend request.</param>
 void App::OnSuspending([[maybe_unused]] IInspectable const& sender, [[maybe_unused]] SuspendingEventArgs const& e)
 {
-    m_widget1 = nullptr;
-    m_widget1Settings = nullptr;
+    m_mainWidget = nullptr;
+    m_mainWidgetSettings = nullptr;
 }
 
 /// <summary>

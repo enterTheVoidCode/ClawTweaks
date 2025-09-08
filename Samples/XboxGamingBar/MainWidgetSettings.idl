@@ -1,0 +1,8 @@
+namespace XboxGamingBar
+{
+    [default_interface]
+    runtimeclass MainWidgetSettings : Windows.UI.Xaml.Controls.Page
+    {
+        MainWidgetSettings();
+    }
+}

@@ -43,15 +43,15 @@
         <!-- 1st Widget -->
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension Name="microsoft.gameBarUIExtension"
-                             Id="Widget1"
-                             DisplayName="Widget Adv Sample 1"
-                             Description="Widget Adv Sample 1 Description"
-                             PublicFolder="Widget1">
+                             Id="MainWidget"
+                             DisplayName="Gaming"
+                             Description="The main widget of the Xbox Gaming Bar"
+                             PublicFolder="MainWidget">
             <uap3:Properties>
               <GameBarWidget Type="Standard">
                 <HomeMenuVisible>true</HomeMenuVisible>
                 <PinningSupported>true</PinningSupported>
-                <SettingsSupported AppExtensionId="Widget1Settings" />
+                <SettingsSupported AppExtensionId="MainWidgetSettings" />
                 <ActivateAfterInstall>true</ActivateAfterInstall>
                 <FavoriteAfterInstall>true</FavoriteAfterInstall>
                 <Window>
@@ -77,10 +77,10 @@
         <!-- Widget Settings (Also a widget of separate type) -->
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension Name="microsoft.gameBarUIExtension"
-                             Id="Widget1Settings"
-                             DisplayName="Widget Adv Sample 1 Settings"
-                             Description="Widget Adv Sample 2 Settings Description"
-                             PublicFolder="Widget1">
+                             Id="MainWidgetSettings"
+                             DisplayName="Gaming Settings"
+                             Description="The settings widget of the Xbox Gaming Bar"
+                             PublicFolder="MainWidget">
             <uap3:Properties>
               <GameBarWidget Type="Settings">
                 <Window>

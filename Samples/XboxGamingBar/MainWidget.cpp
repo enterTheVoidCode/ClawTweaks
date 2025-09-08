@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
-#include "Widget1.h"
-#include "Widget1.g.cpp"
+#include "MainWidget.h"
+#include "MainWidget.g.cpp"
 
 // Create namespace aliases to clean up code without doing "using namespace <namespace>"
 // Using a namespace makes it hard to know where types come from unless you're using intellisense.
@@ -27,12 +27,12 @@ namespace winrt
 
 namespace winrt::XboxGamingBar::implementation
 {
-    Widget1::Widget1()
+    MainWidget::MainWidget()
     {
         InitializeComponent();
     }
 
-    void Widget1::OnNavigatedTo(winrt::WUIXN::NavigationEventArgs const& e)
+    void MainWidget::OnNavigatedTo(winrt::WUIXN::NavigationEventArgs const& e)
     {
         m_widget = e.Parameter().as<winrt::MGX::XboxGameBarWidget>();
         m_widgetControl = winrt::MGX::XboxGameBarWidgetControl(m_widget);
@@ -44,23 +44,23 @@ namespace winrt::XboxGamingBar::implementation
         m_widgetLightThemeBrush = winrt::WUIXM::SolidColorBrush(winrt::WUI::ColorHelper::FromArgb(255, 219, 219, 219));
 
         // Hook up event that's fired when our settings button is clicked
-        m_favoritedChangedToken = m_widget.FavoritedChanged({ this, &Widget1::FavoritedChanged });
-        m_displayModeChangedToken = m_widget.GameBarDisplayModeChanged({ this, &Widget1::GameBarDisplayModeChanged });
-        m_pinnedChangedToken = m_widget.PinnedChanged({ this, &Widget1::PinnedChanged });
-        m_opacityChangedToken = m_widget.RequestedOpacityChanged({ this, &Widget1::RequestedOpacityChanged });
-        m_themeChangedToken = m_widget.RequestedThemeChanged({ this, &Widget1::RequestedThemeChanged });
-        m_settingsToken = m_widget.SettingsClicked({ this, &Widget1::SettingsButton_Click });
-        m_visibleChangedToken = m_widget.VisibleChanged({ this, &Widget1::VisibleChanged });
-        m_windowBoundsChangedToken = m_widget.WindowBoundsChanged({ this, &Widget1::WindowBoundsChanged });
-        m_windowStateChangedToken = m_widget.WindowStateChanged({ this, &Widget1::WindowStateChanged });
-        m_compactModeEnabledChangedToken = m_widget.CompactModeEnabledChanged({ this, &Widget1::GameBarCompactModeEnabledChanged });
-        m_targetSettingChangedToken = m_appTargetTracker.SettingChanged({ this, &Widget1::TargetChanged });
-        m_notificationSettingChangedToken = m_widgetNotificationManager.SettingChanged({ this, &Widget1::NotificiationSettingChanged });
+        m_favoritedChangedToken = m_widget.FavoritedChanged({ this, &MainWidget::FavoritedChanged });
+        m_displayModeChangedToken = m_widget.GameBarDisplayModeChanged({ this, &MainWidget::GameBarDisplayModeChanged });
+        m_pinnedChangedToken = m_widget.PinnedChanged({ this, &MainWidget::PinnedChanged });
+        m_opacityChangedToken = m_widget.RequestedOpacityChanged({ this, &MainWidget::RequestedOpacityChanged });
+        m_themeChangedToken = m_widget.RequestedThemeChanged({ this, &MainWidget::RequestedThemeChanged });
+        m_settingsToken = m_widget.SettingsClicked({ this, &MainWidget::SettingsButton_Click });
+        m_visibleChangedToken = m_widget.VisibleChanged({ this, &MainWidget::VisibleChanged });
+        m_windowBoundsChangedToken = m_widget.WindowBoundsChanged({ this, &MainWidget::WindowBoundsChanged });
+        m_windowStateChangedToken = m_widget.WindowStateChanged({ this, &MainWidget::WindowStateChanged });
+        m_compactModeEnabledChangedToken = m_widget.CompactModeEnabledChanged({ this, &MainWidget::GameBarCompactModeEnabledChanged });
+        m_targetSettingChangedToken = m_appTargetTracker.SettingChanged({ this, &MainWidget::TargetChanged });
+        m_notificationSettingChangedToken = m_widgetNotificationManager.SettingChanged({ this, &MainWidget::NotificiationSettingChanged });
 
         // Check that target tracker is enabled for the widget before subscribing for change events
         if (m_appTargetTracker.Setting() == Microsoft::Gaming::XboxGameBar::XboxGameBarAppTargetSetting::Enabled)
         {
-            m_targetChangedToken = m_appTargetTracker.TargetChanged({ this, &Widget1::TargetChanged });
+            m_targetChangedToken = m_appTargetTracker.TargetChanged({ this, &MainWidget::TargetChanged });
         }
 
         FavoritedTextBlock().Text(FavoritedStateToString());
@@ -97,65 +97,65 @@ namespace winrt::XboxGamingBar::implementation
             winrt::WS::VirtualKey::T
         }) };
         m_hotkeyWatcher = winrt::MGXI::XboxGameBarHotkeyWatcher::CreateWatcher(m_widget, keys.GetView());
-        m_hotkeySetChangedToken = m_hotkeyWatcher.HotkeySetStateChanged({ this, &Widget1::HotkeySetStateChanged });
+        m_hotkeySetChangedToken = m_hotkeyWatcher.HotkeySetStateChanged({ this, &MainWidget::HotkeySetStateChanged });
     }
 
-    winrt::WF::IAsyncAction Widget1::ActivateAsyncAppExtIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::ActivateAsyncAppExtIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         hstring text = ActivateAsyncAppExtId().Text();
         return m_widgetControl.ActivateAsync(text);
     }
 
-    winrt::WF::IAsyncAction Widget1::ActivateAsyncAppIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::ActivateAsyncAppIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         co_return co_await m_widgetControl.ActivateAsync(
             ActivateAsyncAppId().Text(),
             ActivateAsyncAppExtId().Text());
     }
 
-    winrt::WF::IAsyncAction Widget1::ActivateWithUriAsyncButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::ActivateWithUriAsyncButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         winrt::WF::Uri uri{ ActivateAsyncUri().Text() };
         co_return co_await m_widgetControl.ActivateWithUriAsync(uri);
     }
 
-    winrt::WF::IAsyncAction Widget1::MinimizeAsyncAppExtIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::MinimizeAsyncAppExtIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         co_return co_await m_widgetControl.MinimizeAsync(ActivateAsyncAppExtId().Text());
     }
 
-    winrt::WF::IAsyncAction Widget1::MinimizeAsyncAppIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::MinimizeAsyncAppIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         co_return co_await m_widgetControl.MinimizeAsync(
             ActivateAsyncAppId().Text(),
             ActivateAsyncAppExtId().Text());
     }
 
-    winrt::WF::IAsyncAction Widget1::RestoreAsyncAppExtIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::RestoreAsyncAppExtIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         co_return co_await m_widgetControl.RestoreAsync(ActivateAsyncAppExtId().Text());
     }
 
-    winrt::WF::IAsyncAction Widget1::RestoreAsyncAppIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::RestoreAsyncAppIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         co_return co_await m_widgetControl.RestoreAsync(
             ActivateAsyncAppId().Text(),
             ActivateAsyncAppExtId().Text());
     }
 
-    winrt::WF::IAsyncAction Widget1::CloseAsyncAppExtIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::CloseAsyncAppExtIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         co_return co_await m_widgetControl.CloseAsync(ActivateAsyncAppExtId().Text());
     }
 
-    winrt::WF::IAsyncAction Widget1::CloseAsyncAppIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::CloseAsyncAppIdButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         co_return co_await m_widgetControl.CloseAsync(
             ActivateAsyncAppId().Text(),
             ActivateAsyncAppExtId().Text());
     }
 
-    winrt::WF::IAsyncAction Widget1::TryResizeWindowAsync_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::TryResizeWindowAsync_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         Windows::Foundation::Size size;
         size.Height = (float)_wtof(WindowHeightBox().Text().c_str());
@@ -165,12 +165,12 @@ namespace winrt::XboxGamingBar::implementation
         co_return;
     }
 
-    winrt::WF::IAsyncAction Widget1::CenterWindowAsync_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::CenterWindowAsync_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         co_return co_await m_widget.CenterWindowAsync();
     }
 
-    winrt::WF::IAsyncAction Widget1::AuthenticateAsync_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::AuthenticateAsync_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         if (RequestUriBox().Text().empty() || CallbackUriBox().Text().empty())
         {
@@ -199,7 +199,7 @@ namespace winrt::XboxGamingBar::implementation
         OutputDebugString(buffer);
     }
 
-    winrt::WF::IAsyncAction Widget1::LaunchUriAsyncButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::LaunchUriAsyncButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         winrt::WF::Uri uri{ LaunchUriAsyncText().Text() };
         bool result = co_await m_widget.LaunchUriAsync(uri);
@@ -210,7 +210,7 @@ namespace winrt::XboxGamingBar::implementation
         co_return;
     }
 
-    winrt::WF::IAsyncAction Widget1::LaunchUriAsyncAdvancedButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::LaunchUriAsyncAdvancedButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         winrt::WF::Uri uri{ LaunchUriAsyncText().Text() };
 
@@ -229,7 +229,7 @@ namespace winrt::XboxGamingBar::implementation
         co_return;
     }
 
-    winrt::WF::IAsyncAction Widget1::StartActivityButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::StartActivityButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         if (!m_widgetActivity)
         {
@@ -246,7 +246,7 @@ namespace winrt::XboxGamingBar::implementation
         co_return;
     }
 
-    winrt::WF::IAsyncAction Widget1::StopActivityButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::StopActivityButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         if (m_widgetActivity)
         {
@@ -256,7 +256,7 @@ namespace winrt::XboxGamingBar::implementation
         co_return;
     }
 
-    winrt::WF::IAsyncAction Widget1::ShowBasicNotification_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::ShowBasicNotification_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         auto widgetNotification{ winrt::MGX::XboxGameBarWidgetNotificationBuilder(L"This is a toast title")
             .PrimaryImageFromPublicFolder(L"SamplePrimaryImage.png", winrt::MGX::XboxGameBarWidgetNotificationImageCrop::Circle)
@@ -270,7 +270,7 @@ namespace winrt::XboxGamingBar::implementation
         co_return;
     }
 
-    winrt::WF::IAsyncAction Widget1::ShowAdvancedNotification_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::ShowAdvancedNotification_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         // Check if user has enabled notifications for this widget in Game Bar settings
         // prior to attempting to show notification
@@ -314,47 +314,47 @@ namespace winrt::XboxGamingBar::implementation
         co_return;
     }
 
-    void Widget1::HorizontalResizeSupportedCheckBox_Checked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
+    void MainWidget::HorizontalResizeSupportedCheckBox_Checked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
     {
         m_widget.HorizontalResizeSupported(true);
     }
 
-    void Widget1::HorizontalResizeSupportedCheckBox_Unchecked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
+    void MainWidget::HorizontalResizeSupportedCheckBox_Unchecked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
     {
         m_widget.HorizontalResizeSupported(false);
     }
 
-    void Widget1::VerticalResizeSupportedCheckBox_Checked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
+    void MainWidget::VerticalResizeSupportedCheckBox_Checked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
     {
         m_widget.VerticalResizeSupported(true);
     }
 
-    void Widget1::VerticalResizeSupportedCheckBox_Unchecked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
+    void MainWidget::VerticalResizeSupportedCheckBox_Unchecked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
     {
         m_widget.VerticalResizeSupported(false);
     }
 
-    void Widget1::PinningSupportedCheckBox_Checked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
+    void MainWidget::PinningSupportedCheckBox_Checked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
     {
         m_widget.PinningSupported(true);
     }
 
-    void Widget1::PinningSupportedCheckBox_Unchecked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
+    void MainWidget::PinningSupportedCheckBox_Unchecked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
     {
         m_widget.PinningSupported(false);
     }
 
-    void Widget1::SettingsSupportedCheckBox_Checked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
+    void MainWidget::SettingsSupportedCheckBox_Checked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
     {
         m_widget.SettingsSupported(true);
     }
 
-    void Widget1::SettingsSupportedCheckBox_Unchecked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
+    void MainWidget::SettingsSupportedCheckBox_Unchecked(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
     {
         m_widget.SettingsSupported(false);
     }
 
-    void Widget1::MinWindowSize_Click(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
+    void MainWidget::MinWindowSize_Click(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
     {
         Windows::Foundation::Size size;
         size.Height = (float)_wtof(MinWindowHeightBox().Text().c_str());
@@ -362,7 +362,7 @@ namespace winrt::XboxGamingBar::implementation
         m_widget.MinWindowSize(size);
     }
 
-    void Widget1::MaxWindowSize_Click(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
+    void MainWidget::MaxWindowSize_Click(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
     {
         Windows::Foundation::Size size;
         size.Height = (float)_wtof(MaxWindowHeightBox().Text().c_str());
@@ -370,7 +370,7 @@ namespace winrt::XboxGamingBar::implementation
         m_widget.MaxWindowSize(size);
     }
 
-    void Widget1::OpacityOverride_Click(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
+    void MainWidget::OpacityOverride_Click(winrt::WF::IInspectable const& /*sender*/, winrt::WUIX::RoutedEventArgs const& /*e*/)
     {
         std::wstring_view str{ OpacityOverrideBox().Text() };
         double opacityOverride{ 1 };
@@ -402,41 +402,41 @@ namespace winrt::XboxGamingBar::implementation
         SetBackgroundOpacity();
     }
 
-    winrt::WF::IAsyncAction Widget1::SettingsButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
+    winrt::WF::IAsyncAction MainWidget::SettingsButton_Click(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
     {
         auto strongThis{ get_strong() };
         co_await m_widget.ActivateSettingsAsync();
     }
 
-    winrt::fire_and_forget Widget1::FavoritedChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
+    winrt::fire_and_forget MainWidget::FavoritedChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
     {
         auto strongThis{ get_strong() };
         co_await resume_foreground(FavoritedTextBlock().Dispatcher());
         FavoritedTextBlock().Text(FavoritedStateToString());
     }
 
-    winrt::fire_and_forget Widget1::GameBarDisplayModeChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
+    winrt::fire_and_forget MainWidget::GameBarDisplayModeChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
     {
         auto strongThis{ get_strong() };
         co_await resume_foreground(GameBarDisplayModeTextBlock().Dispatcher());
         SetGameBarDisplayMode();
     }
 
-    winrt::fire_and_forget Widget1::PinnedChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
+    winrt::fire_and_forget MainWidget::PinnedChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
     {
         auto strongThis{ get_strong() };
         co_await resume_foreground(PinnedStateTextBlock().Dispatcher());
         PinnedStateTextBlock().Text(PinnedStateToString());
     }
 
-    winrt::fire_and_forget Widget1::TargetChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
+    winrt::fire_and_forget MainWidget::TargetChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
     {
         auto strongThis{ get_strong() };
         co_await resume_foreground(TargetTrackerSettingTextBlock().Dispatcher());
         SetTargetInfo();
     }
 
-    winrt::fire_and_forget Widget1::RequestedOpacityChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
+    winrt::fire_and_forget MainWidget::RequestedOpacityChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
     {
         auto strongThis{ get_strong() };
         if (!m_opacityOverride.has_value())
@@ -447,7 +447,7 @@ namespace winrt::XboxGamingBar::implementation
         }
     }
 
-    winrt::fire_and_forget  Widget1::RequestedThemeChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
+    winrt::fire_and_forget  MainWidget::RequestedThemeChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
     {
         auto strongThis{ get_strong() };
         co_await resume_foreground(RequestedThemeTextBlock().Dispatcher());
@@ -455,14 +455,14 @@ namespace winrt::XboxGamingBar::implementation
         SetBackgroundColor();
     }
     
-    winrt::fire_and_forget Widget1::HotkeySetStateChanged(winrt::WF::IInspectable /*sender*/, winrt::MGXI::HotkeySetStateChangedArgs e)
+    winrt::fire_and_forget MainWidget::HotkeySetStateChanged(winrt::WF::IInspectable /*sender*/, winrt::MGXI::HotkeySetStateChangedArgs e)
     {
         auto strongThis{ get_strong() };
         co_await resume_foreground(HotkeyPressedTextBlock().Dispatcher());
         HotkeyPressedTextBlock().Text(e.HotkeySetDown ? L"Pressed" : L"Not Pressed");
     }
 
-    winrt::WF::IAsyncAction Widget1::StartHotkeyWatcher_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::StartHotkeyWatcher_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         auto strongThis{ get_strong() };
 
@@ -472,7 +472,7 @@ namespace winrt::XboxGamingBar::implementation
         m_hotkeyWatcher.Start();
     }
 
-    winrt::WF::IAsyncAction Widget1::StopHotkeyWatcher_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
+    winrt::WF::IAsyncAction MainWidget::StopHotkeyWatcher_Click(winrt::WF::IInspectable /*sender*/, winrt::WUIX::RoutedEventArgs /*e*/)
     {
         auto strongThis{ get_strong() };
 
@@ -482,7 +482,7 @@ namespace winrt::XboxGamingBar::implementation
         m_hotkeyWatcher.Stop();
     }
 
-    winrt::fire_and_forget Widget1::NotificiationSettingChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
+    winrt::fire_and_forget MainWidget::NotificiationSettingChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
     {
         auto strongThis{ get_strong() };
         co_await resume_foreground(NotificiationSettingTextBlock().Dispatcher());
@@ -492,17 +492,17 @@ namespace winrt::XboxGamingBar::implementation
             L"Enabled" : L"DisabledByUser");
     }
 
-    void Widget1::VisibleChanged(winrt::WF::IInspectable const& /*sender*/, winrt::WF::IInspectable const& /*e*/)
+    void MainWidget::VisibleChanged(winrt::WF::IInspectable const& /*sender*/, winrt::WF::IInspectable const& /*e*/)
     {
         OutputVisibleState();
     }
 
-    void Widget1::WindowStateChanged(winrt::WF::IInspectable const& /*sender*/, winrt::WF::IInspectable const& /*e*/)
+    void MainWidget::WindowStateChanged(winrt::WF::IInspectable const& /*sender*/, winrt::WF::IInspectable const& /*e*/)
     {
         OutputWindowState();
     }
 
-    winrt::fire_and_forget Widget1::WindowBoundsChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
+    winrt::fire_and_forget MainWidget::WindowBoundsChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
     {
         auto strongThis{ get_strong() };
         co_await resume_foreground(WindowBoundsTextBlock().Dispatcher());
@@ -513,7 +513,7 @@ namespace winrt::XboxGamingBar::implementation
         WindowBoundsTextBlock().Text({ strStream.str() });
     }
 
-    winrt::fire_and_forget Widget1::GameBarCompactModeEnabledChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
+    winrt::fire_and_forget MainWidget::GameBarCompactModeEnabledChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
     {
         auto strongThis{ get_strong() };
         co_await resume_foreground(GameBarCompactModeEnabledTextBlock().Dispatcher());
@@ -521,7 +521,7 @@ namespace winrt::XboxGamingBar::implementation
         SetCompactModeEnabled();
     }
 
-    void Widget1::SetBackgroundColor()
+    void MainWidget::SetBackgroundColor()
     {
         auto requestedTheme = m_widget.RequestedTheme();
 
@@ -539,7 +539,7 @@ namespace winrt::XboxGamingBar::implementation
         BackgroundGrid().Opacity(m_widget.RequestedOpacity());
     }
 
-    void Widget1::SetBackgroundOpacity()
+    void MainWidget::SetBackgroundOpacity()
     {
         if (m_opacityOverride.has_value())
         {
@@ -551,7 +551,7 @@ namespace winrt::XboxGamingBar::implementation
         }
     }
 
-    void Widget1::SetRequestedOpacityState()
+    void MainWidget::SetRequestedOpacityState()
     {
         auto requestedOpacity = m_widget.RequestedOpacity();
         if (m_opacityOverride.has_value())
@@ -565,7 +565,7 @@ namespace winrt::XboxGamingBar::implementation
         RequestedOpacityTextBlock().Text(opacityStringStream.str().c_str());
     }
 
-    hstring Widget1::RequestedThemeToString()
+    hstring MainWidget::RequestedThemeToString()
     {
         hstring requestedTheme{};
         switch (m_widget.RequestedTheme())
@@ -583,19 +583,19 @@ namespace winrt::XboxGamingBar::implementation
         return requestedTheme;
     }
 
-    hstring Widget1::FavoritedStateToString()
+    hstring MainWidget::FavoritedStateToString()
     {
         hstring isFavorited = m_widget.Favorited() ? L"true" : L"false";
         return isFavorited;
     }
 
-    hstring Widget1::PinnedStateToString()
+    hstring MainWidget::PinnedStateToString()
     {
         hstring isPinned = m_widget.Pinned() ? L"true" : L"false";
         return isPinned;
     }
 
-    void Widget1::SetTargetInfo()
+    void MainWidget::SetTargetInfo()
     {
         auto settingEnabled{ m_appTargetTracker.Setting() == Microsoft::Gaming::XboxGameBar::XboxGameBarAppTargetSetting::Enabled };
 
@@ -613,21 +613,21 @@ namespace winrt::XboxGamingBar::implementation
         IsGameTextBlock().Text(target ? winrt::to_hstring(target.IsGame()) : L"");
     }
 
-    void Widget1::OutputVisibleState()
+    void MainWidget::OutputVisibleState()
     {
         hstring isVisible = m_widget.Visible() ? L"true\n" : L"false\n";
         hstring visibleState = L"Visible: \t\t" + isVisible;
         OutputDebugString(visibleState.c_str());
     }
 
-    void Widget1::OutputWindowState()
+    void MainWidget::OutputWindowState()
     {
         hstring window = (m_widget.WindowState() == winrt::MGX::XboxGameBarWidgetWindowState::Minimized) ? L"Minimized\n" : L"Restored\n";
         hstring windowOutput = L"Window State: \t" + window;
         OutputDebugString(windowOutput.c_str());
     }
 
-    void Widget1::SetGameBarDisplayMode()
+    void MainWidget::SetGameBarDisplayMode()
     {
         hstring mode = (m_widget.GameBarDisplayMode() == winrt::MGX::XboxGameBarDisplayMode::Foreground) ? L"Foreground" : L"PinnedOnly";
         hstring modeOutput = L"Game Bar Display Mode: " + mode + L"\r\n";
@@ -636,7 +636,7 @@ namespace winrt::XboxGamingBar::implementation
         GameBarDisplayModeTextBlock().Text(mode);
     }
 
-    void Widget1::SetCompactModeEnabled()
+    void MainWidget::SetCompactModeEnabled()
     {
         hstring isEnabled = m_widget.CompactModeEnabled() ? L"True" : L"False";
         hstring modeOutput = L"Game Bar Compact Mode Enabled: " + isEnabled + L"\r\n";

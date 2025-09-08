@@ -149,50 +149,50 @@
     <Image Include="Assets\LockScreenLogo.scale-200.png">
       <Filter>Assets</Filter>
     </Image>
-    <Image Include="Widget1\Notifications\SamplePrimaryImage.png" />
-    <Image Include="Widget1\Notifications\SampleSecondaryImage.png" />
+    <Image Include="MainWidget\Notifications\SamplePrimaryImage.png" />
+    <Image Include="MainWidget\Notifications\SampleSecondaryImage.png" />
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <Image Include="Widget1\Icons\icon.targetsize-16.png">
-      <Filter>Widget1\Icons</Filter>
+    <Image Include="MainWidget\Icons\icon.targetsize-16.png">
+      <Filter>MainWidget\Icons</Filter>
     </Image>
-    <Image Include="Widget1\Icons\icon.targetsize-20.png">
-      <Filter>Widget1\Icons</Filter>
+    <Image Include="MainWidget\Icons\icon.targetsize-20.png">
+      <Filter>MainWidget\Icons</Filter>
     </Image>
-    <Image Include="Widget1\Icons\icon.targetsize-24.png">
-      <Filter>Widget1\Icons</Filter>
+    <Image Include="MainWidget\Icons\icon.targetsize-24.png">
+      <Filter>MainWidget\Icons</Filter>
     </Image>
-    <Image Include="Widget1\Icons\icon.targetsize-32.png">
-      <Filter>Widget1\Icons</Filter>
+    <Image Include="MainWidget\Icons\icon.targetsize-32.png">
+      <Filter>MainWidget\Icons</Filter>
     </Image>
-    <Image Include="Widget1\Icons\icon.targetsize-44.png">
-      <Filter>Widget1\Icons</Filter>
+    <Image Include="MainWidget\Icons\icon.targetsize-44.png">
+      <Filter>MainWidget\Icons</Filter>
     </Image>
-    <Image Include="Widget1\Icons\icon.targetsize-256.png">
-      <Filter>Widget1\Icons</Filter>
+    <Image Include="MainWidget\Icons\icon.targetsize-256.png">
+      <Filter>MainWidget\Icons</Filter>
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <Page Include="Widget1Settings.xaml" />
+    <Page Include="MainWidgetSettings.xaml" />
     <Page Include="MainPage.xaml" />
-    <Page Include="Widget1.xaml" />
+    <Page Include="MainWidget.xaml" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Assets">
       <UniqueIdentifier>{87e657f4-9410-4f96-ba87-ebafb05e5826}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Widget1">
+    <Filter Include="MainWidget">
       <UniqueIdentifier>{a804d38b-800a-4e1d-9799-7403aa7c67a9}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Widget1\Icons">
+    <Filter Include="MainWidget\Icons">
       <UniqueIdentifier>{ddb49ac4-0042-4d87-966e-3415279a8dc6}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Media Include="Widget1\Notifications\Sounds\SampleSound.mp3" />
+    <Media Include="MainWidget\Notifications\Sounds\SampleSound.mp3" />
   </ItemGroup>
 </Project>
