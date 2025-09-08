@@ -105,8 +105,8 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Widget1Settings.h">
-      <DependentUpon>Widget1Settings.xaml</DependentUpon>
+    <ClInclude Include="MainWidgetSettings.h">
+      <DependentUpon>MainWidgetSettings.xaml</DependentUpon>
     </ClInclude>
     <ClInclude Include="pch.h" />
     <ClInclude Include="App.h">
@@ -115,21 +115,21 @@
     <ClInclude Include="MainPage.h">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </ClInclude>
-    <ClInclude Include="Widget1.h">
-      <DependentUpon>Widget1.xaml</DependentUpon>
+    <ClInclude Include="MainWidget.h">
+      <DependentUpon>MainWidget.xaml</DependentUpon>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Page Include="Widget1Settings.xaml">
+    <Page Include="MainWidgetSettings.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Include="MainPage.xaml">
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Widget1.xaml">
+    <Page Include="MainWidget.xaml">
       <SubType>Designer</SubType>
     </Page>
   </ItemGroup>
@@ -185,18 +185,18 @@
     <Image Include="Assets\Wide310x150Logo.scale-150.png" />
     <Image Include="Assets\Wide310x150Logo.scale-200.png" />
     <Image Include="Assets\Wide310x150Logo.scale-400.png" />
-    <Image Include="Widget1\Icons\icon.targetsize-16.png" />
-    <Image Include="Widget1\Icons\icon.targetsize-20.png" />
-    <Image Include="Widget1\Icons\icon.targetsize-24.png" />
-    <Image Include="Widget1\Icons\icon.targetsize-256.png" />
-    <Image Include="Widget1\Icons\icon.targetsize-32.png" />
-    <Image Include="Widget1\Icons\icon.targetsize-44.png" />
-    <Image Include="Widget1\Notifications\SamplePrimaryImage.png" />
-    <Image Include="Widget1\Notifications\SampleSecondaryImage.png" />
+    <Image Include="MainWidget\Icons\icon.targetsize-16.png" />
+    <Image Include="MainWidget\Icons\icon.targetsize-20.png" />
+    <Image Include="MainWidget\Icons\icon.targetsize-24.png" />
+    <Image Include="MainWidget\Icons\icon.targetsize-256.png" />
+    <Image Include="MainWidget\Icons\icon.targetsize-32.png" />
+    <Image Include="MainWidget\Icons\icon.targetsize-44.png" />
+    <Image Include="MainWidget\Notifications\SamplePrimaryImage.png" />
+    <Image Include="MainWidget\Notifications\SampleSecondaryImage.png" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Widget1Settings.cpp">
-      <DependentUpon>Widget1Settings.xaml</DependentUpon>
+    <ClCompile Include="MainWidgetSettings.cpp">
+      <DependentUpon>MainWidgetSettings.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
@@ -207,8 +207,8 @@
     <ClCompile Include="MainPage.cpp">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </ClCompile>
-    <ClCompile Include="Widget1.cpp">
-      <DependentUpon>Widget1.xaml</DependentUpon>
+    <ClCompile Include="MainWidget.cpp">
+      <DependentUpon>MainWidget.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
@@ -216,21 +216,21 @@
     <Midl Include="App.idl">
       <DependentUpon>App.xaml</DependentUpon>
     </Midl>
-    <Midl Include="Widget1Settings.idl">
-      <DependentUpon>Widget1Settings.xaml</DependentUpon>
+    <Midl Include="MainWidgetSettings.idl">
+      <DependentUpon>MainWidgetSettings.xaml</DependentUpon>
     </Midl>
     <Midl Include="MainPage.idl">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Midl>
-    <Midl Include="Widget1.idl">
-      <DependentUpon>Widget1.xaml</DependentUpon>
+    <Midl Include="MainWidget.idl">
+      <DependentUpon>MainWidget.xaml</DependentUpon>
     </Midl>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Media Include="Widget1\Notifications\Sounds\SampleSound.mp3" />
+    <Media Include="MainWidget\Notifications\Sounds\SampleSound.mp3" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
