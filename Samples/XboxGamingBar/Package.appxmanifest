@@ -97,36 +97,6 @@
             </uap3:Properties>
           </uap3:AppExtension>
         </uap3:Extension>
-
-        <!-- 2nd Widget -->
-        <uap3:Extension Category="windows.appExtension">
-          <uap3:AppExtension Name="microsoft.gameBarUIExtension"
-                             Id="Widget2"
-                             DisplayName="Widget Adv Sample 2"
-                             Description="Widget Adv Sample 2 Description"
-                             PublicFolder="Widget2">
-            <uap3:Properties>
-              <GameBarWidget Type="Standard">
-                <HomeMenuVisible>true</HomeMenuVisible>
-                <PinningSupported>false</PinningSupported>
-                <Window>
-                  <Size>
-                    <Height>200</Height>
-                    <Width>400</Width>
-                    <MinHeight>100</MinHeight>
-                    <MinWidth>175</MinWidth>
-                    <MaxHeight>200</MaxHeight>
-                    <MaxWidth>400</MaxWidth>
-                  </Size>
-                  <ResizeSupported>
-                    <Horizontal>false</Horizontal>
-                    <Vertical>false</Vertical>
-                  </ResizeSupported>
-                </Window>
-              </GameBarWidget>
-            </uap3:Properties>
-          </uap3:AppExtension>
-        </uap3:Extension>
       </Extensions>
     </Application>
   </Applications>
