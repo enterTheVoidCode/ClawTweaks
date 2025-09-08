@@ -1,12 +1,12 @@
 ﻿#pragma once
 
-#include "Widget1Settings.g.h"
+#include "MainWidgetSettings.g.h"
 
 namespace winrt::XboxGamingBar::implementation
 {
-    struct Widget1Settings : Widget1SettingsT<Widget1Settings>
+    struct MainWidgetSettings : MainWidgetSettingsT<MainWidgetSettings>
     {
-        Widget1Settings();
+        MainWidgetSettings();
 
         void ClickHandler(Windows::Foundation::IInspectable const& sender, Windows::UI::Xaml::RoutedEventArgs const& args);
     };
@@ -14,7 +14,7 @@ namespace winrt::XboxGamingBar::implementation
 
 namespace winrt::XboxGamingBar::factory_implementation
 {
-    struct Widget1Settings : Widget1SettingsT<Widget1Settings, implementation::Widget1Settings>
+    struct MainWidgetSettings : MainWidgetSettingsT<MainWidgetSettings, implementation::MainWidgetSettings>
     {
     };
 }

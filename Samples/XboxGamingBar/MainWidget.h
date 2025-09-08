@@ -1,11 +1,11 @@
 ﻿#pragma once
-#include "Widget1.g.h"
+#include "MainWidget.g.h"
 
 namespace winrt::XboxGamingBar::implementation
 {
-    struct Widget1 : Widget1T<Widget1>
+    struct MainWidget : MainWidgetT<MainWidget>
     {
-        Widget1();
+        MainWidget();
 
         virtual void OnNavigatedTo(winrt::Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
 
@@ -104,7 +104,7 @@ namespace winrt::XboxGamingBar::implementation
 
 namespace winrt::XboxGamingBar::factory_implementation
 {
-    struct Widget1 : Widget1T<Widget1, implementation::Widget1>
+    struct MainWidget : MainWidgetT<MainWidget, implementation::MainWidget>
     {
     };
 }
