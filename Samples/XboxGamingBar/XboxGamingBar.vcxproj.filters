@@ -151,6 +151,24 @@
     </Image>
     <Image Include="MainWidget\Notifications\SamplePrimaryImage.png" />
     <Image Include="MainWidget\Notifications\SampleSecondaryImage.png" />
+    <Image Include="MainWidget\Icons\icon.light.targetsize-256.png">
+      <Filter>MainWidget\Icons</Filter>
+    </Image>
+    <Image Include="MainWidget\Icons\icon.light.targetsize-16.png">
+      <Filter>MainWidget\Icons</Filter>
+    </Image>
+    <Image Include="MainWidget\Icons\icon.light.targetsize-20.png">
+      <Filter>MainWidget\Icons</Filter>
+    </Image>
+    <Image Include="MainWidget\Icons\icon.light.targetsize-24.png">
+      <Filter>MainWidget\Icons</Filter>
+    </Image>
+    <Image Include="MainWidget\Icons\icon.light.targetsize-32.png">
+      <Filter>MainWidget\Icons</Filter>
+    </Image>
+    <Image Include="MainWidget\Icons\icon.light.targetsize-44.png">
+      <Filter>MainWidget\Icons</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest" />
