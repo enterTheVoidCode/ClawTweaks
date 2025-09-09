@@ -49,7 +49,7 @@
         </Style>
     </Page.Resources>
 
-    <Grid x:Name="RootGrid" Padding="0">
+    <!--<Grid x:Name="RootGrid" Padding="0">
         <Grid x:Name="BackgroundGrid" Padding="0" />
         <ScrollViewer
             x:Name="RootScrollViewer"
@@ -484,5 +484,5 @@
                 </StackPanel>
             </ContentControl>
         </ScrollViewer>
-    </Grid>
+    </Grid>-->
 </Page>

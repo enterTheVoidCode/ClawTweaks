@@ -10,15 +10,15 @@ namespace winrt::XboxGamingBar::implementation
         virtual void OnNavigatedTo(winrt::Windows::UI::Xaml::Navigation::NavigationEventArgs const& e);
 
         // Click handlers from our XAML events
-        winrt::Windows::Foundation::IAsyncAction ActivateAsyncAppExtIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
-        winrt::Windows::Foundation::IAsyncAction ActivateAsyncAppIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
-        winrt::Windows::Foundation::IAsyncAction ActivateWithUriAsyncButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
-        winrt::Windows::Foundation::IAsyncAction MinimizeAsyncAppIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
-        winrt::Windows::Foundation::IAsyncAction MinimizeAsyncAppExtIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
-        winrt::Windows::Foundation::IAsyncAction RestoreAsyncAppExtIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
-        winrt::Windows::Foundation::IAsyncAction RestoreAsyncAppIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
-        winrt::Windows::Foundation::IAsyncAction CloseAsyncAppExtIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
-        winrt::Windows::Foundation::IAsyncAction CloseAsyncAppIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
+        //winrt::Windows::Foundation::IAsyncAction ActivateAsyncAppExtIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
+        //winrt::Windows::Foundation::IAsyncAction ActivateAsyncAppIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
+        //winrt::Windows::Foundation::IAsyncAction ActivateWithUriAsyncButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
+        //winrt::Windows::Foundation::IAsyncAction MinimizeAsyncAppIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
+        //winrt::Windows::Foundation::IAsyncAction MinimizeAsyncAppExtIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
+        //winrt::Windows::Foundation::IAsyncAction RestoreAsyncAppExtIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
+        //winrt::Windows::Foundation::IAsyncAction RestoreAsyncAppIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
+        //winrt::Windows::Foundation::IAsyncAction CloseAsyncAppExtIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
+        //winrt::Windows::Foundation::IAsyncAction CloseAsyncAppIdButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
         winrt::Windows::Foundation::IAsyncAction TryResizeWindowAsync_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
         winrt::Windows::Foundation::IAsyncAction CenterWindowAsync_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
         winrt::Windows::Foundation::IAsyncAction AuthenticateAsync_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::UI::Xaml::RoutedEventArgs e);
@@ -45,18 +45,18 @@ namespace winrt::XboxGamingBar::implementation
 
         // Event handlers
         winrt::Windows::Foundation::IAsyncAction SettingsButton_Click(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
-        winrt::fire_and_forget FavoritedChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
-        winrt::fire_and_forget GameBarDisplayModeChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
-        winrt::fire_and_forget GameBarCompactModeEnabledChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
-        winrt::fire_and_forget PinnedChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
-        winrt::fire_and_forget RequestedOpacityChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
-        winrt::fire_and_forget RequestedThemeChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
-        winrt::fire_and_forget TargetChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
-        winrt::fire_and_forget NotificiationSettingChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
+        //winrt::fire_and_forget FavoritedChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
+        //winrt::fire_and_forget GameBarDisplayModeChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
+        //winrt::fire_and_forget GameBarCompactModeEnabledChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
+        //winrt::fire_and_forget PinnedChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
+        //winrt::fire_and_forget RequestedOpacityChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
+        //winrt::fire_and_forget RequestedThemeChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
+        //winrt::fire_and_forget TargetChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
+        //winrt::fire_and_forget NotificiationSettingChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
         void VisibleChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Windows::Foundation::IInspectable const& e);
         void WindowStateChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Windows::Foundation::IInspectable const& e);
-        winrt::fire_and_forget WindowBoundsChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
-        winrt::fire_and_forget HotkeySetStateChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Microsoft::Gaming::XboxGameBar::Input::HotkeySetStateChangedArgs e);
+        // winrt::fire_and_forget WindowBoundsChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
+        //winrt::fire_and_forget HotkeySetStateChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Microsoft::Gaming::XboxGameBar::Input::HotkeySetStateChangedArgs e);
         
         // Methods to handle updating of Text and UI
         void SetBackgroundColor();
