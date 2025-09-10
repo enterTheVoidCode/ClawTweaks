@@ -57,12 +57,12 @@
                 <Window>
                   <AllowForegroundTransparency>true</AllowForegroundTransparency>
                   <Size>
-                    <Height>625</Height>
-                    <Width>600</Width>
+                    <Height>500</Height>
+                    <Width>464</Width>
                     <MinHeight>500</MinHeight>
-                    <MinWidth>600</MinWidth>
-                    <MaxHeight>1000</MaxHeight>
-                    <MaxWidth>1000</MaxWidth>
+                    <MinWidth>464</MinWidth>
+                    <MaxHeight>500</MaxHeight>
+                    <MaxWidth>900</MaxWidth>
                   </Size>
                   <ResizeSupported>
                     <Horizontal>true</Horizontal>
