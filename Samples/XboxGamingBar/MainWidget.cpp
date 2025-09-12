@@ -16,6 +16,7 @@ namespace winrt
     namespace WS = Windows::System;
     namespace WUI = Windows::UI;
     namespace WUIC = Windows::UI::Core;
+    //namespace WUIVM = Windows::UI::ViewManagement;
     namespace WUIX = Windows::UI::Xaml;
     namespace WUIXI = Windows::UI::Xaml::Input;
     namespace WUIXM = Windows::UI::Xaml::Media;
@@ -35,20 +36,22 @@ namespace winrt::XboxGamingBar::implementation
     void MainWidget::OnNavigatedTo(winrt::WUIXN::NavigationEventArgs const& e)
     {
         m_widget = e.Parameter().as<winrt::MGX::XboxGameBarWidget>();
+        m_widget.CenterWindowAsync();
+
         m_widgetControl = winrt::MGX::XboxGameBarWidgetControl(m_widget);
         m_gameBarWebAuth = winrt::MGXA::XboxGameBarWebAuthenticationBroker(m_widget);
         m_appTargetTracker = winrt::MGX::XboxGameBarAppTargetTracker(m_widget);
         m_widgetNotificationManager = winrt::MGX::XboxGameBarWidgetNotificationManager(m_widget);
 
-        m_widgetDarkThemeBrush = winrt::WUIXM::SolidColorBrush(winrt::WUI::ColorHelper::FromArgb(255, 38, 38, 38));
-        m_widgetLightThemeBrush = winrt::WUIXM::SolidColorBrush(winrt::WUI::ColorHelper::FromArgb(255, 219, 219, 219));
+        m_widgetDarkThemeBrush = winrt::WUIXM::SolidColorBrush(winrt::WUI::ColorHelper::FromArgb(255, 37, 40, 44));
+        m_widgetLightThemeBrush = winrt::WUIXM::SolidColorBrush(winrt::WUI::ColorHelper::FromArgb(255, 255, 255, 255));
 
         // Hook up event that's fired when our settings button is clicked
         //m_favoritedChangedToken = m_widget.FavoritedChanged({ this, &MainWidget::FavoritedChanged });
         //m_displayModeChangedToken = m_widget.GameBarDisplayModeChanged({ this, &MainWidget::GameBarDisplayModeChanged });
         //m_pinnedChangedToken = m_widget.PinnedChanged({ this, &MainWidget::PinnedChanged });
         //m_opacityChangedToken = m_widget.RequestedOpacityChanged({ this, &MainWidget::RequestedOpacityChanged });
-        //m_themeChangedToken = m_widget.RequestedThemeChanged({ this, &MainWidget::RequestedThemeChanged });
+        m_themeChangedToken = m_widget.RequestedThemeChanged({ this, &MainWidget::RequestedThemeChanged });
         m_settingsToken = m_widget.SettingsClicked({ this, &MainWidget::SettingsButton_Click });
         m_visibleChangedToken = m_widget.VisibleChanged({ this, &MainWidget::VisibleChanged });
         //m_windowBoundsChangedToken = m_widget.WindowBoundsChanged({ this, &MainWidget::WindowBoundsChanged });
@@ -447,13 +450,13 @@ namespace winrt::XboxGamingBar::implementation
     //    }
     //}
 
-    //winrt::fire_and_forget  MainWidget::RequestedThemeChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
-    //{
-    //    auto strongThis{ get_strong() };
-    //    //co_await resume_foreground(RequestedThemeTextBlock().Dispatcher());
-    //    //RequestedThemeTextBlock().Text(RequestedThemeToString());
-    //    SetBackgroundColor();
-    //}
+    winrt::fire_and_forget MainWidget::RequestedThemeChanged(winrt::WF::IInspectable /*sender*/, winrt::WF::IInspectable /*e*/)
+    {
+        auto strongThis{ get_strong() };
+        co_await resume_foreground(Dispatcher());
+        SetBackgroundColor();
+        co_return;
+    }
     
     //winrt::fire_and_forget MainWidget::HotkeySetStateChanged(winrt::WF::IInspectable /*sender*/, winrt::MGXI::HotkeySetStateChangedArgs e)
     //{
@@ -528,12 +531,12 @@ namespace winrt::XboxGamingBar::implementation
         if (requestedTheme == winrt::WUIX::ElementTheme::Dark)
         {
             RequestedTheme(requestedTheme);
-            //BackgroundGrid().Background(m_widgetDarkThemeBrush);
+            RootGrid().Background(m_widgetDarkThemeBrush);
         }
         else
         {
             RequestedTheme(requestedTheme);
-            //BackgroundGrid().Background(m_widgetLightThemeBrush);
+            RootGrid().Background(m_widgetLightThemeBrush);
         }
 
         //BackgroundGrid().Opacity(m_widget.RequestedOpacity());
@@ -643,5 +646,10 @@ namespace winrt::XboxGamingBar::implementation
         OutputDebugString(modeOutput.c_str());
 
         //GameBarCompactModeEnabledTextBlock().Text(isEnabled);
+    }
+
+    void MainWidget::MyButton_Click(IInspectable const&, winrt::WUIX::RoutedEventArgs const&)
+    {
+        // myButton().Content(box_value(L"Clicked"));
     }
 }

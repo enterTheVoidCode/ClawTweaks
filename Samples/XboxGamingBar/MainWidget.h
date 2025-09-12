@@ -50,13 +50,14 @@ namespace winrt::XboxGamingBar::implementation
         //winrt::fire_and_forget GameBarCompactModeEnabledChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
         //winrt::fire_and_forget PinnedChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
         //winrt::fire_and_forget RequestedOpacityChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
-        //winrt::fire_and_forget RequestedThemeChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
+        winrt::fire_and_forget RequestedThemeChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
         //winrt::fire_and_forget TargetChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
         //winrt::fire_and_forget NotificiationSettingChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
         void VisibleChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Windows::Foundation::IInspectable const& e);
         void WindowStateChanged(winrt::Windows::Foundation::IInspectable const& sender, winrt::Windows::Foundation::IInspectable const& e);
         // winrt::fire_and_forget WindowBoundsChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Windows::Foundation::IInspectable e);
         //winrt::fire_and_forget HotkeySetStateChanged(winrt::Windows::Foundation::IInspectable sender, winrt::Microsoft::Gaming::XboxGameBar::Input::HotkeySetStateChangedArgs e);
+        void MyButton_Click(Windows::Foundation::IInspectable const& sender, Windows::UI::Xaml::RoutedEventArgs const& args);
         
         // Methods to handle updating of Text and UI
         void SetBackgroundColor();
