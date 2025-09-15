@@ -15,7 +15,7 @@ using Windows.UI.Xaml.Navigation;
 
 // The Blank Page item template is documented at https://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
-namespace WidgetSampleCS
+namespace XboxGamingBarForegroundWorker
 {
     /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
@@ -25,10 +25,6 @@ namespace WidgetSampleCS
         public MainPage()
         {
             this.InitializeComponent();
-        }
-        private void MyButton_Click(object sender, RoutedEventArgs e)
-        {
-            myButton.Content = "Clicked";
         }
     }
 }
