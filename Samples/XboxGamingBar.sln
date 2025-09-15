@@ -7,7 +7,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "XboxGamingBar", "XboxGaming
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WidgetSample", "WidgetSample\WidgetSample.vcxproj", "{D92D2EDC-0097-4C14-A1B7-3AFECB07251D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WidgetSampleCS", "WidgetSampleCS\WidgetSampleCS.csproj", "{94D05A38-04B0-4EA4-AD28-4ADFE4719E84}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XboxGamingBarCS", "XboxGamingBarCS\XboxGamingBarCS.csproj", "{94D05A38-04B0-4EA4-AD28-4ADFE4719E84}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WidgetSampleCX", "WidgetSampleCX\WidgetSampleCX.vcxproj", "{56E49CA2-914A-45C7-9ED2-23F416F4F570}"
 EndProject
@@ -15,7 +15,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WidgetSettingsSample", "Wid
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WidgetAdvSampleCS", "WidgetAdvSampleCS\WidgetAdvSampleCS.csproj", "{A2181EB4-E748-433B-96C1-8223B2A9EF18}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WidgetForegroundWorkerSampleCS", "WidgetForegroundWorkerSampleCS\WidgetForegroundWorkerSampleCS.csproj", "{CF9951F6-A12F-4403-B121-22880DC917FB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XboxGamingBarForegroundWorker", "XboxGamingBarForegroundWorker\XboxGamingBarForegroundWorker.csproj", "{CF9951F6-A12F-4403-B121-22880DC917FB}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WidgetFTServer", "WidgetFTServer\WidgetFTServer.vcxproj", "{0DE6D340-193C-4896-80D1-67815A10D3AB}"
 EndProject
