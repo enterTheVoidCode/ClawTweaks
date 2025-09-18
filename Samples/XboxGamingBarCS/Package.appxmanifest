@@ -9,14 +9,14 @@
 
   <Identity
     Name="XboxGamingBarCS"
-    Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    Publisher="CN=Play'n Build, O=Play'n Build, L=Redmond, S=Washington, C=US"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="4b9dee15-da50-4b0a-8337-9b84da542023" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>XboxGamingBarCS</DisplayName>
-    <PublisherDisplayName>Microsoft Corporation</PublisherDisplayName>
+    <DisplayName>Xbox Gaming Bar</DisplayName>
+    <PublisherDisplayName>Play'n Build</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -33,10 +33,10 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="XboxGamingBarCS.App">
       <uap:VisualElements
-        DisplayName="XboxGamingBarCS"
+        DisplayName="Xbox Gaming Bar"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png"
-        Description="XboxGamingBarCS"
+        Description="Xbox Game Bar widget for changing system settings during game sessions with gamepad."
         BackgroundColor="transparent">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
@@ -44,9 +44,9 @@
       <Extensions>
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension Name="microsoft.gameBarUIExtension"
-                             Id="Widget1"
-                             DisplayName="Widget Sample CS"
-                             Description="Widget Sample CS Description"
+                             Id="GamingWidget"
+                             DisplayName="Gaming"
+                             Description="Xbox Game Bar widget for changing system settings during game sessions with gamepad."
                              PublicFolder="GameBar">
             <uap3:Properties>
               <GameBarWidget Type="Standard">
