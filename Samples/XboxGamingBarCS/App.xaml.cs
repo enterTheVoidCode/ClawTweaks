@@ -23,7 +23,7 @@ namespace XboxGamingBarCS
     /// </summary>
     sealed partial class App : Application
     {
-        private XboxGameBarWidget widget1 = null;
+        private XboxGameBarWidget gamingWidget = null;
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -79,13 +79,13 @@ namespace XboxGamingBarCS
                     Window.Current.Content = rootFrame;
 
                     // Create Game Bar widget object which bootstraps the connection with Game Bar
-                    widget1 = new XboxGameBarWidget(
+                    gamingWidget = new XboxGameBarWidget(
                         widgetArgs,
                         Window.Current.CoreWindow,
                         rootFrame);
-                    rootFrame.Navigate(typeof(Widget1));
+                    rootFrame.Navigate(typeof(GamingWidget));
 
-                    Window.Current.Closed += Widget1Window_Closed;
+                    Window.Current.Closed += GamingWidgetWindow_Closed;
 
                     Window.Current.Activate();
                 }
@@ -96,10 +96,10 @@ namespace XboxGamingBarCS
             }
         }
 
-        private void Widget1Window_Closed(object sender, Windows.UI.Core.CoreWindowEventArgs e)
+        private void GamingWidgetWindow_Closed(object sender, Windows.UI.Core.CoreWindowEventArgs e)
         {
-            widget1 = null;
-            Window.Current.Closed -= Widget1Window_Closed;
+            gamingWidget = null;
+            Window.Current.Closed -= GamingWidgetWindow_Closed;
         }
 
         /// <summary>
@@ -136,7 +136,7 @@ namespace XboxGamingBarCS
                     // When the navigation stack isn't restored navigate to the first page,
                     // configuring the new page by passing required information as a navigation
                     // parameter
-                    rootFrame.Navigate(typeof(MainPage), e.Arguments);
+                    // rootFrame.Navigate(typeof(MainPage), e.Arguments);
                 }
                 // Ensure the current window is active
                 Window.Current.Activate();
@@ -169,7 +169,7 @@ namespace XboxGamingBarCS
         {
             var deferral = e.SuspendingOperation.GetDeferral();
 
-            widget1 = null;
+            gamingWidget = null;
 
             deferral.Complete();
         }
