@@ -160,7 +160,6 @@
     <Content Include="Assets\Square44x44Logo.scale-200.png" />
     <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
-    <Content Include="RTSSSharedMemoryNET.dll" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
@@ -173,18 +172,12 @@
     </Page>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="LibreHardwareMonitorLib">
-      <Version>0.9.4</Version>
-    </PackageReference>
     <PackageReference Include="Microsoft.Gaming.XboxGameBar">
       <Version>7.2.240903001</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform">
       <Version>6.2.9</Version>
     </PackageReference>
-    <Reference Include="RTSSSharedMemoryNET">
-      <HintPath>RTSSSharedMemoryNET.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <PropertyGroup>
     <XboxGameBar-Platform Condition="'$(Platform)' == 'x86'">win32</XboxGameBar-Platform>
