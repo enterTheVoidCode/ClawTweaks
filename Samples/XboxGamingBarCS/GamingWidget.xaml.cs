@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.ApplicationModel;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
+using Windows.Foundation.Metadata;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
@@ -26,9 +28,14 @@ namespace XboxGamingBarCS
         {
             this.InitializeComponent();
         }
-        private void MyButton_Click(object sender, RoutedEventArgs e)
+        private async void MyButton_Click(object sender, RoutedEventArgs e)
         {
             myButton.Content = "Clicked";
+
+            if (ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0))
+            {
+                await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+            }
         }
     }
 }

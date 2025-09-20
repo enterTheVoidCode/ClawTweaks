@@ -179,6 +179,11 @@
       <Version>6.2.9</Version>
     </PackageReference>
   </ItemGroup>
+  <ItemGroup>
+    <SDKReference Include="WindowsDesktop, Version=10.0.19041.0">
+      <Name>Windows Desktop Extensions for the UWP</Name>
+    </SDKReference>
+  </ItemGroup>
   <PropertyGroup>
     <XboxGameBar-Platform Condition="'$(Platform)' == 'x86'">win32</XboxGameBar-Platform>
     <XboxGameBar-Platform Condition="'$(Platform)' != 'x86'">$(Platform)</XboxGameBar-Platform>
