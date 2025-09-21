@@ -39,14 +39,13 @@
         <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Images\SplashScreen.png" />
       </uap:VisualElements>
-    </Application>
-
 	  <Extensions>
-		  <desktop:Extension
-			xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
-			Category="windows.fullTrustProcess"
-			Executable="DesktopExtension\DesktopExtension.exe" />
+        <desktop:Extension
+          xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+		  Category="windows.fullTrustProcess"
+		  Executable="DesktopExtension\DesktopExtension.exe" />
 	  </Extensions>
+    </Application>
   </Applications>
 
   <Capabilities>
