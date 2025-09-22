@@ -43,7 +43,7 @@
         <desktop:Extension
           xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
 		  Category="windows.fullTrustProcess"
-		  Executable="DesktopExtension\DesktopExtension.exe" />
+		  Executable="XboxGamingBarHelper\XboxGamingBarHelper.exe" />
 	  </Extensions>
     </Application>
   </Applications>
