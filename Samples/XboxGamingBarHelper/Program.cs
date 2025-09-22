@@ -1,9 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using RTSSSharedMemoryNET;
 
 namespace XboxGamingBarHelper
@@ -12,9 +7,10 @@ namespace XboxGamingBarHelper
     {
         static void Main(string[] args)
         {
-            var osdEntries = OSD.GetOSDEntries();
-            // osdEntries[0].Text = "Hello from XboxGamingBarHelper!";
-            Debug.WriteLine($"OSD {osdEntries.Length} APP {OSD.GetAppEntries().Length}");
+            Console.Title = "Xbox Gaming Bar Helper";
+            Console.WriteLine($"OSD {OSD.GetOSDEntries()} APP {OSD.GetAppEntries().Length}");
+            Console.WriteLine("\r\nPress any key to exit ...");
+            Console.ReadLine();
         }
     }
 }
