@@ -28,6 +28,8 @@ Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "XboxGamingBarPackage", "Xbo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XboxGamingBarHelper", "XboxGamingBarHelper\XboxGamingBarHelper.csproj", "{A3EDC1D2-3DFC-4956-A90C-FF274E90CCE5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared", "Shared\Shared.csproj", "{DAB6C52A-B200-4478-925E-FA2E05169C7E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -157,6 +159,14 @@ Global
 		{A3EDC1D2-3DFC-4956-A90C-FF274E90CCE5}.Debug|x86.ActiveCfg = Debug|x86
 		{A3EDC1D2-3DFC-4956-A90C-FF274E90CCE5}.Release|x64.ActiveCfg = Release|x64
 		{A3EDC1D2-3DFC-4956-A90C-FF274E90CCE5}.Release|x86.ActiveCfg = Release|x86
+		{DAB6C52A-B200-4478-925E-FA2E05169C7E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DAB6C52A-B200-4478-925E-FA2E05169C7E}.Debug|x64.Build.0 = Debug|Any CPU
+		{DAB6C52A-B200-4478-925E-FA2E05169C7E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{DAB6C52A-B200-4478-925E-FA2E05169C7E}.Debug|x86.Build.0 = Debug|Any CPU
+		{DAB6C52A-B200-4478-925E-FA2E05169C7E}.Release|x64.ActiveCfg = Release|Any CPU
+		{DAB6C52A-B200-4478-925E-FA2E05169C7E}.Release|x64.Build.0 = Release|Any CPU
+		{DAB6C52A-B200-4478-925E-FA2E05169C7E}.Release|x86.ActiveCfg = Release|Any CPU
+		{DAB6C52A-B200-4478-925E-FA2E05169C7E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
