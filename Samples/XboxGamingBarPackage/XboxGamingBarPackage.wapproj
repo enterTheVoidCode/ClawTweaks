@@ -30,9 +30,10 @@
     <TargetPlatformVersion>10.0.19041.0</TargetPlatformVersion>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <DefaultLanguage>en-US</DefaultLanguage>
-    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <NoWarn>$(NoWarn);NU1702</NoWarn>
     <EntryPointProjectUniqueName>..\XboxGamingBarCS\XboxGamingBarCS.csproj</EntryPointProjectUniqueName>
+    <PackageCertificateThumbprint>141CE1EEFF907F13A33AA338FFF403EA7B13E43E</PackageCertificateThumbprint>
   </PropertyGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
@@ -40,13 +41,28 @@
     </AppxManifest>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Images\Icons\icon.light.targetsize-16.png" />
+    <Content Include="Images\Icons\icon.light.targetsize-20.png" />
+    <Content Include="Images\Icons\icon.light.targetsize-24.png" />
+    <Content Include="Images\Icons\icon.light.targetsize-256.png" />
+    <Content Include="Images\Icons\icon.light.targetsize-32.png" />
+    <Content Include="Images\Icons\icon.light.targetsize-44.png" />
+    <Content Include="Images\Icons\icon.targetsize-16.png" />
+    <Content Include="Images\Icons\icon.targetsize-20.png" />
+    <Content Include="Images\Icons\icon.targetsize-24.png" />
+    <Content Include="Images\Icons\icon.targetsize-256.png" />
+    <Content Include="Images\Icons\icon.targetsize-32.png" />
+    <Content Include="Images\Icons\icon.targetsize-44.png" />
     <Content Include="Images\SplashScreen.scale-200.png" />
     <Content Include="Images\LockScreenLogo.scale-200.png" />
     <Content Include="Images\Square150x150Logo.scale-200.png" />
+    <Content Include="Images\Square44x44Logo.light.scale-200.png" />
+    <Content Include="Images\Square44x44Logo.light.targetsize-24_altform-unplated.png" />
     <Content Include="Images\Square44x44Logo.scale-200.png" />
     <Content Include="Images\Square44x44Logo.targetsize-24_altform-unplated.png" />
     <Content Include="Images\StoreLogo.png" />
     <Content Include="Images\Wide310x150Logo.scale-200.png" />
+    <None Include="XboxGamingBarPackage_TemporaryKey.pfx" />
   </ItemGroup>
   <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" />
   <ItemGroup>
