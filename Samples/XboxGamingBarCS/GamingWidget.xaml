@@ -9,10 +9,13 @@
 
     <Grid x:Name="MainGrid" Margin="15,15,15,15">
         <Grid.RowDefinitions>
+            <RowDefinition Height="30"/> 
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="20"/> <!-- A spacer -->
             <RowDefinition Height="30"/>
-            <RowDefinition Height="50"/>
+            <RowDefinition Height="32"/>
             <RowDefinition Height="30"/>
-            <RowDefinition Height="50"/>
             <!-- Add more RowDefinitions as needed, each with Height="200" -->
         </Grid.RowDefinitions>
         <TextBlock x:Name="PerformanceOverlayText" Text="Performance Overlay" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="0"/>
@@ -22,7 +25,7 @@
             TickPlacement="BottomRight"
             ValueChanged="PerformanceOverlaySlider_ValueChanged"/>
 
-        <Grid Margin="-18,-20,-18,0" Grid.Row="2">
+        <Grid Margin="-18,0,-18,0" Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition/>
                 <ColumnDefinition/>
@@ -30,11 +33,18 @@
                 <ColumnDefinition/>
                 <ColumnDefinition/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="None"     Grid.Column="0" HorizontalAlignment="Center" FontSize="16"/>
+            <TextBlock Text="OFF"     Grid.Column="0" HorizontalAlignment="Center" FontSize="16"/>
             <TextBlock Text="FPS"      Grid.Column="1" HorizontalAlignment="Center" FontSize="16"/>
-            <TextBlock Text="Battery"  Grid.Column="2" HorizontalAlignment="Center" FontSize="16"/>
-            <TextBlock Text="Detailed" Grid.Column="3" HorizontalAlignment="Center" FontSize="16"/>
-            <TextBlock Text="Full"     Grid.Column="4" HorizontalAlignment="Center" FontSize="16"/>
+            <TextBlock Text="BATTERY"  Grid.Column="2" HorizontalAlignment="Center" FontSize="16"/>
+            <TextBlock Text="DETAILED" Grid.Column="3" HorizontalAlignment="Center" FontSize="16"/>
+            <TextBlock Text="FULL"     Grid.Column="4" HorizontalAlignment="Center" FontSize="16"/>
         </Grid>
+        <TextBlock x:Name="TDPText" Text="TDP Limit" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="4"/>
+        <TextBlock x:Name="TDPValueText" Grid.Row="5" Margin="0,0,0,0" Text="4W" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+        <Slider x:Name="TDPSlider" Grid.Row="5" Margin="10,0,30,0"
+            Minimum="4" Maximum="33"
+            TickFrequency="1"
+            TickPlacement="BottomRight"
+            ValueChanged="TDPSlider_ValueChanged"/>
     </Grid>
 </Page>

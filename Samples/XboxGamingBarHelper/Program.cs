@@ -57,40 +57,7 @@ namespace XboxGamingBarHelper
             while (needToUpdate)
             {
                 await Task.Delay(500);
-                //Console.WriteLine($"OSD {OSD.GetOSDEntries().Length} APP {OSD.GetAppEntries().Length}");
-                //const string mapName = "RTSSSharedMemoryV2";
-                //int size = Marshal.SizeOf<RTSSSharedMemory>();
-                //using (var mmf = MemoryMappedFile.CreateOrOpen(mapName, size))
-                //{
-                //    using (var accessor = mmf.CreateViewAccessor(0, size, MemoryMappedFileAccess.Read))
-                //    {
-                //        byte[] buffer = new byte[size];
-                //        accessor.ReadArray(0, buffer, 0, size);
-
-                //        GCHandle handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
-                //        try
-                //        {
-                //            var sharedMemory = Marshal.PtrToStructure<RTSSSharedMemory>(handle.AddrOfPinnedObject());
-                //            var signature = StringUtilities.UInt32ToFourCC(sharedMemory.Signature);
-
-                //            Console.WriteLine($"RTSS Signature {signature}.{sharedMemory.Version}");
-                //        }
-                //        catch (Exception ex)
-                //        {
-                //            Console.WriteLine($"ERROR {ex.Message}");
-                //        }
-                //        finally
-                //        {
-                //            handle.Free();
-                //        }
-                //    }
-                //}
-
-                //foreach (var appEntry in OSD.GetAppEntries())
-                //{
-                //    Console.WriteLine($"APP {appEntry.Name}");
-                //}
-
+                
                 PerformanceManager.Update();
                 RTSSManager.Update();
             }
@@ -112,6 +79,9 @@ namespace XboxGamingBarHelper
                         case Function.OSD:
                             response.Add(nameof(Value), RTSSManager.OSDLevel);
                             break;
+                        case Function.TDP:
+                            response.Add(nameof(Value), PerformanceManager.GetTDP());
+                            break;
                     }
 
                     await args.Request.SendResponseAsync(response);
@@ -123,6 +93,10 @@ namespace XboxGamingBarHelper
                         case Function.OSD:
                             var osdLevel = (int)args.Request.Message[nameof(Value)];
                             RTSSManager.OSDLevel = osdLevel;
+                            break;
+                        case Function.TDP:
+                            var tdpLimit = (int)args.Request.Message[nameof(Value)];
+                            PerformanceManager.SetTDP(tdpLimit);
                             break;
                     }
                     break;
