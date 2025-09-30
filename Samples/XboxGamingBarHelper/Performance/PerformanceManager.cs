@@ -12,6 +12,7 @@ namespace XboxGamingBarHelper.Performance
     {
         private static Computer computer;
         private static IVisitor updateVisitor;
+        private static IntPtr ryzenAdjHandle;
 
         #region CPU
         [HardwareSensor("CPU Total", HardwareType.Cpu, SensorType.Load)]
@@ -113,6 +114,18 @@ namespace XboxGamingBarHelper.Performance
                     }
                 }
             }
+
+            ryzenAdjHandle = RyzenAdj.init_ryzenadj();
+            if (ryzenAdjHandle == IntPtr.Zero)
+            {
+                Debug.WriteLine("Failed to initialize RyzenAdj");
+            }
+            else
+            {
+                RyzenAdj.refresh_table(ryzenAdjHandle);
+                // RyzenAdj.set_fast_limit(ryzenAdjHandle, 30000);
+                Debug.WriteLine($"RyzenAdj initialized successfully {RyzenAdj.get_fast_limit(ryzenAdjHandle)} {RyzenAdj.get_slow_limit(ryzenAdjHandle)} {RyzenAdj.get_stapm_limit(ryzenAdjHandle)}");
+            }
         }
 
         internal static void Update()
@@ -121,6 +134,35 @@ namespace XboxGamingBarHelper.Performance
                 return;
 
             computer.Accept(updateVisitor);
+        }
+
+        public static int GetTDP()
+        {
+            if (ryzenAdjHandle == IntPtr.Zero)
+            {
+                Debug.WriteLine("RyzenAdj not initialized");
+                return 10;
+            }
+
+            RyzenAdj.refresh_table(ryzenAdjHandle);
+            return (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
+        }
+
+        public static void SetTDP(int tdp)
+        {
+            if (ryzenAdjHandle == IntPtr.Zero)
+            {
+                Debug.WriteLine("RyzenAdj not initialized");
+                return;
+            }
+            //RyzenAdj.refresh_table(ryzenAdjHandle);
+            RyzenAdj.set_fast_limit(ryzenAdjHandle, (uint)(tdp * 1000));
+            RyzenAdj.set_slow_limit(ryzenAdjHandle, (uint)(tdp * 1000));
+            RyzenAdj.set_stapm_limit(ryzenAdjHandle, (uint)(tdp * 1000));
+#if DEBUG
+            RyzenAdj.refresh_table(ryzenAdjHandle);
+            Debug.WriteLine($"Set TDP to {tdp}, current TDP is {RyzenAdj.get_fast_limit(ryzenAdjHandle)}");
+#endif
         }
     }
 }
