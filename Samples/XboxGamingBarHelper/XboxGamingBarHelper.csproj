@@ -66,6 +66,9 @@
     <Reference Include="LibreHardwareMonitorLib, Version=0.9.4.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\LibreHardwareMonitorLib.0.9.4\lib\net472\LibreHardwareMonitorLib.dll</HintPath>
     </Reference>
+    <Reference Include="NLog, Version=6.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
+      <HintPath>..\packages\NLog.6.0.4\lib\net46\NLog.dll</HintPath>
+    </Reference>
     <Reference Include="RTSSSharedMemoryNET">
       <HintPath>.\RTSSSharedMemoryNET.dll</HintPath>
     </Reference>
@@ -73,6 +76,7 @@
     <Reference Include="System.CodeDom, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.CodeDom.9.0.0\lib\net462\System.CodeDom.dll</HintPath>
     </Reference>
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Management" />
@@ -107,11 +111,15 @@
     <Compile Include="RTSS\OSDItems\OSDItemFPS.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemGPU.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemMemory.cs" />
+    <Compile Include="RTSS\OSDItemValue.cs" />
     <Compile Include="RTSS\RTSSManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
     <None Include="app.manifest" />
+    <None Include="NLog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="WinRing0x64.sys">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

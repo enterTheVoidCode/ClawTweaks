@@ -4,21 +4,6 @@ using System.Drawing;
 
 namespace XboxGamingBarHelper.RTSS
 {
-    internal struct OSDItemValue
-    {
-        float value;
-        public float Value => value;
-
-        string unit;
-        public string Unit => unit;
-
-        public OSDItemValue(float value, string unit)
-        {
-            this.value = value;
-            this.unit = unit;
-        }
-    }
-
     internal abstract class OSDItem
     {
         protected string name;

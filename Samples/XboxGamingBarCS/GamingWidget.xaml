@@ -9,23 +9,27 @@
 
     <Grid x:Name="MainGrid" Margin="15,15,15,15">
         <Grid.RowDefinitions>
-            <RowDefinition Height="30"/> 
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="30"/>
             <RowDefinition Height="32"/>
             <RowDefinition Height="20"/>
             <RowDefinition Height="20"/> <!-- A spacer -->
             <RowDefinition Height="30"/>
             <RowDefinition Height="32"/>
-            <RowDefinition Height="30"/>
+            <RowDefinition Height="20"/>
             <!-- Add more RowDefinitions as needed, each with Height="200" -->
         </Grid.RowDefinitions>
-        <TextBlock x:Name="PerformanceOverlayText" Text="Performance Overlay" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="0"/>
-        <Slider x:Name="PerformanceOverlaySlider" Grid.Row="1" Margin="10,0,10,0"
+        <ProgressRing x:Name="LoadingProgressRing" IsActive="True" Visibility="Collapsed" Grid.Row="0" Width="100" Height="100"/>
+        <TextBlock x:Name="PerformanceOverlayText" Text="Performance Overlay" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="1"/>
+        <Slider x:Name="PerformanceOverlaySlider" Grid.Row="2" Margin="10,0,10,0"
             Minimum="0" Maximum="4"
             TickFrequency="1"
+            SnapsTo="StepValues"
             TickPlacement="BottomRight"
+            IsEnabled="False"
             ValueChanged="PerformanceOverlaySlider_ValueChanged"/>
 
-        <Grid Margin="-18,0,-18,0" Grid.Row="2">
+        <Grid Margin="-18,0,-18,0" Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition/>
                 <ColumnDefinition/>
@@ -39,12 +43,14 @@
             <TextBlock Text="DETAILED" Grid.Column="3" HorizontalAlignment="Center" FontSize="16"/>
             <TextBlock Text="FULL"     Grid.Column="4" HorizontalAlignment="Center" FontSize="16"/>
         </Grid>
-        <TextBlock x:Name="TDPText" Text="TDP Limit" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="4"/>
-        <TextBlock x:Name="TDPValueText" Grid.Row="5" Margin="0,0,0,0" Text="4W" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-        <Slider x:Name="TDPSlider" Grid.Row="5" Margin="10,0,30,0"
-            Minimum="4" Maximum="33"
+        <TextBlock x:Name="TDPText" Text="TDP Limit" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="5"/>
+        <TextBlock x:Name="TDPValueText" Grid.Row="6" Margin="0,0,0,0" Text="4W" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+        <Slider x:Name="TDPSlider" Grid.Row="6" Margin="10,0,35,0"
+            Minimum="4" Maximum="32"
             TickFrequency="1"
+            SnapsTo="Ticks"
             TickPlacement="BottomRight"
+            IsEnabled="False"
             ValueChanged="TDPSlider_ValueChanged"/>
     </Grid>
 </Page>
