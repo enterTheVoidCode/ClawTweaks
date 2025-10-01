@@ -17,6 +17,7 @@ using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+using XboxGamingBarCS.Internal;
 
 namespace XboxGamingBarCS
 {
@@ -26,6 +27,7 @@ namespace XboxGamingBarCS
     sealed partial class App : Application
     {
         public static BackgroundTaskDeferral AppServiceDeferral = null;
+        public static FullTrustLaunchState FullTrustLaunchState = FullTrustLaunchState.NotLaunched;
         public static AppServiceConnection Connection = null;
         public static event EventHandler AppServiceDisconnected;
         public static event EventHandler<AppServiceTriggerDetails> AppServiceConnected;

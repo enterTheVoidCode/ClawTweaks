@@ -1,15 +1,17 @@
 ﻿using LibreHardwareMonitor.Hardware;
+using NLog;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Xml.Linq;
 
 namespace XboxGamingBarHelper.Performance
 {
     internal static class PerformanceManager
     {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         private static Computer computer;
         private static IVisitor updateVisitor;
         private static IntPtr ryzenAdjHandle;
@@ -109,8 +111,7 @@ namespace XboxGamingBarHelper.Performance
                     if (hardwareSensorFields.TryGetValue((sensor.Name, hardware.HardwareType, sensor.SensorType), out FieldInfo fieldInfo))
                     {
                         fieldInfo.SetValue(null, sensor);
-                        // Console.WriteLine("Found hardware Sensor: {0}, value: {1}, type: {2}", sensor.Name, sensor.Value, sensor.SensorType.ToString());
-                        Debug.WriteLine("Found hardware Sensor: {0}, value: {1}, type: {2}", sensor.Name, sensor.Value, sensor.SensorType.ToString());
+                        Logger.Info("Found hardware Sensor: {0}, value: {1}, type: {2}", sensor.Name, sensor.Value, sensor.SensorType.ToString());
                     }
                 }
             }
@@ -118,13 +119,13 @@ namespace XboxGamingBarHelper.Performance
             ryzenAdjHandle = RyzenAdj.init_ryzenadj();
             if (ryzenAdjHandle == IntPtr.Zero)
             {
-                Debug.WriteLine("Failed to initialize RyzenAdj");
+                Logger.Info("Failed to initialize RyzenAdj");
             }
             else
             {
                 RyzenAdj.refresh_table(ryzenAdjHandle);
                 // RyzenAdj.set_fast_limit(ryzenAdjHandle, 30000);
-                Debug.WriteLine($"RyzenAdj initialized successfully {RyzenAdj.get_fast_limit(ryzenAdjHandle)} {RyzenAdj.get_slow_limit(ryzenAdjHandle)} {RyzenAdj.get_stapm_limit(ryzenAdjHandle)}");
+                Logger.Info($"RyzenAdj initialized successfully {RyzenAdj.get_fast_limit(ryzenAdjHandle)} {RyzenAdj.get_slow_limit(ryzenAdjHandle)} {RyzenAdj.get_stapm_limit(ryzenAdjHandle)}");
             }
         }
 
@@ -140,7 +141,7 @@ namespace XboxGamingBarHelper.Performance
         {
             if (ryzenAdjHandle == IntPtr.Zero)
             {
-                Debug.WriteLine("RyzenAdj not initialized");
+                Logger.Info("RyzenAdj not initialized");
                 return 10;
             }
 
@@ -152,7 +153,7 @@ namespace XboxGamingBarHelper.Performance
         {
             if (ryzenAdjHandle == IntPtr.Zero)
             {
-                Debug.WriteLine("RyzenAdj not initialized");
+                Logger.Info("RyzenAdj not initialized");
                 return;
             }
             //RyzenAdj.refresh_table(ryzenAdjHandle);
@@ -161,7 +162,7 @@ namespace XboxGamingBarHelper.Performance
             RyzenAdj.set_stapm_limit(ryzenAdjHandle, (uint)(tdp * 1000));
 #if DEBUG
             RyzenAdj.refresh_table(ryzenAdjHandle);
-            Debug.WriteLine($"Set TDP to {tdp}, current TDP is {RyzenAdj.get_fast_limit(ryzenAdjHandle)}");
+            Logger.Info($"Set TDP to {tdp}, current TDP is {RyzenAdj.get_fast_limit(ryzenAdjHandle)}");
 #endif
         }
     }

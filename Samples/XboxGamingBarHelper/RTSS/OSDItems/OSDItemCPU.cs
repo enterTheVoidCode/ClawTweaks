@@ -27,14 +27,14 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             if (osdLevel >= 3)
             {
                 osdItems.Add(new OSDItemValue(cpuUsageSensor != null ? cpuUsageSensor.Value.Value : -1.0f, "%"));
-                osdItems.Add(new OSDItemValue(cpuTemperatureSensor != null ? cpuTemperatureSensor.Value.Value : -1.0f, "°C"));
+                osdItems.Add(new OSDItemValue(cpuWattageSensor != null ? cpuWattageSensor.Value.Value : -1.0f, "W"));
             }
 
             // for level 4, show CPU usage, clock speed, wattage and temperature.
             if (osdLevel >= 4)
             {
                 osdItems.Add(new OSDItemValue(cpuClockSensor != null ? cpuClockSensor.Value.Value : -1.0f, "MHz"));
-                osdItems.Add(new OSDItemValue(cpuWattageSensor != null ? cpuWattageSensor.Value.Value : -1.0f, "W"));
+                osdItems.Add(new OSDItemValue(cpuTemperatureSensor != null ? cpuTemperatureSensor.Value.Value : -1.0f, "°C"));
             }
 
             return osdItems;

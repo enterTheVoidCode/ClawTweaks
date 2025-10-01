@@ -1,11 +1,8 @@
 ﻿using LibreHardwareMonitor.Hardware;
+using Shared.Constants;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using XboxGamingBarHelper.Performance.Sensors;
 
 namespace XboxGamingBarHelper.RTSS.OSDItems
 {
@@ -29,7 +26,10 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
                 osdItems.Add(new OSDItemValue(batteryPercentSensor != null ? batteryPercentSensor.Value.Value : -1.0f, "%"));
                 if (batteryRemainTimeSensor != null && batteryRemainTimeSensor.Value.HasValue)
                 {
-                    osdItems.Add(new OSDItemValue(batteryRemainTimeSensor.Value.Value, "min"));
+                    var hours = Math.Floor(batteryRemainTimeSensor.Value.Value / MathConstants.SECONDS_PER_HOUR);
+                    var minutes = (batteryRemainTimeSensor.Value.Value - hours * MathConstants.SECONDS_PER_HOUR) / MathConstants.SECONDS_PER_MINUTE;
+                    osdItems.Add(new OSDItemValue((float)hours, "H"));
+                    osdItems.Add(new OSDItemValue((float)minutes, "M"));
                 }
             }
 
