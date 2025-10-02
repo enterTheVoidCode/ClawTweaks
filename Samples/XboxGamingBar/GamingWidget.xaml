@@ -1,0 +1,56 @@
+﻿<Page
+    x:Class="XboxGamingBar.GamingWidget"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:XboxGamingBar"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid x:Name="MainGrid" Margin="15,15,15,15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="20"/> <!-- A spacer -->
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="20"/>
+            <!-- Add more RowDefinitions as needed, each with Height="200" -->
+        </Grid.RowDefinitions>
+        <ProgressRing x:Name="LoadingProgressRing" IsActive="True" Visibility="Collapsed" Grid.Row="0" Width="100" Height="100"/>
+        <TextBlock x:Name="PerformanceOverlayText" Text="Performance Overlay" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="1"/>
+        <Slider x:Name="PerformanceOverlaySlider" Grid.Row="2" Margin="10,0,10,0"
+            Minimum="0" Maximum="4"
+            TickFrequency="1"
+            SnapsTo="StepValues"
+            TickPlacement="BottomRight"
+            IsEnabled="False"
+            ValueChanged="PerformanceOverlaySlider_ValueChanged"/>
+
+        <Grid Margin="-18,0,-18,0" Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="OFF"     Grid.Column="0" HorizontalAlignment="Center" FontSize="16"/>
+            <TextBlock Text="FPS"      Grid.Column="1" HorizontalAlignment="Center" FontSize="16"/>
+            <TextBlock Text="BATTERY"  Grid.Column="2" HorizontalAlignment="Center" FontSize="16"/>
+            <TextBlock Text="DETAILED" Grid.Column="3" HorizontalAlignment="Center" FontSize="16"/>
+            <TextBlock Text="FULL"     Grid.Column="4" HorizontalAlignment="Center" FontSize="16"/>
+        </Grid>
+        <TextBlock x:Name="TDPText" Text="TDP Limit" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="5"/>
+        <TextBlock x:Name="TDPValueText" Grid.Row="6" Margin="0,0,0,0" Text="4W" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+        <Slider x:Name="TDPSlider" Grid.Row="6" Margin="10,0,35,0"
+            Minimum="4" Maximum="32"
+            TickFrequency="1"
+            SnapsTo="Ticks"
+            TickPlacement="BottomRight"
+            IsEnabled="False"
+            ValueChanged="TDPSlider_ValueChanged"/>
+    </Grid>
+</Page>

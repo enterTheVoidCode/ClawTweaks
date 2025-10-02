@@ -1,21 +1,23 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 
-<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
-         xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
-         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
-         xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
-         IgnorableNamespaces="uap uap3 mp">
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 mp rescap">
 
   <Identity
     Name="XboxGamingBar"
-    Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    Publisher="CN=Play'n Build, O=Play'n Build, L=Redmond, S=Washington, C=US"
     Version="1.0.0.0" />
 
-  <mp:PhoneIdentity PhoneProductId="c7568c8f-e7bf-4f5e-af4c-ba76d1ca5987" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+  <mp:PhoneIdentity PhoneProductId="4b9dee15-da50-4b0a-8337-9b84da542023" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>Xbox Gaming Bar</DisplayName>
-    <PublisherDisplayName>Nam Nguyen</PublisherDisplayName>
+    <PublisherDisplayName>Play'n Build</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -24,73 +26,45 @@
   </Dependencies>
 
   <Resources>
-    <Resource Language="x-generate" />
+    <Resource Language="x-generate"/>
   </Resources>
 
   <Applications>
-    <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="XboxGamingBar.App">
-      <uap:VisualElements DisplayName="Xbox Gaming Bar" Description="Sample project demonstrating basic Xbox Game Bar Widgets"
-        Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" BackgroundColor="transparent">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png">
-        </uap:DefaultTile>
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="XboxGamingBar.App">
+      <uap:VisualElements
+        DisplayName="Xbox Gaming Bar"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png"
+        Description="Xbox Game Bar widget for changing system settings during game sessions with gamepad."
+        BackgroundColor="transparent">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
       <Extensions>
-        <!-- Two extensions are defined here.  Each extension is a separate widget recognized by Game Bar.
-             When your app is activated, you will be given the AppExtensionId (ID you specify below).  This allows
-             you at runtime to create the desired UI view for that widget. -->
-
-        <!-- 1st Widget -->
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension Name="microsoft.gameBarUIExtension"
-                             Id="MainWidget"
+                             Id="GamingWidget"
                              DisplayName="Gaming"
-                             Description="The main widget of the Xbox Gaming Bar"
-                             PublicFolder="MainWidget">
+                             Description="Xbox Game Bar widget for changing system settings during game sessions with gamepad."
+                             PublicFolder="Assets">
             <uap3:Properties>
               <GameBarWidget Type="Standard">
                 <HomeMenuVisible>true</HomeMenuVisible>
                 <PinningSupported>true</PinningSupported>
-                <SettingsSupported AppExtensionId="MainWidgetSettings" />
-                <ActivateAfterInstall>true</ActivateAfterInstall>
-                <FavoriteAfterInstall>true</FavoriteAfterInstall>
                 <Window>
-                  <AllowForegroundTransparency>true</AllowForegroundTransparency>
                   <Size>
-                    <Height>824</Height>
+                    <Height>400</Height>
                     <Width>464</Width>
-                    <MinHeight>824</MinHeight>
+                    <MinHeight>400</MinHeight>
                     <MinWidth>464</MinWidth>
-                    <MaxHeight>824</MaxHeight>
+                    <MaxHeight>400</MaxHeight>
                     <MaxWidth>900</MaxWidth>
                   </Size>
                   <ResizeSupported>
                     <Horizontal>true</Horizontal>
                     <Vertical>true</Vertical>
-                  </ResizeSupported>
-                </Window>
-              </GameBarWidget>
-            </uap3:Properties>
-          </uap3:AppExtension>
-        </uap3:Extension>
-
-        <!-- Widget Settings (Also a widget of separate type) -->
-        <uap3:Extension Category="windows.appExtension">
-          <uap3:AppExtension Name="microsoft.gameBarUIExtension"
-                             Id="MainWidgetSettings"
-                             DisplayName="Gaming Settings"
-                             Description="The settings widget of the Xbox Gaming Bar"
-                             PublicFolder="MainWidget">
-            <uap3:Properties>
-              <GameBarWidget Type="Settings">
-                <Window>
-                  <Size>
-                    <Height>300</Height>
-                    <Width>300</Width>
-                  </Size>
-                  <ResizeSupported>
-                    <Horizontal>false</Horizontal>
-                    <Vertical>false</Vertical>
                   </ResizeSupported>
                 </Window>
               </GameBarWidget>
@@ -103,8 +77,8 @@
 
   <Extensions>
     <!-- Enlighten COM on where to find Metadata Based Marshaling (MBM) data for the Game Bar private types 
-       <Path> is a required element (by VS) and has to point to a binary in the package, but it's not used when the class id is
-       00000355-0000-0000-C000-000000000046 (MBM). Due to that we just put the Microsoft.Gaming.XboxGameBar.winmd here. -->
+         <Path> is a required element (by VS) and has to point to a binary in the package, but it's not used when the class id is
+         00000355-0000-0000-C000-000000000046 (MBM). Due to that we just put the Microsoft.Gaming.XboxGameBar.winmd here. -->
     <Extension Category="windows.activatableClass.proxyStub">
       <ProxyStub ClassId="00000355-0000-0000-C000-000000000046">
         <Path>Microsoft.Gaming.XboxGameBar.winmd</Path>
@@ -130,12 +104,12 @@
         <Interface Name="Microsoft.Gaming.XboxGameBar.Private.IXboxGameBarWidgetPrivate2" InterfaceId="B2F7DB8C-7540-48DA-9B46-4E60CE0D9DEB" />
         <Interface Name="Microsoft.Gaming.XboxGameBar.Private.IXboxGameBarWidgetPrivate3" InterfaceId="4FB89FB6-7CB8-489D-8408-2269E6C733A1" />
         <Interface Name="Microsoft.Gaming.XboxGameBar.Private.IXboxGameBarWidgetPrivate4" InterfaceId="5638D65A-3733-48CC-90E5-984688D62786" />
-        <Interface Name="Microsoft.Gaming.XboxGameBar.Private.IXboxGameBarWidgetPrivate5" InterfaceId="73B9289B-812C-4FA4-979B-180770DC92B3" />
       </ProxyStub>
     </Extension>
   </Extensions>
-
+  
   <Capabilities>
     <Capability Name="internetClient" />
+	<rescap:Capability Name="appDiagnostics" />
   </Capabilities>
 </Package>

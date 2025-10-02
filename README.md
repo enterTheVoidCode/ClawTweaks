@@ -1,44 +1,18 @@
-# Xbox Game Bar SDK Samples
+# Xbox Gaming Bar
 
-<!-- 
-Guidelines on README format: https://review.docs.microsoft.com/help/onboard/admin/samples/concepts/readme-template?branch=master
+## What is it?
 
-Guidance on onboarding samples to docs.microsoft.com/samples: https://review.docs.microsoft.com/help/onboard/admin/samples/process/onboarding?branch=master
+XBox Gaming Bar is a helper tool for gamers to control all gaming-related settings using the gamepad/game controller.
+Xbox Gaming Bar is built as a Xbox Game Bar widget as the frontend, and a Win32 helper as the backend tool.
+As of now, there are 2 functions:
+1. Performance Overlay using RivaTuner Statistics Server OSD.
+2. TDP Limit.
 
-Taxonomies for products and languages: https://review.docs.microsoft.com/new-hope/information-architecture/metadata/taxonomies?branch=master
--->
+![alt text](Screenshots/v1_1.png)
 
-The Xbox Game Bar software development kit allows you to build widgets for Xbox Game Bar. An Xbox Game Bar widget is a Windows UWP XAML app that has a XAML view rendered into Xbox Game Bar's UI.
+## Language
 
-Aside from a slightly different app activation and a little "bootstrapping" when the app is activated, an Xbox Game Bar widget is no different than any other UWP XAML app. In fact your UWP XAML app can be a normal app (support foreground activation) and one or more Xbox Game Bar widgets (support Xbox Game Bar widget activation).
-
-When your app is activated, it will know which activation type is happening so it can create the correct corresponding XAML view.
-
-These samples will allow you to discover how to build your own Game Bar widget.
-
-## Build Status
-Master Branch
-[![Build Status](https://microsoft.visualstudio.com/Xbox.Apps/_apis/build/status/XboxGameBar/XboxGameBarSamples_CI?branchName=master)](https://microsoft.visualstudio.com/Xbox.Apps/_build/latest?definitionId=50221&branchName=master)
-
-## Documentation
-
-All documentation describing the Game Bar SDK, these samples, OS requirements, and setting up your environment can be found on [docs.microsoft.com/gaming/game-bar](https://docs.microsoft.com/gaming/game-bar).
-
-* [Known Issues and Limitations](https://docs.microsoft.com/gaming/game-bar/known-issues)
-* [Changelog](https://docs.microsoft.com/gaming/game-bar/changelog)
-* [What is the Game Bar SDK](https://docs.microsoft.com/gaming/game-bar)
-* [Getting Started](https://docs.microsoft.com/gaming/game-bar/quickstart/introduction)
-
-## Contributing
-
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
-
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
-
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+Xbox Gaming Bar is 100% free and open source. It's built upon C#.
+Libraries used:
+- LibreHardwareMonitor for performance statistics overlay.
+- RyzenAdj for AMD TDP control.
