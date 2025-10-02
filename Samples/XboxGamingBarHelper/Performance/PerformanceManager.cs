@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using RTSSSharedMemoryNET;
+using XboxGamingBarHelper.Windows;
 
 namespace XboxGamingBarHelper.Performance
 {
@@ -135,6 +137,22 @@ namespace XboxGamingBarHelper.Performance
                 return;
 
             computer.Accept(updateVisitor);
+
+            var appEntries = OSD.GetAppEntries();
+            foreach (var appEntry in appEntries)
+            {
+                if (appEntry == null) continue;
+
+                if (appEntry.InstantaneousFrames > 0)
+                {
+                    Logger.Info($"App {appEntry.Name} process id {appEntry.ProcessId} fps {appEntry.VideoFramerate} InstantaneousFrames={appEntry.InstantaneousFrames} StatFramerateAvg={appEntry.StatFramerateAvg} StatFramerateMax={appEntry.StatFramerateMax} StatFramerateMin={appEntry.StatFramerateMin}");
+                }
+            }
+            var foregroundProcess = WindowsManager.GetForegroundProcess();
+            if (foregroundProcess != null)
+                Logger.Info($"{foregroundProcess.ProcessName} {foregroundProcess.Id}");
+            else
+                Logger.Info("Can't get foreground process");
         }
 
         public static int GetTDP()
