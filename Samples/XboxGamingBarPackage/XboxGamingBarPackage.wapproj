@@ -32,7 +32,7 @@
     <DefaultLanguage>en-US</DefaultLanguage>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <NoWarn>$(NoWarn);NU1702</NoWarn>
-    <EntryPointProjectUniqueName>..\XboxGamingBarCS\XboxGamingBarCS.csproj</EntryPointProjectUniqueName>
+    <EntryPointProjectUniqueName>..\XboxGamingBar\XboxGamingBar.csproj</EntryPointProjectUniqueName>
     <PackageCertificateThumbprint>141CE1EEFF907F13A33AA338FFF403EA7B13E43E</PackageCertificateThumbprint>
   </PropertyGroup>
   <ItemGroup>
@@ -69,7 +69,7 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.19041.5609" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\XboxGamingBarCS\XboxGamingBarCS.csproj" />
+    <ProjectReference Include="..\XboxGamingBar\XboxGamingBar.csproj" />
     <ProjectReference Include="..\XboxGamingBarHelper\XboxGamingBarHelper.csproj" />
   </ItemGroup>
 </Project>
