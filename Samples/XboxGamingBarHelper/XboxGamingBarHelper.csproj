@@ -113,6 +113,8 @@
     <Compile Include="RTSS\OSDItems\OSDItemMemory.cs" />
     <Compile Include="RTSS\OSDItemValue.cs" />
     <Compile Include="RTSS\RTSSManager.cs" />
+    <Compile Include="Windows\Win32.cs" />
+    <Compile Include="Windows\WindowsManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
