@@ -7,8 +7,9 @@ Xbox Gaming Bar is built as a Xbox Game Bar widget as the frontend, and a Win32 
 As of now, there are 2 functions:
 1. Performance Overlay using RivaTuner Statistics Server OSD.
 2. TDP Limit.
+3. Per-game Profile.
 
-![alt text](Screenshots/v1_1.png)
+![alt text](Screenshots/v2_1.png)
 
 ## Language
 

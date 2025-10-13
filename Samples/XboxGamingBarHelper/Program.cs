@@ -1,65 +1,156 @@
-﻿using Shared.Enums;
+﻿using NLog;
+using Shared.Data;
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
-using Windows.Foundation.Collections;
+using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Performance;
+using XboxGamingBarHelper.Profile;
 using XboxGamingBarHelper.RTSS;
+using XboxGamingBarHelper.Systems;
 
 namespace XboxGamingBarHelper
 {
     internal class Program
     {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private static AppServiceConnection connection = null;
 
-        private static bool needToUpdate = false;
+        // Managers
+        private static PerformanceManager performanceManager;
+        private static RTSSManager rtssManager;
+        private static ProfileManager profileManager;
+        private static SystemManager systemManager;
+        private static List<IManager> Managers;
+
+        // Properties
+        private static HelperProperties properties;
 
         static async Task Main(string[] args)
         {
-            // Console.Title = "Xbox Gaming Bar Helper";
-            // Console.WriteLine($"OSD {OSD.GetOSDEntries().Length} APP {OSD.GetAppEntries().Length}");
-            // Console.WriteLine("\r\nPress any key to exit ...");
-            // Console.ReadLine();
-
-            // await InitializeAppServiceConnection();
-
-
-            Initialize();
-            await InitializeAppServiceConnection();
-        }
-
-        private static void Initialize()
-        {
-            PerformanceManager.Initialize();
-            RTSSManager.Initialize();
+            await Initialize();
         }
 
         /// <summary>
         /// Open connection to UWP app service
         /// </summary>
-        private static async Task InitializeAppServiceConnection()
+        private static async Task Initialize()
         {
+            // Initialize app service connection.
             connection = new AppServiceConnection();
             connection.AppServiceName = "XboxGamingBarService";
             connection.PackageFamilyName = Package.Current.Id.FamilyName;
             connection.RequestReceived += Connection_RequestReceived;
             connection.ServiceClosed += Connection_ServiceClosed;
 
+            //while (!System.Diagnostics.Debugger.IsAttached)
+            //{
+            //    await Task.Delay(500);
+            //}
+
+            // Initialize managers.
+            performanceManager = new PerformanceManager(connection);
+            rtssManager = new RTSSManager(performanceManager, connection);
+            profileManager = new ProfileManager(connection);
+            systemManager = new SystemManager(connection);
+            Managers = new List<IManager> { performanceManager, rtssManager, profileManager, systemManager };
+
+            // Initialize properties.
+            properties = new HelperProperties(systemManager.RunningGame, rtssManager.OSD, performanceManager.TDP, profileManager.PerGameProfile);
+
+            systemManager.RunningGame.PropertyChanged += RunningGame_PropertyChanged;
+            profileManager.PerGameProfile.PropertyChanged += PerGameProfile_PropertyChanged;
+            performanceManager.TDP.PropertyChanged += TDP_PropertyChanged;
+            profileManager.CurrentProfile.PropertyChanged += CurrentProfile_PropertyChanged;
+
             AppServiceConnectionStatus status = await connection.OpenAsync();
             if (status != AppServiceConnectionStatus.Success)
             {
-                needToUpdate = false;
                 return;
             }
 
-            needToUpdate = true;
-            while (needToUpdate)
+            while (true)
             {
                 await Task.Delay(500);
-                
-                PerformanceManager.Update();
-                RTSSManager.Update();
+
+                foreach (var manager in Managers)
+                {
+                    manager.Update();
+                }
+            }
+        }
+
+        private static void CurrentProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (profileManager.CurrentProfile.Use || profileManager.CurrentProfile.IsGlobalProfile)
+            {
+                Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name}, apply it.");
+                performanceManager.TDP.Value = profileManager.CurrentProfile.TDP;
+                profileManager.PerGameProfile.Value = profileManager.CurrentProfile.Use;
+            }
+            else
+            {
+                Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name} is not used.");
+            }
+        }
+
+        private static void PerGameProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            GameProfile gameProfile;
+            if (profileManager.PerGameProfile)
+            {
+                if (!profileManager.TryGetProfile(systemManager.RunningGame.Value.GameId, out gameProfile))
+                {
+                    gameProfile = profileManager.AddNewProfile(systemManager.RunningGame.Value.GameId);
+                }
+                Logger.Info($"Enable per-game profile for {systemManager.RunningGame.Value.GameId}");
+                gameProfile.Use = true;
+            }
+            else
+            {
+                if (profileManager.TryGetProfile(systemManager.RunningGame.Value.GameId, out gameProfile))
+                {
+                    gameProfile.Use = false;
+                }
+                gameProfile = profileManager.GlobalProfile;
+            }
+            profileManager.CurrentProfile.Value = gameProfile;
+        }
+
+        private static void TDP_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s TDP from {profileManager.CurrentProfile.TDP} to {performanceManager.TDP}.");
+            profileManager.CurrentProfile.TDP = performanceManager.TDP;
+        }
+
+        private static void RunningGame_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (systemManager.RunningGame.Value.IsValid())
+            {
+                if (profileManager.TryGetProfile(systemManager.RunningGame.Value.GameId, out var runningGameProfile))
+                {
+                    if (runningGameProfile.Use)
+                    {
+                        Logger.Info($"Game {systemManager.RunningGame.GameId} has per-game profile in use.");
+                        profileManager.CurrentProfile.Value = runningGameProfile;
+                    }
+                    else
+                    {
+                        Logger.Info($"Game {systemManager.RunningGame.GameId} has per-game profile but not in use.");
+                    }
+                }
+                else
+                {
+                    Logger.Info($"Game {systemManager.RunningGame.GameId} doesn't have per-game profile.");
+                }
+            }
+            else
+            {
+                Logger.Info($"Stopped playing game, use global profile instead.");
+                profileManager.CurrentProfile.Value = profileManager.GlobalProfile;
             }
         }
 
@@ -68,93 +159,8 @@ namespace XboxGamingBarHelper
         /// </summary>
         private static async void Connection_RequestReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
         {
-            var action = (Command)args.Request.Message[nameof(Command)];
-            var function = (Function)args.Request.Message[nameof(Function)];
-            switch (action)
-            {
-                case Command.Get:
-                    ValueSet response = new ValueSet();
-                    switch (function)
-                    {
-                        case Function.OSD:
-                            response.Add(nameof(Value), RTSSManager.OSDLevel);
-                            break;
-                        case Function.TDP:
-                            response.Add(nameof(Value), PerformanceManager.GetTDP());
-                            break;
-                    }
-
-                    await args.Request.SendResponseAsync(response);
-                    break;
-                case Command.Set:
-                    
-                    switch (function)
-                    {
-                        case Function.OSD:
-                            var osdLevel = (int)args.Request.Message[nameof(Value)];
-                            RTSSManager.OSDLevel = osdLevel;
-                            break;
-                        case Function.TDP:
-                            var tdpLimit = (int)args.Request.Message[nameof(Value)];
-                            PerformanceManager.SetTDP(tdpLimit);
-                            break;
-                    }
-                    break;
-            }
-            // retrive the reg key name from the ValueSet in the request
-            //string key = args.Request.Message["KEY"] as string;
-            //int index = key.IndexOf('\\');
-            //if (index > 0)
-            //{
-            //    // read the key values from the respective hive in the registry
-            //    string hiveName = key.Substring(0, key.IndexOf('\\'));
-            //    string keyName = key.Substring(key.IndexOf('\\') + 1);
-            //    RegistryHive hive = RegistryHive.ClassesRoot;
-
-            //    switch (hiveName)
-            //    {
-            //        case "HKLM":
-            //            hive = RegistryHive.LocalMachine;
-            //            break;
-            //        case "HKCU":
-            //            hive = RegistryHive.CurrentUser;
-            //            break;
-            //        case "HKCR":
-            //            hive = RegistryHive.ClassesRoot;
-            //            break;
-            //        case "HKU":
-            //            hive = RegistryHive.Users;
-            //            break;
-            //        case "HKCC":
-            //            hive = RegistryHive.CurrentConfig;
-            //            break;
-            //    }
-
-            //    using (RegistryKey regKey = RegistryKey.OpenRemoteBaseKey(hive, "").OpenSubKey(keyName))
-            //    {
-            //        // compose the response as ValueSet
-            //        ValueSet response = new ValueSet();
-            //        if (regKey != null)
-            //        {
-            //            foreach (string valueName in regKey.GetValueNames())
-            //            {
-            //                response.Add(valueName, regKey.GetValue(valueName).ToString());
-            //            }
-            //        }
-            //        else
-            //        {
-            //            response.Add("ERROR", "KEY NOT FOUND");
-            //        }
-            //        // send the response back to the UWP
-            //        await args.Request.SendResponseAsync(response);
-            //    }
-            //}
-            //else
-            //{
-            //    ValueSet response = new ValueSet();
-            //    response.Add("ERROR", "INVALID REQUEST");
-            //    await args.Request.SendResponseAsync(response);
-            //}
+            Logger.Info($"Helper received message {args.Request.Message.ToDebugString()} from widget.");
+            await properties.OnRequestReceived(args.Request);
         }
 
         /// <summary>

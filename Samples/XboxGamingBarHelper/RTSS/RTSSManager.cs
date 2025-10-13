@@ -1,52 +1,60 @@
 ﻿using RTSSSharedMemoryNET;
-using System;
 using System.Diagnostics;
+using Windows.ApplicationModel.AppService;
+using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Performance;
 using XboxGamingBarHelper.RTSS.OSDItems;
 
 namespace XboxGamingBarHelper.RTSS
 {
-    internal static class RTSSManager
+    internal class RTSSManager : Manager
     {
         private const string OSDSeparator = " <C=6E006A>|<C> ";
         private const string OSDBackground = "<P=0,0><L0><C=80000000><B=0,0>\b<C>";
         private const string OSDAppName = "Xbox Gaming Bar OSD";
 
-        internal static int OSDLevel;
-        internal static OSD OSD;
-        internal static OSDItem[] OSDItems;
+        private OSD rtssOSD;
+        private readonly OSDItem[] osdItems;
 
-        public static void Initialize()
+        private readonly OSDProperty osd;
+        public OSDProperty OSD
         {
-            OSDItems = new OSDItem[]
+            get { return osd; }
+        }
+
+        public RTSSManager(PerformanceManager performanceManager, AppServiceConnection connection) : base(connection)
+        {
+            osd = new OSDProperty(0, null, this);
+            osdItems = new OSDItem[]
             {
                 new OSDItemFPS(),
-                new OSDItemBattery(PerformanceManager.BatteryPercent, PerformanceManager.BatteryRemainTime),
-                new OSDItemMemory(PerformanceManager.MemoryUsage, PerformanceManager.MemoryUsed),
-                new OSDItemCPU(PerformanceManager.CPUUsage, PerformanceManager.CPUClock, PerformanceManager.CPUWattage, PerformanceManager.CPUTemperature),
-                new OSDItemGPU(PerformanceManager.GPUUsage, PerformanceManager.GPUClock, PerformanceManager.GPUWattage, PerformanceManager.GPUTemperature),
+                new OSDItemBattery(performanceManager.BatteryPercent, performanceManager.BatteryRemainTime),
+                new OSDItemMemory(performanceManager.MemoryUsage, performanceManager.MemoryUsed),
+                new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature),
+                new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature),
             };
         }
 
-        public static bool IsRTSSRunning()
+        internal static bool IsRTSSRunning()
         {
             return Process.GetProcessesByName("RTSS").Length > 0;
         }
 
-        public static void Update()
+        public override void Update()
         {
+            base.Update();
             // Console.WriteLine($"OSD level {OSDLevel}");
             
-            if (OSDLevel == 0)
+            if (osd == 0)
             {
-                if (OSD != null)
+                if (rtssOSD != null)
                 {
-                    OSD.Update(string.Empty);
-                    OSD.Dispose();
-                    OSD = null;
+                    rtssOSD.Update(string.Empty);
+                    rtssOSD.Dispose();
+                    rtssOSD = null;
                 }
 
-                var osdEntries = OSD.GetOSDEntries();
+                var osdEntries = RTSSSharedMemoryNET.OSD.GetOSDEntries();
                 for (int i = 0; i < osdEntries.Length; i++)
                 {
                     OSDEntry osdEntry = osdEntries[i];
@@ -59,15 +67,15 @@ namespace XboxGamingBarHelper.RTSS
                 return;
             }
 
-            if (OSD == null)
+            if (rtssOSD == null)
             {
-                OSD = new OSD(OSDAppName);
+                rtssOSD = new OSD(OSDAppName);
             }
 
             string osdString = OSDBackground;
-            for (int i = 0; i < OSDItems.Length; i++)
+            for (int i = 0; i < osdItems.Length; i++)
             {
-                var osdItemString = OSDItems[i].GetOSDString(OSDLevel);
+                var osdItemString = osdItems[i].GetOSDString(osd);
                 if (string.IsNullOrEmpty(osdItemString))
                     continue;
 
@@ -81,7 +89,7 @@ namespace XboxGamingBarHelper.RTSS
                 }
             }
 
-            OSD.Update(osdString);
+            rtssOSD.Update(osdString);
         }
     }
 }

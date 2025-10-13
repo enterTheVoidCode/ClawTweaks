@@ -1,6 +1,6 @@
 ﻿namespace Shared.Enums
 {
-    public enum Value
+    public enum Content
     {
     }
 }
