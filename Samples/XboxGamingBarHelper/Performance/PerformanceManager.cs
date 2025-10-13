@@ -2,79 +2,85 @@
 using NLog;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using RTSSSharedMemoryNET;
-using XboxGamingBarHelper.Windows;
+using Windows.ApplicationModel.AppService;
+using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Performance
 {
-    internal static class PerformanceManager
+    internal class PerformanceManager : Manager
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        private static Computer computer;
-        private static IVisitor updateVisitor;
-        private static IntPtr ryzenAdjHandle;
+        private Computer computer;
+        private IVisitor updateVisitor;
+        private IntPtr ryzenAdjHandle;
 
         #region CPU
         [HardwareSensor("CPU Total", HardwareType.Cpu, SensorType.Load)]
-        private static ISensor cpuUsage;
-        public static ISensor CPUUsage => cpuUsage;
+        private ISensor cpuUsage;
+        public ISensor CPUUsage => cpuUsage;
 
         [HardwareSensor("Core #1", HardwareType.Cpu, SensorType.Clock)]
-        private static ISensor cpuClock;
-        public static ISensor CPUClock => cpuClock;
+        private ISensor cpuClock;
+        public ISensor CPUClock => cpuClock;
 
         [HardwareSensor("Package", HardwareType.Cpu, SensorType.Power)]
-        private static ISensor cpuWattage;
-        public static ISensor CPUWattage => cpuWattage;
+        private ISensor cpuWattage;
+        public ISensor CPUWattage => cpuWattage;
 
         [HardwareSensor("Core (Tctl/Tdie)", HardwareType.Cpu, SensorType.Temperature)]
-        private static ISensor cpuTemperature;
-        public static ISensor CPUTemperature => cpuTemperature;
+        private ISensor cpuTemperature;
+        public ISensor CPUTemperature => cpuTemperature;
         #endregion
 
         #region GPU
         [HardwareSensor("GPU Core", HardwareType.GpuAmd, SensorType.Load)]
-        private static ISensor gpuUsage;
-        public static ISensor GPUUsage => gpuUsage;
+        private ISensor gpuUsage;
+        public ISensor GPUUsage => gpuUsage;
 
         [HardwareSensor("GPU Core", HardwareType.GpuAmd, SensorType.Clock)]
-        private static ISensor gpuClock;
-        public static ISensor GPUClock => gpuClock;
+        private ISensor gpuClock;
+        public ISensor GPUClock => gpuClock;
 
         [HardwareSensor("GPU Core", HardwareType.GpuAmd, SensorType.Power)]
-        private static ISensor gpuWattage;
-        public static ISensor GPUWattage => gpuWattage;
+        private ISensor gpuWattage;
+        public ISensor GPUWattage => gpuWattage;
 
         [HardwareSensor("GPU VR SoC", HardwareType.GpuAmd, SensorType.Temperature)]
-        private static ISensor gpuTemperature;
-        public static ISensor GPUTemperature => gpuTemperature;
+        private ISensor gpuTemperature;
+        public ISensor GPUTemperature => gpuTemperature;
         #endregion
 
         #region Memory
         [HardwareSensor("Memory", HardwareType.Memory, SensorType.Load)]
-        private static ISensor memoryUsage;
-        public static ISensor MemoryUsage => memoryUsage;
+        private ISensor memoryUsage;
+        public ISensor MemoryUsage => memoryUsage;
 
         [HardwareSensor("Memory Used", HardwareType.Memory, SensorType.Data)]
-        private static ISensor memoryUsed;
-        public static ISensor MemoryUsed => memoryUsed;
+        private ISensor memoryUsed;
+        public ISensor MemoryUsed => memoryUsed;
         #endregion
 
         #region Battery
         [HardwareSensor("Charge Level", HardwareType.Battery, SensorType.Level)]
-        private static ISensor batteryPercent;
-        public static ISensor BatteryPercent => batteryPercent;
+        private ISensor batteryPercent;
+        public ISensor BatteryPercent => batteryPercent;
 
         [HardwareSensor("Remaining Time (Estimated)", HardwareType.Battery, SensorType.TimeSpan)]
-        private static ISensor batteryRemainTime;
-        public static ISensor BatteryRemainTime => batteryRemainTime;
+        private ISensor batteryRemainTime;
+        public ISensor BatteryRemainTime => batteryRemainTime;
+        // Discharge Rate
         #endregion
 
-        internal static void Initialize()
+        private TDPProperty tdp;
+        public TDPProperty TDP
+        {
+            get { return tdp; }
+        }
+
+        internal PerformanceManager(AppServiceConnection connection) : base(connection)
         {
             // Initialize the computer sensors
             computer = new Computer
@@ -94,9 +100,8 @@ namespace XboxGamingBarHelper.Performance
             computer.Accept(updateVisitor);
 
             // Initialize sensor fields
-
             Dictionary<(string Name, HardwareType HW, SensorType ST), FieldInfo> hardwareSensorFields = new Dictionary<(string Name, HardwareType HW, SensorType ST), FieldInfo>();
-            foreach (var field in typeof(PerformanceManager).GetFields(BindingFlags.Static | BindingFlags.NonPublic))
+            foreach (var field in typeof(PerformanceManager).GetFields(BindingFlags.Instance | BindingFlags.NonPublic))
             {
                 var hardwareSensorAttribute = field.GetCustomAttributes(typeof(HardwareSensorAttribute), inherit: true)
                                 .Cast<HardwareSensorAttribute>()
@@ -112,50 +117,40 @@ namespace XboxGamingBarHelper.Performance
                 {
                     if (hardwareSensorFields.TryGetValue((sensor.Name, hardware.HardwareType, sensor.SensorType), out FieldInfo fieldInfo))
                     {
-                        fieldInfo.SetValue(null, sensor);
-                        Logger.Info("Found hardware Sensor: {0}, value: {1}, type: {2}", sensor.Name, sensor.Value, sensor.SensorType.ToString());
+                        fieldInfo.SetValue(this, sensor);
+                        // Logger.Info("Found hardware Sensor: {0}, value: {1}, type: {2}", sensor.Name, sensor.Value, sensor.SensorType.ToString());
                     }
                 }
             }
 
             ryzenAdjHandle = RyzenAdj.init_ryzenadj();
+            var initialTDP = 25;
             if (ryzenAdjHandle == IntPtr.Zero)
             {
-                Logger.Info("Failed to initialize RyzenAdj");
+                Logger.Error("Failed to initialize RyzenAdj");
             }
             else
             {
                 RyzenAdj.refresh_table(ryzenAdjHandle);
                 // RyzenAdj.set_fast_limit(ryzenAdjHandle, 30000);
-                Logger.Info($"RyzenAdj initialized successfully {RyzenAdj.get_fast_limit(ryzenAdjHandle)} {RyzenAdj.get_slow_limit(ryzenAdjHandle)} {RyzenAdj.get_stapm_limit(ryzenAdjHandle)}");
+                initialTDP = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
+                Logger.Info($"RyzenAdj initialized successfully at {initialTDP}W");
             }
+
+            tdp = new TDPProperty(initialTDP, null, this);
         }
 
-        internal static void Update()
+        public override void Update()
         {
+            base.Update();
+
             if (computer == null)
                 return;
 
             computer.Accept(updateVisitor);
-
-            var appEntries = OSD.GetAppEntries();
-            foreach (var appEntry in appEntries)
-            {
-                if (appEntry == null) continue;
-
-                if (appEntry.InstantaneousFrames > 0)
-                {
-                    Logger.Info($"App {appEntry.Name} process id {appEntry.ProcessId} fps {appEntry.VideoFramerate} InstantaneousFrames={appEntry.InstantaneousFrames} StatFramerateAvg={appEntry.StatFramerateAvg} StatFramerateMax={appEntry.StatFramerateMax} StatFramerateMin={appEntry.StatFramerateMin}");
-                }
-            }
-            var foregroundProcess = WindowsManager.GetForegroundProcess();
-            if (foregroundProcess != null)
-                Logger.Info($"{foregroundProcess.ProcessName} {foregroundProcess.Id}");
-            else
-                Logger.Info("Can't get foreground process");
         }
 
-        public static int GetTDP()
+        public int GetTDP()
         {
             if (ryzenAdjHandle == IntPtr.Zero)
             {
@@ -167,7 +162,7 @@ namespace XboxGamingBarHelper.Performance
             return (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
         }
 
-        public static void SetTDP(int tdp)
+        public void SetTDP(int tdp)
         {
             if (ryzenAdjHandle == IntPtr.Zero)
             {
