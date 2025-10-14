@@ -9,13 +9,13 @@
   IgnorableNamespaces="uap uap3 rescap">
 
   <Identity
-    Name="454e0d5a-f422-40de-bd45-c63eb806f957"
-    Publisher="CN=Play n&apos; Build"
+    Name="PlayandBuild.10365195AA1EC"
+    Publisher="CN=632C25E4-B6CB-4B80-A9DB-AAB4012EE37A"
     Version="0.1.0.0" />
 
   <Properties>
     <DisplayName>Xbox Gaming Bar</DisplayName>
-    <PublisherDisplayName>Play n&apos; Build</PublisherDisplayName>
+    <PublisherDisplayName>Play and Build</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>
 
