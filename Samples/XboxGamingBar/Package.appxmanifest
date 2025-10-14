@@ -9,15 +9,15 @@
   IgnorableNamespaces="uap uap3 mp rescap">
 
   <Identity
-    Name="XboxGamingBar"
-    Publisher="CN=Play'n Build, O=Play'n Build, L=Redmond, S=Washington, C=US"
+    Name="PlayandBuild.10365195AA1EC"
+    Publisher="CN=632C25E4-B6CB-4B80-A9DB-AAB4012EE37A"
     Version="1.0.0.0" />
 
-  <mp:PhoneIdentity PhoneProductId="4b9dee15-da50-4b0a-8337-9b84da542023" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+  <mp:PhoneIdentity PhoneProductId="c2dd2cd0-7156-428e-b305-d3dd3505b10d" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>Xbox Gaming Bar</DisplayName>
-    <PublisherDisplayName>Play'n Build</PublisherDisplayName>
+    <PublisherDisplayName>Play and Build</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 

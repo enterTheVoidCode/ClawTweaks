@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Windows.ApplicationModel.AppService;
+using Windows.Storage;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Profile
@@ -84,12 +85,12 @@ namespace XboxGamingBarHelper.Profile
 
         public static string GetGameProfilesFolder()
         {
-            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, PROFILE_FOLDER_NAME);
+            return Path.Combine(ApplicationData.Current.LocalFolder.Path, PROFILE_FOLDER_NAME);
         }
 
         public static string GetGlobalProfilePath()
         {
-            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{GameProfile.GLOBAL_PROFILE_NAME}{XML_EXTENSION}");
+            return Path.Combine(ApplicationData.Current.LocalFolder.Path, $"{GameProfile.GLOBAL_PROFILE_NAME}{XML_EXTENSION}");
         }
 
         public bool TryGetProfile(GameId gameId, out GameProfile gameProfile)
