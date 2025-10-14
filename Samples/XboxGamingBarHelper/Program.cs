@@ -25,6 +25,7 @@ namespace XboxGamingBarHelper
         private static ProfileManager profileManager;
         private static SystemManager systemManager;
         private static List<IManager> Managers;
+        private static AppServiceConnectionStatus appServiceConnectionStatus;
 
         // Properties
         private static HelperProperties properties;
@@ -66,13 +67,13 @@ namespace XboxGamingBarHelper
             performanceManager.TDP.PropertyChanged += TDP_PropertyChanged;
             profileManager.CurrentProfile.PropertyChanged += CurrentProfile_PropertyChanged;
 
-            AppServiceConnectionStatus status = await connection.OpenAsync();
-            if (status != AppServiceConnectionStatus.Success)
+            appServiceConnectionStatus = await connection.OpenAsync();
+            if (appServiceConnectionStatus != AppServiceConnectionStatus.Success)
             {
                 return;
             }
 
-            while (true)
+            while (appServiceConnectionStatus == AppServiceConnectionStatus.Success)
             {
                 await Task.Delay(500);
 
@@ -81,6 +82,7 @@ namespace XboxGamingBarHelper
                     manager.Update();
                 }
             }
+            Logger.Info("Helper close...");
         }
 
         private static void CurrentProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -168,12 +170,8 @@ namespace XboxGamingBarHelper
         /// </summary>
         private static void Connection_ServiceClosed(AppServiceConnection sender, AppServiceClosedEventArgs args)
         {
-            // connection to the UWP lost, so we shut down the desktop process
-            //fix later
-            //Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() =>
-            //{
-            //    Application.Current.Shutdown();
-            //}));
+            Logger.Info("Lost connection to the app.");
+            appServiceConnectionStatus = AppServiceConnectionStatus.AppServiceUnavailable;
         }
     }
 }

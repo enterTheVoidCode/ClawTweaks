@@ -134,7 +134,7 @@ namespace XboxGamingBar
 
                     // Create Game Bar widget object which bootstraps the connection with Game Bar
                     xboxGameBarWidget = new XboxGameBarWidget(widgetArgs, Window.Current.CoreWindow, rootFrame);
-                    rootFrame.Navigate(typeof(GamingWidget));
+                    rootFrame.Navigate(typeof(GamingWidget), xboxGameBarWidget);
                     gamingWidget = rootFrame.Content as GamingWidget;
 
                     Window.Current.Closed += GamingWidgetWindow_Closed;
@@ -191,7 +191,7 @@ namespace XboxGamingBar
                     // When the navigation stack isn't restored navigate to the first page,
                     // configuring the new page by passing required information as a navigation
                     // parameter
-                    // rootFrame.Navigate(typeof(GamingWidget), e.Arguments);
+                    rootFrame.Navigate(typeof(GamingWidget), e.Arguments);
                 }
                 // Ensure the current window is active
                 Window.Current.Activate();
