@@ -1,4 +1,5 @@
-﻿using NLog;
+﻿using Microsoft.Gaming.XboxGameBar;
+using NLog;
 using Shared.Data;
 using System;
 using System.Threading.Tasks;
@@ -20,6 +21,10 @@ namespace XboxGamingBar
     public sealed partial class GamingWidget : Page
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        // Xbox Game Bar logic
+        private XboxGameBarWidget widget = null;
+        private XboxGameBarWidgetActivity widgetActivity = null;
 
         // Properties
         private readonly OSDProperty osd;
@@ -46,6 +51,8 @@ namespace XboxGamingBar
             //{
             //    await Task.Delay(500);
             //}
+
+            widget = e.Parameter as XboxGameBarWidget;
 
             if (App.Connection == null && ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0))
             {
@@ -79,6 +86,12 @@ namespace XboxGamingBar
         /// </summary>
         private async void GamingWidget_AppServiceConnected(object sender, AppServiceTriggerDetails e)
         {
+            if (widget != null && widgetActivity == null)
+            {
+                widgetActivity = new XboxGameBarWidgetActivity(widget, "XboxGamingBarActivity");
+                Logger.Info("Create new activity to keep the widget runs in the background.");
+            }
+
             App.Connection.RequestReceived += AppServiceConnection_RequestReceived;
             await properties.Sync();
         }
@@ -88,6 +101,13 @@ namespace XboxGamingBar
         /// </summary>
         private async void GamingWidget_AppServiceDisconnected(object sender, EventArgs e)
         {
+            if (widgetActivity != null)
+            {
+                widgetActivity.Complete();
+                widgetActivity = null;
+                Logger.Info("Stopped widget activity.");
+            }
+
             await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 Logger.Info("AppService Disconnected");
