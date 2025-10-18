@@ -30,7 +30,19 @@ namespace Shared.Data
             if (ReferenceEquals(g1, null) || ReferenceEquals(g2, null))
                 return false;
 
-            return g1.Name == g2.Name && g1.Path == g2.Path;
+            if (g1.Name == null && g2.Name != null || g1.Name != null && g2.Name == null)
+                return false;
+
+            if (g1.Path == null && g2.Path != null || g1.Path != null && g2.Path == null)
+                return false;
+
+            if (g1.Name == null && g2.Name == null)
+                return g1.Path == null && g2.Path == null;
+
+            if (g1.Path == null && g2.Path == null)
+                return g1.Name == null && g2.Name == null;
+
+            return g1.Name.CompareTo(g2.Name) == 0 && g1.Path.CompareTo(g2.Path) == 0;
         }
 
         public static bool operator !=(GameId p1, GameId p2)

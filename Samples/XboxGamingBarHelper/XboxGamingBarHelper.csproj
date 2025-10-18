@@ -170,6 +170,7 @@
     <Compile Include="RTSS\OSDProperty.cs" />
     <Compile Include="RTSS\RTSSManager.cs" />
     <Compile Include="Systems\RunningGameProperty.cs" />
+    <Compile Include="Windows\ProcessWindow.cs" />
     <Compile Include="Windows\Win32.cs" />
     <Compile Include="Systems\SystemManager.cs" />
   </ItemGroup>

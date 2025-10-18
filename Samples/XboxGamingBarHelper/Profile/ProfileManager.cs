@@ -109,8 +109,7 @@ namespace XboxGamingBarHelper.Profile
             var newGameProfilePath = Path.Combine(GetGameProfilesFolder(), $"{Path.GetFileNameWithoutExtension(gameId.Path)}{XML_EXTENSION}");
             var newGameProfile = new GameProfile(gameId.Name, gameId.Path, true, CurrentProfile.TDP, newGameProfilePath, gameProfiles);
             newGameProfile.Save();
-            gameProfiles.Add(gameId, newGameProfile);
-            Logger.Warn($"Add new profile for {gameId.Name} at {newGameProfilePath}.");
+            Logger.Info($"Add new profile for {gameId.Name} at {newGameProfilePath}.");
             return newGameProfile;
         }
     }
