@@ -16,6 +16,11 @@ namespace XboxGamingBarHelper.Systems
             get { return Value.GameId; }
         }
 
+        public bool IsValid()
+        {
+            return Value.IsValid();
+        }
+
         protected override void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);

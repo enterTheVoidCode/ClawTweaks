@@ -9,6 +9,7 @@ using Shared.Data;
 using XboxGamingBarHelper.Windows;
 using XboxGamingBarHelper.Core;
 using Windows.ApplicationModel.AppService;
+using System.Collections.Generic;
 
 namespace XboxGamingBarHelper.Systems
 {
@@ -16,7 +17,7 @@ namespace XboxGamingBarHelper.Systems
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        private static readonly string[] IgnoredProcesses = 
+        private static readonly string[] IgnoredProcesses =
         {
             "rustdesk.exe",
             "anydesk.exe",
@@ -33,90 +34,34 @@ namespace XboxGamingBarHelper.Systems
             get { return runningGame; }
         }
 
-        public SystemManager(AppServiceConnection connection) : base(connection)
+        private IReadOnlyDictionary<GameId, GameProfile> Profiles { get; }
+
+        // Keep track to current opening windows to determine currently running game.
+        private Dictionary<int, ProcessWindow> ProcessWindows { get; }
+        private Dictionary<int, AppEntry> AppEntries { get; }
+
+        public SystemManager(AppServiceConnection connection, IReadOnlyDictionary<GameId, GameProfile> profiles) : base(connection)
         {
-            var initialRunningGame = GetRunningGame();
-            runningGame = new RunningGameProperty(initialRunningGame, this);
+            ProcessWindows = new Dictionary<int, ProcessWindow>();
+            AppEntries = new Dictionary<int, AppEntry>();
+            Profiles = profiles;
+            runningGame = new RunningGameProperty(GetRunningGame(), this);
         }
 
-        private static int GetForegroundProcessId()
+        private RunningGame GetRunningGame()
         {
-            IntPtr foregroundWindowHandle = Win32.GetForegroundWindow();
-            if (foregroundWindowHandle == IntPtr.Zero)
+            Win32.GetOpenWindows(ProcessWindows);
+            if (ProcessWindows.Count == 0)
             {
-                Logger.Error("Can't get foreground window.");
-                return -1;
-            }
-            Win32.GetWindowThreadProcessId(foregroundWindowHandle, out IntPtr activeAppProcessId);
-            if (activeAppProcessId == IntPtr.Zero)
-            {
-                Logger.Error("Can't get active process id.");
-                return -1;
+                Logger.Debug("There is not any opening window, so no game detected");
+                return new RunningGame();
             }
 
-            return (int)activeAppProcessId;
-        }
-
-        private static string GetWindowTitle(int processId)
-        {
-            Process process;
-            try
-            {
-                process = Process.GetProcessById(processId);
-            }
-            catch (ArgumentException e)
-            {
-                Logger.Error($"Error {e} while trying to get process {processId}");
-                process = null;
-            }
-            if (process == null)
-            {
-                Logger.Error($"Can't get process id {processId}");
-                return string.Empty;
-            }
-
-            IntPtr windowHandle = process.MainWindowHandle;
-            if (windowHandle == IntPtr.Zero)
-            {
-                Logger.Error($"Can't get process id {processId}'s window handle");
-                return string.Empty;
-            }
-
-            var length = Win32.GetWindowTextLength(windowHandle);
-            if (length == 0)
-            {
-                Logger.Error($"Process id {processId} doesn't have window title??");
-                return string.Empty;
-            }
-
-            StringBuilder sb = new StringBuilder(length + 1);
-            Win32.GetWindowText(windowHandle, sb, sb.Capacity);
-
-            return sb.ToString();
-        }
-
-        private static RunningGame GetRunningGame()
-        {
             var appEntries = OSD.GetAppEntries();
-            var runningGame = new RunningGame();
-            if (appEntries == null || appEntries.Length == 0)
-            {
-                Logger.Debug("There is not any app running.");
-                return runningGame;
-            }
-
-            var foregroundProcessId = GetForegroundProcessId();
-
+            AppEntries.Clear();
             foreach (var appEntry in appEntries)
             {
                 var appPath = appEntry.Name;
-                // Only check D3D applications.
-                if (appEntry.InstantaneousFrames <= 0)
-                {
-                    Logger.Debug($"Process {appPath} is not a game.");
-                    continue;
-                }
-                
                 // Ignore some unwanted processes.
                 var appExecutableFileName = Path.GetFileName(appPath);
                 if (IgnoredProcesses.Contains(appExecutableFileName.ToLower()))
@@ -125,32 +70,69 @@ namespace XboxGamingBarHelper.Systems
                     continue;
                 }
 
-                // Get game name either from window's title or from executable file name.
-                var gameName = GetWindowTitle(appEntry.ProcessId);
-                if (string.IsNullOrEmpty(gameName))
-                {
-                    gameName = appExecutableFileName.Replace(".exe", string.Empty);
-                }
+                AppEntries[appEntry.ProcessId] = appEntry;
+            }
 
-                // Check if it's the foreground process.
-                if (appEntry.ProcessId == foregroundProcessId)
+            var possibleGames = new List<RunningGame>();
+            foreach (var processWindow in ProcessWindows)
+            {
+                if (IgnoredProcesses.Contains(processWindow.Value.Path))
                 {
-                    Logger.Debug($"Found game {appPath} ({gameName}) running foreground");
-                    return new RunningGame(appEntry.ProcessId, gameName, appPath, appEntry.InstantaneousFrames, true);
-                }
-
-                // If it's not the foreground process, use the application that has the highest frames-per-second.
-                if (appEntry.InstantaneousFrames <= runningGame.FPS)
-                {
-                    Logger.Debug($"Found game {appPath} running under lower FPS that current running game {runningGame.GameId.Name}");
+                    Logger.Debug($"Window {processWindow.Value.Path} is ignored");
                     continue;
                 }
 
-                Logger.Debug($"Found game {appPath} ({gameName}) running background");
-                runningGame = new RunningGame(appEntry.ProcessId, gameName, appPath, appEntry.InstantaneousFrames, false);
+                if (Profiles.ContainsKey(new GameId(processWindow.Value.Title, processWindow.Value.Path)))
+                {
+                    Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has profile, use it.");
+                    possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, processWindow.Value.Title, processWindow.Value.Path, 0, processWindow.Value.IsForeground));
+                    continue;
+                }
+
+                if (AppEntries.TryGetValue(processWindow.Value.ProcessId, out var appEntry) && appEntry.InstantaneousFrames > 0)
+                {
+                    Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has {appEntry.InstantaneousFrames} FPS, use it.");
+                    possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, processWindow.Value.Title, processWindow.Value.Path, appEntry.InstantaneousFrames, processWindow.Value.IsForeground));
+                    continue;
+                }
+
+                Logger.Debug($"Window \"{processWindow.Value.Title}\" at path {processWindow.Value.Path} doesn't have profile nor FPS.");
             }
 
-            return runningGame;
+            if (possibleGames.Count == 0)
+            {
+                Logger.Debug("Not found any game running.");
+                return new RunningGame();
+            }
+            else if (possibleGames.Count == 1)
+            {
+                Logger.Debug($"Found single running game {possibleGames[0].GameId.Name}.");
+                return possibleGames[0];
+            }
+            else
+            {
+                RunningGame highestFPSGame = new RunningGame();
+                foreach (var possibleGame in possibleGames)
+                {
+                    if (possibleGame.IsForeground)
+                    {
+                        Logger.Debug($"Found foreground running game {possibleGames[0].GameId.Name} in multiple running game.");
+                        return possibleGame;
+                    }
+
+                    if (!highestFPSGame.IsValid())
+                    {
+                        highestFPSGame = possibleGame;
+                    }
+                    else if (highestFPSGame.FPS <= possibleGame.FPS)
+                    {
+                        highestFPSGame = possibleGame;
+                    }
+                }
+
+                Logger.Debug($"Found highest FPS ({highestFPSGame.FPS}) game {highestFPSGame.GameId.Name} in multiple games.");
+                return highestFPSGame;
+            }
         }
 
         public override void Update()

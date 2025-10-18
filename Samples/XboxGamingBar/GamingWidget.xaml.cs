@@ -25,6 +25,7 @@ namespace XboxGamingBar
         // Xbox Game Bar logic
         private XboxGameBarWidget widget = null;
         private XboxGameBarWidgetActivity widgetActivity = null;
+        private XboxGameBarAppTargetTracker appTargetTracker = null;
 
         // Properties
         private readonly OSDProperty osd;
@@ -53,6 +54,14 @@ namespace XboxGamingBar
             //}
 
             widget = e.Parameter as XboxGameBarWidget;
+            if (widget != null)
+            {
+                Logger.Info("Running as a Xbox Game Bar widget.");
+            }
+            else
+            {
+                Logger.Info("XboxGameBarWidget not available, probably running as an app instead of widget.");
+            }
 
             if (App.Connection == null && ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0))
             {
@@ -81,15 +90,54 @@ namespace XboxGamingBar
             Logger.Info("GamingWidget EnterBackground.");
         }
 
+        private void AppTargetTracker_TargetChanged(XboxGameBarAppTargetTracker sender, object args)
+        {
+            var settingEnabled = appTargetTracker.Setting == XboxGameBarAppTargetSetting.Enabled;
+
+            XboxGameBarAppTarget target = null;
+            if (settingEnabled)
+            {
+                target = appTargetTracker.GetTarget();
+            }
+
+            if (target == null)
+            {
+                Logger.Info("Found no target.");
+            }
+            else
+            {
+                Logger.Info($"Found target app DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen} IsGame={target.IsGame}");
+            }
+        }
+
         /// <summary>
         /// When the desktop process is connected, get ready to send/receive requests
         /// </summary>
         private async void GamingWidget_AppServiceConnected(object sender, AppServiceTriggerDetails e)
         {
-            if (widget != null && widgetActivity == null)
+            if (widget != null)
             {
-                widgetActivity = new XboxGameBarWidgetActivity(widget, "XboxGamingBarActivity");
-                Logger.Info("Create new activity to keep the widget runs in the background.");
+                if (widgetActivity == null)
+                {
+                    widgetActivity = new XboxGameBarWidgetActivity(widget, "XboxGamingBarActivity");
+                    Logger.Info("Create new activity to keep the widget runs in the background.");
+                }
+
+                if (appTargetTracker == null)
+                {
+                    appTargetTracker = new XboxGameBarAppTargetTracker(widget);
+                    appTargetTracker.SettingChanged += AppTargetTracker_TargetChanged;
+
+                    if (appTargetTracker.Setting == XboxGameBarAppTargetSetting.Enabled)
+                    {
+                        Logger.Info("Create new app target tracker to track current game.");
+                        appTargetTracker.TargetChanged += AppTargetTracker_TargetChanged;
+                    }
+                    else
+                    {
+                        Logger.Info("Create new app target tracker but not enabled.");
+                    }
+                }
             }
 
             App.Connection.RequestReceived += AppServiceConnection_RequestReceived;

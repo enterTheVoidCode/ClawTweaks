@@ -56,7 +56,7 @@ namespace XboxGamingBarHelper
             performanceManager = new PerformanceManager(connection);
             rtssManager = new RTSSManager(performanceManager, connection);
             profileManager = new ProfileManager(connection);
-            systemManager = new SystemManager(connection);
+            systemManager = new SystemManager(connection, profileManager.GameProfiles);
             Managers = new List<IManager> { performanceManager, rtssManager, profileManager, systemManager };
 
             // Initialize properties.
