@@ -7,5 +7,9 @@
         TDP,
         CurrentGame,
         PerGameProfile,
+        CPUBoost,
+        CPUEPP,
+        LimitCPUClock,
+        CPUClockMax,
     }
 }

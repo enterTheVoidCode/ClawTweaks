@@ -11,8 +11,6 @@ namespace XboxGamingBarHelper.Performance
 {
     internal class PerformanceManager : Manager
     {
-        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
         private Computer computer;
         private IVisitor updateVisitor;
         private IntPtr ryzenAdjHandle;

@@ -32,6 +32,10 @@ namespace XboxGamingBar
         private readonly TDPProperty tdp;
         private readonly RunningGameProperty runningGame;
         private readonly PerGameProfileProperty perGameProfile;
+        private readonly CPUBoostProperty cpuBoost;
+        private readonly CPUEPPProperty cpuEPP;
+        private readonly LimitCPUClockProperty limitCPUClock;
+        private readonly CPUClockMaxProperty cpuClockMax;
         private readonly WidgetProperties properties;
 
         public GamingWidget()
@@ -41,7 +45,11 @@ namespace XboxGamingBar
             osd = new OSDProperty(0, PerformanceOverlaySlider, this);
             runningGame = new RunningGameProperty(CurrentGameText, PerGameProfileToggle, this);
             perGameProfile = new PerGameProfileProperty(PerGameProfileToggle, this);
-            properties = new WidgetProperties(osd, tdp, runningGame, perGameProfile);
+            cpuBoost = new CPUBoostProperty(CPUBoostToggle, this);
+            cpuEPP = new CPUEPPProperty(80, CPUEPPSlider, this);
+            limitCPUClock = new LimitCPUClockProperty(LimitCPUClockToggle, this);
+            cpuClockMax = new CPUClockMaxProperty(CPUClockMaxSlider, this);
+            properties = new WidgetProperties(osd, tdp, runningGame, perGameProfile, cpuBoost, cpuEPP, limitCPUClock, cpuClockMax);
         }
 
         protected async override void OnNavigatedTo(NavigationEventArgs e)
@@ -92,22 +100,22 @@ namespace XboxGamingBar
 
         private void AppTargetTracker_TargetChanged(XboxGameBarAppTargetTracker sender, object args)
         {
-            var settingEnabled = appTargetTracker.Setting == XboxGameBarAppTargetSetting.Enabled;
+            //var settingEnabled = appTargetTracker.Setting == XboxGameBarAppTargetSetting.Enabled;
 
-            XboxGameBarAppTarget target = null;
-            if (settingEnabled)
-            {
-                target = appTargetTracker.GetTarget();
-            }
+            //XboxGameBarAppTarget target = null;
+            //if (settingEnabled)
+            //{
+            //    target = appTargetTracker.GetTarget();
+            //}
 
-            if (target == null)
-            {
-                Logger.Info("Found no target.");
-            }
-            else
-            {
-                Logger.Info($"Found target app DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen} IsGame={target.IsGame}");
-            }
+            //if (target == null)
+            //{
+            //    Logger.Info("Found no target.");
+            //}
+            //else
+            //{
+            //    Logger.Info($"Found target app DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen} IsGame={target.IsGame}");
+            //}
         }
 
         /// <summary>

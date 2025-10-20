@@ -26,7 +26,7 @@ namespace Shared.Data
                 }
                 else
                 {
-                    Logger.Info($"Property {GetType().Name} has same value, nothing changed.");
+                    Logger.Debug($"Property {GetType().Name} has same value, nothing changed.");
                 }
             }
         }

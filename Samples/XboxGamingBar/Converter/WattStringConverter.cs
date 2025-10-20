@@ -1,7 +1,7 @@
 ﻿using System;
 using Windows.UI.Xaml.Data;
 
-namespace XboxGamingBar
+namespace XboxGamingBar.Converter
 {
     public class WattStringConverter : IValueConverter
     {
