@@ -1,5 +1,4 @@
 ﻿using NLog;
-using Shared.Data;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -8,7 +7,7 @@ using System.Text;
 
 namespace XboxGamingBarHelper.Windows
 {
-    internal class Win32
+    internal class User32
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 

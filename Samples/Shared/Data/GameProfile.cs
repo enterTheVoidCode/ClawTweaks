@@ -60,6 +60,36 @@ namespace Shared.Data
             }
         }
 
+        [XmlElement("CPUBoost")]
+        private bool cpuBoost;
+        public bool CPUBoost
+        {
+            get { return cpuBoost; }
+            set
+            {
+                if (cpuBoost != value)
+                {
+                    cpuBoost = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("CPUEPP")]
+        private int cpuEPP;
+        public int CPUEPP
+        {
+            get { return cpuEPP; }
+            set
+            {
+                if (cpuEPP != value)
+                {
+                    cpuEPP = value;
+                    Save();
+                }
+            }
+        }
+
         [XmlIgnore]
         public string Path;
 
@@ -74,11 +104,13 @@ namespace Shared.Data
             set { cache = value; }
         }
 
-        public GameProfile(string gameName, string gamePath, bool inUse, int inTDP, string inPath, IDictionary<GameId, GameProfile> inCache)
+        public GameProfile(string gameName, string gamePath, bool inUse, int inTDP, bool inCPUBoost, int inCPUEPP, string inPath, IDictionary<GameId, GameProfile> inCache)
         {
             GameId = new GameId(gameName, gamePath);
             use = inUse;
             tdp = inTDP;
+            cpuBoost = inCPUBoost;
+            cpuEPP = inCPUEPP;
             Path = inPath;
             cache = inCache;
         }

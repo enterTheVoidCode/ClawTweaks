@@ -21,10 +21,14 @@ namespace XboxGamingBar.Data
 
             if (UI != null && Owner != null)
             {
-                Logger.Info($"Update running game value {Value.GameId.Name}.");
+                Logger.Info($"Update running game value \"{Value.GameId.Name}\".");
                 await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => {
                     UI.Text = Value.IsValid() ? Value.GameId.Name : "No Game Detected";
-                    AdditionalUI.Visibility = Value.IsValid() ? Visibility.Visible : Visibility.Collapsed;
+                    AdditionalUI.IsEnabled = Value.IsValid();
+                    if (!Value.IsValid())
+                    {
+                        AdditionalUI.IsOn = false;
+                    }
                 });
             }
         }
