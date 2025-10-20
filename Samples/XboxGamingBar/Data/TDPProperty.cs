@@ -3,7 +3,7 @@ using Windows.UI.Xaml.Controls;
 
 namespace XboxGamingBar.Data
 {
-    internal class TDPProperty : SliderProperty
+    internal class TDPProperty : WidgetSliderProperty
     {
         public TDPProperty(int inValue, Slider inControl, Page inOwner) : base(inValue, Function.TDP, inControl, inOwner)
         {

@@ -4,39 +4,34 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:XboxGamingBar"
+    xmlns:converter="using:XboxGamingBar.Converter"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d">
+    mc:Ignorable="d"
+    d:DesignHeight="670" d:DesignWidth="464">
 
     <Page.Resources>
-        <local:WattStringConverter x:Key="WattStringConverter"/>
+        <converter:WattStringConverter x:Key="WattStringConverter"/>
+        <converter:MegahertzStringConverter x:Key="MegahertzStringConverter"/>
+        <converter:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </Page.Resources>
 
     <Grid x:Name="MainGrid" Margin="15,15,15,15">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <!-- Progress Ring -->
-            <RowDefinition Height="50"/>
-            <!-- Performance text -->
-            <RowDefinition Height="20"/>
-            <!-- A spacer -->
-            <RowDefinition Height="30"/>
-            <!-- Performance Overlay text -->
-            <RowDefinition Height="32"/>
-            <!-- Performance Overlay slider -->
-            <RowDefinition Height="20"/>
-            <!-- Performance Overlay slider ticks titles -->
-            <RowDefinition Height="20"/>
-            <!-- A spacer -->
-            <RowDefinition Height="35"/>
-            <!-- Per-game profile -->
-            <RowDefinition Height="30"/>
-            <!-- TDP Limit text -->
-            <RowDefinition Height="32"/>
-            <!-- TDP Limit slider -->
-            <RowDefinition Height="20"/>
-            <!-- A spacer -->
-            <RowDefinition Height="50"/>
-            <!-- Tools text -->
+            <RowDefinition x:Name="Row_0_ProgressRing" Height="Auto"/>
+            <RowDefinition x:Name="Row_1_PerformanceText" Height="50"/>
+            <RowDefinition x:Name="Row_2_Spacer_1" Height="20"/>
+            <RowDefinition x:Name="Row_3_PerformanceOverlayText" Height="30"/>
+            <RowDefinition x:Name="Row_4_PerformanceOverlaySlider" Height="32"/>
+            <RowDefinition x:Name="Row_5_Spacer_2" Height="20"/>
+            <RowDefinition x:Name="Row_6_Spacer_3" Height="20"/>
+            <RowDefinition x:Name="Row_7_PerGameProfile" Height="36"/>
+            <RowDefinition x:Name="Row_8_TDPLimitText" Height="30"/>
+            <RowDefinition x:Name="Row_9_TDPSlider" Height="32"/>
+            <RowDefinition x:Name="Row_10_CPUBoost" Height="36"/>
+            <RowDefinition x:Name="Row_11_CPUEPPText" Height="30"/>
+            <RowDefinition x:Name="Row_12_CPUEPPSlider" Height="32"/>
+            <RowDefinition x:Name="Row_13_LimitCPUClockToggle" Height="36"/>
+            <RowDefinition x:Name="Row_14_CPUClockMaxSlider" Height="32"/>
             <!-- Add more RowDefinitions as needed, each with Height="200" -->
         </Grid.RowDefinitions>
 
@@ -69,16 +64,48 @@
 
         <TextBlock x:Name="CurrentGameText" Text="No game detected" FontWeight="SemiBold" FontSize="18" Grid.Row="7"
             TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-        <ToggleSwitch x:Name="PerGameProfileToggle" Visibility="Collapsed"  OffContent="Global Profile" OnContent="Per-game Profile"
+        <ToggleSwitch x:Name="PerGameProfileToggle" Width="464" IsEnabled="False" OffContent="Global Profile" OnContent="Per-game Profile"
             FlowDirection="RightToLeft" Grid.Row="7" VerticalAlignment="Center" HorizontalAlignment="Right"/>
 
         <TextBlock x:Name="TDPLimitText" Text="Thermal Power (TDP) Limit" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="8"/>
         <TextBlock x:Name="TDPValueText" Grid.Row="9" Margin="0,0,0,0" Text="{Binding ElementName=TDPSlider, Path=Value, Converter={StaticResource WattStringConverter}}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-        <Slider x:Name="TDPSlider" Grid.Row="9" Margin="10,0,35,0"
+        <Slider x:Name="TDPSlider" Grid.Row="9" Margin="10,0,65,0"
             Minimum="4" Maximum="32"
             TickFrequency="1"
             SnapsTo="Ticks"
             TickPlacement="BottomRight"
             IsEnabled="False"/>
+
+        <TextBlock x:Name="CPUBoostText" Text="CPU Boost" FontWeight="SemiBold" FontSize="18" Grid.Row="10"
+            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+        <ToggleSwitch x:Name="CPUBoostToggle" Width="464" IsEnabled="False" OffContent="Disabled" OnContent="Aggressive"
+            FlowDirection="RightToLeft" Grid.Row="10" VerticalAlignment="Center" HorizontalAlignment="Right" />
+
+        <TextBlock x:Name="CPUEPPText" Text="CPU Energy Performance Preference (EPP)" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="11"/>
+        <TextBlock x:Name="CPUEPPValueText" Grid.Row="12" Margin="0,0,0,0" Text="{Binding ElementName=CPUEPPSlider, Path=Value}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+        <Slider x:Name="CPUEPPSlider" Grid.Row="12" Margin="10,0,65,0"
+            Minimum="10" Maximum="95"
+            TickFrequency="5"
+            SnapsTo="Ticks"
+            TickPlacement="BottomRight"
+            IsEnabled="False"/>
+        
+        <!-- CPU Clock -->
+        <TextBlock x:Name="LimitCPUClockText" Text="Limit CPU Clock" FontWeight="SemiBold" FontSize="18" Grid.Row="13"
+            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+        <ToggleSwitch x:Name="LimitCPUClockToggle" Width="464" IsEnabled="False" OffContent="Disabled" OnContent="Enable"
+            FlowDirection="RightToLeft" Grid.Row="13" VerticalAlignment="Center" HorizontalAlignment="Right" />
+        <TextBlock x:Name="CPUClockMaxText" Grid.Row="14" Margin="0,0,0,0"
+            Text="{Binding ElementName=CPUClockMaxSlider, Path=Value, Converter={StaticResource MegahertzStringConverter}}"
+            VerticalAlignment="Center" HorizontalAlignment="Right"
+            Visibility="{Binding ElementName=LimitCPUClockToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+        <Slider x:Name="CPUClockMaxSlider" Grid.Row="14" Margin="10,0,65,0"
+            Minimum="300" Maximum="5100"
+            TickFrequency="100"
+            SnapsTo="Ticks"
+            TickPlacement="BottomRight"
+            IsEnabled="False"
+            Visibility="{Binding ElementName=LimitCPUClockToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
     </Grid>
 </Page>

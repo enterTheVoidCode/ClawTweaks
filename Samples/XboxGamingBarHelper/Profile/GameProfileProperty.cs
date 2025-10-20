@@ -22,6 +22,30 @@ namespace XboxGamingBarHelper.Profile
             }
         }
 
+        public bool CPUBoost
+        {
+            get { return value.CPUBoost; }
+            set
+            {
+                if (this.value.CPUBoost != value)
+                {
+                    this.value.CPUBoost = value;
+                }
+            }
+        }
+
+        public int CPUEPP
+        {
+            get { return value.CPUEPP; }
+            set
+            {
+                if (this.value.CPUEPP != value)
+                {
+                    this.value.CPUEPP = value;
+                }
+            }
+        }
+
         public GameId GameId
         {
             get { return value.GameId; }
