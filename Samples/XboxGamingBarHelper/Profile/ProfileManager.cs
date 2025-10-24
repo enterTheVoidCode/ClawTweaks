@@ -39,12 +39,13 @@ namespace XboxGamingBarHelper.Profile
         {
             gameProfiles = new Dictionary<GameId, GameProfile>();
 
+            Logger.Info("Initialize global profile.");
             // Load global profile.
             var globalProfilePath = GetGlobalProfilePath();
             if (!File.Exists(globalProfilePath))
             {
                 // Create global profile path when it's not previously exist.
-                GlobalProfile = new GameProfile(GameProfile.GLOBAL_PROFILE_NAME, GameProfile.GLOBAL_PROFILE_NAME, true, 25, true, 80, globalProfilePath, gameProfiles);
+                GlobalProfile = new GameProfile(GameProfile.GLOBAL_PROFILE_NAME, GameProfile.GLOBAL_PROFILE_NAME, true, 25, true, 80, 0, globalProfilePath, gameProfiles);
                 GlobalProfile.Save();
             }
             else
@@ -53,6 +54,7 @@ namespace XboxGamingBarHelper.Profile
                 GlobalProfile.Path = globalProfilePath;
             }
 
+            Logger.Info("Create game profiles folder.");
             // Make sure game profiles folder is created.
             var gameProfilesFolder = GetGameProfilesFolder();
             if (!Directory.Exists(gameProfilesFolder))
@@ -60,6 +62,7 @@ namespace XboxGamingBarHelper.Profile
                 Directory.CreateDirectory(gameProfilesFolder);
             }
 
+            Logger.Info("Load game profiles.");
             // Read all existing game profiles.
             var xmlFiles = Directory.GetFiles(gameProfilesFolder, $"*{XML_EXTENSION}");
             foreach (string filePath in xmlFiles)
@@ -77,6 +80,7 @@ namespace XboxGamingBarHelper.Profile
                 }
             }
 
+            Logger.Info("Initialize own properties.");
             perGameProfile = new PerGameProfileProperty(null, this);
             currentProfile = new GameProfileProperty(GlobalProfile, this);
         }
@@ -105,7 +109,7 @@ namespace XboxGamingBarHelper.Profile
             }
 
             var newGameProfilePath = Path.Combine(GetGameProfilesFolder(), $"{Path.GetFileNameWithoutExtension(gameId.Path)}{XML_EXTENSION}");
-            var newGameProfile = new GameProfile(gameId.Name, gameId.Path, true, CurrentProfile.TDP, CurrentProfile.CPUBoost, CurrentProfile.CPUEPP, newGameProfilePath, gameProfiles);
+            var newGameProfile = new GameProfile(gameId.Name, gameId.Path, true, CurrentProfile.TDP, CurrentProfile.CPUBoost, CurrentProfile.CPUEPP, CurrentProfile.CPUClock, newGameProfilePath, gameProfiles);
             newGameProfile.Save();
             Logger.Info($"Add new profile for {gameId.Name} at {newGameProfilePath}.");
             return newGameProfile;

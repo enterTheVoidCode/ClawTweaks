@@ -2,6 +2,6 @@
 {
     public static class CPUConstants
     {
-        public const int DEFAULT_CPU_CLOCK = 1000;
+        public const int DEFAULT_CPU_CLOCK = 3100;
     }
 }

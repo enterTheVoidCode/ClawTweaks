@@ -90,6 +90,21 @@ namespace Shared.Data
             }
         }
 
+        [XmlElement("CPUClock")]
+        private int cpuClock;
+        public int CPUClock
+        {
+            get { return cpuClock; }
+            set
+            {
+                if (cpuClock != value)
+                {
+                    cpuClock = value;
+                    Save();
+                }
+            }
+        }
+
         [XmlIgnore]
         public string Path;
 
@@ -104,13 +119,14 @@ namespace Shared.Data
             set { cache = value; }
         }
 
-        public GameProfile(string gameName, string gamePath, bool inUse, int inTDP, bool inCPUBoost, int inCPUEPP, string inPath, IDictionary<GameId, GameProfile> inCache)
+        public GameProfile(string gameName, string gamePath, bool inUse, int inTDP, bool inCPUBoost, int inCPUEPP, int inCPUClock, string inPath, IDictionary<GameId, GameProfile> inCache)
         {
             GameId = new GameId(gameName, gamePath);
             use = inUse;
             tdp = inTDP;
             cpuBoost = inCPUBoost;
             cpuEPP = inCPUEPP;
+            cpuClock = inCPUClock;
             Path = inPath;
             cache = inCache;
         }

@@ -1,17 +1,17 @@
-﻿using LibreHardwareMonitor.Hardware;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Drawing;
+using XboxGamingBarHelper.Performance;
 
 namespace XboxGamingBarHelper.RTSS.OSDItems
 {
     internal class OSDItemCPU : OSDItem
     {
-        private ISensor cpuUsageSensor;
-        private ISensor cpuClockSensor;
-        private ISensor cpuWattageSensor;
-        private ISensor cpuTemperatureSensor;
+        private HardwareSensor cpuUsageSensor;
+        private HardwareSensor cpuClockSensor;
+        private HardwareSensor cpuWattageSensor;
+        private HardwareSensor cpuTemperatureSensor;
 
-        public OSDItemCPU(ISensor cpuUsageSensor, ISensor cpuClockSensor, ISensor cpuWattageSensor, ISensor cpuTemperatureSensor) : base("CPU", Color.LimeGreen)
+        public OSDItemCPU(HardwareSensor cpuUsageSensor, HardwareSensor cpuClockSensor, HardwareSensor cpuWattageSensor, HardwareSensor cpuTemperatureSensor) : base("CPU", Color.Turquoise)
         {
             this.cpuWattageSensor = cpuWattageSensor;
             this.cpuUsageSensor = cpuUsageSensor;
@@ -26,15 +26,15 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             // for level 3, only show CPU usage and temperature.
             if (osdLevel >= 3)
             {
-                osdItems.Add(new OSDItemValue(cpuUsageSensor != null ? cpuUsageSensor.Value.Value : -1.0f, "%"));
-                osdItems.Add(new OSDItemValue(cpuWattageSensor != null ? cpuWattageSensor.Value.Value : -1.0f, "W"));
+                osdItems.Add(new OSDItemValue(cpuUsageSensor.Value, "%"));
+                osdItems.Add(new OSDItemValue(cpuWattageSensor.Value, "W"));
             }
 
             // for level 4, show CPU usage, clock speed, wattage and temperature.
             if (osdLevel >= 4)
             {
-                osdItems.Add(new OSDItemValue(cpuClockSensor != null ? cpuClockSensor.Value.Value : -1.0f, "MHz"));
-                osdItems.Add(new OSDItemValue(cpuTemperatureSensor != null ? cpuTemperatureSensor.Value.Value : -1.0f, "°C"));
+                osdItems.Add(new OSDItemValue(cpuClockSensor.Value, "MHz"));
+                osdItems.Add(new OSDItemValue(cpuTemperatureSensor.Value, "°C"));
             }
 
             return osdItems;

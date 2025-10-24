@@ -1,23 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace XboxGamingBarHelper.RTSS
+﻿namespace XboxGamingBarHelper.RTSS
 {
-    internal struct OSDItemValue
+    internal readonly struct OSDItemValue
     {
-        float value;
-        public float Value => value;
-
-        string unit;
-        public string Unit => unit;
+        public float Value { get; }
+        public string Unit { get; }
+        public string Prefix { get; }
 
         public OSDItemValue(float value, string unit)
         {
-            this.value = value;
-            this.unit = unit;
+            Value = value;
+            Unit = unit;
+            Prefix = string.Empty;
+        }
+
+        public OSDItemValue(float value, string unit, string prefix)
+        {
+            Value = value;
+            Unit = unit;
+            Prefix = prefix;
         }
     }
 }

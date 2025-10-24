@@ -1,76 +1,109 @@
 ﻿using LibreHardwareMonitor.Hardware;
 using NLog;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.Core;
+using XboxGamingBarHelper.Performance.Sensors;
 
 namespace XboxGamingBarHelper.Performance
 {
+    internal class HardwareSensors : IDictionary<string, HardwareSensor>
+    {
+        HardwareSensor IDictionary<string, HardwareSensor>.this[string key] { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
+        ICollection<string> IDictionary<string, HardwareSensor>.Keys => throw new NotImplementedException();
+
+        ICollection<HardwareSensor> IDictionary<string, HardwareSensor>.Values => throw new NotImplementedException();
+
+        int ICollection<KeyValuePair<string, HardwareSensor>>.Count => throw new NotImplementedException();
+
+        bool ICollection<KeyValuePair<string, HardwareSensor>>.IsReadOnly => throw new NotImplementedException();
+
+        void IDictionary<string, HardwareSensor>.Add(string key, HardwareSensor value)
+        {
+            throw new NotImplementedException();
+        }
+
+        void ICollection<KeyValuePair<string, HardwareSensor>>.Add(KeyValuePair<string, HardwareSensor> item)
+        {
+            throw new NotImplementedException();
+        }
+
+        void ICollection<KeyValuePair<string, HardwareSensor>>.Clear()
+        {
+            throw new NotImplementedException();
+        }
+
+        bool ICollection<KeyValuePair<string, HardwareSensor>>.Contains(KeyValuePair<string, HardwareSensor> item)
+        {
+            throw new NotImplementedException();
+        }
+
+        bool IDictionary<string, HardwareSensor>.ContainsKey(string key)
+        {
+            throw new NotImplementedException();
+        }
+
+        void ICollection<KeyValuePair<string, HardwareSensor>>.CopyTo(KeyValuePair<string, HardwareSensor>[] array, int arrayIndex)
+        {
+            throw new NotImplementedException();
+        }
+
+        IEnumerator<KeyValuePair<string, HardwareSensor>> IEnumerable<KeyValuePair<string, HardwareSensor>>.GetEnumerator()
+        {
+            throw new NotImplementedException();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            throw new NotImplementedException();
+        }
+
+        bool IDictionary<string, HardwareSensor>.Remove(string key)
+        {
+            throw new NotImplementedException();
+        }
+
+        bool ICollection<KeyValuePair<string, HardwareSensor>>.Remove(KeyValuePair<string, HardwareSensor> item)
+        {
+            throw new NotImplementedException();
+        }
+
+        bool IDictionary<string, HardwareSensor>.TryGetValue(string key, out HardwareSensor value)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
     internal class PerformanceManager : Manager
     {
         private Computer computer;
         private IVisitor updateVisitor;
         private IntPtr ryzenAdjHandle;
 
-        #region CPU
-        [HardwareSensor("CPU Total", HardwareType.Cpu, SensorType.Load)]
-        private ISensor cpuUsage;
-        public ISensor CPUUsage => cpuUsage;
+        public CPUUsageSensor CPUUsage { get; }
+        public CPUClockSensor CPUClock { get; }
+        public CPUWattageSensor CPUWattage { get ; }
+        public CPUTemperatureSensor CPUTemperature { get; }
 
-        [HardwareSensor("Core #1", HardwareType.Cpu, SensorType.Clock)]
-        private ISensor cpuClock;
-        public ISensor CPUClock => cpuClock;
+        public GPUUsageSensor GPUUsage { get; }
+        public GPUClockSensor GPUClock { get; }
+        public GPUWattageSensor GPUWattage { get; }
+        public GPUTemperatureSensor GPUTemperature { get; }
 
-        [HardwareSensor("Package", HardwareType.Cpu, SensorType.Power)]
-        private ISensor cpuWattage;
-        public ISensor CPUWattage => cpuWattage;
+        public MemoryUsageSensor MemoryUsage { get; }
+        public MemoryUsedSensor MemoryUsed { get; }
 
-        [HardwareSensor("Core (Tctl/Tdie)", HardwareType.Cpu, SensorType.Temperature)]
-        private ISensor cpuTemperature;
-        public ISensor CPUTemperature => cpuTemperature;
-        #endregion
+        public BatteryLevelSensor BatteryLevel { get; }
+        public BatteryRemainingTimeSensor BatteryRemainingTime { get; }
+        public BatteryDischargeRateSensor BatteryDischargeRate { get; }
+        public BatteryChargeRateSensor BatteryChargeRate { get; }
 
-        #region GPU
-        [HardwareSensor("GPU Core", HardwareType.GpuAmd, SensorType.Load)]
-        private ISensor gpuUsage;
-        public ISensor GPUUsage => gpuUsage;
-
-        [HardwareSensor("GPU Core", HardwareType.GpuAmd, SensorType.Clock)]
-        private ISensor gpuClock;
-        public ISensor GPUClock => gpuClock;
-
-        [HardwareSensor("GPU Core", HardwareType.GpuAmd, SensorType.Power)]
-        private ISensor gpuWattage;
-        public ISensor GPUWattage => gpuWattage;
-
-        [HardwareSensor("GPU VR SoC", HardwareType.GpuAmd, SensorType.Temperature)]
-        private ISensor gpuTemperature;
-        public ISensor GPUTemperature => gpuTemperature;
-        #endregion
-
-        #region Memory
-        [HardwareSensor("Memory", HardwareType.Memory, SensorType.Load)]
-        private ISensor memoryUsage;
-        public ISensor MemoryUsage => memoryUsage;
-
-        [HardwareSensor("Memory Used", HardwareType.Memory, SensorType.Data)]
-        private ISensor memoryUsed;
-        public ISensor MemoryUsed => memoryUsed;
-        #endregion
-
-        #region Battery
-        [HardwareSensor("Charge Level", HardwareType.Battery, SensorType.Level)]
-        private ISensor batteryPercent;
-        public ISensor BatteryPercent => batteryPercent;
-
-        [HardwareSensor("Remaining Time (Estimated)", HardwareType.Battery, SensorType.TimeSpan)]
-        private ISensor batteryRemainTime;
-        public ISensor BatteryRemainTime => batteryRemainTime;
-        // Discharge Rate
-        #endregion
+        private List<HardwareSensor> hardwareSensors;
 
         private TDPProperty tdp;
         public TDPProperty TDP
@@ -93,33 +126,41 @@ namespace XboxGamingBarHelper.Performance
                 IsBatteryEnabled = true,
             };
             updateVisitor = new UpdateVisitor();
-
             computer.Open();
             computer.Accept(updateVisitor);
 
-            // Initialize sensor fields
-            Dictionary<(string Name, HardwareType HW, SensorType ST), FieldInfo> hardwareSensorFields = new Dictionary<(string Name, HardwareType HW, SensorType ST), FieldInfo>();
-            foreach (var field in typeof(PerformanceManager).GetFields(BindingFlags.Instance | BindingFlags.NonPublic))
+            // Initialize hardware sensors
+            CPUClock = new CPUClockSensor();
+            CPUUsage = new CPUUsageSensor();
+            CPUWattage = new CPUWattageSensor();
+            CPUTemperature = new CPUTemperatureSensor();
+            GPUUsage = new GPUUsageSensor();
+            GPUClock = new GPUClockSensor();
+            GPUTemperature = new GPUTemperatureSensor();
+            GPUWattage = new GPUWattageSensor();
+            MemoryUsage = new MemoryUsageSensor();
+            MemoryUsed = new MemoryUsedSensor();
+            BatteryLevel = new BatteryLevelSensor();
+            BatteryRemainingTime = new BatteryRemainingTimeSensor();
+            BatteryDischargeRate = new BatteryDischargeRateSensor();
+            BatteryChargeRate = new BatteryChargeRateSensor();
+            hardwareSensors = new List<HardwareSensor>()
             {
-                var hardwareSensorAttribute = field.GetCustomAttributes(typeof(HardwareSensorAttribute), inherit: true)
-                                .Cast<HardwareSensorAttribute>()
-                                .FirstOrDefault();
-                if (hardwareSensorAttribute == null) continue;
-
-                hardwareSensorFields.Add((hardwareSensorAttribute.Name, hardwareSensorAttribute.HardwareType, hardwareSensorAttribute.SensorType), field);
-            }
-
-            foreach (IHardware hardware in computer.Hardware)
-            {
-                foreach (ISensor sensor in hardware.Sensors)
-                {
-                    if (hardwareSensorFields.TryGetValue((sensor.Name, hardware.HardwareType, sensor.SensorType), out FieldInfo fieldInfo))
-                    {
-                        fieldInfo.SetValue(this, sensor);
-                        // Logger.Info("Found hardware Sensor: {0}, value: {1}, type: {2}", sensor.Name, sensor.Value, sensor.SensorType.ToString());
-                    }
-                }
-            }
+                CPUClock,
+                CPUUsage,
+                CPUWattage,
+                CPUTemperature,
+                GPUUsage,
+                GPUClock,
+                GPUTemperature,
+                GPUWattage,
+                MemoryUsage,
+                MemoryUsed,
+                BatteryLevel,
+                BatteryRemainingTime,
+                BatteryDischargeRate,
+                BatteryChargeRate,
+            };
 
             ryzenAdjHandle = RyzenAdj.init_ryzenadj();
             var initialTDP = 25;
@@ -142,10 +183,36 @@ namespace XboxGamingBarHelper.Performance
         {
             base.Update();
 
+            foreach (var hardwareSensor in hardwareSensors)
+            {
+                hardwareSensor.Value = -1.0f;
+            }
+
             if (computer == null)
                 return;
 
             computer.Accept(updateVisitor);
+            foreach (IHardware hardware in computer.Hardware)
+            {
+                foreach (ISensor sensor in hardware.Sensors)
+                {
+                    //Logger.Info("[2] Hardware {3} Sensor: {0}, value: {1}, type: {2}", sensor.Name, sensor.Value, sensor.SensorType.ToString(), hardware.Name);
+
+                    HardwareSensor hardwareSensorFound = null;
+                    foreach (var hardwareSensor in hardwareSensors)
+                    {
+                        if (hardwareSensor.HardwareType == hardware.HardwareType && hardwareSensor.SensorType == sensor.SensorType && hardwareSensor.SensorName == sensor.Name)
+                        {
+                            hardwareSensorFound = hardwareSensor;
+                            break;
+                        }
+                    }
+                    if (hardwareSensorFound != null)
+                    {
+                        hardwareSensorFound.Value = sensor.Value ?? -1;
+                    }
+                }
+            }
         }
 
         public int GetTDP()
