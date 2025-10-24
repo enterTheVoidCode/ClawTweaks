@@ -1,15 +1,15 @@
-﻿using LibreHardwareMonitor.Hardware;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Drawing;
+using XboxGamingBarHelper.Performance;
 
 namespace XboxGamingBarHelper.RTSS.OSDItems
 {
     internal class OSDItemMemory : OSDItem
     {
-        private ISensor memoryUsageSensor;
-        private ISensor memoryUsedSensor;
+        private HardwareSensor memoryUsageSensor;
+        private HardwareSensor memoryUsedSensor;
 
-        public OSDItemMemory(ISensor memoryUsageSensor, ISensor memoryUsedSensor) : base("RAM", Color.Purple)
+        public OSDItemMemory(HardwareSensor memoryUsageSensor, HardwareSensor memoryUsedSensor) : base("RAM", Color.Purple)
         {
             this.memoryUsageSensor = memoryUsageSensor;
             this.memoryUsedSensor = memoryUsedSensor;
@@ -21,12 +21,12 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
 
             if (osdLevel >= 3)
             {
-                osdItems.Add(new OSDItemValue(memoryUsageSensor != null ? memoryUsageSensor.Value.Value : -1.0f, "%"));
+                osdItems.Add(new OSDItemValue(memoryUsageSensor.Value, "%"));
             }
 
             if (osdLevel >= 4)
             {
-                osdItems.Add(new OSDItemValue(memoryUsedSensor != null ? memoryUsedSensor.Value.Value : -1.0f, "GB"));
+                osdItems.Add(new OSDItemValue(memoryUsedSensor.Value, "GB"));
             }
 
             return osdItems;

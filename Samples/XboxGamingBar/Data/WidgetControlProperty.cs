@@ -17,14 +17,22 @@ namespace XboxGamingBar.Data
 
             if (UI != null && Owner != null)
             {
-                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => { UI.IsEnabled = false; });
+                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => SetControlEnabled(false));
             }
 
             await base.Sync();
 
             if (UI != null && Owner != null)
             {
-                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => { UI.IsEnabled = true; });
+                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => SetControlEnabled(true));
+            }
+        }
+
+        protected virtual void SetControlEnabled(bool isEnabled)
+        {
+            if (UI != null)
+            {
+                UI.IsEnabled = isEnabled;
             }
         }
     }

@@ -20,8 +20,12 @@ namespace XboxGamingBar.Data
 
         private void Slider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
         {
-            Logger.Info($"{Function} Slider value changed from {e.OldValue} to {e.NewValue}, update property.");
-            Value = (int)e.NewValue;
+            var newValue = (int)e.NewValue;
+            if (newValue != Value)
+            {
+                Logger.Info($"{Function} Slider value changed from {e.OldValue} to {e.NewValue}, update property.");
+                Value = newValue;
+            }
         }
 
         protected override async void NotifyPropertyChanged([CallerMemberName] string propertyName = "")

@@ -1,22 +1,34 @@
 ﻿namespace XboxGamingBarHelper.Performance
 {
-    using Core;
     using LibreHardwareMonitor.Hardware;
 
-    internal abstract class HardwareSensor : Sensor
+    internal abstract class HardwareSensor
     {
-        protected ISensor sensor;
-        public ISensor Sensor => sensor;
-
-        protected HardwareSensor()
+        protected string sensorName;
+        public string SensorName
         {
-            name = "Unknown Hardware Sensor";
-            sensor = null;
+            get { return sensorName; }
         }
 
-        public HardwareSensor(string name, ISensor sensor) : base(name)
+        protected HardwareType hardwareType;
+        public HardwareType HardwareType
         {
-            this.sensor = sensor;
+            get { return hardwareType; }
+        }
+
+        protected SensorType sensorType;
+        public SensorType SensorType
+        {
+            get { return sensorType; }
+        }
+
+        public float Value { get; set; }
+
+        protected HardwareSensor(string inSensorName, HardwareType inHardwareType, SensorType inSensorType)
+        {
+            sensorName = inSensorName;
+            hardwareType = inHardwareType;
+            sensorType = inSensorType;
         }
     }
 }
