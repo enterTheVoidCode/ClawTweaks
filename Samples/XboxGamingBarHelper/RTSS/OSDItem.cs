@@ -47,7 +47,7 @@ namespace XboxGamingBarHelper.RTSS
                 }
                 else
                 {
-                    osdString += $"{Math.Round(osdValue.Value)}<S=50> {osdValue.Unit}<S>";
+                    osdString += $"{osdValue.Prefix}{Math.Floor(osdValue.Value)}<S=50> {osdValue.Unit}<S>";
                 }
                 if (i < osdValues.Count - 1)
                 {

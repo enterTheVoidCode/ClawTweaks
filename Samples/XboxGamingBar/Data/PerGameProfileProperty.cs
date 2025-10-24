@@ -10,11 +10,10 @@ namespace XboxGamingBar.Data
         {
         }
 
-        public override async Task Sync()
+        protected override void SetControlEnabled(bool isEnabled)
         {
-            await base.Sync();
-
-            // TODO Special case for per-game profile.
+            // Per-game profile should be enabled/disabled differently.
+            // base.SetControlEnabled(isEnabled);
         }
     }
 }

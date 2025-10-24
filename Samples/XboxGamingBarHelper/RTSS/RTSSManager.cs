@@ -1,5 +1,5 @@
 ﻿using RTSSSharedMemoryNET;
-using System.Diagnostics;
+using Shared.Utilities;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Performance;
@@ -28,16 +28,11 @@ namespace XboxGamingBarHelper.RTSS
             osdItems = new OSDItem[]
             {
                 new OSDItemFPS(),
-                new OSDItemBattery(performanceManager.BatteryPercent, performanceManager.BatteryRemainTime),
+                new OSDItemBattery(performanceManager.BatteryLevel, performanceManager.BatteryDischargeRate, performanceManager.BatteryChargeRate, performanceManager.BatteryRemainingTime),
                 new OSDItemMemory(performanceManager.MemoryUsage, performanceManager.MemoryUsed),
                 new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature),
                 new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature),
             };
-        }
-
-        internal static bool IsRTSSRunning()
-        {
-            return Process.GetProcessesByName("RTSS").Length > 0;
         }
 
         public override void Update()
@@ -45,6 +40,12 @@ namespace XboxGamingBarHelper.RTSS
             base.Update();
             // Console.WriteLine($"OSD level {OSDLevel}");
             
+            if (!RTSSHelper.IsRunning())
+            {
+                Logger.Debug("Rivatuner Statistics Server is not running.");
+                return;
+            }
+
             if (osd == 0)
             {
                 if (rtssOSD != null)

@@ -1,17 +1,17 @@
-﻿using LibreHardwareMonitor.Hardware;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Drawing;
+using XboxGamingBarHelper.Performance;
 
 namespace XboxGamingBarHelper.RTSS.OSDItems
 {
     internal class OSDItemGPU : OSDItem
     {
-        private ISensor gpuUsageSensor;
-        private ISensor gpuClockSensor;
-        private ISensor gpuWattageSensor;
-        private ISensor gpuTemperatureSensor;
+        private HardwareSensor gpuUsageSensor;
+        private HardwareSensor gpuClockSensor;
+        private HardwareSensor gpuWattageSensor;
+        private HardwareSensor gpuTemperatureSensor;
 
-        public OSDItemGPU(ISensor gpuUsageSensor, ISensor gpuClockSensor, ISensor gpuWattageSensor, ISensor gpuTemperatureSensor) : base("GPU", Color.LawnGreen)
+        public OSDItemGPU(HardwareSensor gpuUsageSensor, HardwareSensor gpuClockSensor, HardwareSensor gpuWattageSensor, HardwareSensor gpuTemperatureSensor) : base("GPU", Color.LawnGreen)
         {
             this.gpuWattageSensor = gpuWattageSensor;
             this.gpuUsageSensor = gpuUsageSensor;
@@ -26,15 +26,15 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             // for level 3, only show GPU usage and temperature.
             if (osdLevel >= 3)
             {
-                osdItems.Add(new OSDItemValue(gpuUsageSensor != null ? gpuUsageSensor.Value.Value : -1.0f, "%"));
-                osdItems.Add(new OSDItemValue(gpuWattageSensor != null ? gpuWattageSensor.Value.Value : -1.0f, "W"));
+                osdItems.Add(new OSDItemValue(gpuUsageSensor.Value, "%"));
+                osdItems.Add(new OSDItemValue(gpuWattageSensor.Value, "W"));
             }
 
             // for level 4, show GPU usage, clock speed, wattage and temperature.
             if (osdLevel >= 4)
             {
-                osdItems.Add(new OSDItemValue(gpuClockSensor != null ? gpuClockSensor.Value.Value : -1.0f, "MHz"));
-                osdItems.Add(new OSDItemValue(gpuTemperatureSensor != null ? gpuTemperatureSensor.Value.Value : -1.0f, "°C"));
+                osdItems.Add(new OSDItemValue(gpuClockSensor.Value, "MHz"));
+                osdItems.Add(new OSDItemValue(gpuTemperatureSensor.Value, "°C"));
             }
 
             return osdItems;

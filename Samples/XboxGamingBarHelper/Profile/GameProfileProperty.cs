@@ -46,6 +46,18 @@ namespace XboxGamingBarHelper.Profile
             }
         }
 
+        public int CPUClock
+        {
+            get { return value.CPUClock; }
+            set
+            {
+                if (this.Value.CPUClock != value)
+                {
+                    this.value.CPUClock = value;
+                }
+            }
+        }
+
         public GameId GameId
         {
             get { return value.GameId; }

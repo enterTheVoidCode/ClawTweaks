@@ -7,7 +7,9 @@ using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Metadata;
 using Windows.UI.Core;
+using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using XboxGamingBar.Data;
 
@@ -26,6 +28,9 @@ namespace XboxGamingBar
         private XboxGameBarWidget widget = null;
         private XboxGameBarWidgetActivity widgetActivity = null;
         private XboxGameBarAppTargetTracker appTargetTracker = null;
+
+        private SolidColorBrush widgetDarkThemeBrush = null;
+        private SolidColorBrush widgetLightThemeBrush = null;
 
         // Properties
         private readonly OSDProperty osd;
@@ -61,10 +66,15 @@ namespace XboxGamingBar
             //    await Task.Delay(500);
             //}
 
+            widgetDarkThemeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 37, 40, 44));
+            widgetLightThemeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255));
+
             widget = e.Parameter as XboxGameBarWidget;
             if (widget != null)
             {
                 Logger.Info("Running as a Xbox Game Bar widget.");
+                await widget.CenterWindowAsync();
+                widget.RequestedThemeChanged += GamingWidget_RequestedThemeChanged;
             }
             else
             {
@@ -82,6 +92,11 @@ namespace XboxGamingBar
 
         public async Task GamingWidget_LeavingBackground(object sender, LeavingBackgroundEventArgs e)
         {
+            if (widget != null)
+            {
+                await widget.CenterWindowAsync();
+            }
+
             if (App.Connection != null)
             {
                 Logger.Info("GamingWidget LeavingBackground, sync UI now.");
@@ -173,6 +188,20 @@ namespace XboxGamingBar
                 // ask user if they want to reconnect
                 // Reconnect();
             });
+        }
+
+        private async void GamingWidget_RequestedThemeChanged(XboxGameBarWidget sender, object args)
+        {
+            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+            {
+                SetBackgroundColor();
+            });
+        }
+
+        private void SetBackgroundColor()
+        {
+            this.RequestedTheme = widget.RequestedTheme;
+            RootGrid.Background = (widget.RequestedTheme == ElementTheme.Dark) ? widgetDarkThemeBrush : widgetLightThemeBrush;
         }
 
         /// <summary>
