@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using Shared.Enums;
+using System.Text;
 using Windows.Foundation.Collections;
 
 namespace Shared.Data
@@ -6,6 +7,7 @@ namespace Shared.Data
     public static class ValueSetExtensions
     {
         private const string QUOTE = "\"";
+        private const string SPACE = " ";
         public static string ToDebugString(this ValueSet valueSet)
         {
             if (valueSet == null || valueSet.Count == 0)
@@ -15,23 +17,30 @@ namespace Shared.Data
 
             var debugString = new StringBuilder();
             debugString.Append(QUOTE);
-            foreach (var value in valueSet)
+
+            if (valueSet.ContainsKey(nameof(Command)))
             {
-                debugString.Append(value.Key);
-                debugString.Append(":");
-                var isStringValue = value.Value is string;
-                if (isStringValue)
-                {
-                    debugString.Append(QUOTE);
-                }
-                debugString.Append(value.Value);
-                if (isStringValue)
-                {
-                    debugString.Append(QUOTE);
-                }
-                debugString.Append(",");
+                debugString.Append((Command)valueSet[nameof(Command)]);
             }
-            debugString.Remove(debugString.Length - 1, 1);
+
+            if (valueSet.ContainsKey(nameof(Function)))
+            {
+                debugString.Append(SPACE);
+                debugString.Append((Function)valueSet[nameof(Function)]);
+            }
+
+            if (valueSet.ContainsKey(nameof(Content)))
+            {
+                debugString.Append(" to ");
+                debugString.Append(valueSet[nameof(Content)]);
+            }
+
+            if (valueSet.ContainsKey(nameof(UpdatedTime)))
+            {
+                debugString.Append(" at ");
+                debugString.Append(valueSet[nameof(UpdatedTime)]);
+            }
+
             debugString.Append(QUOTE);
             return debugString.ToString();
         }

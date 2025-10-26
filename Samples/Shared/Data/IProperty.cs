@@ -10,11 +10,11 @@ namespace Shared.Data
 
         List<IProperty> ChildProperties { get; }
 
-        bool TrySetValue<InValueType>(InValueType newValue);
+        //bool TrySetValue<InValueType>(InValueType newValue, long updatedTime);
 
-        bool TryGetValue<ValueType>(out ValueType value);
+        //bool TryGetValue<ValueType>(out ValueType value);
 
-        bool SetValue(object value);
+        bool SetValue(object newValue, long updatedTime);
 
         object GetValue();
 

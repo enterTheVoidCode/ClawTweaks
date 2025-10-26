@@ -1,6 +1,5 @@
 ﻿using Shared.Enums;
 using System;
-using System.Runtime.CompilerServices;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -20,10 +19,10 @@ namespace XboxGamingBar.Data
 
         protected virtual void ToggleSwitch_ValueChanged(object sender, RoutedEventArgs e)
         {
-            Value = UI.IsOn;
+            SetValue(UI.IsOn, DateTime.Now.Ticks);
         }
 
-        protected override async void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
+        protected override async void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
 

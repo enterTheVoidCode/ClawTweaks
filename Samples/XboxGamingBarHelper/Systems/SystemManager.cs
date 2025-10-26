@@ -175,7 +175,7 @@ namespace XboxGamingBarHelper.Systems
                 {
                     Logger.Info($"Running game {RunningGame.Value.GameId.Name} stopped.");
                 }
-                RunningGame.Value = currentRunningGame;
+                RunningGame.SetValue(currentRunningGame);
             }
         }
     }
