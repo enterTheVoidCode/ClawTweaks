@@ -52,7 +52,7 @@ namespace Shared.Data
                     response = property.AddValueSetContent(response);
                     break;
                 case Command.Set:
-                    property.SetValue(request.Message[nameof(Content)]);
+                    property.SetValue(request.Message[nameof(Content)], (long)request.Message[nameof(UpdatedTime)]);
                     response.Add(nameof(Content), "Success");
                     break;
                 default:

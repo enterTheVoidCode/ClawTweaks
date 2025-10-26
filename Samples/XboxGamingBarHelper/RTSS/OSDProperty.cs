@@ -1,6 +1,5 @@
 ﻿using Shared.Data;
 using Shared.Enums;
-using System.Runtime.CompilerServices;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.RTSS

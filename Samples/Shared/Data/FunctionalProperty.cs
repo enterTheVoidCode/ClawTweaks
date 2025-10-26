@@ -1,7 +1,5 @@
 ﻿using NLog;
 using Shared.Enums;
-using System;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
@@ -35,7 +33,7 @@ namespace Shared.Data
             function = inFunction;
         }
 
-        protected override async void NotifyPropertyChanged([CallerMemberName] String propertyName = "")
+        protected override async void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
 
@@ -94,13 +92,21 @@ namespace Shared.Data
             {
                 if (response.Message.TryGetValue(nameof(Content), out object responseValue))
                 {
-                    if (SetValue(responseValue))
+                    if (response.Message.TryGetValue(nameof(UpdatedTime), out object updatedTimeValue))
                     {
-                        Logger.Info($"Sync {function} value {responseValue} successfully.");
+                        var updatedTime = (long)updatedTimeValue;
+                        if (SetValue(responseValue, updatedTime))
+                        {
+                            Logger.Info($"Sync {function} value {responseValue} successfully.");
+                        }
+                        else
+                        {
+                            Logger.Warn($"Got {function} value {responseValue} but can't sync.");
+                        }
                     }
                     else
                     {
-                        Logger.Info($"Got {function} value {responseValue} but can't sync.");
+                        Logger.Warn($"Can't get updated time when trying to sync property {function}.");
                     }
                 }
                 else
