@@ -1,8 +1,6 @@
 ﻿using NLog;
-using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace Shared.Data
@@ -21,7 +19,7 @@ namespace Shared.Data
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        protected virtual async void NotifyPropertyChanged([CallerMemberName] String propertyName = "")
+        protected virtual async void NotifyPropertyChanged(string propertyName = "")
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -47,14 +45,14 @@ namespace Shared.Data
             }
         }
 
-        public abstract bool TryGetValue<OutValueType>(out OutValueType value);
+        //public abstract bool TryGetValue<OutValueType>(out OutValueType value);
 
-        public abstract bool SetValue(object value);
+        //public abstract bool TrySetValue<InValueType>(InValueType newValue, long updatedTime);
+
+        public abstract bool SetValue(object newValue, long updatedTime);
 
         public abstract object GetValue();
 
         public abstract Task Sync();
-
-        public abstract bool TrySetValue<InValueType>(InValueType newValue);
     }
 }

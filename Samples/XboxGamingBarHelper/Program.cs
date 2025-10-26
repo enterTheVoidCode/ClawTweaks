@@ -142,12 +142,12 @@ namespace XboxGamingBarHelper
             if (profileManager.CurrentProfile.Use || profileManager.CurrentProfile.IsGlobalProfile)
             {
                 Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name}, apply it.");
-                performanceManager.TDP.Value = profileManager.CurrentProfile.TDP;
-                powerManager.CPUBoost.Value = profileManager.CurrentProfile.CPUBoost;
-                powerManager.CPUEPP.Value = profileManager.CurrentProfile.CPUEPP;
-                powerManager.LimitCPUClock.Value = profileManager.CurrentProfile.CPUClock > 0;
-                powerManager.CPUClockMax.Value = profileManager.CurrentProfile.CPUClock > 0 ? profileManager.CurrentProfile.CPUClock : CPUConstants.DEFAULT_CPU_CLOCK;
-                profileManager.PerGameProfile.Value = profileManager.CurrentProfile.Use;
+                performanceManager.TDP.SetValue(profileManager.CurrentProfile.TDP);
+                powerManager.CPUBoost.SetValue(profileManager.CurrentProfile.CPUBoost);
+                powerManager.CPUEPP.SetValue(profileManager.CurrentProfile.CPUEPP);
+                powerManager.LimitCPUClock.SetValue(profileManager.CurrentProfile.CPUClock > 0);
+                powerManager.CPUClockMax.SetValue(profileManager.CurrentProfile.CPUClock > 0 ? profileManager.CurrentProfile.CPUClock : CPUConstants.DEFAULT_CPU_CLOCK);
+                profileManager.PerGameProfile.SetValue(profileManager.CurrentProfile.Use);
             }
             else
             {
@@ -175,7 +175,7 @@ namespace XboxGamingBarHelper
                 }
                 gameProfile = profileManager.GlobalProfile;
             }
-            profileManager.CurrentProfile.Value = gameProfile;
+            profileManager.CurrentProfile.SetValue(gameProfile);
         }
 
         private static void TDP_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -193,7 +193,7 @@ namespace XboxGamingBarHelper
                     if (runningGameProfile.Use)
                     {
                         Logger.Info($"Game {systemManager.RunningGame.GameId} has per-game profile in use.");
-                        profileManager.CurrentProfile.Value = runningGameProfile;
+                        profileManager.CurrentProfile.SetValue(runningGameProfile);
                     }
                     else
                     {
@@ -208,7 +208,7 @@ namespace XboxGamingBarHelper
             else
             {
                 Logger.Info($"Stopped playing game, use global profile instead.");
-                profileManager.CurrentProfile.Value = profileManager.GlobalProfile;
+                profileManager.CurrentProfile.SetValue(profileManager.GlobalProfile);
             }
         }
 

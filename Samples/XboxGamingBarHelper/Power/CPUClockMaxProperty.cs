@@ -1,6 +1,4 @@
-﻿using Shared.Constants;
-using Shared.Enums;
-using System.Runtime.CompilerServices;
+﻿using Shared.Enums;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Power
@@ -11,7 +9,7 @@ namespace XboxGamingBarHelper.Power
         {
         }
 
-        protected override void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
+        protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
 

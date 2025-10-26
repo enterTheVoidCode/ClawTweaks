@@ -1,6 +1,6 @@
-﻿using System;
-using Shared.Data;
+﻿using Shared.Data;
 using Shared.Enums;
+using System;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
