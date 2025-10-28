@@ -11,5 +11,7 @@
         CPUEPP,
         LimitCPUClock,
         CPUClockMax,
+        RefreshRates,
+        RefreshRate,
     }
 }

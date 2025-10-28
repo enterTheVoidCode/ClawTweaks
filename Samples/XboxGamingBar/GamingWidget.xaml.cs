@@ -41,6 +41,8 @@ namespace XboxGamingBar
         private readonly CPUEPPProperty cpuEPP;
         private readonly LimitCPUClockProperty limitCPUClock;
         private readonly CPUClockMaxProperty cpuClockMax;
+        private readonly RefreshRatesProperty refreshRates;
+        private readonly RefreshRateProperty refreshRate;
         private readonly WidgetProperties properties;
 
         public GamingWidget()
@@ -54,7 +56,9 @@ namespace XboxGamingBar
             cpuEPP = new CPUEPPProperty(80, CPUEPPSlider, this);
             limitCPUClock = new LimitCPUClockProperty(LimitCPUClockToggle, this);
             cpuClockMax = new CPUClockMaxProperty(CPUClockMaxSlider, this);
-            properties = new WidgetProperties(osd, tdp, runningGame, perGameProfile, cpuBoost, cpuEPP, limitCPUClock, cpuClockMax);
+            refreshRates = new RefreshRatesProperty(RefreshRatesComboBox, this);
+            refreshRate = new RefreshRateProperty(RefreshRatesComboBox, this);
+            properties = new WidgetProperties(osd, tdp, runningGame, perGameProfile, cpuBoost, cpuEPP, limitCPUClock, cpuClockMax, refreshRates, refreshRate);
         }
 
         protected async override void OnNavigatedTo(NavigationEventArgs e)

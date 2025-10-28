@@ -1,7 +1,9 @@
-﻿using Shared.Enums;
+﻿using Shared.Constants;
+using Shared.Enums;
 using Shared.Utilities;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Windows.Foundation.Collections;
 
 namespace Shared.Data
@@ -138,10 +140,18 @@ namespace Shared.Data
             if (TypeHelper.IsStruct<ValueType>())
             {
                 inValueSet.Add(nameof(Content), XmlHelper.ToXMLString(Value, true));
+                Logger.Debug($"Add ValueSet struct content {inValueSet[nameof(Content)]}");
+            }
+            else if (typeof(ValueType) == typeof(List<int>))
+            {
+                var list = (List<int>)(object)Value;
+                inValueSet.Add(nameof(Content), string.Join(StringConstants.COMMA, list));
+                Logger.Debug($"Add ValueSet list content {inValueSet[nameof(Content)]}");
             }
             else
             {
                 inValueSet.Add(nameof(Content), Value);
+                Logger.Debug($"Add ValueSet content {inValueSet[nameof(Content)]}");
             }
             inValueSet.Add(nameof(UpdatedTime), lastUpdatedTime);
             return inValueSet;
@@ -160,6 +170,38 @@ namespace Shared.Data
                 Logger.Warn($"Skip value {newValue} of {Function} because it equals to current value.");
                 lastUpdatedTime = updatedTime;
                 return true;
+            }
+
+            if (typeof(ValueType) == typeof(List<int>))
+            {
+                var currentListValue = (List<int>)(object)Value;
+                var newListValue = (List<int>)(object)newValue;
+                // Now compare 2 lists.
+                var identical = true;
+                if (currentListValue.Count != newListValue.Count)
+                {
+                    identical = false;
+                }
+
+                if (identical)
+                {
+                    for (var i = 0; i < currentListValue.Count; i++)
+                    {
+                        if (currentListValue[i] != newListValue[i])
+                        {
+                            identical = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (identical)
+                {
+
+                    Logger.Warn($"Skip value list of {Function} because it equals to current value.");
+                    lastUpdatedTime = updatedTime;
+                    return true;
+                }
             }
 
             lastUpdatedTime = updatedTime;
@@ -221,9 +263,14 @@ namespace Shared.Data
             }
 
             ValueType myTypeValue;
-            if (TypeHelper.IsStruct<ValueType>() && newValue is string stringValue)
+            if (TypeHelper.IsStruct<ValueType>() && newValue is string structStringValue)
             {
-                myTypeValue = XmlHelper.FromXMLString<ValueType>(stringValue);
+                myTypeValue = XmlHelper.FromXMLString<ValueType>(structStringValue);
+            }
+            else if (typeof(ValueType) == typeof(List<int>) && newValue is string listIntStringValue)
+            {
+                myTypeValue = (ValueType)(object)listIntStringValue.Split(StringConstants.COMMA.ToCharArray()).Select(int.Parse).ToList();
+                Logger.Debug($"SetValue string {listIntStringValue} to list {myTypeValue}");
             }
             else if (newValue is ValueType correctValueType)
             {

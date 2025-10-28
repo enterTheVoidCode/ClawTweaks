@@ -183,6 +183,17 @@ namespace XboxGamingBarHelper.Performance
         {
             base.Update();
 
+            /*if (ryzenAdjHandle != IntPtr.Zero)
+            {
+                Logger.Info($"get_core_clk={RyzenAdj.get_core_clk(ryzenAdjHandle, 0)} get_core_power={RyzenAdj.get_core_power(ryzenAdjHandle, 0)} get_fclk={RyzenAdj.get_fclk(ryzenAdjHandle)} get_gfx_clk={RyzenAdj.get_gfx_clk(ryzenAdjHandle)} get_soc_power={RyzenAdj.get_soc_power(ryzenAdjHandle)} get_socket_power={RyzenAdj.get_socket_power(ryzenAdjHandle)}");
+                var setMaxResult = RyzenAdj.set_max_gfxclk_freq(ryzenAdjHandle, 2000);
+                var setMinResult = RyzenAdj.set_min_gfxclk_freq(ryzenAdjHandle, 1000);
+                //var nan2 = float.NaN;
+                //var setResult = RyzenAdj.set_gfx_clk(ryzenAdjHandle, (uint)nan2);
+                
+                Logger.Info($"set_max={setMaxResult} set_min={setMinResult} set={"123"}");
+            }*/
+
             foreach (var hardwareSensor in hardwareSensors)
             {
                 hardwareSensor.Value = -1.0f;

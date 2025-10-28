@@ -32,7 +32,11 @@
                 <RowDefinition x:Name="Row_11_CPUEPPText" Height="30"/>
                 <RowDefinition x:Name="Row_12_CPUEPPSlider" Height="32"/>
                 <RowDefinition x:Name="Row_13_LimitCPUClockToggle" Height="36"/>
-                <RowDefinition x:Name="Row_14_CPUClockMaxSlider" Height="32"/>
+                <RowDefinition x:Name="Row_14_CPUClockMaxSlider" Height="Auto"/>
+                <RowDefinition x:Name="Row_15_Spacer_4" Height="20"/>
+                <RowDefinition x:Name="Row_16_SystemText" Height="50"/>
+                <RowDefinition x:Name="Row_17_Spacer_5" Height="20"/>
+                <RowDefinition x:Name="Row_18_RefreshRates" Height="36"/>
                 <!-- Add more RowDefinitions as needed, each with Height="200" -->
             </Grid.RowDefinitions>
 
@@ -103,6 +107,14 @@
             TickPlacement="BottomRight"
             IsEnabled="False"
             Visibility="{Binding ElementName=LimitCPUClockToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+            <TextBlock x:Name="SystemText" Text="System" Margin="0,0,0,0" FontWeight="Bold" FontSize="26" Grid.Row="16"/>
+            <Line X1="0" Y1="0" X2="100000" Y2="0" Stroke="DarkGray" StrokeThickness="1.5" Grid.Row="16" VerticalAlignment="Bottom"/>
+            <TextBlock x:Name="RefreshRatesText" Text="Refresh Rate" FontWeight="SemiBold" FontSize="18" Grid.Row="18"
+            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <ComboBox x:Name="RefreshRatesComboBox" Grid.Row="18" PlaceholderText="60 Hz" Width="120" IsEnabled="False" HorizontalAlignment="Right">
+                <x:String>60 Hz</x:String>
+            </ComboBox>
 
         </Grid>
     </Grid>
