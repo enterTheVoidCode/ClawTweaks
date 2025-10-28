@@ -35,5 +35,43 @@ namespace XboxGamingBarHelper.Performance
         [DllImport(RYZEN_ADJ_PATH)]
         public static extern float get_slow_limit(IntPtr ry);
 
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern float get_core_clk(IntPtr ry, uint value);
+
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern float get_core_power(IntPtr ry, uint value);
+
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern float get_gfx_clk(IntPtr ry);
+
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern float get_gfx_temp(IntPtr ry);
+
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern float get_gfx_volt(IntPtr ry);
+
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern float get_mem_clk(IntPtr ry);
+
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern float get_fclk(IntPtr ry);
+
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern float get_soc_power(IntPtr ry);
+
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern float get_soc_volt(IntPtr ry);
+
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern float get_socket_power(IntPtr ry);
+
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern int set_max_gfxclk_freq(IntPtr ry, [In] uint value);
+
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern int set_min_gfxclk_freq(IntPtr ry, [In] uint value);
+
+        [DllImport(RYZEN_ADJ_PATH)]
+        public static extern int set_gfx_clk(IntPtr ry, [In] uint value);
     }
 }
