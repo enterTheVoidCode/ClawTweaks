@@ -91,6 +91,8 @@
     <Compile Include="Data\CPUEPPProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />
     <Compile Include="Data\OSDProperty.cs" />
+    <Compile Include="Data\RefreshRateProperty.cs" />
+    <Compile Include="Data\RefreshRatesProperty.cs" />
     <Compile Include="Data\RunningGameProperty.cs" />
     <Compile Include="Data\WidgetSliderProperty.cs" />
     <Compile Include="Data\TDPProperty.cs" />
