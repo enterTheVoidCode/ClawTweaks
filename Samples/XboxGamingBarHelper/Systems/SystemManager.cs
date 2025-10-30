@@ -98,15 +98,23 @@ namespace XboxGamingBarHelper.Systems
             foreach (var appEntry in appEntries)
             {
                 var appPath = appEntry.Name;
-                // Ignore some unwanted processes.
-                var appExecutableFileName = Path.GetFileName(appPath);
-                if (IgnoredProcesses.Contains(appExecutableFileName.ToLower()))
+                try
                 {
-                    Logger.Debug($"Process {appPath} is ignored");
+                    // Ignore some unwanted processes.
+                    var appExecutableFileName = Path.GetFileName(appPath);
+                    if (IgnoredProcesses.Contains(appExecutableFileName.ToLower()))
+                    {
+                        Logger.Debug($"Process {appPath} is ignored");
+                        continue;
+                    }
+
+                    AppEntries[appEntry.ProcessId] = appEntry;
+                }
+                catch (Exception e)
+                {
+                    Logger.Error($"Got exception {e} while checking RTSS app {appEntry.Name}.");
                     continue;
                 }
-
-                AppEntries[appEntry.ProcessId] = appEntry;
             }
 
             var possibleGames = new List<RunningGame>();
