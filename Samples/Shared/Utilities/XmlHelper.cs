@@ -47,13 +47,27 @@ namespace Shared.Utilities
 
         public static bool ToXMLFile<T>(T obj, string path)
         {
+            var directoryName = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directoryName) && !Directory.Exists(directoryName))
+            {
+                Logger.Info($"Path {directoryName} not exist, trying to create it.");
+                try
+                {
+                    Directory.CreateDirectory(directoryName);
+                    Logger.Info($"New folder {directoryName} created.");
+                }
+                catch (Exception e)
+                {
+                    Logger.Error($"Got exception {e} while trying to create folder {directoryName}");
+                }
+            }
+
             var serializer = new XmlSerializer(typeof(T));
             using (var writer = new StreamWriter(path))
             {
                 serializer.Serialize(writer, obj);
             }
-            Logger.Info($"Saved {typeof(T).Name} to {path}.");
-
+            
             return true;
         }
 

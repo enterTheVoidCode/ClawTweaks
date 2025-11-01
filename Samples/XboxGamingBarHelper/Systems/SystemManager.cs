@@ -51,12 +51,17 @@ namespace XboxGamingBarHelper.Systems
 
         public SystemManager(AppServiceConnection connection, IReadOnlyDictionary<GameId, GameProfile> profiles) : base(connection)
         {
+            Logger.Info("Create process windows.");
             ProcessWindows = new Dictionary<int, ProcessWindow>();
+            Logger.Info("Create app entries.");
             AppEntries = new Dictionary<int, AppEntry>();
+            Logger.Info("Save profiles for detecting games.");
             Profiles = profiles;
             Logger.Info("Check current running game.");
             runningGame = new RunningGameProperty(GetRunningGame(), this);
+            Logger.Info("Check supported refresh rates.");
             refreshRates = new RefreshRatesProperty(User32.GetSupportedRefreshRates(), this);
+            Logger.Info("Check current refresh rate.");
             refreshRate = new RefreshRateProperty(User32.GetCurrentRefreshRate(), this);
         }
 

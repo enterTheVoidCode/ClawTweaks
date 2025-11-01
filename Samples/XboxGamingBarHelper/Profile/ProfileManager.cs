@@ -80,7 +80,7 @@ namespace XboxGamingBarHelper.Profile
                 }
             }
 
-            Logger.Info("Initialize own properties.");
+            Logger.Info("Initialize game profile properties.");
             perGameProfile = new PerGameProfileProperty(null, this);
             currentProfile = new GameProfileProperty(GlobalProfile, this);
         }
