@@ -1,6 +1,7 @@
 ﻿using Microsoft.Gaming.XboxGameBar;
 using NLog;
 using Shared.Data;
+using Shared.Utilities;
 using System;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
@@ -27,6 +28,7 @@ namespace XboxGamingBar
         // Xbox Game Bar logic
         private XboxGameBarWidget widget = null;
         private XboxGameBarWidgetActivity widgetActivity = null;
+        public XboxGameBarWidgetActivity WidgetActivity { get { return widgetActivity; } }
         private XboxGameBarAppTargetTracker appTargetTracker = null;
 
         private SolidColorBrush widgetDarkThemeBrush = null;
@@ -43,6 +45,8 @@ namespace XboxGamingBar
         private readonly CPUClockMaxProperty cpuClockMax;
         private readonly RefreshRatesProperty refreshRates;
         private readonly RefreshRateProperty refreshRate;
+        private readonly TrackedGameProperty trackedGame;
+        private readonly RTSSInstalledProperty rtssInstalled;
         private readonly WidgetProperties properties;
 
         public GamingWidget()
@@ -50,7 +54,7 @@ namespace XboxGamingBar
             InitializeComponent();
             tdp = new TDPProperty(4, TDPSlider, this);
             osd = new OSDProperty(0, PerformanceOverlaySlider, this);
-            runningGame = new RunningGameProperty(CurrentGameText, PerGameProfileToggle, this);
+            runningGame = new RunningGameProperty(RunningGameText, PerGameProfileToggle, this);
             perGameProfile = new PerGameProfileProperty(PerGameProfileToggle, this);
             cpuBoost = new CPUBoostProperty(CPUBoostToggle, this);
             cpuEPP = new CPUEPPProperty(80, CPUEPPSlider, this);
@@ -58,7 +62,9 @@ namespace XboxGamingBar
             cpuClockMax = new CPUClockMaxProperty(CPUClockMaxSlider, this);
             refreshRates = new RefreshRatesProperty(RefreshRatesComboBox, this);
             refreshRate = new RefreshRateProperty(RefreshRatesComboBox, this);
-            properties = new WidgetProperties(osd, tdp, runningGame, perGameProfile, cpuBoost, cpuEPP, limitCPUClock, cpuClockMax, refreshRates, refreshRate);
+            trackedGame = new TrackedGameProperty(new TrackedGame());
+            rtssInstalled = new RTSSInstalledProperty(PerformanceOverlaySlider, this);
+            properties = new WidgetProperties(osd, tdp, runningGame, perGameProfile, cpuBoost, cpuEPP, limitCPUClock, cpuClockMax, refreshRates, refreshRate, trackedGame, rtssInstalled);
         }
 
         protected async override void OnNavigatedTo(NavigationEventArgs e)
@@ -119,22 +125,32 @@ namespace XboxGamingBar
 
         private void AppTargetTracker_TargetChanged(XboxGameBarAppTargetTracker sender, object args)
         {
-            //var settingEnabled = appTargetTracker.Setting == XboxGameBarAppTargetSetting.Enabled;
+            var settingEnabled = appTargetTracker.Setting == XboxGameBarAppTargetSetting.Enabled;
 
-            //XboxGameBarAppTarget target = null;
-            //if (settingEnabled)
-            //{
-            //    target = appTargetTracker.GetTarget();
-            //}
+            XboxGameBarAppTarget target = null;
+            if (settingEnabled)
+            {
+                target = appTargetTracker.GetTarget();
+            }
 
-            //if (target == null)
-            //{
-            //    Logger.Info("Found no target.");
-            //}
-            //else
-            //{
-            //    Logger.Info($"Found target app DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen} IsGame={target.IsGame}");
-            //}
+            if (target == null)
+            {
+                Logger.Info("Found no target.");
+                trackedGame.SetValue(new TrackedGame());
+            }
+            else
+            {
+                if (target.IsGame)
+                {
+                    Logger.Info($"Tracked game DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen}");
+                    trackedGame.SetValue(new TrackedGame(target.AumId, target.DisplayName, StringHelper.CleanStringForSerialization(target.TitleId), target.IsFullscreen));
+                }
+                else
+                {
+                    Logger.Info($"Tracked non-game DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen}");
+                    trackedGame.SetValue(new TrackedGame());
+                }
+            }
         }
 
         /// <summary>
@@ -146,8 +162,15 @@ namespace XboxGamingBar
             {
                 if (widgetActivity == null)
                 {
-                    widgetActivity = new XboxGameBarWidgetActivity(widget, "XboxGamingBarActivity");
-                    Logger.Info("Create new activity to keep the widget runs in the background.");
+                    try
+                    {
+                        widgetActivity = new XboxGameBarWidgetActivity(widget, "XboxGamingBarActivity");
+                        Logger.Info("Create new activity to keep the widget runs in the background.");
+                    }
+                    catch (ArgumentException argumentException)
+                    {
+                        Logger.Warn($"Can't create widget acitvity: {argumentException}.");
+                    }
                 }
 
                 if (appTargetTracker == null)
@@ -157,12 +180,23 @@ namespace XboxGamingBar
 
                     if (appTargetTracker.Setting == XboxGameBarAppTargetSetting.Enabled)
                     {
-                        Logger.Info("Create new app target tracker to track current game.");
+                        Logger.Info("Created new app target tracker to track current game.");
+                        var initialTarget = appTargetTracker.GetTarget();
+                        if (initialTarget.IsGame)
+                        {
+                            Logger.Info($"Initial tracked game DisplayName={initialTarget.DisplayName} AumId={initialTarget.AumId} TitleId={initialTarget.TitleId} IsFullscreen={initialTarget.IsFullscreen}");
+                            trackedGame.SetValue(new TrackedGame(initialTarget.AumId, initialTarget.DisplayName, StringHelper.CleanStringForSerialization(initialTarget.TitleId), initialTarget.IsFullscreen));
+                        }
+                        else
+                        {
+                            trackedGame.SetValue(new TrackedGame());
+                            Logger.Info("No initial game target found.");
+                        }
                         appTargetTracker.TargetChanged += AppTargetTracker_TargetChanged;
                     }
                     else
                     {
-                        Logger.Info("Create new app target tracker but not enabled.");
+                        Logger.Info("Created new app target tracker but not enabled.");
                     }
                 }
             }

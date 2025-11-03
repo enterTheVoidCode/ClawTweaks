@@ -1,5 +1,6 @@
 ﻿using RTSSSharedMemoryNET;
 using Shared.Utilities;
+using System;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Performance;
@@ -22,9 +23,16 @@ namespace XboxGamingBarHelper.RTSS
             get { return osd; }
         }
 
+        private readonly RTSSInstalledProperty rtssInstalled;
+        public RTSSInstalledProperty RTSSInstalled
+        {
+            get { return rtssInstalled; }
+        }
+
         public RTSSManager(PerformanceManager performanceManager, AppServiceConnection connection) : base(connection)
         {
             osd = new OSDProperty(0, null, this);
+            rtssInstalled = new RTSSInstalledProperty(this);
             osdItems = new OSDItem[]
             {
                 new OSDItemFPS(),
@@ -38,7 +46,10 @@ namespace XboxGamingBarHelper.RTSS
         public override void Update()
         {
             base.Update();
-            // Console.WriteLine($"OSD level {OSDLevel}");
+
+            var isRTSSInstalled = RTSSHelper.IsInstalled();
+            if (rtssInstalled.Value != isRTSSInstalled)
+                rtssInstalled.SetValue(isRTSSInstalled);
             
             if (!RTSSHelper.IsRunning())
             {
