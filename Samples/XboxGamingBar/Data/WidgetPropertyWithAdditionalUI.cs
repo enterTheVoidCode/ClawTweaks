@@ -4,7 +4,7 @@ using Windows.UI.Xaml.Controls;
 
 namespace XboxGamingBar.Data
 {
-    internal class WidgetPropertyWithAdditionalUI<ValueType, UIType, AdditionalUIType> : WidgetProperty<ValueType, UIType> where UIType : UIElement where AdditionalUIType : UIElement
+    internal class WidgetPropertyWithAdditionalUI<ValueType, UIType, AdditionalUIType> : WidgetUIProperty<ValueType, UIType> where UIType : UIElement where AdditionalUIType : UIElement
     {
         private AdditionalUIType additionalUI;
 

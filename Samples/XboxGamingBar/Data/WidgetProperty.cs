@@ -1,30 +1,16 @@
-﻿using Shared.Data;
+﻿using System;
+using Shared.Data;
 using Shared.Enums;
-using System;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
-using Windows.UI.Core;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 
 namespace XboxGamingBar.Data
 {
-    internal class WidgetProperty<ValueType, UIType> : GenericProperty<ValueType> where UIType : UIElement
+    internal class WidgetProperty<ValueType> : GenericProperty<ValueType>
     {
-        private UIType ui;
-        public UIType UI
+        public WidgetProperty(ValueType inValue, IProperty inParentProperty, Function inFunction) : base(inValue, inParentProperty, inFunction)
         {
-            get { return ui; }
-        }
-
-        private readonly Page owner;
-        public Page Owner { get { return owner; } }
-
-        public WidgetProperty(ValueType inValue, Function inFunction, UIType inUI, Page inOwner) : base(inValue, null, inFunction)
-        {
-            ui = inUI;
-            owner = inOwner;
         }
 
         protected override Task<AppServiceResponse> SendMessageAsync(ValueSet request)

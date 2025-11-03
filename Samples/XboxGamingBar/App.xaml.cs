@@ -226,6 +226,10 @@ namespace XboxGamingBar
             var deferral = e.SuspendingOperation.GetDeferral();
 
             xboxGameBarWidget = null;
+            if (gamingWidget != null && gamingWidget.WidgetActivity != null)
+            {
+                gamingWidget.WidgetActivity.Complete();
+            }
             gamingWidget = null;
 
             deferral.Complete();
