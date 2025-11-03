@@ -3,6 +3,7 @@ using NLog;
 using Shared.Data;
 using Shared.Utilities;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
@@ -24,6 +25,10 @@ namespace XboxGamingBar
     public sealed partial class GamingWidget : Page
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private static readonly List<string> BlackListAppTrackerNames = new List<string>()
+        {
+            "App Installer", //Somehow App Installer shows up as a game sometimes
+        };
 
         // Xbox Game Bar logic
         private XboxGameBarWidget widget = null;
@@ -135,12 +140,12 @@ namespace XboxGamingBar
 
             if (target == null)
             {
-                Logger.Info("Found no target.");
+                //Logger.Info("Found no target.");
                 trackedGame.SetValue(new TrackedGame());
             }
             else
             {
-                if (target.IsGame)
+                if (target.IsGame && !BlackListAppTrackerNames.Contains(target.DisplayName))
                 {
                     Logger.Info($"Tracked game DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen}");
                     trackedGame.SetValue(new TrackedGame(target.AumId, target.DisplayName, StringHelper.CleanStringForSerialization(target.TitleId), target.IsFullscreen));
