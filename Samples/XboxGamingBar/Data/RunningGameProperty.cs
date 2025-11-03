@@ -8,7 +8,7 @@ namespace XboxGamingBar.Data
 {
     internal class RunningGameProperty : WidgetPropertyWithAdditionalUI<RunningGame, TextBlock, ToggleSwitch>
     {
-        public RunningGameProperty(TextBlock inUI, ToggleSwitch inAdditionalUI, Page inOwner) : base(new RunningGame(), Function.CurrentGame, inUI, inAdditionalUI, inOwner)
+        public RunningGameProperty(TextBlock inUI, ToggleSwitch inAdditionalUI, Page inOwner) : base(new RunningGame(), Function.RunningGame, inUI, inAdditionalUI, inOwner)
         {
 
         }

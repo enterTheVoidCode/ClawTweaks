@@ -5,7 +5,7 @@
         None = 0,
         OSD,
         TDP,
-        CurrentGame,
+        RunningGame,
         PerGameProfile,
         CPUBoost,
         CPUEPP,
@@ -13,5 +13,7 @@
         CPUClockMax,
         RefreshRates,
         RefreshRate,
+        TrackedGame,
+        RTSSInstalled,
     }
 }

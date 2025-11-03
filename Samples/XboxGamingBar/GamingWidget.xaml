@@ -67,7 +67,7 @@
                 <TextBlock Text="FULL"     Grid.Column="4" HorizontalAlignment="Center" FontSize="16"/>
             </Grid>
 
-            <TextBlock x:Name="CurrentGameText" Text="No game detected" FontWeight="SemiBold" FontSize="18" Grid.Row="7"
+            <TextBlock x:Name="RunningGameText" Text="No game detected" FontWeight="SemiBold" FontSize="18" Grid.Row="7"
             TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <ToggleSwitch x:Name="PerGameProfileToggle" IsEnabled="False" OffContent="Global Profile" OnContent="Per-game Profile"
             FlowDirection="RightToLeft" Grid.Row="7" VerticalAlignment="Center" HorizontalAlignment="Right"/>

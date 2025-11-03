@@ -184,10 +184,12 @@
     <Compile Include="RTSS\OSDItems\OSDItemMemory.cs" />
     <Compile Include="RTSS\OSDItemValue.cs" />
     <Compile Include="RTSS\OSDProperty.cs" />
+    <Compile Include="RTSS\RTSSInstalledProperty.cs" />
     <Compile Include="RTSS\RTSSManager.cs" />
     <Compile Include="Systems\RefreshRateProperty.cs" />
     <Compile Include="Systems\RefreshRatesProperty.cs" />
     <Compile Include="Systems\RunningGameProperty.cs" />
+    <Compile Include="Systems\TrackedGameProperty.cs" />
     <Compile Include="Windows\PowerGuids.cs" />
     <Compile Include="Windows\PowrProf.cs" />
     <Compile Include="Windows\ProcessWindow.cs" />

@@ -45,9 +45,9 @@
             return g1.GameId == g2.GameId;
         }
 
-        public static bool operator !=(RunningGame p1, RunningGame p2)
+        public static bool operator !=(RunningGame g1, RunningGame g2)
         {
-            return !(p1 == p2);
+            return !(g1 == g2);
         }
 
         public override bool Equals(object obj)

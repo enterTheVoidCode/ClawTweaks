@@ -43,6 +43,12 @@ namespace XboxGamingBarHelper.Systems
             get { return refreshRate; }
         }
 
+        private readonly TrackedGameProperty trackedGame;
+        public TrackedGameProperty TrackedGame
+        {
+            get { return trackedGame; }
+        }
+
         private IReadOnlyDictionary<GameId, GameProfile> Profiles { get; }
 
         // Keep track to current opening windows to determine currently running game.
@@ -57,8 +63,10 @@ namespace XboxGamingBarHelper.Systems
             AppEntries = new Dictionary<int, AppEntry>();
             Logger.Info("Save profiles for detecting games.");
             Profiles = profiles;
+
+            trackedGame = new TrackedGameProperty(this);
             Logger.Info("Check current running game.");
-            runningGame = new RunningGameProperty(GetRunningGame(), this);
+            runningGame = new RunningGameProperty(this);
             Logger.Info("Check supported refresh rates.");
             refreshRates = new RefreshRatesProperty(User32.GetSupportedRefreshRates(), this);
             Logger.Info("Check current refresh rate.");
@@ -131,6 +139,12 @@ namespace XboxGamingBarHelper.Systems
                     {
                         Logger.Debug($"Window {processWindow.Value.Path} is ignored");
                         continue;
+                    }
+
+                    if (trackedGame.IsValid() && trackedGame.DisplayName == processWindow.Value.Title)
+                    {
+                        Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" matches the xbox game bar widget app tracker target.");
+                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, processWindow.Value.Title, processWindow.Value.Path, 0, processWindow.Value.IsForeground));
                     }
 
                     if (Profiles.ContainsKey(new GameId(processWindow.Value.Title, processWindow.Value.Path)))
