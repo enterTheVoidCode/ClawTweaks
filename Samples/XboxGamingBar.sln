@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XboxGamingBarHelper", "Xbox
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared", "Shared\Shared.csproj", "{DAB6C52A-B200-4478-925E-FA2E05169C7E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ADLXCSharpBind", "..\ADLX\Samples\csharp\ADLXCSharpBind\ADLXCSharpBind\ADLXCSharpBind.vcxproj", "{B9106003-FDC7-4318-A4C7-31C40484CD4E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -55,6 +57,14 @@ Global
 		{DAB6C52A-B200-4478-925E-FA2E05169C7E}.Release|x64.Build.0 = Release|Any CPU
 		{DAB6C52A-B200-4478-925E-FA2E05169C7E}.Release|x86.ActiveCfg = Release|Any CPU
 		{DAB6C52A-B200-4478-925E-FA2E05169C7E}.Release|x86.Build.0 = Release|Any CPU
+		{B9106003-FDC7-4318-A4C7-31C40484CD4E}.Debug|x64.ActiveCfg = Debug|x64
+		{B9106003-FDC7-4318-A4C7-31C40484CD4E}.Debug|x64.Build.0 = Debug|x64
+		{B9106003-FDC7-4318-A4C7-31C40484CD4E}.Debug|x86.ActiveCfg = Debug|Win32
+		{B9106003-FDC7-4318-A4C7-31C40484CD4E}.Debug|x86.Build.0 = Debug|Win32
+		{B9106003-FDC7-4318-A4C7-31C40484CD4E}.Release|x64.ActiveCfg = Release|x64
+		{B9106003-FDC7-4318-A4C7-31C40484CD4E}.Release|x64.Build.0 = Release|x64
+		{B9106003-FDC7-4318-A4C7-31C40484CD4E}.Release|x86.ActiveCfg = Release|Win32
+		{B9106003-FDC7-4318-A4C7-31C40484CD4E}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

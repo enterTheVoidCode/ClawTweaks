@@ -15,5 +15,10 @@
         RefreshRate,
         TrackedGame,
         RTSSInstalled,
+        AMDRadeonSuperResolutionSupported,
+        AMDRadeonSuperResolutionEnabled,
+        AMDRadeonSuperResolutionSharpness,
+        AMDFluidMotionFrameSupported,
+        AMDFluidMotionFrameEnabled
     }
 }

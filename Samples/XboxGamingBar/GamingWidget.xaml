@@ -13,109 +13,138 @@
         <converter:WattStringConverter x:Key="WattStringConverter"/>
         <converter:MegahertzStringConverter x:Key="MegahertzStringConverter"/>
         <converter:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converter:SharpnessPercentStringConverter x:Key="SharpnessPercentStringConverter"/>
     </Page.Resources>
 
-    <Grid x:Name="RootGrid">
-        <Grid x:Name="MainGrid" Margin="15,15,15,15">
-            <Grid.RowDefinitions>
-                <RowDefinition x:Name="Row_0_ProgressRing" Height="Auto"/>
-                <RowDefinition x:Name="Row_1_PerformanceText" Height="50"/>
-                <RowDefinition x:Name="Row_2_Spacer_1" Height="20"/>
-                <RowDefinition x:Name="Row_3_PerformanceOverlayText" Height="30"/>
-                <RowDefinition x:Name="Row_4_PerformanceOverlaySlider" Height="32"/>
-                <RowDefinition x:Name="Row_5_Spacer_2" Height="20"/>
-                <RowDefinition x:Name="Row_6_Spacer_3" Height="20"/>
-                <RowDefinition x:Name="Row_7_PerGameProfile" Height="36"/>
-                <RowDefinition x:Name="Row_8_TDPLimitText" Height="30"/>
-                <RowDefinition x:Name="Row_9_TDPSlider" Height="32"/>
-                <RowDefinition x:Name="Row_10_CPUBoost" Height="36"/>
-                <RowDefinition x:Name="Row_11_CPUEPPText" Height="30"/>
-                <RowDefinition x:Name="Row_12_CPUEPPSlider" Height="32"/>
-                <RowDefinition x:Name="Row_13_LimitCPUClockToggle" Height="36"/>
-                <RowDefinition x:Name="Row_14_CPUClockMaxSlider" Height="Auto"/>
-                <RowDefinition x:Name="Row_15_Spacer_4" Height="20"/>
-                <RowDefinition x:Name="Row_16_SystemText" Height="50"/>
-                <RowDefinition x:Name="Row_17_Spacer_5" Height="20"/>
-                <RowDefinition x:Name="Row_18_RefreshRates" Height="36"/>
-                <!-- Add more RowDefinitions as needed, each with Height="200" -->
-            </Grid.RowDefinitions>
+    <ScrollViewer x:Name="RootScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid x:Name="RootGrid">
+            <Grid x:Name="MainGrid" Margin="15,15,15,15">
+                <Grid.RowDefinitions>
+                    <RowDefinition x:Name="Row_0_ProgressRing" Height="Auto"/>
+                    <RowDefinition x:Name="Row_1_PerformanceText" Height="50"/>
+                    <RowDefinition x:Name="Row_2_Spacer_1" Height="20"/>
+                    <RowDefinition x:Name="Row_3_PerformanceOverlayText" Height="30"/>
+                    <RowDefinition x:Name="Row_4_PerformanceOverlaySlider" Height="32"/>
+                    <RowDefinition x:Name="Row_5_Spacer_2" Height="20"/>
+                    <RowDefinition x:Name="Row_6_Spacer_3" Height="20"/>
+                    <RowDefinition x:Name="Row_7_PerGameProfile" Height="36"/>
+                    <RowDefinition x:Name="Row_8_TDPLimitText" Height="30"/>
+                    <RowDefinition x:Name="Row_9_TDPSlider" Height="32"/>
+                    <RowDefinition x:Name="Row_10_CPUBoost" Height="36"/>
+                    <RowDefinition x:Name="Row_11_CPUEPPText" Height="30"/>
+                    <RowDefinition x:Name="Row_12_CPUEPPSlider" Height="32"/>
+                    <RowDefinition x:Name="Row_13_LimitCPUClockToggle" Height="36"/>
+                    <RowDefinition x:Name="Row_14_CPUClockMaxSlider" Height="Auto"/>
+                    <RowDefinition x:Name="Row_15_Spacer_4" Height="20"/>
+                    <RowDefinition x:Name="Row_16_SystemText" Height="50"/>
+                    <RowDefinition x:Name="Row_17_Spacer_5" Height="20"/>
+                    <RowDefinition x:Name="Row_18_RefreshRates" Height="36"/>
+                    <RowDefinition x:Name="Row_19_Spacer_6" Height="20"/>
+                    <RowDefinition x:Name="Row_20_AMDText" Height="50"/>
+                    <RowDefinition x:Name="Row_21_Spacer_7" Height="20"/>
+                    <RowDefinition x:Name="Row_22_AMDRadeonSuperResolutionToggle" Height="36"/>
+                    <RowDefinition x:Name="Row_23_AMDRadeonSuperResolutionSlider" Height="Auto"/>
+                    <RowDefinition x:Name="Row_24_AMDFluidMotionFrameToggle" Height="36"/>
+                    <!-- Add more RowDefinitions as needed, each with Height="200" -->
+                </Grid.RowDefinitions>
 
-            <ProgressRing x:Name="LoadingProgressRing" IsActive="True" Visibility="Collapsed" Grid.Row="0" Width="100" Height="100"/>
+                <ProgressRing x:Name="LoadingProgressRing" IsActive="True" Visibility="Collapsed" Grid.Row="0" Width="100" Height="100"/>
 
-            <TextBlock x:Name="PerformanceText" Text="Performance" Margin="0,0,0,0" FontWeight="Bold" FontSize="26" Grid.Row="1"/>
-            <Line X1="0" Y1="0" X2="100000" Y2="0" Stroke="DarkGray" StrokeThickness="1.5" Grid.Row="1" VerticalAlignment="Bottom"/>
+                <TextBlock x:Name="PerformanceText" Text="Performance" Margin="0,0,0,0" FontWeight="Bold" FontSize="26" Grid.Row="1"/>
+                <Line X1="0" Y1="0" X2="100000" Y2="0" Stroke="DarkGray" StrokeThickness="1.5" Grid.Row="1" VerticalAlignment="Bottom"/>
 
-            <TextBlock x:Name="PerformanceOverlayText" Text="Performance Overlay" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="3"/>
-            <Slider x:Name="PerformanceOverlaySlider" Grid.Row="4" Margin="0,0,0,0"
-            Minimum="0" Maximum="4"
-            TickFrequency="1"
-            SnapsTo="StepValues"
-            TickPlacement="BottomRight"
-            IsEnabled="False"/>
-            <Grid Margin="-48,0,-48,0" Grid.Row="5">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition/>
-                    <ColumnDefinition/>
-                    <ColumnDefinition/>
-                    <ColumnDefinition/>
-                    <ColumnDefinition/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="OFF"     Grid.Column="0" HorizontalAlignment="Center" FontSize="16"/>
-                <TextBlock Text="FPS"      Grid.Column="1" HorizontalAlignment="Center" FontSize="16"/>
-                <TextBlock Text="BATTERY"  Grid.Column="2" HorizontalAlignment="Center" FontSize="16"/>
-                <TextBlock Text="DETAILED" Grid.Column="3" HorizontalAlignment="Center" FontSize="16"/>
-                <TextBlock Text="FULL"     Grid.Column="4" HorizontalAlignment="Center" FontSize="16"/>
+                <TextBlock x:Name="PerformanceOverlayText" Text="Performance Overlay" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="3"/>
+                <Slider x:Name="PerformanceOverlaySlider" Grid.Row="4" Margin="0,0,0,0"
+                Minimum="0" Maximum="4"
+                TickFrequency="1"
+                SnapsTo="StepValues"
+                TickPlacement="BottomRight"
+                IsEnabled="False"/>
+                <Grid Margin="-48,0,-48,0" Grid.Row="5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="OFF"     Grid.Column="0" HorizontalAlignment="Center" FontSize="16"/>
+                    <TextBlock Text="FPS"      Grid.Column="1" HorizontalAlignment="Center" FontSize="16"/>
+                    <TextBlock Text="BATTERY"  Grid.Column="2" HorizontalAlignment="Center" FontSize="16"/>
+                    <TextBlock Text="DETAILED" Grid.Column="3" HorizontalAlignment="Center" FontSize="16"/>
+                    <TextBlock Text="FULL"     Grid.Column="4" HorizontalAlignment="Center" FontSize="16"/>
+                </Grid>
+
+                <TextBlock x:Name="RunningGameText" Text="No game detected" FontWeight="SemiBold" FontSize="18" Grid.Row="7"
+                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <ToggleSwitch x:Name="PerGameProfileToggle" IsEnabled="False" OffContent="Global Profile" OnContent="Per-game Profile"
+                FlowDirection="RightToLeft" Grid.Row="7" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+
+                <TextBlock x:Name="TDPLimitText" Text="Thermal Power (TDP) Limit" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="8"/>
+                <TextBlock x:Name="TDPValueText" Grid.Row="8" Margin="0,0,0,0" Text="{Binding ElementName=TDPSlider, Path=Value, Converter={StaticResource WattStringConverter}}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                <Slider x:Name="TDPSlider" Grid.Row="9" Margin="0,0,0,0"
+                Minimum="4" Maximum="32"
+                TickFrequency="1"
+                SnapsTo="Ticks"
+                TickPlacement="BottomRight"
+                IsEnabled="False"/>
+
+                <TextBlock x:Name="CPUBoostText" Text="CPU Boost" FontWeight="SemiBold" FontSize="18" Grid.Row="10"
+                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <ToggleSwitch x:Name="CPUBoostToggle" IsEnabled="False" OffContent="Disabled" OnContent="Aggressive"
+                FlowDirection="RightToLeft" Grid.Row="10" VerticalAlignment="Center" HorizontalAlignment="Right" />
+
+                <TextBlock x:Name="CPUEPPText" Text="CPU Energy Performance Preference (EPP)" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="11"/>
+                <TextBlock x:Name="CPUEPPValueText" Grid.Row="11" Margin="0,0,0,0" Text="{Binding ElementName=CPUEPPSlider, Path=Value}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                <Slider x:Name="CPUEPPSlider" Grid.Row="12" Margin="0,0,0,0"
+                Minimum="10" Maximum="95"
+                TickFrequency="5"
+                SnapsTo="Ticks"
+                TickPlacement="BottomRight"
+                IsEnabled="False"/>
+
+                <!-- CPU Clock -->
+                <TextBlock x:Name="LimitCPUClockText" Text="Limit CPU Clock" FontWeight="SemiBold" FontSize="18" Grid.Row="13"
+                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <ToggleSwitch x:Name="LimitCPUClockToggle" IsEnabled="False" OffContent="Disabled" OnContent="{Binding ElementName=CPUClockMaxSlider, Path=Value, Converter={StaticResource MegahertzStringConverter}}"
+                FlowDirection="RightToLeft" Grid.Row="13" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                <Slider x:Name="CPUClockMaxSlider" Grid.Row="14" Margin="0,0,0,0"
+                Minimum="300" Maximum="5100"
+                TickFrequency="100"
+                SnapsTo="Ticks"
+                TickPlacement="BottomRight"
+                IsEnabled="False"
+                Visibility="{Binding ElementName=LimitCPUClockToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                <TextBlock x:Name="SystemText" Text="System" Margin="0,0,0,0" FontWeight="Bold" FontSize="26" Grid.Row="16"/>
+                <Line X1="0" Y1="0" X2="100000" Y2="0" Stroke="DarkGray" StrokeThickness="1.5" Grid.Row="16" VerticalAlignment="Bottom"/>
+                <TextBlock x:Name="RefreshRatesText" Text="Refresh Rate" FontWeight="SemiBold" FontSize="18" Grid.Row="18"
+                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <ComboBox x:Name="RefreshRatesComboBox" Grid.Row="18" PlaceholderText="60 Hz" Width="120" IsEnabled="False" HorizontalAlignment="Right">
+                    <x:String>60 Hz</x:String>
+                </ComboBox>
+
+                <TextBlock x:Name="AMDText" Text="AMD Settings" Margin="0,0,0,0" FontWeight="Bold" FontSize="26" Grid.Row="20"/>
+                <Line X1="0" Y1="0" X2="100000" Y2="0" Stroke="DarkGray" StrokeThickness="1.5" Grid.Row="20" VerticalAlignment="Bottom"/>
+
+                <TextBlock x:Name="AMDRadeonSuperResolutionText" Text="Radeon Super Resolution" FontWeight="SemiBold" FontSize="18" Grid.Row="22"
+                    TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <ToggleSwitch x:Name="AMDRadeonSuperResolutionToggle" IsEnabled="False" OffContent="Disabled" OnContent="{Binding ElementName=AMDRadeonSuperResolutionSharpnessSlider, Path=Value, Converter={StaticResource SharpnessPercentStringConverter}}"
+                    FlowDirection="RightToLeft" Grid.Row="22" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                <Slider x:Name="AMDRadeonSuperResolutionSharpnessSlider" Grid.Row="23" Margin="0,0,0,0"
+                    Minimum="0" Maximum="100"
+                    TickFrequency="1"
+                    SnapsTo="Ticks"
+                    TickPlacement="BottomRight"
+                    IsEnabled="False"
+                    Visibility="{Binding ElementName=AMDRadeonSuperResolutionToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                <TextBlock x:Name="AMDFluidMotionFrameText" Text="AMD Fluid Motion Frame" FontWeight="SemiBold" FontSize="18" Grid.Row="24"
+                    TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <ToggleSwitch x:Name="AMDFluidMotionFrameToggle" IsEnabled="False" OffContent="Disabled" OnContent="Enabled"
+                    FlowDirection="RightToLeft" Grid.Row="24" VerticalAlignment="Center" HorizontalAlignment="Right" />
+
             </Grid>
-
-            <TextBlock x:Name="RunningGameText" Text="No game detected" FontWeight="SemiBold" FontSize="18" Grid.Row="7"
-            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <ToggleSwitch x:Name="PerGameProfileToggle" IsEnabled="False" OffContent="Global Profile" OnContent="Per-game Profile"
-            FlowDirection="RightToLeft" Grid.Row="7" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-
-            <TextBlock x:Name="TDPLimitText" Text="Thermal Power (TDP) Limit" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="8"/>
-            <TextBlock x:Name="TDPValueText" Grid.Row="8" Margin="0,0,0,0" Text="{Binding ElementName=TDPSlider, Path=Value, Converter={StaticResource WattStringConverter}}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-            <Slider x:Name="TDPSlider" Grid.Row="9" Margin="0,0,0,0"
-            Minimum="4" Maximum="32"
-            TickFrequency="1"
-            SnapsTo="Ticks"
-            TickPlacement="BottomRight"
-            IsEnabled="False"/>
-
-            <TextBlock x:Name="CPUBoostText" Text="CPU Boost" FontWeight="SemiBold" FontSize="18" Grid.Row="10"
-            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <ToggleSwitch x:Name="CPUBoostToggle" IsEnabled="False" OffContent="Disabled" OnContent="Aggressive"
-            FlowDirection="RightToLeft" Grid.Row="10" VerticalAlignment="Center" HorizontalAlignment="Right" />
-
-            <TextBlock x:Name="CPUEPPText" Text="CPU Energy Performance Preference (EPP)" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="11"/>
-            <TextBlock x:Name="CPUEPPValueText" Grid.Row="11" Margin="0,0,0,0" Text="{Binding ElementName=CPUEPPSlider, Path=Value}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-            <Slider x:Name="CPUEPPSlider" Grid.Row="12" Margin="0,0,0,0"
-            Minimum="10" Maximum="95"
-            TickFrequency="5"
-            SnapsTo="Ticks"
-            TickPlacement="BottomRight"
-            IsEnabled="False"/>
-
-            <!-- CPU Clock -->
-            <TextBlock x:Name="LimitCPUClockText" Text="Limit CPU Clock" FontWeight="SemiBold" FontSize="18" Grid.Row="13"
-            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <ToggleSwitch x:Name="LimitCPUClockToggle" IsEnabled="False" OffContent="Disabled" OnContent="{Binding ElementName=CPUClockMaxSlider, Path=Value, Converter={StaticResource MegahertzStringConverter}}"
-            FlowDirection="RightToLeft" Grid.Row="13" VerticalAlignment="Center" HorizontalAlignment="Right" />
-            <Slider x:Name="CPUClockMaxSlider" Grid.Row="14" Margin="0,0,0,0"
-            Minimum="300" Maximum="5100"
-            TickFrequency="100"
-            SnapsTo="Ticks"
-            TickPlacement="BottomRight"
-            IsEnabled="False"
-            Visibility="{Binding ElementName=LimitCPUClockToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-
-            <TextBlock x:Name="SystemText" Text="System" Margin="0,0,0,0" FontWeight="Bold" FontSize="26" Grid.Row="16"/>
-            <Line X1="0" Y1="0" X2="100000" Y2="0" Stroke="DarkGray" StrokeThickness="1.5" Grid.Row="16" VerticalAlignment="Bottom"/>
-            <TextBlock x:Name="RefreshRatesText" Text="Refresh Rate" FontWeight="SemiBold" FontSize="18" Grid.Row="18"
-            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <ComboBox x:Name="RefreshRatesComboBox" Grid.Row="18" PlaceholderText="60 Hz" Width="120" IsEnabled="False" HorizontalAlignment="Right">
-                <x:String>60 Hz</x:String>
-            </ComboBox>
-
         </Grid>
-    </Grid>
+    </ScrollViewer>
 </Page>
