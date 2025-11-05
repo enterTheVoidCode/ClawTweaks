@@ -12,8 +12,11 @@ As of now, there are following functions:
   - Enable or disable CPU Boost.
   - Set CPU Energy Performance Preference (EPP).
   - Set CPU clock speed limit.
+- AMD Settings.
+  - Radeon Super Resolution.
+  - AMD Fluid Motion Frame.
 
-![alt text](Screenshots/v2_2.png)
+![alt text](Screenshots/v3_1.png)
 
 ## Installation
 

@@ -85,17 +85,24 @@
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
     <Compile Include="Converter\BooleanToVisibilityConverter.cs" />
+    <Compile Include="Converter\SharpnessPercentStringConverter.cs" />
+    <Compile Include="Data\AMDFluidMotionFrameEnabledProperty.cs" />
+    <Compile Include="Data\AMDFluidMotionFrameSupportedProperty.cs" />
+    <Compile Include="Data\AMDRadeonSuperResolutionEnabledProperty.cs" />
+    <Compile Include="Data\AMDRadeonSuperResolutionSharpnessProperty.cs" />
     <Compile Include="Data\CPUBoostProperty.cs" />
     <Compile Include="Data\LimitCPUClockProperty.cs" />
     <Compile Include="Data\CPUClockMaxProperty.cs" />
     <Compile Include="Data\CPUEPPProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />
     <Compile Include="Data\OSDProperty.cs" />
+    <Compile Include="Data\AMDRadeonSuperResolutionSupportedProperty.cs" />
     <Compile Include="Data\RefreshRateProperty.cs" />
     <Compile Include="Data\RefreshRatesProperty.cs" />
     <Compile Include="Data\RTSSInstalledProperty.cs" />
     <Compile Include="Data\RunningGameProperty.cs" />
     <Compile Include="Data\TrackedGameProperty.cs" />
+    <Compile Include="Data\WidgetControlEnabledProperty.cs" />
     <Compile Include="Data\WidgetSliderProperty.cs" />
     <Compile Include="Data\TDPProperty.cs" />
     <Compile Include="Data\WidgetControlProperty.cs" />
