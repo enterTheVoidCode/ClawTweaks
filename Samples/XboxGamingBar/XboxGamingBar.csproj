@@ -85,9 +85,19 @@
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
     <Compile Include="Converter\BooleanToVisibilityConverter.cs" />
+    <Compile Include="Converter\RadeonBoostResolutionStringConverter.cs" />
     <Compile Include="Converter\SharpnessPercentStringConverter.cs" />
+    <Compile Include="Data\AMDRadeonAntiLagEnabledProperty.cs" />
+    <Compile Include="Data\AMDRadeonAntiLagSupportedProperty.cs" />
     <Compile Include="Data\AMDFluidMotionFrameEnabledProperty.cs" />
     <Compile Include="Data\AMDFluidMotionFrameSupportedProperty.cs" />
+    <Compile Include="Data\AMDRadeonBoostEnabledProperty.cs" />
+    <Compile Include="Data\AMDRadeonBoostResolutionProperty.cs" />
+    <Compile Include="Data\AMDRadeonBoostSupportedProperty.cs" />
+    <Compile Include="Data\AMDRadeonChillEnabledProperty.cs" />
+    <Compile Include="Data\AMDRadeonChillMaxFPSProperty.cs" />
+    <Compile Include="Data\AMDRadeonChillMinFPSProperty.cs" />
+    <Compile Include="Data\AMDRadeonChillSupportedProperty.cs" />
     <Compile Include="Data\AMDRadeonSuperResolutionEnabledProperty.cs" />
     <Compile Include="Data\AMDRadeonSuperResolutionSharpnessProperty.cs" />
     <Compile Include="Data\CPUBoostProperty.cs" />
