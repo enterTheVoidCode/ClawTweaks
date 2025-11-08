@@ -19,6 +19,15 @@
         AMDRadeonSuperResolutionEnabled,
         AMDRadeonSuperResolutionSharpness,
         AMDFluidMotionFrameSupported,
-        AMDFluidMotionFrameEnabled
+        AMDFluidMotionFrameEnabled,
+        AMDRadeonAntiLagSupported,
+        AMDRadeonAntiLagEnabled,
+        AMDRadeonBoostSupported,
+        AMDRadeonBoostEnabled,
+        AMDRadeonBoostResolution,
+        AMDRadeonChillSupported,
+        AMDRadeonChillEnabled,
+        AMDRadeonChillMinFPS,
+        AMDRadeonChillMaxFPS,
     }
 }

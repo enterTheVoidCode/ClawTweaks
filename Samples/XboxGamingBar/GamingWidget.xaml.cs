@@ -4,6 +4,7 @@ using Shared.Data;
 using Shared.Utilities;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
@@ -22,7 +23,7 @@ namespace XboxGamingBar
     /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
     /// </summary>
-    public sealed partial class GamingWidget : Page
+    public sealed partial class GamingWidget : Page, INotifyPropertyChanged
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private static readonly List<string> BlackListAppTrackerNames = new List<string>()
@@ -58,8 +59,20 @@ namespace XboxGamingBar
         private readonly AMDRadeonSuperResolutionSharpnessProperty amdRadeonSuperResolutionSharpness;
         private readonly AMDFluidMotionFrameEnabledProperty amdFluidMotionFrameEnabled;
         private readonly AMDFluidMotionFrameSupportedProperty amdFluidMotionFrameSupported;
+        private readonly AMDRadeonAntiLagEnabledProperty amdRadeonAntiLagEnabled;
+        private readonly AMDRadeonAntiLagSupportedProperty amdRadeonAntiLagSupported;
+        private readonly AMDRadeonBoostEnabledProperty amdRadeonBoostEnabled;
+        private readonly AMDRadeonBoostSupportedProperty amdRadeonBoostSupported;
+        private readonly AMDRadeonBoostResolutionProperty amdRadeonBoostResolution;
+        private readonly AMDRadeonChillEnabledProperty amdRadeonChillEnabled;
+        private readonly AMDRadeonChillSupportedProperty amdRadeonChillSupported;
+        private readonly AMDRadeonChillMinFPSProperty amdRadeonChillMinFPSProperty;
+        private readonly AMDRadeonChillMaxFPSProperty amdRadeonChillMaxFPSProperty;
+        private string RadeonChillOnText => string.Format("Idle FPS: {0} - Max FPS: {1}", amdRadeonChillMinFPSProperty.Value, amdRadeonChillMaxFPSProperty.Value);
 
         private readonly WidgetProperties properties;
+
+        public event PropertyChangedEventHandler PropertyChanged;
 
         public GamingWidget()
         {
@@ -81,6 +94,19 @@ namespace XboxGamingBar
             amdRadeonSuperResolutionSharpness = new AMDRadeonSuperResolutionSharpnessProperty(AMDRadeonSuperResolutionSharpnessSlider, this);
             amdFluidMotionFrameEnabled = new AMDFluidMotionFrameEnabledProperty(AMDFluidMotionFrameToggle, this);
             amdFluidMotionFrameSupported = new AMDFluidMotionFrameSupportedProperty(AMDFluidMotionFrameToggle, this);
+            amdRadeonAntiLagEnabled = new AMDRadeonAntiLagEnabledProperty(AMDRadeonAntiLagToggle, this);
+            amdRadeonAntiLagSupported = new AMDRadeonAntiLagSupportedProperty(AMDRadeonAntiLagToggle, this);
+            amdRadeonBoostEnabled = new AMDRadeonBoostEnabledProperty(AMDRadeonBoostToggle, this);
+            amdRadeonBoostSupported = new AMDRadeonBoostSupportedProperty(AMDRadeonBoostToggle, this);
+            amdRadeonBoostResolution = new AMDRadeonBoostResolutionProperty(AMDRadeonBoostResolutionSlider, this);
+            amdRadeonChillEnabled = new AMDRadeonChillEnabledProperty(AMDRadeonChillToggle, this);
+            amdRadeonChillSupported = new AMDRadeonChillSupportedProperty(AMDRadeonChillToggle, this);
+            amdRadeonChillMinFPSProperty = new AMDRadeonChillMinFPSProperty(AMDRadeonChillMinFPSSlider, this);
+            amdRadeonChillMaxFPSProperty = new AMDRadeonChillMaxFPSProperty(AMDRadeonChillMaxFPSSlider, this);
+
+            amdRadeonChillMinFPSProperty.PropertyChanged += AmdRadeonChillFPSChanged;
+            amdRadeonChillMaxFPSProperty.PropertyChanged += AmdRadeonChillFPSChanged;
+
             properties = new WidgetProperties(
                 osd,
                 tdp,
@@ -98,8 +124,22 @@ namespace XboxGamingBar
                 amdRadeonSuperResolutionSupported,
                 amdRadeonSuperResolutionSharpness,
                 amdFluidMotionFrameEnabled,
-                amdFluidMotionFrameSupported
+                amdFluidMotionFrameSupported,
+                amdRadeonAntiLagEnabled,
+                amdRadeonAntiLagSupported,
+                amdRadeonBoostEnabled,
+                amdRadeonBoostSupported,
+                amdRadeonBoostResolution,
+                amdRadeonChillEnabled,
+                amdRadeonChillSupported,
+                amdRadeonChillMinFPSProperty,
+                amdRadeonChillMaxFPSProperty
                 );
+        }
+
+        private void AmdRadeonChillFPSChanged(object sender, PropertyChangedEventArgs e)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RadeonChillOnText)));
         }
 
         protected async override void OnNavigatedTo(NavigationEventArgs e)
@@ -182,7 +222,7 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    Logger.Info($"Tracked non-game DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen}");
+                    Logger.Debug($"Tracked non-game DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen}");
                     trackedGame.SetValue(new TrackedGame());
                 }
             }

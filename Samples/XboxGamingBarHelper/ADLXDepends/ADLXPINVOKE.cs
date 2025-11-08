@@ -1223,8 +1223,14 @@ class ADLXPINVOKE {
   [global::System.Runtime.InteropServices.DllImport("ADLXCSharpBind", EntryPoint="CSharp_IADLX3DSettingsChangedListener_On3DSettingsChanged")]
   public static extern bool IADLX3DSettingsChangedListener_On3DSettingsChanged(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
+  [global::System.Runtime.InteropServices.DllImport("ADLXCSharpBind", EntryPoint="CSharp_new_IADLX3DSettingsChangedListener")]
+  public static extern global::System.IntPtr new_IADLX3DSettingsChangedListener();
+
   [global::System.Runtime.InteropServices.DllImport("ADLXCSharpBind", EntryPoint="CSharp_delete_IADLX3DSettingsChangedListener")]
   public static extern void delete_IADLX3DSettingsChangedListener(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("ADLXCSharpBind", EntryPoint="CSharp_IADLX3DSettingsChangedListener_director_connect")]
+  public static extern void IADLX3DSettingsChangedListener_director_connect(global::System.Runtime.InteropServices.HandleRef jarg1, IADLX3DSettingsChangedListener.SwigDelegateIADLX3DSettingsChangedListener_0 delegate0);
 
   [global::System.Runtime.InteropServices.DllImport("ADLXCSharpBind", EntryPoint="CSharp_IADLX3DSettingsChangedHandling_IID")]
   public static extern global::System.IntPtr IADLX3DSettingsChangedHandling_IID();
@@ -2368,21 +2374,6 @@ class ADLXPINVOKE {
 
   [global::System.Runtime.InteropServices.DllImport("ADLXCSharpBind", EntryPoint="CSharp_threeDSettingsChangedHandlingP_Ptr_value")]
   public static extern global::System.IntPtr threeDSettingsChangedHandlingP_Ptr_value(global::System.Runtime.InteropServices.HandleRef jarg1);
-
-  [global::System.Runtime.InteropServices.DllImport("ADLXCSharpBind", EntryPoint="CSharp_new_threeDSettingsChangedListenerP_Ptr")]
-  public static extern global::System.IntPtr new_threeDSettingsChangedListenerP_Ptr();
-
-  [global::System.Runtime.InteropServices.DllImport("ADLXCSharpBind", EntryPoint="CSharp_copy_threeDSettingsChangedListenerP_Ptr")]
-  public static extern global::System.IntPtr copy_threeDSettingsChangedListenerP_Ptr(global::System.Runtime.InteropServices.HandleRef jarg1);
-
-  [global::System.Runtime.InteropServices.DllImport("ADLXCSharpBind", EntryPoint="CSharp_delete_threeDSettingsChangedListenerP_Ptr")]
-  public static extern void delete_threeDSettingsChangedListenerP_Ptr(global::System.Runtime.InteropServices.HandleRef jarg1);
-
-  [global::System.Runtime.InteropServices.DllImport("ADLXCSharpBind", EntryPoint="CSharp_threeDSettingsChangedListenerP_Ptr_assign")]
-  public static extern void threeDSettingsChangedListenerP_Ptr_assign(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
-
-  [global::System.Runtime.InteropServices.DllImport("ADLXCSharpBind", EntryPoint="CSharp_threeDSettingsChangedListenerP_Ptr_value")]
-  public static extern global::System.IntPtr threeDSettingsChangedListenerP_Ptr_value(global::System.Runtime.InteropServices.HandleRef jarg1);
 
   [global::System.Runtime.InteropServices.DllImport("ADLXCSharpBind", EntryPoint="CSharp_new_threeDSettingsChangedEventP_Ptr")]
   public static extern global::System.IntPtr new_threeDSettingsChangedEventP_Ptr();

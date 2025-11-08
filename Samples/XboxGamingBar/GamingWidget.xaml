@@ -14,6 +14,7 @@
         <converter:MegahertzStringConverter x:Key="MegahertzStringConverter"/>
         <converter:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <converter:SharpnessPercentStringConverter x:Key="SharpnessPercentStringConverter"/>
+        <converter:RadeonBoostResolutionStringConverter x:Key="RadeonBoostResolutionStringConverter"/>
     </Page.Resources>
 
     <ScrollViewer x:Name="RootScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -45,6 +46,12 @@
                     <RowDefinition x:Name="Row_22_AMDRadeonSuperResolutionToggle" Height="36"/>
                     <RowDefinition x:Name="Row_23_AMDRadeonSuperResolutionSlider" Height="Auto"/>
                     <RowDefinition x:Name="Row_24_AMDFluidMotionFrameToggle" Height="36"/>
+                    <RowDefinition x:Name="Row_25_AMDRadeonAntiLagToggle" Height="36"/>
+                    <RowDefinition x:Name="Row_26_AMDRadeonBoostToggle" Height="36"/>
+                    <RowDefinition x:Name="Row_27_AMDRadeonBoostResolutionSlider" Height="Auto"/>
+                    <RowDefinition x:Name="Row_28_AMDRadeonChillToggle" Height="36"/>
+                    <RowDefinition x:Name="Row_29_AMDRadeonChillMinFPSSlider" Height="Auto"/>
+                    <RowDefinition x:Name="Row_30_AMDRadeonChillMaxFPSSlider" Height="Auto"/>
                     <!-- Add more RowDefinitions as needed, each with Height="200" -->
                 </Grid.RowDefinitions>
 
@@ -143,6 +150,43 @@
                     TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
                 <ToggleSwitch x:Name="AMDFluidMotionFrameToggle" IsEnabled="False" OffContent="Disabled" OnContent="Enabled"
                     FlowDirection="RightToLeft" Grid.Row="24" VerticalAlignment="Center" HorizontalAlignment="Right" />
+
+                <TextBlock x:Name="AMDRadeonAntiLagText" Text="Radeon Anti-Lag" FontWeight="SemiBold" FontSize="18" Grid.Row="25"
+                    TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <ToggleSwitch x:Name="AMDRadeonAntiLagToggle" IsEnabled="False" OffContent="Disabled" OnContent="Enabled"
+                    FlowDirection="RightToLeft" Grid.Row="25" VerticalAlignment="Center" HorizontalAlignment="Right" />
+
+                <TextBlock x:Name="AMDRadeonBoostText" Text="Radeon Boost" FontWeight="SemiBold" FontSize="18" Grid.Row="26"
+                    TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <ToggleSwitch x:Name="AMDRadeonBoostToggle" IsEnabled="False" OffContent="Disabled" OnContent="{Binding ElementName=AMDRadeonBoostResolutionSlider, Path=Value, Converter={StaticResource RadeonBoostResolutionStringConverter}}"
+                    FlowDirection="RightToLeft" Grid.Row="26" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                <Slider x:Name="AMDRadeonBoostResolutionSlider" Grid.Row="27" Margin="0,0,0,0"
+                    Minimum="0" Maximum="1"
+                    TickFrequency="1"
+                    SnapsTo="Ticks"
+                    TickPlacement="BottomRight"
+                    IsEnabled="False"
+                    Visibility="{Binding ElementName=AMDRadeonBoostToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                <TextBlock x:Name="AMDRadeonChillText" Text="Radeon Chill" FontWeight="SemiBold" FontSize="18" Grid.Row="28"
+                    TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <ToggleSwitch x:Name="AMDRadeonChillToggle" IsEnabled="False" OffContent="Disabled" OnContent="{x:Bind RadeonChillOnText, Mode=OneWay}"
+                    FlowDirection="RightToLeft" Grid.Row="28" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                <Slider x:Name="AMDRadeonChillMinFPSSlider" Grid.Row="29" Margin="0,0,0,0"
+                    Minimum="30" Maximum="300"
+                    TickFrequency="5"
+                    SnapsTo="Ticks"
+                    TickPlacement="BottomRight"
+                    IsEnabled="False"
+                    Visibility="{Binding ElementName=AMDRadeonChillToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                <Slider x:Name="AMDRadeonChillMaxFPSSlider" Grid.Row="30" Margin="0,0,0,0"
+                    Minimum="30" Maximum="300"
+                    TickFrequency="5"
+                    SnapsTo="Ticks"
+                    TickPlacement="BottomRight"
+                    IsEnabled="False"
+                    Visibility="{Binding ElementName=AMDRadeonChillToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                
 
             </Grid>
         </Grid>
