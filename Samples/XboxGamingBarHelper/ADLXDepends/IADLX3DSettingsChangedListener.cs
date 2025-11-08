@@ -61,4 +61,57 @@ public class IADLX3DSettingsChangedListener : global::System.IDisposable {
     return ret;
   }
 
+  public IADLX3DSettingsChangedListener() : this(ADLXPINVOKE.new_IADLX3DSettingsChangedListener(), true) {
+    SwigDirectorConnect();
+  }
+
+  private void SwigDirectorConnect() {
+    if (SwigDerivedClassHasMethod("On3DSettingsChanged", swigMethodTypes0))
+      swigDelegate0 = new SwigDelegateIADLX3DSettingsChangedListener_0(SwigDirectorMethodOn3DSettingsChanged);
+    ADLXPINVOKE.IADLX3DSettingsChangedListener_director_connect(swigCPtr, swigDelegate0);
+  }
+
+  private bool SwigDerivedClassHasMethod(string methodName, global::System.Type[] methodTypes) {
+    global::System.Reflection.MethodInfo[] methodInfos = this.GetType().GetMethods(
+        global::System.Reflection.BindingFlags.Public | global::System.Reflection.BindingFlags.NonPublic | global::System.Reflection.BindingFlags.Instance);
+    foreach (global::System.Reflection.MethodInfo methodInfo in methodInfos) {
+      if (methodInfo.DeclaringType == null)
+        continue;
+
+      if (methodInfo.Name != methodName)
+        continue;
+
+      var parameters = methodInfo.GetParameters();
+      if (parameters.Length != methodTypes.Length)
+        continue;
+
+      bool parametersMatch = true;
+      for (var i = 0; i < parameters.Length; i++) {
+        if (parameters[i].ParameterType != methodTypes[i]) {
+          parametersMatch = false;
+          break;
+        }
+      }
+
+      if (!parametersMatch)
+        continue;
+
+      if (methodInfo.IsVirtual && (methodInfo.DeclaringType.IsSubclassOf(typeof(IADLX3DSettingsChangedListener))) &&
+        methodInfo.DeclaringType != methodInfo.GetBaseDefinition().DeclaringType) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private bool SwigDirectorMethodOn3DSettingsChanged(global::System.IntPtr p3DSettingsChangedEvent) {
+    return On3DSettingsChanged((p3DSettingsChangedEvent == global::System.IntPtr.Zero) ? null : new IADLX3DSettingsChangedEvent(p3DSettingsChangedEvent, false));
+  }
+
+  public delegate bool SwigDelegateIADLX3DSettingsChangedListener_0(global::System.IntPtr p3DSettingsChangedEvent);
+
+  private SwigDelegateIADLX3DSettingsChangedListener_0 swigDelegate0;
+
+  private static global::System.Type[] swigMethodTypes0 = new global::System.Type[] { typeof(IADLX3DSettingsChangedEvent) };
 }

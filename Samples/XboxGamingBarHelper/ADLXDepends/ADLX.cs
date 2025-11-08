@@ -917,32 +917,6 @@ public class ADLX {
     return ret;
   }
 
-  public static SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedListener new_threeDSettingsChangedListenerP_Ptr() {
-    global::System.IntPtr cPtr = ADLXPINVOKE.new_threeDSettingsChangedListenerP_Ptr();
-    SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedListener ret = (cPtr == global::System.IntPtr.Zero) ? null : new SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedListener(cPtr, false);
-    return ret;
-  }
-
-  public static SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedListener copy_threeDSettingsChangedListenerP_Ptr(IADLX3DSettingsChangedListener value) {
-    global::System.IntPtr cPtr = ADLXPINVOKE.copy_threeDSettingsChangedListenerP_Ptr(IADLX3DSettingsChangedListener.getCPtr(value));
-    SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedListener ret = (cPtr == global::System.IntPtr.Zero) ? null : new SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedListener(cPtr, false);
-    return ret;
-  }
-
-  public static void delete_threeDSettingsChangedListenerP_Ptr(SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedListener obj) {
-    ADLXPINVOKE.delete_threeDSettingsChangedListenerP_Ptr(SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedListener.getCPtr(obj));
-  }
-
-  public static void threeDSettingsChangedListenerP_Ptr_assign(SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedListener obj, IADLX3DSettingsChangedListener value) {
-    ADLXPINVOKE.threeDSettingsChangedListenerP_Ptr_assign(SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedListener.getCPtr(obj), IADLX3DSettingsChangedListener.getCPtr(value));
-  }
-
-  public static IADLX3DSettingsChangedListener threeDSettingsChangedListenerP_Ptr_value(SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedListener obj) {
-    global::System.IntPtr cPtr = ADLXPINVOKE.threeDSettingsChangedListenerP_Ptr_value(SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedListener.getCPtr(obj));
-    IADLX3DSettingsChangedListener ret = (cPtr == global::System.IntPtr.Zero) ? null : new IADLX3DSettingsChangedListener(cPtr, false);
-    return ret;
-  }
-
   public static SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedEvent new_threeDSettingsChangedEventP_Ptr() {
     global::System.IntPtr cPtr = ADLXPINVOKE.new_threeDSettingsChangedEventP_Ptr();
     SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedEvent ret = (cPtr == global::System.IntPtr.Zero) ? null : new SWIGTYPE_p_p_adlx__IADLX3DSettingsChangedEvent(cPtr, false);
