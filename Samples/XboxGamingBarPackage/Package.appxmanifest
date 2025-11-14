@@ -11,7 +11,7 @@
   <Identity
     Name="PlayandBuild.10365195AA1EC"
     Publisher="CN=632C25E4-B6CB-4B80-A9DB-AAB4012EE37A"
-    Version="0.3.1.0" />
+    Version="0.3.2.0" />
 
   <Properties>
     <DisplayName>Xbox Gaming Bar</DisplayName>
@@ -56,6 +56,7 @@
               <GameBarWidget Type="Standard">
                 <HomeMenuVisible>true</HomeMenuVisible>
                 <PinningSupported>true</PinningSupported>
+                <SettingsSupported AppExtensionId="GamingWidgetSettings" />
                 <Window>
                   <Size>
                     <Height>824</Height>
@@ -74,6 +75,29 @@
             </uap3:Properties>
           </uap3:AppExtension>
         </uap3:Extension>
+
+        <uap3:Extension Category="windows.appExtension">
+            <uap3:AppExtension Name="microsoft.gameBarUIExtension"
+                              Id="GamingWidgetSettings"
+                              DisplayName="Gaming Settings"
+                              Description="Xbox Gaming Bar settings."
+                              PublicFolder="Images">
+              <uap3:Properties>
+                <GameBarWidget Type="Settings">
+                  <Window>
+                    <Size>
+                      <Height>300</Height>
+                      <Width>300</Width>
+                    </Size>
+                    <ResizeSupported>
+                      <Horizontal>false</Horizontal>
+                      <Vertical>false</Vertical>
+                    </ResizeSupported>
+                  </Window>
+                </GameBarWidget>
+              </uap3:Properties>
+            </uap3:AppExtension>
+          </uap3:Extension>
 	  </Extensions>
     </Application>
   </Applications>
