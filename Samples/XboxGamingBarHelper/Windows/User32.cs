@@ -245,5 +245,79 @@ namespace XboxGamingBarHelper.Windows
                 return false;
             }
         }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct INPUT
+        {
+            public uint type;
+            public InputUnion u;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        struct InputUnion
+        {
+            [FieldOffset(0)]
+            public KEYBDINPUT ki;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct KEYBDINPUT
+        {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+        const uint INPUT_KEYBOARD = 1;
+        const uint KEYEVENTF_KEYUP = 0x0002;
+
+        public static void SendKeyCombo(ushort modifier1, ushort modifier2, ushort key)
+        {
+            INPUT[] inputs = new INPUT[6];
+
+            // Press modifier1 (e.g., Ctrl)
+            inputs[0].type = INPUT_KEYBOARD;
+            inputs[0].u.ki.wVk = modifier1;
+
+            // Press modifier2 (e.g., Shift)
+            inputs[1].type = INPUT_KEYBOARD;
+            inputs[1].u.ki.wVk = modifier2;
+
+            // Press key (e.g., S)
+            inputs[2].type = INPUT_KEYBOARD;
+            inputs[2].u.ki.wVk = key;
+
+            //// Release key
+            //inputs[3].type = INPUT_KEYBOARD;
+            //inputs[3].u.ki.wVk = key;
+            //inputs[3].u.ki.dwFlags = KEYEVENTF_KEYUP;
+
+            //// Release modifier2
+            //inputs[4].type = INPUT_KEYBOARD;
+            //inputs[4].u.ki.wVk = modifier2;
+            //inputs[4].u.ki.dwFlags = KEYEVENTF_KEYUP;
+
+            //// Release modifier1
+            //inputs[5].type = INPUT_KEYBOARD;
+            //inputs[5].u.ki.wVk = modifier1;
+            //inputs[5].u.ki.dwFlags = KEYEVENTF_KEYUP;
+
+            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
+        }
+
+        public const UInt32 WM_KEYDOWN = 0x0100;
+        public const int VK_CONTROL = 0x11;
+        public const int VK_SHIFT = 0x10;
+        public const int VK_O = 0x4F; // Virtual key code for 'O'
+
+        [DllImport("user32.dll")]
+        public static extern bool PostMessage(IntPtr hWnd, UInt32 Msg, int wParam, int lParam);
+
+
     }
 }

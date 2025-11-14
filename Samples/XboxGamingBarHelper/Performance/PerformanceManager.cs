@@ -129,6 +129,19 @@ namespace XboxGamingBarHelper.Performance
             computer.Open();
             computer.Accept(updateVisitor);
 
+            foreach (IHardware hardware in computer.Hardware)
+            {
+                var properties = string.Empty;
+                if (hardware.Properties.Count > 0)
+                {
+                    foreach (var property in hardware.Properties)
+                    {
+                        properties = properties.Length == 0 ? $"{property.Key}:{property.Value}" : $"{properties}, {property.Key}:{property.Value}";
+                    }
+                }
+                Logger.Info($"Found hardware {hardware.HardwareType}: Name={hardware.Name}, Type={hardware.HardwareType}, Id={hardware.Identifier}, Properties={properties}");
+            }
+
             // Initialize hardware sensors
             CPUClock = new CPUClockSensor();
             CPUUsage = new CPUUsageSensor();

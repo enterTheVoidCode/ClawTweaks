@@ -100,10 +100,13 @@
     <Compile Include="Data\AMDRadeonChillSupportedProperty.cs" />
     <Compile Include="Data\AMDRadeonSuperResolutionEnabledProperty.cs" />
     <Compile Include="Data\AMDRadeonSuperResolutionSharpnessProperty.cs" />
+    <Compile Include="Data\AutoStartRTSSProperty.cs" />
     <Compile Include="Data\CPUBoostProperty.cs" />
+    <Compile Include="Data\IsForegroundProperty.cs" />
     <Compile Include="Data\LimitCPUClockProperty.cs" />
     <Compile Include="Data\CPUClockMaxProperty.cs" />
     <Compile Include="Data\CPUEPPProperty.cs" />
+    <Compile Include="Data\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />
     <Compile Include="Data\OSDProperty.cs" />
     <Compile Include="Data\AMDRadeonSuperResolutionSupportedProperty.cs" />
@@ -120,10 +123,14 @@
     <Compile Include="Data\WidgetProperty.cs" />
     <Compile Include="Data\WidgetPropertyWithAdditionalUI.cs" />
     <Compile Include="Data\WidgetToggleProperty.cs" />
+    <Compile Include="Event\BackgroundTaskCancellationEventArgs.cs" />
     <Compile Include="GamingWidget.xaml.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Converter\MegahertzStringConverter.cs" />
+    <Compile Include="GamingWidgetSettings.xaml.cs">
+      <DependentUpon>GamingWidgetSettings.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Converter\WattStringConverter.cs" />
     <Compile Include="WidgetUIProperty.cs" />
@@ -224,10 +231,14 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="GamingWidgetSettings.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Gaming.XboxGameBar">
-      <Version>7.2.240903001</Version>
+      <Version>7.3.2506120</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform">
       <Version>6.2.9</Version>

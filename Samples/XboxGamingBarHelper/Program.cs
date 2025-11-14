@@ -9,10 +9,12 @@ using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.AMD;
 using XboxGamingBarHelper.Core;
+using XboxGamingBarHelper.OnScreenDisplay;
 using XboxGamingBarHelper.Performance;
 using XboxGamingBarHelper.Power;
 using XboxGamingBarHelper.Profile;
 using XboxGamingBarHelper.RTSS;
+using XboxGamingBarHelper.Settings;
 using XboxGamingBarHelper.Systems;
 
 namespace XboxGamingBarHelper
@@ -29,8 +31,12 @@ namespace XboxGamingBarHelper
         private static SystemManager systemManager;
         private static PowerManager powerManager;
         private static AMDManager amdManager;
+        private static SettingsManager settingsManager;
         private static List<IManager> Managers;
         private static AppServiceConnectionStatus appServiceConnectionStatus;
+
+        public static OnScreenDisplayProperty onScreenDisplay;
+        public static List<OnScreenDisplayManager> onScreenDisplayProviders;
 
         // Properties
         private static HelperProperties properties;
@@ -70,6 +76,7 @@ namespace XboxGamingBarHelper
             powerManager = new PowerManager(connection);
             Logger.Info("Initialize AMD Manager.");
             amdManager = new AMDManager(connection);
+            settingsManager = SettingsManager.CreateInstance(connection);
             Managers = new List<IManager>
             {
                 performanceManager,
@@ -77,14 +84,19 @@ namespace XboxGamingBarHelper
                 profileManager,
                 systemManager,
                 powerManager,
-                amdManager
+                amdManager,
+                settingsManager
             };
 
             Logger.Info("Initialize properties.");
+            onScreenDisplay = new OnScreenDisplayProperty(0, null, rtssManager);
+            onScreenDisplayProviders = new List<OnScreenDisplayManager>() { rtssManager, amdManager };
+            //onScreenDisplay = new OnScreenDisplayProperty(0, null, amdManager);
+
             // Initialize properties.
             properties = new HelperProperties(
                 systemManager.RunningGame,
-                rtssManager.OSD,
+                onScreenDisplay,
                 performanceManager.TDP,
                 profileManager.PerGameProfile,
                 powerManager.CPUBoost,
@@ -95,6 +107,7 @@ namespace XboxGamingBarHelper
                 systemManager.RefreshRate,
                 systemManager.TrackedGame,
                 rtssManager.RTSSInstalled,
+                settingsManager.IsForeground,
                 amdManager.AMDRadeonSuperResolutionEnabled,
                 amdManager.AMDRadeonSuperResolutionSupported,
                 amdManager.AMDRadeonSuperResolutionSharpness,
@@ -108,7 +121,9 @@ namespace XboxGamingBarHelper
                 amdManager.AMDRadeonChillEnabled,
                 amdManager.AMDRadeonChillSupported,
                 amdManager.AMDRadeonChillMinFPS,
-                amdManager.AMDRadeonChillMaxFPS);
+                amdManager.AMDRadeonChillMaxFPS,
+                settingsManager.AutoStartRTSS,
+                settingsManager.OnScreenDisplayProvider);
 
             Logger.Info("Initialize callbacks.");
             systemManager.RunningGame.PropertyChanged += RunningGame_PropertyChanged;
