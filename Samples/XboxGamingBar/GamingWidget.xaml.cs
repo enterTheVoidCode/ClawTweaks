@@ -8,6 +8,7 @@ using System.ComponentModel;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
+using Windows.ApplicationModel.Background;
 using Windows.Foundation.Metadata;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
@@ -15,6 +16,7 @@ using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using XboxGamingBar.Data;
+using XboxGamingBar.Event;
 
 // The Blank Page item template is documented at https://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
@@ -53,7 +55,9 @@ namespace XboxGamingBar
         private readonly RefreshRateProperty refreshRate;
         private readonly TrackedGameProperty trackedGame;
         private readonly RTSSInstalledProperty rtssInstalled;
+        private readonly IsForegroundProperty isForeground;
 
+        // AMD properties
         private readonly AMDRadeonSuperResolutionEnabledProperty amdRadeonSuperResolutionEnabled;
         private readonly AMDRadeonSuperResolutionSupportedProperty amdRadeonSuperResolutionSupported;
         private readonly AMDRadeonSuperResolutionSharpnessProperty amdRadeonSuperResolutionSharpness;
@@ -89,6 +93,7 @@ namespace XboxGamingBar
             refreshRate = new RefreshRateProperty(RefreshRatesComboBox, this);
             trackedGame = new TrackedGameProperty(new TrackedGame());
             rtssInstalled = new RTSSInstalledProperty(PerformanceOverlaySlider, this);
+            isForeground = new IsForegroundProperty();
             amdRadeonSuperResolutionEnabled = new AMDRadeonSuperResolutionEnabledProperty(AMDRadeonSuperResolutionToggle, this);
             amdRadeonSuperResolutionSupported = new AMDRadeonSuperResolutionSupportedProperty(AMDRadeonSuperResolutionToggle, this);
             amdRadeonSuperResolutionSharpness = new AMDRadeonSuperResolutionSharpnessProperty(AMDRadeonSuperResolutionSharpnessSlider, this);
@@ -120,6 +125,7 @@ namespace XboxGamingBar
                 refreshRate,
                 trackedGame,
                 rtssInstalled,
+                isForeground,
                 amdRadeonSuperResolutionEnabled,
                 amdRadeonSuperResolutionSupported,
                 amdRadeonSuperResolutionSharpness,
@@ -134,7 +140,7 @@ namespace XboxGamingBar
                 amdRadeonChillSupported,
                 amdRadeonChillMinFPSProperty,
                 amdRadeonChillMaxFPSProperty
-                );
+            );
         }
 
         private void AmdRadeonChillFPSChanged(object sender, PropertyChangedEventArgs e)
@@ -160,6 +166,7 @@ namespace XboxGamingBar
                 Logger.Info("Running as a Xbox Game Bar widget.");
                 await widget.CenterWindowAsync();
                 widget.RequestedThemeChanged += GamingWidget_RequestedThemeChanged;
+                widget.SettingsClicked += GamingWidget_SettingsClicked;
             }
             else
             {
@@ -191,11 +198,14 @@ namespace XboxGamingBar
             {
                 Logger.Info("GamingWidget LeavingBackground but not connected to the full trust process.");
             }
+
+            isForeground.SetValue(true);
         }
 
         public void GamingWidget_EnteredBackground(object sender, EnteredBackgroundEventArgs e)
         {
             Logger.Info("GamingWidget EnterBackground.");
+            isForeground.SetValue(false);
         }
 
         private void AppTargetTracker_TargetChanged(XboxGameBarAppTargetTracker sender, object args)
@@ -210,7 +220,7 @@ namespace XboxGamingBar
 
             if (target == null)
             {
-                //Logger.Info("Found no target.");
+                Logger.Info("Found no target.");
                 trackedGame.SetValue(new TrackedGame());
             }
             else
@@ -222,7 +232,7 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    Logger.Debug($"Tracked non-game DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen}");
+                    Logger.Info($"Tracked non-game DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen}");
                     trackedGame.SetValue(new TrackedGame());
                 }
             }
@@ -292,23 +302,44 @@ namespace XboxGamingBar
                 Logger.Info("Stopped widget activity.");
             }
 
-            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
-            {
-                Logger.Info("AppService Disconnected");
-                // disable UI to access the connection
-                // btnRegKey.IsEnabled = false;
+            //await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            //{
+            //    Logger.Info("AppService disconnected, disable UI elements");
+            //    PerformanceOverlaySlider.IsEnabled = false;
+            //    TDPSlider.IsEnabled = false;
+            //    PerGameProfileToggle.IsEnabled = false;
+            //    CPUBoostToggle.IsEnabled = false;
+            //    CPUEPPSlider.IsEnabled = false;
+            //    LimitCPUClockToggle.IsEnabled = false;
+            //    CPUClockMaxSlider.IsEnabled = false;
+            //    RefreshRatesComboBox.IsEnabled = false;
+            //    AMDRadeonSuperResolutionToggle.IsEnabled = false;
+            //    AMDRadeonSuperResolutionSharpnessSlider.IsEnabled = false;
+            //    AMDFluidMotionFrameToggle.IsEnabled = false;
+            //    AMDRadeonAntiLagToggle.IsEnabled = false;
+            //    AMDRadeonBoostToggle.IsEnabled = false;
+            //    AMDRadeonBoostResolutionSlider.IsEnabled = false;
+            //    AMDRadeonChillToggle.IsEnabled = false;
+            //    AMDRadeonChillMinFPSSlider.IsEnabled = false;
+            //    AMDRadeonChillMaxFPSSlider.IsEnabled = false;
+            //});
 
-                // ask user if they want to reconnect
-                // Reconnect();
-            });
+            var eventArgs = e as BackgroundTaskCancellationEventArgs;
+            Logger.Info($"AppService disconnected due to {eventArgs.Reason}, trying to relaunch.");
+            await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
         }
 
         private async void GamingWidget_RequestedThemeChanged(XboxGameBarWidget sender, object args)
         {
-            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 SetBackgroundColor();
             });
+        }
+
+        private async void GamingWidget_SettingsClicked(XboxGameBarWidget sender, object args)
+        {
+            await widget.ActivateSettingsAsync();
         }
 
         private void SetBackgroundColor()

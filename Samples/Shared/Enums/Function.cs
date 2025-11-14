@@ -29,5 +29,9 @@
         AMDRadeonChillEnabled,
         AMDRadeonChillMinFPS,
         AMDRadeonChillMaxFPS,
+        Foreground,
+
+        Settings_AutoStartRTSS,
+        Settings_OnScreenDisplayProvider,
     }
 }

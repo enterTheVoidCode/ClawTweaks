@@ -22,7 +22,34 @@ namespace XboxGamingBarHelper.Systems
             "unity.exe",
             "unrealeditor.exe",
             "eacefsubprocess.exe",
-            "rider64.exe"
+            "rider64.exe",
+        };
+
+        // Some games might not be detected by Xbox Game Bar, emulated games using RetroArch, MelonDS, Citra, etc.
+        private static readonly string[] GameProcesses =
+        {
+            "azahar.exe",
+            "cemu.exe",
+            "citron.exe",
+            "dolphin.exe",
+            "duckstation-qt-x64-releaseltcg.exe",
+            "duckstation.exe",
+            "eden.exe",
+            "melonds.exe",
+            "pcsx2-qtx64.exe",
+            "pcsx2-qt.exe",
+            "pcsx2.exe",
+            "ppssppwindows64.exe",
+            "ppssppwindows.exe",
+            "ppsspp.exe",
+            "retroarch.exe",
+            "rpcs3.exe",
+            "ryujinx.exe",
+            "scummvm.exe",
+            "shadps4.exe",
+            "vita3k.exe",
+            "xemu.exe",
+            "xenia_canary.exe",
         };
 
         private readonly RunningGameProperty runningGame;
@@ -110,24 +137,7 @@ namespace XboxGamingBarHelper.Systems
 
             foreach (var appEntry in appEntries)
             {
-                var appPath = appEntry.Name;
-                try
-                {
-                    // Ignore some unwanted processes.
-                    var appExecutableFileName = Path.GetFileName(appPath);
-                    if (IgnoredProcesses.Contains(appExecutableFileName.ToLower()))
-                    {
-                        Logger.Debug($"Process {appPath} is ignored");
-                        continue;
-                    }
-
-                    AppEntries[appEntry.ProcessId] = appEntry;
-                }
-                catch (Exception e)
-                {
-                    Logger.Error($"Got exception {e} while checking RTSS app {appEntry.Name}.");
-                    continue;
-                }
+                AppEntries[appEntry.ProcessId] = appEntry;
             }
 
             var possibleGames = new List<RunningGame>();
@@ -135,7 +145,9 @@ namespace XboxGamingBarHelper.Systems
             {
                 foreach (var processWindow in ProcessWindows)
                 {
-                    if (IgnoredProcesses.Contains(processWindow.Value.Path))
+                    var processPath = processWindow.Value.Path;
+                    var processExecutable = Path.GetFileName(processPath).ToLower();
+                    if (IgnoredProcesses.Contains(processExecutable))
                     {
                         Logger.Debug($"Window {processWindow.Value.Path} is ignored");
                         continue;
@@ -158,6 +170,13 @@ namespace XboxGamingBarHelper.Systems
                     {
                         Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has {appEntry.InstantaneousFrames} FPS, use it.");
                         possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, processWindow.Value.Title, processWindow.Value.Path, appEntry.InstantaneousFrames, processWindow.Value.IsForeground));
+                        continue;
+                    }
+
+                    if (GameProcesses.Contains(processExecutable))
+                    {
+                        Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processPath}\" named \"{processWindow.Value.ProcessName}\" in pre-defined list.");
+                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, processWindow.Value.Title, processPath, 0, processWindow.Value.IsForeground));
                         continue;
                     }
 

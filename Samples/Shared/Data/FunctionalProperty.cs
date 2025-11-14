@@ -52,7 +52,7 @@ namespace Shared.Data
             }
 
             var response = await sentMessage;
-            if (response != null)
+            if (response != null && response.Message != null)
             {
                 if (response.Message.TryGetValue(nameof(Content), out object responseValue))
                 {

@@ -8,6 +8,7 @@ using Windows.ApplicationModel.Background;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
+using XboxGamingBar.Event;
 
 namespace XboxGamingBar
 {
@@ -21,8 +22,10 @@ namespace XboxGamingBar
         public static event EventHandler AppServiceDisconnected;
         public static event EventHandler<AppServiceTriggerDetails> AppServiceConnected;
 
-        private XboxGameBarWidget xboxGameBarWidget = null;
+        private XboxGameBarWidget gamingXboxGameBarWidget = null;
+        private XboxGameBarWidget gamingSettingsXboxGameBarWidget = null;
         private GamingWidget gamingWidget = null;
+        private GamingWidgetSettings gamingWidgetSettings = null;
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         /// <summary>
@@ -81,11 +84,11 @@ namespace XboxGamingBar
         /// </summary>
         private void OnTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
         {
-            Logger.Info("App task canceled");
+            Logger.Info($"App task canceled because {reason}");
             AppServiceDeferral?.Complete();
             AppServiceDeferral = null;
             Connection = null;
-            AppServiceDisconnected?.Invoke(this, null);
+            AppServiceDisconnected?.Invoke(this, new BackgroundTaskCancellationEventArgs(reason));
         }
 
         protected override void OnActivated(IActivatedEventArgs args)
@@ -132,12 +135,23 @@ namespace XboxGamingBar
                     rootFrame.NavigationFailed += OnNavigationFailed;
                     Window.Current.Content = rootFrame;
 
-                    // Create Game Bar widget object which bootstraps the connection with Game Bar
-                    xboxGameBarWidget = new XboxGameBarWidget(widgetArgs, Window.Current.CoreWindow, rootFrame);
-                    rootFrame.Navigate(typeof(GamingWidget), xboxGameBarWidget);
-                    gamingWidget = rootFrame.Content as GamingWidget;
+                    if (widgetArgs.AppExtensionId == "GamingWidget")
+                    {
+                        // Create Game Bar widget object which bootstraps the connection with Game Bar
+                        gamingXboxGameBarWidget = new XboxGameBarWidget(widgetArgs, Window.Current.CoreWindow, rootFrame);
+                        rootFrame.Navigate(typeof(GamingWidget), gamingXboxGameBarWidget);
+                        gamingWidget = rootFrame.Content as GamingWidget;
 
-                    Window.Current.Closed += GamingWidgetWindow_Closed;
+                        Window.Current.Closed += GamingWidgetWindow_Closed;
+                    }
+                    else if (widgetArgs.AppExtensionId == "GamingWidgetSettings")
+                    {
+                        gamingSettingsXboxGameBarWidget = new XboxGameBarWidget(widgetArgs, Window.Current.CoreWindow, rootFrame);
+                        rootFrame.Navigate(typeof(GamingWidgetSettings), gamingSettingsXboxGameBarWidget);
+                        gamingWidgetSettings = rootFrame.Content as GamingWidgetSettings;
+
+                        Window.Current.Closed += GamingSettingsWidgetWindow_Closed;
+                    }
 
                     Window.Current.Activate();
                 }
@@ -151,9 +165,17 @@ namespace XboxGamingBar
         private void GamingWidgetWindow_Closed(object sender, Windows.UI.Core.CoreWindowEventArgs e)
         {
             Logger.Info("App gaming widget closed");
-            xboxGameBarWidget = null;
+            gamingXboxGameBarWidget = null;
             gamingWidget = null;
             Window.Current.Closed -= GamingWidgetWindow_Closed;
+        }
+
+        private void GamingSettingsWidgetWindow_Closed(object sender, Windows.UI.Core.CoreWindowEventArgs e)
+        {
+            Logger.Info("App gaming widget settings closed");
+            gamingSettingsXboxGameBarWidget = null;
+            gamingWidget = null;
+            Window.Current.Closed -= GamingSettingsWidgetWindow_Closed;
         }
 
         /// <summary>
@@ -225,7 +247,7 @@ namespace XboxGamingBar
             Logger.Info("App suspending");
             var deferral = e.SuspendingOperation.GetDeferral();
 
-            xboxGameBarWidget = null;
+            gamingXboxGameBarWidget = null;
             if (gamingWidget != null && gamingWidget.WidgetActivity != null)
             {
                 gamingWidget.WidgetActivity.Complete();
