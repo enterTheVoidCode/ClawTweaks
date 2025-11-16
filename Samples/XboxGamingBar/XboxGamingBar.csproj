@@ -23,9 +23,10 @@
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <AppxBundle>Always</AppxBundle>
-    <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
+    <AppxBundlePlatforms>x86</AppxBundlePlatforms>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
     <DebugSymbols>true</DebugSymbols>
@@ -105,6 +106,10 @@
     <Compile Include="Data\IsForegroundProperty.cs" />
     <Compile Include="Data\LimitCPUClockProperty.cs" />
     <Compile Include="Data\CPUClockMaxProperty.cs" />
+    <!-- GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1) -->
+    <!--<Compile Include="Data\LimitGPUClockProperty.cs" />
+    <Compile Include="Data\GPUClockMinProperty.cs" />
+    <Compile Include="Data\GPUClockMaxProperty.cs" />-->
     <Compile Include="Data\CPUEPPProperty.cs" />
     <Compile Include="Data\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />
@@ -118,6 +123,7 @@
     <Compile Include="Data\WidgetControlEnabledProperty.cs" />
     <Compile Include="Data\WidgetSliderProperty.cs" />
     <Compile Include="Data\TDPProperty.cs" />
+    <Compile Include="Data\CurrentTDPProperty.cs" />
     <Compile Include="Data\WidgetControlProperty.cs" />
     <Compile Include="Data\WidgetProperties.cs" />
     <Compile Include="Data\WidgetProperty.cs" />

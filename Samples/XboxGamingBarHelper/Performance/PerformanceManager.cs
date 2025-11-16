@@ -84,6 +84,10 @@ namespace XboxGamingBarHelper.Performance
         private Computer computer;
         private IVisitor updateVisitor;
         private IntPtr ryzenAdjHandle;
+        public IntPtr RyzenAdjHandle
+        {
+            get { return ryzenAdjHandle; }
+        }
 
         public CPUUsageSensor CPUUsage { get; }
         public CPUClockSensor CPUClock { get; }
@@ -110,6 +114,15 @@ namespace XboxGamingBarHelper.Performance
         {
             get { return tdp; }
         }
+
+        private CurrentTDPProperty currentTdp;
+        public CurrentTDPProperty CurrentTDP
+        {
+            get { return currentTdp; }
+        }
+
+        private System.Timers.Timer currentTdpTimer;
+        private string lastTdpString = "";
 
         internal PerformanceManager(AppServiceConnection connection) : base(connection)
         {
@@ -177,6 +190,7 @@ namespace XboxGamingBarHelper.Performance
 
             ryzenAdjHandle = RyzenAdj.init_ryzenadj();
             var initialTDP = 25;
+            var initialCurrentTDP = "-- W";
             if (ryzenAdjHandle == IntPtr.Zero)
             {
                 Logger.Error("Failed to initialize RyzenAdj");
@@ -186,10 +200,25 @@ namespace XboxGamingBarHelper.Performance
                 RyzenAdj.refresh_table(ryzenAdjHandle);
                 // RyzenAdj.set_fast_limit(ryzenAdjHandle, 30000);
                 initialTDP = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
-                Logger.Info($"RyzenAdj initialized successfully at {initialTDP}W");
+                var stapm = (int)RyzenAdj.get_stapm_limit(ryzenAdjHandle);
+                var fast = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
+                var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
+
+                // Only show limits (power consumption methods not working on this hardware)
+                initialCurrentTDP = $"S:{stapm}W F:{fast}W L:{slow}W";
+                Logger.Info($"RyzenAdj initialized successfully - Stapm: {stapm}W, Fast: {fast}W, Slow: {slow}W");
             }
 
             tdp = new TDPProperty(initialTDP, null, this);
+            currentTdp = new CurrentTDPProperty(initialCurrentTDP, null, this);
+            lastTdpString = initialCurrentTDP;
+
+            // Set up timer to update current TDP every 3 seconds
+            currentTdpTimer = new System.Timers.Timer(3000); // 3 seconds
+            currentTdpTimer.Elapsed += UpdateCurrentTDP;
+            currentTdpTimer.AutoReset = true;
+            currentTdpTimer.Start();
+            Logger.Info("CurrentTDP timer started, updating every 3 seconds");
         }
 
         public override void Update()
@@ -266,6 +295,45 @@ namespace XboxGamingBarHelper.Performance
             RyzenAdj.refresh_table(ryzenAdjHandle);
             Logger.Info($"Set TDP to {tdp}, current TDP is {RyzenAdj.get_fast_limit(ryzenAdjHandle)}");
 #endif
+        }
+
+        private void UpdateCurrentTDP(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (ryzenAdjHandle == IntPtr.Zero)
+            {
+                Logger.Debug("UpdateCurrentTDP: RyzenAdj handle is null, skipping update");
+                return;
+            }
+
+            try
+            {
+                Logger.Debug("UpdateCurrentTDP: Reading TDP limits from hardware");
+                RyzenAdj.refresh_table(ryzenAdjHandle);
+                var stapm = (int)RyzenAdj.get_stapm_limit(ryzenAdjHandle);
+                var fast = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
+                var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
+
+                // Only show limits (power consumption methods not working on this hardware)
+                var newTdpString = $"S:{stapm}W F:{fast}W L:{slow}W";
+                Logger.Debug($"UpdateCurrentTDP: Read values - {newTdpString}");
+
+                // Only update if value has changed to reduce IPC traffic
+                if (newTdpString != lastTdpString)
+                {
+                    Logger.Info($"UpdateCurrentTDP: Value changed from '{lastTdpString}' to '{newTdpString}', sending update");
+                    currentTdp.SetValue(newTdpString);
+                    lastTdpString = newTdpString;
+                }
+                else
+                {
+                    Logger.Debug($"UpdateCurrentTDP: Value unchanged ({newTdpString}), skipping update");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error updating current TDP: {ex.Message}");
+                Logger.Error($"Stack trace: {ex.StackTrace}");
+            }
         }
     }
 }
