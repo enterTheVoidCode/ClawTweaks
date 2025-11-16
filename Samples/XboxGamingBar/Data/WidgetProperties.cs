@@ -22,5 +22,27 @@ namespace XboxGamingBar.Data
                 await property.Value.Sync();
             }
         }
+
+        public void Cleanup()
+        {
+            foreach (var property in properties)
+            {
+                if (property.Value is WidgetSliderProperty sliderProperty)
+                {
+                    sliderProperty.Cleanup();
+                }
+            }
+        }
+
+        public void StopPendingUpdates()
+        {
+            foreach (var property in properties)
+            {
+                if (property.Value is WidgetSliderProperty sliderProperty)
+                {
+                    sliderProperty.StopDebounceTimer();
+                }
+            }
+        }
     }
 }
