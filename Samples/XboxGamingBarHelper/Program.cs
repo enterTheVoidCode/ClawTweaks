@@ -73,7 +73,7 @@ namespace XboxGamingBarHelper
             Logger.Info("Initialize System Manager.");
             systemManager = new SystemManager(connection, profileManager.GameProfiles);
             Logger.Info("Initialize Power Manager.");
-            powerManager = new PowerManager(connection);
+            powerManager = new PowerManager(connection, performanceManager.RyzenAdjHandle);
             Logger.Info("Initialize AMD Manager.");
             amdManager = new AMDManager(connection);
             settingsManager = SettingsManager.CreateInstance(connection);
@@ -98,11 +98,16 @@ namespace XboxGamingBarHelper
                 systemManager.RunningGame,
                 onScreenDisplay,
                 performanceManager.TDP,
+                performanceManager.CurrentTDP,
                 profileManager.PerGameProfile,
                 powerManager.CPUBoost,
                 powerManager.CPUEPP,
                 powerManager.LimitCPUClock,
                 powerManager.CPUClockMax,
+                // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
+                //powerManager.LimitGPUClock,
+                //powerManager.GPUClockMin,
+                //powerManager.GPUClockMax,
                 systemManager.RefreshRates,
                 systemManager.RefreshRate,
                 systemManager.TrackedGame,
@@ -133,6 +138,10 @@ namespace XboxGamingBarHelper
             powerManager.CPUEPP.PropertyChanged += CPUEPP_PropertyChanged;
             powerManager.LimitCPUClock.PropertyChanged += CPUClock_PropertyChanged;
             powerManager.CPUClockMax.PropertyChanged += CPUClock_PropertyChanged;
+            // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
+            //powerManager.LimitGPUClock.PropertyChanged += GPUClock_PropertyChanged;
+            //powerManager.GPUClockMin.PropertyChanged += GPUClock_PropertyChanged;
+            //powerManager.GPUClockMax.PropertyChanged += GPUClock_PropertyChanged;
             profileManager.CurrentProfile.PropertyChanged += CurrentProfile_PropertyChanged;
 
             Logger.Info("Start connecting to the widget.");
@@ -162,6 +171,14 @@ namespace XboxGamingBarHelper
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s CPU Clock from {profileManager.CurrentProfile.CPUClock} to {cpuClock}.");
             profileManager.CurrentProfile.CPUClock = cpuClock;
         }
+
+        // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
+        //private static void GPUClock_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        //{
+        //    // GPU Clock is saved per-profile
+        //    // Note: Profiles would need GPUClockMin/Max properties added to support per-game GPU clocks
+        //    Logger.Info($"GPU Clock settings changed: Enabled={powerManager.LimitGPUClock}, Min={powerManager.GPUClockMin}, Max={powerManager.GPUClockMax}");
+        //}
 
         private static void CPUBoost_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {

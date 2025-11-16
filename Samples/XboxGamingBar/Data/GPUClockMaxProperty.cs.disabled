@@ -1,0 +1,12 @@
+using Shared.Enums;
+using Windows.UI.Xaml.Controls;
+
+namespace XboxGamingBar.Data
+{
+    internal class GPUClockMaxProperty : WidgetSliderProperty
+    {
+        public GPUClockMaxProperty(Slider inControl, Page inOwner) : base(3000, Function.GPUClockMax, inControl, inOwner)
+        {
+        }
+    }
+}
