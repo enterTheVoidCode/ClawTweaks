@@ -45,12 +45,17 @@ namespace XboxGamingBar
         // Properties
         private readonly OSDProperty osd;
         private readonly TDPProperty tdp;
+        private readonly CurrentTDPProperty currentTdp;
         private readonly RunningGameProperty runningGame;
         private readonly PerGameProfileProperty perGameProfile;
         private readonly CPUBoostProperty cpuBoost;
         private readonly CPUEPPProperty cpuEPP;
         private readonly LimitCPUClockProperty limitCPUClock;
         private readonly CPUClockMaxProperty cpuClockMax;
+        // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
+        //private readonly LimitGPUClockProperty limitGPUClock;
+        //private readonly GPUClockMinProperty gpuClockMin;
+        //private readonly GPUClockMaxProperty gpuClockMax;
         private readonly RefreshRatesProperty refreshRates;
         private readonly RefreshRateProperty refreshRate;
         private readonly TrackedGameProperty trackedGame;
@@ -72,7 +77,27 @@ namespace XboxGamingBar
         private readonly AMDRadeonChillSupportedProperty amdRadeonChillSupported;
         private readonly AMDRadeonChillMinFPSProperty amdRadeonChillMinFPSProperty;
         private readonly AMDRadeonChillMaxFPSProperty amdRadeonChillMaxFPSProperty;
-        private string RadeonChillOnText => string.Format("Idle FPS: {0} - Max FPS: {1}", amdRadeonChillMinFPSProperty.Value, amdRadeonChillMaxFPSProperty.Value);
+        private string RadeonChillOnText
+        {
+            get
+            {
+                try
+                {
+                    // Safety check: ensure both properties are initialized before accessing values
+                    if (amdRadeonChillMinFPSProperty == null || amdRadeonChillMaxFPSProperty == null)
+                        return "Enabled";
+
+                    return string.Format("Idle FPS: {0} - Max FPS: {1}",
+                        amdRadeonChillMinFPSProperty.Value,
+                        amdRadeonChillMaxFPSProperty.Value);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error in RadeonChillOnText getter: {ex.Message}");
+                    return "Enabled";
+                }
+            }
+        }
 
         private readonly WidgetProperties properties;
 
@@ -89,6 +114,7 @@ namespace XboxGamingBar
             Logger.Info("Registered Loaded and Unloaded event handlers.");
 
             tdp = new TDPProperty(4, TDPSlider, this);
+            currentTdp = new CurrentTDPProperty(CurrentTDPValueText, this);
             osd = new OSDProperty(0, PerformanceOverlaySlider, this);
             runningGame = new RunningGameProperty(RunningGameText, PerGameProfileToggle, this);
             perGameProfile = new PerGameProfileProperty(PerGameProfileToggle, this);
@@ -96,6 +122,10 @@ namespace XboxGamingBar
             cpuEPP = new CPUEPPProperty(80, CPUEPPSlider, this);
             limitCPUClock = new LimitCPUClockProperty(LimitCPUClockToggle, this);
             cpuClockMax = new CPUClockMaxProperty(CPUClockMaxSlider, this);
+            // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
+            //limitGPUClock = new LimitGPUClockProperty(LimitGPUClockToggle, this);
+            //gpuClockMin = new GPUClockMinProperty(GPUClockMinSlider, this);
+            //gpuClockMax = new GPUClockMaxProperty(GPUClockMaxSlider, this);
             refreshRates = new RefreshRatesProperty(RefreshRatesComboBox, this);
             refreshRate = new RefreshRateProperty(RefreshRatesComboBox, this);
             trackedGame = new TrackedGameProperty(new TrackedGame());
@@ -116,8 +146,9 @@ namespace XboxGamingBar
             amdRadeonChillMinFPSProperty = new AMDRadeonChillMinFPSProperty(AMDRadeonChillMinFPSSlider, this);
             amdRadeonChillMaxFPSProperty = new AMDRadeonChillMaxFPSProperty(AMDRadeonChillMaxFPSSlider, this);
 
-            amdRadeonChillMinFPSProperty.PropertyChanged += AmdRadeonChillFPSChanged;
-            amdRadeonChillMaxFPSProperty.PropertyChanged += AmdRadeonChillFPSChanged;
+            // NOTE: Event handlers for Chill FPS will be registered AFTER first sync
+            // to avoid crash when binding evaluates RadeonChillOnText before both values are ready
+            // See RegisterChillFPSHandlers() called after sync completes
 
             properties = new WidgetProperties(
                 osd,
@@ -128,6 +159,10 @@ namespace XboxGamingBar
                 cpuEPP,
                 limitCPUClock,
                 cpuClockMax,
+                // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
+                //limitGPUClock,
+                //gpuClockMin,
+                //gpuClockMax,
                 refreshRates,
                 refreshRate,
                 trackedGame,
@@ -146,7 +181,8 @@ namespace XboxGamingBar
                 amdRadeonChillEnabled,
                 amdRadeonChillSupported,
                 amdRadeonChillMinFPSProperty,
-                amdRadeonChillMaxFPSProperty
+                amdRadeonChillMaxFPSProperty,
+                currentTdp
             );
         }
 
@@ -214,9 +250,35 @@ namespace XboxGamingBar
             }
         }
 
+        private bool chillFPSHandlersRegistered = false;
+
+        private void RegisterChillFPSHandlers()
+        {
+            if (!chillFPSHandlersRegistered)
+            {
+                Logger.Info("Registering Chill FPS PropertyChanged handlers after sync...");
+                amdRadeonChillMinFPSProperty.PropertyChanged += AmdRadeonChillFPSChanged;
+                amdRadeonChillMaxFPSProperty.PropertyChanged += AmdRadeonChillFPSChanged;
+                chillFPSHandlersRegistered = true;
+                Logger.Info("Chill FPS handlers registered.");
+            }
+        }
+
         private void AmdRadeonChillFPSChanged(object sender, PropertyChangedEventArgs e)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RadeonChillOnText)));
+            // Only notify if both properties are initialized to avoid crash during sync
+            // The binding will evaluate RadeonChillOnText which accesses both properties
+            if (amdRadeonChillMinFPSProperty != null && amdRadeonChillMaxFPSProperty != null)
+            {
+                try
+                {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RadeonChillOnText)));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error in AmdRadeonChillFPSChanged: {ex.Message}");
+                }
+            }
         }
 
         protected async override void OnNavigatedTo(NavigationEventArgs e)
@@ -320,6 +382,9 @@ namespace XboxGamingBar
                     Logger.Info("Syncing properties with helper since connection already exists...");
                     await properties.Sync();
                     Logger.Info("Property sync completed.");
+
+                    // Register Chill FPS handlers after first sync to prevent crash
+                    RegisterChillFPSHandlers();
                 }
             }
 
@@ -339,6 +404,9 @@ namespace XboxGamingBar
             {
                 Logger.Info("GamingWidget LeavingBackground, syncing UI properties with helper.");
                 await properties.Sync();
+
+                // Register Chill FPS handlers after sync to prevent crash
+                RegisterChillFPSHandlers();
             }
             else
             {
@@ -529,6 +597,9 @@ namespace XboxGamingBar
             {
                 await properties.Sync();
                 Logger.Info("Property sync completed successfully.");
+
+                // Register Chill FPS handlers after first sync to prevent crash
+                RegisterChillFPSHandlers();
             }
             catch (Exception ex)
             {
@@ -552,16 +623,26 @@ namespace XboxGamingBar
             Logger.Info("Unregistering this widget as active due to disconnect.");
             App.UnregisterActiveGamingWidget(this);
 
-            // Clean up properties
+            // Clean up properties on UI thread to avoid RPC_E_WRONG_THREAD error
             Logger.Info("Cleaning up properties during disconnect...");
             try
             {
-                properties.Cleanup();
-                Logger.Info("Properties cleaned up.");
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    try
+                    {
+                        properties.Cleanup();
+                        Logger.Info("Properties cleaned up.");
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        Logger.Error($"Error in properties cleanup: {cleanupEx.Message}");
+                    }
+                });
             }
             catch (Exception ex)
             {
-                Logger.Error($"Error cleaning up properties: {ex.Message}");
+                Logger.Error($"Error dispatching properties cleanup: {ex.Message}");
             }
 
             // Clean up widget activity

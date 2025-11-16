@@ -381,10 +381,15 @@
     <Compile Include="Performance\Sensors\MemoryUsageSensor.cs" />
     <Compile Include="Performance\Sensors\MemoryUsedSensor.cs" />
     <Compile Include="Performance\TDPProperty.cs" />
+    <Compile Include="Performance\CurrentTDPProperty.cs" />
     <Compile Include="Performance\UpdateVisitor.cs" />
     <Compile Include="Power\CPUBoostProperty.cs" />
     <Compile Include="Power\LimitCPUClockProperty.cs" />
     <Compile Include="Power\CPUClockMaxProperty.cs" />
+    <!-- GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1) -->
+    <!--<Compile Include="Power\LimitGPUClockProperty.cs" />
+    <Compile Include="Power\GPUClockMinProperty.cs" />
+    <Compile Include="Power\GPUClockMaxProperty.cs" />-->
     <Compile Include="Power\CPUEPPProperty.cs" />
     <Compile Include="Power\PowerManager.cs" />
     <Compile Include="Profile\GameProfileProperty.cs" />

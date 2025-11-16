@@ -10,6 +10,12 @@ namespace XboxGamingBarHelper.Power
 {
     internal class PowerManager : Manager
     {
+        private IntPtr ryzenAdjHandle;
+        public IntPtr RyzenAdjHandle
+        {
+            get { return ryzenAdjHandle; }
+        }
+
         private readonly CPUBoostProperty cpuBoost;
         public CPUBoostProperty CPUBoost
         {
@@ -34,8 +40,29 @@ namespace XboxGamingBarHelper.Power
             get { return cpuClockMax; }
         }
 
-        public PowerManager(AppServiceConnection connection) : base(connection)
+        // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
+        //private readonly LimitGPUClockProperty limitGPUClock;
+        //public LimitGPUClockProperty LimitGPUClock
+        //{
+        //    get { return limitGPUClock; }
+        //}
+
+        //private readonly GPUClockMinProperty gpuClockMin;
+        //public GPUClockMinProperty GPUClockMin
+        //{
+        //    get { return gpuClockMin; }
+        //}
+
+        //private readonly GPUClockMaxProperty gpuClockMax;
+        //public GPUClockMaxProperty GPUClockMax
+        //{
+        //    get { return gpuClockMax; }
+        //}
+
+        public PowerManager(AppServiceConnection connection, IntPtr ryzenAdjHandle) : base(connection)
         {
+            this.ryzenAdjHandle = ryzenAdjHandle;
+
             Logger.Info($"Check CPU Boost Mode and EPP.");
             cpuBoost = new CPUBoostProperty(GetCpuBoostMode(false), this);
             cpuEPP = new CPUEPPProperty((int)GetEppValue(false), this);
@@ -43,6 +70,13 @@ namespace XboxGamingBarHelper.Power
             Logger.Info($"Initial CPU clock limit {initialCPUClockMax}Mhz.");
             limitCPUClock = new LimitCPUClockProperty(initialCPUClockMax != 0, this);
             cpuClockMax = new CPUClockMaxProperty(initialCPUClockMax != 0 ? (int)initialCPUClockMax : CPUConstants.DEFAULT_CPU_CLOCK, this);
+
+            // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
+            //// Initialize GPU Clock properties
+            //limitGPUClock = new LimitGPUClockProperty(false, this);
+            //gpuClockMin = new GPUClockMinProperty(200, this);
+            //gpuClockMax = new GPUClockMaxProperty(3000, this);
+            //Logger.Info($"GPU Clock limiter initialized (disabled by default).");
         }
 
         public static Guid GetActiveScheme()
