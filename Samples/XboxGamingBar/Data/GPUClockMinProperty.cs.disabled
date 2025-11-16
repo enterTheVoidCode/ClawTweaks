@@ -1,0 +1,12 @@
+using Shared.Enums;
+using Windows.UI.Xaml.Controls;
+
+namespace XboxGamingBar.Data
+{
+    internal class GPUClockMinProperty : WidgetSliderProperty
+    {
+        public GPUClockMinProperty(Slider inControl, Page inOwner) : base(200, Function.GPUClockMin, inControl, inOwner)
+        {
+        }
+    }
+}
