@@ -80,7 +80,14 @@ namespace XboxGamingBar
 
         public GamingWidget()
         {
+            Logger.Info("GamingWidget constructor called - creating new instance.");
             InitializeComponent();
+
+            // Register for lifecycle events
+            this.Loaded += GamingWidget_Loaded;
+            this.Unloaded += GamingWidget_Unloaded;
+            Logger.Info("Registered Loaded and Unloaded event handlers.");
+
             tdp = new TDPProperty(4, TDPSlider, this);
             osd = new OSDProperty(0, PerformanceOverlaySlider, this);
             runningGame = new RunningGameProperty(RunningGameText, PerGameProfileToggle, this);
@@ -143,6 +150,70 @@ namespace XboxGamingBar
             );
         }
 
+        private void GamingWidget_Loaded(object sender, RoutedEventArgs e)
+        {
+            Logger.Info($"GamingWidget_Loaded called. Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, App.Connection is null: {App.Connection == null}");
+        }
+
+        private void GamingWidget_Unloaded(object sender, RoutedEventArgs e)
+        {
+            Logger.Info($"GamingWidget_Unloaded called. Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, App.Connection is null: {App.Connection == null}");
+
+            // Unregister this instance as the active widget
+            Logger.Info("Unregistering this GamingWidget instance as the active widget.");
+            App.UnregisterActiveGamingWidget(this);
+            Logger.Info("GamingWidget instance unregistered.");
+
+            // Unregister from static events to prevent memory leaks and duplicate handlers
+            Logger.Info("Unregistering event handlers...");
+            App.AppServiceConnected -= GamingWidget_AppServiceConnected;
+            App.AppServiceDisconnected -= GamingWidget_AppServiceDisconnected;
+            App.AppServiceRequestReceived -= AppServiceConnection_RequestReceived;
+            Logger.Info("Event handlers unregistered.");
+
+            // Clean up properties (stop debounce timers, unregister slider events)
+            Logger.Info("Cleaning up properties...");
+            properties.Cleanup();
+            Logger.Info("Properties cleaned up.");
+
+            // Clean up widget activity
+            if (widgetActivity != null)
+            {
+                Logger.Info("Completing widget activity during page unload.");
+                try
+                {
+                    widgetActivity.Complete();
+                    widgetActivity = null;
+                    Logger.Info("Widget activity completed and disposed.");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error completing widget activity during unload: {ex.Message}");
+                    widgetActivity = null;
+                }
+            }
+            else
+            {
+                Logger.Info("No widget activity to clean up during unload.");
+            }
+
+            Logger.Info("GamingWidget_Unloaded completed.");
+        }
+
+        public void OnDeactivated()
+        {
+            Logger.Info("GamingWidget being deactivated - stopping pending updates.");
+            try
+            {
+                properties.StopPendingUpdates();
+                Logger.Info("Pending updates stopped.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error stopping pending updates: {ex.Message}");
+            }
+        }
+
         private void AmdRadeonChillFPSChanged(object sender, PropertyChangedEventArgs e)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RadeonChillOnText)));
@@ -150,23 +221,61 @@ namespace XboxGamingBar
 
         protected async override void OnNavigatedTo(NavigationEventArgs e)
         {
+            Logger.Info("=== OnNavigatedTo START ===");
+            Logger.Info($"Parameter type: {e.Parameter?.GetType().FullName ?? "null"}");
+            Logger.Info($"Current state - Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, App.Connection is null: {App.Connection == null}");
+
             base.OnNavigatedTo(e);
+
+            // Register this instance as the active widget to handle AppService messages
+            Logger.Info("Registering this GamingWidget instance as the active widget.");
+            App.RegisterActiveGamingWidget(this);
+            Logger.Info("GamingWidget instance registered as active.");
 
             //while (!System.Diagnostics.Debugger.IsAttached)
             //{
             //    await Task.Delay(500);
             //}
 
+            Logger.Info("Creating theme brushes...");
             widgetDarkThemeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 37, 40, 44));
             widgetLightThemeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255));
 
             widget = e.Parameter as XboxGameBarWidget;
             if (widget != null)
             {
-                Logger.Info("Running as a Xbox Game Bar widget.");
+                Logger.Info($"Running as a Xbox Game Bar widget. Widget type: {widget.GetType().FullName}");
+
+                Logger.Info("Calling widget.CenterWindowAsync()...");
                 await widget.CenterWindowAsync();
+                Logger.Info("widget.CenterWindowAsync() completed.");
+
+                Logger.Info("Registering widget event handlers (RequestedThemeChanged, SettingsClicked)...");
                 widget.RequestedThemeChanged += GamingWidget_RequestedThemeChanged;
                 widget.SettingsClicked += GamingWidget_SettingsClicked;
+                Logger.Info("Widget event handlers registered.");
+
+                // Create widget activity if we have a widget but no activity yet
+                if (widgetActivity == null)
+                {
+                    Logger.Info("Widget is available but activity not created yet. Creating now.");
+                    await CreateWidgetActivity();
+                }
+                else
+                {
+                    Logger.Info($"WidgetActivity already exists, skipping creation.");
+                }
+
+                // Create app target tracker if not already created
+                if (appTargetTracker == null)
+                {
+                    Logger.Info("AppTargetTracker is null, creating now.");
+                    await CreateAppTargetTracker();
+                }
+                else
+                {
+                    Logger.Info("AppTargetTracker already exists, skipping creation.");
+                }
             }
             else
             {
@@ -175,15 +284,52 @@ namespace XboxGamingBar
 
             if (App.Connection == null && ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0))
             {
-                Logger.Info("Launching a new full trust process.");
+                Logger.Info("App.Connection is null. Registering event handlers and launching full trust process.");
+                // Use -= before += to ensure we don't register duplicate handlers
+                App.AppServiceConnected -= GamingWidget_AppServiceConnected;
+                App.AppServiceDisconnected -= GamingWidget_AppServiceDisconnected;
                 App.AppServiceConnected += GamingWidget_AppServiceConnected;
                 App.AppServiceDisconnected += GamingWidget_AppServiceDisconnected;
+
+                Logger.Info("Launching full trust process via FullTrustProcessLauncher.");
                 await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+                Logger.Info("FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync completed.");
             }
+            else
+            {
+                Logger.Info($"Not launching full trust process. App.Connection is null: {App.Connection == null}, FullTrustAppContract present: {ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0)}");
+
+                // If connection already exists, register event handlers and sync properties
+                if (App.Connection != null)
+                {
+                    Logger.Info("AppService connection already exists. Ensuring event handlers are registered.");
+
+                    // Use -= before += to ensure we don't register duplicate handlers
+                    Logger.Info("Unregistering existing event handlers (if any)...");
+                    App.AppServiceConnected -= GamingWidget_AppServiceConnected;
+                    App.AppServiceDisconnected -= GamingWidget_AppServiceDisconnected;
+                    App.AppServiceRequestReceived -= AppServiceConnection_RequestReceived;
+
+                    Logger.Info("Registering event handlers...");
+                    App.AppServiceConnected += GamingWidget_AppServiceConnected;
+                    App.AppServiceDisconnected += GamingWidget_AppServiceDisconnected;
+                    App.AppServiceRequestReceived += AppServiceConnection_RequestReceived;
+                    Logger.Info("Event handlers registered.");
+
+                    // Sync properties since we're already connected
+                    Logger.Info("Syncing properties with helper since connection already exists...");
+                    await properties.Sync();
+                    Logger.Info("Property sync completed.");
+                }
+            }
+
+            Logger.Info("=== OnNavigatedTo END ===");
         }
 
         public async Task GamingWidget_LeavingBackground(object sender, LeavingBackgroundEventArgs e)
         {
+            Logger.Info($"GamingWidget_LeavingBackground called. Widget is null: {widget == null}, App.Connection is null: {App.Connection == null}, WidgetActivity is null: {widgetActivity == null}");
+
             if (widget != null)
             {
                 await widget.CenterWindowAsync();
@@ -191,7 +337,7 @@ namespace XboxGamingBar
 
             if (App.Connection != null)
             {
-                Logger.Info("GamingWidget LeavingBackground, sync UI now.");
+                Logger.Info("GamingWidget LeavingBackground, syncing UI properties with helper.");
                 await properties.Sync();
             }
             else
@@ -200,12 +346,121 @@ namespace XboxGamingBar
             }
 
             isForeground.SetValue(true);
+            Logger.Info("GamingWidget_LeavingBackground completed.");
         }
 
         public void GamingWidget_EnteredBackground(object sender, EnteredBackgroundEventArgs e)
         {
-            Logger.Info("GamingWidget EnterBackground.");
+            Logger.Info($"GamingWidget_EnteredBackground called. WidgetActivity is null: {widgetActivity == null}");
             isForeground.SetValue(false);
+        }
+
+        private async Task CreateWidgetActivity()
+        {
+            Logger.Info("=== CreateWidgetActivity START ===");
+
+            if (widget == null)
+            {
+                Logger.Warn("Cannot create widget activity - widget is null!");
+                Logger.Info("=== CreateWidgetActivity END (skipped - no widget) ===");
+                return;
+            }
+
+            if (widgetActivity != null)
+            {
+                Logger.Info("Widget activity already exists, skipping creation.");
+                Logger.Info("=== CreateWidgetActivity END (skipped - already exists) ===");
+                return;
+            }
+
+            try
+            {
+                // Use a unique activity ID to avoid conflicts when the widget is reopened
+                string activityId = $"XboxGamingBarActivity_{Guid.NewGuid():N}";
+                Logger.Info($"Attempting to create XboxGameBarWidgetActivity with activityId='{activityId}'");
+                Logger.Info($"Widget object details - Type: {widget.GetType().FullName}, Widget.ToString(): {widget.ToString()}");
+
+                Logger.Info("Calling XboxGameBarWidgetActivity constructor...");
+                widgetActivity = new XboxGameBarWidgetActivity(widget, activityId);
+                Logger.Info("XboxGameBarWidgetActivity constructor completed.");
+
+                Logger.Info($"Successfully created widget activity with ID '{activityId}' to keep the widget running in the background.");
+            }
+            catch (ArgumentException argumentException)
+            {
+                Logger.Error($"ArgumentException when creating widget activity: {argumentException}");
+                Logger.Error($"Exception details - Message: {argumentException.Message}, ParamName: {argumentException.ParamName}, StackTrace: {argumentException.StackTrace}");
+                Logger.Warn("Widget activity creation failed, but widget may still function. Continuing...");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Unexpected exception when creating widget activity: {ex}");
+                Logger.Error($"Exception Type: {ex.GetType().FullName}");
+                Logger.Error($"Stack Trace: {ex.StackTrace}");
+                Logger.Warn("Widget activity creation failed, but widget may still function. Continuing...");
+            }
+
+            Logger.Info("=== CreateWidgetActivity END ===");
+        }
+
+        private async Task CreateAppTargetTracker()
+        {
+            Logger.Info("=== CreateAppTargetTracker START ===");
+
+            if (widget == null)
+            {
+                Logger.Warn("Cannot create app target tracker - widget is null!");
+                Logger.Info("=== CreateAppTargetTracker END (skipped - no widget) ===");
+                return;
+            }
+
+            if (appTargetTracker != null)
+            {
+                Logger.Info("AppTargetTracker already exists, skipping creation.");
+                Logger.Info("=== CreateAppTargetTracker END (skipped - already exists) ===");
+                return;
+            }
+
+            try
+            {
+                Logger.Info("Creating XboxGameBarAppTargetTracker...");
+                appTargetTracker = new XboxGameBarAppTargetTracker(widget);
+                appTargetTracker.SettingChanged += AppTargetTracker_TargetChanged;
+                Logger.Info("XboxGameBarAppTargetTracker created.");
+
+                if (appTargetTracker.Setting == XboxGameBarAppTargetSetting.Enabled)
+                {
+                    Logger.Info("App target tracker is enabled. Getting initial target...");
+                    var initialTarget = appTargetTracker.GetTarget();
+
+                    if (initialTarget.IsGame)
+                    {
+                        Logger.Info($"Initial tracked game DisplayName={initialTarget.DisplayName} AumId={initialTarget.AumId} TitleId={initialTarget.TitleId} IsFullscreen={initialTarget.IsFullscreen}");
+                        trackedGame.SetValue(new TrackedGame(initialTarget.AumId, initialTarget.DisplayName, StringHelper.CleanStringForSerialization(initialTarget.TitleId), initialTarget.IsFullscreen));
+                    }
+                    else
+                    {
+                        trackedGame.SetValue(new TrackedGame());
+                        Logger.Info("No initial game target found.");
+                    }
+
+                    Logger.Info("Registering TargetChanged event handler...");
+                    appTargetTracker.TargetChanged += AppTargetTracker_TargetChanged;
+                    Logger.Info("TargetChanged event handler registered.");
+                }
+                else
+                {
+                    Logger.Info($"App target tracker created but not enabled. Setting: {appTargetTracker.Setting}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error creating app target tracker: {ex}");
+                Logger.Error($"Exception Type: {ex.GetType().FullName}");
+                Logger.Error($"Stack Trace: {ex.StackTrace}");
+            }
+
+            Logger.Info("=== CreateAppTargetTracker END ===");
         }
 
         private void AppTargetTracker_TargetChanged(XboxGameBarAppTargetTracker sender, object args)
@@ -243,51 +498,46 @@ namespace XboxGamingBar
         /// </summary>
         private async void GamingWidget_AppServiceConnected(object sender, AppServiceTriggerDetails e)
         {
+            Logger.Info("=== GamingWidget_AppServiceConnected START ===");
+            Logger.Info($"Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}");
+
             if (widget != null)
             {
-                if (widgetActivity == null)
-                {
-                    try
-                    {
-                        widgetActivity = new XboxGameBarWidgetActivity(widget, "XboxGamingBarActivity");
-                        Logger.Info("Create new activity to keep the widget runs in the background.");
-                    }
-                    catch (ArgumentException argumentException)
-                    {
-                        Logger.Warn($"Can't create widget acitvity: {argumentException}.");
-                    }
-                }
+                Logger.Info($"Widget state - RequestedTheme: {widget.RequestedTheme}");
 
-                if (appTargetTracker == null)
-                {
-                    appTargetTracker = new XboxGameBarAppTargetTracker(widget);
-                    appTargetTracker.SettingChanged += AppTargetTracker_TargetChanged;
+                // Create widget activity if needed
+                Logger.Info("Checking if widget activity needs to be created...");
+                await CreateWidgetActivity();
 
-                    if (appTargetTracker.Setting == XboxGameBarAppTargetSetting.Enabled)
-                    {
-                        Logger.Info("Created new app target tracker to track current game.");
-                        var initialTarget = appTargetTracker.GetTarget();
-                        if (initialTarget.IsGame)
-                        {
-                            Logger.Info($"Initial tracked game DisplayName={initialTarget.DisplayName} AumId={initialTarget.AumId} TitleId={initialTarget.TitleId} IsFullscreen={initialTarget.IsFullscreen}");
-                            trackedGame.SetValue(new TrackedGame(initialTarget.AumId, initialTarget.DisplayName, StringHelper.CleanStringForSerialization(initialTarget.TitleId), initialTarget.IsFullscreen));
-                        }
-                        else
-                        {
-                            trackedGame.SetValue(new TrackedGame());
-                            Logger.Info("No initial game target found.");
-                        }
-                        appTargetTracker.TargetChanged += AppTargetTracker_TargetChanged;
-                    }
-                    else
-                    {
-                        Logger.Info("Created new app target tracker but not enabled.");
-                    }
-                }
+                // Create app target tracker if needed
+                Logger.Info("Checking if app target tracker needs to be created...");
+                await CreateAppTargetTracker();
+            }
+            else
+            {
+                Logger.Info("Widget is null in AppServiceConnected - likely running as standalone app.");
             }
 
-            App.Connection.RequestReceived += AppServiceConnection_RequestReceived;
-            await properties.Sync();
+            // Register for request received events via the App-level relay
+            Logger.Info("Registering for AppServiceRequestReceived events...");
+            App.AppServiceRequestReceived -= AppServiceConnection_RequestReceived;
+            App.AppServiceRequestReceived += AppServiceConnection_RequestReceived;
+            Logger.Info("AppServiceRequestReceived handler registered.");
+
+            Logger.Info("Starting property sync with helper...");
+            try
+            {
+                await properties.Sync();
+                Logger.Info("Property sync completed successfully.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error during property sync: {ex}");
+                Logger.Error($"Exception Type: {ex.GetType().FullName}");
+                Logger.Error($"Stack Trace: {ex.StackTrace}");
+            }
+
+            Logger.Info("=== GamingWidget_AppServiceConnected END ===");
         }
 
         /// <summary>
@@ -295,38 +545,71 @@ namespace XboxGamingBar
         /// </summary>
         private async void GamingWidget_AppServiceDisconnected(object sender, EventArgs e)
         {
-            if (widgetActivity != null)
+            var eventArgs = e as BackgroundTaskCancellationEventArgs;
+            Logger.Info($"GamingWidget_AppServiceDisconnected called. Reason: {eventArgs?.Reason.ToString() ?? "Unknown"}. WidgetActivity is null: {widgetActivity == null}, Widget is null: {widget == null}");
+
+            // Unregister as active widget
+            Logger.Info("Unregistering this widget as active due to disconnect.");
+            App.UnregisterActiveGamingWidget(this);
+
+            // Clean up properties
+            Logger.Info("Cleaning up properties during disconnect...");
+            try
             {
-                widgetActivity.Complete();
-                widgetActivity = null;
-                Logger.Info("Stopped widget activity.");
+                properties.Cleanup();
+                Logger.Info("Properties cleaned up.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error cleaning up properties: {ex.Message}");
             }
 
-            //await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
-            //{
-            //    Logger.Info("AppService disconnected, disable UI elements");
-            //    PerformanceOverlaySlider.IsEnabled = false;
-            //    TDPSlider.IsEnabled = false;
-            //    PerGameProfileToggle.IsEnabled = false;
-            //    CPUBoostToggle.IsEnabled = false;
-            //    CPUEPPSlider.IsEnabled = false;
-            //    LimitCPUClockToggle.IsEnabled = false;
-            //    CPUClockMaxSlider.IsEnabled = false;
-            //    RefreshRatesComboBox.IsEnabled = false;
-            //    AMDRadeonSuperResolutionToggle.IsEnabled = false;
-            //    AMDRadeonSuperResolutionSharpnessSlider.IsEnabled = false;
-            //    AMDFluidMotionFrameToggle.IsEnabled = false;
-            //    AMDRadeonAntiLagToggle.IsEnabled = false;
-            //    AMDRadeonBoostToggle.IsEnabled = false;
-            //    AMDRadeonBoostResolutionSlider.IsEnabled = false;
-            //    AMDRadeonChillToggle.IsEnabled = false;
-            //    AMDRadeonChillMinFPSSlider.IsEnabled = false;
-            //    AMDRadeonChillMaxFPSSlider.IsEnabled = false;
-            //});
+            // Clean up widget activity
+            if (widgetActivity != null)
+            {
+                Logger.Info("Completing and disposing widget activity.");
+                try
+                {
+                    widgetActivity.Complete();
+                    widgetActivity = null;
+                    Logger.Info("Widget activity stopped successfully.");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error completing widget activity: {ex.Message}");
+                    widgetActivity = null;
+                }
+            }
+            else
+            {
+                Logger.Info("WidgetActivity was already null during disconnect.");
+            }
 
-            var eventArgs = e as BackgroundTaskCancellationEventArgs;
-            Logger.Info($"AppService disconnected due to {eventArgs.Reason}, trying to relaunch.");
-            await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+            // Only relaunch if we're running as a widget (not standalone app)
+            // and the disconnect was due to a crash/termination (not normal suspension)
+            // AND we don't already have a connection (prevents duplicate launches)
+            bool shouldRelaunch = widget != null &&
+                                  eventArgs != null &&
+                                  (eventArgs.Reason == BackgroundTaskCancellationReason.Abort ||
+                                   eventArgs.Reason == BackgroundTaskCancellationReason.Terminating) &&
+                                  App.Connection == null;  // Don't relaunch if connection still exists
+
+            if (shouldRelaunch)
+            {
+                Logger.Info($"Widget disconnected due to {eventArgs.Reason} and no connection exists. Attempting to relaunch full trust process.");
+                try
+                {
+                    await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error relaunching full trust process: {ex.Message}");
+                }
+            }
+            else
+            {
+                Logger.Info($"Skipping relaunch. Widget is null: {widget == null}, Reason: {eventArgs?.Reason.ToString() ?? "Unknown"}, Connection exists: {App.Connection != null}");
+            }
         }
 
         private async void GamingWidget_RequestedThemeChanged(XboxGameBarWidget sender, object args)
@@ -352,10 +635,29 @@ namespace XboxGamingBar
         /// Handle calculation request from desktop process
         /// (dummy scenario to show that connection is bi-directional)
         /// </summary>
-        private async void AppServiceConnection_RequestReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
+        private async void AppServiceConnection_RequestReceived(object sender, AppServiceRequestReceivedEventArgs args)
         {
-            Logger.Info($"Widget received message {args.Request.Message.ToDebugString()} from helper.");
-            await properties.OnRequestReceived(args.Request);
+            try
+            {
+                // Only process messages if this is the active widget instance
+                // This prevents multiple instances from handling the same message
+                var activeWidget = App.GetActiveGamingWidget();
+                if (activeWidget != null && activeWidget != this)
+                {
+                    Logger.Info($"Widget received message {args.Request.Message.ToDebugString()} from helper, but this is NOT the active instance. Ignoring.");
+                    return;
+                }
+
+                Logger.Info($"Widget received message {args.Request.Message.ToDebugString()} from helper.");
+                await properties.OnRequestReceived(args.Request);
+                Logger.Info($"Widget finished processing message {args.Request.Message.ToDebugString()}.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error processing message from helper: {ex.Message}");
+                Logger.Error($"Exception Type: {ex.GetType().FullName}");
+                Logger.Error($"Stack Trace: {ex.StackTrace}");
+            }
         }
     }
 }

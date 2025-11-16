@@ -21,6 +21,53 @@ namespace XboxGamingBar
         public static AppServiceConnection Connection = null;
         public static event EventHandler AppServiceDisconnected;
         public static event EventHandler<AppServiceTriggerDetails> AppServiceConnected;
+        public static event EventHandler<AppServiceRequestReceivedEventArgs> AppServiceRequestReceived;
+
+        // Track the active GamingWidget instance to prevent multiple instances from handling messages
+        private static GamingWidget activeGamingWidget = null;
+        private static readonly object activeWidgetLock = new object();
+
+        public static void RegisterActiveGamingWidget(GamingWidget widget)
+        {
+            lock (activeWidgetLock)
+            {
+                if (activeGamingWidget != null && activeGamingWidget != widget)
+                {
+                    Logger.Info($"Replacing active GamingWidget. Old instance being deactivated.");
+                    // Notify the old instance that it's no longer active so it can clean up
+                    try
+                    {
+                        activeGamingWidget.OnDeactivated();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error deactivating old widget instance: {ex.Message}");
+                    }
+                }
+                activeGamingWidget = widget;
+                Logger.Info($"GamingWidget registered as active instance.");
+            }
+        }
+
+        public static void UnregisterActiveGamingWidget(GamingWidget widget)
+        {
+            lock (activeWidgetLock)
+            {
+                if (activeGamingWidget == widget)
+                {
+                    Logger.Info($"Active GamingWidget unregistered.");
+                    activeGamingWidget = null;
+                }
+            }
+        }
+
+        public static GamingWidget GetActiveGamingWidget()
+        {
+            lock (activeWidgetLock)
+            {
+                return activeGamingWidget;
+            }
+        }
 
         private XboxGameBarWidget gamingXboxGameBarWidget = null;
         private XboxGameBarWidget gamingSettingsXboxGameBarWidget = null;
@@ -61,22 +108,60 @@ namespace XboxGamingBar
         /// </summary>
         protected override void OnBackgroundActivated(BackgroundActivatedEventArgs args)
         {
-            Logger.Info("App background activated");
+            Logger.Info("=== App.OnBackgroundActivated START ===");
+            Logger.Info($"Current App.Connection is null: {Connection == null}");
+
             base.OnBackgroundActivated(args);
 
             if (args.TaskInstance.TriggerDetails is AppServiceTriggerDetails details)
             {
+                Logger.Info($"AppServiceTriggerDetails found. CallerPackageFamilyName: {details.CallerPackageFamilyName}");
+                Logger.Info($"Current PackageFamilyName: {Package.Current.Id.FamilyName}");
+
                 // only accept connections from callers in the same package
                 if (details.CallerPackageFamilyName == Package.Current.Id.FamilyName)
                 {
+                    Logger.Info("Caller is from same package. Establishing connection...");
+
                     // connection established from the fulltrust process
                     AppServiceDeferral = args.TaskInstance.GetDeferral();
+                    Logger.Info("Got AppServiceDeferral.");
+
+                    Logger.Info("Registering TaskInstance.Canceled event handler...");
                     args.TaskInstance.Canceled += OnTaskCanceled;
 
                     Connection = details.AppServiceConnection;
+                    Logger.Info("App.Connection set to AppServiceConnection.");
+
+                    // Register for RequestReceived ONCE at the App level, then relay to page instances
+                    // Use -= before += to prevent duplicate registrations
+                    Logger.Info("Registering Connection.RequestReceived handler...");
+                    Connection.RequestReceived -= Connection_RequestReceived;
+                    Connection.RequestReceived += Connection_RequestReceived;
+                    Logger.Info("Connection.RequestReceived handler registered.");
+
+                    Logger.Info("Invoking AppServiceConnected event...");
                     AppServiceConnected?.Invoke(this, args.TaskInstance.TriggerDetails as AppServiceTriggerDetails);
+                    Logger.Info("AppServiceConnected event invoked.");
+                }
+                else
+                {
+                    Logger.Warn($"Rejecting connection from different package: {details.CallerPackageFamilyName}");
                 }
             }
+            else
+            {
+                Logger.Warn("TaskInstance.TriggerDetails is not AppServiceTriggerDetails.");
+            }
+
+            Logger.Info("=== App.OnBackgroundActivated END ===");
+        }
+
+        private void Connection_RequestReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
+        {
+            // Relay the request to all subscribed page instances
+            Logger.Info("App.Connection_RequestReceived - relaying to subscribed page instances.");
+            AppServiceRequestReceived?.Invoke(sender, args);
         }
 
         /// <summary>
@@ -84,11 +169,23 @@ namespace XboxGamingBar
         /// </summary>
         private void OnTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
         {
-            Logger.Info($"App task canceled because {reason}");
+            Logger.Info("=== App.OnTaskCanceled START ===");
+            Logger.Info($"Task canceled because {reason}");
+
+            Logger.Info("Completing AppServiceDeferral...");
             AppServiceDeferral?.Complete();
             AppServiceDeferral = null;
+            Logger.Info("AppServiceDeferral completed and cleared.");
+
+            Logger.Info("Clearing App.Connection...");
             Connection = null;
+            Logger.Info("App.Connection cleared.");
+
+            Logger.Info("Invoking AppServiceDisconnected event...");
             AppServiceDisconnected?.Invoke(this, new BackgroundTaskCancellationEventArgs(reason));
+            Logger.Info("AppServiceDisconnected event invoked.");
+
+            Logger.Info("=== App.OnTaskCanceled END ===");
         }
 
         protected override void OnActivated(IActivatedEventArgs args)
@@ -174,7 +271,7 @@ namespace XboxGamingBar
         {
             Logger.Info("App gaming widget settings closed");
             gamingSettingsXboxGameBarWidget = null;
-            gamingWidget = null;
+            gamingWidgetSettings = null;
             Window.Current.Closed -= GamingSettingsWidgetWindow_Closed;
         }
 
@@ -247,12 +344,12 @@ namespace XboxGamingBar
             Logger.Info("App suspending");
             var deferral = e.SuspendingOperation.GetDeferral();
 
+            // Don't manually complete widget activity here - let the widget's disconnect handler manage it
+            // to avoid race conditions and double-disposal
             gamingXboxGameBarWidget = null;
-            if (gamingWidget != null && gamingWidget.WidgetActivity != null)
-            {
-                gamingWidget.WidgetActivity.Complete();
-            }
             gamingWidget = null;
+            gamingSettingsXboxGameBarWidget = null;
+            gamingWidgetSettings = null;
 
             deferral.Complete();
         }
