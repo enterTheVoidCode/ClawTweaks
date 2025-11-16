@@ -86,6 +86,8 @@
     </Compile>
     <Compile Include="Converter\BooleanToVisibilityConverter.cs" />
     <Compile Include="Converter\RadeonBoostResolutionStringConverter.cs" />
+    <Compile Include="Converter\RadeonChillMaxFPSStringConverter.cs" />
+    <Compile Include="Converter\RadeonChillMinFPSStringConverter.cs" />
     <Compile Include="Converter\SharpnessPercentStringConverter.cs" />
     <Compile Include="Data\AMDRadeonAntiLagEnabledProperty.cs" />
     <Compile Include="Data\AMDRadeonAntiLagSupportedProperty.cs" />

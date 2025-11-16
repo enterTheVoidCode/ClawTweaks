@@ -135,15 +135,9 @@ namespace XboxGamingBarHelper
             powerManager.CPUClockMax.PropertyChanged += CPUClock_PropertyChanged;
             profileManager.CurrentProfile.PropertyChanged += CurrentProfile_PropertyChanged;
 
-            Logger.Info("Start connecting to the widget.");
-            appServiceConnectionStatus = await connection.OpenAsync();
-            if (appServiceConnectionStatus != AppServiceConnectionStatus.Success)
-            {
-                Logger.Info("Can't conncect to the widget.");
-                return;
-            }
+            await ConnectToWidget();
 
-            Logger.Info("Can't conncect to the widget.");
+            Logger.Info($"Widget connection status: {appServiceConnectionStatus}");
             while (appServiceConnectionStatus == AppServiceConnectionStatus.Success)
             {
                 await Task.Delay(500);
@@ -154,6 +148,22 @@ namespace XboxGamingBarHelper
                 }
             }
             Logger.Info("Helper close...");
+        }
+
+        private static async Task ConnectToWidget()
+        {
+            do
+            {
+                Logger.Info("Start connecting to the widget.");
+                appServiceConnectionStatus = await connection.OpenAsync();
+                if (appServiceConnectionStatus != AppServiceConnectionStatus.Success)
+                {
+                    Logger.Info("Can't conncect to the widget. Try again in 1 second...");
+                    await Task.Delay(1000);
+                }
+            } while (appServiceConnectionStatus != AppServiceConnectionStatus.Success);
+
+            Logger.Info("Connected to the widget.");
         }
 
         private static void CPUClock_PropertyChanged(object sender, PropertyChangedEventArgs e)

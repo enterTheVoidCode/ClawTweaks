@@ -424,18 +424,19 @@ namespace XboxGamingBarHelper.AMD
         {
             base.Update();
 
+            if (!IsInUsed)
+            {
+                return;
+            }
+
             var now = DateTime.Now.Ticks;
-            Logger.Info($"Time since last update: {now - lastUpdate}");
             if (now - lastUpdate < TimeSpan.TicksPerSecond * 2)
             {
                 return;
             }
             lastUpdate = now;
 
-            if (IsInUsed)
-            {
-                SetAMDValues();
-            }
+            SetAMDValues();
         }
 
         public override void SetLevel(int level)
