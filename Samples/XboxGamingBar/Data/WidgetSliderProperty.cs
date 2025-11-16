@@ -8,6 +8,11 @@ namespace XboxGamingBar.Data
 {
     internal class WidgetSliderProperty : WidgetControlProperty<int, Slider>
     {
+        private Windows.UI.Xaml.DispatcherTimer debounceTimer;
+        private int pendingValue;
+        private bool hasPendingValue;
+        private const int DEBOUNCE_DELAY_MS = 500; // Wait 500ms after last change before sending
+
         public WidgetSliderProperty(int inValue, Function inFunction, Slider inControl, Page inOwner) : base(inValue, inFunction, inControl, inOwner)
         {
             if (UI != null)
@@ -18,6 +23,36 @@ namespace XboxGamingBar.Data
                 //UI.DragOver += Slider_DragOver;
                 //UI.DragLeave += Slider_DragLeave;
                 UI.Value = inValue;
+
+                // Initialize debounce timer
+                debounceTimer = new Windows.UI.Xaml.DispatcherTimer();
+                debounceTimer.Interval = TimeSpan.FromMilliseconds(DEBOUNCE_DELAY_MS);
+                debounceTimer.Tick += DebounceTimer_Tick;
+            }
+        }
+
+        public void StopDebounceTimer()
+        {
+            if (debounceTimer != null && debounceTimer.IsEnabled)
+            {
+                Logger.Info($"{Function} Stopping debounce timer.");
+                debounceTimer.Stop();
+                hasPendingValue = false;
+            }
+        }
+
+        public void Cleanup()
+        {
+            if (debounceTimer != null)
+            {
+                debounceTimer.Stop();
+                debounceTimer.Tick -= DebounceTimer_Tick;
+                debounceTimer = null;
+            }
+
+            if (UI != null)
+            {
+                UI.ValueChanged -= Slider_ValueChanged;
             }
         }
 
@@ -41,13 +76,43 @@ namespace XboxGamingBar.Data
         //    Logger.Info($"{Function} Slider drag enter {e.Data.ToString()}.");
         //}
 
+        private void DebounceTimer_Tick(object sender, object e)
+        {
+            try
+            {
+                if (debounceTimer != null)
+                {
+                    debounceTimer.Stop();
+                }
+
+                if (hasPendingValue && pendingValue != Value)
+                {
+                    Logger.Info($"{Function} Debounce timer elapsed, applying pending value {pendingValue}.");
+                    hasPendingValue = false;
+                    SetValue(pendingValue);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"{Function} Error in debounce timer tick: {ex.Message}");
+            }
+        }
+
         private void Slider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
         {
             var newValue = (int)e.NewValue;
             if (newValue != Value)
             {
-                Logger.Info($"{Function} Slider value changed from {e.OldValue} to {e.NewValue}, update property.");
-                SetValue(newValue);
+                Logger.Info($"{Function} Slider value changed from {e.OldValue} to {e.NewValue}, debouncing update.");
+
+                // Store the pending value - do NOT update internal value yet
+                // The timer will call SetValue() which updates the value and sends to helper
+                pendingValue = newValue;
+                hasPendingValue = true;
+
+                // Restart the debounce timer - this delays sending to helper
+                debounceTimer.Stop();
+                debounceTimer.Start();
             }
         }
 
