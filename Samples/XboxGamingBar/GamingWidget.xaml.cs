@@ -1,27 +1,73 @@
 ﻿using Microsoft.Gaming.XboxGameBar;
+using Microsoft.UI.Xaml.Controls;
 using NLog;
 using Shared.Data;
 using Shared.Utilities;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
 using Windows.ApplicationModel.Background;
+using Windows.Foundation;
 using Windows.Foundation.Metadata;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+using Windows.System.Power;
+using Windows.Storage;
 using XboxGamingBar.Data;
 using XboxGamingBar.Event;
+using NavigationView = Microsoft.UI.Xaml.Controls.NavigationView;
+using NavigationViewItem = Microsoft.UI.Xaml.Controls.NavigationViewItem;
+using NavigationViewSelectionChangedEventArgs = Microsoft.UI.Xaml.Controls.NavigationViewSelectionChangedEventArgs;
 
 // The Blank Page item template is documented at https://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
 namespace XboxGamingBar
 {
+    /// <summary>
+    /// Profile settings storage
+    /// </summary>
+    public class PerformanceProfile
+    {
+        public double TDP { get; set; } = 15;
+        public bool CPUBoost { get; set; } = false;
+        public double CPUEPP { get; set; } = 0;
+        public bool LimitCPUClock { get; set; } = false;
+        public double CPUClockMax { get; set; } = 5500;
+        public bool FluidMotionFrames { get; set; } = false;
+        public bool RadeonAntiLag { get; set; } = false;
+        public bool RadeonBoost { get; set; } = false;
+        public double RadeonBoostResolution { get; set; } = 0;
+        public bool RadeonChill { get; set; } = false;
+        public double RadeonChillMinFPS { get; set; } = 30;
+        public double RadeonChillMaxFPS { get; set; } = 60;
+
+        public PerformanceProfile Clone()
+        {
+            return new PerformanceProfile
+            {
+                TDP = this.TDP,
+                CPUBoost = this.CPUBoost,
+                CPUEPP = this.CPUEPP,
+                LimitCPUClock = this.LimitCPUClock,
+                CPUClockMax = this.CPUClockMax,
+                FluidMotionFrames = this.FluidMotionFrames,
+                RadeonAntiLag = this.RadeonAntiLag,
+                RadeonBoost = this.RadeonBoost,
+                RadeonBoostResolution = this.RadeonBoostResolution,
+                RadeonChill = this.RadeonChill,
+                RadeonChillMinFPS = this.RadeonChillMinFPS,
+                RadeonChillMaxFPS = this.RadeonChillMaxFPS
+            };
+        }
+    }
+
     /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
     /// </summary>
@@ -77,6 +123,50 @@ namespace XboxGamingBar
         private readonly AMDRadeonChillSupportedProperty amdRadeonChillSupported;
         private readonly AMDRadeonChillMinFPSProperty amdRadeonChillMinFPSProperty;
         private readonly AMDRadeonChillMaxFPSProperty amdRadeonChillMaxFPSProperty;
+
+        // Profile management
+        private PerformanceProfile globalProfile = new PerformanceProfile();
+        private PerformanceProfile acProfile = new PerformanceProfile();
+        private PerformanceProfile dcProfile = new PerformanceProfile();
+        private PerformanceProfile gameProfile = new PerformanceProfile();
+        private PerformanceProfile gameACProfile = new PerformanceProfile();
+        private PerformanceProfile gameDCProfile = new PerformanceProfile();
+        private string currentProfileName = "Global";
+        private string currentGameName = "";
+        private bool isLoadingProfile = false;
+        private bool isSwitchingProfile = false;
+        private bool isApplyingHelperUpdate = false; // Prevents saves when helper echoes values back
+        private bool isInternalToggleDisable = false; // Indicates toggle is being disabled internally (game close)
+
+        // Helper to check if we have a valid game (not null, not empty, not "No game detected")
+        private bool HasValidGame(string gameName)
+        {
+            if (string.IsNullOrWhiteSpace(gameName))
+                return false;
+
+            string normalized = gameName.Trim();
+
+            // Case-insensitive check for "No game detected" (handles any capitalization)
+            return !normalized.Equals("No game detected", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Sanitize game name for consistent storage
+        private string SanitizeGameName(string gameName)
+        {
+            if (string.IsNullOrWhiteSpace(gameName))
+                return "";
+
+            // Trim whitespace, normalize spaces
+            return gameName.Trim();
+        }
+
+        // Profile save settings
+        private bool SaveTDP => ProfileSaveTDPCheckBox?.IsChecked ?? true;
+        private bool SaveCPUBoost => ProfileSaveCPUBoostCheckBox?.IsChecked ?? true;
+        private bool SaveCPUEPP => ProfileSaveCPUEPPCheckBox?.IsChecked ?? true;
+        private bool SaveLimitCPUClock => ProfileSaveLimitCPUClockCheckBox?.IsChecked ?? true;
+        private bool SaveAMDFeatures => ProfileSaveAMDFeaturesCheckBox?.IsChecked ?? false;
+
         private string RadeonChillOnText
         {
             get
@@ -189,11 +279,1104 @@ namespace XboxGamingBar
         private void GamingWidget_Loaded(object sender, RoutedEventArgs e)
         {
             Logger.Info($"GamingWidget_Loaded called. Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, App.Connection is null: {App.Connection == null}");
+
+            // Set initial navigation selection
+            if (MainNavigationView.MenuItems.Count > 0)
+            {
+                MainNavigationView.SelectedItem = MainNavigationView.MenuItems[0];
+            }
+
+            // Load profile customization settings
+            LoadProfileCustomizationSettings();
+
+            // Load profiles from storage
+            LoadProfileFromStorage("Global", globalProfile);
+            LoadProfileFromStorage("AC", acProfile);
+            LoadProfileFromStorage("DC", dcProfile);
+
+            // Clean up any invalid "No game detected" profiles
+            CleanupInvalidProfiles();
+
+            // Initialize power source profile
+            PowerSourceProfileToggle.Toggled += PowerSourceProfileToggle_Toggled;
+
+            // Set initial visibility for Global Profile display mode
+            if (PowerSourceProfileToggle.IsOn)
+            {
+                GlobalProfileSimple.Visibility = Visibility.Collapsed;
+                GlobalProfileACDC.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                GlobalProfileSimple.Visibility = Visibility.Visible;
+                GlobalProfileACDC.Visibility = Visibility.Collapsed;
+            }
+
+            UpdateActiveProfileIndicator();
+
+            // Subscribe to power source changes
+            PowerManager.PowerSupplyStatusChanged += PowerManager_PowerSourceChanged;
+
+            // Subscribe to checkbox changes to save settings
+            ProfileSaveTDPCheckBox.Checked += ProfileSettingCheckBox_Changed;
+            ProfileSaveTDPCheckBox.Unchecked += ProfileSettingCheckBox_Changed;
+            ProfileSaveCPUBoostCheckBox.Checked += ProfileSettingCheckBox_Changed;
+            ProfileSaveCPUBoostCheckBox.Unchecked += ProfileSettingCheckBox_Changed;
+            ProfileSaveCPUEPPCheckBox.Checked += ProfileSettingCheckBox_Changed;
+            ProfileSaveCPUEPPCheckBox.Unchecked += ProfileSettingCheckBox_Changed;
+            ProfileSaveLimitCPUClockCheckBox.Checked += ProfileSettingCheckBox_Changed;
+            ProfileSaveLimitCPUClockCheckBox.Unchecked += ProfileSettingCheckBox_Changed;
+            ProfileSaveAMDFeaturesCheckBox.Checked += ProfileSettingCheckBox_Changed;
+            ProfileSaveAMDFeaturesCheckBox.Unchecked += ProfileSettingCheckBox_Changed;
+
+            // Subscribe to settings changes for auto-save
+            SubscribeToSettingsChanges();
+
+            // Subscribe to power source profile toggle changes to update game profile card
+            PowerSourceProfileToggle.Toggled += PowerSourceToggle_Changed;
+
+            // Subscribe to per-game profile toggle changes
+            PerGameProfileToggle.Toggled += PerGameProfileToggle_Changed;
+
+            // Subscribe to game text changes
+            RunningGameText.RegisterPropertyChangedCallback(TextBlock.TextProperty, OnGameTextChanged);
+
+            // Update profile display
+            UpdateProfileDisplay();
+            UpdateGameProfileCardVisibility();
+        }
+
+        private void PowerSourceToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            UpdateGameProfileCardVisibility();
+        }
+
+        private void PerGameProfileToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            // Protect entire toggle change sequence from auto-saves
+            isSwitchingProfile = true;
+
+            try
+            {
+                if (PerGameProfileToggle.IsOn)
+                {
+                    // Per-game profiles enabled - only proceed if we have a valid game
+                    if (HasValidGame(currentGameName))
+                    {
+                        LoadOrCreateGameProfiles();
+                    }
+                    else
+                    {
+                        // No valid game, turn toggle back off
+                        Logger.Warn($"Cannot enable per-game profile without a valid game (currentGameName='{currentGameName}'), forcing toggle OFF");
+                        PerGameProfileToggle.IsOn = false;
+                        return;
+                    }
+                }
+                else
+                {
+                    // Toggle is being turned OFF - check if we should reject this
+                    // (Prevents helper messages from disabling auto-enabled toggle)
+                    // But ALLOW internal disables (when game closes)
+                    if (HasValidGame(currentGameName) && isApplyingHelperUpdate && !isInternalToggleDisable)
+                    {
+                        var settings = ApplicationData.Current.LocalSettings;
+                        bool hasExistingProfile = false;
+
+                        if (PowerSourceProfileToggle?.IsOn == true)
+                        {
+                            hasExistingProfile = settings.Containers.ContainsKey($"Profile_Game_{currentGameName}_AC");
+                        }
+                        else
+                        {
+                            hasExistingProfile = settings.Containers.ContainsKey($"Profile_Game_{currentGameName}");
+                        }
+
+                        if (hasExistingProfile)
+                        {
+                            Logger.Info($"Ignoring helper request to disable toggle - game '{currentGameName}' has saved profile");
+                            PerGameProfileToggle.IsOn = true; // Keep it on
+                            return;
+                        }
+                    }
+                }
+
+                UpdateActiveProfileIndicator();
+            }
+            finally
+            {
+                isSwitchingProfile = false;
+            }
+        }
+
+        private void OnGameTextChanged(DependencyObject sender, DependencyProperty dp)
+        {
+            string rawGameName = RunningGameText.Text;
+            string sanitizedName = SanitizeGameName(rawGameName);
+
+            // Validate the game name - if invalid, use empty string instead
+            string newGameName = HasValidGame(sanitizedName) ? sanitizedName : "";
+
+            if (newGameName != currentGameName)
+            {
+                Logger.Info($"Game changed from '{currentGameName}' to '{newGameName}' (raw: '{rawGameName}')");
+
+                // IMPORTANT: Disable toggle BEFORE changing currentGameName
+                // This prevents race condition where profile switching happens with invalid state
+                if (!HasValidGame(newGameName) && PerGameProfileToggle?.IsOn == true)
+                {
+                    Logger.Info($"No valid game detected (was: '{rawGameName}'), disabling per-game toggle BEFORE updating game name");
+                    isInternalToggleDisable = true; // Flag this as internal disable
+                    PerGameProfileToggle.IsOn = false;  // This triggers UpdateActiveProfileIndicator which switches to Global
+                    isInternalToggleDisable = false;
+                }
+
+                // Now safe to update currentGameName
+                currentGameName = newGameName;
+
+                // Check if we have a valid game
+                if (HasValidGame(currentGameName))
+                {
+                    // Valid game detected
+                    var settings = ApplicationData.Current.LocalSettings;
+                    bool hasExistingProfile = false;
+
+                    if (PowerSourceProfileToggle?.IsOn == true)
+                    {
+                        hasExistingProfile = settings.Containers.ContainsKey($"Profile_Game_{currentGameName}_AC");
+                    }
+                    else
+                    {
+                        hasExistingProfile = settings.Containers.ContainsKey($"Profile_Game_{currentGameName}");
+                    }
+
+                    // Auto-enable per-game toggle if profile exists OR if it's already on
+                    if (hasExistingProfile || (PerGameProfileToggle?.IsOn == true))
+                    {
+                        if (!PerGameProfileToggle.IsOn)
+                        {
+                            Logger.Info($"Auto-enabling per-game profile for {currentGameName}");
+                            PerGameProfileToggle.IsOn = true;  // This will trigger PerGameProfileToggle_Changed
+                        }
+                        else
+                        {
+                            // Already on, need to switch to new game's profile
+
+                            // Protect this sequence from auto-saves
+                            isSwitchingProfile = true;
+                            try
+                            {
+                                LoadOrCreateGameProfiles();
+                                UpdateActiveProfileIndicator();  // Critical: switch to the new game's profile!
+                            }
+                            finally
+                            {
+                                isSwitchingProfile = false;
+                            }
+                        }
+                    }
+                }
+
+                // Update game profile card visibility and display
+                UpdateGameProfileCardVisibility();
+                UpdateProfileDisplay();
+            }
+        }
+
+        private void LoadOrCreateGameProfiles()
+        {
+            if (!HasValidGame(currentGameName))
+                return;
+
+            var settings = ApplicationData.Current.LocalSettings;
+
+            if (PowerSourceProfileToggle?.IsOn == true)
+            {
+                // Check if game profiles exist in storage
+                if (!settings.Containers.ContainsKey($"Profile_Game_{currentGameName}_AC"))
+                {
+                    // Initialize new game profiles from current AC/DC profiles
+                    gameACProfile = acProfile.Clone();
+                    gameDCProfile = dcProfile.Clone();
+                    SaveProfileToStorage($"Game_{currentGameName}_AC", gameACProfile);
+                    SaveProfileToStorage($"Game_{currentGameName}_DC", gameDCProfile);
+                    Logger.Info($"Initialized game AC/DC profiles for {currentGameName}");
+                }
+                else
+                {
+                    LoadProfileFromStorage($"Game_{currentGameName}_AC", gameACProfile);
+                    LoadProfileFromStorage($"Game_{currentGameName}_DC", gameDCProfile);
+                    Logger.Info($"Loaded existing game AC/DC profiles for {currentGameName}");
+                }
+            }
+            else
+            {
+                // Check if game profile exists in storage
+                if (!settings.Containers.ContainsKey($"Profile_Game_{currentGameName}"))
+                {
+                    // Initialize new game profile from global profile
+                    gameProfile = globalProfile.Clone();
+                    SaveProfileToStorage($"Game_{currentGameName}", gameProfile);
+                    Logger.Info($"Initialized game profile for {currentGameName} from global");
+                }
+                else
+                {
+                    LoadProfileFromStorage($"Game_{currentGameName}", gameProfile);
+                    Logger.Info($"Loaded existing game profile for {currentGameName}");
+                }
+            }
+        }
+
+        private void SubscribeToSettingsChanges()
+        {
+            // Performance settings
+            TDPSlider.ValueChanged += SettingChanged;
+            CPUBoostToggle.Toggled += SettingChanged;
+            CPUEPPSlider.ValueChanged += SettingChanged;
+            LimitCPUClockToggle.Toggled += SettingChanged;
+            CPUClockMaxSlider.ValueChanged += SettingChanged;
+
+            // AMD settings
+            AMDFluidMotionFrameToggle.Toggled += SettingChanged;
+            AMDRadeonAntiLagToggle.Toggled += SettingChanged;
+            AMDRadeonBoostToggle.Toggled += SettingChanged;
+            AMDRadeonBoostResolutionSlider.ValueChanged += SettingChanged;
+            AMDRadeonChillToggle.Toggled += SettingChanged;
+            AMDRadeonChillMinFPSSlider.ValueChanged += SettingChanged;
+            AMDRadeonChillMaxFPSSlider.ValueChanged += SettingChanged;
+        }
+
+        private void SettingChanged(object sender, object e)
+        {
+            // Don't save during profile loading, switching, or when helper is updating values
+            if (isLoadingProfile || isSwitchingProfile || isApplyingHelperUpdate)
+            {
+                Logger.Debug($"Skipping auto-save during profile operation (loading={isLoadingProfile}, switching={isSwitchingProfile}, helperUpdate={isApplyingHelperUpdate})");
+                return;
+            }
+
+            // Auto-save to current profile
+            SaveCurrentSettingsToProfile(currentProfileName);
+        }
+
+        private void PowerSourceProfileToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            Logger.Info($"PowerSourceProfileToggle toggled to: {PowerSourceProfileToggle.IsOn}");
+
+            // Toggle Global Profile display mode
+            if (PowerSourceProfileToggle.IsOn)
+            {
+                // Show AC/DC mode, hide simple mode
+                GlobalProfileSimple.Visibility = Visibility.Collapsed;
+                GlobalProfileACDC.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                // Show simple mode, hide AC/DC mode
+                GlobalProfileSimple.Visibility = Visibility.Visible;
+                GlobalProfileACDC.Visibility = Visibility.Collapsed;
+            }
+
+            UpdateActiveProfileIndicator();
+        }
+
+        private async void PowerManager_PowerSourceChanged(object sender, object e)
+        {
+            // Small delay to allow system to update power status
+            await System.Threading.Tasks.Task.Delay(100);
+
+            // Update the active profile indicator when power source changes
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                UpdateActiveProfileIndicator();
+            });
+        }
+
+        private void UpdateActiveProfileIndicator()
+        {
+            bool hasGame = HasValidGame(currentGameName);
+            bool perGameEnabled = PerGameProfileToggle?.IsOn ?? false;
+
+            // Check if we should use per-game profiles
+            if (perGameEnabled && hasGame)
+            {
+                // Per-game profile is active
+                if (PowerSourceProfileToggle.IsOn)
+                {
+                    // Check power status for AC/DC
+                    var batteryStatus = PowerManager.BatteryStatus;
+                    var powerSupplyStatus = PowerManager.PowerSupplyStatus;
+                    bool isOnAC = batteryStatus == BatteryStatus.Charging ||
+                                  (batteryStatus == BatteryStatus.Idle && powerSupplyStatus == PowerSupplyStatus.Adequate);
+
+                    if (isOnAC)
+                    {
+                        ActiveProfileText.Text = $"{currentGameName} (AC)";
+                    }
+                    else
+                    {
+                        ActiveProfileText.Text = $"{currentGameName} (DC)";
+                    }
+                }
+                else
+                {
+                    // Game profile without power source split
+                    ActiveProfileText.Text = currentGameName;
+                }
+            }
+            else
+            {
+                // Global profiles
+                if (!PowerSourceProfileToggle.IsOn)
+                {
+                    // Power source profiles disabled, show global
+                    ActiveProfileText.Text = "Global Settings";
+                }
+                else
+                {
+                    // Check power status
+                    var batteryStatus = PowerManager.BatteryStatus;
+                    var powerSupplyStatus = PowerManager.PowerSupplyStatus;
+                    var remainingCharge = PowerManager.RemainingChargePercent;
+
+                    Logger.Info($"Power status - Battery: {batteryStatus}, PowerSupply: {powerSupplyStatus}, Charge: {remainingCharge}%");
+
+                    // Device is on AC power if:
+                    // 1. Battery is charging, OR
+                    // 2. Battery is idle AND power supply is adequate
+                    // If power supply is NotPresent or Inadequate, we're on battery
+                    bool isOnAC = batteryStatus == BatteryStatus.Charging ||
+                                  (batteryStatus == BatteryStatus.Idle && powerSupplyStatus == PowerSupplyStatus.Adequate);
+
+                    if (isOnAC)
+                    {
+                        ActiveProfileText.Text = "AC Profile (Plugged In)";
+                    }
+                    else
+                    {
+                        ActiveProfileText.Text = "DC Profile (Battery)";
+                    }
+                }
+            }
+
+            Logger.Info($"Active profile updated to: {ActiveProfileText.Text}");
+
+            // Switch profile if needed
+            SwitchProfile();
+        }
+
+        private void SwitchProfile()
+        {
+            string targetProfile = GetTargetProfileName();
+
+            if (targetProfile != currentProfileName)
+            {
+                Logger.Info($"Switching from '{currentProfileName}' to '{targetProfile}' profile");
+
+                // Set flag to prevent auto-saves during transition
+                isSwitchingProfile = true;
+
+                try
+                {
+                    // Save current profile before switching
+                    // (isApplyingHelperUpdate check inside prevents race conditions)
+                    SaveCurrentSettingsToProfile(currentProfileName);
+
+                    // Switch to new profile
+                    currentProfileName = targetProfile;
+
+                    // Load settings from new profile
+                    LoadProfileSettings(currentProfileName);
+                }
+                finally
+                {
+                    // Always clear the flag
+                    isSwitchingProfile = false;
+                }
+            }
+        }
+
+        private string GetTargetProfileName()
+        {
+            bool hasGame = HasValidGame(currentGameName);
+            bool perGameEnabled = PerGameProfileToggle?.IsOn ?? false;
+
+            // IMPORTANT: Never create profile names for invalid games
+            // If per-game is enabled but no valid game, fall back to global profiles
+            if (perGameEnabled && hasGame)
+            {
+                // Per-game profile - only if we have a VALID game name
+                Logger.Info($"Using per-game profile for: {currentGameName}");
+
+                if (PowerSourceProfileToggle.IsOn)
+                {
+                    var batteryStatus = PowerManager.BatteryStatus;
+                    var powerSupplyStatus = PowerManager.PowerSupplyStatus;
+                    bool isOnAC = batteryStatus == BatteryStatus.Charging ||
+                                  (batteryStatus == BatteryStatus.Idle && powerSupplyStatus == PowerSupplyStatus.Adequate);
+                    return isOnAC ? $"Game_{currentGameName}_AC" : $"Game_{currentGameName}_DC";
+                }
+                else
+                {
+                    return $"Game_{currentGameName}";
+                }
+            }
+            else
+            {
+                // Global profiles (used when: no valid game OR per-game disabled)
+                if (perGameEnabled && !hasGame)
+                {
+                    Logger.Warn($"Per-game toggle is ON but no valid game detected, using global profile instead");
+                }
+
+                if (!PowerSourceProfileToggle.IsOn)
+                {
+                    return "Global";
+                }
+                else
+                {
+                    var batteryStatus = PowerManager.BatteryStatus;
+                    var powerSupplyStatus = PowerManager.PowerSupplyStatus;
+                    bool isOnAC = batteryStatus == BatteryStatus.Charging ||
+                                  (batteryStatus == BatteryStatus.Idle && powerSupplyStatus == PowerSupplyStatus.Adequate);
+                    return isOnAC ? "AC" : "DC";
+                }
+            }
+        }
+
+        private void SaveCurrentSettingsToProfile(string profileName)
+        {
+            // Don't save during helper updates - prevents race conditions
+            if (isApplyingHelperUpdate)
+            {
+                return;
+            }
+
+            // Never save to "No game detected" profile (case-insensitive check)
+            if (profileName.IndexOf("No game detected", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                Logger.Warn($"Attempted to save to invalid profile name: {profileName}, skipping");
+                return;
+            }
+
+            var profile = GetProfile(profileName);
+
+            // Save only enabled settings
+            if (SaveTDP)
+            {
+                profile.TDP = TDPSlider.Value;
+            }
+            if (SaveCPUBoost)
+            {
+                profile.CPUBoost = CPUBoostToggle.IsOn;
+            }
+            if (SaveCPUEPP)
+            {
+                profile.CPUEPP = CPUEPPSlider.Value;
+            }
+            if (SaveLimitCPUClock)
+            {
+                profile.LimitCPUClock = LimitCPUClockToggle.IsOn;
+                profile.CPUClockMax = CPUClockMaxSlider.Value;
+            }
+            if (SaveAMDFeatures)
+            {
+                profile.FluidMotionFrames = AMDFluidMotionFrameToggle.IsOn;
+                profile.RadeonAntiLag = AMDRadeonAntiLagToggle.IsOn;
+                profile.RadeonBoost = AMDRadeonBoostToggle.IsOn;
+                profile.RadeonBoostResolution = AMDRadeonBoostResolutionSlider.Value;
+                profile.RadeonChill = AMDRadeonChillToggle.IsOn;
+                profile.RadeonChillMinFPS = AMDRadeonChillMinFPSSlider.Value;
+                profile.RadeonChillMaxFPS = AMDRadeonChillMaxFPSSlider.Value;
+            }
+
+            // Persist to storage
+            SaveProfileToStorage(profileName, profile);
+
+            // Update profile display
+            UpdateProfileDisplay();
+        }
+
+        private void LoadProfileSettings(string profileName)
+        {
+            if (isLoadingProfile) return;
+            isLoadingProfile = true;
+
+            try
+            {
+                var profile = GetProfile(profileName);
+
+                // Apply only enabled settings to UI controls
+                if (SaveTDP)
+                {
+                    TDPSlider.Value = profile.TDP;
+                }
+                if (SaveCPUBoost)
+                {
+                    CPUBoostToggle.IsOn = profile.CPUBoost;
+                }
+                if (SaveCPUEPP)
+                {
+                    CPUEPPSlider.Value = profile.CPUEPP;
+                }
+                if (SaveLimitCPUClock)
+                {
+                    LimitCPUClockToggle.IsOn = profile.LimitCPUClock;
+                    CPUClockMaxSlider.Value = profile.CPUClockMax;
+                }
+                if (SaveAMDFeatures)
+                {
+                    AMDFluidMotionFrameToggle.IsOn = profile.FluidMotionFrames;
+                    AMDRadeonAntiLagToggle.IsOn = profile.RadeonAntiLag;
+                    AMDRadeonBoostToggle.IsOn = profile.RadeonBoost;
+                    AMDRadeonBoostResolutionSlider.Value = profile.RadeonBoostResolution;
+                    AMDRadeonChillToggle.IsOn = profile.RadeonChill;
+                    AMDRadeonChillMinFPSSlider.Value = profile.RadeonChillMinFPS;
+                    AMDRadeonChillMaxFPSSlider.Value = profile.RadeonChillMaxFPS;
+                }
+            }
+            finally
+            {
+                isLoadingProfile = false;
+            }
+        }
+
+        private PerformanceProfile GetProfile(string profileName)
+        {
+            // Never return a game profile for invalid game names (case-insensitive check)
+            if (profileName.IndexOf("No game detected", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                Logger.Warn($"Attempted to get invalid profile: {profileName}, returning global profile");
+                return globalProfile;
+            }
+
+            // Handle game profiles
+            if (profileName.StartsWith("Game_"))
+            {
+                if (profileName.EndsWith("_AC"))
+                    return gameACProfile;
+                else if (profileName.EndsWith("_DC"))
+                    return gameDCProfile;
+                else
+                    return gameProfile;
+            }
+
+            // Handle global profiles
+            switch (profileName)
+            {
+                case "AC": return acProfile;
+                case "DC": return dcProfile;
+                default: return globalProfile;
+            }
+        }
+
+        private void SaveProfileToStorage(string profileName, PerformanceProfile profile)
+        {
+            // Never save to "No game detected" profile (case-insensitive check)
+            if (profileName.IndexOf("No game detected", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                Logger.Warn($"Attempted to save to storage with invalid profile name: {profileName}, skipping");
+                return;
+            }
+
+            var settings = ApplicationData.Current.LocalSettings;
+            var container = settings.CreateContainer($"Profile_{profileName}", ApplicationDataCreateDisposition.Always);
+
+            container.Values["TDP"] = profile.TDP;
+            container.Values["CPUBoost"] = profile.CPUBoost;
+            container.Values["CPUEPP"] = profile.CPUEPP;
+            container.Values["LimitCPUClock"] = profile.LimitCPUClock;
+            container.Values["CPUClockMax"] = profile.CPUClockMax;
+            container.Values["FluidMotionFrames"] = profile.FluidMotionFrames;
+            container.Values["RadeonAntiLag"] = profile.RadeonAntiLag;
+            container.Values["RadeonBoost"] = profile.RadeonBoost;
+            container.Values["RadeonBoostResolution"] = profile.RadeonBoostResolution;
+            container.Values["RadeonChill"] = profile.RadeonChill;
+            container.Values["RadeonChillMinFPS"] = profile.RadeonChillMinFPS;
+            container.Values["RadeonChillMaxFPS"] = profile.RadeonChillMaxFPS;
+        }
+
+        private void LoadProfileFromStorage(string profileName, PerformanceProfile profile)
+        {
+            var settings = ApplicationData.Current.LocalSettings;
+            if (settings.Containers.ContainsKey($"Profile_{profileName}"))
+            {
+                var container = settings.Containers[$"Profile_{profileName}"];
+
+                profile.TDP = container.Values.ContainsKey("TDP") ? (double)container.Values["TDP"] : 15;
+                profile.CPUBoost = container.Values.ContainsKey("CPUBoost") ? (bool)container.Values["CPUBoost"] : false;
+                profile.CPUEPP = container.Values.ContainsKey("CPUEPP") ? (double)container.Values["CPUEPP"] : 0;
+                profile.LimitCPUClock = container.Values.ContainsKey("LimitCPUClock") ? (bool)container.Values["LimitCPUClock"] : false;
+                profile.CPUClockMax = container.Values.ContainsKey("CPUClockMax") ? (double)container.Values["CPUClockMax"] : 5500;
+                profile.FluidMotionFrames = container.Values.ContainsKey("FluidMotionFrames") ? (bool)container.Values["FluidMotionFrames"] : false;
+                profile.RadeonAntiLag = container.Values.ContainsKey("RadeonAntiLag") ? (bool)container.Values["RadeonAntiLag"] : false;
+                profile.RadeonBoost = container.Values.ContainsKey("RadeonBoost") ? (bool)container.Values["RadeonBoost"] : false;
+                profile.RadeonBoostResolution = container.Values.ContainsKey("RadeonBoostResolution") ? (double)container.Values["RadeonBoostResolution"] : 0;
+                profile.RadeonChill = container.Values.ContainsKey("RadeonChill") ? (bool)container.Values["RadeonChill"] : false;
+                profile.RadeonChillMinFPS = container.Values.ContainsKey("RadeonChillMinFPS") ? (double)container.Values["RadeonChillMinFPS"] : 30;
+                profile.RadeonChillMaxFPS = container.Values.ContainsKey("RadeonChillMaxFPS") ? (double)container.Values["RadeonChillMaxFPS"] : 60;
+
+                Logger.Info($"Loaded {profileName} profile from storage");
+            }
+        }
+
+        private void UpdateProfileDisplay()
+        {
+            // Update Global profile display
+            GlobalProfileTDPText.Text = $"{globalProfile.TDP}W";
+            GlobalProfileCPUBoostText.Text = globalProfile.CPUBoost ? "On" : "Off";
+            GlobalProfileCPUEPPText.Text = $"{globalProfile.CPUEPP}";
+
+            // Update AC profile display
+            ACProfileTDPText.Text = $"{acProfile.TDP}W";
+            ACProfileCPUBoostText.Text = acProfile.CPUBoost ? "On" : "Off";
+            ACProfileCPUEPPText.Text = $"{acProfile.CPUEPP}";
+
+            // Update DC profile display
+            DCProfileTDPText.Text = $"{dcProfile.TDP}W";
+            DCProfileCPUBoostText.Text = dcProfile.CPUBoost ? "On" : "Off";
+            DCProfileCPUEPPText.Text = $"{dcProfile.CPUEPP}";
+
+            // Update game profile display (if game is running)
+            if (HasValidGame(currentGameName))
+            {
+                if (PowerSourceProfileToggle?.IsOn == true)
+                {
+                    // Show AC/DC game profiles
+                    GameACProfileTDPText.Text = $"{gameACProfile.TDP}W";
+                    GameACProfileCPUBoostText.Text = gameACProfile.CPUBoost ? "On" : "Off";
+                    GameACProfileCPUEPPText.Text = $"{gameACProfile.CPUEPP}";
+
+                    GameDCProfileTDPText.Text = $"{gameDCProfile.TDP}W";
+                    GameDCProfileCPUBoostText.Text = gameDCProfile.CPUBoost ? "On" : "Off";
+                    GameDCProfileCPUEPPText.Text = $"{gameDCProfile.CPUEPP}";
+                }
+                else
+                {
+                    // Show single game profile
+                    GameProfileTDPText.Text = $"{gameProfile.TDP}W";
+                    GameProfileCPUBoostText.Text = gameProfile.CPUBoost ? "On" : "Off";
+                    GameProfileCPUEPPText.Text = $"{gameProfile.CPUEPP}";
+                }
+            }
+
+            // Update all saved game profiles display
+            UpdateAllGameProfilesDisplay();
+        }
+
+        private void UpdateGameProfileCardVisibility()
+        {
+            bool hasGame = HasValidGame(currentGameName);
+            bool powerSourceEnabled = PowerSourceProfileToggle?.IsOn == true;
+
+            if (hasGame)
+            {
+                GameProfileCard.Visibility = Visibility.Visible;
+
+                if (powerSourceEnabled)
+                {
+                    GameProfileWithPowerSource.Visibility = Visibility.Visible;
+                    GameProfileWithoutPowerSource.Visibility = Visibility.Collapsed;
+                    GameProfileTitleWithPower.Text = $"🎮 {currentGameName}";
+                }
+                else
+                {
+                    GameProfileWithPowerSource.Visibility = Visibility.Collapsed;
+                    GameProfileWithoutPowerSource.Visibility = Visibility.Visible;
+                    GameProfileTitleNoPower.Text = $"🎮 {currentGameName}";
+                }
+            }
+            else
+            {
+                GameProfileCard.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private List<string> GetAllSavedGameProfiles()
+        {
+            var gameNames = new HashSet<string>();
+            var settings = ApplicationData.Current.LocalSettings;
+
+            // Enumerate all containers looking for game profiles
+            foreach (var containerName in settings.Containers.Keys)
+            {
+                if (containerName.StartsWith("Profile_Game_"))
+                {
+                    // Extract game name from container key
+                    string gameName = containerName.Substring("Profile_Game_".Length);
+
+                    // Remove _AC or _DC suffix if present
+                    if (gameName.EndsWith("_AC"))
+                    {
+                        gameName = gameName.Substring(0, gameName.Length - 3);
+                    }
+                    else if (gameName.EndsWith("_DC"))
+                    {
+                        gameName = gameName.Substring(0, gameName.Length - 3);
+                    }
+
+                    gameNames.Add(gameName);
+                }
+            }
+
+            return gameNames.OrderBy(name => name).ToList();
+        }
+
+        private void UpdateAllGameProfilesDisplay()
+        {
+            if (AllGameProfilesContainer == null)
+                return;
+
+            // Clear existing game profile cards
+            AllGameProfilesContainer.Children.Clear();
+
+            var savedGames = GetAllSavedGameProfiles();
+            bool powerSourceEnabled = PowerSourceProfileToggle?.IsOn == true;
+
+            if (savedGames.Count == 0)
+            {
+                // Show "No saved game profiles" message
+                var noProfilesText = new TextBlock
+                {
+                    Text = "No saved game profiles yet. Play a game with Per-Game Profiles enabled to create profiles.",
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 160, 160, 160)),
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(0, 8, 0, 0)
+                };
+                AllGameProfilesContainer.Children.Add(noProfilesText);
+                return;
+            }
+
+            // Create a grid to display game profiles (2 columns)
+            var gridIndex = 0;
+            Grid currentRow = null;
+
+            foreach (var gameName in savedGames)
+            {
+                // Skip current game as it's already displayed above
+                if (gameName == currentGameName && HasValidGame(currentGameName))
+                    continue;
+
+                var columnIndex = gridIndex % 2;
+
+                // Create new row every 2 items
+                if (columnIndex == 0)
+                {
+                    currentRow = new Grid
+                    {
+                        Margin = new Thickness(0, 0, 0, 8)
+                    };
+                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8, GridUnitType.Pixel) });
+                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    AllGameProfilesContainer.Children.Add(currentRow);
+                }
+
+                // Load profiles
+                var settings = ApplicationData.Current.LocalSettings;
+                bool hasACDC = settings.Containers.ContainsKey($"Profile_Game_{gameName}_AC");
+                bool hasSingle = settings.Containers.ContainsKey($"Profile_Game_{gameName}");
+
+                Border profileCard = new Border
+                {
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 58, 42, 26)),
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(12),
+                    BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 58, 58, 58)),
+                    BorderThickness = new Thickness(1)
+                };
+
+                var stackPanel = new StackPanel();
+                profileCard.Child = stackPanel;
+
+                // Title row with delete button
+                var titleGrid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+                titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var titleText = new TextBlock
+                {
+                    Text = $"🎮 {gameName}",
+                    FontSize = 13,
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 165, 0)),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(titleText, 0);
+                titleGrid.Children.Add(titleText);
+
+                // Delete button
+                var deleteButton = new Button
+                {
+                    Content = "🗑️",
+                    FontSize = 12,
+                    Width = 28,
+                    Height = 28,
+                    Padding = new Thickness(0),
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(100, 255, 0, 0)),
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Tag = gameName  // Store game name for delete handler
+                };
+                deleteButton.Click += DeleteProfileButton_Click;
+                Grid.SetColumn(deleteButton, 1);
+                titleGrid.Children.Add(deleteButton);
+
+                stackPanel.Children.Add(titleGrid);
+
+                if (hasACDC)
+                {
+                    // Load AC/DC profiles
+                    var gameAC = new PerformanceProfile();
+                    var gameDC = new PerformanceProfile();
+                    LoadProfileFromStorage($"Game_{gameName}_AC", gameAC);
+                    LoadProfileFromStorage($"Game_{gameName}_DC", gameDC);
+
+                    // Create AC/DC comparison grid
+                    var acDcGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
+                    acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    // Headers
+                    AddTextBlock(acDcGrid, 0, 1, "AC", 10, "#FFD700", horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, 0, 2, "DC", 10, "#FF6B6B", horizontalAlignment: HorizontalAlignment.Center);
+
+                    // TDP
+                    AddTextBlock(acDcGrid, 1, 0, "TDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                    AddTextBlock(acDcGrid, 1, 1, $"{gameAC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, 1, 2, $"{gameDC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+
+                    // Boost
+                    AddTextBlock(acDcGrid, 2, 0, "Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                    AddTextBlock(acDcGrid, 2, 1, gameAC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, 2, 2, gameDC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+
+                    // EPP
+                    AddTextBlock(acDcGrid, 3, 0, "EPP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                    AddTextBlock(acDcGrid, 3, 1, $"{gameAC.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, 3, 2, $"{gameDC.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+
+                    stackPanel.Children.Add(acDcGrid);
+                }
+                else if (hasSingle)
+                {
+                    // Load single profile
+                    var game = new PerformanceProfile();
+                    LoadProfileFromStorage($"Game_{gameName}", game);
+
+                    // Create simple grid
+                    var singleGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
+                    singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    singleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    singleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    AddTextBlock(singleGrid, 0, 0, "TDP", 10, "#AAAAAA");
+                    AddTextBlock(singleGrid, 0, 1, $"{game.TDP}W", 10, "#FFFFFF");
+
+                    AddTextBlock(singleGrid, 1, 0, "CPU Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                    AddTextBlock(singleGrid, 1, 1, game.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+
+                    AddTextBlock(singleGrid, 2, 0, "CPU EPP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                    AddTextBlock(singleGrid, 2, 1, $"{game.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+
+                    stackPanel.Children.Add(singleGrid);
+                }
+
+                Grid.SetColumn(profileCard, columnIndex * 2);
+                currentRow?.Children.Add(profileCard);
+
+                gridIndex++;
+            }
+        }
+
+        private void AddTextBlock(Grid grid, int row, int column, string text, int fontSize, string colorHex,
+            Thickness? margin = null, HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left)
+        {
+            var textBlock = new TextBlock
+            {
+                Text = text,
+                FontSize = fontSize,
+                Foreground = new SolidColorBrush(ParseColor(colorHex)),
+                Margin = margin ?? new Thickness(0),
+                HorizontalAlignment = horizontalAlignment
+            };
+            Grid.SetRow(textBlock, row);
+            Grid.SetColumn(textBlock, column);
+            grid.Children.Add(textBlock);
+        }
+
+        private Windows.UI.Color ParseColor(string hex)
+        {
+            hex = hex.TrimStart('#');
+            if (hex.Length == 6)
+            {
+                return Windows.UI.Color.FromArgb(
+                    255,
+                    Convert.ToByte(hex.Substring(0, 2), 16),
+                    Convert.ToByte(hex.Substring(2, 2), 16),
+                    Convert.ToByte(hex.Substring(4, 2), 16)
+                );
+            }
+            return Windows.UI.Colors.White;
+        }
+
+        private void DeleteProfileButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is string gameName)
+            {
+                Logger.Info($"Delete button clicked for game: {gameName}");
+                DeleteGameProfile(gameName);
+            }
+        }
+
+        private void CleanupInvalidProfiles()
+        {
+            var settings = ApplicationData.Current.LocalSettings;
+            var profilesToDelete = new List<string>();
+
+            // Find all containers with invalid game names (case-insensitive check)
+            foreach (var containerName in settings.Containers.Keys)
+            {
+                if (containerName.IndexOf("No game detected", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    profilesToDelete.Add(containerName);
+                }
+            }
+
+            // Delete invalid profiles
+            foreach (var containerName in profilesToDelete)
+            {
+                settings.DeleteContainer(containerName);
+                Logger.Info($"Cleaned up invalid profile container: {containerName}");
+            }
+
+            if (profilesToDelete.Count > 0)
+            {
+                Logger.Info($"Cleaned up {profilesToDelete.Count} invalid profile(s)");
+            }
+        }
+
+        private void DeleteGameProfile(string gameName)
+        {
+            if (string.IsNullOrWhiteSpace(gameName))
+                return;
+
+            var settings = ApplicationData.Current.LocalSettings;
+            bool profileDeleted = false;
+
+            // Try to delete single profile
+            if (settings.Containers.ContainsKey($"Profile_Game_{gameName}"))
+            {
+                settings.DeleteContainer($"Profile_Game_{gameName}");
+                Logger.Info($"Deleted game profile for {gameName}");
+                profileDeleted = true;
+            }
+
+            // Try to delete AC/DC profiles
+            if (settings.Containers.ContainsKey($"Profile_Game_{gameName}_AC"))
+            {
+                settings.DeleteContainer($"Profile_Game_{gameName}_AC");
+                Logger.Info($"Deleted game AC profile for {gameName}");
+                profileDeleted = true;
+            }
+
+            if (settings.Containers.ContainsKey($"Profile_Game_{gameName}_DC"))
+            {
+                settings.DeleteContainer($"Profile_Game_{gameName}_DC");
+                Logger.Info($"Deleted game DC profile for {gameName}");
+                profileDeleted = true;
+            }
+
+            if (profileDeleted)
+            {
+                // If we deleted the current game's profile, disable per-game toggle
+                if (gameName == currentGameName && PerGameProfileToggle?.IsOn == true)
+                {
+                    Logger.Info($"Deleted profile for current game {gameName}, disabling per-game toggle");
+                    PerGameProfileToggle.IsOn = false;
+                }
+
+                // Refresh the display
+                UpdateProfileDisplay();
+            }
+        }
+
+        private void LoadProfileCustomizationSettings()
+        {
+            var settings = ApplicationData.Current.LocalSettings;
+            ProfileSaveTDPCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveTDP") ? (bool)settings.Values["ProfileSaveTDP"] : true;
+            ProfileSaveCPUBoostCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveCPUBoost") ? (bool)settings.Values["ProfileSaveCPUBoost"] : true;
+            ProfileSaveCPUEPPCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveCPUEPP") ? (bool)settings.Values["ProfileSaveCPUEPP"] : true;
+            ProfileSaveLimitCPUClockCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveLimitCPUClock") ? (bool)settings.Values["ProfileSaveLimitCPUClock"] : true;
+            ProfileSaveAMDFeaturesCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveAMDFeatures") ? (bool)settings.Values["ProfileSaveAMDFeatures"] : false;
+        }
+
+        private void SaveProfileCustomizationSettings()
+        {
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["ProfileSaveTDP"] = ProfileSaveTDPCheckBox.IsChecked;
+            settings.Values["ProfileSaveCPUBoost"] = ProfileSaveCPUBoostCheckBox.IsChecked;
+            settings.Values["ProfileSaveCPUEPP"] = ProfileSaveCPUEPPCheckBox.IsChecked;
+            settings.Values["ProfileSaveLimitCPUClock"] = ProfileSaveLimitCPUClockCheckBox.IsChecked;
+            settings.Values["ProfileSaveAMDFeatures"] = ProfileSaveAMDFeaturesCheckBox.IsChecked;
+        }
+
+        private void ProfileSettingCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            SaveProfileCustomizationSettings();
+            Logger.Info($"Profile customization settings updated");
+        }
+
+        private void MainNavigationView_SelectionChanged(object sender, object args)
+        {
+            if (args is NavigationViewSelectionChangedEventArgs navArgs && navArgs.SelectedItem is NavigationViewItem selectedItem)
+            {
+                string tag = selectedItem.Tag?.ToString() ?? "";
+
+                // Hide all sections
+                PerformanceScrollViewer.Visibility = Visibility.Collapsed;
+                GameScrollViewer.Visibility = Visibility.Collapsed;
+                AMDScrollViewer.Visibility = Visibility.Collapsed;
+                SystemScrollViewer.Visibility = Visibility.Collapsed;
+
+                // Show selected section
+                switch (tag)
+                {
+                    case "Performance":
+                        PerformanceScrollViewer.Visibility = Visibility.Visible;
+                        break;
+                    case "Game":
+                        GameScrollViewer.Visibility = Visibility.Visible;
+                        break;
+                    case "AMD":
+                        AMDScrollViewer.Visibility = Visibility.Visible;
+                        break;
+                    case "System":
+                        SystemScrollViewer.Visibility = Visibility.Visible;
+                        break;
+                }
+            }
         }
 
         private void GamingWidget_Unloaded(object sender, RoutedEventArgs e)
         {
             Logger.Info($"GamingWidget_Unloaded called. Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, App.Connection is null: {App.Connection == null}");
+
+            // Unsubscribe from power source changes
+            PowerManager.PowerSupplyStatusChanged -= PowerManager_PowerSourceChanged;
+            if (PowerSourceProfileToggle != null)
+            {
+                PowerSourceProfileToggle.Toggled -= PowerSourceProfileToggle_Toggled;
+            }
 
             // Unregister this instance as the active widget
             Logger.Info("Unregistering this GamingWidget instance as the active widget.");
@@ -709,7 +1892,7 @@ namespace XboxGamingBar
         private void SetBackgroundColor()
         {
             this.RequestedTheme = widget.RequestedTheme;
-            RootGrid.Background = (widget.RequestedTheme == ElementTheme.Dark) ? widgetDarkThemeBrush : widgetLightThemeBrush;
+            this.Background = (widget.RequestedTheme == ElementTheme.Dark) ? widgetDarkThemeBrush : widgetLightThemeBrush;
         }
 
         /// <summary>
@@ -730,7 +1913,22 @@ namespace XboxGamingBar
                 }
 
                 Logger.Info($"Widget received message {args.Request.Message.ToDebugString()} from helper.");
-                await properties.OnRequestReceived(args.Request);
+
+                // Set flag to prevent auto-save when helper updates slider values
+                isApplyingHelperUpdate = true;
+                try
+                {
+                    await properties.OnRequestReceived(args.Request);
+
+                    // Wait a bit for async ValueChanged events to complete before clearing the flag
+                    // This prevents race condition where ValueChanged fires after flag is cleared
+                    await Task.Delay(50);
+                }
+                finally
+                {
+                    isApplyingHelperUpdate = false;
+                }
+
                 Logger.Info($"Widget finished processing message {args.Request.Message.ToDebugString()}.");
             }
             catch (Exception ex)
