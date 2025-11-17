@@ -5,220 +5,719 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:XboxGamingBar"
     xmlns:converter="using:XboxGamingBar.Converter"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    d:DesignHeight="670" d:DesignWidth="464">
+    d:DesignHeight="670" d:DesignWidth="464"
+    Background="#1A1A1A">
 
     <Page.Resources>
+        <!-- Existing Converters -->
         <converter:WattStringConverter x:Key="WattStringConverter"/>
         <converter:MegahertzStringConverter x:Key="MegahertzStringConverter"/>
         <converter:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <converter:SharpnessPercentStringConverter x:Key="SharpnessPercentStringConverter"/>
         <converter:RadeonBoostResolutionStringConverter x:Key="RadeonBoostResolutionStringConverter"/>
+
+        <!-- Card Style -->
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#252525"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+            <Setter Property="BorderBrush" Value="#3A3A3A"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <!-- Navigation Item Style with Focus -->
+        <Style x:Key="NavItemStyle" TargetType="muxc:NavigationViewItem">
+            <Setter Property="FocusVisualPrimaryBrush" Value="#00C8FF"/>
+            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+        </Style>
+
+        <!-- Card Title Style -->
+        <Style x:Key="CardTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <!-- Card Caption Style -->
+        <Style x:Key="CardCaptionStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#A0A0A0"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+
+        <!-- Card Value Style -->
+        <Style x:Key="CardValueStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#00C8FF"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Modern Toggle Style -->
+        <Style x:Key="ModernToggleStyle" TargetType="ToggleSwitch">
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FocusVisualPrimaryBrush" Value="#00C8FF"/>
+            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+        </Style>
+
+        <!-- Modern Slider Style -->
+        <Style x:Key="ModernSliderStyle" TargetType="Slider">
+            <Setter Property="Margin" Value="0,8,0,0"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="Foreground" Value="#00C8FF"/>
+            <Setter Property="Background" Value="#3A3A3A"/>
+            <Setter Property="FocusVisualPrimaryBrush" Value="#00C8FF"/>
+            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+        </Style>
+
+        <!-- Modern ComboBox Style -->
+        <Style x:Key="ModernComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="FocusVisualPrimaryBrush" Value="#00C8FF"/>
+            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+        </Style>
+
     </Page.Resources>
 
-    <ScrollViewer x:Name="RootScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <Grid x:Name="RootGrid">
-            <Grid x:Name="MainGrid" Margin="15,15,15,15">
-                <Grid.RowDefinitions>
-                    <RowDefinition x:Name="Row_0_ProgressRing" Height="Auto"/>
-                    <RowDefinition x:Name="Row_1_PerformanceText" Height="50"/>
-                    <RowDefinition x:Name="Row_2_Spacer_1" Height="20"/>
-                    <RowDefinition x:Name="Row_3_PerformanceOverlayText" Height="30"/>
-                    <RowDefinition x:Name="Row_4_PerformanceOverlaySlider" Height="32"/>
-                    <RowDefinition x:Name="Row_5_Spacer_2" Height="20"/>
-                    <RowDefinition x:Name="Row_6_Spacer_3" Height="20"/>
-                    <RowDefinition x:Name="Row_7_PerGameProfile" Height="36"/>
-                    <RowDefinition x:Name="Row_8_TDPLimitText" Height="30"/>
-                    <RowDefinition x:Name="Row_9_TDPSlider" Height="32"/>
-                    <RowDefinition x:Name="Row_10_CurrentTDP" Height="28"/>
-                    <RowDefinition x:Name="Row_11_CPUBoost" Height="36"/>
-                    <RowDefinition x:Name="Row_12_CPUEPPText" Height="30"/>
-                    <RowDefinition x:Name="Row_13_CPUEPPSlider" Height="32"/>
-                    <RowDefinition x:Name="Row_14_LimitCPUClockToggle" Height="36"/>
-                    <RowDefinition x:Name="Row_15_CPUClockMaxSlider" Height="Auto"/>
-                    <!-- GPU Clock Limiter - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1) -->
-                    <!--<RowDefinition x:Name="Row_16_LimitGPUClockToggle" Height="36"/>
-                    <RowDefinition x:Name="Row_17_GPUClockMinSlider" Height="Auto"/>
-                    <RowDefinition x:Name="Row_18_GPUClockMaxSlider" Height="Auto"/>-->
-                    <RowDefinition x:Name="Row_16_Spacer_4" Height="20"/>
-                    <RowDefinition x:Name="Row_17_SystemText" Height="50"/>
-                    <RowDefinition x:Name="Row_18_Spacer_5" Height="20"/>
-                    <RowDefinition x:Name="Row_19_RefreshRates" Height="36"/>
-                    <RowDefinition x:Name="Row_20_Spacer_6" Height="20"/>
-                    <RowDefinition x:Name="Row_21_AMDText" Height="50"/>
-                    <RowDefinition x:Name="Row_22_Spacer_7" Height="20"/>
-                    <RowDefinition x:Name="Row_23_AMDRadeonSuperResolutionToggle" Height="36"/>
-                    <RowDefinition x:Name="Row_24_AMDRadeonSuperResolutionSlider" Height="Auto"/>
-                    <RowDefinition x:Name="Row_25_AMDFluidMotionFrameToggle" Height="36"/>
-                    <RowDefinition x:Name="Row_26_AMDRadeonAntiLagToggle" Height="36"/>
-                    <RowDefinition x:Name="Row_27_AMDRadeonBoostToggle" Height="36"/>
-                    <RowDefinition x:Name="Row_28_AMDRadeonBoostResolutionSlider" Height="Auto"/>
-                    <RowDefinition x:Name="Row_29_AMDRadeonChillToggle" Height="36"/>
-                    <RowDefinition x:Name="Row_30_AMDRadeonChillMinFPSSlider" Height="Auto"/>
-                    <RowDefinition x:Name="Row_31_AMDRadeonChillMaxFPSSlider" Height="Auto"/>
-                    <!-- Add more RowDefinitions as needed, each with Height="200" -->
-                </Grid.RowDefinitions>
+    <Grid>
+        <ProgressRing x:Name="LoadingProgressRing"
+                      IsActive="True"
+                      Visibility="Collapsed"
+                      Width="60"
+                      Height="60"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"/>
 
-                <ProgressRing x:Name="LoadingProgressRing" IsActive="True" Visibility="Collapsed" Grid.Row="0" Width="100" Height="100"/>
+        <muxc:NavigationView x:Name="MainNavigationView"
+                        IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="False"
+                        IsPaneToggleButtonVisible="False"
+                        PaneDisplayMode="Left"
+                        OpenPaneLength="140"
+                        CompactModeThresholdWidth="0"
+                        ExpandedModeThresholdWidth="0"
+                        Background="Transparent"
+                        SelectionChanged="MainNavigationView_SelectionChanged">
 
-                <TextBlock x:Name="PerformanceText" Text="Performance" Margin="0,0,0,0" FontWeight="Bold" FontSize="26" Grid.Row="1"/>
-                <Line X1="0" Y1="0" X2="100000" Y2="0" Stroke="DarkGray" StrokeThickness="1.5" Grid.Row="1" VerticalAlignment="Bottom"/>
+            <muxc:NavigationView.MenuItems>
+                <muxc:NavigationViewItem Content="⚡ PERF" Tag="Performance" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem Content="👤 PROFILES" Tag="Game" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem Content="🎨 GRAPHICS" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem Content="⚙️ SYSTEM" Tag="System" Style="{StaticResource NavItemStyle}"/>
+            </muxc:NavigationView.MenuItems>
 
-                <TextBlock x:Name="PerformanceOverlayText" Text="Performance Overlay" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="3"/>
-                <Slider x:Name="PerformanceOverlaySlider" Grid.Row="4" Margin="0,0,0,0"
-                Minimum="0" Maximum="4"
-                TickFrequency="1"
-                SnapsTo="StepValues"
-                TickPlacement="BottomRight"
-                IsEnabled="False"/>
-                <Grid Margin="-48,0,-48,0" Grid.Row="5">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition/>
-                        <ColumnDefinition/>
-                        <ColumnDefinition/>
-                        <ColumnDefinition/>
-                        <ColumnDefinition/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="OFF"     Grid.Column="0" HorizontalAlignment="Center" FontSize="16"/>
-                    <TextBlock Text="FPS"      Grid.Column="1" HorizontalAlignment="Center" FontSize="16"/>
-                    <TextBlock Text="BATTERY"  Grid.Column="2" HorizontalAlignment="Center" FontSize="16"/>
-                    <TextBlock Text="DETAILED" Grid.Column="3" HorizontalAlignment="Center" FontSize="16"/>
-                    <TextBlock Text="FULL"     Grid.Column="4" HorizontalAlignment="Center" FontSize="16"/>
-                </Grid>
+            <!-- PERFORMANCE TAB -->
+            <Grid>
+                <ScrollViewer x:Name="PerformanceScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Visible">
+                    <StackPanel Padding="16">
 
-                <TextBlock x:Name="RunningGameText" Text="No game detected" FontWeight="SemiBold" FontSize="18" Grid.Row="7"
-                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <ToggleSwitch x:Name="PerGameProfileToggle" IsEnabled="False" OffContent="Global Profile" OnContent="Per-game Profile"
-                FlowDirection="RightToLeft" Grid.Row="7" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                        <!-- Active Profile Indicator -->
+                        <Border Style="{StaticResource CardStyle}" Background="#1A3A3A">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="Using profile:"
+                                               FontSize="12"
+                                               Foreground="#AAAAAA"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="ActiveProfileText"
+                                               Text="Global Settings"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="#00C8FF"
+                                               HorizontalAlignment="Right"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
 
-                <TextBlock x:Name="TDPLimitText" Text="Thermal Power (TDP) Limit" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="8"/>
-                <TextBlock x:Name="TDPValueText" Grid.Row="8" Margin="0,0,0,0" Text="{Binding ElementName=TDPSlider, Path=Value, Converter={StaticResource WattStringConverter}}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-                <Slider x:Name="TDPSlider" Grid.Row="9" Margin="0,0,0,0"
-                Minimum="4" Maximum="32"
-                TickFrequency="1"
-                SnapsTo="Ticks"
-                TickPlacement="BottomRight"
-                IsEnabled="False"/>
+                                <!-- Per-Game Profile Toggle -->
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="Use per-game profile"
+                                               FontSize="12"
+                                               Foreground="#FFFFFF"
+                                               VerticalAlignment="Center"/>
+                                    <ToggleSwitch x:Name="PerGameProfileToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"
+                                                  OffContent=""
+                                                  OnContent=""/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
 
-                <TextBlock x:Name="CurrentTDPText" Text="Limits:" Margin="0,2,0,0" FontSize="12" Opacity="0.7" Grid.Row="10" HorizontalAlignment="Left"/>
-                <TextBlock x:Name="CurrentTDPValueText" Grid.Row="10" Margin="0,2,0,0" Text="-- W" FontSize="12" Opacity="0.7" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                        <!-- Performance Overlay Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="Performance Overlay" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock x:Name="PerformanceOverlayValueText"
+                                               Text="{Binding ElementName=PerformanceOverlaySlider, Path=Value}"
+                                               Style="{StaticResource CardValueStyle}"/>
+                                </Grid>
+                                <Slider x:Name="PerformanceOverlaySlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="0" Maximum="3"
+                                        TickFrequency="1"
+                                        SnapsTo="Ticks"
+                                        IsEnabled="False"/>
+                                <TextBlock Text="Off • Basic • Detailed • Full"
+                                           Style="{StaticResource CardCaptionStyle}"
+                                           TextAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
 
-                <TextBlock x:Name="CPUBoostText" Text="CPU Boost" FontWeight="SemiBold" FontSize="18" Grid.Row="11"
-                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <ToggleSwitch x:Name="CPUBoostToggle" IsEnabled="False" OffContent="Disabled" OnContent="Aggressive"
-                FlowDirection="RightToLeft" Grid.Row="11" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        <!-- TDP Power Limit Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="TDP Power Limit" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock x:Name="TDPValueText"
+                                               Text="{Binding ElementName=TDPSlider, Path=Value, Converter={StaticResource WattStringConverter}}"
+                                               Style="{StaticResource CardValueStyle}"/>
+                                </Grid>
+                                <Slider x:Name="TDPSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="4" Maximum="35"
+                                        TickFrequency="1"
+                                        SnapsTo="Ticks"
+                                        TickPlacement="BottomRight"
+                                        IsEnabled="False"/>
+                                <Grid Margin="0,4,0,0">
+                                    <TextBlock x:Name="CurrentTDPText"
+                                               Text="Limits:"
+                                               FontSize="12"
+                                               Foreground="#A0A0A0"/>
+                                    <TextBlock x:Name="CurrentTDPValueText"
+                                               Text="-- W"
+                                               FontSize="12"
+                                               Foreground="#A0A0A0"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
 
-                <TextBlock x:Name="CPUEPPText" Text="CPU Energy Performance Preference (EPP)" Margin="0,0,0,0" FontWeight="SemiBold" FontSize="18" Grid.Row="12"/>
-                <TextBlock x:Name="CPUEPPValueText" Grid.Row="12" Margin="0,0,0,0" Text="{Binding ElementName=CPUEPPSlider, Path=Value}" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-                <Slider x:Name="CPUEPPSlider" Grid.Row="13" Margin="0,0,0,0"
-                Minimum="10" Maximum="95"
-                TickFrequency="5"
-                SnapsTo="Ticks"
-                TickPlacement="BottomRight"
-                IsEnabled="False"/>
+                        <!-- CPU Boost Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="CPU Boost" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Precision Boost Overdrive" Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="CPUBoostToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              IsEnabled="False"
+                                              OffContent=""
+                                              OnContent=""/>
+                            </Grid>
+                        </Border>
 
-                <!-- CPU Clock -->
-                <TextBlock x:Name="LimitCPUClockText" Text="Limit CPU Clock" FontWeight="SemiBold" FontSize="18" Grid.Row="14"
-                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <ToggleSwitch x:Name="LimitCPUClockToggle" IsEnabled="False" OffContent="Disabled" OnContent="{Binding ElementName=CPUClockMaxSlider, Path=Value, Converter={StaticResource MegahertzStringConverter}}"
-                FlowDirection="RightToLeft" Grid.Row="14" VerticalAlignment="Center" HorizontalAlignment="Right" />
-                <Slider x:Name="CPUClockMaxSlider" Grid.Row="15" Margin="0,0,0,0"
-                Minimum="300" Maximum="5100"
-                TickFrequency="100"
-                SnapsTo="Ticks"
-                TickPlacement="BottomRight"
-                IsEnabled="False"
-                Visibility="{Binding ElementName=LimitCPUClockToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        <!-- CPU EPP Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="CPU EPP" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock x:Name="CPUEPPValueText"
+                                               Text="{Binding ElementName=CPUEPPSlider, Path=Value}"
+                                               Style="{StaticResource CardValueStyle}"/>
+                                </Grid>
+                                <Slider x:Name="CPUEPPSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="0" Maximum="100"
+                                        TickFrequency="10"
+                                        SnapsTo="Ticks"
+                                        TickPlacement="BottomRight"
+                                        IsEnabled="False"/>
+                                <Grid Margin="0,4,0,0">
+                                    <TextBlock Text="0 = Performance"
+                                               FontSize="12"
+                                               Foreground="#A0A0A0"/>
+                                    <TextBlock Text="100 = Power Saving"
+                                               FontSize="12"
+                                               Foreground="#A0A0A0"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
 
-                <!-- GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1) -->
-                <!--<TextBlock x:Name="LimitGPUClockText" Text="Limit GPU Clock" FontWeight="SemiBold" FontSize="18" Grid.Row="16"
-                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <ToggleSwitch x:Name="LimitGPUClockToggle" IsEnabled="False" OffContent="Disabled" OnContent="Enabled"
-                FlowDirection="RightToLeft" Grid.Row="16" VerticalAlignment="Center" HorizontalAlignment="Right" />
-                <Slider x:Name="GPUClockMinSlider" Grid.Row="17" Margin="0,0,0,0"
-                Minimum="200" Maximum="3000"
-                TickFrequency="100"
-                SnapsTo="Ticks"
-                TickPlacement="BottomRight"
-                Header="Min GPU Clock (MHz)"
-                IsEnabled="False"
-                Visibility="{Binding ElementName=LimitGPUClockToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                <Slider x:Name="GPUClockMaxSlider" Grid.Row="18" Margin="0,0,0,0"
-                Minimum="200" Maximum="3000"
-                TickFrequency="100"
-                SnapsTo="Ticks"
-                TickPlacement="BottomRight"
-                Header="Max GPU Clock (MHz)"
-                IsEnabled="False"
-                Visibility="{Binding ElementName=LimitGPUClockToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>-->
+                        <!-- Limit CPU Clock Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Limit CPU Clock" Style="{StaticResource CardTitleStyle}"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="LimitCPUClockToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"
+                                                  OffContent=""
+                                                  OnContent=""/>
+                                </Grid>
+                                <Slider x:Name="CPUClockMaxSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="1400" Maximum="5500"
+                                        TickFrequency="100"
+                                        SnapsTo="Ticks"
+                                        TickPlacement="BottomRight"
+                                        Header="Max Frequency (MHz)"
+                                        IsEnabled="False"
+                                        Visibility="{Binding ElementName=LimitCPUClockToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Border>
 
-                <TextBlock x:Name="SystemText" Text="System" Margin="0,0,0,0" FontWeight="Bold" FontSize="26" Grid.Row="17"/>
-                <Line X1="0" Y1="0" X2="100000" Y2="0" Stroke="DarkGray" StrokeThickness="1.5" Grid.Row="17" VerticalAlignment="Bottom"/>
-                <TextBlock x:Name="RefreshRatesText" Text="Refresh Rate" FontWeight="SemiBold" FontSize="18" Grid.Row="19"
-                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <ComboBox x:Name="RefreshRatesComboBox" Grid.Row="19" PlaceholderText="60 Hz" Width="120" IsEnabled="False" HorizontalAlignment="Right">
-                    <x:String>60 Hz</x:String>
-                </ComboBox>
+                    </StackPanel>
+                </ScrollViewer>
 
-                <TextBlock x:Name="AMDText" Text="AMD Settings" Margin="0,0,0,0" FontWeight="Bold" FontSize="26" Grid.Row="21"/>
-                <Line X1="0" Y1="0" X2="100000" Y2="0" Stroke="DarkGray" StrokeThickness="1.5" Grid.Row="21" VerticalAlignment="Bottom"/>
+                <!-- GAME TAB -->
+                <ScrollViewer x:Name="GameScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel Padding="16">
 
-                <TextBlock x:Name="AMDRadeonSuperResolutionText" Text="Radeon Super Resolution" FontWeight="SemiBold" FontSize="18" Grid.Row="23"
-                    TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <ToggleSwitch x:Name="AMDRadeonSuperResolutionToggle" IsEnabled="False" OffContent="Disabled" OnContent="{Binding ElementName=AMDRadeonSuperResolutionSharpnessSlider, Path=Value, Converter={StaticResource SharpnessPercentStringConverter}}"
-                    FlowDirection="RightToLeft" Grid.Row="23" VerticalAlignment="Center" HorizontalAlignment="Right" />
-                <Slider x:Name="AMDRadeonSuperResolutionSharpnessSlider" Grid.Row="24" Margin="0,0,0,0"
-                    Minimum="0" Maximum="100"
-                    TickFrequency="1"
-                    SnapsTo="Ticks"
-                    TickPlacement="BottomRight"
-                    IsEnabled="False"
-                    Visibility="{Binding ElementName=AMDRadeonSuperResolutionToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        <!-- Power Source Profile Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Power Source Profile" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Separate profiles for AC (plugged in) and DC (battery)"
+                                               Style="{StaticResource CardCaptionStyle}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="PowerSourceProfileToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              OffContent=""
+                                              OnContent=""/>
+                            </Grid>
+                        </Border>
 
-                <TextBlock x:Name="AMDFluidMotionFrameText" Text="AMD Fluid Motion Frame" FontWeight="SemiBold" FontSize="18" Grid.Row="25"
-                    TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <ToggleSwitch x:Name="AMDFluidMotionFrameToggle" IsEnabled="False" OffContent="Disabled" OnContent="Enabled"
-                    FlowDirection="RightToLeft" Grid.Row="25" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        <!-- Current Game Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="🎮 Current Game" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock x:Name="RunningGameText"
+                                           Text="No game detected"
+                                           FontSize="16"
+                                           Foreground="White"
+                                           TextWrapping="Wrap"
+                                           Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
 
-                <TextBlock x:Name="AMDRadeonAntiLagText" Text="Radeon Anti-Lag" FontWeight="SemiBold" FontSize="18" Grid.Row="26"
-                    TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <ToggleSwitch x:Name="AMDRadeonAntiLagToggle" IsEnabled="False" OffContent="Disabled" OnContent="Enabled"
-                    FlowDirection="RightToLeft" Grid.Row="26" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        <!-- Global Profile Section -->
+                        <TextBlock Text="Global Profile"
+                                   FontSize="16"
+                                   Foreground="#00C8FF"
+                                   FontWeight="SemiBold"
+                                   Margin="0,16,0,8"/>
 
-                <TextBlock x:Name="AMDRadeonBoostText" Text="Radeon Boost" FontWeight="SemiBold" FontSize="18" Grid.Row="27"
-                    TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <ToggleSwitch x:Name="AMDRadeonBoostToggle" IsEnabled="False" OffContent="Disabled" OnContent="{Binding ElementName=AMDRadeonBoostResolutionSlider, Path=Value, Converter={StaticResource RadeonBoostResolutionStringConverter}}"
-                    FlowDirection="RightToLeft" Grid.Row="27" VerticalAlignment="Center" HorizontalAlignment="Right" />
-                <Slider x:Name="AMDRadeonBoostResolutionSlider" Grid.Row="28" Margin="0,0,0,0"
-                    Minimum="0" Maximum="1"
-                    TickFrequency="1"
-                    SnapsTo="Ticks"
-                    TickPlacement="BottomRight"
-                    IsEnabled="False"
-                    Visibility="{Binding ElementName=AMDRadeonBoostToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        <!-- Global Profile Card -->
+                        <Border Style="{StaticResource CardStyle}" Background="#1A3A1A">
+                            <StackPanel>
+                                <TextBlock Text="🌐 Global"
+                                           Style="{StaticResource CardTitleStyle}"
+                                           Foreground="#00FF88"
+                                           FontSize="14"/>
 
-                <TextBlock x:Name="AMDRadeonChillText" Text="Radeon Chill" FontWeight="SemiBold" FontSize="18" Grid.Row="29"
-                    TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <ToggleSwitch x:Name="AMDRadeonChillToggle" IsEnabled="False" OffContent="Disabled" OnContent="{x:Bind RadeonChillOnText, Mode=OneWay}"
-                    FlowDirection="RightToLeft" Grid.Row="29" VerticalAlignment="Center" HorizontalAlignment="Right" />
-                <Slider x:Name="AMDRadeonChillMinFPSSlider" Grid.Row="30" Margin="0,0,0,0"
-                    Minimum="30" Maximum="300"
-                    TickFrequency="5"
-                    SnapsTo="Ticks"
-                    TickPlacement="BottomRight"
-                    IsEnabled="False"
-                    Visibility="{Binding ElementName=AMDRadeonChillToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                <Slider x:Name="AMDRadeonChillMaxFPSSlider" Grid.Row="31" Margin="0,0,0,0"
-                    Minimum="30" Maximum="300"
-                    TickFrequency="5"
-                    SnapsTo="Ticks"
-                    TickPlacement="BottomRight"
-                    IsEnabled="False"
-                    Visibility="{Binding ElementName=AMDRadeonChillToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                
+                                <!-- Simple Mode (Power Source Toggle OFF) -->
+                                <Grid x:Name="GlobalProfileSimple" Margin="0,8,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="TDP" FontSize="11" Foreground="#AAAAAA"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="GlobalProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="CPU Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="GlobalProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="CPU EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GlobalProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0"/>
+                                </Grid>
+
+                                <!-- AC/DC Mode (Power Source Toggle ON) -->
+                                <Grid x:Name="GlobalProfileACDC" Margin="0,8,0,0" Visibility="Collapsed">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Header -->
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="" FontSize="11" Foreground="#AAAAAA"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="⚡ AC" FontSize="11" Foreground="#FFD700" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="🔋 DC" FontSize="11" Foreground="#FF6B6B" HorizontalAlignment="Center"/>
+
+                                    <!-- TDP Row -->
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="ACProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="2" x:Name="DCProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+
+                                    <!-- CPU Boost Row -->
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="ACProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="2" x:Name="DCProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+
+                                    <!-- CPU EPP Row -->
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="ACProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="2" x:Name="DCProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Game Profile Card (shown when game is detected) -->
+                        <Border x:Name="GameProfileCard" Style="{StaticResource CardStyle}" Background="#3A2A1A" Visibility="Collapsed" Margin="0,8,0,0">
+                            <StackPanel>
+                                <!-- Game Profile with Power Source -->
+                                <StackPanel x:Name="GameProfileWithPowerSource" Visibility="Collapsed">
+                                    <TextBlock x:Name="GameProfileTitleWithPower"
+                                               Text="🎮 Game"
+                                               Style="{StaticResource CardTitleStyle}"
+                                               Foreground="#FFA500"
+                                               FontSize="14"/>
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Header -->
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="" FontSize="11" Foreground="#AAAAAA"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="AC" FontSize="11" Foreground="#FFD700" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="2" Text="DC" FontSize="11" Foreground="#FF6B6B" HorizontalAlignment="Center"/>
+
+                                        <!-- TDP Row -->
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="GameACProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="2" x:Name="GameDCProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+
+                                        <!-- CPU Boost Row -->
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GameACProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="2" x:Name="GameDCProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+
+                                        <!-- CPU EPP Row -->
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GameACProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="2" x:Name="GameDCProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- Game Profile without Power Source -->
+                                <StackPanel x:Name="GameProfileWithoutPowerSource" Visibility="Collapsed">
+                                    <TextBlock x:Name="GameProfileTitleNoPower"
+                                               Text="🎮 Game"
+                                               Style="{StaticResource CardTitleStyle}"
+                                               Foreground="#FFA500"
+                                               FontSize="14"/>
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="TDP" FontSize="11" Foreground="#AAAAAA"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="GameProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="CPU Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="GameProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0"/>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="CPU EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GameProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Saved Profiles Section -->
+                        <TextBlock Text="Saved Profiles"
+                                   FontSize="16"
+                                   Foreground="#00C8FF"
+                                   FontWeight="SemiBold"
+                                   Margin="0,24,0,8"/>
+
+                        <!-- Container for dynamically created game profile cards -->
+                        <StackPanel x:Name="AllGameProfilesContainer"/>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- GRAPHICS TAB -->
+                <ScrollViewer x:Name="AMDScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel Padding="16">
+
+                        <!-- Refresh Rate Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Refresh Rate" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,12"/>
+                                <ComboBox x:Name="RefreshRatesComboBox"
+                                          PlaceholderText="60 Hz"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}">
+                                    <x:String>60 Hz</x:String>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- AMD Section Header -->
+                        <TextBlock Text="AMD"
+                                   FontSize="16"
+                                   Foreground="#00C8FF"
+                                   FontWeight="SemiBold"
+                                   Margin="0,16,0,8"/>
+
+                        <!-- Radeon Super Resolution Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Radeon Super Resolution" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="🔍 Upscales lower resolutions" Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="AMDRadeonSuperResolutionToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"
+                                                  OffContent=""
+                                                  OnContent=""/>
+                                </Grid>
+                                <Slider x:Name="AMDRadeonSuperResolutionSharpnessSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="0" Maximum="100"
+                                        TickFrequency="10"
+                                        SnapsTo="Ticks"
+                                        TickPlacement="BottomRight"
+                                        Header="Sharpness"
+                                        IsEnabled="False"
+                                        Visibility="{Binding ElementName=AMDRadeonSuperResolutionToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Fluid Motion Frames Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Fluid Motion Frames" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="🎬 Frame generation" Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="AMDFluidMotionFrameToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              IsEnabled="False"
+                                              OffContent=""
+                                              OnContent=""/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Anti-Lag Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Radeon Anti-Lag" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="⚡ Reduces input latency" Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="AMDRadeonAntiLagToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              IsEnabled="False"
+                                              OffContent=""
+                                              OnContent=""/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Radeon Boost Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Radeon Boost" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="🖼️ Dynamic resolution scaling" Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="AMDRadeonBoostToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"
+                                                  OffContent=""
+                                                  OnContent=""/>
+                                </Grid>
+                                <Slider x:Name="AMDRadeonBoostResolutionSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="0" Maximum="1"
+                                        TickFrequency="1"
+                                        SnapsTo="Ticks"
+                                        TickPlacement="BottomRight"
+                                        IsEnabled="False"
+                                        Visibility="{Binding ElementName=AMDRadeonBoostToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Radeon Chill Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Radeon Chill" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="🌡️ Power saving when idle" Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="AMDRadeonChillToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"
+                                                  OffContent=""
+                                                  OnContent=""/>
+                                </Grid>
+                                <StackPanel Visibility="{Binding ElementName=AMDRadeonChillToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Slider x:Name="AMDRadeonChillMinFPSSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="30" Maximum="300"
+                                            TickFrequency="10"
+                                            SnapsTo="Ticks"
+                                            TickPlacement="BottomRight"
+                                            Header="Min FPS"
+                                            IsEnabled="False"/>
+                                    <Slider x:Name="AMDRadeonChillMaxFPSSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="30" Maximum="300"
+                                            TickFrequency="10"
+                                            SnapsTo="Ticks"
+                                            TickPlacement="BottomRight"
+                                            Header="Max FPS"
+                                            IsEnabled="False"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- SYSTEM TAB -->
+                <ScrollViewer x:Name="SystemScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel Padding="16">
+
+                        <!-- Profile Settings Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="⚙️ Profile Settings" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Choose which settings are saved in profiles"
+                                           FontSize="12"
+                                           Foreground="#A0A0A0"
+                                           Margin="0,0,0,12"
+                                           TextWrapping="Wrap"/>
+
+                                <CheckBox x:Name="ProfileSaveTDPCheckBox"
+                                          Content="TDP Power Limit"
+                                          IsChecked="True"
+                                          Foreground="#FFFFFF"
+                                          Margin="0,4,0,0"/>
+                                <CheckBox x:Name="ProfileSaveCPUBoostCheckBox"
+                                          Content="CPU Boost"
+                                          IsChecked="True"
+                                          Foreground="#FFFFFF"
+                                          Margin="0,4,0,0"/>
+                                <CheckBox x:Name="ProfileSaveCPUEPPCheckBox"
+                                          Content="CPU EPP"
+                                          IsChecked="True"
+                                          Foreground="#FFFFFF"
+                                          Margin="0,4,0,0"/>
+                                <CheckBox x:Name="ProfileSaveLimitCPUClockCheckBox"
+                                          Content="Limit CPU Clock"
+                                          IsChecked="True"
+                                          Foreground="#FFFFFF"
+                                          Margin="0,4,0,0"/>
+                                <CheckBox x:Name="ProfileSaveAMDFeaturesCheckBox"
+                                          Content="AMD Features (FMF, Anti-Lag, Boost, Chill)"
+                                          IsChecked="False"
+                                          Foreground="#FFFFFF"
+                                          Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- About Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="ℹ️ About" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Version: 0.3.31"
+                                           FontSize="14"
+                                           Foreground="#A0A0A0"
+                                           Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
 
             </Grid>
-        </Grid>
-    </ScrollViewer>
+
+        </muxc:NavigationView>
+    </Grid>
 </Page>
