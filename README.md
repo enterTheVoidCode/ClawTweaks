@@ -15,12 +15,19 @@ As of now, there are following functions:
 - AMD Settings.
   - Radeon Super Resolution.
   - AMD Fluid Motion Frame.
+  - Radeon Anti-Lag.
+  - Radeon Boost.
+  - Radeon Chill.
 
-![alt text](Screenshots/v3_1.png)
+![alt text](Screenshots/v3_2.png)
 
 ## Installation
 
 Please follow our [Wiki](https://github.com/namquang93/XboxGamingBar/wiki/Installation-Instruction) page for installation instruction.
+
+## Report a bug
+
+If you have an issue with the application, feel free to create an issue in the [Issues](https://github.com/namquang93/XboxGamingBar/issues) section. Please also attach the log in the issue so that I can fix it quicker. There is a wiki page on [how to get the log](https://github.com/namquang93/XboxGamingBar/wiki/Getting-The-Logs).
 
 ## Language
 
