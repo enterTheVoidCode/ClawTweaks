@@ -88,6 +88,10 @@ namespace XboxGamingBar
         private SolidColorBrush widgetDarkThemeBrush = null;
         private SolidColorBrush widgetLightThemeBrush = null;
 
+        // Compact mode detection (based on window width)
+        private bool isCompactMode = false;
+        private const double CompactModeWidthThreshold = 400;
+
         // Properties
         private readonly OSDProperty osd;
         private readonly TDPProperty tdp;
@@ -341,9 +345,20 @@ namespace XboxGamingBar
             // Subscribe to game text changes
             RunningGameText.RegisterPropertyChangedCallback(TextBlock.TextProperty, OnGameTextChanged);
 
+            // Subscribe to window size changes for compact mode detection
+            this.SizeChanged += GamingWidget_SizeChanged;
+
+            // Initialize compact mode based on current size
+            UpdateCompactMode(this.ActualWidth);
+
             // Update profile display
             UpdateProfileDisplay();
             UpdateGameProfileCardVisibility();
+        }
+
+        private void GamingWidget_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateCompactMode(e.NewSize.Width);
         }
 
         private void PowerSourceToggle_Changed(object sender, RoutedEventArgs e)
@@ -557,6 +572,47 @@ namespace XboxGamingBar
 
             // Auto-save to current profile
             SaveCurrentSettingsToProfile(currentProfileName);
+        }
+
+        private void PerformanceOverlayRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton radioButton && PerformanceOverlaySlider != null)
+            {
+                // Sync the hidden slider value with the selected radio button
+                int index = int.Parse(radioButton.Tag.ToString());
+                PerformanceOverlaySlider.Value = index;
+            }
+        }
+
+        private void PerformanceOverlaySlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (PerformanceOverlaySlider != null)
+            {
+                // Sync the RadioButtons selection when slider value changes
+                // (e.g., from property loading or helper updates)
+                int newIndex = (int)Math.Round(e.NewValue);
+
+                // Update the appropriate radio button
+                switch (newIndex)
+                {
+                    case 0:
+                        if (OverlayOff != null && !OverlayOff.IsChecked.GetValueOrDefault())
+                            OverlayOff.IsChecked = true;
+                        break;
+                    case 1:
+                        if (OverlayBasic != null && !OverlayBasic.IsChecked.GetValueOrDefault())
+                            OverlayBasic.IsChecked = true;
+                        break;
+                    case 2:
+                        if (OverlayDetailed != null && !OverlayDetailed.IsChecked.GetValueOrDefault())
+                            OverlayDetailed.IsChecked = true;
+                        break;
+                    case 3:
+                        if (OverlayFull != null && !OverlayFull.IsChecked.GetValueOrDefault())
+                            OverlayFull.IsChecked = true;
+                        break;
+                }
+            }
         }
 
         private void PowerSourceProfileToggle_Toggled(object sender, RoutedEventArgs e)
@@ -1893,6 +1949,73 @@ namespace XboxGamingBar
         {
             this.RequestedTheme = widget.RequestedTheme;
             this.Background = (widget.RequestedTheme == ElementTheme.Dark) ? widgetDarkThemeBrush : widgetLightThemeBrush;
+        }
+
+        private void UpdateCompactMode(double width)
+        {
+            bool wasCompactMode = isCompactMode;
+            isCompactMode = width < CompactModeWidthThreshold;
+
+            if (wasCompactMode != isCompactMode)
+            {
+                Logger.Info($"Compact mode changed: {isCompactMode} (width: {width})");
+                UpdateFontSizes();
+            }
+        }
+
+        private void UpdateFontSizes()
+        {
+            // Update all TextBlocks dynamically based on compact mode
+            UpdateTextBlockStyles(PerformanceScrollViewer);
+            UpdateTextBlockStyles(GameScrollViewer);
+            UpdateTextBlockStyles(AMDScrollViewer);
+            UpdateTextBlockStyles(SystemScrollViewer);
+        }
+
+        private void UpdateTextBlockStyles(DependencyObject parent)
+        {
+            if (parent == null) return;
+
+            int childCount = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < childCount; i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+
+                if (child is TextBlock textBlock)
+                {
+                    // Update font size based on current style and compact mode
+                    if (textBlock.Style != null)
+                    {
+                        string styleKey = textBlock.Style.TargetType == typeof(TextBlock) ? GetStyleKey(textBlock) : null;
+                        if (styleKey != null)
+                        {
+                            string compactStyleKey = isCompactMode ? styleKey + "Compact" : styleKey;
+                            if (Resources.ContainsKey(compactStyleKey))
+                            {
+                                textBlock.Style = Resources[compactStyleKey] as Style;
+                            }
+                        }
+                    }
+                }
+
+                // Recurse through visual tree
+                UpdateTextBlockStyles(child);
+            }
+        }
+
+        private string GetStyleKey(TextBlock textBlock)
+        {
+            // Determine which style is currently applied
+            if (textBlock.Style == Resources["CardTitleStyle"] as Style ||
+                textBlock.Style == Resources["CardTitleStyleCompact"] as Style)
+                return "CardTitleStyle";
+            if (textBlock.Style == Resources["CardCaptionStyle"] as Style ||
+                textBlock.Style == Resources["CardCaptionStyleCompact"] as Style)
+                return "CardCaptionStyle";
+            if (textBlock.Style == Resources["CardValueStyle"] as Style ||
+                textBlock.Style == Resources["CardValueStyleCompact"] as Style)
+                return "CardValueStyle";
+            return null;
         }
 
         /// <summary>
