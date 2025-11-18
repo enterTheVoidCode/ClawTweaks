@@ -350,6 +350,8 @@
     <Compile Include="AMD\Properties\AMDRadeonBoostProperties.cs" />
     <Compile Include="AMD\Properties\AMDRadeonChillProperties.cs" />
     <Compile Include="AMD\Properties\AMDRadeonSuperResolutionProperties.cs" />
+    <Compile Include="LosslessScaling\LosslessScalingManager.cs" />
+    <Compile Include="LosslessScaling\Properties\LosslessScalingProperties.cs" />
     <Compile Include="AMD\Settings\AMDFluidMotionFrameSetting.cs" />
     <Compile Include="AMD\Settings\AMDRadeonAntiLagSetting.cs" />
     <Compile Include="AMD\Settings\AMDRadeonBoostSetting.cs" />

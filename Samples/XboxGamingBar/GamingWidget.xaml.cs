@@ -134,6 +134,31 @@ namespace XboxGamingBar
         private readonly AMDRadeonChillMinFPSProperty amdRadeonChillMinFPSProperty;
         private readonly AMDRadeonChillMaxFPSProperty amdRadeonChillMaxFPSProperty;
 
+        // Lossless Scaling properties
+        private readonly LosslessScalingInstalledProperty losslessScalingInstalled;
+        private readonly LosslessScalingRunningProperty losslessScalingRunning;
+        private readonly LosslessScalingEnabledProperty losslessScalingEnabled;
+        private readonly LosslessScalingCurrentProfileProperty losslessScalingCurrentProfile;
+        private readonly LosslessScalingScalingTypeProperty losslessScalingScalingType;
+        private readonly LosslessScalingSharpnessProperty losslessScalingSharpness;
+        private readonly LosslessScalingFSROptimizeProperty losslessScalingFSROptimize;
+        private readonly LosslessScalingAnime4KSizeProperty losslessScalingAnime4KSize;
+        private readonly LosslessScalingAnime4KVRSProperty losslessScalingAnime4KVRS;
+        private readonly LosslessScalingScaleModeProperty losslessScalingScaleMode;
+        private readonly LosslessScalingScaleFactorProperty losslessScalingScaleFactor;
+        private readonly LosslessScalingAspectRatioProperty losslessScalingAspectRatio;
+        private readonly LosslessScalingFrameGenTypeProperty losslessScalingFrameGenType;
+        private readonly LosslessScalingLSFG3ModeProperty losslessScalingLSFG3Mode;
+        private readonly LosslessScalingLSFG3MultiplierProperty losslessScalingLSFG3Multiplier;
+        private readonly LosslessScalingLSFG3TargetProperty losslessScalingLSFG3Target;
+        private readonly LosslessScalingLSFG2ModeProperty losslessScalingLSFG2Mode;
+        private readonly LosslessScalingFlowScaleProperty losslessScalingFlowScale;
+        private readonly LosslessScalingSizeProperty losslessScalingSize;
+        private readonly LosslessScalingAutoScaleProperty losslessScalingAutoScale;
+        private readonly LosslessScalingAutoScaleDelayProperty losslessScalingAutoScaleDelay;
+        private readonly LosslessScalingSaveAndRestartProperty losslessScalingSaveAndRestart;
+        private readonly LosslessScalingCreateProfileProperty losslessScalingCreateProfile;
+
         // Profile management
         private PerformanceProfile globalProfile = new PerformanceProfile();
         private PerformanceProfile acProfile = new PerformanceProfile();
@@ -143,6 +168,7 @@ namespace XboxGamingBar
         private PerformanceProfile gameDCProfile = new PerformanceProfile();
         private string currentProfileName = "Global";
         private string currentGameName = "";
+        private string currentGameExePath = "";
         private bool isLoadingProfile = false;
         private bool isSwitchingProfile = false;
         private bool isApplyingHelperUpdate = false; // Prevents saves when helper echoes values back
@@ -246,6 +272,31 @@ namespace XboxGamingBar
             amdRadeonChillMinFPSProperty = new AMDRadeonChillMinFPSProperty(AMDRadeonChillMinFPSSlider, this);
             amdRadeonChillMaxFPSProperty = new AMDRadeonChillMaxFPSProperty(AMDRadeonChillMaxFPSSlider, this);
 
+            // Lossless Scaling properties
+            losslessScalingInstalled = new LosslessScalingInstalledProperty();
+            losslessScalingRunning = new LosslessScalingRunningProperty();
+            losslessScalingEnabled = new LosslessScalingEnabledProperty(LosslessScalingEnabledToggle, this);
+            losslessScalingCurrentProfile = new LosslessScalingCurrentProfileProperty();
+            losslessScalingScalingType = new LosslessScalingScalingTypeProperty(LosslessScalingScalingTypeComboBox, this);
+            losslessScalingSharpness = new LosslessScalingSharpnessProperty(50, LosslessScalingSharpnessSlider, this);
+            losslessScalingFSROptimize = new LosslessScalingFSROptimizeProperty(LosslessScalingFSROptimizeToggle, this);
+            losslessScalingAnime4KSize = new LosslessScalingAnime4KSizeProperty(LosslessScalingAnime4KSizeComboBox, this);
+            losslessScalingAnime4KVRS = new LosslessScalingAnime4KVRSProperty(LosslessScalingAnime4KVRSToggle, this);
+            losslessScalingScaleMode = new LosslessScalingScaleModeProperty(LosslessScalingScaleModeComboBox, this);
+            losslessScalingScaleFactor = new LosslessScalingScaleFactorProperty(2, LosslessScalingScaleFactorSlider, this);
+            losslessScalingAspectRatio = new LosslessScalingAspectRatioProperty(LosslessScalingAspectRatioComboBox, this);
+            losslessScalingFrameGenType = new LosslessScalingFrameGenTypeProperty(LosslessScalingFrameGenTypeComboBox, this);
+            losslessScalingLSFG3Mode = new LosslessScalingLSFG3ModeProperty(LosslessScalingLSFG3ModeComboBox, this);
+            losslessScalingLSFG3Multiplier = new LosslessScalingLSFG3MultiplierProperty(LosslessScalingLSFG3MultiplierComboBox, this);
+            losslessScalingLSFG3Target = new LosslessScalingLSFG3TargetProperty(120, LosslessScalingLSFG3TargetSlider, this);
+            losslessScalingLSFG2Mode = new LosslessScalingLSFG2ModeProperty(LosslessScalingLSFG2ModeComboBox, this);
+            losslessScalingFlowScale = new LosslessScalingFlowScaleProperty(50, LosslessScalingFlowScaleSlider, this);
+            losslessScalingSize = new LosslessScalingSizeProperty(LosslessScalingSizeToggle, this);
+            losslessScalingAutoScale = new LosslessScalingAutoScaleProperty(LosslessScalingAutoScaleToggle, this);
+            losslessScalingAutoScaleDelay = new LosslessScalingAutoScaleDelayProperty(0, LosslessScalingAutoScaleDelaySlider, this);
+            losslessScalingSaveAndRestart = new LosslessScalingSaveAndRestartProperty();
+            losslessScalingCreateProfile = new LosslessScalingCreateProfileProperty();
+
             // NOTE: Event handlers for Chill FPS will be registered AFTER first sync
             // to avoid crash when binding evaluates RadeonChillOnText before both values are ready
             // See RegisterChillFPSHandlers() called after sync completes
@@ -282,6 +333,29 @@ namespace XboxGamingBar
                 amdRadeonChillSupported,
                 amdRadeonChillMinFPSProperty,
                 amdRadeonChillMaxFPSProperty,
+                losslessScalingInstalled,
+                losslessScalingRunning,
+                losslessScalingEnabled,
+                losslessScalingCurrentProfile,
+                losslessScalingScalingType,
+                losslessScalingSharpness,
+                losslessScalingFSROptimize,
+                losslessScalingAnime4KSize,
+                losslessScalingAnime4KVRS,
+                losslessScalingScaleMode,
+                losslessScalingScaleFactor,
+                losslessScalingAspectRatio,
+                losslessScalingFrameGenType,
+                losslessScalingLSFG3Mode,
+                losslessScalingLSFG3Multiplier,
+                losslessScalingLSFG3Target,
+                losslessScalingLSFG2Mode,
+                losslessScalingFlowScale,
+                losslessScalingSize,
+                losslessScalingAutoScale,
+                losslessScalingAutoScaleDelay,
+                losslessScalingSaveAndRestart,
+                losslessScalingCreateProfile,
                 currentTdp
             );
         }
@@ -347,6 +421,22 @@ namespace XboxGamingBar
 
             // Subscribe to per-game profile toggle changes
             PerGameProfileToggle.Toggled += PerGameProfileToggle_Changed;
+
+            // Subscribe to Lossless Scaling FrameGenType ComboBox for showing/hiding LSFG settings
+            LosslessScalingFrameGenTypeComboBox.SelectionChanged += LosslessScalingFrameGenTypeComboBox_SelectionChanged;
+            AMDFluidMotionFrameToggle.Toggled += AMDFluidMotionFrameToggle_Toggled;
+
+            // Subscribe to Lossless Scaling property changes for status updates
+            if (losslessScalingInstalled != null)
+                losslessScalingInstalled.PropertyChanged += LosslessScalingStatus_PropertyChanged;
+            if (losslessScalingRunning != null)
+                losslessScalingRunning.PropertyChanged += LosslessScalingStatus_PropertyChanged;
+            if (losslessScalingCurrentProfile != null)
+                losslessScalingCurrentProfile.PropertyChanged += LosslessScalingCurrentProfile_PropertyChanged;
+
+            // Subscribe to running game changes to get exe path for Lossless Scaling profiles
+            if (runningGame != null)
+                runningGame.PropertyChanged += RunningGame_PropertyChanged;
 
             // Subscribe to game text changes
             RunningGameText.RegisterPropertyChangedCallback(TextBlock.TextProperty, OnGameTextChanged);
@@ -501,6 +591,13 @@ namespace XboxGamingBar
                 // Update game profile card visibility and display
                 UpdateGameProfileCardVisibility();
                 UpdateProfileDisplay();
+
+                // Update Lossless Scaling Create Profile button state
+                if (LosslessScalingCreateProfileButton != null)
+                {
+                    bool isInstalled = losslessScalingInstalled?.Value ?? false;
+                    LosslessScalingCreateProfileButton.IsEnabled = isInstalled && HasValidGame(currentGameName);
+                }
             }
         }
 
@@ -1575,6 +1672,7 @@ namespace XboxGamingBar
                 PerformanceScrollViewer.Visibility = Visibility.Collapsed;
                 GameScrollViewer.Visibility = Visibility.Collapsed;
                 AMDScrollViewer.Visibility = Visibility.Collapsed;
+                ScalingScrollViewer.Visibility = Visibility.Collapsed;
                 SystemScrollViewer.Visibility = Visibility.Collapsed;
 
                 // Show selected section
@@ -1588,6 +1686,10 @@ namespace XboxGamingBar
                         break;
                     case "AMD":
                         AMDScrollViewer.Visibility = Visibility.Visible;
+                        break;
+                    case "Scaling":
+                        ScalingScrollViewer.Visibility = Visibility.Visible;
+                        UpdateLosslessScalingStatus();
                         break;
                     case "System":
                         SystemScrollViewer.Visibility = Visibility.Visible;
@@ -1625,6 +1727,16 @@ namespace XboxGamingBar
             App.AppServiceConnected -= GamingWidget_AppServiceConnected;
             App.AppServiceDisconnected -= GamingWidget_AppServiceDisconnected;
             App.AppServiceRequestReceived -= AppServiceConnection_RequestReceived;
+
+            // Unsubscribe from Lossless Scaling property changes
+            if (losslessScalingInstalled != null)
+            {
+                losslessScalingInstalled.PropertyChanged -= LosslessScalingStatus_PropertyChanged;
+            }
+            if (losslessScalingRunning != null)
+            {
+                losslessScalingRunning.PropertyChanged -= LosslessScalingStatus_PropertyChanged;
+            }
             Logger.Info("Event handlers unregistered.");
 
             // Clean up properties (stop debounce timers, unregister slider events)
@@ -2270,6 +2382,381 @@ namespace XboxGamingBar
                 Logger.Error($"Error processing message from helper: {ex.Message}");
                 Logger.Error($"Exception Type: {ex.GetType().FullName}");
                 Logger.Error($"Stack Trace: {ex.StackTrace}");
+            }
+        }
+
+        // Lossless Scaling Helper Methods
+
+        private async void UpdateLosslessScalingStatus()
+        {
+            try
+            {
+                bool isInstalled = losslessScalingInstalled?.Value ?? false;
+                bool isRunning = losslessScalingRunning?.Value ?? false;
+
+                Logger.Info($"UpdateLosslessScalingStatus called. Installed: {isInstalled}, Running: {isRunning}");
+
+                // Marshal UI updates to the dispatcher thread
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    try
+                    {
+                        // Check if UI elements exist (may not be loaded yet)
+                        if (LosslessScalingStatusText == null || LaunchLosslessScalingButton == null)
+                        {
+                            Logger.Warn("LosslessScaling UI elements not loaded yet, skipping status update");
+                            return;
+                        }
+
+                        // Enable controls only when LS is installed
+                        bool enableControls = isInstalled;
+                        bool enableSaveButton = isInstalled && isRunning;
+
+                        if (!isInstalled)
+                        {
+                            LosslessScalingStatusText.Text = "Not Installed";
+                            LosslessScalingStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Red);
+                            LaunchLosslessScalingButton.Visibility = Visibility.Collapsed;
+                        }
+                        else if (!isRunning)
+                        {
+                            LosslessScalingStatusText.Text = "Installed (Not Running)";
+                            LosslessScalingStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
+                            LaunchLosslessScalingButton.Visibility = Visibility.Visible;
+                        }
+                        else
+                        {
+                            LosslessScalingStatusText.Text = "Installed and Running";
+                            LosslessScalingStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Green);
+                            LaunchLosslessScalingButton.Visibility = Visibility.Collapsed;
+                        }
+
+                        // Enable/disable all Lossless Scaling controls
+                        if (LosslessScalingEnabledToggle != null) LosslessScalingEnabledToggle.IsEnabled = enableControls;
+                        if (LosslessScalingAutoScaleToggle != null) LosslessScalingAutoScaleToggle.IsEnabled = enableControls;
+                        if (LosslessScalingAutoScaleDelaySlider != null) LosslessScalingAutoScaleDelaySlider.IsEnabled = enableControls;
+                        if (LosslessScalingScalingTypeComboBox != null) LosslessScalingScalingTypeComboBox.IsEnabled = enableControls;
+                        if (LosslessScalingFrameGenTypeComboBox != null) LosslessScalingFrameGenTypeComboBox.IsEnabled = enableControls;
+                        if (LosslessScalingLSFG3ModeComboBox != null) LosslessScalingLSFG3ModeComboBox.IsEnabled = enableControls;
+                        if (LosslessScalingLSFG3MultiplierComboBox != null) LosslessScalingLSFG3MultiplierComboBox.IsEnabled = enableControls;
+                        if (LosslessScalingLSFG3TargetSlider != null) LosslessScalingLSFG3TargetSlider.IsEnabled = enableControls;
+                        if (LosslessScalingLSFG2ModeComboBox != null) LosslessScalingLSFG2ModeComboBox.IsEnabled = enableControls;
+                        if (LosslessScalingFlowScaleSlider != null) LosslessScalingFlowScaleSlider.IsEnabled = enableControls;
+                        if (LosslessScalingSizeToggle != null) LosslessScalingSizeToggle.IsEnabled = enableControls;
+                        if (LosslessScalingSaveSettingsButton != null) LosslessScalingSaveSettingsButton.IsEnabled = enableSaveButton;
+                        if (LosslessScalingCreateProfileButton != null) LosslessScalingCreateProfileButton.IsEnabled = enableControls && HasValidGame(currentGameName);
+
+                        // New Scaling Algorithm controls
+                        if (LosslessScalingSharpnessSlider != null) LosslessScalingSharpnessSlider.IsEnabled = enableControls;
+                        if (LosslessScalingFSROptimizeToggle != null) LosslessScalingFSROptimizeToggle.IsEnabled = enableControls;
+                        if (LosslessScalingAnime4KSizeComboBox != null) LosslessScalingAnime4KSizeComboBox.IsEnabled = enableControls;
+                        if (LosslessScalingAnime4KVRSToggle != null) LosslessScalingAnime4KVRSToggle.IsEnabled = enableControls;
+                        if (LosslessScalingScaleModeComboBox != null) LosslessScalingScaleModeComboBox.IsEnabled = enableControls;
+                        if (LosslessScalingScaleFactorSlider != null) LosslessScalingScaleFactorSlider.IsEnabled = enableControls;
+                        if (LosslessScalingAspectRatioComboBox != null) LosslessScalingAspectRatioComboBox.IsEnabled = enableControls;
+
+                        Logger.Info("LosslessScaling status UI updated successfully");
+                    }
+                    catch (Exception innerEx)
+                    {
+                        Logger.Error($"Error updating LosslessScaling status UI: {innerEx.Message}");
+                        Logger.Error($"Stack trace: {innerEx.StackTrace}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in UpdateLosslessScalingStatus: {ex.Message}");
+                Logger.Error($"Stack trace: {ex.StackTrace}");
+            }
+        }
+
+        private async void LaunchLosslessScalingButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Logger.Info("Launch Lossless Scaling button clicked");
+
+                // Launch via Steam URI
+                var uri = new Uri("steam://rungameid/993090");
+                bool launched = await Windows.System.Launcher.LaunchUriAsync(uri);
+
+                if (launched)
+                {
+                    Logger.Info("Lossless Scaling launch command sent via Steam");
+                    LaunchLosslessScalingButton.Content = "Launching...";
+                    LaunchLosslessScalingButton.IsEnabled = false;
+
+                    // Wait a bit and update status
+                    await Task.Delay(3000);
+                    UpdateLosslessScalingStatus();
+                    LaunchLosslessScalingButton.Content = "Launch Lossless Scaling";
+                    LaunchLosslessScalingButton.IsEnabled = true;
+                }
+                else
+                {
+                    Logger.Warn("Failed to launch Lossless Scaling via Steam");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error launching Lossless Scaling: {ex.Message}");
+            }
+        }
+
+        private void LosslessScalingStatus_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            // Update status when installed/running state changes
+            UpdateLosslessScalingStatus();
+        }
+
+        private void RunningGame_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            try
+            {
+                if (runningGame?.Value != null && runningGame.Value.IsValid())
+                {
+                    string exePath = runningGame.Value.GameId.Path;
+
+                    if (!string.IsNullOrEmpty(exePath))
+                    {
+                        currentGameExePath = exePath;
+                        Logger.Info($"Updated currentGameExePath: {currentGameExePath}");
+                    }
+                    else
+                    {
+                        currentGameExePath = "";
+                        Logger.Info("Cleared currentGameExePath (no path in RunningGame)");
+                    }
+                }
+                else
+                {
+                    currentGameExePath = "";
+                    Logger.Info("Cleared currentGameExePath (no running game)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in RunningGame_PropertyChanged: {ex.Message}");
+            }
+        }
+
+        // Conflict resolution: Lossless Scaling Frame Gen vs AMD Fluid Motion Frames
+        private bool isHandlingConflict = false; // Prevents infinite loop
+
+        private void LosslessScalingFrameGenTypeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                string selectedType = LosslessScalingFrameGenTypeComboBox.SelectedItem as string ?? "Off";
+                bool isFrameGenEnabled = selectedType != "Off";
+
+                // Show/hide LSFG3 settings card
+                if (LSFG3SettingsCard != null)
+                {
+                    LSFG3SettingsCard.Visibility = selectedType == "LSFG3" ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Show/hide LSFG2 settings card
+                if (LSFG2SettingsCard != null)
+                {
+                    LSFG2SettingsCard.Visibility = selectedType == "LSFG2" ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Handle conflict with AMD Fluid Motion Frames
+                if (isHandlingConflict) return;
+
+                if (isFrameGenEnabled && AMDFluidMotionFrameToggle.IsOn)
+                {
+                    Logger.Info("Lossless Scaling Frame Gen enabled - auto-disabling AMD Fluid Motion Frames");
+                    isHandlingConflict = true;
+                    AMDFluidMotionFrameToggle.IsOn = false;
+                    isHandlingConflict = false;
+
+                    // Show conflict warning
+                    if (LSConflictWarningBorder != null && LSConflictWarningText != null)
+                    {
+                        LSConflictWarningBorder.Visibility = Visibility.Visible;
+                        LSConflictWarningText.Text = "AMD Fluid Motion Frames has been automatically disabled because it conflicts with Lossless Scaling Frame Generation.";
+                    }
+                }
+                else if (!isFrameGenEnabled)
+                {
+                    // Hide warning when LS Frame Gen is disabled
+                    if (LSConflictWarningBorder != null)
+                    {
+                        LSConflictWarningBorder.Visibility = Visibility.Collapsed;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LosslessScalingFrameGenTypeComboBox_SelectionChanged: {ex.Message}");
+            }
+        }
+
+        private void LosslessScalingScalingTypeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                string selectedType = LosslessScalingScalingTypeComboBox.SelectedItem as string ?? "Off";
+
+                // Show/hide Sharpness panel (for FSR, NIS, SGSR, BCAS)
+                bool showSharpness = selectedType == "FSR" || selectedType == "NIS" || selectedType == "SGSR" || selectedType == "BCAS";
+                if (LosslessScalingSharpnessPanel != null)
+                {
+                    LosslessScalingSharpnessPanel.Visibility = showSharpness ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Show/hide FSR Optimize panel (FSR only)
+                if (LosslessScalingFSROptimizePanel != null)
+                {
+                    LosslessScalingFSROptimizePanel.Visibility = selectedType == "FSR" ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Show/hide Anime4K panel
+                if (LosslessScalingAnime4KPanel != null)
+                {
+                    LosslessScalingAnime4KPanel.Visibility = selectedType == "Anime4K" ? Visibility.Visible : Visibility.Collapsed;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LosslessScalingScalingTypeComboBox_SelectionChanged: {ex.Message}");
+            }
+        }
+
+        private void LosslessScalingScaleModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                string selectedMode = LosslessScalingScaleModeComboBox.SelectedItem as string ?? "Auto";
+
+                // Show/hide Auto mode panel
+                if (LosslessScalingAutoModePanel != null)
+                {
+                    LosslessScalingAutoModePanel.Visibility = selectedMode == "Auto" ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Show/hide Custom mode panel
+                if (LosslessScalingCustomModePanel != null)
+                {
+                    LosslessScalingCustomModePanel.Visibility = selectedMode == "Custom" ? Visibility.Visible : Visibility.Collapsed;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LosslessScalingScaleModeComboBox_SelectionChanged: {ex.Message}");
+            }
+        }
+
+        private void LosslessScalingLSFG3ModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                string selectedMode = LosslessScalingLSFG3ModeComboBox.SelectedItem as string ?? "FIXED";
+
+                // Hide multiplier when Adaptive mode is selected
+                if (LosslessScalingLSFG3MultiplierPanel != null)
+                {
+                    LosslessScalingLSFG3MultiplierPanel.Visibility = selectedMode == "ADAPTIVE" ? Visibility.Collapsed : Visibility.Visible;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LosslessScalingLSFG3ModeComboBox_SelectionChanged: {ex.Message}");
+            }
+        }
+
+        private void AMDFluidMotionFrameToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (isHandlingConflict) return;
+
+                string selectedType = LosslessScalingFrameGenTypeComboBox.SelectedItem as string ?? "Off";
+                bool isLSFrameGenEnabled = selectedType != "Off";
+
+                if (AMDFluidMotionFrameToggle.IsOn && isLSFrameGenEnabled)
+                {
+                    Logger.Info("AMD Fluid Motion Frames enabled - auto-disabling Lossless Scaling Frame Gen");
+                    isHandlingConflict = true;
+                    LosslessScalingFrameGenTypeComboBox.SelectedIndex = 0; // Set to "Off"
+                    isHandlingConflict = false;
+
+                    // Show conflict warning
+                    if (LSConflictWarningBorder != null && LSConflictWarningText != null)
+                    {
+                        LSConflictWarningBorder.Visibility = Visibility.Visible;
+                        LSConflictWarningText.Text = "Lossless Scaling Frame Generation has been automatically disabled because it conflicts with AMD Fluid Motion Frames.";
+                    }
+                }
+                else if (!AMDFluidMotionFrameToggle.IsOn)
+                {
+                    // Hide warning if both are now off
+                    if (LSConflictWarningBorder != null && !isLSFrameGenEnabled)
+                    {
+                        LSConflictWarningBorder.Visibility = Visibility.Collapsed;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in AMDFluidMotionFrameToggle_Toggled: {ex.Message}");
+            }
+        }
+
+        private void LosslessScalingCurrentProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            try
+            {
+                _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    if (LosslessScalingCurrentProfileText != null && losslessScalingCurrentProfile != null)
+                    {
+                        LosslessScalingCurrentProfileText.Text = losslessScalingCurrentProfile.Value ?? "Default";
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LosslessScalingCurrentProfile_PropertyChanged: {ex.Message}");
+            }
+        }
+
+        private void LosslessScalingCreateProfileButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(currentGameName))
+                {
+                    // Format: "GameName<||>WindowTitle" - use window title as filter for Lossless Scaling profile matching
+                    string profileData = $"{currentGameName}<||>{currentGameName}";
+                    losslessScalingCreateProfile.SetValue(profileData);
+                    Logger.Info($"Creating Lossless Scaling profile for: {currentGameName}");
+                }
+                else
+                {
+                    Logger.Warn("Cannot create profile - no game detected");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LosslessScalingCreateProfileButton_Click: {ex.Message}");
+            }
+        }
+
+        private void LosslessScalingSaveSettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Trigger save and restart
+                losslessScalingSaveAndRestart.SetValue(true);
+                Logger.Info("Saving Lossless Scaling settings and restarting");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LosslessScalingSaveSettingsButton_Click: {ex.Message}");
             }
         }
     }
