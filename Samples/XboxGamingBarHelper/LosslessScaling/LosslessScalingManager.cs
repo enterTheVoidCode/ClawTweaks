@@ -1,0 +1,582 @@
+using NLog;
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Xml.Linq;
+using Windows.ApplicationModel.AppService;
+using Windows.System;
+using Windows.UI.Input.Preview.Injection;
+using XboxGamingBarHelper.Core;
+using XboxGamingBarHelper.LosslessScaling.Properties;
+
+namespace XboxGamingBarHelper.LosslessScaling
+{
+    internal class LosslessScalingManager : Manager
+    {
+        private const string PROCESS_NAME = "LosslessScaling";
+        private const int STEAM_APP_ID = 993090;
+        private static readonly string SETTINGS_PATH = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Lossless Scaling",
+            "Settings.xml"
+        );
+
+        // Input injection for hotkeys
+        private readonly InputInjector inputInjector;
+        private readonly InjectedInputKeyboardInfo[] toggleScalingKeyboardCombo;
+
+        // Current game tracking
+        private string currentGameExePath = "";
+        private string currentProfileName = "Default";
+
+        #region Properties
+
+        private readonly LosslessScalingInstalledProperty losslessScalingInstalled;
+        public LosslessScalingInstalledProperty LosslessScalingInstalled => losslessScalingInstalled;
+
+        private readonly LosslessScalingRunningProperty losslessScalingRunning;
+        public LosslessScalingRunningProperty LosslessScalingRunning => losslessScalingRunning;
+
+        private readonly LosslessScalingEnabledProperty losslessScalingEnabled;
+        public LosslessScalingEnabledProperty LosslessScalingEnabled => losslessScalingEnabled;
+
+        private readonly LosslessScalingCurrentProfileProperty losslessScalingCurrentProfile;
+        public LosslessScalingCurrentProfileProperty LosslessScalingCurrentProfile => losslessScalingCurrentProfile;
+
+        private readonly LosslessScalingScalingTypeProperty losslessScalingScalingType;
+        public LosslessScalingScalingTypeProperty LosslessScalingScalingType => losslessScalingScalingType;
+
+        private readonly LosslessScalingSharpnessProperty losslessScalingSharpness;
+        public LosslessScalingSharpnessProperty LosslessScalingSharpness => losslessScalingSharpness;
+
+        private readonly LosslessScalingFSROptimizeProperty losslessScalingFSROptimize;
+        public LosslessScalingFSROptimizeProperty LosslessScalingFSROptimize => losslessScalingFSROptimize;
+
+        private readonly LosslessScalingAnime4KSizeProperty losslessScalingAnime4KSize;
+        public LosslessScalingAnime4KSizeProperty LosslessScalingAnime4KSize => losslessScalingAnime4KSize;
+
+        private readonly LosslessScalingAnime4KVRSProperty losslessScalingAnime4KVRS;
+        public LosslessScalingAnime4KVRSProperty LosslessScalingAnime4KVRS => losslessScalingAnime4KVRS;
+
+        private readonly LosslessScalingScaleModeProperty losslessScalingScaleMode;
+        public LosslessScalingScaleModeProperty LosslessScalingScaleMode => losslessScalingScaleMode;
+
+        private readonly LosslessScalingScaleFactorProperty losslessScalingScaleFactor;
+        public LosslessScalingScaleFactorProperty LosslessScalingScaleFactor => losslessScalingScaleFactor;
+
+        private readonly LosslessScalingAspectRatioProperty losslessScalingAspectRatio;
+        public LosslessScalingAspectRatioProperty LosslessScalingAspectRatio => losslessScalingAspectRatio;
+
+        private readonly LosslessScalingFrameGenTypeProperty losslessScalingFrameGenType;
+        public LosslessScalingFrameGenTypeProperty LosslessScalingFrameGenType => losslessScalingFrameGenType;
+
+        private readonly LosslessScalingLSFG3ModeProperty losslessScalingLSFG3Mode;
+        public LosslessScalingLSFG3ModeProperty LosslessScalingLSFG3Mode => losslessScalingLSFG3Mode;
+
+        private readonly LosslessScalingLSFG3MultiplierProperty losslessScalingLSFG3Multiplier;
+        public LosslessScalingLSFG3MultiplierProperty LosslessScalingLSFG3Multiplier => losslessScalingLSFG3Multiplier;
+
+        private readonly LosslessScalingLSFG3TargetProperty losslessScalingLSFG3Target;
+        public LosslessScalingLSFG3TargetProperty LosslessScalingLSFG3Target => losslessScalingLSFG3Target;
+
+        private readonly LosslessScalingLSFG2ModeProperty losslessScalingLSFG2Mode;
+        public LosslessScalingLSFG2ModeProperty LosslessScalingLSFG2Mode => losslessScalingLSFG2Mode;
+
+        private readonly LosslessScalingFlowScaleProperty losslessScalingFlowScale;
+        public LosslessScalingFlowScaleProperty LosslessScalingFlowScale => losslessScalingFlowScale;
+
+        private readonly LosslessScalingSizeProperty losslessScalingSize;
+        public LosslessScalingSizeProperty LosslessScalingSize => losslessScalingSize;
+
+        private readonly LosslessScalingAutoScaleProperty losslessScalingAutoScale;
+        public LosslessScalingAutoScaleProperty LosslessScalingAutoScale => losslessScalingAutoScale;
+
+        private readonly LosslessScalingAutoScaleDelayProperty losslessScalingAutoScaleDelay;
+        public LosslessScalingAutoScaleDelayProperty LosslessScalingAutoScaleDelay => losslessScalingAutoScaleDelay;
+
+        private readonly LosslessScalingSaveAndRestartProperty losslessScalingSaveAndRestart;
+        public LosslessScalingSaveAndRestartProperty LosslessScalingSaveAndRestart => losslessScalingSaveAndRestart;
+
+        private readonly LosslessScalingCreateProfileProperty losslessScalingCreateProfile;
+        public LosslessScalingCreateProfileProperty LosslessScalingCreateProfile => losslessScalingCreateProfile;
+
+        #endregion
+
+        // State tracking
+        private bool isScalingActive = false;
+
+        public LosslessScalingManager(AppServiceConnection connection) : base(connection)
+        {
+            Logger.Info("Initializing Lossless Scaling Manager...");
+
+            bool isInstalled = IsInstalled();
+            bool isRunning = IsRunning();
+            Logger.Info($"Lossless Scaling installed: {isInstalled}, running: {isRunning}");
+
+            // Read Default profile settings
+            var settings = ReadSettingsFromProfile("Default");
+
+            // Initialize all properties
+            losslessScalingInstalled = new LosslessScalingInstalledProperty(isInstalled, this);
+            losslessScalingRunning = new LosslessScalingRunningProperty(isRunning, this);
+            losslessScalingEnabled = new LosslessScalingEnabledProperty(false, this);
+            losslessScalingCurrentProfile = new LosslessScalingCurrentProfileProperty("Default", this);
+            losslessScalingScalingType = new LosslessScalingScalingTypeProperty(settings.ScalingType, this);
+            losslessScalingSharpness = new LosslessScalingSharpnessProperty(settings.Sharpness, this);
+            losslessScalingFSROptimize = new LosslessScalingFSROptimizeProperty(settings.FSROptimize, this);
+            losslessScalingAnime4KSize = new LosslessScalingAnime4KSizeProperty(settings.Anime4KSize, this);
+            losslessScalingAnime4KVRS = new LosslessScalingAnime4KVRSProperty(settings.Anime4KVRS, this);
+            losslessScalingScaleMode = new LosslessScalingScaleModeProperty(settings.ScaleMode, this);
+            losslessScalingScaleFactor = new LosslessScalingScaleFactorProperty(settings.ScaleFactor, this);
+            losslessScalingAspectRatio = new LosslessScalingAspectRatioProperty(settings.AspectRatio, this);
+            losslessScalingFrameGenType = new LosslessScalingFrameGenTypeProperty(settings.FrameGenType, this);
+            losslessScalingLSFG3Mode = new LosslessScalingLSFG3ModeProperty(settings.LSFG3Mode, this);
+            losslessScalingLSFG3Multiplier = new LosslessScalingLSFG3MultiplierProperty(settings.LSFG3Multiplier, this);
+            losslessScalingLSFG3Target = new LosslessScalingLSFG3TargetProperty(settings.LSFG3Target, this);
+            losslessScalingLSFG2Mode = new LosslessScalingLSFG2ModeProperty(settings.LSFG2Mode, this);
+            losslessScalingFlowScale = new LosslessScalingFlowScaleProperty(settings.FlowScale, this);
+            losslessScalingSize = new LosslessScalingSizeProperty(settings.Size, this);
+            losslessScalingAutoScale = new LosslessScalingAutoScaleProperty(settings.AutoScale, this);
+            losslessScalingAutoScaleDelay = new LosslessScalingAutoScaleDelayProperty(settings.AutoScaleDelay, this);
+            losslessScalingSaveAndRestart = new LosslessScalingSaveAndRestartProperty(false, this);
+            losslessScalingCreateProfile = new LosslessScalingCreateProfileProperty("", this);
+
+            // Subscribe to action properties
+            losslessScalingEnabled.PropertyChanged += LosslessScalingEnabled_PropertyChanged;
+            losslessScalingSaveAndRestart.PropertyChanged += LosslessScalingSaveAndRestart_PropertyChanged;
+            losslessScalingCreateProfile.PropertyChanged += LosslessScalingCreateProfile_PropertyChanged;
+
+            // Initialize input injector
+            inputInjector = InputInjector.TryCreate();
+            toggleScalingKeyboardCombo = new InjectedInputKeyboardInfo[]
+            {
+                new InjectedInputKeyboardInfo { VirtualKey = (ushort)VirtualKey.LeftControl, KeyOptions = InjectedInputKeyOptions.None },
+                new InjectedInputKeyboardInfo { VirtualKey = (ushort)VirtualKey.LeftMenu, KeyOptions = InjectedInputKeyOptions.None },
+                new InjectedInputKeyboardInfo { VirtualKey = (ushort)VirtualKey.S, KeyOptions = InjectedInputKeyOptions.None },
+                new InjectedInputKeyboardInfo { VirtualKey = (ushort)VirtualKey.LeftControl, KeyOptions = InjectedInputKeyOptions.KeyUp },
+                new InjectedInputKeyboardInfo { VirtualKey = (ushort)VirtualKey.LeftMenu, KeyOptions = InjectedInputKeyOptions.KeyUp },
+                new InjectedInputKeyboardInfo { VirtualKey = (ushort)VirtualKey.S, KeyOptions = InjectedInputKeyOptions.KeyUp },
+            };
+
+            Logger.Info("Lossless Scaling Manager initialized successfully.");
+        }
+
+        public override void Update()
+        {
+            base.Update();
+
+            bool currentlyRunning = IsRunning();
+            if (losslessScalingRunning.Value != currentlyRunning)
+            {
+                losslessScalingRunning.SetValue(currentlyRunning, DateTime.Now.Ticks);
+            }
+        }
+
+        /// <summary>
+        /// Called when the running game changes. Updates the active profile.
+        /// </summary>
+        public void SetCurrentGame(string gameName, string exePath)
+        {
+            if (currentGameExePath == exePath)
+                return;
+
+            currentGameExePath = exePath;
+            Logger.Info($"Current game changed to: {gameName} ({exePath})");
+
+            // Find profile for this game
+            string profileName = FindProfileByExePath(exePath);
+            if (string.IsNullOrEmpty(profileName))
+            {
+                profileName = "Default";
+            }
+
+            currentProfileName = profileName;
+            losslessScalingCurrentProfile.SetValue(profileName, DateTime.Now.Ticks);
+
+            // Load settings from the profile
+            var settings = ReadSettingsFromProfile(profileName);
+            UpdatePropertiesFromSettings(settings);
+
+            Logger.Info($"Loaded profile '{profileName}' for game '{gameName}'");
+        }
+
+        #region Core Methods
+
+        private bool IsInstalled() => File.Exists(SETTINGS_PATH);
+
+        private bool IsRunning() => Process.GetProcessesByName(PROCESS_NAME).Length > 0;
+
+        public async Task<bool> LaunchLosslessScalingAsync()
+        {
+            if (IsRunning())
+            {
+                Logger.Info("Lossless Scaling is already running.");
+                return true;
+            }
+
+            try
+            {
+                Logger.Info("Launching Lossless Scaling via Steam...");
+                var uri = new Uri($"steam://rungameid/{STEAM_APP_ID}");
+                await global::Windows.System.Launcher.LaunchUriAsync(uri);
+                await Task.Delay(3000);
+
+                bool success = IsRunning();
+                Logger.Info($"Lossless Scaling launch {(success ? "successful" : "failed")}");
+                return success;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to launch Lossless Scaling: {ex.Message}");
+                return false;
+            }
+        }
+
+        private void ToggleScaling()
+        {
+            if (!IsRunning())
+            {
+                Logger.Warn("Cannot toggle scaling: Lossless Scaling is not running");
+                return;
+            }
+
+            if (inputInjector == null)
+            {
+                Logger.Error("Input injector not available");
+                return;
+            }
+
+            try
+            {
+                Logger.Info("Sending Ctrl+Alt+S hotkey to toggle Lossless Scaling...");
+                inputInjector.InjectKeyboardInput(toggleScalingKeyboardCombo);
+                isScalingActive = !isScalingActive;
+                Logger.Info($"Scaling toggled to: {isScalingActive}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to send hotkey: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region XML Operations
+
+        private class LosslessScalingSettings
+        {
+            public string ScalingType { get; set; } = "Off";
+            public int Sharpness { get; set; } = 50;
+            public bool FSROptimize { get; set; } = false;
+            public string Anime4KSize { get; set; } = "Medium";
+            public bool Anime4KVRS { get; set; } = false;
+            public string ScaleMode { get; set; } = "Auto";
+            public int ScaleFactor { get; set; } = 2;
+            public string AspectRatio { get; set; } = "Aspect Ratio";
+            public string FrameGenType { get; set; } = "Off";
+            public string LSFG3Mode { get; set; } = "FIXED";
+            public int LSFG3Multiplier { get; set; } = 2;
+            public int LSFG3Target { get; set; } = 120;
+            public string LSFG2Mode { get; set; } = "X2";
+            public int FlowScale { get; set; } = 50;
+            public string Size { get; set; } = "BALANCED";
+            public bool AutoScale { get; set; } = false;
+            public int AutoScaleDelay { get; set; } = 0;
+        }
+
+        private string FindProfileByExePath(string exePath)
+        {
+            try
+            {
+                if (!File.Exists(SETTINGS_PATH) || string.IsNullOrEmpty(exePath))
+                    return null;
+
+                var doc = XDocument.Load(SETTINGS_PATH);
+                var profile = doc.Descendants("Profile")
+                    .FirstOrDefault(p => string.Equals(p.Element("Path")?.Value, exePath, StringComparison.OrdinalIgnoreCase));
+
+                return profile?.Element("Title")?.Value;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to find profile by exe path: {ex.Message}");
+                return null;
+            }
+        }
+
+        private LosslessScalingSettings ReadSettingsFromProfile(string profileName)
+        {
+            var settings = new LosslessScalingSettings();
+
+            try
+            {
+                if (!File.Exists(SETTINGS_PATH))
+                {
+                    Logger.Warn("Settings.xml not found, using defaults");
+                    return settings;
+                }
+
+                var doc = XDocument.Load(SETTINGS_PATH);
+                var profile = doc.Descendants("Profile")
+                    .FirstOrDefault(p => p.Element("Title")?.Value == profileName);
+
+                if (profile == null)
+                {
+                    Logger.Warn($"Profile '{profileName}' not found, using defaults");
+                    return settings;
+                }
+
+                settings.ScalingType = profile.Element("ScalingType")?.Value ?? "Off";
+                settings.Sharpness = int.TryParse(profile.Element("Sharpness")?.Value, out int sharpness) ? sharpness : 50;
+                settings.FSROptimize = bool.TryParse(profile.Element("FSROptimize")?.Value?.ToLower(), out bool fsrOpt) && fsrOpt;
+                settings.Anime4KSize = profile.Element("Anime4KSize")?.Value ?? "Medium";
+                settings.Anime4KVRS = bool.TryParse(profile.Element("Anime4KVRS")?.Value?.ToLower(), out bool vrs) && vrs;
+                settings.ScaleMode = profile.Element("ScaleMode")?.Value ?? "Auto";
+                settings.ScaleFactor = int.TryParse(profile.Element("ScaleFactor")?.Value, out int factor) ? factor : 2;
+                settings.AspectRatio = profile.Element("AspectRatio")?.Value ?? "Aspect Ratio";
+                settings.FrameGenType = profile.Element("FrameGeneration")?.Value ?? "Off";
+                settings.LSFG3Mode = profile.Element("LSFG3Mode1")?.Value ?? "FIXED";
+                settings.LSFG3Multiplier = int.TryParse(profile.Element("LSFG3Multiplier")?.Value, out int mult) ? mult : 2;
+                settings.LSFG3Target = int.TryParse(profile.Element("LSFG3Target")?.Value, out int target) ? target : 120;
+                settings.LSFG2Mode = profile.Element("LSFG2Mode")?.Value ?? "X2";
+                settings.FlowScale = int.TryParse(profile.Element("LSFGFlowScale")?.Value, out int flow) ? flow : 50;
+                settings.Size = profile.Element("LSFGSize")?.Value ?? "BALANCED";
+                settings.AutoScale = bool.TryParse(profile.Element("AutoScale")?.Value?.ToLower(), out bool auto) && auto;
+                settings.AutoScaleDelay = int.TryParse(profile.Element("AutoScaleDelay")?.Value, out int delay) ? delay : 0;
+
+                Logger.Info($"Read settings from profile '{profileName}'");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to read Settings.xml: {ex.Message}");
+            }
+
+            return settings;
+        }
+
+        private void WriteSettingsToProfile(string profileName)
+        {
+            try
+            {
+                if (!File.Exists(SETTINGS_PATH))
+                {
+                    Logger.Warn("Settings.xml not found, cannot write settings");
+                    return;
+                }
+
+                var doc = XDocument.Load(SETTINGS_PATH);
+                var profile = doc.Descendants("Profile")
+                    .FirstOrDefault(p => p.Element("Title")?.Value == profileName);
+
+                if (profile == null)
+                {
+                    Logger.Warn($"Profile '{profileName}' not found");
+                    return;
+                }
+
+                // Update values from current properties
+                SetElementValue(profile, "ScalingType", losslessScalingScalingType.Value);
+                SetElementValue(profile, "Sharpness", losslessScalingSharpness.Value.ToString());
+                SetElementValue(profile, "FSROptimize", losslessScalingFSROptimize.Value.ToString().ToLower());
+                SetElementValue(profile, "Anime4KSize", losslessScalingAnime4KSize.Value);
+                SetElementValue(profile, "Anime4KVRS", losslessScalingAnime4KVRS.Value.ToString().ToLower());
+                SetElementValue(profile, "ScaleMode", losslessScalingScaleMode.Value);
+                SetElementValue(profile, "ScaleFactor", losslessScalingScaleFactor.Value.ToString());
+                SetElementValue(profile, "AspectRatio", losslessScalingAspectRatio.Value);
+                SetElementValue(profile, "FrameGeneration", losslessScalingFrameGenType.Value);
+                SetElementValue(profile, "LSFG3Mode1", losslessScalingLSFG3Mode.Value);
+                SetElementValue(profile, "LSFG3Multiplier", losslessScalingLSFG3Multiplier.Value.ToString());
+                SetElementValue(profile, "LSFG3Target", losslessScalingLSFG3Target.Value.ToString());
+                SetElementValue(profile, "LSFG2Mode", losslessScalingLSFG2Mode.Value);
+                SetElementValue(profile, "LSFGFlowScale", losslessScalingFlowScale.Value.ToString());
+                SetElementValue(profile, "LSFGSize", losslessScalingSize.Value);
+                SetElementValue(profile, "AutoScale", losslessScalingAutoScale.Value.ToString().ToLower());
+                SetElementValue(profile, "AutoScaleDelay", losslessScalingAutoScaleDelay.Value.ToString());
+
+                doc.Save(SETTINGS_PATH);
+                Logger.Info($"Settings written to profile '{profileName}'");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to write Settings.xml: {ex.Message}");
+            }
+        }
+
+        private void CreateProfile(string gameName, string exePath)
+        {
+            try
+            {
+                if (!File.Exists(SETTINGS_PATH))
+                {
+                    Logger.Warn("Settings.xml not found, cannot create profile");
+                    return;
+                }
+
+                // Check if profile already exists
+                if (!string.IsNullOrEmpty(FindProfileByExePath(exePath)))
+                {
+                    Logger.Warn($"Profile for '{exePath}' already exists");
+                    return;
+                }
+
+                var doc = XDocument.Load(SETTINGS_PATH);
+                var profilesElement = doc.Descendants("GameProfiles").FirstOrDefault();
+                var defaultProfile = doc.Descendants("Profile")
+                    .FirstOrDefault(p => p.Element("Title")?.Value == "Default");
+
+                if (profilesElement == null || defaultProfile == null)
+                {
+                    Logger.Error("Cannot find GameProfiles or Default profile");
+                    return;
+                }
+
+                // Clone Default profile
+                var newProfile = new XElement(defaultProfile);
+                newProfile.Element("Title").Value = gameName;
+
+                // Add or update Path element
+                var pathElement = newProfile.Element("Path");
+                if (pathElement != null)
+                {
+                    pathElement.Value = exePath;
+                }
+                else
+                {
+                    newProfile.Add(new XElement("Path", exePath));
+                }
+
+                profilesElement.Add(newProfile);
+                doc.Save(SETTINGS_PATH);
+
+                Logger.Info($"Created profile '{gameName}' for '{exePath}'");
+
+                // Update current profile
+                currentProfileName = gameName;
+                losslessScalingCurrentProfile.SetValue(gameName, DateTime.Now.Ticks);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to create profile: {ex.Message}");
+            }
+        }
+
+        private void SetElementValue(XElement parent, string name, string value)
+        {
+            var element = parent.Element(name);
+            if (element != null)
+            {
+                element.Value = value;
+            }
+            else
+            {
+                parent.Add(new XElement(name, value));
+            }
+        }
+
+        private void UpdatePropertiesFromSettings(LosslessScalingSettings settings)
+        {
+            long now = DateTime.Now.Ticks;
+            losslessScalingScalingType.SetValue(settings.ScalingType, now);
+            losslessScalingSharpness.SetValue(settings.Sharpness, now);
+            losslessScalingFSROptimize.SetValue(settings.FSROptimize, now);
+            losslessScalingAnime4KSize.SetValue(settings.Anime4KSize, now);
+            losslessScalingAnime4KVRS.SetValue(settings.Anime4KVRS, now);
+            losslessScalingScaleMode.SetValue(settings.ScaleMode, now);
+            losslessScalingScaleFactor.SetValue(settings.ScaleFactor, now);
+            losslessScalingAspectRatio.SetValue(settings.AspectRatio, now);
+            losslessScalingFrameGenType.SetValue(settings.FrameGenType, now);
+            losslessScalingLSFG3Mode.SetValue(settings.LSFG3Mode, now);
+            losslessScalingLSFG3Multiplier.SetValue(settings.LSFG3Multiplier, now);
+            losslessScalingLSFG3Target.SetValue(settings.LSFG3Target, now);
+            losslessScalingLSFG2Mode.SetValue(settings.LSFG2Mode, now);
+            losslessScalingFlowScale.SetValue(settings.FlowScale, now);
+            losslessScalingSize.SetValue(settings.Size, now);
+            losslessScalingAutoScale.SetValue(settings.AutoScale, now);
+            losslessScalingAutoScaleDelay.SetValue(settings.AutoScaleDelay, now);
+        }
+
+        #endregion
+
+        #region Property Change Handlers
+
+        private async void LosslessScalingEnabled_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            bool shouldBeEnabled = losslessScalingEnabled.Value;
+            Logger.Info($"Lossless Scaling enabled changed to: {shouldBeEnabled}");
+
+            if (!IsRunning())
+            {
+                if (shouldBeEnabled)
+                {
+                    Logger.Info("Lossless Scaling not running, launching...");
+                    await LaunchLosslessScalingAsync();
+                    await Task.Delay(1000);
+                }
+                else
+                {
+                    Logger.Info("Lossless Scaling not running and should be disabled, nothing to do");
+                    return;
+                }
+            }
+
+            if (isScalingActive != shouldBeEnabled)
+            {
+                ToggleScaling();
+            }
+        }
+
+        private async void LosslessScalingSaveAndRestart_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (!losslessScalingSaveAndRestart.Value)
+                return;
+
+            Logger.Info("Save and Restart triggered");
+
+            // Write settings to the current profile
+            WriteSettingsToProfile(currentProfileName);
+
+            // Kill Lossless Scaling if running
+            if (IsRunning())
+            {
+                Logger.Info("Closing Lossless Scaling...");
+                var processes = Process.GetProcessesByName(PROCESS_NAME);
+                foreach (var proc in processes)
+                {
+                    proc.Kill();
+                    proc.WaitForExit(5000);
+                }
+                await Task.Delay(1000);
+            }
+
+            // Restart Lossless Scaling
+            Logger.Info("Restarting Lossless Scaling...");
+            await LaunchLosslessScalingAsync();
+
+            // Reset the trigger
+            losslessScalingSaveAndRestart.SetValue(false, DateTime.Now.Ticks);
+        }
+
+        private void LosslessScalingCreateProfile_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            string value = losslessScalingCreateProfile.Value;
+            if (string.IsNullOrEmpty(value))
+                return;
+
+            // Value format: "GameName<||>ExePath" - using <||> as delimiter to avoid conflicts with | in window titles
+            var parts = value.Split(new[] { "<||>" }, StringSplitOptions.None);
+            if (parts.Length >= 2)
+            {
+                string gameName = parts[0];
+                string exePath = parts[1];
+                CreateProfile(gameName, exePath);
+            }
+
+            // Reset the trigger
+            losslessScalingCreateProfile.SetValue("", DateTime.Now.Ticks);
+        }
+
+        #endregion
+    }
+}

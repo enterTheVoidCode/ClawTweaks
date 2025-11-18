@@ -196,6 +196,7 @@
                 <muxc:NavigationViewItem Content="Performance" Tag="Performance" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem Content="Profiles" Tag="Game" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem Content="Graphics" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem Content="Scaling" Tag="Scaling" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem Content="System" Tag="System" Style="{StaticResource NavItemStyle}"/>
             </muxc:NavigationView.MenuItems>
 
@@ -829,6 +830,400 @@
                                 <TextBlock Text="Version: 0.3.31"
                                            FontSize="14"
                                            Foreground="#A0A0A0"
+                                           Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- SCALING TAB -->
+                <ScrollViewer x:Name="ScalingScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel Padding="16,0,16,16">
+
+                        <!-- Status Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Lossless Scaling Status" Style="{StaticResource CardTitleStyle}" Grid.Column="0" VerticalAlignment="Center"/>
+                                    <Button x:Name="LaunchLosslessScalingButton"
+                                            Grid.Column="1"
+                                            Content="Launch"
+                                            Visibility="Collapsed"
+                                            Click="LaunchLosslessScalingButton_Click"/>
+                                </Grid>
+                                <TextBlock x:Name="LosslessScalingStatusText"
+                                           Text="Not Installed"
+                                           FontSize="14"
+                                           Foreground="#A0A0A0"
+                                           Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Current Profile Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Current Profile" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock x:Name="LosslessScalingCurrentProfileText"
+                                                   Text="Default"
+                                                   FontSize="14"
+                                                   Foreground="#00C8FF"
+                                                   Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                    <Button x:Name="LosslessScalingCreateProfileButton"
+                                            Grid.Column="1"
+                                            Content="Create Profile"
+                                            VerticalAlignment="Center"
+                                            IsEnabled="False"
+                                            Click="LosslessScalingCreateProfileButton_Click"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Scale Toggle Button -->
+                        <ToggleButton x:Name="LosslessScalingEnabledToggle"
+                                      Content="Scale"
+                                      HorizontalAlignment="Stretch"
+                                      IsEnabled="False"
+                                      FontSize="16"
+                                      FontWeight="SemiBold"
+                                      Padding="16,12"/>
+
+                        <!-- Save Settings Button -->
+                        <Button x:Name="LosslessScalingSaveSettingsButton"
+                                Content="Save Settings"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,8,0,0"
+                                IsEnabled="False"
+                                Click="LosslessScalingSaveSettingsButton_Click"/>
+
+                        <!-- AutoScale Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="AutoScale" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Automatically detect and scale games"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="LosslessScalingAutoScaleToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"/>
+                                </Grid>
+                                <StackPanel Visibility="{Binding ElementName=LosslessScalingAutoScaleToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid Margin="0,8,0,0">
+                                        <TextBlock Text="AutoScale Delay (s)"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"/>
+                                        <TextBlock x:Name="LosslessScalingAutoScaleDelayValueText"
+                                                   Text="{Binding ElementName=LosslessScalingAutoScaleDelaySlider, Path=Value}"
+                                                   FontSize="14"
+                                                   Foreground="#00C8FF"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="LosslessScalingAutoScaleDelaySlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="10"
+                                            TickFrequency="1"
+                                            SnapsTo="Ticks"
+                                            TickPlacement="BottomRight"
+                                            IsEnabled="False"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Scaling Type Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Scaling Algorithm" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+                                <ComboBox x:Name="LosslessScalingScalingTypeComboBox"
+                                          PlaceholderText="Select Type"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          SelectionChanged="LosslessScalingScalingTypeComboBox_SelectionChanged">
+                                    <x:String>Off</x:String>
+                                    <x:String>LS1</x:String>
+                                    <x:String>FSR</x:String>
+                                    <x:String>NIS</x:String>
+                                    <x:String>SGSR</x:String>
+                                    <x:String>BCAS</x:String>
+                                    <x:String>Anime4K</x:String>
+                                    <x:String>xBR</x:String>
+                                    <x:String>Sharp Bilinear</x:String>
+                                    <x:String>Integer</x:String>
+                                    <x:String>Nearest Neighbor</x:String>
+                                </ComboBox>
+
+                                <!-- Sharpness Slider (for FSR, NIS, SGSR, BCAS) -->
+                                <StackPanel x:Name="LosslessScalingSharpnessPanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <Grid>
+                                        <TextBlock Text="Sharpness" FontSize="12" Foreground="#A0A0A0"/>
+                                        <TextBlock x:Name="LosslessScalingSharpnessValueText"
+                                                   Text="{Binding ElementName=LosslessScalingSharpnessSlider, Path=Value}"
+                                                   FontSize="12"
+                                                   Foreground="#00C8FF"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="LosslessScalingSharpnessSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="100"
+                                            TickFrequency="10"
+                                            SnapsTo="Ticks"
+                                            TickPlacement="BottomRight"
+                                            IsEnabled="False"/>
+                                </StackPanel>
+
+                                <!-- FSR Optimize Toggle (FSR only) -->
+                                <Grid x:Name="LosslessScalingFSROptimizePanel" Visibility="Collapsed" Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Optimize" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center"/>
+                                    <ToggleSwitch x:Name="LosslessScalingFSROptimizeToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"/>
+                                </Grid>
+
+                                <!-- Anime4K Settings -->
+                                <StackPanel x:Name="LosslessScalingAnime4KPanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <TextBlock Text="Size" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="LosslessScalingAnime4KSizeComboBox"
+                                              PlaceholderText="Select Size"
+                                              Width="Auto"
+                                              HorizontalAlignment="Stretch"
+                                              IsEnabled="False"
+                                              Style="{StaticResource ModernComboBoxStyle}">
+                                        <x:String>Small</x:String>
+                                        <x:String>Medium</x:String>
+                                        <x:String>Large</x:String>
+                                        <x:String>Very Large</x:String>
+                                        <x:String>Ultra Large</x:String>
+                                    </ComboBox>
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="VRS" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center"/>
+                                        <ToggleSwitch x:Name="LosslessScalingAnime4KVRSToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      IsEnabled="False"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Scale Mode Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Scale Mode" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+                                <ComboBox x:Name="LosslessScalingScaleModeComboBox"
+                                          PlaceholderText="Select Mode"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          SelectionChanged="LosslessScalingScaleModeComboBox_SelectionChanged">
+                                    <x:String>Auto</x:String>
+                                    <x:String>Custom</x:String>
+                                </ComboBox>
+
+                                <!-- Auto Mode Settings -->
+                                <StackPanel x:Name="LosslessScalingAutoModePanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <TextBlock Text="Aspect" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="LosslessScalingAspectRatioComboBox"
+                                              PlaceholderText="Select Aspect"
+                                              Width="Auto"
+                                              HorizontalAlignment="Stretch"
+                                              IsEnabled="False"
+                                              Style="{StaticResource ModernComboBoxStyle}">
+                                        <x:String>Aspect Ratio</x:String>
+                                        <x:String>Fullscreen</x:String>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <!-- Custom Mode Settings -->
+                                <StackPanel x:Name="LosslessScalingCustomModePanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <Grid>
+                                        <TextBlock Text="Scale Factor" FontSize="12" Foreground="#A0A0A0"/>
+                                        <TextBlock x:Name="LosslessScalingScaleFactorValueText"
+                                                   Text="{Binding ElementName=LosslessScalingScaleFactorSlider, Path=Value}"
+                                                   FontSize="12"
+                                                   Foreground="#00C8FF"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="LosslessScalingScaleFactorSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="1" Maximum="5"
+                                            TickFrequency="1"
+                                            SnapsTo="Ticks"
+                                            TickPlacement="BottomRight"
+                                            IsEnabled="False"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Frame Generation Type Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Frame Generation" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+                                <ComboBox x:Name="LosslessScalingFrameGenTypeComboBox"
+                                          PlaceholderText="Select Type"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}">
+                                    <x:String>Off</x:String>
+                                    <x:String>LSFG1</x:String>
+                                    <x:String>LSFG2</x:String>
+                                    <x:String>LSFG3</x:String>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- LSFG3 Settings Card -->
+                        <Border x:Name="LSFG3SettingsCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="LSFG3 Settings" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+
+                                <!-- LSFG3 Mode -->
+                                <TextBlock Text="Mode" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="LosslessScalingLSFG3ModeComboBox"
+                                          PlaceholderText="Select Mode"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          Margin="0,0,0,12"
+                                          SelectionChanged="LosslessScalingLSFG3ModeComboBox_SelectionChanged">
+                                    <x:String>FIXED</x:String>
+                                    <x:String>ADAPTIVE</x:String>
+                                </ComboBox>
+
+                                <!-- LSFG3 Multiplier (hidden when Adaptive) -->
+                                <StackPanel x:Name="LosslessScalingLSFG3MultiplierPanel">
+                                    <TextBlock Text="Multiplier" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="LosslessScalingLSFG3MultiplierComboBox"
+                                              PlaceholderText="Select Multiplier"
+                                              Width="Auto"
+                                              HorizontalAlignment="Stretch"
+                                              IsEnabled="False"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              Margin="0,0,0,12">
+                                        <x:String>2</x:String>
+                                        <x:String>3</x:String>
+                                        <x:String>4</x:String>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <!-- LSFG3 Target FPS -->
+                                <Grid>
+                                    <TextBlock Text="Target FPS" FontSize="12" Foreground="#A0A0A0"/>
+                                    <TextBlock x:Name="LosslessScalingLSFG3TargetValueText"
+                                               Text="{Binding ElementName=LosslessScalingLSFG3TargetSlider, Path=Value}"
+                                               FontSize="12"
+                                               Foreground="#00C8FF"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Slider x:Name="LosslessScalingLSFG3TargetSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="30" Maximum="240"
+                                        TickFrequency="10"
+                                        SnapsTo="Ticks"
+                                        TickPlacement="BottomRight"
+                                        IsEnabled="False"
+                                        Margin="0,0,0,12"/>
+
+                                <!-- Flow Scale -->
+                                <Grid>
+                                    <TextBlock Text="Flow Scale" FontSize="12" Foreground="#A0A0A0"/>
+                                    <TextBlock x:Name="LosslessScalingFlowScaleValueText"
+                                               Text="{Binding ElementName=LosslessScalingFlowScaleSlider, Path=Value}"
+                                               FontSize="12"
+                                               Foreground="#00C8FF"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Slider x:Name="LosslessScalingFlowScaleSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="25" Maximum="100"
+                                        TickFrequency="5"
+                                        SnapsTo="Ticks"
+                                        TickPlacement="BottomRight"
+                                        IsEnabled="False"
+                                        Margin="0,0,0,12"/>
+
+                                <!-- Size Toggle (Performance/Balanced) -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Performance Mode" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Lighter model for less input lag"
+                                                   FontSize="11"
+                                                   Foreground="#A0A0A0"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="LosslessScalingSizeToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- LSFG2 Settings Card -->
+                        <Border x:Name="LSFG2SettingsCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="LSFG2 Settings" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+
+                                <!-- LSFG2 Mode -->
+                                <TextBlock Text="Mode" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="LosslessScalingLSFG2ModeComboBox"
+                                          PlaceholderText="Select Mode"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}">
+                                    <x:String>X2</x:String>
+                                    <x:String>X3</x:String>
+                                    <x:String>X4</x:String>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Conflict Warning Card -->
+                        <Border Style="{StaticResource CardStyle}" x:Name="LSConflictWarningBorder" Visibility="Collapsed" Margin="0,8,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Conflict Detected"
+                                           Style="{StaticResource CardTitleStyle}"
+                                           Foreground="#FFA500"/>
+                                <TextBlock x:Name="LSConflictWarningText"
+                                           Text="AMD Fluid Motion Frames has been automatically disabled because it conflicts with Lossless Scaling Frame Generation."
+                                           FontSize="12"
+                                           Foreground="#FFA500"
+                                           TextWrapping="Wrap"
                                            Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
