@@ -21,8 +21,8 @@
         <!-- Card Style -->
         <Style x:Key="CardStyle" TargetType="Border">
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Padding" Value="16"/>
-            <Setter Property="Margin" Value="0,0,0,12"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
@@ -36,27 +36,27 @@
 
         <!-- Card Title Style -->
         <Style x:Key="CardTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontSize" Value="18"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
         </Style>
 
         <!-- Card Title Style - Compact Mode -->
         <Style x:Key="CardTitleStyleCompact" TargetType="TextBlock" BasedOn="{StaticResource CardTitleStyle}">
-            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontSize" Value="20"/>
         </Style>
 
         <!-- Card Caption Style -->
         <Style x:Key="CardCaptionStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="Foreground" Value="#A0A0A0"/>
-            <Setter Property="Margin" Value="0,4,0,0"/>
+            <Setter Property="Margin" Value="0,1,0,0"/>
         </Style>
 
         <!-- Card Caption Style - Compact Mode -->
         <Style x:Key="CardCaptionStyleCompact" TargetType="TextBlock" BasedOn="{StaticResource CardCaptionStyle}">
-            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontSize" Value="16"/>
         </Style>
 
         <!-- Card Value Style -->
@@ -88,7 +88,7 @@
 
         <!-- Modern Slider Style - WinUI 3 Style -->
         <Style x:Key="ModernSliderStyle" TargetType="Slider">
-            <Setter Property="Margin" Value="0,8,0,0"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Foreground" Value="#00C8FF"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -172,7 +172,7 @@
 
     </Page.Resources>
 
-    <Grid>
+    <Grid Background="Black">
         <ProgressRing x:Name="LoadingProgressRing"
                       IsActive="True"
                       Visibility="Collapsed"
@@ -201,7 +201,7 @@
 
             <!-- PERFORMANCE TAB -->
             <Grid>
-                <ScrollViewer x:Name="PerformanceScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Visible">
+                <ScrollViewer x:Name="PerformanceScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <StackPanel Padding="16,0,16,16">
 
                         <!-- Active Profile Indicator -->
@@ -222,18 +222,20 @@
                                 </Grid>
 
                                 <!-- Per-Game Profile Toggle -->
-                                <Grid Margin="0,12,0,0">
+                                <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               Text="Use per-game profile"
-                                               FontSize="12"
-                                               Foreground="#FFFFFF" Grid.ColumnSpan="2" Margin="2,0,152,24"/>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Use per-game profile"
+                                                   FontSize="12"
+                                                   Foreground="#FFFFFF"/>
+                                    </StackPanel>
                                     <ToggleSwitch x:Name="PerGameProfileToggle"
+                                                  Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False" Grid.ColumnSpan="2" HorizontalAlignment="Left" Margin="379,0,0,0"/>
+                                                  IsEnabled="False"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -287,6 +289,13 @@
                                                Foreground="#A0A0A0"
                                                HorizontalAlignment="Right"/>
                                 </Grid>
+                                <!-- Sticky TDP Active Indicator -->
+                                <TextBlock Text="Sticky TDP: Active"
+                                           FontSize="13"
+                                           Foreground="#4CAF50"
+                                           FontWeight="SemiBold"
+                                           Margin="0,1,0,0"
+                                           Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                             </StackPanel>
                         </Border>
 
@@ -299,11 +308,12 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="CPU Boost" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Precision Boost Overdrive" Style="{StaticResource CardCaptionStyle}"/>
+                                    <TextBlock Text="Higher boost clocks" Style="{StaticResource CardCaptionStyle}"/>
                                 </StackPanel>
                                 <ToggleSwitch x:Name="CPUBoostToggle"
+                                              Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False" HorizontalAlignment="Left" Margin="379,0,0,0" Width="154"/>
+                                              IsEnabled="False"/>
                             </Grid>
                         </Border>
 
@@ -324,10 +334,10 @@
                                         TickPlacement="BottomRight"
                                         IsEnabled="False"/>
                                 <Grid Margin="0,4,0,0">
-                                    <TextBlock Text="0 = Performance"
+                                    <TextBlock Text="0 = Prioritize CPU"
                                                FontSize="12"
                                                Foreground="#A0A0A0"/>
-                                    <TextBlock Text="100 = Power Saving"
+                                    <TextBlock Text="100 = Prioritize GPU"
                                                FontSize="12"
                                                Foreground="#A0A0A0"
                                                HorizontalAlignment="Right"/>
@@ -764,6 +774,51 @@
                                           IsChecked="False"
                                           Foreground="#FFFFFF"
                                           Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Sticky TDP Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Sticky TDP" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Automatically restore TDP limits if changed by other apps"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="StickyTDPToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  Toggled="StickyTDPToggle_Toggled"/>
+                                </Grid>
+                                <StackPanel Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid Margin="0,2,0,0">
+                                        <TextBlock Text="How often to reapply TDP settings"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"
+                                                   TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="StickyTDPIntervalValue"
+                                                   Text="5s"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="StickyTDPIntervalSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="3" Maximum="15"
+                                            TickFrequency="2"
+                                            SnapsTo="Ticks"
+                                            TickPlacement="BottomRight"
+                                            Header="Check Interval"
+                                            Value="5"
+                                            ValueChanged="StickyTDPIntervalSlider_ValueChanged"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 

@@ -92,6 +92,12 @@ namespace XboxGamingBar
         private bool isCompactMode = false;
         private const double CompactModeWidthThreshold = 400;
 
+        // Sticky TDP monitoring
+        private DispatcherTimer stickyTDPTimer = null;
+        private double targetTDPLimit = 15; // Stores the TDP limit we want to maintain
+        private int stickyTDPCheckIntervalSeconds = 5;
+        private bool isStickyTDPReapplying = false; // Prevents slider flicker during reapply
+
         // Properties
         private readonly OSDProperty osd;
         private readonly TDPProperty tdp;
@@ -563,6 +569,14 @@ namespace XboxGamingBar
 
         private void SettingChanged(object sender, object e)
         {
+            // Update Sticky TDP target if TDP slider changed and Sticky TDP is enabled
+            // But ONLY if the change is from the user, not from helper sync/updates
+            if (sender == TDPSlider && StickyTDPToggle?.IsOn == true && !isApplyingHelperUpdate)
+            {
+                targetTDPLimit = TDPSlider.Value;
+                Logger.Info($"Sticky TDP target updated to: {targetTDPLimit}W (user change)");
+            }
+
             // Don't save during profile loading, switching, or when helper is updating values
             if (isLoadingProfile || isSwitchingProfile || isApplyingHelperUpdate)
             {
@@ -634,6 +648,165 @@ namespace XboxGamingBar
             }
 
             UpdateActiveProfileIndicator();
+        }
+
+        private void StickyTDPToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            Logger.Info($"StickyTDPToggle toggled to: {StickyTDPToggle.IsOn}");
+
+            if (StickyTDPToggle.IsOn)
+            {
+                // Store current TDP limit as target
+                targetTDPLimit = TDPSlider.Value;
+                Logger.Info($"Sticky TDP enabled - monitoring TDP limit: {targetTDPLimit}W");
+
+                // Start the monitoring timer
+                StartStickyTDPTimer();
+            }
+            else
+            {
+                // Stop the monitoring timer
+                StopStickyTDPTimer();
+                Logger.Info("Sticky TDP disabled");
+            }
+        }
+
+        private void StickyTDPIntervalSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (StickyTDPIntervalSlider == null) return;
+
+            stickyTDPCheckIntervalSeconds = (int)Math.Round(e.NewValue);
+            Logger.Info($"Sticky TDP check interval changed to: {stickyTDPCheckIntervalSeconds}s");
+
+            // Update the value display
+            if (StickyTDPIntervalValue != null)
+            {
+                StickyTDPIntervalValue.Text = $"{stickyTDPCheckIntervalSeconds}s";
+            }
+
+            // Restart timer with new interval if it's running
+            if (StickyTDPToggle?.IsOn == true)
+            {
+                StopStickyTDPTimer();
+                StartStickyTDPTimer();
+            }
+        }
+
+        private void StartStickyTDPTimer()
+        {
+            if (stickyTDPTimer == null)
+            {
+                stickyTDPTimer = new DispatcherTimer();
+                stickyTDPTimer.Tick += StickyTDPTimer_Tick;
+            }
+
+            stickyTDPTimer.Interval = TimeSpan.FromSeconds(stickyTDPCheckIntervalSeconds);
+            stickyTDPTimer.Start();
+            Logger.Info($"Sticky TDP timer started with {stickyTDPCheckIntervalSeconds}s interval");
+        }
+
+        private void StopStickyTDPTimer()
+        {
+            if (stickyTDPTimer != null)
+            {
+                stickyTDPTimer.Stop();
+                Logger.Info("Sticky TDP timer stopped");
+            }
+        }
+
+        private async void StickyTDPTimer_Tick(object sender, object e)
+        {
+            try
+            {
+                // Smart check: Only reapply if current hardware TDP differs from target
+                // Parse STAPM limit from currentTdp (format: "STAPM:21W FAST:21W SLOW:21W")
+                int currentStapmLimit = -1;
+                if (currentTdp != null && !string.IsNullOrEmpty(currentTdp.Value))
+                {
+                    var parts = currentTdp.Value.Split(' ');
+                    foreach (var part in parts)
+                    {
+                        if (part.StartsWith("STAPM:"))
+                        {
+                            var valueStr = part.Substring(6).Replace("W", "");
+                            if (int.TryParse(valueStr, out currentStapmLimit))
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Check if hardware TDP matches our target
+                if (currentStapmLimit == (int)targetTDPLimit)
+                {
+                    Logger.Info($"Sticky TDP: Hardware STAPM limit ({currentStapmLimit}W) matches target ({targetTDPLimit}W), no action needed.");
+                    return;
+                }
+
+                // Hardware TDP differs from target - need to reapply
+                Logger.Info($"Sticky TDP: Hardware STAPM limit ({currentStapmLimit}W) differs from target ({targetTDPLimit}W), reapplying...");
+
+                // Set flag to prevent slider UI flicker during reapply
+                isStickyTDPReapplying = true;
+
+                // To force the helper to actually apply the TDP (even if its internal value matches),
+                // we need to change the value first, then set it to the target.
+                // This triggers NotifyPropertyChanged -> Manager.SetTDP() in the helper.
+                if (App.Connection != null)
+                {
+                    // Calculate a different value to force a change
+                    int tempValue = (int)targetTDPLimit == 15 ? 16 : (int)targetTDPLimit - 1;
+
+                    // First, set to temp value to force a change
+                    var tempRequest = new Windows.Foundation.Collections.ValueSet
+                    {
+                        { "Command", (int)Shared.Enums.Command.Set },
+                        { "Function", (int)Shared.Enums.Function.TDP },
+                        { "Content", tempValue },
+                        { "UpdatedTime", DateTimeOffset.Now.Ticks }
+                    };
+                    await App.Connection.SendMessageAsync(tempRequest);
+
+                    // Small delay to ensure the temp value is processed
+                    await Task.Delay(50);
+
+                    // Then set to actual target value
+                    var targetRequest = new Windows.Foundation.Collections.ValueSet
+                    {
+                        { "Command", (int)Shared.Enums.Command.Set },
+                        { "Function", (int)Shared.Enums.Function.TDP },
+                        { "Content", (int)targetTDPLimit },
+                        { "UpdatedTime", DateTimeOffset.Now.Ticks }
+                    };
+
+                    var response = await App.Connection.SendMessageAsync(targetRequest);
+                    if (response != null && response.Message != null)
+                    {
+                        Logger.Info($"Sticky TDP: Successfully reapplied TDP {targetTDPLimit}W to hardware.");
+                    }
+                    else
+                    {
+                        Logger.Warn($"Sticky TDP: Got no response from helper when setting TDP.");
+                    }
+
+                    // Small delay to ensure helper messages are processed before clearing flag
+                    await Task.Delay(100);
+                }
+                else
+                {
+                    Logger.Warn("Sticky TDP: No connection to helper app.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in Sticky TDP timer: {ex.Message}");
+            }
+            finally
+            {
+                // Clear flag to allow normal slider updates
+                isStickyTDPReapplying = false;
+            }
         }
 
         private async void PowerManager_PowerSourceChanged(object sender, object e)
@@ -1434,6 +1607,14 @@ namespace XboxGamingBar
                 PowerSourceProfileToggle.Toggled -= PowerSourceProfileToggle_Toggled;
             }
 
+            // Stop Sticky TDP timer
+            StopStickyTDPTimer();
+            if (stickyTDPTimer != null)
+            {
+                stickyTDPTimer.Tick -= StickyTDPTimer_Tick;
+                stickyTDPTimer = null;
+            }
+
             // Unregister this instance as the active widget
             Logger.Info("Unregistering this GamingWidget instance as the active widget.");
             App.UnregisterActiveGamingWidget(this);
@@ -1619,11 +1800,19 @@ namespace XboxGamingBar
 
                     // Sync properties since we're already connected
                     Logger.Info("Syncing properties with helper since connection already exists...");
-                    await properties.Sync();
-                    Logger.Info("Property sync completed.");
+                    try
+                    {
+                        isApplyingHelperUpdate = true;
+                        await properties.Sync();
+                        Logger.Info("Property sync completed.");
 
-                    // Register Chill FPS handlers after first sync to prevent crash
-                    RegisterChillFPSHandlers();
+                        // Register Chill FPS handlers after first sync to prevent crash
+                        RegisterChillFPSHandlers();
+                    }
+                    finally
+                    {
+                        isApplyingHelperUpdate = false;
+                    }
                 }
             }
 
@@ -1834,6 +2023,8 @@ namespace XboxGamingBar
             Logger.Info("Starting property sync with helper...");
             try
             {
+                // Set flag to prevent Sticky TDP target from updating during sync
+                isApplyingHelperUpdate = true;
                 await properties.Sync();
                 Logger.Info("Property sync completed successfully.");
 
@@ -1845,6 +2036,10 @@ namespace XboxGamingBar
                 Logger.Error($"Error during property sync: {ex}");
                 Logger.Error($"Exception Type: {ex.GetType().FullName}");
                 Logger.Error($"Stack Trace: {ex.StackTrace}");
+            }
+            finally
+            {
+                isApplyingHelperUpdate = false;
             }
 
             Logger.Info("=== GamingWidget_AppServiceConnected END ===");
@@ -2036,6 +2231,22 @@ namespace XboxGamingBar
                 }
 
                 Logger.Info($"Widget received message {args.Request.Message.ToDebugString()} from helper.");
+
+                // Skip TDP and CurrentTDP updates during Sticky TDP reapply to prevent flicker and race conditions
+                if (isStickyTDPReapplying && args.Request.Message.ContainsKey("Function"))
+                {
+                    var function = (int)args.Request.Message["Function"];
+                    if (function == (int)Shared.Enums.Function.TDP)
+                    {
+                        Logger.Info("Skipping TDP slider update during Sticky TDP reapply to prevent flicker.");
+                        return;
+                    }
+                    if (function == (int)Shared.Enums.Function.CurrentTDP)
+                    {
+                        Logger.Info("Skipping CurrentTDP update during Sticky TDP reapply to prevent race condition.");
+                        return;
+                    }
+                }
 
                 // Set flag to prevent auto-save when helper updates slider values
                 isApplyingHelperUpdate = true;

@@ -205,7 +205,7 @@ namespace XboxGamingBarHelper.Performance
                 var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
 
                 // Only show limits (power consumption methods not working on this hardware)
-                initialCurrentTDP = $"S:{stapm}W F:{fast}W L:{slow}W";
+                initialCurrentTDP = $"STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W";
                 Logger.Info($"RyzenAdj initialized successfully - Stapm: {stapm}W, Fast: {fast}W, Slow: {slow}W");
             }
 
@@ -314,7 +314,7 @@ namespace XboxGamingBarHelper.Performance
                 var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
 
                 // Only show limits (power consumption methods not working on this hardware)
-                var newTdpString = $"S:{stapm}W F:{fast}W L:{slow}W";
+                var newTdpString = $"STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W";
                 Logger.Debug($"UpdateCurrentTDP: Read values - {newTdpString}");
 
                 // Only update if value has changed to reduce IPC traffic
