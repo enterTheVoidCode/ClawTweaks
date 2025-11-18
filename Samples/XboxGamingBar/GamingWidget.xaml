@@ -8,8 +8,7 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    d:DesignHeight="670" d:DesignWidth="464"
-    Background="#1A1A1A">
+    d:DesignHeight="670" d:DesignWidth="600">
 
     <Page.Resources>
         <!-- Existing Converters -->
@@ -21,16 +20,16 @@
 
         <!-- Card Style -->
         <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="#252525"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="16"/>
             <Setter Property="Margin" Value="0,0,0,12"/>
-            <Setter Property="BorderBrush" Value="#3A3A3A"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
-        <!-- Navigation Item Style with Focus -->
+        <!-- Navigation Item Style with Focus - Optimized for Handheld -->
         <Style x:Key="NavItemStyle" TargetType="muxc:NavigationViewItem">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FocusVisualPrimaryBrush" Value="#00C8FF"/>
             <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
         </Style>
@@ -43,11 +42,21 @@
             <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
 
+        <!-- Card Title Style - Compact Mode -->
+        <Style x:Key="CardTitleStyleCompact" TargetType="TextBlock" BasedOn="{StaticResource CardTitleStyle}">
+            <Setter Property="FontSize" Value="18"/>
+        </Style>
+
         <!-- Card Caption Style -->
         <Style x:Key="CardCaptionStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="#A0A0A0"/>
             <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+
+        <!-- Card Caption Style - Compact Mode -->
+        <Style x:Key="CardCaptionStyleCompact" TargetType="TextBlock" BasedOn="{StaticResource CardCaptionStyle}">
+            <Setter Property="FontSize" Value="14"/>
         </Style>
 
         <!-- Card Value Style -->
@@ -59,24 +68,100 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
-        <!-- Modern Toggle Style -->
+        <!-- Card Value Style - Compact Mode -->
+        <Style x:Key="CardValueStyleCompact" TargetType="TextBlock" BasedOn="{StaticResource CardValueStyle}">
+            <Setter Property="FontSize" Value="20"/>
+        </Style>
+
+        <!-- Modern Toggle Style - Simplified for proper mouse/touch support -->
         <Style x:Key="ModernToggleStyle" TargetType="ToggleSwitch">
-            <Setter Property="MinWidth" Value="0"/>
-            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="MinWidth" Value="44"/>
+            <Setter Property="MinHeight" Value="20"/>
             <Setter Property="HorizontalAlignment" Value="Right"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="OffContent" Value=""/>
+            <Setter Property="OnContent" Value=""/>
             <Setter Property="FocusVisualPrimaryBrush" Value="#00C8FF"/>
             <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
         </Style>
 
-        <!-- Modern Slider Style -->
+        <!-- Modern Slider Style - WinUI 3 Style -->
         <Style x:Key="ModernSliderStyle" TargetType="Slider">
             <Setter Property="Margin" Value="0,8,0,0"/>
-            <Setter Property="Height" Value="48"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Foreground" Value="#00C8FF"/>
-            <Setter Property="Background" Value="#3A3A3A"/>
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="FocusVisualPrimaryBrush" Value="#00C8FF"/>
             <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+            <Setter Property="FocusVisualMargin" Value="-3"/>
+            <Setter Property="UseSystemFocusVisuals" Value="True"/>
+            <Setter Property="ManipulationMode" Value="None"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid Margin="{TemplateBinding Padding}">
+                            <Grid.Resources>
+                                <Style x:Key="SliderThumbStyle" TargetType="Thumb">
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Background" Value="White"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Ellipse Fill="{TemplateBinding Background}"
+                                                        Width="20"
+                                                        Height="20"
+                                                        Stroke="#00C8FF"
+                                                        StrokeThickness="2"/>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Grid.Resources>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Grid x:Name="SliderContainer" Grid.Row="1" Height="32" VerticalAlignment="Center">
+                                <Grid x:Name="HorizontalTemplate">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <!-- Track Background -->
+                                    <Rectangle x:Name="HorizontalTrackRect"
+                                              Grid.ColumnSpan="3"
+                                              Fill="#3A3A3A"
+                                              Height="4"
+                                              RadiusX="2"
+                                              RadiusY="2"
+                                              VerticalAlignment="Center"/>
+                                    <!-- Filled Track -->
+                                    <Rectangle x:Name="HorizontalDecreaseRect"
+                                              Grid.Column="0"
+                                              Fill="#00C8FF"
+                                              Height="4"
+                                              RadiusX="2"
+                                              RadiusY="2"
+                                              VerticalAlignment="Center"/>
+                                    <!-- Thumb -->
+                                    <Thumb x:Name="HorizontalThumb"
+                                          Grid.Column="1"
+                                          Style="{StaticResource SliderThumbStyle}"
+                                          DataContext="{TemplateBinding Value}"
+                                          Height="20"
+                                          Width="20"
+                                          AutomationProperties.AccessibilityView="Raw"/>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- Modern ComboBox Style -->
@@ -100,7 +185,7 @@
                         IsBackButtonVisible="Collapsed"
                         IsSettingsVisible="False"
                         IsPaneToggleButtonVisible="False"
-                        PaneDisplayMode="Left"
+                        PaneDisplayMode="Top"
                         OpenPaneLength="140"
                         CompactModeThresholdWidth="0"
                         ExpandedModeThresholdWidth="0"
@@ -108,51 +193,47 @@
                         SelectionChanged="MainNavigationView_SelectionChanged">
 
             <muxc:NavigationView.MenuItems>
-                <muxc:NavigationViewItem Content="⚡ PERF" Tag="Performance" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem Content="👤 PROFILES" Tag="Game" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem Content="🎨 GRAPHICS" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem Content="⚙️ SYSTEM" Tag="System" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem Content="Performance" Tag="Performance" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem Content="Profiles" Tag="Game" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem Content="Graphics" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem Content="System" Tag="System" Style="{StaticResource NavItemStyle}"/>
             </muxc:NavigationView.MenuItems>
 
             <!-- PERFORMANCE TAB -->
             <Grid>
                 <ScrollViewer x:Name="PerformanceScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Visible">
-                    <StackPanel Padding="16">
+                    <StackPanel Padding="16,0,16,16">
 
                         <!-- Active Profile Indicator -->
-                        <Border Style="{StaticResource CardStyle}" Background="#1A3A3A">
+                        <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <Grid>
                                     <TextBlock Text="Using profile:"
                                                FontSize="12"
                                                Foreground="#AAAAAA"
-                                               VerticalAlignment="Center"/>
+                                               VerticalAlignment="Top" Margin="4,1,-5,0"/>
                                     <TextBlock x:Name="ActiveProfileText"
                                                Text="Global Settings"
                                                FontSize="14"
                                                FontWeight="SemiBold"
                                                Foreground="#00C8FF"
-                                               HorizontalAlignment="Right"
-                                               VerticalAlignment="Center"/>
+                                               HorizontalAlignment="Left"
+                                               VerticalAlignment="Top" Margin="0,26,0,0"/>
                                 </Grid>
 
                                 <!-- Per-Game Profile Toggle -->
                                 <Grid Margin="0,12,0,0">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0"
                                                Text="Use per-game profile"
                                                FontSize="12"
-                                               Foreground="#FFFFFF"
-                                               VerticalAlignment="Center"/>
+                                               Foreground="#FFFFFF" Grid.ColumnSpan="2" Margin="2,0,152,24"/>
                                     <ToggleSwitch x:Name="PerGameProfileToggle"
-                                                  Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"
-                                                  OffContent=""
-                                                  OnContent=""/>
+                                                  IsEnabled="False" Grid.ColumnSpan="2" HorizontalAlignment="Left" Margin="379,0,0,0"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -160,21 +241,22 @@
                         <!-- Performance Overlay Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <Grid>
-                                    <TextBlock Text="Performance Overlay" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock x:Name="PerformanceOverlayValueText"
-                                               Text="{Binding ElementName=PerformanceOverlaySlider, Path=Value}"
-                                               Style="{StaticResource CardValueStyle}"/>
-                                </Grid>
+                                <TextBlock Text="Performance Overlay" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+
+                                <!-- Horizontal StackPanel for RadioButtons -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="2">
+                                    <RadioButton x:Name="OverlayOff" Content="Off" GroupName="PerformanceOverlay" Tag="0" IsChecked="True" Checked="PerformanceOverlayRadio_Checked" Width="60"/>
+                                    <RadioButton x:Name="OverlayBasic" Content="Basic" GroupName="PerformanceOverlay" Tag="1" Checked="PerformanceOverlayRadio_Checked"/>
+                                    <RadioButton x:Name="OverlayDetailed" Content="Detailed" GroupName="PerformanceOverlay" Tag="2" Checked="PerformanceOverlayRadio_Checked"/>
+                                    <RadioButton x:Name="OverlayFull" Content="Full" GroupName="PerformanceOverlay" Tag="3" Checked="PerformanceOverlayRadio_Checked"/>
+                                </StackPanel>
+
+                                <!-- Hidden slider for property system compatibility -->
                                 <Slider x:Name="PerformanceOverlaySlider"
-                                        Style="{StaticResource ModernSliderStyle}"
+                                        Visibility="Collapsed"
                                         Minimum="0" Maximum="3"
-                                        TickFrequency="1"
-                                        SnapsTo="Ticks"
-                                        IsEnabled="False"/>
-                                <TextBlock Text="Off • Basic • Detailed • Full"
-                                           Style="{StaticResource CardCaptionStyle}"
-                                           TextAlignment="Center"/>
+                                        Value="0"
+                                        ValueChanged="PerformanceOverlaySlider_ValueChanged"/>
                             </StackPanel>
                         </Border>
 
@@ -220,11 +302,8 @@
                                     <TextBlock Text="Precision Boost Overdrive" Style="{StaticResource CardCaptionStyle}"/>
                                 </StackPanel>
                                 <ToggleSwitch x:Name="CPUBoostToggle"
-                                              Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False"
-                                              OffContent=""
-                                              OnContent=""/>
+                                              IsEnabled="False" HorizontalAlignment="Left" Margin="379,0,0,0" Width="154"/>
                             </Grid>
                         </Border>
 
@@ -270,9 +349,7 @@
                                     <ToggleSwitch x:Name="LimitCPUClockToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"
-                                                  OffContent=""
-                                                  OnContent=""/>
+                                                  IsEnabled="False"/>
                                 </Grid>
                                 <Slider x:Name="CPUClockMaxSlider"
                                         Style="{StaticResource ModernSliderStyle}"
@@ -291,7 +368,7 @@
 
                 <!-- GAME TAB -->
                 <ScrollViewer x:Name="GameScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-                    <StackPanel Padding="16">
+                    <StackPanel Padding="16,0,16,16">
 
                         <!-- Power Source Profile Card -->
                         <Border Style="{StaticResource CardStyle}">
@@ -308,16 +385,14 @@
                                 </StackPanel>
                                 <ToggleSwitch x:Name="PowerSourceProfileToggle"
                                               Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              OffContent=""
-                                              OnContent=""/>
+                                              Style="{StaticResource ModernToggleStyle}"/>
                             </Grid>
                         </Border>
 
                         <!-- Current Game Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <TextBlock Text="🎮 Current Game" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Current Game" Style="{StaticResource CardTitleStyle}"/>
                                 <TextBlock x:Name="RunningGameText"
                                            Text="No game detected"
                                            FontSize="16"
@@ -335,9 +410,9 @@
                                    Margin="0,16,0,8"/>
 
                         <!-- Global Profile Card -->
-                        <Border Style="{StaticResource CardStyle}" Background="#1A3A1A">
+                        <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <TextBlock Text="🌐 Global"
+                                <TextBlock Text="Global"
                                            Style="{StaticResource CardTitleStyle}"
                                            Foreground="#00FF88"
                                            FontSize="14"/>
@@ -380,8 +455,8 @@
 
                                     <!-- Header -->
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="" FontSize="11" Foreground="#AAAAAA"/>
-                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="⚡ AC" FontSize="11" Foreground="#FFD700" HorizontalAlignment="Center"/>
-                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="🔋 DC" FontSize="11" Foreground="#FF6B6B" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="AC" FontSize="11" Foreground="#FFD700" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="DC" FontSize="11" Foreground="#FF6B6B" HorizontalAlignment="Center"/>
 
                                     <!-- TDP Row -->
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
@@ -402,12 +477,12 @@
                         </Border>
 
                         <!-- Game Profile Card (shown when game is detected) -->
-                        <Border x:Name="GameProfileCard" Style="{StaticResource CardStyle}" Background="#3A2A1A" Visibility="Collapsed" Margin="0,8,0,0">
+                        <Border x:Name="GameProfileCard" Style="{StaticResource CardStyle}" Visibility="Collapsed" Margin="0,8,0,0">
                             <StackPanel>
                                 <!-- Game Profile with Power Source -->
                                 <StackPanel x:Name="GameProfileWithPowerSource" Visibility="Collapsed">
                                     <TextBlock x:Name="GameProfileTitleWithPower"
-                                               Text="🎮 Game"
+                                               Text="Game"
                                                Style="{StaticResource CardTitleStyle}"
                                                Foreground="#FFA500"
                                                FontSize="14"/>
@@ -449,7 +524,7 @@
                                 <!-- Game Profile without Power Source -->
                                 <StackPanel x:Name="GameProfileWithoutPowerSource" Visibility="Collapsed">
                                     <TextBlock x:Name="GameProfileTitleNoPower"
-                                               Text="🎮 Game"
+                                               Text="Game"
                                                Style="{StaticResource CardTitleStyle}"
                                                Foreground="#FFA500"
                                                FontSize="14"/>
@@ -492,7 +567,7 @@
 
                 <!-- GRAPHICS TAB -->
                 <ScrollViewer x:Name="AMDScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-                    <StackPanel Padding="16">
+                    <StackPanel Padding="16,0,16,16">
 
                         <!-- Refresh Rate Card -->
                         <Border Style="{StaticResource CardStyle}">
@@ -526,14 +601,12 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Radeon Super Resolution" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="🔍 Upscales lower resolutions" Style="{StaticResource CardCaptionStyle}"/>
+                                        <TextBlock Text="Upscales lower resolutions" Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="AMDRadeonSuperResolutionToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"
-                                                  OffContent=""
-                                                  OnContent=""/>
+                                                  IsEnabled="False"/>
                                 </Grid>
                                 <Slider x:Name="AMDRadeonSuperResolutionSharpnessSlider"
                                         Style="{StaticResource ModernSliderStyle}"
@@ -556,14 +629,12 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="Fluid Motion Frames" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="🎬 Frame generation" Style="{StaticResource CardCaptionStyle}"/>
+                                    <TextBlock Text="Frame generation" Style="{StaticResource CardCaptionStyle}"/>
                                 </StackPanel>
                                 <ToggleSwitch x:Name="AMDFluidMotionFrameToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False"
-                                              OffContent=""
-                                              OnContent=""/>
+                                              IsEnabled="False"/>
                             </Grid>
                         </Border>
 
@@ -576,14 +647,12 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="Radeon Anti-Lag" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="⚡ Reduces input latency" Style="{StaticResource CardCaptionStyle}"/>
+                                    <TextBlock Text="Reduces input latency" Style="{StaticResource CardCaptionStyle}"/>
                                 </StackPanel>
                                 <ToggleSwitch x:Name="AMDRadeonAntiLagToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False"
-                                              OffContent=""
-                                              OnContent=""/>
+                                              IsEnabled="False"/>
                             </Grid>
                         </Border>
 
@@ -597,14 +666,12 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Radeon Boost" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="🖼️ Dynamic resolution scaling" Style="{StaticResource CardCaptionStyle}"/>
+                                        <TextBlock Text="Dynamic resolution scaling" Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="AMDRadeonBoostToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"
-                                                  OffContent=""
-                                                  OnContent=""/>
+                                                  IsEnabled="False"/>
                                 </Grid>
                                 <Slider x:Name="AMDRadeonBoostResolutionSlider"
                                         Style="{StaticResource ModernSliderStyle}"
@@ -627,14 +694,12 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Radeon Chill" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="🌡️ Power saving when idle" Style="{StaticResource CardCaptionStyle}"/>
+                                        <TextBlock Text="Power saving when idle" Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="AMDRadeonChillToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"
-                                                  OffContent=""
-                                                  OnContent=""/>
+                                                  IsEnabled="False"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=AMDRadeonChillToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Slider x:Name="AMDRadeonChillMinFPSSlider"
@@ -662,12 +727,12 @@
 
                 <!-- SYSTEM TAB -->
                 <ScrollViewer x:Name="SystemScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-                    <StackPanel Padding="16">
+                    <StackPanel Padding="16,0,16,16">
 
                         <!-- Profile Settings Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <TextBlock Text="⚙️ Profile Settings" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Profile Settings" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
                                 <TextBlock Text="Choose which settings are saved in profiles"
                                            FontSize="12"
                                            Foreground="#A0A0A0"
@@ -705,7 +770,7 @@
                         <!-- About Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <TextBlock Text="ℹ️ About" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="About" Style="{StaticResource CardTitleStyle}"/>
                                 <TextBlock Text="Version: 0.3.31"
                                            FontSize="14"
                                            Foreground="#A0A0A0"
