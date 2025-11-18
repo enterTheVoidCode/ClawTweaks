@@ -1,22 +1,23 @@
 ﻿using Microsoft.Win32;
+using Shared.Utilities;
 using System;
-using System.Diagnostics;
-//using XboxGamingBarHelper.Windows;
-//using System.Windows.Forms;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Windows.ApplicationModel.AppService;
+using Windows.System;
+using Windows.UI.Input.Preview.Injection;
 using XboxGamingBarHelper.AMD.Properties;
 using XboxGamingBarHelper.AMD.Settings;
 using XboxGamingBarHelper.OnScreenDisplay;
-//using XboxGamingBarHelper.Settings;
-using Windows.UI.Input.Preview.Injection;
-using Windows.System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace XboxGamingBarHelper.AMD
 {
     internal class AMDManager : OnScreenDisplayManager
     {
+        // START IOnScreenDisplayProvider implementation
+        public override bool IsInstalled => AMDHelper.IsInstalled();
+        // END IOnScreenDisplayProvider implementation
+
         // AMD Software stuff
         // Computer\HKEY_CURRENT_USER\Software\AMD\CN\Performance
         private static readonly RegistryKey AMD_PERFORMANCE_KEY_ROOT = Registry.CurrentUser;

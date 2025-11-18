@@ -13,6 +13,10 @@ namespace XboxGamingBarHelper.RTSS
 {
     internal class RTSSManager : OnScreenDisplayManager
     {
+        // START IOnScreenDisplayProvider implementation
+        public override bool IsInstalled => RTSSHelper.IsInstalled();
+        // END IOnScreenDisplayProvider implementation
+
         private const string OSDSeparator = " <C=6E006A>|<C> ";
         private const string OSDBackground = "<P=0,0><L0><C=80000000><B=0,0>\b<C>";
         private const string OSDAppName = "Xbox Gaming Bar OSD";
@@ -20,18 +24,11 @@ namespace XboxGamingBarHelper.RTSS
         private OSD rtssOSD;
         private readonly OSDItem[] osdItems;
 
-        private readonly RTSSInstalledProperty rtssInstalled;
-        public RTSSInstalledProperty RTSSInstalled
-        {
-            get { return rtssInstalled; }
-        }
-
         private RivatunerStatisticsServerState rtssState;
 
         public RTSSManager(PerformanceManager performanceManager, AppServiceConnection connection) : base(connection)
         {
             
-            rtssInstalled = new RTSSInstalledProperty(this);
             osdItems = new OSDItem[]
             {
                 new OSDItemFPS(),
@@ -49,8 +46,6 @@ namespace XboxGamingBarHelper.RTSS
             base.Update();
 
             var isRTSSInstalled = RTSSHelper.IsInstalled();
-            if (rtssInstalled.Value != isRTSSInstalled)
-                rtssInstalled.SetValue(isRTSSInstalled);
 
             if (!isRTSSInstalled)
             {

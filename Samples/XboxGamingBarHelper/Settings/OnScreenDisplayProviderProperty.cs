@@ -13,8 +13,12 @@ namespace XboxGamingBarHelper.Settings
         {
             base.NotifyPropertyChanged(propertyName);
 
-            Logger.Info($"Change On-Screen Display provider to item {Value} in list of {Program.onScreenDisplayProviders.Count} items: {(Value == 0 ? "Rivatuner Statistics Server" : "AMD Software: Adrenaline Edition")}");
-            Program.onScreenDisplay.ChangeManager(Program.onScreenDisplayProviders[Value]);
+            if (Value >= 0 && Value < Program.onScreenDisplayProviders.Count)
+            {
+                var newOnScreenDisplayProvider = Program.onScreenDisplayProviders[Value];
+                Logger.Info($"Change On-Screen Display provider to item {Value}: {newOnScreenDisplayProvider.GetType().Name}");
+                Program.onScreenDisplay.ChangeManager(newOnScreenDisplayProvider);
+            }
         }
     }
 }

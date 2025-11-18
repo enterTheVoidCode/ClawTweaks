@@ -54,7 +54,7 @@ namespace XboxGamingBar
         private readonly RefreshRatesProperty refreshRates;
         private readonly RefreshRateProperty refreshRate;
         private readonly TrackedGameProperty trackedGame;
-        private readonly RTSSInstalledProperty rtssInstalled;
+        private readonly OnScreenDisplayProviderInstalledProperty onScreenDisplayProviderInstalled;
         private readonly IsForegroundProperty isForeground;
 
         // AMD properties
@@ -89,7 +89,7 @@ namespace XboxGamingBar
             refreshRates = new RefreshRatesProperty(RefreshRatesComboBox, this);
             refreshRate = new RefreshRateProperty(RefreshRatesComboBox, this);
             trackedGame = new TrackedGameProperty(new TrackedGame());
-            rtssInstalled = new RTSSInstalledProperty(PerformanceOverlaySlider, this);
+            onScreenDisplayProviderInstalled = new OnScreenDisplayProviderInstalledProperty(PerformanceOverlaySlider, this);
             isForeground = new IsForegroundProperty();
             amdRadeonSuperResolutionEnabled = new AMDRadeonSuperResolutionEnabledProperty(AMDRadeonSuperResolutionToggle, this);
             amdRadeonSuperResolutionSupported = new AMDRadeonSuperResolutionSupportedProperty(AMDRadeonSuperResolutionToggle, this);
@@ -118,7 +118,7 @@ namespace XboxGamingBar
                 refreshRates,
                 refreshRate,
                 trackedGame,
-                rtssInstalled,
+                onScreenDisplayProviderInstalled,
                 isForeground,
                 amdRadeonSuperResolutionEnabled,
                 amdRadeonSuperResolutionSupported,

@@ -32,6 +32,12 @@ namespace XboxGamingBarHelper.Settings
             get { return onScreenDisplayProvider; }
         }
 
+        private readonly OnScreenDisplayProviderInstalledProperty onScreenDisplayProviderInstalled;
+        public OnScreenDisplayProviderInstalledProperty OnScreenDisplayProviderInstalled
+        {
+            get { return onScreenDisplayProviderInstalled; }
+        }
+
         private readonly IsForegroundProperty isForeground;
         public IsForegroundProperty IsForeground
         {
@@ -42,7 +48,16 @@ namespace XboxGamingBarHelper.Settings
         {
             autoStartRTSS = new AutoStartRTSSProperty(this);
             onScreenDisplayProvider = new OnScreenDisplayProviderProperty(this);
+            onScreenDisplayProviderInstalled = new OnScreenDisplayProviderInstalledProperty(this);
             isForeground = new IsForegroundProperty(this);
+        }
+
+        public override void Update()
+        {
+            base.Update();
+
+            Logger.Info($"On-Screen Display provider {Program.onScreenDisplay.Manager.GetType().Name} is {(Program.onScreenDisplay.Manager.IsInstalled ? "installed" : "not installed")}.");
+            onScreenDisplayProviderInstalled.SetValue(Program.onScreenDisplay.Manager.IsInstalled);
         }
     }
 }

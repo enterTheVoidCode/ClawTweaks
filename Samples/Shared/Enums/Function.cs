@@ -14,7 +14,6 @@
         RefreshRates,
         RefreshRate,
         TrackedGame,
-        RTSSInstalled,
         AMDRadeonSuperResolutionSupported,
         AMDRadeonSuperResolutionEnabled,
         AMDRadeonSuperResolutionSharpness,
@@ -33,5 +32,6 @@
 
         Settings_AutoStartRTSS,
         Settings_OnScreenDisplayProvider,
+        Settings_OnScreenDisplayProviderInstalled
     }
 }

@@ -18,7 +18,7 @@ namespace XboxGamingBar.Data
         {
             //Logger.Info($"On-Screen Display changed to {(e.AddedItems.Count > 0 ? e.AddedItems[0].ToString() : "NO_ITEM")} index {UI.SelectedIndex}");
             Logger.Info($"On-Screen Display changed to index {UI.SelectedIndex}");
-            if (Value != UI.SelectedIndex)
+            if (UI.SelectedIndex >= 0 && Value != UI.SelectedIndex)
             {
                 SetValue(UI.SelectedIndex);
             }

@@ -11,7 +11,7 @@
   <Identity
     Name="PlayandBuild.10365195AA1EC"
     Publisher="CN=632C25E4-B6CB-4B80-A9DB-AAB4012EE37A"
-    Version="0.3.2.1" />
+    Version="0.3.3.0" />
 
   <Properties>
     <DisplayName>Xbox Gaming Bar</DisplayName>

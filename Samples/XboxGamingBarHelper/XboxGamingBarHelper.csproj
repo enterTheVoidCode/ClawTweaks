@@ -400,7 +400,7 @@
     <Compile Include="RTSS\OSDItems\OSDItemMemory.cs" />
     <Compile Include="RTSS\OSDItemValue.cs" />
     <Compile Include="OnScreenDisplay\OnScreenDisplayProperty.cs" />
-    <Compile Include="RTSS\RTSSInstalledProperty.cs" />
+    <Compile Include="Settings\OnScreenDisplayProviderInstalledProperty.cs" />
     <Compile Include="RTSS\RTSSManager.cs" />
     <Compile Include="Settings\AutoStartRTSSProperty.cs" />
     <Compile Include="Settings\SettingsManager.cs" />

@@ -32,7 +32,7 @@ namespace XboxGamingBar
 
             autoStartRTSS = new AutoStartRTSSProperty(AutoStartRTSSToggle, this);
             onScreenDisplayProvider = new OnScreenDisplayProviderProperty(OnScreenDisplayProviderRadioButtons, this);
-            properties = new WidgetProperties(autoStartRTSS);
+            properties = new WidgetProperties(autoStartRTSS, onScreenDisplayProvider);
         }
 
         protected async override void OnNavigatedTo(NavigationEventArgs e)
