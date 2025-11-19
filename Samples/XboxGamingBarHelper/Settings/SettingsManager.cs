@@ -56,7 +56,7 @@ namespace XboxGamingBarHelper.Settings
         {
             base.Update();
 
-            Logger.Info($"On-Screen Display provider {Program.onScreenDisplay.Manager.GetType().Name} is {(Program.onScreenDisplay.Manager.IsInstalled ? "installed" : "not installed")}.");
+            Logger.Debug($"On-Screen Display provider {Program.onScreenDisplay.Manager.GetType().Name} is {(Program.onScreenDisplay.Manager.IsInstalled ? "installed" : "not installed")}.");
             onScreenDisplayProviderInstalled.SetValue(Program.onScreenDisplay.Manager.IsInstalled);
         }
     }

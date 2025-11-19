@@ -44,6 +44,7 @@ namespace Shared.Data
             };
             request = AddValueSetContent(request);
 
+            Logger.Info($"Property {function} changed to {GetValue()}, send message Set.");
             var sentMessage = SendMessageAsync(request);
             if (sentMessage == null)
             {

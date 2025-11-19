@@ -169,6 +169,10 @@ namespace XboxGamingBar
                 App.AppServiceDisconnected += GamingWidget_AppServiceDisconnected;
                 await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
             }
+            else
+            {
+                Logger.Info($"App.Connection:{(App.Connection == null ? "null" : "not_null")} FullTrustAppContract:{(ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0) ? "present" : "not_present")}");
+            }
         }
 
         public async Task GamingWidget_LeavingBackground(object sender, LeavingBackgroundEventArgs e)
@@ -232,6 +236,7 @@ namespace XboxGamingBar
         /// </summary>
         private async void GamingWidget_AppServiceConnected(object sender, AppServiceTriggerDetails e)
         {
+            Logger.Info("GamingWidget AppService connected.");
             if (widget != null)
             {
                 if (widgetActivity == null)

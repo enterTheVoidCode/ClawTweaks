@@ -197,7 +197,6 @@ namespace Shared.Data
 
                 if (identical)
                 {
-
                     Logger.Debug($"Skip value list of {Function} because it equals to current value.");
                     lastUpdatedTime = updatedTime;
                     return true;
