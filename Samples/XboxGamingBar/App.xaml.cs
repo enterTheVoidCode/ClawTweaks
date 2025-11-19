@@ -75,7 +75,23 @@ namespace XboxGamingBar
 
                     Connection = details.AppServiceConnection;
                     AppServiceConnected?.Invoke(this, args.TaskInstance.TriggerDetails as AppServiceTriggerDetails);
+                    Connection.RequestReceived += Connection_RequestReceived;
                 }
+            }
+        }
+
+        private async void Connection_RequestReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
+        {
+            Logger.Info("App service request received");
+
+            if (gamingWidget != null)
+            {
+                await gamingWidget.RequestReceived(sender, args);
+            }
+
+            if (gamingWidgetSettings != null)
+            {
+                await gamingWidgetSettings.RequestReceived(sender, args);
             }
         }
 
@@ -137,6 +153,7 @@ namespace XboxGamingBar
 
                     if (widgetArgs.AppExtensionId == "GamingWidget")
                     {
+                        Logger.Info("App extension GamingWidget");
                         // Create Game Bar widget object which bootstraps the connection with Game Bar
                         gamingXboxGameBarWidget = new XboxGameBarWidget(widgetArgs, Window.Current.CoreWindow, rootFrame);
                         rootFrame.Navigate(typeof(GamingWidget), gamingXboxGameBarWidget);
@@ -146,6 +163,7 @@ namespace XboxGamingBar
                     }
                     else if (widgetArgs.AppExtensionId == "GamingWidgetSettings")
                     {
+                        Logger.Info("App extension GamingWidgetSettings");
                         gamingSettingsXboxGameBarWidget = new XboxGameBarWidget(widgetArgs, Window.Current.CoreWindow, rootFrame);
                         rootFrame.Navigate(typeof(GamingWidgetSettings), gamingSettingsXboxGameBarWidget);
                         gamingWidgetSettings = rootFrame.Content as GamingWidgetSettings;

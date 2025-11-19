@@ -171,7 +171,7 @@ namespace XboxGamingBar
             }
             else
             {
-                Logger.Info($"App.Connection:{(App.Connection == null ? "null" : "not_null")} FullTrustAppContract:{(ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0) ? "present" : "not_present")}");
+                Logger.Info($"App.Connection:{(App.Connection == null ? "NULL" : "NOT_NULL")} FullTrustAppContract:{(ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0) ? "PRESENT" : "NOT_PRESENT")}");
             }
         }
 
@@ -280,7 +280,6 @@ namespace XboxGamingBar
                 }
             }
 
-            App.Connection.RequestReceived += AppServiceConnection_RequestReceived;
             await properties.Sync();
         }
 
@@ -346,9 +345,9 @@ namespace XboxGamingBar
         /// Handle calculation request from desktop process
         /// (dummy scenario to show that connection is bi-directional)
         /// </summary>
-        private async void AppServiceConnection_RequestReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
+        public async Task RequestReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
         {
-            Logger.Info($"Widget received message {args.Request.Message.ToDebugString()} from helper.");
+            Logger.Info($"GamingWidget received message {args.Request.Message.ToDebugString()} from helper.");
             await properties.OnRequestReceived(args.Request);
         }
     }

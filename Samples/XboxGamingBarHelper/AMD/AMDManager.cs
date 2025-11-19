@@ -160,6 +160,7 @@ namespace XboxGamingBarHelper.AMD
         private readonly Dictionary<int, int> amdOverlayLevelMap;
 
         private long lastUpdate;
+        private string lastLog;
 
         public AMDManager(AppServiceConnection connection) : base(connection)
         {
@@ -450,6 +451,7 @@ namespace XboxGamingBarHelper.AMD
         private async void SetAMDValues()
         {
             var (currentlyOn, currentLevel) = ReadCurrentMetricsProfile();
+            string amdOSDLog = string.Empty;
             if (onScreenDisplayLevel == 0)
             {
                 if (currentlyOn == 1)
@@ -464,12 +466,12 @@ namespace XboxGamingBarHelper.AMD
                     //    Logger.Info("On-Screen Display should be turned OFF but widget is still in foreground..");
                     //}
 
-                    Logger.Info("Turning OFF AMD On-Screen Display.");
+                    amdOSDLog = "Turning OFF AMD On-Screen Display.";
                     inputInjector.InjectKeyboardInput(turnAMDOverlayOnOffKeyboardCombo);
                 }
                 else
                 {
-                    Logger.Info("AMD On-Screen Display is already turned OFF.");
+                    amdOSDLog = "AMD On-Screen Display is already turned OFF.";
                 }
             }
             else
@@ -488,7 +490,7 @@ namespace XboxGamingBarHelper.AMD
 
                     // create once (cache for reuse)
 
-                    Logger.Info("Turning ON AMD On-Screen Display.");
+                    amdOSDLog = "Turning ON AMD On-Screen Display.";
                     inputInjector.InjectKeyboardInput(turnAMDOverlayOnOffKeyboardCombo);
                     await Task.Delay(100);
                 }
@@ -520,8 +522,14 @@ namespace XboxGamingBarHelper.AMD
                 }
                 else
                 {
-                    Logger.Info($"Current AMD On-Screen Display level is {currentLevel} already matches {targetLevel}.");
+                    amdOSDLog = $"Current AMD On-Screen Display level is {currentLevel} already matches {targetLevel}.";
                 }
+            }
+
+            if (amdOSDLog != lastLog)
+            {
+                Logger.Info(amdOSDLog);
+                lastLog = amdOSDLog;
             }
         }
 
