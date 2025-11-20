@@ -20,12 +20,6 @@ namespace XboxGamingBarHelper.Settings
             return instance;
         }
 
-        private readonly AutoStartRTSSProperty autoStartRTSS;
-        public AutoStartRTSSProperty AutoStartRTSS
-        {
-            get { return autoStartRTSS; }
-        }
-
         private readonly OnScreenDisplayProviderProperty onScreenDisplayProvider;
         public OnScreenDisplayProviderProperty OnScreenDisplayProvider
         {
@@ -46,7 +40,6 @@ namespace XboxGamingBarHelper.Settings
 
         protected SettingsManager(AppServiceConnection connection) : base(connection)
         {
-            autoStartRTSS = new AutoStartRTSSProperty(this);
             onScreenDisplayProvider = new OnScreenDisplayProviderProperty(this);
             onScreenDisplayProviderInstalled = new OnScreenDisplayProviderInstalledProperty(this);
             isForeground = new IsForegroundProperty(this);

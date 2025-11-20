@@ -1,4 +1,5 @@
-﻿using Windows.ApplicationModel.AppService;
+﻿using Shared.Enums;
+using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.OnScreenDisplay
@@ -6,10 +7,12 @@ namespace XboxGamingBarHelper.OnScreenDisplay
     internal abstract class OnScreenDisplayManager : Manager, IOnScreenDisplayProvider
     {
         protected int onScreenDisplayLevel;
+        protected ApplicationState applicationState;
 
         protected OnScreenDisplayManager(AppServiceConnection connection) : base(connection)
         {
             onScreenDisplayLevel = 0;
+            applicationState = ApplicationState.Unknown;
         }
 
         public virtual bool IsInUsed { get ; set ; }

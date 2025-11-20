@@ -14,16 +14,10 @@
             <Grid x:Name="MainGrid" Margin="15,15,15,15">
                 <Grid.RowDefinitions>
                     <RowDefinition x:Name="Row_0_ProgressRing" Height="Auto"/>
-                    <RowDefinition x:Name="Row_1_AutoManageRTSS" Height="36"/>
-                    <RowDefinition x:Name="Row_2_OverlayMethod" Height="100"/>
+                    <RowDefinition x:Name="Row_1_OverlayMethod" Height="100"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock x:Name="AutoStartRTSSText" Text="Auto Start RTSS" FontWeight="SemiBold" FontSize="18" Grid.Row="1"
-                    TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Width="250" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <ToggleSwitch x:Name="AutoStartRTSSToggle" IsEnabled="False" OffContent="Disabled" OnContent="Enabled"
-                    FlowDirection="RightToLeft" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Right" />
-
-                <controls:RadioButtons x:Name="OnScreenDisplayProviderRadioButtons" Header="OSD Method" FontWeight="SemiBold" FontSize="18" Grid.Row="2">
+                <controls:RadioButtons x:Name="OnScreenDisplayProviderRadioButtons" Header="OSD Method" FontWeight="SemiBold" FontSize="18" Grid.Row="1">
                     <RadioButton Content="Rivatuner Statistics Server" IsChecked="True"/>
                     <RadioButton Content="AMD Software: Adrenaline Edition" IsChecked="False" />
                 </controls:RadioButtons>

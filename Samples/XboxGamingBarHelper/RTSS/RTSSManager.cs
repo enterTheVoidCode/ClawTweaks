@@ -7,7 +7,6 @@ using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.OnScreenDisplay;
 using XboxGamingBarHelper.Performance;
 using XboxGamingBarHelper.RTSS.OSDItems;
-using XboxGamingBarHelper.Settings;
 
 namespace XboxGamingBarHelper.RTSS
 {
@@ -24,8 +23,6 @@ namespace XboxGamingBarHelper.RTSS
         private OSD rtssOSD;
         private readonly OSDItem[] osdItems;
 
-        private RivatunerStatisticsServerState rtssState;
-
         public RTSSManager(PerformanceManager performanceManager, AppServiceConnection connection) : base(connection)
         {
             
@@ -37,8 +34,6 @@ namespace XboxGamingBarHelper.RTSS
                 new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature),
                 new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature),
             };
-
-            rtssState = RivatunerStatisticsServerState.NotInstalled;
         }
 
         public override void Update()
@@ -50,7 +45,7 @@ namespace XboxGamingBarHelper.RTSS
             if (!isRTSSInstalled)
             {
                 Logger.Debug("Rivatuner Statistics Server is not installed.");
-                rtssState = RivatunerStatisticsServerState.NotInstalled;
+                applicationState = ApplicationState.NotInstalled;
                 return;
             }
 
@@ -83,31 +78,28 @@ namespace XboxGamingBarHelper.RTSS
 
             if (!RTSSHelper.IsRunning())
             {
-                if (SettingsManager.GetInstance().AutoStartRTSS)
+                if (applicationState == ApplicationState.Starting)
                 {
-                    if (rtssState == RivatunerStatisticsServerState.Starting)
+                    Logger.Info("Starting Rivatuner Statistics Server..");
+                }
+                else
+                {
+                    applicationState = ApplicationState.Starting;
+                    try
                     {
-                        Logger.Info("Starting Rivatuner Statistics Server..");
+                        Logger.Info("Start Rivatuner Statistics Server.");
+                        Process.Start(RTSSHelper.ExecutablePath());
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        rtssState = RivatunerStatisticsServerState.Starting;
-                        try
-                        {
-                            Logger.Info("Start Rivatuner Statistics Server.");
-                            Process.Start(RTSSHelper.ExecutablePath());
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Error(ex, "Failed to start Rivatuner Statistics Server.");
-                            rtssState = RivatunerStatisticsServerState.NotRunning;
-                        }
+                        Logger.Error(ex, "Failed to start Rivatuner Statistics Server.");
+                        applicationState = ApplicationState.NotRunning;
                     }
                 }
                 return;
             }
 
-            rtssState = RivatunerStatisticsServerState.Running;
+            applicationState = ApplicationState.Running;
 
             if (rtssOSD == null)
             {
