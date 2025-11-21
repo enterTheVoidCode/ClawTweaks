@@ -14,15 +14,17 @@ namespace Shared.Utilities
             return !string.IsNullOrEmpty(installDir);
         }
 
-        public static bool IsRunning()
+        public static bool IsRunning(out Process process)
         {
             var amdProcesses = Process.GetProcessesByName(AMD_SOFTWARE_ADRENALINE_EDITION_FILE_NAME);
             if (amdProcesses.Length == 0)
             {
+                process = null;
                 return false;
             }
 
-            return (DateTime.Now - amdProcesses[0].StartTime).TotalSeconds >= 3.0f;
+            process = amdProcesses[0];
+            return (DateTime.Now - process.StartTime).TotalSeconds >= 3.0f;
         }
     }
 }

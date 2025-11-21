@@ -48,8 +48,8 @@ namespace XboxGamingBarHelper.RTSS
             }
 
             var isRunning = RTSSHelper.IsRunning();
-            string executableFilePath = Path.Combine(installDir, $"{RTSSHelper.RTSS_FILE_NAME}.exe");
-            if (!isRunning && !File.Exists(executableFilePath))
+            string executablePath = Path.Combine(installDir, $"{RTSSHelper.RTSS_FILE_NAME}.exe");
+            if (!isRunning && !File.Exists(executablePath))
             {
                 Logger.Debug("Rivatuner Statistics Server is installed but the exe file is not found.");
                 applicationState = ApplicationState.NotInstalled;
@@ -95,7 +95,7 @@ namespace XboxGamingBarHelper.RTSS
                     try
                     {
                         Logger.Info("Start Rivatuner Statistics Server.");
-                        Process.Start(executableFilePath);
+                        Process.Start(executablePath);
                     }
                     catch (Exception ex)
                     {

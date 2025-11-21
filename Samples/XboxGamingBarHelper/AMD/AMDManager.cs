@@ -1,7 +1,9 @@
 ﻿using Microsoft.Win32;
+using Shared.Enums;
 using Shared.Utilities;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.AppService;
@@ -10,6 +12,7 @@ using Windows.UI.Input.Preview.Injection;
 using XboxGamingBarHelper.AMD.Properties;
 using XboxGamingBarHelper.AMD.Settings;
 using XboxGamingBarHelper.OnScreenDisplay;
+using XboxGamingBarHelper.Windows;
 
 namespace XboxGamingBarHelper.AMD
 {
@@ -432,33 +435,75 @@ namespace XboxGamingBarHelper.AMD
                 return;
             }
 
-            var now = DateTime.Now.Ticks;
-            if (now - lastUpdate < TimeSpan.TicksPerSecond * 2)
-            {
-                return;
-            }
-            lastUpdate = now;
+            //var now = DateTime.Now.Ticks;
+            //if (now - lastUpdate < TimeSpan.TicksPerSecond * 2)
+            //{
+            //    return;
+            //}
+            //lastUpdate = now;
 
             if (!AMDHelper.IsInstalled(out string amdInstallDir))
             {
                 Logger.Warn("AMD Software: Adrenaline Edition is not installed.");
+                applicationState = ApplicationState.NotInstalled;
                 return;
             }
 
-            var isRunning = AMDHelper.IsRunning();
-            var executablePath = System.IO.Path.Combine(amdInstallDir, $"{AMDHelper.AMD_SOFTWARE_ADRENALINE_EDITION_FILE_NAME}.exe");
+            var isRunning = AMDHelper.IsRunning(out var amdProcess);
+            var executablePath = Path.Combine(amdInstallDir, $"{AMDHelper.AMD_SOFTWARE_ADRENALINE_EDITION_FILE_NAME}.exe");
             if (!isRunning && !File.Exists(executablePath))
             {
                 Logger.Warn("AMD Software: Adrenaline Edition is installed but the executable file is not found.");
+                applicationState = ApplicationState.NotInstalled;
                 return;
+            }
+
+            if (applicationState == ApplicationState.Starting)
+            {
+                if (amdProcess != null)
+                {
+                    var mainWindowHandle = amdProcess.MainWindowHandle;
+                    if (mainWindowHandle != IntPtr.Zero)
+                    {
+                        Logger.Warn("Starting AMD Software: Adrenaline Edition: Found main window handle. Let's close it.");
+                        User32.PostMessage(mainWindowHandle, User32.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                    }
+                    else
+                    {
+                        Logger.Warn("Starting AMD Software: Adrenaline Edition: No main window handle.");
+                    }
+                }
+                else
+                {
+                    Logger.Warn("Starting AMD Software: Adrenaline Edition: Process not started.");
+                }
             }
 
             if (!isRunning)
             {
-                Logger.Warn("AMD Software: Adrenaline Edition is not running, start it now.");
+                if (applicationState == ApplicationState.Starting)
+                {
+                    Logger.Info("Starting AMD Software: Adrenaline Edition.");
+                }
+                else
+                {
+                    applicationState = ApplicationState.Starting;
+                    try
+                    {
+                        Logger.Info("Start AMD Software: Adrenaline Edition.");
+                        Process.Start(executablePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error(ex, "Failed to start AMD Software: Adrenaline Edition.");
+                        applicationState = ApplicationState.NotRunning;
+                    }
+                }
+                    
                 return;
             }
 
+            applicationState = ApplicationState.Running;
             SetAMDValues();
         }
 
@@ -604,33 +649,6 @@ namespace XboxGamingBarHelper.AMD
             {
                 Logger.Error($"An error occurred: {ex.Message}");
                 return new Tuple<int, int>(0, 0);
-            }
-        }
-
-        private static bool SetCurrentMetricsProfile(int metricOverlayState, int metricProfile)
-        {
-            try
-            {
-                using (RegistryKey subKey = AMD_PERFORMANCE_KEY_ROOT.OpenSubKey(AMD_PERFORMANCE_KEY_PATH))
-                {
-                    if (subKey != null)
-                    {
-                        subKey.SetValue(AMD_PERFORMANCE_STATE_KEY_NAME, metricOverlayState);
-                        subKey.SetValue(AMD_PERFORMANCE_PROFILE_KEY_NAME, metricProfile);
-                        Logger.Debug($"Set registry key '{AMD_PERFORMANCE_KEY_PATH}\\{AMD_PERFORMANCE_STATE_KEY_NAME}' to {metricOverlayState} and '{AMD_PERFORMANCE_KEY_PATH}\\{AMD_PERFORMANCE_PROFILE_KEY_NAME}' to {metricProfile}.");
-                        return true;
-                    }
-                    else
-                    {
-                        Logger.Warn($"Registry key '{AMD_PERFORMANCE_KEY_PATH}' not found.");
-                        return false;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"An error occurred: {ex.Message}");
-                return false;
             }
         }
     }

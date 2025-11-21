@@ -314,10 +314,9 @@ namespace XboxGamingBarHelper.Windows
         public const int VK_CONTROL = 0x11;
         public const int VK_SHIFT = 0x10;
         public const int VK_O = 0x4F; // Virtual key code for 'O'
+        public const uint WM_CLOSE = 0x0010;
 
-        [DllImport("user32.dll")]
-        public static extern bool PostMessage(IntPtr hWnd, UInt32 Msg, int wParam, int lParam);
-
-
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
     }
 }
