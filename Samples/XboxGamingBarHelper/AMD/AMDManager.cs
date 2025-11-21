@@ -2,6 +2,7 @@
 using Shared.Utilities;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.AppService;
 using Windows.System;
@@ -15,7 +16,7 @@ namespace XboxGamingBarHelper.AMD
     internal class AMDManager : OnScreenDisplayManager
     {
         // START IOnScreenDisplayProvider implementation
-        public override bool IsInstalled => AMDHelper.IsInstalled();
+        public override bool IsInstalled => AMDHelper.IsInstalled(out _);
         // END IOnScreenDisplayProvider implementation
 
         // AMD Software stuff
@@ -437,6 +438,26 @@ namespace XboxGamingBarHelper.AMD
                 return;
             }
             lastUpdate = now;
+
+            if (!AMDHelper.IsInstalled(out string amdInstallDir))
+            {
+                Logger.Warn("AMD Software: Adrenaline Edition is not installed.");
+                return;
+            }
+
+            var isRunning = AMDHelper.IsRunning();
+            var executablePath = System.IO.Path.Combine(amdInstallDir, $"{AMDHelper.AMD_SOFTWARE_ADRENALINE_EDITION_FILE_NAME}.exe");
+            if (!isRunning && !File.Exists(executablePath))
+            {
+                Logger.Warn("AMD Software: Adrenaline Edition is installed but the executable file is not found.");
+                return;
+            }
+
+            if (!isRunning)
+            {
+                Logger.Warn("AMD Software: Adrenaline Edition is not running, start it now.");
+                return;
+            }
 
             SetAMDValues();
         }

@@ -1,16 +1,28 @@
 ﻿using Microsoft.Win32;
+using System;
+using System.Diagnostics;
 
 namespace Shared.Utilities
 {
     public class AMDHelper
     {
-        public static bool IsInstalled()
+        public const string AMD_SOFTWARE_ADRENALINE_EDITION_FILE_NAME = "RadeonSoftware";
+
+        public static bool IsInstalled(out string installDir)
         {
-            // Computer\HKEY_CURRENT_USER\Software\AMD\CN
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\AMD\CN"))
+            installDir = RegistryHelper.ReadStringValue(Registry.LocalMachine, @"SOFTWARE\AMD\CN", "InstallDir");
+            return !string.IsNullOrEmpty(installDir);
+        }
+
+        public static bool IsRunning()
+        {
+            var amdProcesses = Process.GetProcessesByName(AMD_SOFTWARE_ADRENALINE_EDITION_FILE_NAME);
+            if (amdProcesses.Length == 0)
             {
-                return key != null;
+                return false;
             }
+
+            return (DateTime.Now - amdProcesses[0].StartTime).TotalSeconds >= 3.0f;
         }
     }
 }

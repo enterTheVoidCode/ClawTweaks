@@ -1,8 +1,9 @@
-﻿using RTSSSharedMemoryNET;
+﻿using System;
+using System.IO;
+using System.Diagnostics;
+using RTSSSharedMemoryNET;
 using Shared.Enums;
 using Shared.Utilities;
-using System;
-using System.Diagnostics;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.OnScreenDisplay;
 using XboxGamingBarHelper.Performance;
@@ -13,7 +14,7 @@ namespace XboxGamingBarHelper.RTSS
     internal class RTSSManager : OnScreenDisplayManager
     {
         // START IOnScreenDisplayProvider implementation
-        public override bool IsInstalled => RTSSHelper.IsInstalled();
+        public override bool IsInstalled => RTSSHelper.IsInstalled(out _);
         // END IOnScreenDisplayProvider implementation
 
         private const string OSDSeparator = " <C=6E006A>|<C> ";
@@ -39,12 +40,18 @@ namespace XboxGamingBarHelper.RTSS
         public override void Update()
         {
             base.Update();
-
-            var isRTSSInstalled = RTSSHelper.IsInstalled();
-
-            if (!isRTSSInstalled)
+            
+            if (!RTSSHelper.IsInstalled(out string installDir))
             {
                 Logger.Debug("Rivatuner Statistics Server is not installed.");
+                return;
+            }
+
+            var isRunning = RTSSHelper.IsRunning();
+            string executableFilePath = Path.Combine(installDir, $"{RTSSHelper.RTSS_FILE_NAME}.exe");
+            if (!isRunning && !File.Exists(executableFilePath))
+            {
+                Logger.Debug("Rivatuner Statistics Server is installed but the exe file is not found.");
                 applicationState = ApplicationState.NotInstalled;
                 return;
             }
@@ -76,7 +83,7 @@ namespace XboxGamingBarHelper.RTSS
                 return;
             }
 
-            if (!RTSSHelper.IsRunning())
+            if (!isRunning)
             {
                 if (applicationState == ApplicationState.Starting)
                 {
@@ -88,7 +95,7 @@ namespace XboxGamingBarHelper.RTSS
                     try
                     {
                         Logger.Info("Start Rivatuner Statistics Server.");
-                        Process.Start(RTSSHelper.ExecutablePath());
+                        Process.Start(executableFilePath);
                     }
                     catch (Exception ex)
                     {

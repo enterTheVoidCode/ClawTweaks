@@ -6,9 +6,11 @@ namespace Shared.Utilities
 {
     public static partial class RTSSHelper
     {
+        public const string RTSS_FILE_NAME = "RTSS";
+
         public static Process GetProcess()
         {
-            var rtssProcessses = Process.GetProcessesByName("RTSS");
+            var rtssProcessses = Process.GetProcessesByName(RTSS_FILE_NAME);
             if (rtssProcessses.Length == 0)
             {
                 return null;
@@ -28,35 +30,10 @@ namespace Shared.Utilities
             return (DateTime.Now - rtssProcess.StartTime).TotalSeconds >= 2.0f;
         }
 
-        public static bool IsInstalled()
+        public static bool IsInstalled(out string installDir)
         {
-            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"Software\WOW6432Node\Unwinder\RTSS"))
-            {
-                return key != null;
-            }
-        }
-
-        public static string InstalledLocation()
-        {
-            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"Software\WOW6432Node\Unwinder\RTSS"))
-            {
-                if (key == null)
-                {
-                    return string.Empty;
-                }
-
-                return (string)key.GetValue("InstallDir");
-            }
-        }
-
-        public static string ExecutablePath()
-        {
-            var installLocation = InstalledLocation();
-            if (string.IsNullOrEmpty(installLocation))
-            {
-                return string.Empty;
-            }
-            return System.IO.Path.Combine(installLocation, "RTSS.exe");
+            installDir = RegistryHelper.ReadStringValue(Registry.LocalMachine, @"Software\WOW6432Node\Unwinder\RTSS", "InstallDir");
+            return !string.IsNullOrEmpty(installDir);
         }
     }
 }
