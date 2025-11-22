@@ -251,6 +251,10 @@ namespace XboxGamingBar
                         Logger.Warn($"Can't create widget acitvity: {argumentException}.");
                     }
                 }
+                else
+                {
+                    Logger.Info("Widget activity already created.");
+                }
 
                 if (appTargetTracker == null)
                 {
@@ -278,6 +282,14 @@ namespace XboxGamingBar
                         Logger.Info("Created new app target tracker but not enabled.");
                     }
                 }
+                else
+                {
+                    Logger.Info("App target tracker already created.");
+                }
+            }
+            else
+            {
+                Logger.Info("No widget found, probably running as an app instead of Xbox Game Bar widget.");
             }
 
             await properties.Sync();

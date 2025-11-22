@@ -82,7 +82,7 @@ namespace XboxGamingBar
 
         private async void Connection_RequestReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
         {
-            Logger.Info("App service request received");
+            //Logger.Info("App service request received");
 
             if (gamingWidget != null)
             {
