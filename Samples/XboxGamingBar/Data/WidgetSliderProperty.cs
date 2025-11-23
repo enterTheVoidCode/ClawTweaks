@@ -13,12 +13,54 @@ namespace XboxGamingBar.Data
             if (UI != null)
             {
                 UI.ValueChanged += Slider_ValueChanged;
+                UI.FocusDisengaged += Slider_FocusDisengaged;
+                UI.FocusEngaged += Slider_FocusEngaged;
+                UI.GettingFocus += Slider_GettingFocus;
+                UI.GotFocus += Slider_GotFocus;
+                UI.LosingFocus += Slider_LosingFocus;
+                UI.LostFocus += Slider_LostFocus;
+                UI.NoFocusCandidateFound += Slider_NoFocusCandidateFound;
                 //UI.DragEnter += Slider_DragEnter;
                 //UI.DragStarting += Slider_DragStarting;
                 //UI.DragOver += Slider_DragOver;
                 //UI.DragLeave += Slider_DragLeave;
                 UI.Value = inValue;
             }
+        }
+
+        private void Slider_NoFocusCandidateFound(Windows.UI.Xaml.UIElement sender, Windows.UI.Xaml.Input.NoFocusCandidateFoundEventArgs args)
+        {
+            Logger.Info($"Slider {UI.Name} of function {function} NoFocusCandidateFound");
+        }
+
+        private void Slider_LostFocus(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            Logger.Info($"Slider {UI.Name} of function {function} LostFocus");
+        }
+
+        private void Slider_LosingFocus(Windows.UI.Xaml.UIElement sender, Windows.UI.Xaml.Input.LosingFocusEventArgs args)
+        {
+            Logger.Info($"Slider {UI.Name} of function {function} LosingFocus");
+        }
+
+        private void Slider_GotFocus(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            Logger.Info($"Slider {UI.Name} of function {function} GotFocus");
+        }
+
+        private void Slider_GettingFocus(Windows.UI.Xaml.UIElement sender, Windows.UI.Xaml.Input.GettingFocusEventArgs args)
+        {
+            Logger.Info($"Slider {UI.Name} of function {function} GettingFocus");
+        }
+
+        private void Slider_FocusEngaged(Control sender, FocusEngagedEventArgs args)
+        {
+            Logger.Info($"Slider {UI.Name} of function {function} FocusEngaged");
+        }
+
+        private void Slider_FocusDisengaged(Control sender, FocusDisengagedEventArgs args)
+        {
+            Logger.Info($"Slider {UI.Name} of function {function} FocusDisengaged");
         }
 
         //private void Slider_DragLeave(object sender, Windows.UI.Xaml.DragEventArgs e)

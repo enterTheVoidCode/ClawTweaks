@@ -122,6 +122,7 @@ namespace XboxGamingBarHelper
                 amdManager.AMDRadeonChillSupported,
                 amdManager.AMDRadeonChillMinFPS,
                 amdManager.AMDRadeonChillMaxFPS,
+                amdManager.FocusingOnOSDSlider,
                 settingsManager.OnScreenDisplayProvider);
 
             Logger.Info("Initialize callbacks.");

@@ -56,6 +56,7 @@ namespace XboxGamingBar
         private readonly TrackedGameProperty trackedGame;
         private readonly OnScreenDisplayProviderInstalledProperty onScreenDisplayProviderInstalled;
         private readonly IsForegroundProperty isForeground;
+        private readonly FocusingOnOSDSliderProperty focusingOnOSDSlider;
 
         // AMD properties
         private readonly AMDRadeonSuperResolutionEnabledProperty amdRadeonSuperResolutionEnabled;
@@ -105,6 +106,7 @@ namespace XboxGamingBar
             amdRadeonChillSupported = new AMDRadeonChillSupportedProperty(AMDRadeonChillToggle, this);
             amdRadeonChillMinFPSProperty = new AMDRadeonChillMinFPSProperty(AMDRadeonChillMinFPSSlider, this);
             amdRadeonChillMaxFPSProperty = new AMDRadeonChillMaxFPSProperty(AMDRadeonChillMaxFPSSlider, this);
+            focusingOnOSDSlider = new FocusingOnOSDSliderProperty(PerformanceOverlaySlider, this);
 
             properties = new WidgetProperties(
                 osd,
@@ -133,7 +135,8 @@ namespace XboxGamingBar
                 amdRadeonChillEnabled,
                 amdRadeonChillSupported,
                 amdRadeonChillMinFPSProperty,
-                amdRadeonChillMaxFPSProperty
+                amdRadeonChillMaxFPSProperty,
+                focusingOnOSDSlider
             );
         }
 

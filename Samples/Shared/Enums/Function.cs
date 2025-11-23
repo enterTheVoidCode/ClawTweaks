@@ -29,6 +29,7 @@
         AMDRadeonChillMinFPS,
         AMDRadeonChillMaxFPS,
         Foreground,
+        FocusingOnOSDSlider,
 
         Settings_OnScreenDisplayProvider,
         Settings_OnScreenDisplayProviderInstalled

@@ -163,6 +163,12 @@ namespace XboxGamingBarHelper.AMD
         private readonly List<Tuple<int, int>> amdOverlayLevelList;
         private readonly Dictionary<int, int> amdOverlayLevelMap;
 
+        private readonly FocusingOnOSDSliderProperty focusingOnOSDSlider;
+        public FocusingOnOSDSliderProperty FocusingOnOSDSlider
+        {
+            get { return focusingOnOSDSlider; }
+        }
+
         private long lastUpdate;
         private string lastLog;
 
@@ -338,6 +344,7 @@ namespace XboxGamingBarHelper.AMD
                 amdOverlayLevelMap.Add(amdOverlayLevel.Item1, amdOverlayLevel.Item2);
             }
             lastUpdate = 0;
+            focusingOnOSDSlider = new FocusingOnOSDSliderProperty(this);
         }
 
         private void AmdRadeonChillEnabled(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -499,7 +506,7 @@ namespace XboxGamingBarHelper.AMD
                         applicationState = ApplicationState.NotRunning;
                     }
                 }
-                    
+                
                 return;
             }
 
@@ -516,79 +523,65 @@ namespace XboxGamingBarHelper.AMD
 
         private async void SetAMDValues()
         {
-            var (currentlyOn, currentLevel) = ReadCurrentMetricsProfile();
-            string amdOSDLog = string.Empty;
-            if (onScreenDisplayLevel == 0)
+            string amdOSDLog;
+            if (focusingOnOSDSlider)
             {
-                if (currentlyOn == 1)
-                {
-                    //if (!SettingsManager.GetInstance().IsForeground)
-                    //{
-                    //    Logger.Info("Widget enters background, turn OFF On-Screen Display now.");
-                    //    SendKeys.SendWait("^+o");
-                    //}
-                    //else
-                    //{
-                    //    Logger.Info("On-Screen Display should be turned OFF but widget is still in foreground..");
-                    //}
-
-                    amdOSDLog = "Turning OFF AMD On-Screen Display.";
-                    inputInjector.InjectKeyboardInput(turnAMDOverlayOnOffKeyboardCombo);
-                }
-                else
-                {
-                    amdOSDLog = "AMD On-Screen Display is already turned OFF.";
-                }
+                amdOSDLog = "Still changing Performance Overlay slider, wait until it's unfocused.";
             }
             else
             {
-                if (currentlyOn == 0)
+                var (currentlyOn, currentLevel) = ReadCurrentMetricsProfile();
+
+                if (onScreenDisplayLevel == 0)
                 {
-                    //if (!SettingsManager.GetInstance().IsForeground)
-                    //{
-                    //    Logger.Info("Widget enters background, turn ON On-Screen Display now.");
-                    //    SendKeys.SendWait("^+o");
-                    //}
-                    //else
-                    //{
-                    //    Logger.Info("On-Screen Display should be turned ON but widget is still in foreground..");
-                    //}
-
-                    // create once (cache for reuse)
-
-                    amdOSDLog = "Turning ON AMD On-Screen Display.";
-                    inputInjector.InjectKeyboardInput(turnAMDOverlayOnOffKeyboardCombo);
-                    await Task.Delay(100);
-                }
-
-                var targetLevel = amdOverlayLevelMap[onScreenDisplayLevel];
-                if (currentLevel != targetLevel)
-                {
-                    var currentLevelIndex = 0;
-                    var targetLevelIndex = 0;
-                    for (var i = 0; i < amdOverlayLevelList.Count; i++)
+                    if (currentlyOn == 1)
                     {
-                        if (amdOverlayLevelList[i].Item2 == currentLevel)
-                        {
-                            currentLevelIndex = i;
-                        }
-                        if (amdOverlayLevelList[i].Item2 == targetLevel)
-                        {
-                            targetLevelIndex = i;
-                        }
+                        amdOSDLog = "Turning OFF AMD On-Screen Display.";
+                        inputInjector.InjectKeyboardInput(turnAMDOverlayOnOffKeyboardCombo);
                     }
-
-                    var numberOfKeyPresses = Math.Abs(targetLevelIndex - currentLevelIndex);
-                    Logger.Info($"Current AMD On-Screen Display level is {currentLevel} at index {currentLevelIndex}, need to change to {targetLevel} at index {targetLevelIndex}, need to press {numberOfKeyPresses} times.");
-                    for (var i = 0; i < numberOfKeyPresses; i++)
+                    else
                     {
-                        inputInjector.InjectKeyboardInput(changeAMDOverlayLevelKeyboardCombo);
-                        await Task.Delay(100);
+                        amdOSDLog = "AMD On-Screen Display is already turned OFF.";
                     }
                 }
                 else
                 {
-                    amdOSDLog = $"Current AMD On-Screen Display level is {currentLevel} already matches {targetLevel}.";
+                    if (currentlyOn == 0)
+                    {
+                        Logger.Info("Turning ON AMD On-Screen Display.");
+                        inputInjector.InjectKeyboardInput(turnAMDOverlayOnOffKeyboardCombo);
+                        await Task.Delay(100);
+                    }
+
+                    var targetLevel = amdOverlayLevelMap[onScreenDisplayLevel];
+                    if (currentLevel != targetLevel)
+                    {
+                        var currentLevelIndex = 0;
+                        var targetLevelIndex = 0;
+                        for (var i = 0; i < amdOverlayLevelList.Count; i++)
+                        {
+                            if (amdOverlayLevelList[i].Item2 == currentLevel)
+                            {
+                                currentLevelIndex = i;
+                            }
+                            if (amdOverlayLevelList[i].Item2 == targetLevel)
+                            {
+                                targetLevelIndex = i;
+                            }
+                        }
+
+                        var numberOfKeyPresses = Math.Abs(targetLevelIndex - currentLevelIndex);
+                        amdOSDLog = $"Current AMD On-Screen Display level is {currentLevel} at index {currentLevelIndex}, need to change to {targetLevel} at index {targetLevelIndex}, need to press {numberOfKeyPresses} times.";
+                        for (var i = 0; i < numberOfKeyPresses; i++)
+                        {
+                            inputInjector.InjectKeyboardInput(changeAMDOverlayLevelKeyboardCombo);
+                            await Task.Delay(100);
+                        }
+                    }
+                    else
+                    {
+                        amdOSDLog = $"Current AMD On-Screen Display level is {currentLevel} already matches {targetLevel}.";
+                    }
                 }
             }
 
