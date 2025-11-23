@@ -169,7 +169,20 @@ namespace XboxGamingBarHelper.AMD
             get { return focusingOnOSDSlider; }
         }
 
-        private long lastUpdate;
+        private bool isInUsed;
+        public override bool IsInUsed {
+            get { return isInUsed; }
+            set {
+                isInUsed = value;
+                if (!isInUsed)
+                {
+                    // When not in use, turn off AMD OSD.
+                    SetLevel(0);
+                    SetAMDValues();
+                }
+            }
+        }
+
         private string lastLog;
 
         public AMDManager(AppServiceConnection connection) : base(connection)
@@ -512,13 +525,6 @@ namespace XboxGamingBarHelper.AMD
 
             applicationState = ApplicationState.Running;
             SetAMDValues();
-        }
-
-        public override void SetLevel(int level)
-        {
-            base.SetLevel(level);
-
-            // SetAMDValues();
         }
 
         private async void SetAMDValues()
