@@ -3,8 +3,6 @@ using NLog;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Performance.Sensors;

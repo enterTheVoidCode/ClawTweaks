@@ -362,6 +362,11 @@
     <Compile Include="Core\Manager.cs" />
     <Compile Include="OnScreenDisplay\IOnScreenDisplayProvider.cs" />
     <Compile Include="OnScreenDisplay\OnScreenDisplayManager.cs" />
+    <Compile Include="Performance\CPUs\AMD\AMD_CPU.cs" />
+    <Compile Include="Performance\CPUs\AMD\AMD_Ryzen.cs" />
+    <Compile Include="Performance\CPU.cs" />
+    <Compile Include="Performance\CPUs\AMD\AMD_Ryzen_7_7840U.cs" />
+    <Compile Include="Performance\CPUs\GenericCPU.cs" />
     <Compile Include="Settings\IsForegroundProperty.cs" />
     <Compile Include="Settings\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Performance\HardwareSensor.cs" />
@@ -470,5 +475,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
