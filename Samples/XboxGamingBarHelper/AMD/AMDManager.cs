@@ -356,7 +356,6 @@ namespace XboxGamingBarHelper.AMD
             {
                 amdOverlayLevelMap.Add(amdOverlayLevel.Item1, amdOverlayLevel.Item2);
             }
-            lastUpdate = 0;
             focusingOnOSDSlider = new FocusingOnOSDSliderProperty(this);
         }
 
