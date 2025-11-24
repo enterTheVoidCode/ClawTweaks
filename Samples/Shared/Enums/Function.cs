@@ -58,6 +58,8 @@
         LosslessScalingAutoScaleDelay,   // int - delay in ms before auto-scaling
         LosslessScalingSaveAndRestart,   // Action: save XML and restart LS
         LosslessScalingCreateProfile,    // Action: create profile for current game
+        LosslessScalingBringToForeground, // Action: bring LS window to foreground
+        LosslessScalingLaunch,           // Action: launch LS minimized (via helper)
 
         Settings_AutoStartRTSS,
         Settings_OnScreenDisplayProvider,

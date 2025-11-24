@@ -1,8 +1,10 @@
+using Microsoft.Win32;
 using NLog;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Windows.ApplicationModel.AppService;
@@ -15,6 +17,21 @@ namespace XboxGamingBarHelper.LosslessScaling
 {
     internal class LosslessScalingManager : Manager
     {
+        // P/Invoke for window management
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsIconic(IntPtr hWnd);
+
+        private const int SW_RESTORE = 9;
+        private const int SW_SHOW = 5;
+        private const int SW_MINIMIZE = 6;
+        private const int SW_SHOWMINNOACTIVE = 7;
+
         private const string PROCESS_NAME = "LosslessScaling";
         private const int STEAM_APP_ID = 993090;
         private static readonly string SETTINGS_PATH = Path.Combine(
@@ -102,6 +119,12 @@ namespace XboxGamingBarHelper.LosslessScaling
         private readonly LosslessScalingCreateProfileProperty losslessScalingCreateProfile;
         public LosslessScalingCreateProfileProperty LosslessScalingCreateProfile => losslessScalingCreateProfile;
 
+        private readonly LosslessScalingBringToForegroundProperty losslessScalingBringToForeground;
+        public LosslessScalingBringToForegroundProperty LosslessScalingBringToForeground => losslessScalingBringToForeground;
+
+        private readonly LosslessScalingLaunchProperty losslessScalingLaunch;
+        public LosslessScalingLaunchProperty LosslessScalingLaunch => losslessScalingLaunch;
+
         #endregion
 
         // State tracking
@@ -142,11 +165,15 @@ namespace XboxGamingBarHelper.LosslessScaling
             losslessScalingAutoScaleDelay = new LosslessScalingAutoScaleDelayProperty(settings.AutoScaleDelay, this);
             losslessScalingSaveAndRestart = new LosslessScalingSaveAndRestartProperty(false, this);
             losslessScalingCreateProfile = new LosslessScalingCreateProfileProperty("", this);
+            losslessScalingBringToForeground = new LosslessScalingBringToForegroundProperty(false, this);
+            losslessScalingLaunch = new LosslessScalingLaunchProperty(false, this);
 
             // Subscribe to action properties
             losslessScalingEnabled.PropertyChanged += LosslessScalingEnabled_PropertyChanged;
             losslessScalingSaveAndRestart.PropertyChanged += LosslessScalingSaveAndRestart_PropertyChanged;
             losslessScalingCreateProfile.PropertyChanged += LosslessScalingCreateProfile_PropertyChanged;
+            losslessScalingBringToForeground.PropertyChanged += LosslessScalingBringToForeground_PropertyChanged;
+            losslessScalingLaunch.PropertyChanged += LosslessScalingLaunch_PropertyChanged;
 
             // Initialize input injector
             inputInjector = InputInjector.TryCreate();
@@ -218,19 +245,163 @@ namespace XboxGamingBarHelper.LosslessScaling
 
             try
             {
-                Logger.Info("Launching Lossless Scaling via Steam...");
-                var uri = new Uri($"steam://rungameid/{STEAM_APP_ID}");
-                await global::Windows.System.Launcher.LaunchUriAsync(uri);
-                await Task.Delay(3000);
+                // Try to find and launch via direct exe path first
+                string exePath = FindLosslessScalingExePath();
+                if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
+                {
+                    Logger.Info($"Launching Lossless Scaling directly from: {exePath}");
+                    var startInfo = new ProcessStartInfo
+                    {
+                        FileName = exePath,
+                        WorkingDirectory = Path.GetDirectoryName(exePath),
+                        WindowStyle = ProcessWindowStyle.Minimized,
+                        UseShellExecute = true
+                    };
+                    Process.Start(startInfo);
+                    await Task.Delay(2000);
 
-                bool success = IsRunning();
-                Logger.Info($"Lossless Scaling launch {(success ? "successful" : "failed")}");
-                return success;
+                    // Ensure window is minimized after launch
+                    var processes = Process.GetProcessesByName(PROCESS_NAME);
+                    foreach (var proc in processes)
+                    {
+                        if (proc.MainWindowHandle != IntPtr.Zero)
+                        {
+                            ShowWindow(proc.MainWindowHandle, SW_MINIMIZE);
+                        }
+                    }
+
+                    bool success = IsRunning();
+                    Logger.Info($"Lossless Scaling launch {(success ? "successful" : "failed")}");
+                    return success;
+                }
+                else
+                {
+                    // Fallback to Steam URI if exe not found
+                    Logger.Info("Exe not found, falling back to Steam URI launch...");
+                    var uri = new Uri($"steam://rungameid/{STEAM_APP_ID}");
+                    await global::Windows.System.Launcher.LaunchUriAsync(uri);
+                    await Task.Delay(3000);
+
+                    bool success = IsRunning();
+                    Logger.Info($"Lossless Scaling launch via Steam {(success ? "successful" : "failed")}");
+                    return success;
+                }
             }
             catch (Exception ex)
             {
                 Logger.Error($"Failed to launch Lossless Scaling: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Finds the Lossless Scaling executable path from Steam installation.
+        /// </summary>
+        private string FindLosslessScalingExePath()
+        {
+            try
+            {
+                // Try to find Steam installation path from registry
+                string steamPath = null;
+
+                using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam"))
+                {
+                    steamPath = key?.GetValue("SteamPath") as string;
+                }
+
+                if (string.IsNullOrEmpty(steamPath))
+                {
+                    using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Valve\Steam"))
+                    {
+                        steamPath = key?.GetValue("InstallPath") as string;
+                    }
+                }
+
+                if (string.IsNullOrEmpty(steamPath))
+                {
+                    Logger.Warn("Could not find Steam installation path in registry");
+                    return null;
+                }
+
+                Logger.Info($"Found Steam path: {steamPath}");
+
+                // Check default steamapps location first
+                string defaultLibrary = Path.Combine(steamPath, "steamapps", "common", "Lossless Scaling", "LosslessScaling.exe");
+                if (File.Exists(defaultLibrary))
+                {
+                    Logger.Info($"Found Lossless Scaling at default location: {defaultLibrary}");
+                    return defaultLibrary;
+                }
+
+                // Parse libraryfolders.vdf to find additional Steam library folders
+                string libraryFoldersPath = Path.Combine(steamPath, "steamapps", "libraryfolders.vdf");
+                if (File.Exists(libraryFoldersPath))
+                {
+                    var libraryContent = File.ReadAllText(libraryFoldersPath);
+                    var pathMatches = System.Text.RegularExpressions.Regex.Matches(libraryContent, "\"path\"\\s+\"([^\"]+)\"");
+
+                    foreach (System.Text.RegularExpressions.Match match in pathMatches)
+                    {
+                        string libraryPath = match.Groups[1].Value.Replace("\\\\", "\\");
+                        string lsPath = Path.Combine(libraryPath, "steamapps", "common", "Lossless Scaling", "LosslessScaling.exe");
+
+                        if (File.Exists(lsPath))
+                        {
+                            Logger.Info($"Found Lossless Scaling in library: {lsPath}");
+                            return lsPath;
+                        }
+                    }
+                }
+
+                Logger.Warn("Could not find Lossless Scaling executable in any Steam library");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error finding Lossless Scaling exe path: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Brings Lossless Scaling window to the foreground.
+        /// </summary>
+        public void BringToForeground()
+        {
+            try
+            {
+                var processes = Process.GetProcessesByName(PROCESS_NAME);
+                if (processes.Length == 0)
+                {
+                    Logger.Warn("Cannot bring to foreground: Lossless Scaling is not running");
+                    return;
+                }
+
+                foreach (var proc in processes)
+                {
+                    IntPtr hWnd = proc.MainWindowHandle;
+                    if (hWnd != IntPtr.Zero)
+                    {
+                        // If window is minimized, restore it first
+                        if (IsIconic(hWnd))
+                        {
+                            ShowWindow(hWnd, SW_RESTORE);
+                        }
+                        else
+                        {
+                            ShowWindow(hWnd, SW_SHOW);
+                        }
+                        SetForegroundWindow(hWnd);
+                        Logger.Info("Lossless Scaling brought to foreground");
+                        return;
+                    }
+                }
+
+                Logger.Warn("Could not find Lossless Scaling window handle");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error bringing Lossless Scaling to foreground: {ex.Message}");
             }
         }
 
@@ -575,6 +746,30 @@ namespace XboxGamingBarHelper.LosslessScaling
 
             // Reset the trigger
             losslessScalingCreateProfile.SetValue("", DateTime.Now.Ticks);
+        }
+
+        private void LosslessScalingBringToForeground_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (!losslessScalingBringToForeground.Value)
+                return;
+
+            Logger.Info("Bring to foreground triggered");
+            BringToForeground();
+
+            // Reset the trigger
+            losslessScalingBringToForeground.SetValue(false, DateTime.Now.Ticks);
+        }
+
+        private async void LosslessScalingLaunch_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (!losslessScalingLaunch.Value)
+                return;
+
+            Logger.Info("Launch triggered from widget");
+            await LaunchLosslessScalingAsync();
+
+            // Reset the trigger
+            losslessScalingLaunch.SetValue(false, DateTime.Now.Ticks);
         }
 
         #endregion
