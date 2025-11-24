@@ -79,6 +79,9 @@ namespace XboxGamingBarHelper.Performance
 
     internal class PerformanceManager : Manager
     {
+        private string cpuId;
+        private CPU cpu;
+
         private Computer computer;
         private IVisitor updateVisitor;
         private IntPtr ryzenAdjHandle;
@@ -137,8 +140,16 @@ namespace XboxGamingBarHelper.Performance
                         properties = properties.Length == 0 ? $"{property.Key}:{property.Value}" : $"{properties}, {property.Key}:{property.Value}";
                     }
                 }
+
                 Logger.Info($"Found hardware {hardware.HardwareType}: Name={hardware.Name}, Type={hardware.HardwareType}, Id={hardware.Identifier}, Properties={properties}");
+                if (hardware.HardwareType == HardwareType.Cpu)
+                {
+                    cpuId = hardware.Name;
+                }
             }
+
+            cpu = CPUFactory.CreateCPU(cpuId);
+            Logger.Info($"Initialized CPU: {cpu.Name} (\"{cpuId}\")");
 
             // Initialize hardware sensors
             CPUClock = new CPUClockSensor();

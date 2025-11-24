@@ -362,6 +362,8 @@
     <Compile Include="Core\Manager.cs" />
     <Compile Include="OnScreenDisplay\IOnScreenDisplayProvider.cs" />
     <Compile Include="OnScreenDisplay\OnScreenDisplayManager.cs" />
+    <Compile Include="Performance\CPUFactory.cs" />
+    <Compile Include="Performance\CPUIdAttribute.cs" />
     <Compile Include="Performance\CPUs\AMD\AMD_CPU.cs" />
     <Compile Include="Performance\CPUs\AMD\AMD_Ryzen.cs" />
     <Compile Include="Performance\CPU.cs" />
