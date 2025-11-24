@@ -175,6 +175,14 @@ namespace XboxGamingBar
             else
             {
                 Logger.Info($"App.Connection:{(App.Connection == null ? "NULL" : "NOT_NULL")} FullTrustAppContract:{(ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0) ? "PRESENT" : "NOT_PRESENT")}");
+                if (App.Connection != null)
+                {
+                    App.AppServiceConnected -= GamingWidget_AppServiceConnected;
+                    App.AppServiceConnected += GamingWidget_AppServiceConnected;
+                    App.AppServiceDisconnected -= GamingWidget_AppServiceDisconnected;
+                    App.AppServiceDisconnected += GamingWidget_AppServiceDisconnected;
+                    GamingWidget_AppServiceConnected(null, null);
+                }
             }
         }
 
@@ -237,7 +245,7 @@ namespace XboxGamingBar
         /// <summary>
         /// When the desktop process is connected, get ready to send/receive requests
         /// </summary>
-        private async void GamingWidget_AppServiceConnected(object sender, AppServiceTriggerDetails e)
+        private async void GamingWidget_AppServiceConnected(object sender, AppServiceTriggerDetails _)
         {
             Logger.Info("GamingWidget AppService connected.");
             if (widget != null)

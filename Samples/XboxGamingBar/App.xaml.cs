@@ -74,7 +74,7 @@ namespace XboxGamingBar
                     args.TaskInstance.Canceled += OnTaskCanceled;
 
                     Connection = details.AppServiceConnection;
-                    AppServiceConnected?.Invoke(this, args.TaskInstance.TriggerDetails as AppServiceTriggerDetails);
+                    AppServiceConnected?.Invoke(this, details);
                     Connection.RequestReceived += Connection_RequestReceived;
                 }
             }
