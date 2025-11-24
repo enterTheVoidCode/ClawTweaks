@@ -186,4 +186,20 @@ namespace XboxGamingBarHelper.LosslessScaling.Properties
         {
         }
     }
+
+    internal class LosslessScalingBringToForegroundProperty : HelperProperty<bool, LosslessScalingManager>
+    {
+        public LosslessScalingBringToForegroundProperty(bool inValue, LosslessScalingManager inManager)
+            : base(inValue, null, Function.LosslessScalingBringToForeground, inManager)
+        {
+        }
+    }
+
+    internal class LosslessScalingLaunchProperty : HelperProperty<bool, LosslessScalingManager>
+    {
+        public LosslessScalingLaunchProperty(bool inValue, LosslessScalingManager inManager)
+            : base(inValue, null, Function.LosslessScalingLaunch, inManager)
+        {
+        }
+    }
 }

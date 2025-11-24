@@ -74,6 +74,7 @@ namespace XboxGamingBar
     public sealed partial class GamingWidget : Page, INotifyPropertyChanged
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         private static readonly List<string> BlackListAppTrackerNames = new List<string>()
         {
             "App Installer", //Somehow App Installer shows up as a game sometimes
@@ -158,6 +159,8 @@ namespace XboxGamingBar
         private readonly LosslessScalingAutoScaleDelayProperty losslessScalingAutoScaleDelay;
         private readonly LosslessScalingSaveAndRestartProperty losslessScalingSaveAndRestart;
         private readonly LosslessScalingCreateProfileProperty losslessScalingCreateProfile;
+        private readonly LosslessScalingBringToForegroundProperty losslessScalingBringToForeground;
+        private readonly LosslessScalingLaunchProperty losslessScalingLaunch;
 
         // Profile management
         private PerformanceProfile globalProfile = new PerformanceProfile();
@@ -296,6 +299,8 @@ namespace XboxGamingBar
             losslessScalingAutoScaleDelay = new LosslessScalingAutoScaleDelayProperty(0, LosslessScalingAutoScaleDelaySlider, this);
             losslessScalingSaveAndRestart = new LosslessScalingSaveAndRestartProperty();
             losslessScalingCreateProfile = new LosslessScalingCreateProfileProperty();
+            losslessScalingBringToForeground = new LosslessScalingBringToForegroundProperty();
+            losslessScalingLaunch = new LosslessScalingLaunchProperty();
 
             // NOTE: Event handlers for Chill FPS will be registered AFTER first sync
             // to avoid crash when binding evaluates RadeonChillOnText before both values are ready
@@ -1342,6 +1347,10 @@ namespace XboxGamingBar
                     }
 
                     gameNames.Add(gameName);
+                } else
+                {
+                    Logger.Info("Found no profile that starts with Profile_Game_");
+                    Logger.Info(containerName);
                 }
             }
 
@@ -2402,7 +2411,7 @@ namespace XboxGamingBar
                     try
                     {
                         // Check if UI elements exist (may not be loaded yet)
-                        if (LosslessScalingStatusText == null || LaunchLosslessScalingButton == null)
+                        if (LosslessScalingStatusText == null || LaunchLosslessScalingButton == null || ShowLosslessScalingWindowButton == null)
                         {
                             Logger.Warn("LosslessScaling UI elements not loaded yet, skipping status update");
                             return;
@@ -2417,18 +2426,21 @@ namespace XboxGamingBar
                             LosslessScalingStatusText.Text = "Not Installed";
                             LosslessScalingStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Red);
                             LaunchLosslessScalingButton.Visibility = Visibility.Collapsed;
+                            ShowLosslessScalingWindowButton.Visibility = Visibility.Collapsed;
                         }
                         else if (!isRunning)
                         {
                             LosslessScalingStatusText.Text = "Installed (Not Running)";
                             LosslessScalingStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
                             LaunchLosslessScalingButton.Visibility = Visibility.Visible;
+                            ShowLosslessScalingWindowButton.Visibility = Visibility.Collapsed;
                         }
                         else
                         {
                             LosslessScalingStatusText.Text = "Installed and Running";
                             LosslessScalingStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Green);
                             LaunchLosslessScalingButton.Visibility = Visibility.Collapsed;
+                            ShowLosslessScalingWindowButton.Visibility = Visibility.Visible;
                         }
 
                         // Enable/disable all Lossless Scaling controls
@@ -2476,31 +2488,42 @@ namespace XboxGamingBar
             try
             {
                 Logger.Info("Launch Lossless Scaling button clicked");
+                LaunchLosslessScalingButton.Content = "Launching...";
+                LaunchLosslessScalingButton.IsEnabled = false;
 
-                // Launch via Steam URI
-                var uri = new Uri("steam://rungameid/993090");
-                bool launched = await Windows.System.Launcher.LaunchUriAsync(uri);
+                // Trigger launch via the helper service (which has permissions to launch exe directly)
+                // Reset to false first, then set to true to ensure the change is detected
+                losslessScalingLaunch.SetValue(false);
+                losslessScalingLaunch.SetValue(true);
+                Logger.Info("Sent launch request to helper");
 
-                if (launched)
-                {
-                    Logger.Info("Lossless Scaling launch command sent via Steam");
-                    LaunchLosslessScalingButton.Content = "Launching...";
-                    LaunchLosslessScalingButton.IsEnabled = false;
-
-                    // Wait a bit and update status
-                    await Task.Delay(3000);
-                    UpdateLosslessScalingStatus();
-                    LaunchLosslessScalingButton.Content = "Launch Lossless Scaling";
-                    LaunchLosslessScalingButton.IsEnabled = true;
-                }
-                else
-                {
-                    Logger.Warn("Failed to launch Lossless Scaling via Steam");
-                }
+                // Wait a bit and update status
+                await Task.Delay(3000);
+                UpdateLosslessScalingStatus();
+                LaunchLosslessScalingButton.Content = "Launch";
+                LaunchLosslessScalingButton.IsEnabled = true;
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error launching Lossless Scaling: {ex.Message}");
+                LaunchLosslessScalingButton.Content = "Launch";
+                LaunchLosslessScalingButton.IsEnabled = true;
+            }
+        }
+
+        private void ShowLosslessScalingWindowButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Logger.Info("Show Lossless Scaling Window button clicked");
+                // Reset to false first, then set to true to ensure the change is detected
+                losslessScalingBringToForeground.SetValue(false);
+                losslessScalingBringToForeground.SetValue(true);
+                Logger.Info("Sent bring to foreground request to helper");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error showing Lossless Scaling window: {ex.Message}");
             }
         }
 
