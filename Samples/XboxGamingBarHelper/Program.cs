@@ -148,6 +148,8 @@ namespace XboxGamingBarHelper
                 losslessScalingManager.LosslessScalingAutoScaleDelay,
                 losslessScalingManager.LosslessScalingSaveAndRestart,
                 losslessScalingManager.LosslessScalingCreateProfile,
+                losslessScalingManager.LosslessScalingBringToForeground,
+                losslessScalingManager.LosslessScalingLaunch,
                 settingsManager.AutoStartRTSS,
                 settingsManager.OnScreenDisplayProvider);
 

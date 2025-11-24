@@ -134,6 +134,8 @@
     <Compile Include="Data\LosslessScalingAutoScaleDelayProperty.cs" />
     <Compile Include="Data\LosslessScalingSaveAndRestartProperty.cs" />
     <Compile Include="Data\LosslessScalingCreateProfileProperty.cs" />
+    <Compile Include="Data\LosslessScalingBringToForegroundProperty.cs" />
+    <Compile Include="Data\LosslessScalingLaunchProperty.cs" />
     <Compile Include="Data\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />
     <Compile Include="Data\OSDProperty.cs" />

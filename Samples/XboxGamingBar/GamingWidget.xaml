@@ -172,7 +172,7 @@
 
     </Page.Resources>
 
-    <Grid Background="Black">
+    <Grid>
         <ProgressRing x:Name="LoadingProgressRing"
                       IsActive="True"
                       Visibility="Collapsed"
@@ -236,7 +236,7 @@
                                     <ToggleSwitch x:Name="PerGameProfileToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
+                                                  IsEnabled="False" HorizontalAlignment="Right" Width="50"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -247,7 +247,7 @@
                                 <TextBlock Text="Performance Overlay" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
 
                                 <!-- Horizontal StackPanel for RadioButtons -->
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="2">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="-20">
                                     <RadioButton x:Name="OverlayOff" Content="Off" GroupName="PerformanceOverlay" Tag="0" IsChecked="True" Checked="PerformanceOverlayRadio_Checked" Width="60"/>
                                     <RadioButton x:Name="OverlayBasic" Content="Basic" GroupName="PerformanceOverlay" Tag="1" Checked="PerformanceOverlayRadio_Checked"/>
                                     <RadioButton x:Name="OverlayDetailed" Content="Detailed" GroupName="PerformanceOverlay" Tag="2" Checked="PerformanceOverlayRadio_Checked"/>
@@ -278,7 +278,7 @@
                                         TickFrequency="1"
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
-                                        IsEnabled="False"/>
+                                        IsEnabled="False" Value="-5"/>
                                 <Grid Margin="0,4,0,0">
                                     <TextBlock x:Name="CurrentTDPText"
                                                Text="Limits:"
@@ -312,9 +312,8 @@
                                     <TextBlock Text="Higher boost clocks" Style="{StaticResource CardCaptionStyle}"/>
                                 </StackPanel>
                                 <ToggleSwitch x:Name="CPUBoostToggle"
-                                              Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False"/>
+                                              IsEnabled="False" HorizontalAlignment="Stretch" Grid.Column="1" HorizontalContentAlignment="Right" UseLayoutRounding="True" Width="50"/>
                             </Grid>
                         </Border>
 
@@ -360,7 +359,7 @@
                                     <ToggleSwitch x:Name="LimitCPUClockToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
+                                                  IsEnabled="False" Width="52"/>
                                 </Grid>
                                 <Slider x:Name="CPUClockMaxSlider"
                                         Style="{StaticResource ModernSliderStyle}"
@@ -396,7 +395,7 @@
                                 </StackPanel>
                                 <ToggleSwitch x:Name="PowerSourceProfileToggle"
                                               Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}"/>
+                                              Style="{StaticResource ModernToggleStyle}" Width="47"/>
                             </Grid>
                         </Border>
 
@@ -617,7 +616,7 @@
                                     <ToggleSwitch x:Name="AMDRadeonSuperResolutionToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
+                                                  IsEnabled="False" Width="50"/>
                                 </Grid>
                                 <Slider x:Name="AMDRadeonSuperResolutionSharpnessSlider"
                                         Style="{StaticResource ModernSliderStyle}"
@@ -645,7 +644,7 @@
                                 <ToggleSwitch x:Name="AMDFluidMotionFrameToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False"/>
+                                              IsEnabled="False" Width="50"/>
                             </Grid>
                         </Border>
 
@@ -663,7 +662,7 @@
                                 <ToggleSwitch x:Name="AMDRadeonAntiLagToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False"/>
+                                              IsEnabled="False" Width="50"/>
                             </Grid>
                         </Border>
 
@@ -682,7 +681,7 @@
                                     <ToggleSwitch x:Name="AMDRadeonBoostToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
+                                                  IsEnabled="False" Width="52" HorizontalAlignment="Center"/>
                                 </Grid>
                                 <Slider x:Name="AMDRadeonBoostResolutionSlider"
                                         Style="{StaticResource ModernSliderStyle}"
@@ -710,7 +709,7 @@
                                     <ToggleSwitch x:Name="AMDRadeonChillToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
+                                                  IsEnabled="False" Width="50"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=AMDRadeonChillToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Slider x:Name="AMDRadeonChillMinFPSSlider"
@@ -795,7 +794,7 @@
                                     <ToggleSwitch x:Name="StickyTDPToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  Toggled="StickyTDPToggle_Toggled"/>
+                                                  Toggled="StickyTDPToggle_Toggled" Width="50"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid Margin="0,2,0,0">
@@ -848,10 +847,17 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Lossless Scaling Status" Style="{StaticResource CardTitleStyle}" Grid.Column="0" VerticalAlignment="Center"/>
-                                    <Button x:Name="LaunchLosslessScalingButton"
+                                    <Button x:Name="ShowLosslessScalingWindowButton"
                                             Grid.Column="1"
+                                            Content="Show Window"
+                                            Margin="0,0,8,0"
+                                            Visibility="Collapsed"
+                                            Click="ShowLosslessScalingWindowButton_Click"/>
+                                    <Button x:Name="LaunchLosslessScalingButton"
+                                            Grid.Column="2"
                                             Content="Launch"
                                             Visibility="Collapsed"
                                             Click="LaunchLosslessScalingButton_Click"/>
@@ -924,7 +930,7 @@
                                     <ToggleSwitch x:Name="LosslessScalingAutoScaleToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
+                                                  IsEnabled="False" Width="50"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=LosslessScalingAutoScaleToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid Margin="0,8,0,0">
