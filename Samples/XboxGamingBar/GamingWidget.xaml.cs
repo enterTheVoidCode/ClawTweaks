@@ -1671,24 +1671,29 @@ namespace XboxGamingBar
                 ScalingScrollViewer.Visibility = Visibility.Collapsed;
                 SystemScrollViewer.Visibility = Visibility.Collapsed;
 
-                // Show selected section
+                // Show selected section and scroll to top
                 switch (tag)
                 {
                     case "Performance":
                         PerformanceScrollViewer.Visibility = Visibility.Visible;
+                        PerformanceScrollViewer.ChangeView(null, 0, null, true);
                         break;
                     case "Game":
                         GameScrollViewer.Visibility = Visibility.Visible;
+                        GameScrollViewer.ChangeView(null, 0, null, true);
                         break;
                     case "AMD":
                         AMDScrollViewer.Visibility = Visibility.Visible;
+                        AMDScrollViewer.ChangeView(null, 0, null, true);
                         break;
                     case "Scaling":
                         ScalingScrollViewer.Visibility = Visibility.Visible;
+                        ScalingScrollViewer.ChangeView(null, 0, null, true);
                         UpdateLosslessScalingStatus();
                         break;
                     case "System":
                         SystemScrollViewer.Visibility = Visibility.Visible;
+                        SystemScrollViewer.ChangeView(null, 0, null, true);
                         break;
                 }
             }
