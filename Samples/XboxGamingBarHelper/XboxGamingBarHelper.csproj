@@ -382,6 +382,8 @@
     <Compile Include="Performance\Sensors\GPUWattageSensor.cs" />
     <Compile Include="Performance\Sensors\MemoryUsageSensor.cs" />
     <Compile Include="Performance\Sensors\MemoryUsedSensor.cs" />
+    <Compile Include="Performance\Sensors\NetworkDownloadSensor.cs" />
+    <Compile Include="Performance\Sensors\NetworkUploadSensor.cs" />
     <Compile Include="Performance\TDPProperty.cs" />
     <Compile Include="Performance\CurrentTDPProperty.cs" />
     <Compile Include="Performance\UpdateVisitor.cs" />
@@ -405,6 +407,7 @@
     <Compile Include="RTSS\OSDItems\OSDItemFPS.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemGPU.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemMemory.cs" />
+    <Compile Include="RTSS\OSDItems\OSDItemNetwork.cs" />
     <Compile Include="RTSS\OSDItemValue.cs" />
     <Compile Include="OnScreenDisplay\OnScreenDisplayProperty.cs" />
     <Compile Include="RTSS\RTSSInstalledProperty.cs" />
