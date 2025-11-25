@@ -245,7 +245,7 @@ namespace XboxGamingBar
             tdp = new TDPProperty(4, TDPSlider, this);
             currentTdp = new CurrentTDPProperty(CurrentTDPValueText, this);
             osd = new OSDProperty(0, PerformanceOverlaySlider, this);
-            runningGame = new RunningGameProperty(RunningGameText, PerGameProfileToggle, this);
+            runningGame = new RunningGameProperty(RunningGameText, PerGameProfileToggle, DetectedGameText, this);
             perGameProfile = new PerGameProfileProperty(PerGameProfileToggle, this);
             cpuBoost = new CPUBoostProperty(CPUBoostToggle, this);
             cpuEPP = new CPUEPPProperty(80, CPUEPPSlider, this);
@@ -690,12 +690,12 @@ namespace XboxGamingBar
             SaveCurrentSettingsToProfile(currentProfileName);
         }
 
-        private void PerformanceOverlayRadioButtons_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void PerformanceOverlayComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (PerformanceOverlayRadioButtons != null && PerformanceOverlaySlider != null)
+            if (PerformanceOverlayComboBox != null && PerformanceOverlaySlider != null)
             {
-                // Sync the hidden slider value with the selected radio button
-                int index = PerformanceOverlayRadioButtons.SelectedIndex;
+                // Sync the hidden slider value with the selected combobox item
+                int index = PerformanceOverlayComboBox.SelectedIndex;
                 if (index >= 0)
                 {
                     PerformanceOverlaySlider.Value = index;
@@ -705,15 +705,15 @@ namespace XboxGamingBar
 
         private void PerformanceOverlaySlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
-            if (PerformanceOverlaySlider != null && PerformanceOverlayRadioButtons != null)
+            if (PerformanceOverlaySlider != null && PerformanceOverlayComboBox != null)
             {
-                // Sync the RadioButtons selection when slider value changes
+                // Sync the ComboBox selection when slider value changes
                 // (e.g., from property loading or helper updates)
                 int newIndex = (int)Math.Round(e.NewValue);
 
-                if (PerformanceOverlayRadioButtons.SelectedIndex != newIndex)
+                if (PerformanceOverlayComboBox.SelectedIndex != newIndex)
                 {
-                    PerformanceOverlayRadioButtons.SelectedIndex = newIndex;
+                    PerformanceOverlayComboBox.SelectedIndex = newIndex;
                 }
             }
         }

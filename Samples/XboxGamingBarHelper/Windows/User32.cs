@@ -155,8 +155,25 @@ namespace XboxGamingBarHelper.Windows
                     return true; // Continue enumeration
                 }
 
-                var process = Process.GetProcessById(processId);
-                windows[processId] = new ProcessWindow(processId, hWnd, windowTitle, process.ProcessName, process.MainModule.FileName, processId == foregroundWindowProcessId);
+                try
+                {
+                    var process = Process.GetProcessById(processId);
+                    string processPath = string.Empty;
+                    try
+                    {
+                        processPath = process.MainModule?.FileName ?? string.Empty;
+                    }
+                    catch (Exception)
+                    {
+                        // Can't access MainModule for protected processes (anti-cheat, system processes)
+                        // Continue with empty path
+                    }
+                    windows[processId] = new ProcessWindow(processId, hWnd, windowTitle, process.ProcessName, processPath, processId == foregroundWindowProcessId);
+                }
+                catch (Exception)
+                {
+                    // Process may have exited, skip it
+                }
                 return true; // Continue enumeration
             }, 0);
         }
