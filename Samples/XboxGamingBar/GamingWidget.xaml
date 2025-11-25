@@ -246,13 +246,15 @@
                             <StackPanel>
                                 <TextBlock Text="Performance Overlay" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
 
-                                <!-- Horizontal StackPanel for RadioButtons -->
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="-20">
-                                    <RadioButton x:Name="OverlayOff" Content="Off" GroupName="PerformanceOverlay" Tag="0" IsChecked="True" Checked="PerformanceOverlayRadio_Checked" Width="60"/>
-                                    <RadioButton x:Name="OverlayBasic" Content="Basic" GroupName="PerformanceOverlay" Tag="1" Checked="PerformanceOverlayRadio_Checked"/>
-                                    <RadioButton x:Name="OverlayDetailed" Content="Detailed" GroupName="PerformanceOverlay" Tag="2" Checked="PerformanceOverlayRadio_Checked"/>
-                                    <RadioButton x:Name="OverlayFull" Content="Full" GroupName="PerformanceOverlay" Tag="3" Checked="PerformanceOverlayRadio_Checked"/>
-                                </StackPanel>
+                                <muxc:RadioButtons x:Name="PerformanceOverlayRadioButtons"
+                                                   HorizontalAlignment="Center"
+                                                   MaxColumns="4"
+                                                   SelectionChanged="PerformanceOverlayRadioButtons_SelectionChanged">
+                                    <RadioButton Content="Off" Tag="0" MinWidth="0" Padding="8,6"/>
+                                    <RadioButton Content="Basic" Tag="1" MinWidth="0" Padding="8,6"/>
+                                    <RadioButton Content="Detailed" Tag="2" MinWidth="0" Padding="8,6"/>
+                                    <RadioButton Content="Full" Tag="3" MinWidth="0" Padding="8,6"/>
+                                </muxc:RadioButtons>
 
                                 <!-- Hidden slider for property system compatibility -->
                                 <Slider x:Name="PerformanceOverlaySlider"
