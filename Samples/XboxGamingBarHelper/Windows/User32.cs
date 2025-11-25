@@ -2,8 +2,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Windows.Forms;
 
 namespace XboxGamingBarHelper.Windows
 {
@@ -167,6 +169,22 @@ namespace XboxGamingBarHelper.Windows
         private const int DISP_CHANGE_SUCCESSFUL = 0;
         private const int DM_DISPLAYFREQUENCY = 0x400000;
 
+        public static Tuple<int, int> GetPhysicalMonitorResolution(Screen screen)
+        {
+            DEVMODE dm = new DEVMODE();
+            dm.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+
+            if (EnumDisplaySettings(screen.DeviceName, ENUM_CURRENT_SETTINGS, ref dm))
+            {
+                return new Tuple<int, int>(dm.dmPelsWidth, dm.dmPelsHeight);
+            }
+            else
+            {
+                // Handle error or return default/scaled resolution if API call fails
+                return new Tuple<int, int>(screen.Bounds.Width, screen.Bounds.Height);
+            }
+        }
+
         public static int GetCurrentRefreshRate()
         {
             DEVMODE vDevMode = new DEVMODE();
@@ -186,11 +204,19 @@ namespace XboxGamingBarHelper.Windows
             devMode.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
 
             int modeIndex = 0;
+            Tuple<int, int> resolution = GetPhysicalMonitorResolution(Screen.PrimaryScreen);
+
             while (EnumDisplaySettings(null, modeIndex++, ref devMode))
             {
                 int rate = devMode.dmDisplayFrequency;
-                if (rate > 0 && !refreshRates.Contains(rate))
+                if (rate > 0 && !refreshRates.Contains(rate) && devMode.dmPelsWidth == resolution.Item1 && devMode.dmPelsHeight == resolution.Item2)
+                {
                     refreshRates.Add(rate);
+                }
+                else
+                {
+                    Logger.Info($"Skipping refresh rate {rate}Hz at resolution {devMode.dmPelsWidth}x{devMode.dmPelsHeight} because it's not compatible with current resolution {resolution.Item1}x{resolution.Item1}");
+                }
             }
 
             refreshRates.Sort();
