@@ -6,7 +6,7 @@ using Shared.Enums;
 using Shared.Utilities;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.OnScreenDisplay;
-using XboxGamingBarHelper.Performance;
+using XboxGamingBarHelper.Hardware;
 using XboxGamingBarHelper.RTSS.OSDItems;
 
 namespace XboxGamingBarHelper.RTSS
@@ -24,16 +24,16 @@ namespace XboxGamingBarHelper.RTSS
         private OSD rtssOSD;
         private readonly OSDItem[] osdItems;
 
-        public RTSSManager(PerformanceManager performanceManager, AppServiceConnection connection) : base(connection)
+        public RTSSManager(HardwareManager hardwareManager, AppServiceConnection connection) : base(connection)
         {
             
             osdItems = new OSDItem[]
             {
                 new OSDItemFPS(),
-                new OSDItemBattery(performanceManager.BatteryLevel, performanceManager.BatteryDischargeRate, performanceManager.BatteryChargeRate, performanceManager.BatteryRemainingTime),
-                new OSDItemMemory(performanceManager.MemoryUsage, performanceManager.MemoryUsed),
-                new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature),
-                new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature),
+                new OSDItemBattery(hardwareManager.BatteryLevel, hardwareManager.BatteryDischargeRate, hardwareManager.BatteryChargeRate, hardwareManager.BatteryRemainingTime),
+                new OSDItemMemory(hardwareManager.MemoryUsage, hardwareManager.MemoryUsed),
+                new OSDItemCPU(hardwareManager.CPUUsage, hardwareManager.CPUClock, hardwareManager.CPUWattage, hardwareManager.CPUTemperature),
+                new OSDItemGPU(hardwareManager.GPUUsage, hardwareManager.GPUClock, hardwareManager.GPUWattage, hardwareManager.GPUTemperature),
             };
         }
 

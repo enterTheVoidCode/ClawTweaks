@@ -10,7 +10,7 @@ using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.AMD;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.OnScreenDisplay;
-using XboxGamingBarHelper.Performance;
+using XboxGamingBarHelper.Hardware;
 using XboxGamingBarHelper.Power;
 using XboxGamingBarHelper.Profile;
 using XboxGamingBarHelper.RTSS;
@@ -25,7 +25,7 @@ namespace XboxGamingBarHelper
         private static AppServiceConnection connection = null;
 
         // Managers
-        private static PerformanceManager performanceManager;
+        private static HardwareManager hardwareManager;
         private static RTSSManager rtssManager;
         private static ProfileManager profileManager;
         private static SystemManager systemManager;
@@ -64,10 +64,10 @@ namespace XboxGamingBarHelper
             //}
 
             // Initialize managers.
-            Logger.Info("Initialize Performance Manager.");
-            performanceManager = new PerformanceManager(connection);
+            Logger.Info("Initialize Hardware Manager.");
+            hardwareManager = new HardwareManager(connection);
             Logger.Info("Initialize RTSS Manager.");
-            rtssManager = new RTSSManager(performanceManager, connection);
+            rtssManager = new RTSSManager(hardwareManager, connection);
             Logger.Info("Initialize Profile Manager.");
             profileManager = new ProfileManager(connection);
             Logger.Info("Initialize System Manager.");
@@ -79,7 +79,7 @@ namespace XboxGamingBarHelper
             settingsManager = SettingsManager.CreateInstance(connection);
             Managers = new List<IManager>
             {
-                performanceManager,
+                hardwareManager,
                 rtssManager,
                 profileManager,
                 systemManager,
@@ -97,7 +97,7 @@ namespace XboxGamingBarHelper
             properties = new HelperProperties(
                 systemManager.RunningGame,
                 onScreenDisplay,
-                performanceManager.TDP,
+                hardwareManager.TDP,
                 profileManager.PerGameProfile,
                 powerManager.CPUBoost,
                 powerManager.CPUEPP,
@@ -128,7 +128,7 @@ namespace XboxGamingBarHelper
             Logger.Info("Initialize callbacks.");
             systemManager.RunningGame.PropertyChanged += RunningGame_PropertyChanged;
             profileManager.PerGameProfile.PropertyChanged += PerGameProfile_PropertyChanged;
-            performanceManager.TDP.PropertyChanged += TDP_PropertyChanged;
+            hardwareManager.TDP.PropertyChanged += TDP_PropertyChanged;
             powerManager.CPUBoost.PropertyChanged += CPUBoost_PropertyChanged;
             powerManager.CPUEPP.PropertyChanged += CPUEPP_PropertyChanged;
             powerManager.LimitCPUClock.PropertyChanged += CPUClock_PropertyChanged;
@@ -190,7 +190,7 @@ namespace XboxGamingBarHelper
             if (profileManager.CurrentProfile.Use || profileManager.CurrentProfile.IsGlobalProfile)
             {
                 Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name}, apply it.");
-                performanceManager.TDP.SetValue(profileManager.CurrentProfile.TDP);
+                hardwareManager.TDP.SetValue(profileManager.CurrentProfile.TDP);
                 powerManager.CPUBoost.SetValue(profileManager.CurrentProfile.CPUBoost);
                 powerManager.CPUEPP.SetValue(profileManager.CurrentProfile.CPUEPP);
                 powerManager.LimitCPUClock.SetValue(profileManager.CurrentProfile.CPUClock > 0);
@@ -228,8 +228,8 @@ namespace XboxGamingBarHelper
 
         private static void TDP_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s TDP from {profileManager.CurrentProfile.TDP} to {performanceManager.TDP}.");
-            profileManager.CurrentProfile.TDP = performanceManager.TDP;
+            Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s TDP from {profileManager.CurrentProfile.TDP} to {hardwareManager.TDP}.");
+            profileManager.CurrentProfile.TDP = hardwareManager.TDP;
         }
 
         private static void RunningGame_PropertyChanged(object sender, PropertyChangedEventArgs e)
