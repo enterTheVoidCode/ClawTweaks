@@ -18,12 +18,29 @@
         <converter:SharpnessPercentStringConverter x:Key="SharpnessPercentStringConverter"/>
         <converter:RadeonBoostResolutionStringConverter x:Key="RadeonBoostResolutionStringConverter"/>
 
-        <!-- Card Style -->
+        <!-- Tooth Theme Colors -->
+        <SolidColorBrush x:Key="PageBackgroundBrush" Color="#25282C"/>
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#30343A"/>
+        <SolidColorBrush x:Key="CardBorderBrush" Color="#50555C"/>
+        <SolidColorBrush x:Key="ButtonBackground" Color="#3E434B"/>
+        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#484E58"/>
+        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#3A3F47"/>
+        <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#2C3035"/>
+        <SolidColorBrush x:Key="ButtonBorderBrush" Color="#6B7584"/>
+        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#6B7584"/>
+        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#555D69"/>
+        <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="#3A3F46"/>
+        <CornerRadius x:Key="ControlCornerRadius">8,8,8,8</CornerRadius>
+        <Thickness x:Key="ButtonPadding">15,10,15,11</Thickness>
+
+        <!-- Card Style - Tooth Theme -->
         <Style x:Key="CardStyle" TargetType="Border">
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="12"/>
-            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="Margin" Value="0,10,0,0"/>
             <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
         </Style>
 
         <!-- Navigation Item Style with Focus - Optimized for Handheld -->
@@ -34,10 +51,10 @@
             <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
         </Style>
 
-        <!-- Card Title Style -->
+        <!-- Card Title Style - Tooth Theme -->
         <Style x:Key="CardTitleStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="18"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Margin" Value="0,0,0,4"/>
         </Style>
@@ -47,11 +64,11 @@
             <Setter Property="FontSize" Value="20"/>
         </Style>
 
-        <!-- Card Caption Style -->
+        <!-- Card Caption Style - Tooth Theme -->
         <Style x:Key="CardCaptionStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Foreground" Value="#A0A0A0"/>
-            <Setter Property="Margin" Value="0,1,0,0"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
         </Style>
 
         <!-- Card Caption Style - Compact Mode -->
@@ -164,10 +181,31 @@
             </Setter>
         </Style>
 
-        <!-- Modern ComboBox Style -->
+        <!-- Modern ComboBox Style - Tooth Theme -->
         <Style x:Key="ModernComboBoxStyle" TargetType="ComboBox">
             <Setter Property="FocusVisualPrimaryBrush" Value="#00C8FF"/>
             <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+
+        <!-- Modern Button Style - Tooth Theme -->
+        <Style x:Key="ModernButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource ButtonBackground}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource ButtonBorderBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="15,10,15,11"/>
+        </Style>
+
+        <!-- Section Header Style - Tooth Theme -->
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#00C8FF"/>
+            <Setter Property="Margin" Value="0,20,0,0"/>
         </Style>
 
     </Page.Resources>
@@ -202,8 +240,9 @@
 
             <!-- PERFORMANCE TAB -->
             <Grid>
-                <ScrollViewer x:Name="PerformanceScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-                    <StackPanel Padding="16,0,16,16">
+                <ScrollViewer x:Name="PerformanceScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
 
                         <!-- Active Profile Indicator -->
                         <Border Style="{StaticResource CardStyle}">
@@ -249,7 +288,9 @@
                                 <muxc:RadioButtons x:Name="PerformanceOverlayRadioButtons"
                                                    HorizontalAlignment="Center"
                                                    MaxColumns="4"
-                                                   SelectionChanged="PerformanceOverlayRadioButtons_SelectionChanged">
+                                                   SelectionChanged="PerformanceOverlayRadioButtons_SelectionChanged"
+                                                   XYFocusUp="{x:Bind PerGameProfileToggle}"
+                                                   XYFocusDown="{x:Bind TDPSlider}">
                                     <RadioButton Content="Off" Tag="0" MinWidth="0" Padding="8,6"/>
                                     <RadioButton Content="Basic" Tag="1" MinWidth="0" Padding="8,6"/>
                                     <RadioButton Content="Detailed" Tag="2" MinWidth="0" Padding="8,6"/>
@@ -379,8 +420,9 @@
                 </ScrollViewer>
 
                 <!-- GAME TAB -->
-                <ScrollViewer x:Name="GameScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-                    <StackPanel Padding="16,0,16,16">
+                <ScrollViewer x:Name="GameScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
 
                         <!-- Power Source Profile Card -->
                         <Border Style="{StaticResource CardStyle}">
@@ -578,8 +620,9 @@
                 </ScrollViewer>
 
                 <!-- GRAPHICS TAB -->
-                <ScrollViewer x:Name="AMDScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-                    <StackPanel Padding="16,0,16,16">
+                <ScrollViewer x:Name="AMDScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
 
                         <!-- Refresh Rate Card -->
                         <Border Style="{StaticResource CardStyle}">
@@ -738,8 +781,9 @@
                 </ScrollViewer>
 
                 <!-- SYSTEM TAB -->
-                <ScrollViewer x:Name="SystemScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-                    <StackPanel Padding="16,0,16,16">
+                <ScrollViewer x:Name="SystemScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
 
                         <!-- Profile Settings Card -->
                         <Border Style="{StaticResource CardStyle}">
@@ -839,8 +883,9 @@
                 </ScrollViewer>
 
                 <!-- SCALING TAB -->
-                <ScrollViewer x:Name="ScalingScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-                    <StackPanel Padding="16,0,16,16">
+                <ScrollViewer x:Name="ScalingScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
 
                         <!-- Status Card -->
                         <Border Style="{StaticResource CardStyle}">
