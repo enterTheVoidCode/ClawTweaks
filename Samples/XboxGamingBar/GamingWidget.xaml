@@ -271,6 +271,12 @@
                                         <TextBlock Text="Use per-game profile"
                                                    FontSize="12"
                                                    Foreground="#FFFFFF"/>
+                                        <TextBlock x:Name="DetectedGameText"
+                                                   Text="No game detected"
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   MaxWidth="200"/>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="PerGameProfileToggle"
                                                   Grid.Column="1"
@@ -283,19 +289,28 @@
                         <!-- Performance Overlay Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <TextBlock Text="Performance Overlay" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
-
-                                <muxc:RadioButtons x:Name="PerformanceOverlayRadioButtons"
-                                                   HorizontalAlignment="Center"
-                                                   MaxColumns="4"
-                                                   SelectionChanged="PerformanceOverlayRadioButtons_SelectionChanged"
-                                                   XYFocusUp="{x:Bind PerGameProfileToggle}"
-                                                   XYFocusDown="{x:Bind TDPSlider}">
-                                    <RadioButton Content="Off" Tag="0" MinWidth="0" Padding="8,6"/>
-                                    <RadioButton Content="Basic" Tag="1" MinWidth="0" Padding="8,6"/>
-                                    <RadioButton Content="Detailed" Tag="2" MinWidth="0" Padding="8,6"/>
-                                    <RadioButton Content="Full" Tag="3" MinWidth="0" Padding="8,6"/>
-                                </muxc:RadioButtons>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Performance Overlay"
+                                               Style="{StaticResource CardTitleStyle}"
+                                               VerticalAlignment="Center"
+                                               Grid.Column="0"/>
+                                    <ComboBox x:Name="PerformanceOverlayComboBox"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              Width="120"
+                                              Grid.Column="1"
+                                              SelectionChanged="PerformanceOverlayComboBox_SelectionChanged"
+                                              XYFocusUp="{x:Bind PerGameProfileToggle}"
+                                              XYFocusDown="{x:Bind TDPSlider}">
+                                        <ComboBoxItem Content="Off" Tag="0" IsSelected="True"/>
+                                        <ComboBoxItem Content="Basic" Tag="1"/>
+                                        <ComboBoxItem Content="Detailed" Tag="2"/>
+                                        <ComboBoxItem Content="Full" Tag="3"/>
+                                    </ComboBox>
+                                </Grid>
 
                                 <!-- Hidden slider for property system compatibility -->
                                 <Slider x:Name="PerformanceOverlaySlider"
@@ -626,17 +641,24 @@
 
                         <!-- Refresh Rate Card -->
                         <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Refresh Rate" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,12"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Refresh Rate"
+                                           Style="{StaticResource CardTitleStyle}"
+                                           VerticalAlignment="Center"
+                                           Grid.Column="0"/>
                                 <ComboBox x:Name="RefreshRatesComboBox"
                                           PlaceholderText="60 Hz"
-                                          Width="Auto"
-                                          HorizontalAlignment="Stretch"
+                                          Width="120"
+                                          Grid.Column="1"
                                           IsEnabled="False"
                                           Style="{StaticResource ModernComboBoxStyle}">
                                     <x:String>60 Hz</x:String>
                                 </ComboBox>
-                            </StackPanel>
+                            </Grid>
                         </Border>
 
                         <!-- AMD Section Header -->
