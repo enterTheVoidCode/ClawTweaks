@@ -690,43 +690,30 @@ namespace XboxGamingBar
             SaveCurrentSettingsToProfile(currentProfileName);
         }
 
-        private void PerformanceOverlayRadio_Checked(object sender, RoutedEventArgs e)
+        private void PerformanceOverlayRadioButtons_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (sender is RadioButton radioButton && PerformanceOverlaySlider != null)
+            if (PerformanceOverlayRadioButtons != null && PerformanceOverlaySlider != null)
             {
                 // Sync the hidden slider value with the selected radio button
-                int index = int.Parse(radioButton.Tag.ToString());
-                PerformanceOverlaySlider.Value = index;
+                int index = PerformanceOverlayRadioButtons.SelectedIndex;
+                if (index >= 0)
+                {
+                    PerformanceOverlaySlider.Value = index;
+                }
             }
         }
 
         private void PerformanceOverlaySlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
-            if (PerformanceOverlaySlider != null)
+            if (PerformanceOverlaySlider != null && PerformanceOverlayRadioButtons != null)
             {
                 // Sync the RadioButtons selection when slider value changes
                 // (e.g., from property loading or helper updates)
                 int newIndex = (int)Math.Round(e.NewValue);
 
-                // Update the appropriate radio button
-                switch (newIndex)
+                if (PerformanceOverlayRadioButtons.SelectedIndex != newIndex)
                 {
-                    case 0:
-                        if (OverlayOff != null && !OverlayOff.IsChecked.GetValueOrDefault())
-                            OverlayOff.IsChecked = true;
-                        break;
-                    case 1:
-                        if (OverlayBasic != null && !OverlayBasic.IsChecked.GetValueOrDefault())
-                            OverlayBasic.IsChecked = true;
-                        break;
-                    case 2:
-                        if (OverlayDetailed != null && !OverlayDetailed.IsChecked.GetValueOrDefault())
-                            OverlayDetailed.IsChecked = true;
-                        break;
-                    case 3:
-                        if (OverlayFull != null && !OverlayFull.IsChecked.GetValueOrDefault())
-                            OverlayFull.IsChecked = true;
-                        break;
+                    PerformanceOverlayRadioButtons.SelectedIndex = newIndex;
                 }
             }
         }
