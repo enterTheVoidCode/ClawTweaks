@@ -107,6 +107,9 @@ namespace XboxGamingBarHelper.Performance
         public BatteryDischargeRateSensor BatteryDischargeRate { get; }
         public BatteryChargeRateSensor BatteryChargeRate { get; }
 
+        public NetworkDownloadSensor NetworkDownload { get; }
+        public NetworkUploadSensor NetworkUpload { get; }
+
         private List<HardwareSensor> hardwareSensors;
 
         private TDPProperty tdp;
@@ -170,6 +173,8 @@ namespace XboxGamingBarHelper.Performance
             BatteryRemainingTime = new BatteryRemainingTimeSensor();
             BatteryDischargeRate = new BatteryDischargeRateSensor();
             BatteryChargeRate = new BatteryChargeRateSensor();
+            NetworkDownload = new NetworkDownloadSensor();
+            NetworkUpload = new NetworkUploadSensor();
             hardwareSensors = new List<HardwareSensor>()
             {
                 CPUClock,
@@ -186,6 +191,8 @@ namespace XboxGamingBarHelper.Performance
                 BatteryRemainingTime,
                 BatteryDischargeRate,
                 BatteryChargeRate,
+                NetworkDownload,
+                NetworkUpload,
             };
 
             ryzenAdjHandle = RyzenAdj.init_ryzenadj();
