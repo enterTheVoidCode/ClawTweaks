@@ -39,6 +39,7 @@ namespace XboxGamingBarHelper.RTSS
                 new OSDItemMemory(performanceManager.MemoryUsage, performanceManager.MemoryUsed),
                 new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature),
                 new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature),
+                new OSDItemNetwork(performanceManager.NetworkDownload, performanceManager.NetworkUpload),
             };
 
             rtssState = RivatunerStatisticsServerState.NotInstalled;
