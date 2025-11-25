@@ -8,13 +8,18 @@ namespace XboxGamingBarHelper.Hardware
     internal class CPUFactory
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-        //private static readonly Type GENERIC_CPU_TYPE = typeof(GenericCPU);
+        
         private static readonly Type[] CPU_TYPES = new Type[]
         {
             typeof(AMD_Ryzen_7_7840U),
+            typeof(AMD_Ryzen_Z1),
+            typeof(AMD_Ryzen_Z1_Extreme),
+            typeof(AMD_Ryzen_Z2),
+            typeof(AMD_Ryzen_Z2_Extreme),
+            typeof(AMD_Ryzen_AI_Max_Plus_395),
         };
 
-        public static CPU CreateCPU(string cpuName)
+        public static CPU Create(string cpuName)
         {
             foreach (Type cpuType in CPU_TYPES)
             {

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.Core;
+using XboxGamingBarHelper.Hardware.Devices;
 using XboxGamingBarHelper.Hardware.Sensors;
 
 namespace XboxGamingBarHelper.Hardware
@@ -79,12 +80,12 @@ namespace XboxGamingBarHelper.Hardware
 
     internal class HardwareManager : Manager
     {
-        private string cpuId;
-        private CPU cpu;
+        private readonly CPU cpu;
+        private readonly Device device;
 
-        private Computer computer;
-        private IVisitor updateVisitor;
-        private IntPtr ryzenAdjHandle;
+        private readonly Computer computer;
+        private readonly IVisitor updateVisitor;
+        private readonly IntPtr ryzenAdjHandle;
 
         public CPUUsageSensor CPUUsage { get; }
         public CPUClockSensor CPUClock { get; }
@@ -104,9 +105,9 @@ namespace XboxGamingBarHelper.Hardware
         public BatteryDischargeRateSensor BatteryDischargeRate { get; }
         public BatteryChargeRateSensor BatteryChargeRate { get; }
 
-        private List<HardwareSensor> hardwareSensors;
+        private readonly List<HardwareSensor> hardwareSensors;
 
-        private TDPProperty tdp;
+        private readonly TDPProperty tdp;
         public TDPProperty TDP
         {
             get { return tdp; }
@@ -130,6 +131,8 @@ namespace XboxGamingBarHelper.Hardware
             computer.Open();
             computer.Accept(updateVisitor);
 
+            var cpuId = string.Empty;
+            var mainboardId = string.Empty;
             foreach (IHardware hardware in computer.Hardware)
             {
                 var properties = string.Empty;
@@ -146,10 +149,17 @@ namespace XboxGamingBarHelper.Hardware
                 {
                     cpuId = hardware.Name;
                 }
+
+                if (hardware.HardwareType == HardwareType.Motherboard)
+                {
+                    mainboardId = hardware.Name;
+                }
             }
 
-            cpu = CPUFactory.CreateCPU(cpuId);
+            cpu = CPUFactory.Create(cpuId);
             Logger.Info($"Initialized CPU: {cpu.Name} (\"{cpuId}\")");
+            device = DeviceFactory.Create(mainboardId, cpu);
+            Logger.Info($"Initialized Device: {device.Name} (\"{mainboardId}\")");
 
             // Initialize hardware sensors
             CPUClock = new CPUClockSensor();
