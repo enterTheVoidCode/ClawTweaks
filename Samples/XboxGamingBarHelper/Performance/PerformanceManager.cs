@@ -206,14 +206,25 @@ namespace XboxGamingBarHelper.Performance
             {
                 RyzenAdj.refresh_table(ryzenAdjHandle);
                 // RyzenAdj.set_fast_limit(ryzenAdjHandle, 30000);
-                initialTDP = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
                 var stapm = (int)RyzenAdj.get_stapm_limit(ryzenAdjHandle);
                 var fast = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
                 var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
 
-                // Only show limits (power consumption methods not working on this hardware)
-                initialCurrentTDP = $"STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W";
-                Logger.Info($"RyzenAdj initialized successfully - Stapm: {stapm}W, Fast: {fast}W, Slow: {slow}W");
+                // Check for valid values before using them
+                if (fast > 0 && fast != int.MinValue)
+                {
+                    initialTDP = fast;
+                }
+                if (stapm > 0 && fast > 0 && slow > 0 &&
+                    stapm != int.MinValue && fast != int.MinValue && slow != int.MinValue)
+                {
+                    initialCurrentTDP = $"STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W";
+                    Logger.Info($"RyzenAdj initialized successfully - Stapm: {stapm}W, Fast: {fast}W, Slow: {slow}W");
+                }
+                else
+                {
+                    Logger.Warn($"RyzenAdj returned invalid values - Stapm: {stapm}W, Fast: {fast}W, Slow: {slow}W");
+                }
             }
 
             tdp = new TDPProperty(initialTDP, null, this);
@@ -319,6 +330,14 @@ namespace XboxGamingBarHelper.Performance
                 var stapm = (int)RyzenAdj.get_stapm_limit(ryzenAdjHandle);
                 var fast = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
                 var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
+
+                // Check for invalid values (int.MinValue indicates read failure)
+                if (stapm == int.MinValue || fast == int.MinValue || slow == int.MinValue ||
+                    stapm < 0 || fast < 0 || slow < 0)
+                {
+                    Logger.Debug($"UpdateCurrentTDP: Invalid values read (STAPM:{stapm}, FAST:{fast}, SLOW:{slow}), skipping update");
+                    return;
+                }
 
                 // Only show limits (power consumption methods not working on this hardware)
                 var newTdpString = $"STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W";

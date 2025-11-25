@@ -124,6 +124,11 @@ namespace XboxGamingBarHelper.Systems
                 try
                 {
                     appEntries = OSD.GetAppEntries();
+                    Logger.Debug($"RTSS returned {appEntries.Length} app entries");
+                    foreach (var entry in appEntries)
+                    {
+                        Logger.Debug($"RTSS AppEntry: ProcessId={entry.ProcessId}, Name={entry.Name}, InstantaneousFrames={entry.InstantaneousFrames}");
+                    }
                 }
                 catch (Exception e)
                 {
@@ -139,6 +144,8 @@ namespace XboxGamingBarHelper.Systems
             {
                 AppEntries[appEntry.ProcessId] = appEntry;
             }
+
+            Logger.Debug($"ProcessWindows count: {ProcessWindows.Count}, AppEntries count: {AppEntries.Count}");
 
             var possibleGames = new List<RunningGame>();
             if (ProcessWindows.Count > 0)
@@ -166,11 +173,23 @@ namespace XboxGamingBarHelper.Systems
                         continue;
                     }
 
-                    if (AppEntries.TryGetValue(processWindow.Value.ProcessId, out var appEntry) && appEntry.InstantaneousFrames > 0)
+                    if (AppEntries.TryGetValue(processWindow.Value.ProcessId, out var appEntry))
                     {
-                        Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has {appEntry.InstantaneousFrames} FPS, use it.");
-                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, processWindow.Value.Title, processWindow.Value.Path, appEntry.InstantaneousFrames, processWindow.Value.IsForeground));
-                        continue;
+                        if (appEntry.InstantaneousFrames > 0)
+                        {
+                            Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has {appEntry.InstantaneousFrames} FPS, use it.");
+                            possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, processWindow.Value.Title, processWindow.Value.Path, appEntry.InstantaneousFrames, processWindow.Value.IsForeground));
+                            continue;
+                        }
+                        else
+                        {
+                            Logger.Debug($"Window \"{processWindow.Value.Title}\" ProcessId={processWindow.Value.ProcessId} found in RTSS but has 0 FPS (not rendering?)");
+                        }
+                    }
+                    else if (processWindow.Value.IsForeground && AppEntries.Count > 0)
+                    {
+                        // Log potential ProcessId mismatch - foreground window not found in RTSS entries
+                        Logger.Debug($"Foreground window \"{processWindow.Value.Title}\" ProcessId={processWindow.Value.ProcessId} NOT found in RTSS AppEntries. RTSS ProcessIds: {string.Join(", ", AppEntries.Keys)}");
                     }
 
                     if (GameProcesses.Contains(processExecutable))
