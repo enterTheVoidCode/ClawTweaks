@@ -363,6 +363,204 @@ namespace XboxGamingBar
                 losslessScalingCreateProfile,
                 currentTdp
             );
+
+            // Register card focus handlers for all interactive controls
+            RegisterCardFocusHandlers();
+        }
+
+        // Track the currently focused card
+        private Border currentFocusedCard = null;
+        private SolidColorBrush cardDefaultBorderBrush;
+        private SolidColorBrush cardFocusBorderBrush;
+
+        private void RegisterCardFocusHandlers()
+        {
+            // Get brushes from resources
+            cardDefaultBorderBrush = (SolidColorBrush)Resources["CardBorderBrush"];
+            cardFocusBorderBrush = (SolidColorBrush)Resources["CardFocusBorderBrush"];
+
+            // Register focus handler on navigation items to clear card focus when tabs get focus
+            foreach (var item in MainNavigationView.MenuItems)
+            {
+                if (item is NavigationViewItem navItem)
+                {
+                    navItem.GotFocus += NavItem_GotFocus;
+                }
+            }
+
+            // Register GotFocus/LostFocus on interactive controls
+            // Performance tab - Active Profile card
+            PerGameProfileToggle.GotFocus += Control_GotFocus;
+            PerGameProfileToggle.LostFocus += Control_LostFocus;
+
+            // Performance tab - Performance Overlay card
+            PerformanceOverlayComboBox.GotFocus += Control_GotFocus;
+            PerformanceOverlayComboBox.LostFocus += Control_LostFocus;
+
+            // Performance tab - TDP card
+            TDPSlider.GotFocus += Control_GotFocus;
+            TDPSlider.LostFocus += Control_LostFocus;
+
+            // Performance tab - CPU Boost card
+            CPUBoostToggle.GotFocus += Control_GotFocus;
+            CPUBoostToggle.LostFocus += Control_LostFocus;
+
+            // Performance tab - CPU EPP card
+            CPUEPPSlider.GotFocus += Control_GotFocus;
+            CPUEPPSlider.LostFocus += Control_LostFocus;
+
+            // Performance tab - Limit CPU Clock card
+            LimitCPUClockToggle.GotFocus += Control_GotFocus;
+            LimitCPUClockToggle.LostFocus += Control_LostFocus;
+            CPUClockMaxSlider.GotFocus += Control_GotFocus;
+            CPUClockMaxSlider.LostFocus += Control_LostFocus;
+
+            // Profiles tab - Power Source Profile card
+            PowerSourceProfileToggle.GotFocus += Control_GotFocus;
+            PowerSourceProfileToggle.LostFocus += Control_LostFocus;
+
+            // Graphics tab - Refresh Rate card
+            RefreshRatesComboBox.GotFocus += Control_GotFocus;
+            RefreshRatesComboBox.LostFocus += Control_LostFocus;
+
+            // Graphics tab - AMD cards
+            AMDRadeonSuperResolutionToggle.GotFocus += Control_GotFocus;
+            AMDRadeonSuperResolutionToggle.LostFocus += Control_LostFocus;
+            AMDRadeonSuperResolutionSharpnessSlider.GotFocus += Control_GotFocus;
+            AMDRadeonSuperResolutionSharpnessSlider.LostFocus += Control_LostFocus;
+            AMDFluidMotionFrameToggle.GotFocus += Control_GotFocus;
+            AMDFluidMotionFrameToggle.LostFocus += Control_LostFocus;
+            AMDRadeonAntiLagToggle.GotFocus += Control_GotFocus;
+            AMDRadeonAntiLagToggle.LostFocus += Control_LostFocus;
+            AMDRadeonBoostToggle.GotFocus += Control_GotFocus;
+            AMDRadeonBoostToggle.LostFocus += Control_LostFocus;
+            AMDRadeonBoostResolutionSlider.GotFocus += Control_GotFocus;
+            AMDRadeonBoostResolutionSlider.LostFocus += Control_LostFocus;
+            AMDRadeonChillToggle.GotFocus += Control_GotFocus;
+            AMDRadeonChillToggle.LostFocus += Control_LostFocus;
+            AMDRadeonChillMinFPSSlider.GotFocus += Control_GotFocus;
+            AMDRadeonChillMinFPSSlider.LostFocus += Control_LostFocus;
+            AMDRadeonChillMaxFPSSlider.GotFocus += Control_GotFocus;
+            AMDRadeonChillMaxFPSSlider.LostFocus += Control_LostFocus;
+
+            // System tab - Profile Settings card (checkboxes have individual focus, not card focus)
+            // These use FocusableCheckBoxStyle which shows its own focus visual
+            ProfileSaveTDPCheckBox.GotFocus += StandaloneControl_GotFocus;
+            ProfileSaveCPUBoostCheckBox.GotFocus += StandaloneControl_GotFocus;
+            ProfileSaveCPUEPPCheckBox.GotFocus += StandaloneControl_GotFocus;
+            ProfileSaveLimitCPUClockCheckBox.GotFocus += StandaloneControl_GotFocus;
+            ProfileSaveAMDFeaturesCheckBox.GotFocus += StandaloneControl_GotFocus;
+
+            // System tab - Sticky TDP card
+            StickyTDPToggle.GotFocus += Control_GotFocus;
+            StickyTDPToggle.LostFocus += Control_LostFocus;
+            StickyTDPIntervalSlider.GotFocus += Control_GotFocus;
+            StickyTDPIntervalSlider.LostFocus += Control_LostFocus;
+
+            // Scaling tab - Status card buttons
+            ShowLosslessScalingWindowButton.GotFocus += Control_GotFocus;
+            ShowLosslessScalingWindowButton.LostFocus += Control_LostFocus;
+            LaunchLosslessScalingButton.GotFocus += Control_GotFocus;
+            LaunchLosslessScalingButton.LostFocus += Control_LostFocus;
+
+            // Scaling tab - Current Profile card
+            LosslessScalingCreateProfileButton.GotFocus += Control_GotFocus;
+            LosslessScalingCreateProfileButton.LostFocus += Control_LostFocus;
+
+            // Scaling tab - Scale and Save buttons (not in cards, clear focus)
+            LosslessScalingEnabledToggle.GotFocus += StandaloneControl_GotFocus;
+            LosslessScalingSaveSettingsButton.GotFocus += StandaloneControl_GotFocus;
+
+            // Scaling tab - AutoScale card
+            LosslessScalingAutoScaleToggle.GotFocus += Control_GotFocus;
+            LosslessScalingAutoScaleToggle.LostFocus += Control_LostFocus;
+            LosslessScalingAutoScaleDelaySlider.GotFocus += Control_GotFocus;
+            LosslessScalingAutoScaleDelaySlider.LostFocus += Control_LostFocus;
+
+            // Scaling tab - Scaling Type card
+            LosslessScalingScalingTypeComboBox.GotFocus += Control_GotFocus;
+            LosslessScalingScalingTypeComboBox.LostFocus += Control_LostFocus;
+            LosslessScalingSharpnessSlider.GotFocus += Control_GotFocus;
+            LosslessScalingSharpnessSlider.LostFocus += Control_LostFocus;
+            LosslessScalingScaleModeComboBox.GotFocus += Control_GotFocus;
+            LosslessScalingScaleModeComboBox.LostFocus += Control_LostFocus;
+            LosslessScalingScaleFactorSlider.GotFocus += Control_GotFocus;
+            LosslessScalingScaleFactorSlider.LostFocus += Control_LostFocus;
+            LosslessScalingFrameGenTypeComboBox.GotFocus += Control_GotFocus;
+            LosslessScalingFrameGenTypeComboBox.LostFocus += Control_LostFocus;
+            LosslessScalingLSFG3ModeComboBox.GotFocus += Control_GotFocus;
+            LosslessScalingLSFG3ModeComboBox.LostFocus += Control_LostFocus;
+            LosslessScalingLSFG3MultiplierComboBox.GotFocus += Control_GotFocus;
+            LosslessScalingLSFG3MultiplierComboBox.LostFocus += Control_LostFocus;
+            LosslessScalingLSFG3TargetSlider.GotFocus += Control_GotFocus;
+            LosslessScalingLSFG3TargetSlider.LostFocus += Control_LostFocus;
+            LosslessScalingFlowScaleSlider.GotFocus += Control_GotFocus;
+            LosslessScalingFlowScaleSlider.LostFocus += Control_LostFocus;
+            LosslessScalingSizeToggle.GotFocus += Control_GotFocus;
+            LosslessScalingSizeToggle.LostFocus += Control_LostFocus;
+            LosslessScalingLSFG2ModeComboBox.GotFocus += Control_GotFocus;
+            LosslessScalingLSFG2ModeComboBox.LostFocus += Control_LostFocus;
+        }
+
+        private void Control_GotFocus(object sender, RoutedEventArgs e)
+        {
+            var control = sender as FrameworkElement;
+            if (control == null) return;
+
+            // Find parent card (Border with CardStyle)
+            var card = FindParentCard(control);
+            if (card != null)
+            {
+                // Clear previous card highlight
+                if (currentFocusedCard != null && currentFocusedCard != card)
+                {
+                    currentFocusedCard.BorderBrush = cardDefaultBorderBrush;
+                }
+
+                // Highlight current card
+                card.BorderBrush = cardFocusBorderBrush;
+                currentFocusedCard = card;
+            }
+        }
+
+        private void Control_LostFocus(object sender, RoutedEventArgs e)
+        {
+            // Don't clear immediately - let GotFocus of next control handle it
+            // This prevents flicker when focus moves between controls in same card
+        }
+
+        private void NavItem_GotFocus(object sender, RoutedEventArgs e)
+        {
+            // Clear card highlight when navigation tabs get focus
+            ClearCardFocus();
+        }
+
+        private void StandaloneControl_GotFocus(object sender, RoutedEventArgs e)
+        {
+            // Clear card highlight when standalone controls (not in cards) get focus
+            ClearCardFocus();
+        }
+
+        private void ClearCardFocus()
+        {
+            if (currentFocusedCard != null)
+            {
+                currentFocusedCard.BorderBrush = cardDefaultBorderBrush;
+                currentFocusedCard = null;
+            }
+        }
+
+        private Border FindParentCard(DependencyObject element)
+        {
+            while (element != null)
+            {
+                if (element is Border border && border.Style == (Style)Resources["CardStyle"])
+                {
+                    return border;
+                }
+                element = VisualTreeHelper.GetParent(element);
+            }
+            return null;
         }
 
         private void GamingWidget_Loaded(object sender, RoutedEventArgs e)
