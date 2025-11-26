@@ -38,17 +38,22 @@
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="12"/>
             <Setter Property="Margin" Value="0,10,0,0"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderThickness" Value="2"/>
             <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
         </Style>
+
+        <!-- Card Focus Border Brush -->
+        <SolidColorBrush x:Key="CardFocusBorderBrush" Color="White"/>
 
         <!-- Navigation Item Style with Focus - Optimized for Handheld -->
         <Style x:Key="NavItemStyle" TargetType="muxc:NavigationViewItem">
             <Setter Property="FontSize" Value="16"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FocusVisualPrimaryBrush" Value="#00C8FF"/>
+            <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
+            <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
             <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+            <Setter Property="FocusVisualMargin" Value="-2"/>
         </Style>
 
         <!-- Card Title Style - Tooth Theme -->
@@ -90,107 +95,46 @@
             <Setter Property="FontSize" Value="20"/>
         </Style>
 
-        <!-- Modern Toggle Style - Simplified for proper mouse/touch support -->
+        <!-- Modern Toggle Style - Uses system style, focus highlight on parent card -->
         <Style x:Key="ModernToggleStyle" TargetType="ToggleSwitch">
-            <Setter Property="MinWidth" Value="44"/>
+            <Setter Property="MinWidth" Value="40"/>
             <Setter Property="MinHeight" Value="20"/>
             <Setter Property="HorizontalAlignment" Value="Right"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="OffContent" Value=""/>
             <Setter Property="OnContent" Value=""/>
-            <Setter Property="FocusVisualPrimaryBrush" Value="#00C8FF"/>
-            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+            <Setter Property="UseSystemFocusVisuals" Value="False"/>
         </Style>
 
-        <!-- Modern Slider Style - WinUI 3 Style -->
+        <!-- Modern Slider Style - Fluent with System Accent Color, focus on parent card -->
         <Style x:Key="ModernSliderStyle" TargetType="Slider">
             <Setter Property="Margin" Value="0,4,0,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Foreground" Value="#00C8FF"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="FocusVisualPrimaryBrush" Value="#00C8FF"/>
-            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
-            <Setter Property="FocusVisualMargin" Value="-3"/>
-            <Setter Property="UseSystemFocusVisuals" Value="True"/>
+            <Setter Property="UseSystemFocusVisuals" Value="False"/>
             <Setter Property="ManipulationMode" Value="None"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Slider">
-                        <Grid Margin="{TemplateBinding Padding}">
-                            <Grid.Resources>
-                                <Style x:Key="SliderThumbStyle" TargetType="Thumb">
-                                    <Setter Property="BorderThickness" Value="0"/>
-                                    <Setter Property="Background" Value="White"/>
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Thumb">
-                                                <Ellipse Fill="{TemplateBinding Background}"
-                                                        Width="20"
-                                                        Height="20"
-                                                        Stroke="#00C8FF"
-                                                        StrokeThickness="2"/>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </Grid.Resources>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            <Grid x:Name="SliderContainer" Grid.Row="1" Height="32" VerticalAlignment="Center">
-                                <Grid x:Name="HorizontalTemplate">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="*"/>
-                                    </Grid.RowDefinitions>
-                                    <!-- Track Background -->
-                                    <Rectangle x:Name="HorizontalTrackRect"
-                                              Grid.ColumnSpan="3"
-                                              Fill="#3A3A3A"
-                                              Height="4"
-                                              RadiusX="2"
-                                              RadiusY="2"
-                                              VerticalAlignment="Center"/>
-                                    <!-- Filled Track -->
-                                    <Rectangle x:Name="HorizontalDecreaseRect"
-                                              Grid.Column="0"
-                                              Fill="#00C8FF"
-                                              Height="4"
-                                              RadiusX="2"
-                                              RadiusY="2"
-                                              VerticalAlignment="Center"/>
-                                    <!-- Thumb -->
-                                    <Thumb x:Name="HorizontalThumb"
-                                          Grid.Column="1"
-                                          Style="{StaticResource SliderThumbStyle}"
-                                          DataContext="{TemplateBinding Value}"
-                                          Height="20"
-                                          Width="20"
-                                          AutomationProperties.AccessibilityView="Raw"/>
-                                </Grid>
-                            </Grid>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
         </Style>
 
-        <!-- Modern ComboBox Style - Tooth Theme -->
+        <!-- Modern ComboBox Style - Tooth Theme (no focus visual, uses card focus) -->
         <Style x:Key="ModernComboBoxStyle" TargetType="ComboBox">
-            <Setter Property="FocusVisualPrimaryBrush" Value="#00C8FF"/>
-            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+            <Setter Property="UseSystemFocusVisuals" Value="False"/>
             <Setter Property="Height" Value="40"/>
             <Setter Property="FontSize" Value="18"/>
+            <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
         </Style>
 
-        <!-- Modern Button Style - Tooth Theme -->
+        <!-- Override ComboBox border colors to prevent highlight on focus/hover -->
+        <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#50555C"/>
+        <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="#50555C"/>
+        <SolidColorBrush x:Key="ComboBoxBorderBrushFocused" Color="#50555C"/>
+        <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#30343A"/>
+        <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#30343A"/>
+        <SolidColorBrush x:Key="ComboBoxBackgroundFocused" Color="#30343A"/>
+
+        <!-- Modern Button Style - Tooth Theme (uses card focus) -->
         <Style x:Key="ModernButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="{StaticResource ButtonBackground}"/>
             <Setter Property="BorderBrush" Value="{StaticResource ButtonBorderBrush}"/>
@@ -198,6 +142,116 @@
             <Setter Property="FontSize" Value="18"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="15,10,15,11"/>
+            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+        </Style>
+
+        <!-- Standalone Button Style - Shows white focus border (for buttons not in cards) -->
+        <Style x:Key="StandaloneButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource ButtonBackground}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource ButtonBorderBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="15,10,15,11"/>
+            <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
+            <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
+            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+            <Setter Property="FocusVisualMargin" Value="-3"/>
+            <Setter Property="UseSystemFocusVisuals" Value="True"/>
+        </Style>
+
+        <!-- Standalone ToggleButton Style - Shows white focus border (for toggles not in cards) -->
+        <Style x:Key="StandaloneToggleButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Background" Value="{StaticResource ButtonBackground}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource ButtonBorderBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="15,10,15,11"/>
+            <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
+            <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
+            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+            <Setter Property="FocusVisualMargin" Value="-3"/>
+            <Setter Property="UseSystemFocusVisuals" Value="True"/>
+        </Style>
+
+        <!-- Checkbox with individual rounded focus (for checkboxes in settings cards) -->
+        <Style x:Key="FocusableCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid Background="Transparent">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="FocusStates">
+                                    <VisualState x:Name="Focused">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="FocusBorder" Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Unfocused"/>
+                                    <VisualState x:Name="PointerFocused"/>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+
+                            <!-- Rounded focus border -->
+                            <Border x:Name="FocusBorder"
+                                    BorderBrush="White"
+                                    BorderThickness="2"
+                                    CornerRadius="6"
+                                    Margin="-6,-4,-6,-4"
+                                    Visibility="Collapsed"/>
+
+                            <!-- Default CheckBox content -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="CheckboxBorder"
+                                        Width="20" Height="20"
+                                        Background="Transparent"
+                                        BorderBrush="#6B7280"
+                                        BorderThickness="2"
+                                        CornerRadius="4"
+                                        VerticalAlignment="Center">
+                                    <FontIcon x:Name="CheckGlyph"
+                                              Glyph="&#xE73E;"
+                                              FontSize="14"
+                                              Foreground="White"
+                                              Visibility="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                </Border>
+                                <ContentPresenter x:Name="ContentPresenter"
+                                                  Grid.Column="1"
+                                                  Margin="8,0,0,0"
+                                                  VerticalAlignment="Center"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                            </Grid>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Default Button Style Override (uses card focus) -->
+        <Style TargetType="Button">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+        </Style>
+
+        <!-- Default ToggleButton Style Override (uses card focus) -->
+        <Style TargetType="ToggleButton">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+        </Style>
+
+        <!-- Default CheckBox Style Override (uses card focus) -->
+        <Style TargetType="CheckBox">
+            <Setter Property="UseSystemFocusVisuals" Value="False"/>
         </Style>
 
         <!-- Section Header Style - Tooth Theme -->
@@ -231,11 +285,11 @@
                         SelectionChanged="MainNavigationView_SelectionChanged">
 
             <muxc:NavigationView.MenuItems>
-                <muxc:NavigationViewItem Content="Performance" Tag="Performance" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem Content="Profiles" Tag="Game" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem Content="Graphics" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem Content="Scaling" Tag="Scaling" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem Content="System" Tag="System" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem x:Name="PerformanceNavItem" Content="Performance" Tag="Performance" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem x:Name="ProfilesNavItem" Content="Profiles" Tag="Game" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem x:Name="GraphicsNavItem" Content="Graphics" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem x:Name="ScalingNavItem" Content="Scaling" Tag="Scaling" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"/>
             </muxc:NavigationView.MenuItems>
 
             <!-- PERFORMANCE TAB -->
@@ -303,8 +357,9 @@
                                               Width="120"
                                               Grid.Column="1"
                                               SelectionChanged="PerformanceOverlayComboBox_SelectionChanged"
-                                              XYFocusUp="{x:Bind PerGameProfileToggle}"
-                                              XYFocusDown="{x:Bind TDPSlider}">
+                                              XYFocusUp="{x:Bind PerformanceNavItem}"
+                                              XYFocusDown="{x:Bind TDPSlider}"
+                                              XYFocusLeft="{x:Bind PerformanceNavItem}">
                                         <ComboBoxItem Content="Off" Tag="0" IsSelected="True"/>
                                         <ComboBoxItem Content="Basic" Tag="1"/>
                                         <ComboBoxItem Content="Detailed" Tag="2"/>
@@ -454,7 +509,8 @@
                                 </StackPanel>
                                 <ToggleSwitch x:Name="PowerSourceProfileToggle"
                                               Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}" Width="47"/>
+                                              Style="{StaticResource ModernToggleStyle}" Width="47"
+                                              XYFocusUp="{x:Bind ProfilesNavItem}"/>
                             </Grid>
                         </Border>
 
@@ -655,7 +711,8 @@
                                           Width="120"
                                           Grid.Column="1"
                                           IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}">
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          XYFocusUp="{x:Bind GraphicsNavItem}">
                                     <x:String>60 Hz</x:String>
                                 </ComboBox>
                             </Grid>
@@ -821,27 +878,32 @@
                                           Content="TDP Power Limit"
                                           IsChecked="True"
                                           Foreground="#FFFFFF"
-                                          Margin="0,4,0,0"/>
+                                          Margin="0,4,0,0"
+                                          Style="{StaticResource FocusableCheckBoxStyle}"/>
                                 <CheckBox x:Name="ProfileSaveCPUBoostCheckBox"
                                           Content="CPU Boost"
                                           IsChecked="True"
                                           Foreground="#FFFFFF"
-                                          Margin="0,4,0,0"/>
+                                          Margin="0,4,0,0"
+                                          Style="{StaticResource FocusableCheckBoxStyle}"/>
                                 <CheckBox x:Name="ProfileSaveCPUEPPCheckBox"
                                           Content="CPU EPP"
                                           IsChecked="True"
                                           Foreground="#FFFFFF"
-                                          Margin="0,4,0,0"/>
+                                          Margin="0,4,0,0"
+                                          Style="{StaticResource FocusableCheckBoxStyle}"/>
                                 <CheckBox x:Name="ProfileSaveLimitCPUClockCheckBox"
                                           Content="Limit CPU Clock"
                                           IsChecked="True"
                                           Foreground="#FFFFFF"
-                                          Margin="0,4,0,0"/>
+                                          Margin="0,4,0,0"
+                                          Style="{StaticResource FocusableCheckBoxStyle}"/>
                                 <CheckBox x:Name="ProfileSaveAMDFeaturesCheckBox"
                                           Content="AMD Features (FMF, Anti-Lag, Boost, Chill)"
                                           IsChecked="False"
                                           Foreground="#FFFFFF"
-                                          Margin="0,4,0,0"/>
+                                          Margin="0,4,0,0"
+                                          Style="{StaticResource FocusableCheckBoxStyle}"/>
                             </StackPanel>
                         </Border>
 
@@ -924,11 +986,17 @@
                                             Content="Show Window"
                                             Margin="0,0,8,0"
                                             Visibility="Collapsed"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Padding="12,8"
+                                            FontSize="14"
                                             Click="ShowLosslessScalingWindowButton_Click"/>
                                     <Button x:Name="LaunchLosslessScalingButton"
                                             Grid.Column="2"
                                             Content="Launch"
                                             Visibility="Collapsed"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Padding="12,8"
+                                            FontSize="14"
                                             Click="LaunchLosslessScalingButton_Click"/>
                                 </Grid>
                                 <TextBlock x:Name="LosslessScalingStatusText"
@@ -960,6 +1028,9 @@
                                             Content="Create Profile"
                                             VerticalAlignment="Center"
                                             IsEnabled="False"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Padding="12,8"
+                                            FontSize="14"
                                             Click="LosslessScalingCreateProfileButton_Click"/>
                                 </Grid>
                             </StackPanel>
@@ -972,14 +1043,16 @@
                                       IsEnabled="False"
                                       FontSize="16"
                                       FontWeight="SemiBold"
-                                      Padding="16,12"/>
+                                      Margin="0,10,0,0"
+                                      Style="{StaticResource StandaloneToggleButtonStyle}"/>
 
-                        <!-- Save Settings Button -->
+                        <!-- Apply and Restart Button -->
                         <Button x:Name="LosslessScalingSaveSettingsButton"
-                                Content="Save Settings"
+                                Content="Apply and Restart"
                                 HorizontalAlignment="Stretch"
                                 Margin="0,8,0,0"
                                 IsEnabled="False"
+                                Style="{StaticResource StandaloneButtonStyle}"
                                 Click="LosslessScalingSaveSettingsButton_Click"/>
 
                         <!-- AutoScale Card -->
