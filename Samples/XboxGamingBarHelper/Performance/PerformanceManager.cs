@@ -7,7 +7,9 @@ using System.Linq;
 using System.Reflection;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.Core;
+using XboxGamingBarHelper.Legion;
 using XboxGamingBarHelper.Performance.Sensors;
+using XboxGamingBarHelper.Settings;
 
 namespace XboxGamingBarHelper.Performance
 {
@@ -127,6 +129,19 @@ namespace XboxGamingBarHelper.Performance
         private System.Timers.Timer currentTdpTimer;
         private string lastTdpString = "";
         private int consecutiveReadFailures = 0;
+
+        // Legion Go support for manufacturer WMI TDP
+        private LegionManager legionManager;
+
+        /// <summary>
+        /// Sets the Legion Manager reference for WMI TDP support.
+        /// Must be called after LegionManager is initialized.
+        /// </summary>
+        public void SetLegionManager(LegionManager manager)
+        {
+            legionManager = manager;
+            Logger.Info($"LegionManager reference set. Legion detected: {manager?.LegionGoDetected?.Value ?? false}");
+        }
         private const int MaxConsecutiveFailuresBeforeReinit = 5;
         private const double NormalTimerInterval = 3000; // 3 seconds
         private const double BackoffTimerInterval = 10000; // 10 seconds during failures
@@ -304,6 +319,22 @@ namespace XboxGamingBarHelper.Performance
 
         public void SetTDP(int tdp)
         {
+            // Check if we should use manufacturer WMI TDP instead of RyzenAdj
+            var settingsManager = SettingsManager.GetInstance();
+            bool useManufacturerWMI = settingsManager?.UseManufacturerWMI?.Value ?? false;
+            bool legionDetected = legionManager?.LegionGoDetected?.Value ?? false;
+
+            if (useManufacturerWMI && legionDetected && legionManager != null)
+            {
+                // Use Legion WMI method for TDP control
+                // SetCustomTDP switches to Custom performance mode first if needed
+                // then sets all three TDP values to the same value
+                Logger.Info($"Using Legion WMI to set TDP to {tdp}W (SPL={tdp}, SPPL={tdp}, FPPT={tdp})");
+                legionManager.SetCustomTDP(tdp, tdp, tdp);
+                return;
+            }
+
+            // Fall back to RyzenAdj
             if (ryzenAdjHandle == IntPtr.Zero)
             {
                 Logger.Info("RyzenAdj not initialized");

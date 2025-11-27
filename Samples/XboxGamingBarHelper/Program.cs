@@ -10,6 +10,7 @@ using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.AMD;
 using XboxGamingBarHelper.Core;
+using XboxGamingBarHelper.Legion;
 using XboxGamingBarHelper.LosslessScaling;
 using XboxGamingBarHelper.OnScreenDisplay;
 using XboxGamingBarHelper.Performance;
@@ -35,6 +36,7 @@ namespace XboxGamingBarHelper
         private static AMDManager amdManager;
         private static LosslessScalingManager losslessScalingManager;
         private static SettingsManager settingsManager;
+        private static LegionManager legionManager;
         private static List<IManager> Managers;
         private static AppServiceConnectionStatus appServiceConnectionStatus;
 
@@ -82,6 +84,15 @@ namespace XboxGamingBarHelper
             Logger.Info("Initialize Lossless Scaling Manager.");
             losslessScalingManager = new LosslessScalingManager(connection);
             settingsManager = SettingsManager.CreateInstance(connection);
+            Logger.Info("Initialize Legion Manager.");
+            legionManager = new LegionManager(connection);
+
+            // Set LegionManager reference in PerformanceManager for WMI TDP support
+            performanceManager.SetLegionManager(legionManager);
+
+            // Set LegionManager reference in RTSSManager for fan speed OSD support
+            rtssManager.SetLegionManager(legionManager);
+
             Managers = new List<IManager>
             {
                 performanceManager,
@@ -91,7 +102,8 @@ namespace XboxGamingBarHelper
                 powerManager,
                 amdManager,
                 losslessScalingManager,
-                settingsManager
+                settingsManager,
+                legionManager
             };
 
             Logger.Info("Initialize properties.");
@@ -152,7 +164,19 @@ namespace XboxGamingBarHelper
                 losslessScalingManager.LosslessScalingBringToForeground,
                 losslessScalingManager.LosslessScalingLaunch,
                 settingsManager.AutoStartRTSS,
-                settingsManager.OnScreenDisplayProvider);
+                settingsManager.OnScreenDisplayProvider,
+                settingsManager.UseManufacturerWMI,
+                legionManager.LegionGoDetected,
+                legionManager.LegionTouchpadEnabled,
+                legionManager.LegionLightMode,
+                legionManager.LegionLightColor,
+                legionManager.LegionLightBrightness,
+                legionManager.LegionPerformanceMode,
+                legionManager.LegionCustomTDPSlow,
+                legionManager.LegionCustomTDPFast,
+                legionManager.LegionCustomTDPPeak,
+                legionManager.LegionFanFullSpeed,
+                legionManager.LegionGyroEnabled);
 
             Logger.Info("Initialize callbacks.");
             systemManager.RunningGame.PropertyChanged += RunningGame_PropertyChanged;
@@ -353,6 +377,7 @@ namespace XboxGamingBarHelper
             amdManager = null;
             losslessScalingManager = null;
             settingsManager = null;
+            legionManager = null;
 
             Logger.Info("All managers disposed.");
         }

@@ -102,6 +102,7 @@
     <Compile Include="Data\AMDRadeonSuperResolutionEnabledProperty.cs" />
     <Compile Include="Data\AMDRadeonSuperResolutionSharpnessProperty.cs" />
     <Compile Include="Data\AutoStartRTSSProperty.cs" />
+    <Compile Include="Data\UseManufacturerWMIProperty.cs" />
     <Compile Include="Data\CPUBoostProperty.cs" />
     <Compile Include="Data\IsForegroundProperty.cs" />
     <Compile Include="Data\LimitCPUClockProperty.cs" />
@@ -136,6 +137,15 @@
     <Compile Include="Data\LosslessScalingCreateProfileProperty.cs" />
     <Compile Include="Data\LosslessScalingBringToForegroundProperty.cs" />
     <Compile Include="Data\LosslessScalingLaunchProperty.cs" />
+    <Compile Include="Data\LegionGoDetectedProperty.cs" />
+    <Compile Include="Data\LegionTouchpadEnabledProperty.cs" />
+    <Compile Include="Data\LegionLightModeProperty.cs" />
+    <Compile Include="Data\LegionLightColorProperty.cs" />
+    <Compile Include="Data\LegionLightBrightnessProperty.cs" />
+    <Compile Include="Data\LegionPerformanceModeProperty.cs" />
+    <Compile Include="Data\LegionCustomTDPProperty.cs" />
+    <Compile Include="Data\LegionFanFullSpeedProperty.cs" />
+    <Compile Include="Data\LegionGyroEnabledProperty.cs" />
     <Compile Include="Data\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />
     <Compile Include="Data\OSDProperty.cs" />

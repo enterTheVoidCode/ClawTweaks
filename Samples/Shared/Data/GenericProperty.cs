@@ -297,5 +297,16 @@ namespace Shared.Data
                 return null;
             }
         }
+
+        /// <summary>
+        /// Sets the value without triggering NotifyPropertyChanged.
+        /// Use this when syncing values from hardware to avoid re-applying them.
+        /// </summary>
+        public virtual void SetValueSilent(ValueType newValue)
+        {
+            value = newValue;
+            lastUpdatedTime = DateTime.Now.Ticks;
+            Logger.Debug($"Silent set {Function} to {newValue}");
+        }
     }
 }

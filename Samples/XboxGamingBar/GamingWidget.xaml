@@ -285,10 +285,12 @@
                         SelectionChanged="MainNavigationView_SelectionChanged">
 
             <muxc:NavigationView.MenuItems>
-                <muxc:NavigationViewItem x:Name="PerformanceNavItem" Content="Performance" Tag="Performance" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem x:Name="PerformanceNavItem" Content="Performance" Tag="Performance" Style="{StaticResource NavItemStyle}"
+                                            XYFocusDown="{x:Bind PerformanceOverlayComboBox}"/>
                 <muxc:NavigationViewItem x:Name="ProfilesNavItem" Content="Profiles" Tag="Game" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem x:Name="GraphicsNavItem" Content="Graphics" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem x:Name="ScalingNavItem" Content="Scaling" Tag="Scaling" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem x:Name="LegionNavItem" Content="Legion" Tag="Legion" Style="{StaticResource NavItemStyle}" Visibility="Collapsed"/>
                 <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"/>
             </muxc:NavigationView.MenuItems>
 
@@ -952,6 +954,27 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Manufacturer WMI TDP Card -->
+                        <Border x:Name="ManufacturerWMICard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Manufacturer WMI TDP" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Use device manufacturer's WMI method for TDP control instead of RyzenAdj"
+                                               Style="{StaticResource CardCaptionStyle}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="UseManufacturerWMIToggle"
+                                              Grid.Column="1"
+                                              IsOn="True"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              Width="50"/>
+                            </Grid>
+                        </Border>
+
                         <!-- About Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -1374,6 +1397,287 @@
                                            TextWrapping="Wrap"
                                            Margin="0,8,0,0"/>
                             </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- LEGION TAB -->
+                <ScrollViewer x:Name="LegionScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
+
+                        <!-- Controller Status Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Legion Go Controller" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock x:Name="LegionControllerStatusText"
+                                           Text="Connected"
+                                           FontSize="14"
+                                           Foreground="#4CAF50"
+                                           Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Touchpad Control Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Touchpad" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Enable or disable the controller touchpad"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="LegionTouchpadToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              IsOn="True" Width="50"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Gyroscope Control Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Gyroscope" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="(WIP)"
+                                                   FontSize="12"
+                                                   Foreground="#FFA500"
+                                                   VerticalAlignment="Center"
+                                                   Margin="8,0,0,0"/>
+                                    </StackPanel>
+                                    <TextBlock Text="Enable or disable gyro aiming"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="LegionGyroToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              IsOn="False" Width="50"
+                                              IsEnabled="False"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- RGB Lighting Section Header -->
+                        <TextBlock Text="RGB LIGHTING" Style="{StaticResource SectionHeaderStyle}"/>
+
+                        <!-- Light Mode Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Light Mode" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Controller stick ring lighting effect"
+                                           Style="{StaticResource CardCaptionStyle}"
+                                           Margin="0,0,0,8"/>
+                                <ComboBox x:Name="LegionLightModeComboBox"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          SelectedIndex="1">
+                                    <x:String>Off</x:String>
+                                    <x:String>Solid</x:String>
+                                    <x:String>Pulse</x:String>
+                                    <x:String>Dynamic</x:String>
+                                    <x:String>Spiral</x:String>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Light Color Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Light Color" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="RGB color for stick ring lighting"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border x:Name="LegionColorPreview"
+                                                Width="24" Height="24"
+                                                CornerRadius="4"
+                                                Background="White"
+                                                BorderBrush="#50555C"
+                                                BorderThickness="1"
+                                                Margin="0,0,8,0"/>
+                                        <Button x:Name="LegionColorExpandButton"
+                                                Content="&#xE70D;"
+                                                FontFamily="Segoe MDL2 Assets"
+                                                FontSize="12"
+                                                Padding="8,4"
+                                                Background="Transparent"
+                                                Click="LegionColorExpandButton_Click"/>
+                                    </StackPanel>
+                                </Grid>
+                                <ColorPicker x:Name="LegionColorPicker"
+                                             Visibility="Collapsed"
+                                             Margin="0,12,0,0"
+                                             Color="White"
+                                             ColorSpectrumShape="Ring"
+                                             IsMoreButtonVisible="False"
+                                             IsColorSliderVisible="True"
+                                             IsColorChannelTextInputVisible="False"
+                                             IsHexInputVisible="True"
+                                             IsAlphaEnabled="False"
+                                             IsAlphaSliderVisible="False"
+                                             IsAlphaTextInputVisible="False"
+                                             ColorChanged="LegionColorPicker_ColorChanged"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Light Brightness Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="Brightness" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock x:Name="LegionBrightnessValue"
+                                               Text="100%"
+                                               Style="{StaticResource CardValueStyle}"/>
+                                </Grid>
+                                <Slider x:Name="LegionBrightnessSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="0" Maximum="100"
+                                        Value="100"
+                                        ValueChanged="LegionBrightnessSlider_ValueChanged"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Performance Mode Section Header -->
+                        <TextBlock Text="PERFORMANCE MODE" Style="{StaticResource SectionHeaderStyle}"/>
+
+                        <!-- Performance Mode Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Power Profile" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Controls TDP and thermal limits"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ComboBox x:Name="LegionPerformanceModeComboBox"
+                                          Width="140"
+                                          Grid.Column="1"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          SelectedIndex="1"
+                                          SelectionChanged="LegionPerformanceModeComboBox_SelectionChanged"
+                                          XYFocusDown="{x:Bind LegionCustomTDPSlowSlider}">
+                                    <ComboBoxItem Content="Quiet" Tag="1"/>
+                                    <ComboBoxItem Content="Balanced" Tag="2"/>
+                                    <ComboBoxItem Content="Performance" Tag="3"/>
+                                    <ComboBoxItem Content="Custom" Tag="255"/>
+                                </ComboBox>
+                            </Grid>
+                        </Border>
+
+                        <!-- Custom TDP Cards (visible when Custom mode selected) -->
+                        <StackPanel x:Name="LegionCustomTDPCard" Visibility="Collapsed">
+                            <!-- Slow TDP (SPL) Card -->
+                            <Border x:Name="LegionCustomTDPSlowCard" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <Grid>
+                                        <TextBlock Text="Slow TDP (SPL)"
+                                                   Style="{StaticResource CardTitleStyle}"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="LegionCustomTDPSlowValue"
+                                                   Text="15W"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="LegionCustomTDPSlowSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="5" Maximum="45"
+                                            Value="15"
+                                            Margin="0,4,0,0"
+                                            ValueChanged="LegionCustomTDPSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind LegionPerformanceModeComboBox}"
+                                            XYFocusDown="{x:Bind LegionCustomTDPFastSlider}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Fast TDP (SPPL) Card -->
+                            <Border x:Name="LegionCustomTDPFastCard" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <Grid>
+                                        <TextBlock Text="Fast TDP (SPPL)"
+                                                   Style="{StaticResource CardTitleStyle}"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="LegionCustomTDPFastValue"
+                                                   Text="25W"
+                                                   FontSize="14"
+                                                   Foreground="#FFA500"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="LegionCustomTDPFastSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="5" Maximum="55"
+                                            Value="25"
+                                            Margin="0,4,0,0"
+                                            ValueChanged="LegionCustomTDPSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind LegionCustomTDPSlowSlider}"
+                                            XYFocusDown="{x:Bind LegionCustomTDPPeakSlider}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Peak TDP (FPPT) Card -->
+                            <Border x:Name="LegionCustomTDPPeakCard" Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <Grid>
+                                        <TextBlock Text="Peak TDP (FPPT)"
+                                                   Style="{StaticResource CardTitleStyle}"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="LegionCustomTDPPeakValue"
+                                                   Text="35W"
+                                                   FontSize="14"
+                                                   Foreground="#FF6B6B"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="LegionCustomTDPPeakSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="5" Maximum="65"
+                                            Value="35"
+                                            Margin="0,4,0,0"
+                                            ValueChanged="LegionCustomTDPSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind LegionCustomTDPFastSlider}"
+                                            XYFocusDown="{x:Bind LegionFanFullSpeedToggle}"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Fan Full Speed Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Fan Full Speed" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Override fan curve for maximum cooling"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="LegionFanFullSpeedToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              IsOn="False" Width="50"/>
+                            </Grid>
                         </Border>
 
                     </StackPanel>

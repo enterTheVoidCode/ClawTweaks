@@ -38,11 +38,18 @@ namespace XboxGamingBarHelper.Settings
             get { return isForeground; }
         }
 
+        private readonly UseManufacturerWMIProperty useManufacturerWMI;
+        public UseManufacturerWMIProperty UseManufacturerWMI
+        {
+            get { return useManufacturerWMI; }
+        }
+
         protected SettingsManager(AppServiceConnection connection) : base(connection)
         {
             autoStartRTSS = new AutoStartRTSSProperty(this);
             onScreenDisplayProvider = new OnScreenDisplayProviderProperty(this);
             isForeground = new IsForegroundProperty(this);
+            useManufacturerWMI = new UseManufacturerWMIProperty(this);
         }
     }
 }
