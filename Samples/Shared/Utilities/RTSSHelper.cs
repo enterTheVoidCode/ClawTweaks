@@ -14,18 +14,36 @@ namespace Shared.Utilities
                 return null;
             }
 
+            // Dispose all processes except the first one we return
+            for (int i = 1; i < rtssProcessses.Length; i++)
+            {
+                rtssProcessses[i].Dispose();
+            }
+
             return rtssProcessses[0];
         }
 
         public static bool IsRunning()
         {
-            var rtssProcess = GetProcess();
-            if (rtssProcess == null)
+            var rtssProcessses = Process.GetProcessesByName("RTSS");
+            if (rtssProcessses.Length == 0)
             {
                 return false;
             }
 
-            return (DateTime.Now - rtssProcess.StartTime).TotalSeconds >= 2.0f;
+            try
+            {
+                // Check if the first process has been running for at least 2 seconds
+                return (DateTime.Now - rtssProcessses[0].StartTime).TotalSeconds >= 2.0f;
+            }
+            finally
+            {
+                // Dispose all processes
+                foreach (var proc in rtssProcessses)
+                {
+                    proc.Dispose();
+                }
+            }
         }
 
         public static bool IsInstalled()

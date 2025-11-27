@@ -15,6 +15,9 @@ namespace XboxGamingBarHelper.Performance
         public static extern IntPtr init_ryzenadj();
 
         [DllImport(RYZEN_ADJ_PATH)]
+        public static extern void cleanup_ryzenadj(IntPtr ry);
+
+        [DllImport(RYZEN_ADJ_PATH)]
         public static extern int refresh_table(IntPtr ry);
 
         [DllImport(RYZEN_ADJ_PATH)]

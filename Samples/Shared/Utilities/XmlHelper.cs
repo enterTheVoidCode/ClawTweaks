@@ -47,28 +47,29 @@ namespace Shared.Utilities
 
         public static bool ToXMLFile<T>(T obj, string path)
         {
-            var directoryName = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(directoryName) && !Directory.Exists(directoryName))
+            try
             {
-                Logger.Info($"Path {directoryName} not exist, trying to create it.");
-                try
+                var directoryName = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(directoryName) && !Directory.Exists(directoryName))
                 {
+                    Logger.Info($"Path {directoryName} not exist, trying to create it.");
                     Directory.CreateDirectory(directoryName);
                     Logger.Info($"New folder {directoryName} created.");
                 }
-                catch (Exception e)
-                {
-                    Logger.Error($"Got exception {e} while trying to create folder {directoryName}");
-                }
-            }
 
-            var serializer = new XmlSerializer(typeof(T));
-            using (var writer = new StreamWriter(path))
-            {
-                serializer.Serialize(writer, obj);
+                var serializer = new XmlSerializer(typeof(T));
+                using (var writer = new StreamWriter(path))
+                {
+                    serializer.Serialize(writer, obj);
+                }
+
+                return true;
             }
-            
-            return true;
+            catch (Exception e)
+            {
+                Logger.Error($"Exception {e} while serializing {typeof(T).Name} to {path}");
+                return false;
+            }
         }
 
         public static T FromXMLFile<T>(string path)
@@ -79,14 +80,21 @@ namespace Shared.Utilities
                 return default;
             }
 
-            var serializer = new XmlSerializer(typeof(T));
-            var reader = new StreamReader(path);
-            var obj = (T)serializer.Deserialize(reader);
-            reader.Close();
-            reader.Dispose();
-            Logger.Info($"Loaded {typeof(T).Name} from {path}.");
-
-            return obj;
+            try
+            {
+                var serializer = new XmlSerializer(typeof(T));
+                using (var reader = new StreamReader(path))
+                {
+                    var obj = (T)serializer.Deserialize(reader);
+                    Logger.Info($"Loaded {typeof(T).Name} from {path}.");
+                    return obj;
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Error($"Exception {e} while deserializing file {path} into {typeof(T).Name}");
+                return default;
+            }
         }
     }
 }
