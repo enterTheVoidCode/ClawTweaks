@@ -262,6 +262,120 @@
             <Setter Property="Margin" Value="0,20,0,0"/>
         </Style>
 
+        <!-- Quick Settings Tile Colors - Subtle, muted tones -->
+        <SolidColorBrush x:Key="TileOffBackground" Color="#3E434B"/>
+        <SolidColorBrush x:Key="TileOnBackground" Color="#3D5A45"/>
+        <SolidColorBrush x:Key="TileActiveBackground" Color="#3A4D5E"/>
+        <SolidColorBrush x:Key="TileTriggerBackground" Color="#4A4358"/>
+        <SolidColorBrush x:Key="TileBorderBrush" Color="Transparent"/>
+        <SolidColorBrush x:Key="TileFocusBorderBrush" Color="White"/>
+        <!-- Inactive state: 50% darker -->
+        <SolidColorBrush x:Key="TileInactiveBackground" Color="#1F2226"/>
+        <SolidColorBrush x:Key="TileInactiveForeground" Color="#808080"/>
+
+        <!-- Quick Settings Tile Style - Xbox Game Bar Widget UI Guidelines -->
+        <!-- Rest: normal background, Focus: rest + white stroke, Press: 10% darker, Focus+Press: press + stroke, Inactive: 50% darker -->
+        <Style x:Key="QuickSettingsTileStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource TileOffBackground}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="12,16"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="MinWidth" Value="90"/>
+            <Setter Property="MinHeight" Value="90"/>
+            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="PointerOver"/>
+                                    <VisualState x:Name="Pressed">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="PressedOverlay" Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="InactiveOverlay" Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
+                                            </ObjectAnimationUsingKeyFrames>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{StaticResource TileInactiveForeground}"/>
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="FocusStates">
+                                    <VisualState x:Name="Focused">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="FocusBorder" Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Unfocused"/>
+                                    <VisualState x:Name="PointerFocused"/>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+
+                            <!-- Background with light border -->
+                            <Border x:Name="BackgroundBorder"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="#50555C"
+                                    BorderThickness="1"
+                                    CornerRadius="12"/>
+
+                            <!-- Pressed overlay (10% darker) -->
+                            <Border x:Name="PressedOverlay"
+                                    Background="#1A000000"
+                                    CornerRadius="12"
+                                    Visibility="Collapsed"/>
+
+                            <!-- Inactive overlay (50% darker) -->
+                            <Border x:Name="InactiveOverlay"
+                                    Background="#80000000"
+                                    CornerRadius="12"
+                                    Visibility="Collapsed"/>
+
+                            <!-- Focus stroke border -->
+                            <Border x:Name="FocusBorder"
+                                    BorderBrush="White"
+                                    BorderThickness="2"
+                                    CornerRadius="12"
+                                    Visibility="Collapsed"/>
+
+                            <!-- Content -->
+                            <ContentPresenter x:Name="ContentPresenter"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              Padding="{TemplateBinding Padding}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Quick Settings Edit Mode Checkbox Style -->
+        <Style x:Key="TileVisibilityCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="UseSystemFocusVisuals" Value="True"/>
+            <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
+            <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
     </Page.Resources>
 
     <Grid>
@@ -285,6 +399,7 @@
                         SelectionChanged="MainNavigationView_SelectionChanged">
 
             <muxc:NavigationView.MenuItems>
+                <muxc:NavigationViewItem x:Name="QuickNavItem" Content="Quick" Tag="Quick" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem x:Name="PerformanceNavItem" Content="Performance" Tag="Performance" Style="{StaticResource NavItemStyle}"
                                             XYFocusDown="{x:Bind PerformanceOverlayComboBox}"/>
                 <muxc:NavigationViewItem x:Name="ProfilesNavItem" Content="Profiles" Tag="Game" Style="{StaticResource NavItemStyle}"/>
@@ -294,8 +409,74 @@
                 <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"/>
             </muxc:NavigationView.MenuItems>
 
-            <!-- PERFORMANCE TAB -->
+            <!-- QUICK SETTINGS TAB -->
             <Grid>
+                <ScrollViewer x:Name="QuickSettingsScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Visible"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
+
+                        <!-- Dynamic Tiles Container - tiles generated in code-behind -->
+                        <StackPanel x:Name="QuickSettingsTilesContainer"/>
+
+                        <!-- Customize Button -->
+                        <Button x:Name="QuickSettingsCustomizeButton"
+                                Content="Customize"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,16,0,0"
+                                Style="{StaticResource StandaloneButtonStyle}"
+                                Click="QuickSettingsCustomize_Click"/>
+
+                        <!-- Customization Panel (hidden by default) -->
+                        <Border x:Name="QuickSettingsCustomizePanel"
+                                Style="{StaticResource CardStyle}"
+                                Visibility="Collapsed"
+                                Margin="0,8,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Customize Tiles" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Show/hide tiles"
+                                           Style="{StaticResource CardCaptionStyle}"
+                                           Margin="0,0,0,12"/>
+
+                                <!-- Tile Visibility Checkboxes - generated in code-behind -->
+                                <StackPanel x:Name="TileVisibilityPanel"/>
+
+                                <!-- Add Custom Shortcut Section -->
+                                <TextBlock Text="Add Custom Shortcut"
+                                           Style="{StaticResource CardTitleStyle}"
+                                           Margin="0,16,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="CustomShortcutNameBox"
+                                             PlaceholderText="Name"
+                                             Grid.Column="0"/>
+                                    <TextBox x:Name="CustomShortcutKeyBox"
+                                             PlaceholderText="Shortcut (e.g. Alt+S)"
+                                             Grid.Column="2"/>
+                                </Grid>
+                                <Button x:Name="AddCustomShortcutButton"
+                                        Content="Add Shortcut Tile"
+                                        HorizontalAlignment="Stretch"
+                                        Margin="0,8,0,0"
+                                        Style="{StaticResource ModernButtonStyle}"
+                                        Click="AddCustomShortcut_Click"/>
+
+                                <!-- Done Button -->
+                                <Button Content="Done"
+                                        HorizontalAlignment="Stretch"
+                                        Margin="0,16,0,0"
+                                        Style="{StaticResource ModernButtonStyle}"
+                                        Click="QuickSettingsCustomizeDone_Click"/>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- PERFORMANCE TAB -->
                 <ScrollViewer x:Name="PerformanceScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
