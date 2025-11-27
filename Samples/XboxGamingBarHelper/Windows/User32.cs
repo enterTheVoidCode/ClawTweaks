@@ -91,14 +91,15 @@ namespace XboxGamingBarHelper.Windows
         {
             if (windowHandle == IntPtr.Zero)
             {
-                Logger.Error("Can't get process id from invalid window handle.");
+                // This is normal when no window has focus (UAC prompts, protected processes, etc.)
+                Logger.Debug("Can't get process id from invalid window handle.");
                 return -1;
             }
 
             GetWindowThreadProcessId(windowHandle, out IntPtr windowProcessId);
             if (windowProcessId == IntPtr.Zero)
             {
-                Logger.Error("Can't get window process id.");
+                Logger.Debug("Can't get window process id.");
                 return -1;
             }
 
@@ -109,7 +110,7 @@ namespace XboxGamingBarHelper.Windows
         {
             if (windowHandle == IntPtr.Zero)
             {
-                Logger.Error("Can't get window title from invalid window handle.");
+                Logger.Debug("Can't get window title from invalid window handle.");
                 return string.Empty;
             }
 
@@ -151,7 +152,7 @@ namespace XboxGamingBarHelper.Windows
                 var windowTitle = GetWindowTitle(hWnd);
                 if (processId == -1)
                 {
-                    Logger.Warn($"Window doesn't have process id???");
+                    // This is normal for certain system windows
                     return true; // Continue enumeration
                 }
 
@@ -159,16 +160,31 @@ namespace XboxGamingBarHelper.Windows
                 {
                     var process = Process.GetProcessById(processId);
                     string processPath = string.Empty;
+                    string processName = string.Empty;
                     try
                     {
-                        processPath = process.MainModule?.FileName ?? string.Empty;
+                        processName = process.ProcessName;
+                    }
+                    catch (Exception)
+                    {
+                        // Can't access ProcessName for protected processes
+                    }
+                    try
+                    {
+                        // MainModule access can throw Win32Exception for protected processes
+                        // even with null-conditional operator
+                        var mainModule = process.MainModule;
+                        if (mainModule != null)
+                        {
+                            processPath = mainModule.FileName ?? string.Empty;
+                        }
                     }
                     catch (Exception)
                     {
                         // Can't access MainModule for protected processes (anti-cheat, system processes)
-                        // Continue with empty path
+                        // Continue with empty path - this is normal
                     }
-                    windows[processId] = new ProcessWindow(processId, hWnd, windowTitle, process.ProcessName, processPath, processId == foregroundWindowProcessId);
+                    windows[processId] = new ProcessWindow(processId, hWnd, windowTitle, processName, processPath, processId == foregroundWindowProcessId);
                 }
                 catch (Exception)
                 {

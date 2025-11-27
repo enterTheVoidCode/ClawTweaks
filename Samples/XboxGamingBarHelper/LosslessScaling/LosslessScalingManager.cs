@@ -233,7 +233,16 @@ namespace XboxGamingBarHelper.LosslessScaling
 
         private bool IsInstalled() => File.Exists(SETTINGS_PATH);
 
-        private bool IsRunning() => Process.GetProcessesByName(PROCESS_NAME).Length > 0;
+        private bool IsRunning()
+        {
+            var processes = Process.GetProcessesByName(PROCESS_NAME);
+            bool isRunning = processes.Length > 0;
+            foreach (var proc in processes)
+            {
+                proc.Dispose();
+            }
+            return isRunning;
+        }
 
         public async Task<bool> LaunchLosslessScalingAsync()
         {
@@ -262,11 +271,21 @@ namespace XboxGamingBarHelper.LosslessScaling
 
                     // Ensure window is minimized after launch
                     var processes = Process.GetProcessesByName(PROCESS_NAME);
-                    foreach (var proc in processes)
+                    try
                     {
-                        if (proc.MainWindowHandle != IntPtr.Zero)
+                        foreach (var proc in processes)
                         {
-                            ShowWindow(proc.MainWindowHandle, SW_MINIMIZE);
+                            if (proc.MainWindowHandle != IntPtr.Zero)
+                            {
+                                ShowWindow(proc.MainWindowHandle, SW_MINIMIZE);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        foreach (var proc in processes)
+                        {
+                            proc.Dispose();
                         }
                     }
 
@@ -368,9 +387,10 @@ namespace XboxGamingBarHelper.LosslessScaling
         /// </summary>
         public void BringToForeground()
         {
+            Process[] processes = null;
             try
             {
-                var processes = Process.GetProcessesByName(PROCESS_NAME);
+                processes = Process.GetProcessesByName(PROCESS_NAME);
                 if (processes.Length == 0)
                 {
                     Logger.Warn("Cannot bring to foreground: Lossless Scaling is not running");
@@ -402,6 +422,16 @@ namespace XboxGamingBarHelper.LosslessScaling
             catch (Exception ex)
             {
                 Logger.Error($"Error bringing Lossless Scaling to foreground: {ex.Message}");
+            }
+            finally
+            {
+                if (processes != null)
+                {
+                    foreach (var proc in processes)
+                    {
+                        proc.Dispose();
+                    }
+                }
             }
         }
 
@@ -674,59 +704,80 @@ namespace XboxGamingBarHelper.LosslessScaling
 
         private async void LosslessScalingEnabled_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            bool shouldBeEnabled = losslessScalingEnabled.Value;
-            Logger.Info($"Lossless Scaling enabled changed to: {shouldBeEnabled}");
-
-            if (!IsRunning())
+            try
             {
-                if (shouldBeEnabled)
+                bool shouldBeEnabled = losslessScalingEnabled.Value;
+                Logger.Info($"Lossless Scaling enabled changed to: {shouldBeEnabled}");
+
+                if (!IsRunning())
                 {
-                    Logger.Info("Lossless Scaling not running, launching...");
-                    await LaunchLosslessScalingAsync();
-                    await Task.Delay(1000);
+                    if (shouldBeEnabled)
+                    {
+                        Logger.Info("Lossless Scaling not running, launching...");
+                        await LaunchLosslessScalingAsync();
+                        await Task.Delay(1000);
+                    }
+                    else
+                    {
+                        Logger.Info("Lossless Scaling not running and should be disabled, nothing to do");
+                        return;
+                    }
                 }
-                else
+
+                if (isScalingActive != shouldBeEnabled)
                 {
-                    Logger.Info("Lossless Scaling not running and should be disabled, nothing to do");
-                    return;
+                    ToggleScaling();
                 }
             }
-
-            if (isScalingActive != shouldBeEnabled)
+            catch (Exception ex)
             {
-                ToggleScaling();
+                Logger.Error($"Error in LosslessScalingEnabled_PropertyChanged: {ex.Message}");
             }
         }
 
         private async void LosslessScalingSaveAndRestart_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (!losslessScalingSaveAndRestart.Value)
-                return;
-
-            Logger.Info("Save and Restart triggered");
-
-            // Write settings to the current profile
-            WriteSettingsToProfile(currentProfileName);
-
-            // Kill Lossless Scaling if running
-            if (IsRunning())
+            try
             {
-                Logger.Info("Closing Lossless Scaling...");
-                var processes = Process.GetProcessesByName(PROCESS_NAME);
-                foreach (var proc in processes)
+                if (!losslessScalingSaveAndRestart.Value)
+                    return;
+
+                Logger.Info("Save and Restart triggered");
+
+                // Write settings to the current profile
+                WriteSettingsToProfile(currentProfileName);
+
+                // Kill Lossless Scaling if running
+                if (IsRunning())
                 {
-                    proc.Kill();
-                    proc.WaitForExit(5000);
+                    Logger.Info("Closing Lossless Scaling...");
+                    var processes = Process.GetProcessesByName(PROCESS_NAME);
+                    foreach (var proc in processes)
+                    {
+                        try
+                        {
+                            proc.Kill();
+                            proc.WaitForExit(5000);
+                        }
+                        finally
+                        {
+                            proc.Dispose();
+                        }
+                    }
+                    await Task.Delay(1000);
                 }
-                await Task.Delay(1000);
+
+                // Restart Lossless Scaling
+                Logger.Info("Restarting Lossless Scaling...");
+                await LaunchLosslessScalingAsync();
+
+                // Reset the trigger
+                losslessScalingSaveAndRestart.SetValue(false, DateTime.Now.Ticks);
             }
-
-            // Restart Lossless Scaling
-            Logger.Info("Restarting Lossless Scaling...");
-            await LaunchLosslessScalingAsync();
-
-            // Reset the trigger
-            losslessScalingSaveAndRestart.SetValue(false, DateTime.Now.Ticks);
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LosslessScalingSaveAndRestart_PropertyChanged: {ex.Message}");
+            }
         }
 
         private void LosslessScalingCreateProfile_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -762,14 +813,21 @@ namespace XboxGamingBarHelper.LosslessScaling
 
         private async void LosslessScalingLaunch_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (!losslessScalingLaunch.Value)
-                return;
+            try
+            {
+                if (!losslessScalingLaunch.Value)
+                    return;
 
-            Logger.Info("Launch triggered from widget");
-            await LaunchLosslessScalingAsync();
+                Logger.Info("Launch triggered from widget");
+                await LaunchLosslessScalingAsync();
 
-            // Reset the trigger
-            losslessScalingLaunch.SetValue(false, DateTime.Now.Ticks);
+                // Reset the trigger
+                losslessScalingLaunch.SetValue(false, DateTime.Now.Ticks);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LosslessScalingLaunch_PropertyChanged: {ex.Message}");
+            }
         }
 
         #endregion

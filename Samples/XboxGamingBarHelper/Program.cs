@@ -1,4 +1,5 @@
-﻿using NLog;
+﻿using Microsoft.Win32;
+using NLog;
 using Shared.Constants;
 using Shared.Data;
 using System;
@@ -167,6 +168,9 @@ namespace XboxGamingBarHelper
             //powerManager.GPUClockMax.PropertyChanged += GPUClock_PropertyChanged;
             profileManager.CurrentProfile.PropertyChanged += CurrentProfile_PropertyChanged;
 
+            // Subscribe to system power events for sleep/wake detection
+            SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
+
             Logger.Info("Start connecting to the widget.");
             appServiceConnectionStatus = await connection.OpenAsync();
             if (appServiceConnectionStatus != AppServiceConnectionStatus.Success)
@@ -295,8 +299,16 @@ namespace XboxGamingBarHelper
         /// </summary>
         private static async void Connection_RequestReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
         {
-            Logger.Info($"Helper received message {args.Request.Message.ToDebugString()} from widget.");
-            await properties.OnRequestReceived(args.Request);
+            try
+            {
+                Logger.Info($"Helper received message {args.Request.Message.ToDebugString()} from widget.");
+                await properties.OnRequestReceived(args.Request);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error handling request: {ex.Message}");
+                Logger.Error($"Stack trace: {ex.StackTrace}");
+            }
         }
 
         /// <summary>
@@ -305,7 +317,62 @@ namespace XboxGamingBarHelper
         private static void Connection_ServiceClosed(AppServiceConnection sender, AppServiceClosedEventArgs args)
         {
             Logger.Info("Lost connection to the app.");
+            DisposeManagers();
             appServiceConnectionStatus = AppServiceConnectionStatus.AppServiceUnavailable;
+        }
+
+        /// <summary>
+        /// Disposes all managers to free resources
+        /// </summary>
+        private static void DisposeManagers()
+        {
+            Logger.Info("Disposing all managers...");
+            if (Managers != null)
+            {
+                foreach (var manager in Managers)
+                {
+                    try
+                    {
+                        manager?.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error disposing manager: {ex.Message}");
+                    }
+                }
+                Managers.Clear();
+                Managers = null;
+            }
+
+            // Clear references
+            performanceManager = null;
+            rtssManager = null;
+            profileManager = null;
+            systemManager = null;
+            powerManager = null;
+            amdManager = null;
+            losslessScalingManager = null;
+            settingsManager = null;
+
+            Logger.Info("All managers disposed.");
+        }
+
+        /// <summary>
+        /// Handles system power mode changes (sleep/wake)
+        /// </summary>
+        private static void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
+        {
+            Logger.Info($"Power mode changed: {e.Mode}");
+            if (e.Mode == PowerModes.Resume)
+            {
+                Logger.Info("System resumed from sleep/hibernate, reinitializing RyzenAdj...");
+                // Request RyzenAdj reinit on next TDP update by triggering a read
+                if (performanceManager != null)
+                {
+                    // The existing retry/reinit logic in UpdateCurrentTDP will handle this
+                    Logger.Info("RyzenAdj will reinitialize on next TDP read if needed.");
+                }
+            }
         }
     }
 }

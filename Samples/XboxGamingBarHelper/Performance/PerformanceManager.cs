@@ -126,6 +126,10 @@ namespace XboxGamingBarHelper.Performance
 
         private System.Timers.Timer currentTdpTimer;
         private string lastTdpString = "";
+        private int consecutiveReadFailures = 0;
+        private const int MaxConsecutiveFailuresBeforeReinit = 5;
+        private const double NormalTimerInterval = 3000; // 3 seconds
+        private const double BackoffTimerInterval = 10000; // 10 seconds during failures
 
         internal PerformanceManager(AppServiceConnection connection) : base(connection)
         {
@@ -232,7 +236,7 @@ namespace XboxGamingBarHelper.Performance
             lastTdpString = initialCurrentTDP;
 
             // Set up timer to update current TDP every 3 seconds
-            currentTdpTimer = new System.Timers.Timer(3000); // 3 seconds
+            currentTdpTimer = new System.Timers.Timer(NormalTimerInterval);
             currentTdpTimer.Elapsed += UpdateCurrentTDP;
             currentTdpTimer.AutoReset = true;
             currentTdpTimer.Start();
@@ -315,28 +319,115 @@ namespace XboxGamingBarHelper.Performance
 #endif
         }
 
+        private void ReinitializeRyzenAdj()
+        {
+            Logger.Info("ReinitializeRyzenAdj: Attempting to reinitialize RyzenAdj handle");
+
+            // Clean up old handle if it exists
+            if (ryzenAdjHandle != IntPtr.Zero)
+            {
+                try
+                {
+                    RyzenAdj.cleanup_ryzenadj(ryzenAdjHandle);
+                    Logger.Info("ReinitializeRyzenAdj: Old handle cleaned up");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"ReinitializeRyzenAdj: Error cleaning up old handle: {ex.Message}");
+                }
+            }
+
+            // Initialize new handle
+            ryzenAdjHandle = RyzenAdj.init_ryzenadj();
+            if (ryzenAdjHandle == IntPtr.Zero)
+            {
+                Logger.Error("ReinitializeRyzenAdj: Failed to reinitialize RyzenAdj");
+            }
+            else
+            {
+                Logger.Info("ReinitializeRyzenAdj: Successfully reinitialized RyzenAdj");
+                consecutiveReadFailures = 0;
+            }
+        }
+
+        private (int stapm, int fast, int slow) TryReadTdpValues()
+        {
+            RyzenAdj.refresh_table(ryzenAdjHandle);
+            var stapm = (int)RyzenAdj.get_stapm_limit(ryzenAdjHandle);
+            var fast = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
+            var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
+            return (stapm, fast, slow);
+        }
+
+        private bool AreValuesValid(int stapm, int fast, int slow)
+        {
+            return stapm > 0 && fast > 0 && slow > 0 &&
+                   stapm != int.MinValue && fast != int.MinValue && slow != int.MinValue;
+        }
+
         private void UpdateCurrentTDP(object sender, System.Timers.ElapsedEventArgs e)
         {
             if (ryzenAdjHandle == IntPtr.Zero)
             {
-                Logger.Debug("UpdateCurrentTDP: RyzenAdj handle is null, skipping update");
-                return;
+                Logger.Debug("UpdateCurrentTDP: RyzenAdj handle is null, attempting reinit");
+                ReinitializeRyzenAdj();
+                if (ryzenAdjHandle == IntPtr.Zero)
+                {
+                    return;
+                }
             }
 
             try
             {
                 Logger.Debug("UpdateCurrentTDP: Reading TDP limits from hardware");
-                RyzenAdj.refresh_table(ryzenAdjHandle);
-                var stapm = (int)RyzenAdj.get_stapm_limit(ryzenAdjHandle);
-                var fast = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
-                var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
+
+                // Try reading values with retry
+                var (stapm, fast, slow) = TryReadTdpValues();
+
+                // If first read fails, retry up to 2 more times with small delay
+                int retryCount = 0;
+                while (!AreValuesValid(stapm, fast, slow) && retryCount < 2)
+                {
+                    retryCount++;
+                    Logger.Debug($"UpdateCurrentTDP: Read attempt {retryCount + 1} failed, retrying...");
+                    System.Threading.Thread.Sleep(100); // Brief delay before retry
+                    (stapm, fast, slow) = TryReadTdpValues();
+                }
 
                 // Check for invalid values (int.MinValue indicates read failure)
-                if (stapm == int.MinValue || fast == int.MinValue || slow == int.MinValue ||
-                    stapm < 0 || fast < 0 || slow < 0)
+                if (!AreValuesValid(stapm, fast, slow))
                 {
-                    Logger.Debug($"UpdateCurrentTDP: Invalid values read (STAPM:{stapm}, FAST:{fast}, SLOW:{slow}), skipping update");
+                    consecutiveReadFailures++;
+                    Logger.Debug($"UpdateCurrentTDP: Invalid values read (STAPM:{stapm}, FAST:{fast}, SLOW:{slow}), failure count: {consecutiveReadFailures}");
+
+                    // Backoff timer to reduce CPU usage during failures
+                    if (currentTdpTimer != null && currentTdpTimer.Interval != BackoffTimerInterval)
+                    {
+                        currentTdpTimer.Interval = BackoffTimerInterval;
+                        Logger.Info($"UpdateCurrentTDP: Backing off timer to {BackoffTimerInterval}ms due to failures");
+                    }
+
+                    // If we've had too many consecutive failures, try reinitializing
+                    if (consecutiveReadFailures >= MaxConsecutiveFailuresBeforeReinit)
+                    {
+                        Logger.Warn($"UpdateCurrentTDP: {consecutiveReadFailures} consecutive read failures, reinitializing RyzenAdj");
+                        ReinitializeRyzenAdj();
+                    }
                     return;
+                }
+
+                // Reset failure counter on successful read
+                if (consecutiveReadFailures > 0)
+                {
+                    Logger.Info($"UpdateCurrentTDP: Read succeeded after {consecutiveReadFailures} failures");
+                    consecutiveReadFailures = 0;
+
+                    // Restore normal timer interval
+                    if (currentTdpTimer != null && currentTdpTimer.Interval != NormalTimerInterval)
+                    {
+                        currentTdpTimer.Interval = NormalTimerInterval;
+                        Logger.Info($"UpdateCurrentTDP: Restored timer to {NormalTimerInterval}ms");
+                    }
                 }
 
                 // Only show limits (power consumption methods not working on this hardware)
@@ -357,9 +448,66 @@ namespace XboxGamingBarHelper.Performance
             }
             catch (Exception ex)
             {
+                consecutiveReadFailures++;
                 Logger.Error($"Error updating current TDP: {ex.Message}");
                 Logger.Error($"Stack trace: {ex.StackTrace}");
+
+                if (consecutiveReadFailures >= MaxConsecutiveFailuresBeforeReinit)
+                {
+                    Logger.Warn($"UpdateCurrentTDP: {consecutiveReadFailures} consecutive failures with exceptions, reinitializing RyzenAdj");
+                    ReinitializeRyzenAdj();
+                }
             }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Logger.Info("PerformanceManager: Disposing resources");
+
+                // Stop and dispose the timer
+                if (currentTdpTimer != null)
+                {
+                    currentTdpTimer.Stop();
+                    currentTdpTimer.Elapsed -= UpdateCurrentTDP;
+                    currentTdpTimer.Dispose();
+                    currentTdpTimer = null;
+                    Logger.Info("PerformanceManager: Timer disposed");
+                }
+
+                // Clean up RyzenAdj handle
+                if (ryzenAdjHandle != IntPtr.Zero)
+                {
+                    try
+                    {
+                        RyzenAdj.cleanup_ryzenadj(ryzenAdjHandle);
+                        Logger.Info("PerformanceManager: RyzenAdj handle cleaned up");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"PerformanceManager: Error cleaning up RyzenAdj: {ex.Message}");
+                    }
+                    ryzenAdjHandle = IntPtr.Zero;
+                }
+
+                // Dispose LibreHardwareMonitor computer
+                if (computer != null)
+                {
+                    try
+                    {
+                        computer.Close();
+                        Logger.Info("PerformanceManager: LibreHardwareMonitor closed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"PerformanceManager: Error closing LibreHardwareMonitor: {ex.Message}");
+                    }
+                    computer = null;
+                }
+            }
+
+            base.Dispose(disposing);
         }
     }
 }
