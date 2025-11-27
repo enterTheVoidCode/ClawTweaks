@@ -123,5 +123,35 @@ namespace Shared.Data
         protected abstract Task<AppServiceResponse> SendMessageAsync(ValueSet request);
 
         public abstract ValueSet AddValueSetContent(in ValueSet inValueSet);
+
+        /// <summary>
+        /// Sends the current value to the other side (widget/helper) without triggering local property change handlers.
+        /// Use this when syncing values from hardware to the UI without causing a feedback loop.
+        /// </summary>
+        public async void SyncToRemote()
+        {
+            var request = new ValueSet
+            {
+                { nameof(Command), (int)Command.Set },
+                { nameof(Function),(int)function },
+            };
+            request = AddValueSetContent(request);
+
+            var sentMessage = SendMessageAsync(request);
+            if (sentMessage == null)
+            {
+                Logger.Debug($"Can't send {function} sync to remote message.");
+                return;
+            }
+
+            var response = await sentMessage;
+            if (response != null && response.Message != null)
+            {
+                if (response.Message.TryGetValue(nameof(Content), out object responseValue))
+                {
+                    Logger.Debug($"Synced property {function} to remote: {responseValue}.");
+                }
+            }
+        }
     }
 }

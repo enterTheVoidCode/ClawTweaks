@@ -63,5 +63,19 @@
 
         Settings_AutoStartRTSS,
         Settings_OnScreenDisplayProvider,
+        Settings_UseManufacturerWMI,    // bool - use manufacturer WMI for TDP instead of RyzenAdj
+
+        // Legion Go specific functions
+        LegionGoDetected,           // bool - whether a Legion Go device is detected
+        LegionTouchpadEnabled,      // bool - touchpad on/off
+        LegionLightMode,            // int - RGB mode (Off=0, Solid=1, Pulse=2, Dynamic=3, Spiral=4)
+        LegionLightColor,           // string - hex color "#RRGGBB"
+        LegionLightBrightness,      // int - brightness (0-100)
+        LegionPerformanceMode,      // int - TDP mode (Quiet=1, Balanced=2, Performance=3, Custom=255)
+        LegionCustomTDPSlow,        // int - Slow TDP (SPL) in watts
+        LegionCustomTDPFast,        // int - Fast TDP (SPPL) in watts
+        LegionCustomTDPPeak,        // int - Peak TDP (FPPT) in watts
+        LegionFanFullSpeed,         // bool - fan full speed mode
+        LegionGyroEnabled,          // bool - gyroscope on/off (WIP)
     }
 }
