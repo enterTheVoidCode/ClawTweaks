@@ -22,6 +22,7 @@ using Windows.System.Power;
 using Windows.Storage;
 using XboxGamingBar.Data;
 using XboxGamingBar.Event;
+using XboxGamingBar.QuickSettings;
 using NavigationView = Microsoft.UI.Xaml.Controls.NavigationView;
 using NavigationViewItem = Microsoft.UI.Xaml.Controls.NavigationViewItem;
 using NavigationViewSelectionChangedEventArgs = Microsoft.UI.Xaml.Controls.NavigationViewSelectionChangedEventArgs;
@@ -1949,6 +1950,7 @@ namespace XboxGamingBar
                 string tag = selectedItem.Tag?.ToString() ?? "";
 
                 // Hide all sections
+                QuickSettingsScrollViewer.Visibility = Visibility.Collapsed;
                 PerformanceScrollViewer.Visibility = Visibility.Collapsed;
                 GameScrollViewer.Visibility = Visibility.Collapsed;
                 AMDScrollViewer.Visibility = Visibility.Collapsed;
@@ -1959,6 +1961,11 @@ namespace XboxGamingBar
                 // Show selected section and scroll to top
                 switch (tag)
                 {
+                    case "Quick":
+                        QuickSettingsScrollViewer.Visibility = Visibility.Visible;
+                        QuickSettingsScrollViewer.ChangeView(null, 0, null, true);
+                        UpdateQuickSettingsTileStates();
+                        break;
                     case "Performance":
                         PerformanceScrollViewer.Visibility = Visibility.Visible;
                         PerformanceScrollViewer.ChangeView(null, 0, null, true);
@@ -3083,6 +3090,9 @@ namespace XboxGamingBar
                 ManufacturerWMICard.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
                 Logger.Info($"Manufacturer WMI TDP card visibility set to: {visible}");
             }
+
+            // Refresh Quick Settings tiles to show/hide Legion-specific tiles
+            RefreshQuickSettingsForLegion();
         }
 
         /// <summary>
@@ -3197,6 +3207,970 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Error in LegionCustomTDPSlider_ValueChanged: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region Quick Settings
+
+        // Tile brushes
+        private SolidColorBrush tileOffBrush;
+        private SolidColorBrush tileOnBrush;
+        private SolidColorBrush tileActiveBrush;
+        private SolidColorBrush tileTriggerBrush;
+        private bool quickSettingsInitialized = false;
+
+        // Tile definitions with visibility tracking
+        private class TileDefinition
+        {
+            public string Id { get; set; }
+            public string Name { get; set; }
+            public string Glyph { get; set; }
+            public bool IsVisible { get; set; } = true;
+            public bool IsTrigger { get; set; } = false;  // True for tiles that trigger actions (keyboard, custom shortcuts)
+            public string CustomShortcut { get; set; }    // For custom shortcut tiles
+            public Button TileButton { get; set; }
+            public TextBlock StateText { get; set; }
+            public CheckBox VisibilityCheckBox { get; set; }
+        }
+
+        // List of custom shortcut tiles
+        private List<TileDefinition> qsCustomShortcuts = new List<TileDefinition>();
+
+        private List<TileDefinition> qsTileDefinitions = new List<TileDefinition>();
+        private Dictionary<string, TileDefinition> qsTileMap = new Dictionary<string, TileDefinition>();
+
+        // Timer for TDP reapply when switching to Custom mode
+        private Windows.UI.Xaml.DispatcherTimer qsTdpReapplyTimer;
+        private int qsPendingTdpValue;
+
+        /// <summary>
+        /// Initialize Quick Settings resources and build tiles
+        /// </summary>
+        private void InitializeQuickSettings()
+        {
+            if (quickSettingsInitialized) return;
+
+            try
+            {
+                // Use subtle, muted colors matching Xbox Game Bar aesthetic
+                // On state: muted green-gray
+                tileOnBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 61, 90, 69));    // #3D5A45
+
+                // Other tile brushes - all subtle and neutral
+                tileOffBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 62, 67, 75));   // #3E434B
+                tileActiveBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 58, 77, 94)); // #3A4D5E - muted blue-gray
+                tileTriggerBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 74, 67, 88)); // #4A4358 - muted purple-gray
+
+                // Define all tiles
+                DefineQuickSettingsTiles();
+
+                // Load visibility settings from storage
+                LoadQuickSettingsConfig();
+
+                // Build tile UI
+                RebuildQuickSettingsTiles();
+
+                // Build visibility panel
+                BuildVisibilityPanel();
+
+                quickSettingsInitialized = true;
+                Logger.Info("Quick Settings initialized with system accent color");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error initializing Quick Settings: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Refresh Quick Settings tiles when Legion status changes
+        /// </summary>
+        private void RefreshQuickSettingsForLegion()
+        {
+            if (!quickSettingsInitialized) return;
+
+            try
+            {
+                RebuildQuickSettingsTiles();
+                BuildVisibilityPanel();
+                UpdateQuickSettingsTileStates();
+                Logger.Info("Quick Settings refreshed for Legion detection change");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error refreshing Quick Settings for Legion: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Define all available Quick Settings tiles
+        /// </summary>
+        private void DefineQuickSettingsTiles()
+        {
+            qsTileDefinitions.Clear();
+            qsTileMap.Clear();
+
+            // Core tiles
+            AddTileDefinition("TDPMode", "TDP Mode", "\uE945");
+            AddTileDefinition("Profile", "Profile", "\uE77B");
+            AddTileDefinition("Overlay", "Overlay", "\uE7B3");
+            AddTileDefinition("LosslessScaling", "Lossless", "\uE740");
+            AddTileDefinition("AFMF", "AFMF", "\uE916");
+            AddTileDefinition("RSR", "RSR", "\uE8B3");
+            AddTileDefinition("AntiLag", "Anti-Lag", "\uE916");
+            AddTileDefinition("RadeonChill", "Chill", "\uE9CA");
+            AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4");
+            AddTileDefinition("EPP", "EPP", "\uE83E");
+
+            // Keyboard trigger tile
+            AddTileDefinition("Keyboard", "Keyboard", "\uE765", isTrigger: true);
+
+            // Legion-specific tiles (will be hidden if Legion not detected)
+            AddTileDefinition("LegionTouchpad", "Touchpad", "\uE962");
+            AddTileDefinition("LegionLightMode", "Light Mode", "\uE781");
+
+            // Load custom shortcut tiles from storage
+            LoadCustomShortcutTiles();
+        }
+
+        private void AddTileDefinition(string id, string name, string glyph, bool isTrigger = false, string customShortcut = null)
+        {
+            var def = new TileDefinition { Id = id, Name = name, Glyph = glyph, IsVisible = true, IsTrigger = isTrigger, CustomShortcut = customShortcut };
+            qsTileDefinitions.Add(def);
+            qsTileMap[id] = def;
+        }
+
+        /// <summary>
+        /// Load custom shortcut tiles from storage
+        /// </summary>
+        private void LoadCustomShortcutTiles()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                if (settings.Values.TryGetValue("QS_CustomShortcuts", out object val) && val is string json && !string.IsNullOrEmpty(json))
+                {
+                    // Parse simple format: "Name1|Shortcut1;Name2|Shortcut2"
+                    var shortcuts = json.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                    int index = 0;
+                    foreach (var shortcut in shortcuts)
+                    {
+                        var parts = shortcut.Split('|');
+                        if (parts.Length == 2)
+                        {
+                            string tileId = $"CustomShortcut_{index}";
+                            var def = new TileDefinition
+                            {
+                                Id = tileId,
+                                Name = parts[0],
+                                Glyph = "\uE768",
+                                IsVisible = true,
+                                IsTrigger = true,
+                                CustomShortcut = parts[1]
+                            };
+                            qsTileDefinitions.Add(def);
+                            qsTileMap[tileId] = def;
+                            qsCustomShortcuts.Add(def);
+                            index++;
+                        }
+                    }
+                    Logger.Info($"Loaded {index} custom shortcut tiles");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error loading custom shortcut tiles: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Save custom shortcut tiles to storage
+        /// </summary>
+        private void SaveCustomShortcutTiles()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                var parts = new List<string>();
+                foreach (var tile in qsCustomShortcuts)
+                {
+                    if (!string.IsNullOrEmpty(tile.Name) && !string.IsNullOrEmpty(tile.CustomShortcut))
+                    {
+                        parts.Add($"{tile.Name}|{tile.CustomShortcut}");
+                    }
+                }
+                settings.Values["QS_CustomShortcuts"] = string.Join(";", parts);
+                Logger.Info($"Saved {parts.Count} custom shortcut tiles");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error saving custom shortcut tiles: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Add a new custom shortcut tile
+        /// </summary>
+        private void AddCustomShortcutTile(string name, string shortcut)
+        {
+            try
+            {
+                int index = qsCustomShortcuts.Count;
+                string tileId = $"CustomShortcut_{index}";
+                var def = new TileDefinition
+                {
+                    Id = tileId,
+                    Name = name,
+                    Glyph = "\uE768",
+                    IsVisible = true,
+                    IsTrigger = true,
+                    CustomShortcut = shortcut
+                };
+                qsTileDefinitions.Add(def);
+                qsTileMap[tileId] = def;
+                qsCustomShortcuts.Add(def);
+
+                SaveCustomShortcutTiles();
+                RebuildQuickSettingsTiles();
+                BuildVisibilityPanel();
+
+                Logger.Info($"Added custom shortcut tile: {name} -> {shortcut}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error adding custom shortcut tile: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Load Quick Settings configuration from storage
+        /// </summary>
+        private void LoadQuickSettingsConfig()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                foreach (var tile in qsTileDefinitions)
+                {
+                    string key = $"QS_{tile.Id}_Visible";
+                    if (settings.Values.TryGetValue(key, out object val) && val is bool visible)
+                    {
+                        tile.IsVisible = visible;
+                    }
+                }
+
+                Logger.Info("Quick Settings config loaded");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error loading Quick Settings config: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Save Quick Settings configuration to storage
+        /// </summary>
+        private void SaveQuickSettingsConfig()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                foreach (var tile in qsTileDefinitions)
+                {
+                    string key = $"QS_{tile.Id}_Visible";
+                    settings.Values[key] = tile.IsVisible;
+                }
+
+                Logger.Info("Quick Settings config saved");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error saving Quick Settings config: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Build visibility checkbox panel
+        /// </summary>
+        private void BuildVisibilityPanel()
+        {
+            if (TileVisibilityPanel == null) return;
+
+            TileVisibilityPanel.Children.Clear();
+
+            foreach (var tile in qsTileDefinitions)
+            {
+                // Skip Legion tiles if Legion not detected
+                if ((tile.Id == "LegionTouchpad" || tile.Id == "LegionLightMode") &&
+                    (legionGoDetected?.Value != true))
+                {
+                    continue;
+                }
+
+                var checkBox = new CheckBox
+                {
+                    Content = tile.Name,
+                    IsChecked = tile.IsVisible,
+                    Tag = tile.Id,
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    Padding = new Thickness(8, 6, 8, 6)
+                };
+                checkBox.Checked += TileVisibility_Changed;
+                checkBox.Unchecked += TileVisibility_Changed;
+                tile.VisibilityCheckBox = checkBox;
+                TileVisibilityPanel.Children.Add(checkBox);
+            }
+        }
+
+        /// <summary>
+        /// Rebuild tile grid with only visible tiles, in 3-column layout
+        /// </summary>
+        private void RebuildQuickSettingsTiles()
+        {
+            if (QuickSettingsTilesContainer == null) return;
+
+            QuickSettingsTilesContainer.Children.Clear();
+
+            // Get visible tiles
+            var visibleTiles = new List<TileDefinition>();
+            foreach (var tile in qsTileDefinitions)
+            {
+                // Skip Legion tiles if not detected
+                if ((tile.Id == "LegionTouchpad" || tile.Id == "LegionLightMode") &&
+                    (legionGoDetected?.Value != true))
+                {
+                    continue;
+                }
+
+                // Skip TDP Mode if Legion not detected
+                if (tile.Id == "TDPMode" && (legionGoDetected?.Value != true))
+                {
+                    continue;
+                }
+
+                if (tile.IsVisible)
+                {
+                    visibleTiles.Add(tile);
+                }
+            }
+
+            // Build rows of 3 tiles
+            Grid currentRow = null;
+            int colIndex = 0;
+
+            for (int i = 0; i < visibleTiles.Count; i++)
+            {
+                if (colIndex == 0)
+                {
+                    currentRow = new Grid { Margin = new Thickness(0, 4, 0, 4) };
+                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
+                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
+                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    QuickSettingsTilesContainer.Children.Add(currentRow);
+                }
+
+                var tile = visibleTiles[i];
+                var tileButton = CreateTileButton(tile);
+                Grid.SetColumn(tileButton, colIndex * 2);
+                currentRow.Children.Add(tileButton);
+
+                colIndex++;
+                if (colIndex >= 3)
+                {
+                    colIndex = 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Create a tile button for the given definition
+        /// </summary>
+        private Button CreateTileButton(TileDefinition tile)
+        {
+            var button = new Button
+            {
+                Tag = tile.Id,
+                Style = Resources["QuickSettingsTileStyle"] as Style,
+                Background = tileOffBrush,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+
+            var content = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+
+            content.Children.Add(new FontIcon
+            {
+                Glyph = tile.Glyph,
+                FontSize = 24,
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+
+            content.Children.Add(new TextBlock
+            {
+                Text = tile.Name,
+                FontSize = 12,
+                Margin = new Thickness(0, 8, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center
+            });
+
+            var stateText = new TextBlock
+            {
+                Text = "Off",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+            content.Children.Add(stateText);
+
+            button.Content = content;
+            button.Click += QuickSettingsTile_Click;
+
+            tile.TileButton = button;
+            tile.StateText = stateText;
+
+            return button;
+        }
+
+        /// <summary>
+        /// Update all Quick Settings tile states based on current property values
+        /// </summary>
+        private void UpdateQuickSettingsTileStates()
+        {
+            if (!quickSettingsInitialized)
+            {
+                InitializeQuickSettings();
+            }
+
+            try
+            {
+                var accentForeground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 200, 255));
+                var offForeground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
+
+                // TDP Mode tile
+                if (qsTileMap.TryGetValue("TDPMode", out var tdpTile) && tdpTile.TileButton != null)
+                {
+                    if (legionGoDetected?.Value == true && legionPerformanceMode != null)
+                    {
+                        int mode = legionPerformanceMode.Value;
+                        string modeText;
+                        switch (mode)
+                        {
+                            case 1: modeText = "Quiet"; break;
+                            case 2: modeText = "Balanced"; break;
+                            case 3: modeText = "Performance"; break;
+                            case 255: modeText = "Custom"; break;
+                            default: modeText = "Balanced"; break;
+                        }
+                        tdpTile.StateText.Text = modeText;
+                        tdpTile.StateText.Foreground = accentForeground;
+                        tdpTile.TileButton.Background = mode == 255 ? tileActiveBrush : (mode == 3 ? tileOnBrush : tileOffBrush);
+                    }
+                }
+
+                // Profile tile
+                if (qsTileMap.TryGetValue("Profile", out var profileTile) && profileTile.TileButton != null)
+                {
+                    bool perGame = perGameProfile?.Value ?? false;
+                    string gameName = (runningGame != null && runningGame.Value.IsValid()) ? runningGame.Value.GameId.Name : "Per-Game";
+                    string profileName = perGame ? gameName : "Global";
+                    profileTile.StateText.Text = profileName;
+                    profileTile.StateText.Foreground = perGame ? accentForeground : offForeground;
+                    profileTile.TileButton.Background = perGame ? tileOnBrush : tileOffBrush;
+                }
+
+                // Performance Overlay tile
+                if (qsTileMap.TryGetValue("Overlay", out var overlayTile) && overlayTile.TileButton != null)
+                {
+                    int level = (int)(osd?.Value ?? 0);
+                    string levelText;
+                    switch (level)
+                    {
+                        case 0: levelText = "Off"; break;
+                        case 1: levelText = "Basic"; break;
+                        case 2: levelText = "Detailed"; break;
+                        case 3: levelText = "Full"; break;
+                        default: levelText = "Off"; break;
+                    }
+                    overlayTile.StateText.Text = levelText;
+                    overlayTile.StateText.Foreground = level > 0 ? accentForeground : offForeground;
+                    overlayTile.TileButton.Background = level > 0 ? tileOnBrush : tileOffBrush;
+                }
+
+                // Lossless Scaling tile
+                if (qsTileMap.TryGetValue("LosslessScaling", out var lsTile) && lsTile.TileButton != null)
+                {
+                    bool enabled = losslessScalingEnabled?.Value ?? false;
+                    lsTile.StateText.Text = enabled ? "On" : "Off";
+                    lsTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                    lsTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
+                // AFMF tile
+                if (qsTileMap.TryGetValue("AFMF", out var afmfTile) && afmfTile.TileButton != null)
+                {
+                    bool supported = amdFluidMotionFrameSupported?.Value ?? false;
+                    bool enabled = amdFluidMotionFrameEnabled?.Value ?? false;
+                    afmfTile.StateText.Text = !supported ? "N/A" : (enabled ? "On" : "Off");
+                    afmfTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                    afmfTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
+                // RSR tile
+                if (qsTileMap.TryGetValue("RSR", out var rsrTile) && rsrTile.TileButton != null)
+                {
+                    bool supported = amdRadeonSuperResolutionSupported?.Value ?? false;
+                    bool enabled = amdRadeonSuperResolutionEnabled?.Value ?? false;
+                    rsrTile.StateText.Text = !supported ? "N/A" : (enabled ? "On" : "Off");
+                    rsrTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                    rsrTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
+                // Anti-Lag tile
+                if (qsTileMap.TryGetValue("AntiLag", out var antiLagTile) && antiLagTile.TileButton != null)
+                {
+                    bool supported = amdRadeonAntiLagSupported?.Value ?? false;
+                    bool enabled = amdRadeonAntiLagEnabled?.Value ?? false;
+                    antiLagTile.StateText.Text = !supported ? "N/A" : (enabled ? "On" : "Off");
+                    antiLagTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                    antiLagTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
+                // Radeon Chill tile
+                if (qsTileMap.TryGetValue("RadeonChill", out var chillTile) && chillTile.TileButton != null)
+                {
+                    bool supported = amdRadeonChillSupported?.Value ?? false;
+                    bool enabled = amdRadeonChillEnabled?.Value ?? false;
+                    chillTile.StateText.Text = !supported ? "N/A" : (enabled ? "On" : "Off");
+                    chillTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                    chillTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
+                // CPU Boost tile
+                if (qsTileMap.TryGetValue("CPUBoost", out var boostTile) && boostTile.TileButton != null)
+                {
+                    bool enabled = cpuBoost?.Value ?? false;
+                    boostTile.StateText.Text = enabled ? "On" : "Off";
+                    boostTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                    boostTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
+                // EPP tile
+                if (qsTileMap.TryGetValue("EPP", out var eppTile) && eppTile.TileButton != null)
+                {
+                    int eppValue = (int)(cpuEPP?.Value ?? 0);
+                    eppTile.StateText.Text = $"{eppValue}%";
+                    eppTile.StateText.Foreground = accentForeground;
+                    eppTile.TileButton.Background = eppValue > 50 ? tileActiveBrush : tileOffBrush;
+                }
+
+                // Keyboard trigger tile
+                if (qsTileMap.TryGetValue("Keyboard", out var keyboardTile) && keyboardTile.TileButton != null)
+                {
+                    keyboardTile.StateText.Text = "Open";
+                    keyboardTile.StateText.Foreground = accentForeground;
+                    keyboardTile.TileButton.Background = tileTriggerBrush;
+                }
+
+                // Custom shortcut tiles
+                foreach (var shortcutTile in qsCustomShortcuts)
+                {
+                    if (shortcutTile.TileButton != null && shortcutTile.StateText != null)
+                    {
+                        shortcutTile.StateText.Text = shortcutTile.CustomShortcut ?? "Run";
+                        shortcutTile.StateText.Foreground = accentForeground;
+                        shortcutTile.TileButton.Background = tileTriggerBrush;
+                    }
+                }
+
+                // Legion Touchpad tile
+                if (qsTileMap.TryGetValue("LegionTouchpad", out var touchpadTile) && touchpadTile.TileButton != null)
+                {
+                    if (legionGoDetected?.Value == true)
+                    {
+                        bool enabled = legionTouchpadEnabled?.Value ?? false;
+                        touchpadTile.StateText.Text = enabled ? "On" : "Off";
+                        touchpadTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                        touchpadTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                    }
+                }
+
+                // Legion Light Mode tile
+                if (qsTileMap.TryGetValue("LegionLightMode", out var lightTile) && lightTile.TileButton != null)
+                {
+                    if (legionGoDetected?.Value == true)
+                    {
+                        int mode = legionLightMode?.Value ?? 0;
+                        string modeText;
+                        switch (mode)
+                        {
+                            case 0: modeText = "Off"; break;
+                            case 1: modeText = "Static"; break;
+                            case 2: modeText = "Breathing"; break;
+                            case 3: modeText = "Rainbow"; break;
+                            case 4: modeText = "Spiral"; break;
+                            default: modeText = "Off"; break;
+                        }
+                        lightTile.StateText.Text = modeText;
+                        lightTile.StateText.Foreground = mode > 0 ? accentForeground : offForeground;
+                        lightTile.TileButton.Background = mode > 0 ? tileOnBrush : tileOffBrush;
+                    }
+                }
+
+                Logger.Debug("Quick Settings tile states updated");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error updating Quick Settings tile states: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle Quick Settings tile clicks
+        /// </summary>
+        private void QuickSettingsTile_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is string tileTag)
+            {
+                try
+                {
+                    // Check for custom shortcut tiles first
+                    if (tileTag.StartsWith("CustomShortcut_") && qsTileMap.TryGetValue(tileTag, out var customTile))
+                    {
+                        if (!string.IsNullOrEmpty(customTile.CustomShortcut))
+                        {
+                            QuickSettings.KeyboardShortcutHelper.SendShortcut(customTile.CustomShortcut);
+                            Logger.Info($"Custom shortcut tile clicked: {customTile.Name} -> {customTile.CustomShortcut}");
+                        }
+                    }
+                    else
+                    {
+                        switch (tileTag)
+                        {
+                            case "TDPMode":
+                                CycleTDPMode();
+                                break;
+                            case "Profile":
+                                TogglePerGameProfile();
+                                break;
+                            case "Overlay":
+                                CyclePerformanceOverlay();
+                                break;
+                            case "LosslessScaling":
+                                ToggleLosslessScaling();
+                                break;
+                            case "AFMF":
+                                ToggleAFMF();
+                                break;
+                            case "RSR":
+                                ToggleRSR();
+                                break;
+                            case "AntiLag":
+                                ToggleAntiLag();
+                                break;
+                            case "RadeonChill":
+                                ToggleRadeonChill();
+                                break;
+                            case "CPUBoost":
+                                ToggleCPUBoost();
+                                break;
+                            case "EPP":
+                                CycleEPP();
+                                break;
+                            case "Keyboard":
+                                TriggerOnScreenKeyboard();
+                                break;
+                            case "LegionTouchpad":
+                                ToggleLegionTouchpad();
+                                break;
+                            case "LegionLightMode":
+                                CycleLegionLightMode();
+                                break;
+                        }
+                    }
+
+                    // Update tile states after action
+                    UpdateQuickSettingsTileStates();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error handling Quick Settings tile click: {ex.Message}");
+                }
+            }
+        }
+
+        private void CycleTDPMode()
+        {
+            if (legionGoDetected?.Value == true && legionPerformanceMode != null)
+            {
+                int currentMode = legionPerformanceMode.Value;
+                int nextMode;
+                switch (currentMode)
+                {
+                    case 1: nextMode = 2; break;     // Quiet -> Balanced
+                    case 2: nextMode = 3; break;     // Balanced -> Performance
+                    case 3: nextMode = 255; break;   // Performance -> Custom
+                    case 255: nextMode = 1; break;   // Custom -> Quiet
+                    default: nextMode = 2; break;
+                }
+                legionPerformanceMode.SetValue(nextMode);
+
+                // If switching to Custom mode, schedule TDP reapply after 5 seconds
+                if (nextMode == 255)
+                {
+                    ScheduleQsTdpReapply();
+                }
+
+                Logger.Info($"TDP Mode cycled from {currentMode} to {nextMode}");
+            }
+        }
+
+        private void ScheduleQsTdpReapply()
+        {
+            try
+            {
+                // Store current TDP value from slider
+                qsPendingTdpValue = (int)(tdp?.Value ?? 15);
+
+                // Cancel existing timer
+                if (qsTdpReapplyTimer != null)
+                {
+                    qsTdpReapplyTimer.Stop();
+                }
+
+                // Create new timer
+                qsTdpReapplyTimer = new Windows.UI.Xaml.DispatcherTimer();
+                qsTdpReapplyTimer.Interval = TimeSpan.FromSeconds(5);
+                qsTdpReapplyTimer.Tick += (s, e) =>
+                {
+                    qsTdpReapplyTimer.Stop();
+                    // Reapply TDP
+                    if (tdp != null && legionPerformanceMode?.Value == 255)
+                    {
+                        tdp.SetValue(qsPendingTdpValue);
+                        Logger.Info($"Quick Settings: Reapplied TDP {qsPendingTdpValue}W after Custom mode switch");
+                    }
+                };
+                qsTdpReapplyTimer.Start();
+                Logger.Info($"Quick Settings: Scheduled TDP reapply in 5 seconds (TDP={qsPendingTdpValue}W)");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error scheduling TDP reapply: {ex.Message}");
+            }
+        }
+
+        private void TogglePerGameProfile()
+        {
+            // Only allow toggling when a game is detected
+            if (perGameProfile != null && runningGame != null && runningGame.Value.IsValid())
+            {
+                bool newValue = !perGameProfile.Value;
+                perGameProfile.SetValue(newValue);
+                Logger.Info($"Per-game profile toggled to {newValue}");
+            }
+            else
+            {
+                Logger.Info("Per-game profile toggle ignored - no game detected");
+            }
+        }
+
+        private void TriggerOnScreenKeyboard()
+        {
+            try
+            {
+                // Send Win+Ctrl+O to toggle on-screen keyboard (works in UWP sandbox)
+                QuickSettings.KeyboardShortcutHelper.SendShortcut("Win+Ctrl+O");
+                Logger.Info("On-screen keyboard triggered via Win+Ctrl+O");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error triggering on-screen keyboard: {ex.Message}");
+            }
+        }
+
+        private void ToggleLosslessScaling()
+        {
+            if (losslessScalingEnabled != null)
+            {
+                bool newValue = !losslessScalingEnabled.Value;
+                losslessScalingEnabled.SetValue(newValue);
+                Logger.Info($"Lossless Scaling toggled to {newValue}");
+            }
+        }
+
+        private void ToggleAFMF()
+        {
+            if (amdFluidMotionFrameEnabled != null && (amdFluidMotionFrameSupported?.Value ?? false))
+            {
+                bool newValue = !amdFluidMotionFrameEnabled.Value;
+                amdFluidMotionFrameEnabled.SetValue(newValue);
+                Logger.Info($"AFMF toggled to {newValue}");
+            }
+        }
+
+        private void ToggleRSR()
+        {
+            if (amdRadeonSuperResolutionEnabled != null && (amdRadeonSuperResolutionSupported?.Value ?? false))
+            {
+                bool newValue = !amdRadeonSuperResolutionEnabled.Value;
+                amdRadeonSuperResolutionEnabled.SetValue(newValue);
+                Logger.Info($"RSR toggled to {newValue}");
+            }
+        }
+
+        private void ToggleAntiLag()
+        {
+            if (amdRadeonAntiLagEnabled != null && (amdRadeonAntiLagSupported?.Value ?? false))
+            {
+                bool newValue = !amdRadeonAntiLagEnabled.Value;
+                amdRadeonAntiLagEnabled.SetValue(newValue);
+                Logger.Info($"Anti-Lag toggled to {newValue}");
+            }
+        }
+
+        private void ToggleRadeonChill()
+        {
+            if (amdRadeonChillEnabled != null && (amdRadeonChillSupported?.Value ?? false))
+            {
+                bool newValue = !amdRadeonChillEnabled.Value;
+                amdRadeonChillEnabled.SetValue(newValue);
+                Logger.Info($"Radeon Chill toggled to {newValue}");
+            }
+        }
+
+        private void ToggleCPUBoost()
+        {
+            if (cpuBoost != null)
+            {
+                bool newValue = !cpuBoost.Value;
+                cpuBoost.SetValue(newValue);
+                Logger.Info($"CPU Boost toggled to {newValue}");
+            }
+        }
+
+        private void CycleEPP()
+        {
+            if (cpuEPP != null)
+            {
+                int currentValue = (int)cpuEPP.Value;
+                int nextValue;
+                switch (currentValue)
+                {
+                    case 0: nextValue = 30; break;
+                    case 30: nextValue = 80; break;
+                    case 80: nextValue = 100; break;
+                    case 100: nextValue = 0; break;
+                    default: nextValue = 0; break;
+                }
+                cpuEPP.SetValue(nextValue);
+                Logger.Info($"EPP cycled from {currentValue} to {nextValue}");
+            }
+        }
+
+        private void CyclePerformanceOverlay()
+        {
+            if (osd != null)
+            {
+                int currentLevel = (int)osd.Value;
+                int nextLevel = (currentLevel + 1) % 4;
+                osd.SetValue(nextLevel);
+                Logger.Info($"Performance Overlay cycled from {currentLevel} to {nextLevel}");
+            }
+        }
+
+        private void ToggleLegionTouchpad()
+        {
+            if (legionGoDetected?.Value == true && legionTouchpadEnabled != null)
+            {
+                bool newValue = !legionTouchpadEnabled.Value;
+                legionTouchpadEnabled.SetValue(newValue);
+                Logger.Info($"Legion Touchpad toggled to {newValue}");
+            }
+        }
+
+        private void CycleLegionLightMode()
+        {
+            if (legionGoDetected?.Value == true && legionLightMode != null)
+            {
+                int currentMode = legionLightMode.Value;
+                int nextMode = (currentMode + 1) % 5; // 0-4: Off, Static, Breathing, Rainbow, Spiral
+                legionLightMode.SetValue(nextMode);
+                Logger.Info($"Legion Light Mode cycled from {currentMode} to {nextMode}");
+            }
+        }
+
+        /// <summary>
+        /// Show/hide customization panel
+        /// </summary>
+        private void QuickSettingsCustomize_Click(object sender, RoutedEventArgs e)
+        {
+            if (QuickSettingsCustomizePanel != null)
+            {
+                QuickSettingsCustomizePanel.Visibility = Visibility.Visible;
+                QuickSettingsCustomizeButton.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        /// <summary>
+        /// Close customization panel
+        /// </summary>
+        private void QuickSettingsCustomizeDone_Click(object sender, RoutedEventArgs e)
+        {
+            if (QuickSettingsCustomizePanel != null)
+            {
+                QuickSettingsCustomizePanel.Visibility = Visibility.Collapsed;
+                QuickSettingsCustomizeButton.Visibility = Visibility.Visible;
+                SaveQuickSettingsConfig();
+                RebuildQuickSettingsTiles();
+                UpdateQuickSettingsTileStates();
+            }
+        }
+
+        /// <summary>
+        /// Add a custom shortcut tile
+        /// </summary>
+        private void AddCustomShortcut_Click(object sender, RoutedEventArgs e)
+        {
+            string name = CustomShortcutNameBox?.Text?.Trim();
+            string shortcut = CustomShortcutKeyBox?.Text?.Trim();
+
+            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(shortcut))
+            {
+                Logger.Warn("Custom shortcut name or shortcut is empty");
+                return;
+            }
+
+            AddCustomShortcutTile(name, shortcut);
+
+            // Clear input boxes
+            if (CustomShortcutNameBox != null) CustomShortcutNameBox.Text = "";
+            if (CustomShortcutKeyBox != null) CustomShortcutKeyBox.Text = "";
+
+            UpdateQuickSettingsTileStates();
+        }
+
+        /// <summary>
+        /// Handle tile visibility checkbox changes
+        /// </summary>
+        private void TileVisibility_Changed(object sender, RoutedEventArgs e)
+        {
+            if (sender is CheckBox checkBox && checkBox.Tag is string tileId)
+            {
+                bool isVisible = checkBox.IsChecked ?? true;
+
+                if (qsTileMap.TryGetValue(tileId, out var tile))
+                {
+                    tile.IsVisible = isVisible;
+                }
             }
         }
 
