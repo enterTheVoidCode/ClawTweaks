@@ -162,6 +162,22 @@ namespace XboxGamingBar
         private readonly LosslessScalingBringToForegroundProperty losslessScalingBringToForeground;
         private readonly LosslessScalingLaunchProperty losslessScalingLaunch;
 
+        // Legion Go properties
+        private readonly LegionGoDetectedProperty legionGoDetected;
+        private readonly LegionTouchpadEnabledProperty legionTouchpadEnabled;
+        private readonly LegionLightModeProperty legionLightMode;
+        private readonly LegionLightColorProperty legionLightColor;
+        private readonly LegionLightBrightnessProperty legionLightBrightness;
+        private readonly LegionPerformanceModeProperty legionPerformanceMode;
+        private readonly LegionCustomTDPSlowProperty legionCustomTDPSlow;
+        private readonly LegionCustomTDPFastProperty legionCustomTDPFast;
+        private readonly LegionCustomTDPPeakProperty legionCustomTDPPeak;
+        private readonly LegionFanFullSpeedProperty legionFanFullSpeed;
+        private readonly LegionGyroEnabledProperty legionGyroEnabled;
+
+        // Settings properties
+        private readonly UseManufacturerWMIProperty useManufacturerWMI;
+
         // Profile management
         private PerformanceProfile globalProfile = new PerformanceProfile();
         private PerformanceProfile acProfile = new PerformanceProfile();
@@ -302,6 +318,28 @@ namespace XboxGamingBar
             losslessScalingBringToForeground = new LosslessScalingBringToForegroundProperty();
             losslessScalingLaunch = new LosslessScalingLaunchProperty();
 
+            // Legion Go properties
+            legionGoDetected = new LegionGoDetectedProperty(this);
+            legionTouchpadEnabled = new LegionTouchpadEnabledProperty(LegionTouchpadToggle, this);
+            legionLightMode = new LegionLightModeProperty(LegionLightModeComboBox, this);
+            legionLightColor = new LegionLightColorProperty(LegionColorPicker, this);
+            legionLightBrightness = new LegionLightBrightnessProperty(LegionBrightnessSlider, this);
+            legionPerformanceMode = new LegionPerformanceModeProperty(LegionPerformanceModeComboBox, this);
+            legionCustomTDPSlow = new LegionCustomTDPSlowProperty(LegionCustomTDPSlowSlider, this);
+            legionCustomTDPFast = new LegionCustomTDPFastProperty(LegionCustomTDPFastSlider, this);
+            legionCustomTDPPeak = new LegionCustomTDPPeakProperty(LegionCustomTDPPeakSlider, this);
+            legionFanFullSpeed = new LegionFanFullSpeedProperty(LegionFanFullSpeedToggle, this);
+            legionGyroEnabled = new LegionGyroEnabledProperty(LegionGyroToggle, this);
+
+            // Settings properties
+            useManufacturerWMI = new UseManufacturerWMIProperty(UseManufacturerWMIToggle, this);
+
+            // Set up Legion tab visibility callback
+            legionGoDetected.SetVisibilityCallback(SetLegionTabVisibility);
+
+            // Set up custom TDP visibility callback
+            legionPerformanceMode.SetCustomTDPVisibilityCallback(SetCustomTDPVisibility);
+
             // NOTE: Event handlers for Chill FPS will be registered AFTER first sync
             // to avoid crash when binding evaluates RadeonChillOnText before both values are ready
             // See RegisterChillFPSHandlers() called after sync completes
@@ -361,7 +399,19 @@ namespace XboxGamingBar
                 losslessScalingAutoScaleDelay,
                 losslessScalingSaveAndRestart,
                 losslessScalingCreateProfile,
-                currentTdp
+                currentTdp,
+                legionGoDetected,
+                legionTouchpadEnabled,
+                legionLightMode,
+                legionLightColor,
+                legionLightBrightness,
+                legionPerformanceMode,
+                legionCustomTDPSlow,
+                legionCustomTDPFast,
+                legionCustomTDPPeak,
+                legionFanFullSpeed,
+                legionGyroEnabled,
+                useManufacturerWMI
             );
 
             // Register card focus handlers for all interactive controls
@@ -500,6 +550,42 @@ namespace XboxGamingBar
             LosslessScalingSizeToggle.LostFocus += Control_LostFocus;
             LosslessScalingLSFG2ModeComboBox.GotFocus += Control_GotFocus;
             LosslessScalingLSFG2ModeComboBox.LostFocus += Control_LostFocus;
+
+            // Legion tab - Touchpad card
+            LegionTouchpadToggle.GotFocus += Control_GotFocus;
+            LegionTouchpadToggle.LostFocus += Control_LostFocus;
+
+            // Legion tab - Gyroscope card
+            LegionGyroToggle.GotFocus += Control_GotFocus;
+            LegionGyroToggle.LostFocus += Control_LostFocus;
+
+            // Legion tab - Light Mode card
+            LegionLightModeComboBox.GotFocus += Control_GotFocus;
+            LegionLightModeComboBox.LostFocus += Control_LostFocus;
+
+            // Legion tab - Light Color card (ColorPicker)
+            LegionColorPicker.GotFocus += Control_GotFocus;
+            LegionColorPicker.LostFocus += Control_LostFocus;
+
+            // Legion tab - Brightness card
+            LegionBrightnessSlider.GotFocus += Control_GotFocus;
+            LegionBrightnessSlider.LostFocus += Control_LostFocus;
+
+            // Legion tab - Performance Mode card
+            LegionPerformanceModeComboBox.GotFocus += Control_GotFocus;
+            LegionPerformanceModeComboBox.LostFocus += Control_LostFocus;
+
+            // Legion tab - Custom TDP card
+            LegionCustomTDPSlowSlider.GotFocus += Control_GotFocus;
+            LegionCustomTDPSlowSlider.LostFocus += Control_LostFocus;
+            LegionCustomTDPFastSlider.GotFocus += Control_GotFocus;
+            LegionCustomTDPFastSlider.LostFocus += Control_LostFocus;
+            LegionCustomTDPPeakSlider.GotFocus += Control_GotFocus;
+            LegionCustomTDPPeakSlider.LostFocus += Control_LostFocus;
+
+            // Legion tab - Fan Full Speed card
+            LegionFanFullSpeedToggle.GotFocus += Control_GotFocus;
+            LegionFanFullSpeedToggle.LostFocus += Control_LostFocus;
         }
 
         private void Control_GotFocus(object sender, RoutedEventArgs e)
@@ -1867,6 +1953,7 @@ namespace XboxGamingBar
                 GameScrollViewer.Visibility = Visibility.Collapsed;
                 AMDScrollViewer.Visibility = Visibility.Collapsed;
                 ScalingScrollViewer.Visibility = Visibility.Collapsed;
+                LegionScrollViewer.Visibility = Visibility.Collapsed;
                 SystemScrollViewer.Visibility = Visibility.Collapsed;
 
                 // Show selected section and scroll to top
@@ -1888,6 +1975,10 @@ namespace XboxGamingBar
                         ScalingScrollViewer.Visibility = Visibility.Visible;
                         ScalingScrollViewer.ChangeView(null, 0, null, true);
                         UpdateLosslessScalingStatus();
+                        break;
+                    case "Legion":
+                        LegionScrollViewer.Visibility = Visibility.Visible;
+                        LegionScrollViewer.ChangeView(null, 0, null, true);
                         break;
                     case "System":
                         SystemScrollViewer.Visibility = Visibility.Visible;
@@ -2972,5 +3063,143 @@ namespace XboxGamingBar
                 Logger.Error($"Error in LosslessScalingSaveSettingsButton_Click: {ex.Message}");
             }
         }
+
+        #region Legion Go Handlers
+
+        /// <summary>
+        /// Shows or hides the Legion tab based on device detection
+        /// </summary>
+        private void SetLegionTabVisibility(bool visible)
+        {
+            if (LegionNavItem != null)
+            {
+                LegionNavItem.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Legion tab visibility set to: {visible}");
+            }
+
+            // Also show the Manufacturer WMI TDP option on System tab when Legion is detected
+            if (ManufacturerWMICard != null)
+            {
+                ManufacturerWMICard.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Manufacturer WMI TDP card visibility set to: {visible}");
+            }
+        }
+
+        /// <summary>
+        /// Shows or hides the Custom TDP card based on performance mode
+        /// </summary>
+        private void SetCustomTDPVisibility(bool visible)
+        {
+            if (LegionCustomTDPCard != null)
+            {
+                LegionCustomTDPCard.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Custom TDP card visibility set to: {visible}");
+            }
+        }
+
+        /// <summary>
+        /// Toggles the ColorPicker visibility
+        /// </summary>
+        private void LegionColorExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (LegionColorPicker != null)
+                {
+                    bool isExpanded = LegionColorPicker.Visibility == Visibility.Visible;
+                    LegionColorPicker.Visibility = isExpanded ? Visibility.Collapsed : Visibility.Visible;
+
+                    // Update button icon (chevron down/up)
+                    if (LegionColorExpandButton != null)
+                    {
+                        LegionColorExpandButton.Content = isExpanded ? "\uE70D" : "\uE70E";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LegionColorExpandButton_Click: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles ColorPicker color changes and updates the preview
+        /// </summary>
+        private void LegionColorPicker_ColorChanged(Windows.UI.Xaml.Controls.ColorPicker sender, Windows.UI.Xaml.Controls.ColorChangedEventArgs args)
+        {
+            try
+            {
+                // Update color preview
+                if (LegionColorPreview != null)
+                {
+                    LegionColorPreview.Background = new SolidColorBrush(args.NewColor);
+                }
+
+                legionLightColor?.OnColorChanged(args.NewColor);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LegionColorPicker_ColorChanged: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles brightness slider changes
+        /// </summary>
+        private void LegionBrightnessSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            try
+            {
+                if (LegionBrightnessSlider != null && LegionBrightnessValue != null)
+                {
+                    int brightness = (int)LegionBrightnessSlider.Value;
+                    LegionBrightnessValue.Text = $"{brightness}%";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LegionBrightnessSlider_ValueChanged: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles performance mode ComboBox selection
+        /// </summary>
+        private void LegionPerformanceModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Property handles the update, just log here
+            Logger.Info($"Performance mode selection changed");
+        }
+
+        /// <summary>
+        /// Handles Custom TDP slider changes and updates the value labels
+        /// Note: The actual value sync is handled by WidgetSliderProperty's built-in debounce
+        /// </summary>
+        private void LegionCustomTDPSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            try
+            {
+                // Update value labels immediately for visual feedback
+                if (LegionCustomTDPSlowSlider != null && LegionCustomTDPSlowValue != null)
+                {
+                    LegionCustomTDPSlowValue.Text = $"{(int)LegionCustomTDPSlowSlider.Value}W";
+                }
+                if (LegionCustomTDPFastSlider != null && LegionCustomTDPFastValue != null)
+                {
+                    LegionCustomTDPFastValue.Text = $"{(int)LegionCustomTDPFastSlider.Value}W";
+                }
+                if (LegionCustomTDPPeakSlider != null && LegionCustomTDPPeakValue != null)
+                {
+                    LegionCustomTDPPeakValue.Text = $"{(int)LegionCustomTDPPeakSlider.Value}W";
+                }
+                // The WidgetSliderProperty handles debouncing and sending to helper
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LegionCustomTDPSlider_ValueChanged: {ex.Message}");
+            }
+        }
+
+        #endregion
     }
 }

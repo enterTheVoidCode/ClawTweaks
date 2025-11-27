@@ -4,6 +4,7 @@ using Shared.Utilities;
 using System;
 using System.Diagnostics;
 using Windows.ApplicationModel.AppService;
+using XboxGamingBarHelper.Legion;
 using XboxGamingBarHelper.OnScreenDisplay;
 using XboxGamingBarHelper.Performance;
 using XboxGamingBarHelper.RTSS.OSDItems;
@@ -19,6 +20,7 @@ namespace XboxGamingBarHelper.RTSS
 
         private OSD rtssOSD;
         private readonly OSDItem[] osdItems;
+        private readonly OSDItemFan osdItemFan;
 
         private readonly RTSSInstalledProperty rtssInstalled;
         public RTSSInstalledProperty RTSSInstalled
@@ -30,8 +32,9 @@ namespace XboxGamingBarHelper.RTSS
 
         public RTSSManager(PerformanceManager performanceManager, AppServiceConnection connection) : base(connection)
         {
-            
+
             rtssInstalled = new RTSSInstalledProperty(this);
+            osdItemFan = new OSDItemFan();
             osdItems = new OSDItem[]
             {
                 new OSDItemFPS(),
@@ -39,9 +42,20 @@ namespace XboxGamingBarHelper.RTSS
                 new OSDItemMemory(performanceManager.MemoryUsage, performanceManager.MemoryUsed),
                 new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature),
                 new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature),
+                osdItemFan,
             };
 
             rtssState = RivatunerStatisticsServerState.NotInstalled;
+        }
+
+        /// <summary>
+        /// Sets the Legion Manager reference for fan speed OSD support.
+        /// Must be called after LegionManager is initialized.
+        /// </summary>
+        public void SetLegionManager(LegionManager legionManager)
+        {
+            osdItemFan.SetLegionManager(legionManager);
+            Logger.Info("LegionManager reference set for RTSS OSD fan speed");
         }
 
         public override void Update()

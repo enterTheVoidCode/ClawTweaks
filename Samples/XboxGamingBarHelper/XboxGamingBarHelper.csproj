@@ -34,7 +34,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <DebugType>full</DebugType>
     <PlatformTarget>x64</PlatformTarget>
-    <LangVersion>7.3</LangVersion>
+    <LangVersion>8.0</LangVersion>
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
     <UseWinFormsOutOfProcDesigner>False</UseWinFormsOutOfProcDesigner>
@@ -45,7 +45,7 @@
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x64</PlatformTarget>
-    <LangVersion>7.3</LangVersion>
+    <LangVersion>8.0</LangVersion>
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
     <UseWinFormsOutOfProcDesigner>False</UseWinFormsOutOfProcDesigner>
@@ -56,7 +56,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <DebugType>full</DebugType>
     <PlatformTarget>x86</PlatformTarget>
-    <LangVersion>7.3</LangVersion>
+    <LangVersion>8.0</LangVersion>
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
     <UseWinFormsOutOfProcDesigner>False</UseWinFormsOutOfProcDesigner>
@@ -67,7 +67,7 @@
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x86</PlatformTarget>
-    <LangVersion>7.3</LangVersion>
+    <LangVersion>8.0</LangVersion>
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
     <UseWinFormsOutOfProcDesigner>False</UseWinFormsOutOfProcDesigner>
@@ -404,6 +404,7 @@
     <Compile Include="RTSS\OSDItem.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemBattery.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemCPU.cs" />
+    <Compile Include="RTSS\OSDItems\OSDItemFan.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemFPS.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemGPU.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemMemory.cs" />
@@ -413,7 +414,11 @@
     <Compile Include="RTSS\RTSSInstalledProperty.cs" />
     <Compile Include="RTSS\RTSSManager.cs" />
     <Compile Include="Settings\AutoStartRTSSProperty.cs" />
+    <Compile Include="Settings\UseManufacturerWMIProperty.cs" />
     <Compile Include="Settings\SettingsManager.cs" />
+    <Compile Include="Legion\LegionGoLibrary.cs" />
+    <Compile Include="Legion\LegionManager.cs" />
+    <Compile Include="Legion\LegionProperties.cs" />
     <Compile Include="Systems\RefreshRateProperty.cs" />
     <Compile Include="Systems\RefreshRatesProperty.cs" />
     <Compile Include="Systems\RunningGameProperty.cs" />
