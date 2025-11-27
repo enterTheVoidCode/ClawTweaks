@@ -138,5 +138,28 @@ namespace XboxGamingBarHelper.RTSS
 
             rtssOSD.Update(osdString);
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Logger.Info("RTSSManager: Disposing resources");
+                if (rtssOSD != null)
+                {
+                    try
+                    {
+                        rtssOSD.Update(string.Empty);
+                        rtssOSD.Dispose();
+                        rtssOSD = null;
+                        Logger.Info("RTSSManager: RTSS OSD disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"RTSSManager: Error disposing RTSS OSD: {ex.Message}");
+                    }
+                }
+            }
+            base.Dispose(disposing);
+        }
     }
 }
