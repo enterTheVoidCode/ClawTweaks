@@ -262,16 +262,16 @@
             <Setter Property="Margin" Value="0,20,0,0"/>
         </Style>
 
-        <!-- Quick Settings Tile Colors - Subtle, muted tones (darkened) -->
-        <SolidColorBrush x:Key="TileOffBackground" Color="#2A2D32"/>
-        <SolidColorBrush x:Key="TileOnBackground" Color="#2D4435"/>
-        <SolidColorBrush x:Key="TileActiveBackground" Color="#2A3A48"/>
-        <SolidColorBrush x:Key="TileTriggerBackground" Color="#38324A"/>
+        <!-- Quick Settings Tile Colors - Dark mode with sharp contrast -->
+        <SolidColorBrush x:Key="TileOffBackground" Color="#1A1C1E"/>
+        <SolidColorBrush x:Key="TileOnBackground" Color="#1A2E1F"/>
+        <SolidColorBrush x:Key="TileActiveBackground" Color="#1A2530"/>
+        <SolidColorBrush x:Key="TileTriggerBackground" Color="#252030"/>
         <SolidColorBrush x:Key="TileBorderBrush" Color="Transparent"/>
         <SolidColorBrush x:Key="TileFocusBorderBrush" Color="White"/>
-        <!-- Inactive state: 50% darker -->
-        <SolidColorBrush x:Key="TileInactiveBackground" Color="#151719"/>
-        <SolidColorBrush x:Key="TileInactiveForeground" Color="#808080"/>
+        <!-- Inactive state: even darker -->
+        <SolidColorBrush x:Key="TileInactiveBackground" Color="#0D0E0F"/>
+        <SolidColorBrush x:Key="TileInactiveForeground" Color="#606060"/>
 
         <!-- Quick Settings Tile Style - Xbox Game Bar Widget UI Guidelines -->
         <!-- Rest: normal background, Focus: rest + white stroke, Press: 10% darker, Focus+Press: press + stroke, Inactive: 50% darker -->
