@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -199,6 +200,8 @@ namespace XboxGamingBarHelper.Windows
         private const int CDS_TEST = 0x02;
         private const int DISP_CHANGE_SUCCESSFUL = 0;
         private const int DM_DISPLAYFREQUENCY = 0x400000;
+        private const int DM_PELSWIDTH = 0x80000;
+        private const int DM_PELSHEIGHT = 0x100000;
 
         public static int GetCurrentRefreshRate()
         {
@@ -279,6 +282,101 @@ namespace XboxGamingBarHelper.Windows
             }
         }
 
+        public static string GetCurrentResolution()
+        {
+            DEVMODE vDevMode = new DEVMODE();
+            vDevMode.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+
+            if (EnumDisplaySettings(null, ENUM_CURRENT_SETTINGS, ref vDevMode))
+            {
+                return $"{vDevMode.dmPelsWidth}x{vDevMode.dmPelsHeight}";
+            }
+            return "1920x1080"; // default fallback
+        }
+
+        public static List<string> GetSupportedResolutions()
+        {
+            var resolutions = new HashSet<string>();
+            DEVMODE devMode = new DEVMODE();
+            devMode.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+
+            int modeIndex = 0;
+            while (EnumDisplaySettings(null, modeIndex++, ref devMode))
+            {
+                string res = $"{devMode.dmPelsWidth}x{devMode.dmPelsHeight}";
+                resolutions.Add(res);
+            }
+
+            // Sort by width then height descending
+            var sortedList = resolutions.ToList();
+            sortedList.Sort((a, b) =>
+            {
+                var partsA = a.Split('x');
+                var partsB = b.Split('x');
+                int widthA = int.Parse(partsA[0]);
+                int widthB = int.Parse(partsB[0]);
+                int heightA = int.Parse(partsA[1]);
+                int heightB = int.Parse(partsB[1]);
+
+                if (widthA != widthB) return widthB.CompareTo(widthA);
+                return heightB.CompareTo(heightA);
+            });
+
+            foreach (var resolution in sortedList)
+            {
+                Logger.Info($"Found resolution {resolution}");
+            }
+            return sortedList;
+        }
+
+        /// <summary>
+        /// Set monitor resolution to a supported value.
+        /// </summary>
+        public static bool SetResolutionTo(string targetResolution)
+        {
+            var parts = targetResolution.Split('x');
+            if (parts.Length != 2 ||
+                !int.TryParse(parts[0], out int targetWidth) ||
+                !int.TryParse(parts[1], out int targetHeight))
+            {
+                Logger.Error($"Error: Invalid resolution format {targetResolution}");
+                return false;
+            }
+
+            DEVMODE mode = new DEVMODE { dmSize = (short)Marshal.SizeOf(typeof(DEVMODE)) };
+
+            if (!EnumDisplaySettings(null, ENUM_CURRENT_SETTINGS, ref mode))
+            {
+                Logger.Error("Error: Could not retrieve current display settings.");
+                return false;
+            }
+
+            mode.dmPelsWidth = targetWidth;
+            mode.dmPelsHeight = targetHeight;
+            mode.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT;
+
+            // Test before applying
+            int testResult = ChangeDisplaySettings(ref mode, CDS_TEST);
+            if (testResult != DISP_CHANGE_SUCCESSFUL)
+            {
+                Logger.Error($"Test failed: {targetResolution} not valid on this display.");
+                return false;
+            }
+
+            // Apply permanently
+            int result = ChangeDisplaySettings(ref mode, CDS_UPDATEREGISTRY);
+            if (result == DISP_CHANGE_SUCCESSFUL)
+            {
+                Logger.Info($"Successfully switched to {targetResolution}.");
+                return true;
+            }
+            else
+            {
+                Logger.Error($"Failed to apply {targetResolution} (error code {result}).");
+                return false;
+            }
+        }
+
         [StructLayout(LayoutKind.Sequential)]
         struct INPUT
         {
@@ -351,6 +449,278 @@ namespace XboxGamingBarHelper.Windows
         [DllImport("user32.dll")]
         public static extern bool PostMessage(IntPtr hWnd, UInt32 Msg, int wParam, int lParam);
 
+        #region HDR / Advanced Color APIs
 
+        [DllImport("user32.dll")]
+        private static extern int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO requestPacket);
+
+        [DllImport("user32.dll")]
+        private static extern int DisplayConfigSetDeviceInfo(ref DISPLAYCONFIG_SET_ADVANCED_COLOR_STATE setPacket);
+
+        [DllImport("user32.dll")]
+        private static extern int GetDisplayConfigBufferSizes(
+            uint flags,
+            out uint numPathArrayElements,
+            out uint numModeInfoArrayElements);
+
+        [DllImport("user32.dll")]
+        private static extern int QueryDisplayConfig(
+            uint flags,
+            ref uint numPathArrayElements,
+            [Out] DISPLAYCONFIG_PATH_INFO[] pathInfoArray,
+            ref uint numModeInfoArrayElements,
+            [Out] DISPLAYCONFIG_MODE_INFO[] modeInfoArray,
+            IntPtr currentTopologyId);
+
+        private const uint QDC_ONLY_ACTIVE_PATHS = 0x00000002;
+        private const int ERROR_SUCCESS = 0;
+
+        private const int DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO = 9;
+        private const int DISPLAYCONFIG_DEVICE_INFO_SET_ADVANCED_COLOR_STATE = 10;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct LUID
+        {
+            public uint LowPart;
+            public int HighPart;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_PATH_SOURCE_INFO
+        {
+            public LUID adapterId;
+            public uint id;
+            public uint modeInfoIdx;
+            public uint statusFlags;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_RATIONAL
+        {
+            public uint Numerator;
+            public uint Denominator;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_PATH_TARGET_INFO
+        {
+            public LUID adapterId;
+            public uint id;
+            public uint modeInfoIdx;
+            public uint outputTechnology;
+            public uint rotation;
+            public uint scaling;
+            public DISPLAYCONFIG_RATIONAL refreshRate;
+            public uint scanLineOrdering;
+            public bool targetAvailable;
+            public uint statusFlags;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_PATH_INFO
+        {
+            public DISPLAYCONFIG_PATH_SOURCE_INFO sourceInfo;
+            public DISPLAYCONFIG_PATH_TARGET_INFO targetInfo;
+            public uint flags;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_2DREGION
+        {
+            public uint cx;
+            public uint cy;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_VIDEO_SIGNAL_INFO
+        {
+            public ulong pixelRate;
+            public DISPLAYCONFIG_RATIONAL hSyncFreq;
+            public DISPLAYCONFIG_RATIONAL vSyncFreq;
+            public DISPLAYCONFIG_2DREGION activeSize;
+            public DISPLAYCONFIG_2DREGION totalSize;
+            public uint videoStandard;
+            public uint scanLineOrdering;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_TARGET_MODE
+        {
+            public DISPLAYCONFIG_VIDEO_SIGNAL_INFO targetVideoSignalInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINTL
+        {
+            public int x;
+            public int y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_SOURCE_MODE
+        {
+            public uint width;
+            public uint height;
+            public uint pixelFormat;
+            public POINTL position;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct DISPLAYCONFIG_MODE_INFO_UNION
+        {
+            [FieldOffset(0)]
+            public DISPLAYCONFIG_TARGET_MODE targetMode;
+            [FieldOffset(0)]
+            public DISPLAYCONFIG_SOURCE_MODE sourceMode;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_MODE_INFO
+        {
+            public uint infoType;
+            public uint id;
+            public LUID adapterId;
+            public DISPLAYCONFIG_MODE_INFO_UNION modeInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_DEVICE_INFO_HEADER
+        {
+            public int type;
+            public int size;
+            public LUID adapterId;
+            public uint id;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO
+        {
+            public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+            public uint value;
+            public uint colorEncoding;
+            public uint bitsPerColorChannel;
+
+            public bool AdvancedColorSupported => (value & 0x1) == 0x1;
+            public bool AdvancedColorEnabled => (value & 0x2) == 0x2;
+            public bool WideColorEnforced => (value & 0x4) == 0x4;
+            public bool AdvancedColorForceDisabled => (value & 0x8) == 0x8;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_SET_ADVANCED_COLOR_STATE
+        {
+            public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+            public uint enableAdvancedColor;
+        }
+
+        /// <summary>
+        /// Get HDR support and enabled status for the primary display.
+        /// </summary>
+        public static (bool Supported, bool Enabled) GetHDRStatus()
+        {
+            try
+            {
+                int result = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out uint pathCount, out uint modeCount);
+                if (result != ERROR_SUCCESS)
+                {
+                    Logger.Error($"GetDisplayConfigBufferSizes failed with error {result}");
+                    return (false, false);
+                }
+
+                var paths = new DISPLAYCONFIG_PATH_INFO[pathCount];
+                var modes = new DISPLAYCONFIG_MODE_INFO[modeCount];
+
+                result = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero);
+                if (result != ERROR_SUCCESS)
+                {
+                    Logger.Error($"QueryDisplayConfig failed with error {result}");
+                    return (false, false);
+                }
+
+                // Check the first/primary display
+                if (paths.Length > 0)
+                {
+                    var colorInfo = new DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO();
+                    colorInfo.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO;
+                    colorInfo.header.size = Marshal.SizeOf<DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO>();
+                    colorInfo.header.adapterId = paths[0].targetInfo.adapterId;
+                    colorInfo.header.id = paths[0].targetInfo.id;
+
+                    result = DisplayConfigGetDeviceInfo(ref colorInfo);
+                    if (result == ERROR_SUCCESS)
+                    {
+                        Logger.Info($"HDR Supported: {colorInfo.AdvancedColorSupported}, Enabled: {colorInfo.AdvancedColorEnabled}");
+                        return (colorInfo.AdvancedColorSupported, colorInfo.AdvancedColorEnabled);
+                    }
+                    else
+                    {
+                        Logger.Error($"DisplayConfigGetDeviceInfo failed with error {result}");
+                    }
+                }
+
+                return (false, false);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"GetHDRStatus exception: {ex}");
+                return (false, false);
+            }
+        }
+
+        /// <summary>
+        /// Enable or disable HDR on the primary display.
+        /// </summary>
+        public static bool SetHDREnabled(bool enable)
+        {
+            try
+            {
+                int result = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out uint pathCount, out uint modeCount);
+                if (result != ERROR_SUCCESS)
+                {
+                    Logger.Error($"GetDisplayConfigBufferSizes failed with error {result}");
+                    return false;
+                }
+
+                var paths = new DISPLAYCONFIG_PATH_INFO[pathCount];
+                var modes = new DISPLAYCONFIG_MODE_INFO[modeCount];
+
+                result = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero);
+                if (result != ERROR_SUCCESS)
+                {
+                    Logger.Error($"QueryDisplayConfig failed with error {result}");
+                    return false;
+                }
+
+                if (paths.Length > 0)
+                {
+                    var setState = new DISPLAYCONFIG_SET_ADVANCED_COLOR_STATE();
+                    setState.header.type = DISPLAYCONFIG_DEVICE_INFO_SET_ADVANCED_COLOR_STATE;
+                    setState.header.size = Marshal.SizeOf<DISPLAYCONFIG_SET_ADVANCED_COLOR_STATE>();
+                    setState.header.adapterId = paths[0].targetInfo.adapterId;
+                    setState.header.id = paths[0].targetInfo.id;
+                    setState.enableAdvancedColor = enable ? 1u : 0u;
+
+                    result = DisplayConfigSetDeviceInfo(ref setState);
+                    if (result == ERROR_SUCCESS)
+                    {
+                        Logger.Info($"HDR set to {enable}");
+                        return true;
+                    }
+                    else
+                    {
+                        Logger.Error($"DisplayConfigSetDeviceInfo failed with error {result}");
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"SetHDREnabled exception: {ex}");
+                return false;
+            }
+        }
+
+        #endregion
     }
 }
