@@ -17,6 +17,10 @@
         GPUClockMax,
         RefreshRates,
         RefreshRate,
+        Resolutions,        // string[] - list of available resolutions
+        Resolution,         // string - current resolution (e.g., "1920x1080")
+        HDRSupported,       // bool - whether HDR is supported
+        HDREnabled,         // bool - HDR on/off
         TrackedGame,
         RTSSInstalled,
         AMDRadeonSuperResolutionSupported,
