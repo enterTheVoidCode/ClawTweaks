@@ -152,6 +152,10 @@
     <Compile Include="Data\AMDRadeonSuperResolutionSupportedProperty.cs" />
     <Compile Include="Data\RefreshRateProperty.cs" />
     <Compile Include="Data\RefreshRatesProperty.cs" />
+    <Compile Include="Data\ResolutionProperty.cs" />
+    <Compile Include="Data\ResolutionsProperty.cs" />
+    <Compile Include="Data\HDRSupportedProperty.cs" />
+    <Compile Include="Data\HDREnabledProperty.cs" />
     <Compile Include="Data\RTSSInstalledProperty.cs" />
     <Compile Include="Data\RunningGameProperty.cs" />
     <Compile Include="Data\TrackedGameProperty.cs" />

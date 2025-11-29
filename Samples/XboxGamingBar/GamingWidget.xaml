@@ -878,6 +878,29 @@
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
 
+                        <!-- Resolution Card -->
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Resolution"
+                                           Style="{StaticResource CardTitleStyle}"
+                                           VerticalAlignment="Center"
+                                           Grid.Column="0"/>
+                                <ComboBox x:Name="ResolutionComboBox"
+                                          PlaceholderText="1920x1080"
+                                          Width="150"
+                                          Grid.Column="1"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          XYFocusUp="{x:Bind GraphicsNavItem}">
+                                    <x:String>1920x1080</x:String>
+                                </ComboBox>
+                            </Grid>
+                        </Border>
+
                         <!-- Refresh Rate Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <Grid>
@@ -894,10 +917,27 @@
                                           Width="120"
                                           Grid.Column="1"
                                           IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          XYFocusUp="{x:Bind GraphicsNavItem}">
+                                          Style="{StaticResource ModernComboBoxStyle}">
                                     <x:String>60 Hz</x:String>
                                 </ComboBox>
+                            </Grid>
+                        </Border>
+
+                        <!-- HDR Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="HDR" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="High Dynamic Range" Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="HDRToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              IsEnabled="False" Width="50"/>
                             </Grid>
                         </Border>
 
