@@ -4,6 +4,7 @@ using Shared.Utilities;
 using System;
 using System.Diagnostics;
 using Windows.ApplicationModel.AppService;
+using XboxGamingBarHelper.AutoTDP;
 using XboxGamingBarHelper.Legion;
 using XboxGamingBarHelper.OnScreenDisplay;
 using XboxGamingBarHelper.Performance;
@@ -21,6 +22,7 @@ namespace XboxGamingBarHelper.RTSS
         private OSD rtssOSD;
         private readonly OSDItem[] osdItems;
         private readonly OSDItemFan osdItemFan;
+        private readonly OSDItemAutoTDP osdItemAutoTDP;
 
         private readonly RTSSInstalledProperty rtssInstalled;
         public RTSSInstalledProperty RTSSInstalled
@@ -35,6 +37,7 @@ namespace XboxGamingBarHelper.RTSS
 
             rtssInstalled = new RTSSInstalledProperty(this);
             osdItemFan = new OSDItemFan();
+            osdItemAutoTDP = new OSDItemAutoTDP();
             osdItems = new OSDItem[]
             {
                 new OSDItemFPS(),
@@ -43,6 +46,7 @@ namespace XboxGamingBarHelper.RTSS
                 new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature),
                 new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature),
                 osdItemFan,
+                osdItemAutoTDP,
             };
 
             rtssState = RivatunerStatisticsServerState.NotInstalled;
@@ -56,6 +60,16 @@ namespace XboxGamingBarHelper.RTSS
         {
             osdItemFan.SetLegionManager(legionManager);
             Logger.Info("LegionManager reference set for RTSS OSD fan speed");
+        }
+
+        /// <summary>
+        /// Sets the AutoTDP Manager reference for AutoTDP OSD support.
+        /// Must be called after AutoTDPManager is initialized.
+        /// </summary>
+        public void SetAutoTDPManager(AutoTDPManager autoTDPManager)
+        {
+            osdItemAutoTDP.SetAutoTDPManager(autoTDPManager);
+            Logger.Info("AutoTDPManager reference set for RTSS OSD AutoTDP status");
         }
 
         public override void Update()

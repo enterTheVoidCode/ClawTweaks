@@ -146,6 +146,7 @@
     <Compile Include="Data\LegionCustomTDPProperty.cs" />
     <Compile Include="Data\LegionFanFullSpeedProperty.cs" />
     <Compile Include="Data\LegionGyroEnabledProperty.cs" />
+    <Compile Include="Data\AutoTDPProperties.cs" />
     <Compile Include="Data\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />
     <Compile Include="Data\OSDProperty.cs" />
