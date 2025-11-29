@@ -19,6 +19,7 @@ using XboxGamingBarHelper.Profile;
 using XboxGamingBarHelper.RTSS;
 using XboxGamingBarHelper.Settings;
 using XboxGamingBarHelper.Systems;
+using XboxGamingBarHelper.AutoTDP;
 
 namespace XboxGamingBarHelper
 {
@@ -37,6 +38,7 @@ namespace XboxGamingBarHelper
         private static LosslessScalingManager losslessScalingManager;
         private static SettingsManager settingsManager;
         private static LegionManager legionManager;
+        private static AutoTDPManager autoTDPManager;
         private static List<IManager> Managers;
         private static AppServiceConnectionStatus appServiceConnectionStatus;
 
@@ -86,12 +88,17 @@ namespace XboxGamingBarHelper
             settingsManager = SettingsManager.CreateInstance(connection);
             Logger.Info("Initialize Legion Manager.");
             legionManager = new LegionManager(connection);
+            Logger.Info("Initialize AutoTDP Manager.");
+            autoTDPManager = new AutoTDPManager(connection, performanceManager, systemManager);
 
             // Set LegionManager reference in PerformanceManager for WMI TDP support
             performanceManager.SetLegionManager(legionManager);
 
             // Set LegionManager reference in RTSSManager for fan speed OSD support
             rtssManager.SetLegionManager(legionManager);
+
+            // Set AutoTDPManager reference in RTSSManager for AutoTDP OSD support
+            rtssManager.SetAutoTDPManager(autoTDPManager);
 
             Managers = new List<IManager>
             {
@@ -103,7 +110,8 @@ namespace XboxGamingBarHelper
                 amdManager,
                 losslessScalingManager,
                 settingsManager,
-                legionManager
+                legionManager,
+                autoTDPManager
             };
 
             Logger.Info("Initialize properties.");
@@ -180,7 +188,10 @@ namespace XboxGamingBarHelper
                 legionManager.LegionCustomTDPFast,
                 legionManager.LegionCustomTDPPeak,
                 legionManager.LegionFanFullSpeed,
-                legionManager.LegionGyroEnabled);
+                legionManager.LegionGyroEnabled,
+                autoTDPManager.Enabled,
+                autoTDPManager.TargetFPS,
+                autoTDPManager.CurrentFPS);
 
             Logger.Info("Initialize callbacks.");
             systemManager.RunningGame.PropertyChanged += RunningGame_PropertyChanged;

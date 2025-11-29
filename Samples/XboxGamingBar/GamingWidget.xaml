@@ -406,7 +406,8 @@
                 <muxc:NavigationViewItem x:Name="GraphicsNavItem" Content="Graphics" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem x:Name="ScalingNavItem" Content="Scaling" Tag="Scaling" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem x:Name="LegionNavItem" Content="Legion" Tag="Legion" Style="{StaticResource NavItemStyle}" Visibility="Collapsed"/>
-                <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"
+                                            XYFocusDown="{x:Bind ProfileSaveTDPCheckBox}"/>
             </muxc:NavigationView.MenuItems>
 
             <!-- QUICK SETTINGS TAB -->
@@ -1126,7 +1127,8 @@
                                           IsChecked="False"
                                           Foreground="#FFFFFF"
                                           Margin="0,4,0,0"
-                                          Style="{StaticResource FocusableCheckBoxStyle}"/>
+                                          Style="{StaticResource FocusableCheckBoxStyle}"
+                                          XYFocusDown="{x:Bind StickyTDPToggle}"/>
                             </StackPanel>
                         </Border>
 
@@ -1147,7 +1149,12 @@
                                     <ToggleSwitch x:Name="StickyTDPToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  Toggled="StickyTDPToggle_Toggled" Width="50"/>
+                                                  Toggled="StickyTDPToggle_Toggled" Width="50"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  XYFocusUp="{x:Bind ProfileSaveAMDFeaturesCheckBox}"
+                                                  XYFocusDown="{x:Bind StickyTDPIntervalSlider}"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid Margin="0,2,0,0">
@@ -1170,7 +1177,74 @@
                                             TickPlacement="BottomRight"
                                             Header="Check Interval"
                                             Value="5"
-                                            ValueChanged="StickyTDPIntervalSlider_ValueChanged"/>
+                                            ValueChanged="StickyTDPIntervalSlider_ValueChanged"
+                                            UseSystemFocusVisuals="True"
+                                            FocusVisualPrimaryBrush="White"
+                                            FocusVisualSecondaryBrush="Transparent"
+                                            XYFocusUp="{x:Bind StickyTDPToggle}"
+                                            XYFocusDown="{x:Bind AutoTDPToggle}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- AutoTDP Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="AutoTDP" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Automatically adjust TDP to maintain target FPS when a game is running"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="AutoTDPToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  Toggled="AutoTDPToggle_Toggled" Width="50"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  XYFocusUp="{x:Bind StickyTDPToggle}"
+                                                  XYFocusDown="{x:Bind AutoTDPTargetFPSSlider}"/>
+                                </Grid>
+                                <StackPanel Visibility="{Binding ElementName=AutoTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid Margin="0,12,0,0">
+                                        <TextBlock Text="Target FPS"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"/>
+                                        <TextBlock x:Name="AutoTDPTargetFPSValue"
+                                                   Text="60 FPS"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="AutoTDPTargetFPSSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="30" Maximum="144"
+                                            StepFrequency="1"
+                                            Value="60"
+                                            ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"
+                                            UseSystemFocusVisuals="True"
+                                            FocusVisualPrimaryBrush="White"
+                                            FocusVisualSecondaryBrush="Transparent"
+                                            XYFocusUp="{x:Bind AutoTDPToggle}"
+                                            XYFocusDown="{x:Bind UseManufacturerWMIToggle}"/>
+                                    <Grid Margin="0,8,0,0">
+                                        <TextBlock Text="Current FPS"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"/>
+                                        <TextBlock x:Name="AutoTDPCurrentFPSValue"
+                                                   Text="-- FPS"
+                                                   FontSize="14"
+                                                   Foreground="#FFCC00"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -1192,7 +1266,11 @@
                                               Grid.Column="1"
                                               IsOn="True"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              Width="50"/>
+                                              Width="50"
+                                              UseSystemFocusVisuals="True"
+                                              FocusVisualPrimaryBrush="White"
+                                              FocusVisualSecondaryBrush="Transparent"
+                                              XYFocusUp="{x:Bind AutoTDPToggle}"/>
                             </Grid>
                         </Border>
 
