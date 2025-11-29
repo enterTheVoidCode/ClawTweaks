@@ -93,35 +93,65 @@ The widget is designed for full gamepad/controller navigation:
 
 ## Installation
 
-### Easy Install (Recommended)
+### Step 1: Install the App
+
+#### Option A: Use Install Script (Recommended)
+
+1. Download and extract the latest release package from [Releases](https://github.com/namquang93/XboxGamingBar/releases)
+2. **Close any apps that might be running** (Game Bar, previous versions of this widget)
+3. Right-click `Install.ps1` → **Run with PowerShell**
+
+This script automatically installs all required dependencies.
+
+#### Option B: Manual Install with Developer Mode
 
 1. **Enable Developer Mode** (one-time setup):
    - Open **Settings** → **Privacy & security** → **For developers**
    - Toggle **Developer Mode** to **On**
-   - This allows installing apps without a certificate
 
-2. **Install the App**:
-   - Download the latest `.msixbundle` from [Releases](https://github.com/namquang93/XboxGamingBar/releases)
-   - Double-click the file to install with App Installer
-   - If prompted about the publisher, click **Install anyway**
+2. **Install Dependencies** from the `Dependencies\x64` folder:
+   - `Microsoft.VCLibs.x64.Debug.14.00.appx`
+   - `Microsoft.VCLibs.x64.Debug.14.00.Desktop.appx`
+   - `Microsoft.NET.CoreRuntime.2.2.appx`
+   - `Microsoft.NET.CoreFramework.Debug.2.2.appx`
+   - `Microsoft.UI.Xaml.2.8.appx`
 
-### Alternative: PowerShell Install
+3. **Install the App**: Double-click the `.msixbundle` file
 
-If double-clicking doesn't work:
+#### Option C: PowerShell Install
 
 ```powershell
 # Run PowerShell as Administrator
-Add-AppxPackage -Path "path\to\XboxGamingBarPackage.msixbundle"
+$folder = "path\to\XboxGamingBarPackage_x.x.xxx_Debug_Test"
+Get-ChildItem "$folder\Dependencies\x64\*.appx" | ForEach-Object { Add-AppxPackage $_.FullName }
+Add-AppxPackage "$folder\XboxGamingBarPackage_*.msixbundle"
 ```
 
-### Manual Install (Without Developer Mode)
+#### Option D: Install Certificate (Without Developer Mode)
 
-If you prefer not to enable Developer Mode, you'll need to install the certificate:
+If you prefer not to enable Developer Mode:
 
-1. Download and extract the release package
-2. Right-click the `.cer` certificate file → **Install Certificate**
-3. Select **Local Machine** → **Place in: Trusted People**
-4. Then double-click the `.msixbundle` to install
+1. Right-click the `.cer` certificate file → **Install Certificate**
+2. Select **Local Machine** → **Place in: Trusted People**
+3. Install dependencies from `Dependencies\x64` folder
+4. Double-click the `.msixbundle` to install
+
+### Step 2: Enable the Widget in Game Bar
+
+1. Open Xbox Game Bar (Win + G)
+2. Click the **Widgets** menu (widget icon)
+3. Scroll down to find **"Gaming"**
+4. Click on it to enable the widget
+
+### Step 3: Enable Game Detection (Required for Per-Game Profiles)
+
+1. Open Xbox Game Bar (Win + G)
+2. Go to **Settings** (gear icon)
+3. Scroll down and click **More Settings**
+4. Find **Gaming** widget
+5. Enable **"Know which game or app is in focus"**
+
+This allows the widget to detect which game is running for automatic profile switching and AutoTDP.
 
 For detailed instructions, see our [Wiki](https://github.com/namquang93/XboxGamingBar/wiki/Installation-Instruction).
 
