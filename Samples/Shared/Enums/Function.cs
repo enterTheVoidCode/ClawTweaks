@@ -81,5 +81,10 @@
         LegionCustomTDPPeak,        // int - Peak TDP (FPPT) in watts
         LegionFanFullSpeed,         // bool - fan full speed mode
         LegionGyroEnabled,          // bool - gyroscope on/off (WIP)
+
+        // AutoTDP functions
+        AutoTDPEnabled,             // bool - enable/disable AutoTDP
+        AutoTDPTargetFPS,           // int - target FPS (30-144)
+        AutoTDPCurrentFPS,          // int - current FPS reading (read-only)
     }
 }

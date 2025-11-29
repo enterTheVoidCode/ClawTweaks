@@ -404,6 +404,7 @@
     <Compile Include="RTSS\OSDItem.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemBattery.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemCPU.cs" />
+    <Compile Include="RTSS\OSDItems\OSDItemAutoTDP.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemFan.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemFPS.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemGPU.cs" />
@@ -419,6 +420,7 @@
     <Compile Include="Legion\LegionGoLibrary.cs" />
     <Compile Include="Legion\LegionManager.cs" />
     <Compile Include="Legion\LegionProperties.cs" />
+    <Compile Include="AutoTDP\AutoTDPManager.cs" />
     <Compile Include="Systems\HDREnabledProperty.cs" />
     <Compile Include="Systems\HDRSupportedProperty.cs" />
     <Compile Include="Systems\RefreshRateProperty.cs" />

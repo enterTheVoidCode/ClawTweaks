@@ -183,6 +183,11 @@ namespace XboxGamingBar
         // Settings properties
         private readonly UseManufacturerWMIProperty useManufacturerWMI;
 
+        // AutoTDP properties
+        private readonly AutoTDPEnabledProperty autoTDPEnabled;
+        private readonly AutoTDPTargetFPSProperty autoTDPTargetFPS;
+        private readonly AutoTDPCurrentFPSProperty autoTDPCurrentFPS;
+
         // Profile management
         private PerformanceProfile globalProfile = new PerformanceProfile();
         private PerformanceProfile acProfile = new PerformanceProfile();
@@ -343,6 +348,11 @@ namespace XboxGamingBar
             // Settings properties
             useManufacturerWMI = new UseManufacturerWMIProperty(UseManufacturerWMIToggle, this);
 
+            // AutoTDP properties
+            autoTDPEnabled = new AutoTDPEnabledProperty(false);
+            autoTDPTargetFPS = new AutoTDPTargetFPSProperty(60);
+            autoTDPCurrentFPS = new AutoTDPCurrentFPSProperty(0);
+
             // Set up Legion tab visibility callback
             legionGoDetected.SetVisibilityCallback(SetLegionTabVisibility);
 
@@ -424,7 +434,10 @@ namespace XboxGamingBar
                 legionCustomTDPPeak,
                 legionFanFullSpeed,
                 legionGyroEnabled,
-                useManufacturerWMI
+                useManufacturerWMI,
+                autoTDPEnabled,
+                autoTDPTargetFPS,
+                autoTDPCurrentFPS
             );
 
             // Register card focus handlers for all interactive controls
@@ -760,6 +773,23 @@ namespace XboxGamingBar
             // Update profile display
             UpdateProfileDisplay();
             UpdateGameProfileCardVisibility();
+
+            // Load AutoTDP settings and subscribe to current FPS updates
+            LoadAutoTDPSettings();
+            if (autoTDPCurrentFPS != null)
+                autoTDPCurrentFPS.PropertyChanged += AutoTDPCurrentFPS_PropertyChanged;
+        }
+
+        private void AutoTDPCurrentFPS_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                if (AutoTDPCurrentFPSValue != null && autoTDPCurrentFPS != null)
+                {
+                    int fps = autoTDPCurrentFPS.Value;
+                    AutoTDPCurrentFPSValue.Text = fps > 0 ? $"{fps} FPS" : "-- FPS";
+                }
+            });
         }
 
         private void GamingWidget_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -1202,6 +1232,63 @@ namespace XboxGamingBar
                 isStickyTDPReapplying = false;
             }
         }
+
+        #region AutoTDP
+
+        private void AutoTDPToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (AutoTDPToggle == null) return;
+
+            Logger.Info($"AutoTDP toggled to: {AutoTDPToggle.IsOn}");
+
+            // Send to helper
+            autoTDPEnabled?.SetValue(AutoTDPToggle.IsOn);
+
+            // Save setting
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["AutoTDPEnabled"] = AutoTDPToggle.IsOn;
+        }
+
+        private void AutoTDPTargetFPSSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (AutoTDPTargetFPSSlider == null) return;
+
+            int targetFPS = (int)Math.Round(e.NewValue);
+            Logger.Info($"AutoTDP target FPS changed to: {targetFPS}");
+
+            // Update display
+            if (AutoTDPTargetFPSValue != null)
+            {
+                AutoTDPTargetFPSValue.Text = $"{targetFPS} FPS";
+            }
+
+            // Send to helper
+            autoTDPTargetFPS?.SetValue(targetFPS);
+
+            // Save setting
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["AutoTDPTargetFPS"] = targetFPS;
+        }
+
+        private void LoadAutoTDPSettings()
+        {
+            var settings = ApplicationData.Current.LocalSettings;
+
+            // Load enabled state
+            if (settings.Values.TryGetValue("AutoTDPEnabled", out object enabledObj) && enabledObj is bool enabled)
+            {
+                AutoTDPToggle.IsOn = enabled;
+            }
+
+            // Load target FPS
+            if (settings.Values.TryGetValue("AutoTDPTargetFPS", out object targetObj) && targetObj is int target)
+            {
+                AutoTDPTargetFPSSlider.Value = target;
+                AutoTDPTargetFPSValue.Text = $"{target} FPS";
+            }
+        }
+
+        #endregion
 
         private async void PowerManager_PowerSourceChanged(object sender, object e)
         {
