@@ -262,15 +262,15 @@
             <Setter Property="Margin" Value="0,20,0,0"/>
         </Style>
 
-        <!-- Quick Settings Tile Colors - Subtle, muted tones -->
-        <SolidColorBrush x:Key="TileOffBackground" Color="#3E434B"/>
-        <SolidColorBrush x:Key="TileOnBackground" Color="#3D5A45"/>
-        <SolidColorBrush x:Key="TileActiveBackground" Color="#3A4D5E"/>
-        <SolidColorBrush x:Key="TileTriggerBackground" Color="#4A4358"/>
+        <!-- Quick Settings Tile Colors - Subtle, muted tones (darkened) -->
+        <SolidColorBrush x:Key="TileOffBackground" Color="#2A2D32"/>
+        <SolidColorBrush x:Key="TileOnBackground" Color="#2D4435"/>
+        <SolidColorBrush x:Key="TileActiveBackground" Color="#2A3A48"/>
+        <SolidColorBrush x:Key="TileTriggerBackground" Color="#38324A"/>
         <SolidColorBrush x:Key="TileBorderBrush" Color="Transparent"/>
         <SolidColorBrush x:Key="TileFocusBorderBrush" Color="White"/>
         <!-- Inactive state: 50% darker -->
-        <SolidColorBrush x:Key="TileInactiveBackground" Color="#1F2226"/>
+        <SolidColorBrush x:Key="TileInactiveBackground" Color="#151719"/>
         <SolidColorBrush x:Key="TileInactiveForeground" Color="#808080"/>
 
         <!-- Quick Settings Tile Style - Xbox Game Bar Widget UI Guidelines -->

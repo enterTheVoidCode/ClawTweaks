@@ -3689,7 +3689,10 @@ namespace XboxGamingBar
                             case 1: modeText = "Quiet"; break;
                             case 2: modeText = "Balanced"; break;
                             case 3: modeText = "Performance"; break;
-                            case 255: modeText = "Custom"; break;
+                            case 255:
+                                int currentTdp = (int)(tdp?.Value ?? 15);
+                                modeText = $"Custom ({currentTdp}W)";
+                                break;
                             default: modeText = "Balanced"; break;
                         }
                         tdpTile.StateText.Text = modeText;
