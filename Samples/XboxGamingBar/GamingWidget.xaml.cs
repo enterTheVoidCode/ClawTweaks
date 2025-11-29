@@ -1600,13 +1600,13 @@ namespace XboxGamingBar
                 {
                     GameProfileWithPowerSource.Visibility = Visibility.Visible;
                     GameProfileWithoutPowerSource.Visibility = Visibility.Collapsed;
-                    GameProfileTitleWithPower.Text = $"🎮 {currentGameName}";
+                    GameProfileTitleWithPower.Text = currentGameName;
                 }
                 else
                 {
                     GameProfileWithPowerSource.Visibility = Visibility.Collapsed;
                     GameProfileWithoutPowerSource.Visibility = Visibility.Visible;
-                    GameProfileTitleNoPower.Text = $"🎮 {currentGameName}";
+                    GameProfileTitleNoPower.Text = currentGameName;
                 }
             }
             else
@@ -1724,7 +1724,7 @@ namespace XboxGamingBar
 
                 var titleText = new TextBlock
                 {
-                    Text = $"🎮 {gameName}",
+                    Text = gameName,
                     FontSize = 13,
                     FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                     Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 165, 0)),
@@ -1745,9 +1745,21 @@ namespace XboxGamingBar
                     Foreground = new SolidColorBrush(Windows.UI.Colors.White),
                     HorizontalAlignment = HorizontalAlignment.Right,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Tag = gameName  // Store game name for delete handler
+                    Tag = gameName,  // Store game name for delete handler
+                    BorderBrush = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    BorderThickness = new Thickness(2)
                 };
                 deleteButton.Click += DeleteProfileButton_Click;
+                deleteButton.GotFocus += (s, args) =>
+                {
+                    deleteButton.BorderBrush = new SolidColorBrush(Windows.UI.Colors.White);
+                    deleteButton.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 50, 50));
+                };
+                deleteButton.LostFocus += (s, args) =>
+                {
+                    deleteButton.BorderBrush = new SolidColorBrush(Windows.UI.Colors.Transparent);
+                    deleteButton.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(100, 255, 0, 0));
+                };
                 Grid.SetColumn(deleteButton, 1);
                 titleGrid.Children.Add(deleteButton);
 
@@ -3274,14 +3286,14 @@ namespace XboxGamingBar
 
             try
             {
-                // Use subtle, muted colors matching Xbox Game Bar aesthetic
-                // On state: muted green-gray
-                tileOnBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 61, 90, 69));    // #3D5A45
+                // Dark mode colors with sharp contrast for handheld devices
+                // On state: dark green
+                tileOnBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 26, 46, 31));    // #1A2E1F
 
-                // Other tile brushes - all subtle and neutral
-                tileOffBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 62, 67, 75));   // #3E434B
-                tileActiveBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 58, 77, 94)); // #3A4D5E - muted blue-gray
-                tileTriggerBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 74, 67, 88)); // #4A4358 - muted purple-gray
+                // Other tile brushes - dark mode
+                tileOffBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 26, 28, 30));   // #1A1C1E
+                tileActiveBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 26, 37, 48)); // #1A2530 - dark blue
+                tileTriggerBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 37, 32, 48)); // #252030 - dark purple
 
                 // Define all tiles
                 DefineQuickSettingsTiles();
@@ -3629,14 +3641,14 @@ namespace XboxGamingBar
             content.Children.Add(new FontIcon
             {
                 Glyph = tile.Glyph,
-                FontSize = 24,
+                FontSize = 28,
                 HorizontalAlignment = HorizontalAlignment.Center
             });
 
             content.Children.Add(new TextBlock
             {
                 Text = tile.Name,
-                FontSize = 12,
+                FontSize = 14,
                 Margin = new Thickness(0, 8, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap,
@@ -3646,7 +3658,7 @@ namespace XboxGamingBar
             var stateText = new TextBlock
             {
                 Text = "Off",
-                FontSize = 11,
+                FontSize = 13,
                 Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136)),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 2, 0, 0)

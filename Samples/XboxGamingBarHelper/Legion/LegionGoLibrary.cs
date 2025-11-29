@@ -1314,6 +1314,23 @@ namespace LegionGoLibrary
                                                             score = 10;
                                                         }
                                                     }
+                                                    else
+                                                    {
+                                                        // HidP_GetCaps failed - test if WriteFile works on this interface
+                                                        // This is needed for Legion Go 2 which has multiple interfaces with same VID/PID
+                                                        byte[] testBuffer = new byte[64];
+                                                        testBuffer[0] = 0x05; // Report ID for Legion Go
+                                                        if (WriteFile(handle, testBuffer, (uint)testBuffer.Length, out uint written, IntPtr.Zero) && written > 0)
+                                                        {
+                                                            score = 50; // WriteFile works - good candidate
+                                                            info += " (WriteFile OK)";
+                                                        }
+                                                        else
+                                                        {
+                                                            score = 2; // WriteFile failed - skip this one
+                                                            info += " (caps failed, WriteFile failed)";
+                                                        }
+                                                    }
                                                 }
                                                 finally
                                                 {
@@ -1322,9 +1339,19 @@ namespace LegionGoLibrary
                                             }
                                             else
                                             {
-                                                // Can't get caps, but device is accessible - still usable
-                                                score = 5;
-                                                info += " (no caps)";
+                                                // Can't get preparsed data - test if WriteFile works
+                                                byte[] testBuffer = new byte[64];
+                                                testBuffer[0] = 0x05; // Report ID for Legion Go
+                                                if (WriteFile(handle, testBuffer, (uint)testBuffer.Length, out uint written, IntPtr.Zero) && written > 0)
+                                                {
+                                                    score = 50; // WriteFile works - good candidate
+                                                    info += " (no caps, WriteFile OK)";
+                                                }
+                                                else
+                                                {
+                                                    score = 2; // WriteFile failed - skip this one
+                                                    info += " (no caps, WriteFile failed)";
+                                                }
                                             }
 
                                             if (score > bestScore)
@@ -1363,7 +1390,7 @@ namespace LegionGoLibrary
                         else
                             _deviceType = DeviceType.Unknown;
 
-                        string mode = bestScore >= 100 ? "exact match" : bestScore >= 10 ? "by output size" : "basic";
+                        string mode = bestScore >= 100 ? "exact match" : bestScore >= 50 ? "WriteFile test" : bestScore >= 10 ? "by output size" : "basic";
                         string deviceName = GO2_PIDS.Contains(_connectedPid) ? "Legion Go 2" : "Legion Go";
                         return (true, $"Connected to {deviceName} ({mode}: {bestInfo})");
                     }
@@ -1405,16 +1432,21 @@ namespace LegionGoLibrary
                 byte[] buffer = new byte[64];
                 Array.Copy(command, buffer, Math.Min(command.Length, 64));
 
-                // Use HidD_SetOutputReport for feature reports
+                // Try HidD_SetOutputReport first (standard method)
                 if (HidD_SetOutputReport(_deviceHandle, buffer, (uint)buffer.Length))
                 {
                     return (true, "Command sent successfully");
                 }
-                else
+
+                // Fallback to WriteFile if HidD_SetOutputReport fails
+                // This is needed for Legion Go 2 where some interfaces don't support SetOutputReport
+                if (WriteFile(_deviceHandle, buffer, (uint)buffer.Length, out uint written, IntPtr.Zero) && written > 0)
                 {
-                    int error = Marshal.GetLastWin32Error();
-                    return (false, $"Failed to send command (Error: {error})");
+                    return (true, "Command sent successfully (WriteFile)");
                 }
+
+                int error = Marshal.GetLastWin32Error();
+                return (false, $"Failed to send command (Error: {error})");
             }
             catch (Exception ex)
             {
