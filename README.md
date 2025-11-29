@@ -93,7 +93,37 @@ The widget is designed for full gamepad/controller navigation:
 
 ## Installation
 
-Please follow our [Wiki](https://github.com/namquang93/XboxGamingBar/wiki/Installation-Instruction) page for installation instruction.
+### Easy Install (Recommended)
+
+1. **Enable Developer Mode** (one-time setup):
+   - Open **Settings** → **Privacy & security** → **For developers**
+   - Toggle **Developer Mode** to **On**
+   - This allows installing apps without a certificate
+
+2. **Install the App**:
+   - Download the latest `.msixbundle` from [Releases](https://github.com/namquang93/XboxGamingBar/releases)
+   - Double-click the file to install with App Installer
+   - If prompted about the publisher, click **Install anyway**
+
+### Alternative: PowerShell Install
+
+If double-clicking doesn't work:
+
+```powershell
+# Run PowerShell as Administrator
+Add-AppxPackage -Path "path\to\XboxGamingBarPackage.msixbundle"
+```
+
+### Manual Install (Without Developer Mode)
+
+If you prefer not to enable Developer Mode, you'll need to install the certificate:
+
+1. Download and extract the release package
+2. Right-click the `.cer` certificate file → **Install Certificate**
+3. Select **Local Machine** → **Place in: Trusted People**
+4. Then double-click the `.msixbundle` to install
+
+For detailed instructions, see our [Wiki](https://github.com/namquang93/XboxGamingBar/wiki/Installation-Instruction).
 
 ## Requirements
 
@@ -112,6 +142,10 @@ Xbox Gaming Bar is 100% free and open source. Built with C#.
 - **RyzenAdj** - AMD TDP control
 - **RTSSSharedMemoryNET** - RTSS OSD integration
 - **ADLX** - AMD Display Library for Radeon features
+
+## Credits
+
+Original project created by [namquang93](https://github.com/namquang93).
 
 ## License
 
