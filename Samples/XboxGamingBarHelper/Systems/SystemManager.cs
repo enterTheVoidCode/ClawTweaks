@@ -70,6 +70,30 @@ namespace XboxGamingBarHelper.Systems
             get { return refreshRate; }
         }
 
+        private readonly ResolutionsProperty resolutions;
+        public ResolutionsProperty Resolutions
+        {
+            get { return resolutions; }
+        }
+
+        private readonly ResolutionProperty resolution;
+        public ResolutionProperty Resolution
+        {
+            get { return resolution; }
+        }
+
+        private readonly HDRSupportedProperty hdrSupported;
+        public HDRSupportedProperty HDRSupported
+        {
+            get { return hdrSupported; }
+        }
+
+        private readonly HDREnabledProperty hdrEnabled;
+        public HDREnabledProperty HDREnabled
+        {
+            get { return hdrEnabled; }
+        }
+
         private readonly TrackedGameProperty trackedGame;
         public TrackedGameProperty TrackedGame
         {
@@ -98,6 +122,14 @@ namespace XboxGamingBarHelper.Systems
             refreshRates = new RefreshRatesProperty(User32.GetSupportedRefreshRates(), this);
             Logger.Info("Check current refresh rate.");
             refreshRate = new RefreshRateProperty(User32.GetCurrentRefreshRate(), this);
+            Logger.Info("Check supported resolutions.");
+            resolutions = new ResolutionsProperty(User32.GetSupportedResolutions(), this);
+            Logger.Info("Check current resolution.");
+            resolution = new ResolutionProperty(User32.GetCurrentResolution(), this);
+            Logger.Info("Check HDR status.");
+            var hdrStatus = User32.GetHDRStatus();
+            hdrSupported = new HDRSupportedProperty(hdrStatus.Supported, this);
+            hdrEnabled = new HDREnabledProperty(hdrStatus.Enabled, this);
         }
 
         private RunningGame GetRunningGame()

@@ -419,8 +419,12 @@
     <Compile Include="Legion\LegionGoLibrary.cs" />
     <Compile Include="Legion\LegionManager.cs" />
     <Compile Include="Legion\LegionProperties.cs" />
+    <Compile Include="Systems\HDREnabledProperty.cs" />
+    <Compile Include="Systems\HDRSupportedProperty.cs" />
     <Compile Include="Systems\RefreshRateProperty.cs" />
     <Compile Include="Systems\RefreshRatesProperty.cs" />
+    <Compile Include="Systems\ResolutionProperty.cs" />
+    <Compile Include="Systems\ResolutionsProperty.cs" />
     <Compile Include="Systems\RunningGameProperty.cs" />
     <Compile Include="Systems\TrackedGameProperty.cs" />
     <Compile Include="Windows\PowerGuids.cs" />

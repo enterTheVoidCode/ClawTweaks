@@ -116,6 +116,10 @@ namespace XboxGamingBar
         //private readonly GPUClockMaxProperty gpuClockMax;
         private readonly RefreshRatesProperty refreshRates;
         private readonly RefreshRateProperty refreshRate;
+        private readonly ResolutionsProperty resolutions;
+        private readonly ResolutionProperty resolution;
+        private readonly HDRSupportedProperty hdrSupported;
+        private readonly HDREnabledProperty hdrEnabled;
         private readonly TrackedGameProperty trackedGame;
         private readonly RTSSInstalledProperty rtssInstalled;
         private readonly IsForegroundProperty isForeground;
@@ -274,6 +278,10 @@ namespace XboxGamingBar
             //gpuClockMax = new GPUClockMaxProperty(GPUClockMaxSlider, this);
             refreshRates = new RefreshRatesProperty(RefreshRatesComboBox, this);
             refreshRate = new RefreshRateProperty(RefreshRatesComboBox, this);
+            resolutions = new ResolutionsProperty(ResolutionComboBox, this);
+            resolution = new ResolutionProperty(ResolutionComboBox, this);
+            hdrSupported = new HDRSupportedProperty(HDRToggle, this);
+            hdrEnabled = new HDREnabledProperty(HDRToggle, this);
             trackedGame = new TrackedGameProperty(new TrackedGame());
             rtssInstalled = new RTSSInstalledProperty(PerformanceOverlaySlider, this);
             isForeground = new IsForegroundProperty();
@@ -360,6 +368,10 @@ namespace XboxGamingBar
                 //gpuClockMax,
                 refreshRates,
                 refreshRate,
+                resolutions,
+                resolution,
+                hdrSupported,
+                hdrEnabled,
                 trackedGame,
                 rtssInstalled,
                 isForeground,
@@ -470,9 +482,17 @@ namespace XboxGamingBar
             PowerSourceProfileToggle.GotFocus += Control_GotFocus;
             PowerSourceProfileToggle.LostFocus += Control_LostFocus;
 
+            // Graphics tab - Resolution card
+            ResolutionComboBox.GotFocus += Control_GotFocus;
+            ResolutionComboBox.LostFocus += Control_LostFocus;
+
             // Graphics tab - Refresh Rate card
             RefreshRatesComboBox.GotFocus += Control_GotFocus;
             RefreshRatesComboBox.LostFocus += Control_LostFocus;
+
+            // Graphics tab - HDR card
+            HDRToggle.GotFocus += Control_GotFocus;
+            HDRToggle.LostFocus += Control_LostFocus;
 
             // Graphics tab - AMD cards
             AMDRadeonSuperResolutionToggle.GotFocus += Control_GotFocus;
@@ -3316,6 +3336,8 @@ namespace XboxGamingBar
             AddTileDefinition("TDPMode", "TDP Mode", "\uE945");
             AddTileDefinition("Profile", "Profile", "\uE77B");
             AddTileDefinition("Overlay", "Overlay", "\uE7B3");
+            AddTileDefinition("Resolution", "Resolution", "\uE7F8");
+            AddTileDefinition("HDR", "HDR", "\uE706");
             AddTileDefinition("LosslessScaling", "Lossless", "\uE740");
             AddTileDefinition("AFMF", "AFMF", "\uE916");
             AddTileDefinition("RSR", "RSR", "\uE8B3");
@@ -3705,6 +3727,25 @@ namespace XboxGamingBar
                     overlayTile.TileButton.Background = level > 0 ? tileOnBrush : tileOffBrush;
                 }
 
+                // Resolution tile
+                if (qsTileMap.TryGetValue("Resolution", out var resTile) && resTile.TileButton != null)
+                {
+                    string currentRes = resolution?.Value ?? "1920x1080";
+                    resTile.StateText.Text = currentRes;
+                    resTile.StateText.Foreground = accentForeground;
+                    resTile.TileButton.Background = tileOffBrush;
+                }
+
+                // HDR tile
+                if (qsTileMap.TryGetValue("HDR", out var hdrTile) && hdrTile.TileButton != null)
+                {
+                    bool supported = hdrSupported?.Value ?? false;
+                    bool enabled = hdrEnabled?.Value ?? false;
+                    hdrTile.StateText.Text = !supported ? "N/A" : (enabled ? "On" : "Off");
+                    hdrTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                    hdrTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
                 // Lossless Scaling tile
                 if (qsTileMap.TryGetValue("LosslessScaling", out var lsTile) && lsTile.TileButton != null)
                 {
@@ -3864,6 +3905,12 @@ namespace XboxGamingBar
                             case "Overlay":
                                 CyclePerformanceOverlay();
                                 break;
+                            case "Resolution":
+                                CycleResolution();
+                                break;
+                            case "HDR":
+                                ToggleHDR();
+                                break;
                             case "LosslessScaling":
                                 ToggleLosslessScaling();
                                 break;
@@ -3994,6 +4041,29 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Error triggering on-screen keyboard: {ex.Message}");
+            }
+        }
+
+        private void CycleResolution()
+        {
+            if (resolution != null && resolutions?.Value != null && resolutions.Value.Count > 0)
+            {
+                string currentRes = resolution.Value;
+                int currentIndex = resolutions.Value.IndexOf(currentRes);
+                int nextIndex = (currentIndex + 1) % resolutions.Value.Count;
+                string nextRes = resolutions.Value[nextIndex];
+                resolution.SetValue(nextRes);
+                Logger.Info($"Resolution cycled from {currentRes} to {nextRes}");
+            }
+        }
+
+        private void ToggleHDR()
+        {
+            if (hdrEnabled != null && (hdrSupported?.Value ?? false))
+            {
+                bool newValue = !hdrEnabled.Value;
+                hdrEnabled.SetValue(newValue);
+                Logger.Info($"HDR toggled to {newValue}");
             }
         }
 
