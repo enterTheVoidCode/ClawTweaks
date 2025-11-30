@@ -783,6 +783,13 @@ namespace XboxGamingBar
             LoadAutoTDPSettings();
             if (autoTDPCurrentFPS != null)
                 autoTDPCurrentFPS.PropertyChanged += AutoTDPCurrentFPS_PropertyChanged;
+
+            // Load OSD customization settings
+            LoadOSDConfigFromStorage();
+            LoadOSDOptionsForLevel(1); // Load Basic level options by default
+
+            // Send OSD config to helper on startup
+            SendOSDConfigToHelper();
         }
 
         private void AutoTDPCurrentFPS_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -1290,6 +1297,436 @@ namespace XboxGamingBar
             {
                 AutoTDPTargetFPSSlider.Value = target;
                 AutoTDPTargetFPSValue.Text = $"{target} FPS";
+            }
+        }
+
+        #endregion
+
+        #region OSD Customization
+
+        // OSD configuration per level - stores which items are enabled
+        // Level 1 (Basic): FPS, Battery, Time - 3 columns
+        // Level 2 (Detailed): Time, FPS, Battery, CPU, GPU, Fan - 1 column
+        // Level 3 (Full): All options - 1 column
+        private Dictionary<int, Dictionary<string, bool>> osdLevelConfig = new Dictionary<int, Dictionary<string, bool>>
+        {
+            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "Memory", false }, { "CPU", false }, { "CPUClock", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false } } },
+            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "Memory", false }, { "CPU", true }, { "CPUClock", false }, { "GPU", true }, { "GPUClock", false }, { "Fan", true }, { "AutoTDP", false } } },
+            { 3, new Dictionary<string, bool> { { "AppName", true }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "Memory", true }, { "CPU", true }, { "CPUClock", true }, { "GPU", true }, { "GPUClock", true }, { "Fan", true }, { "AutoTDP", true } } }
+        };
+
+        private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
+        {
+            { 1, "" },
+            { 2, "" },
+            { 3, "" }
+        };
+
+        // Per-level column settings (Basic=3, Detailed=1, Full=1)
+        private Dictionary<int, int> osdLevelColumns = new Dictionary<int, int>
+        {
+            { 1, 3 },  // Basic: 3 columns
+            { 2, 1 },  // Detailed: 1 column
+            { 3, 1 }   // Full: 1 column
+        };
+
+        // Global OSD layout settings
+        private int osdTextSize = 100;    // Percentage: 50=Small, 100=Medium, 150=Large, 200=X-Large
+        private string osdTextColor = "DYNAMIC";  // DYNAMIC = value-based colors, or hex color code
+        private bool isOSDCustomizeExpanded = false;
+
+        private bool isLoadingOSDConfig = false;
+
+        private void OSDCustomizeLevelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (OSDCustomizeLevelComboBox?.SelectedItem is ComboBoxItem selected && selected.Tag is string tagStr)
+            {
+                if (int.TryParse(tagStr, out int level))
+                {
+                    LoadOSDOptionsForLevel(level);
+                }
+            }
+        }
+
+        private void LoadOSDOptionsForLevel(int level)
+        {
+            if (!osdLevelConfig.ContainsKey(level)) return;
+
+            isLoadingOSDConfig = true;
+            try
+            {
+                var config = osdLevelConfig[level];
+
+                if (OSDShowAppNameCheckBox != null) OSDShowAppNameCheckBox.IsChecked = config.GetValueOrDefault("AppName", false);
+                if (OSDShowTimeCheckBox != null) OSDShowTimeCheckBox.IsChecked = config.GetValueOrDefault("Time", false);
+                if (OSDShowFPSCheckBox != null) OSDShowFPSCheckBox.IsChecked = config.GetValueOrDefault("FPS", true);
+                if (OSDShowBatteryCheckBox != null) OSDShowBatteryCheckBox.IsChecked = config.GetValueOrDefault("Battery", true);
+                if (OSDShowMemoryCheckBox != null) OSDShowMemoryCheckBox.IsChecked = config.GetValueOrDefault("Memory", false);
+                if (OSDShowCPUCheckBox != null) OSDShowCPUCheckBox.IsChecked = config.GetValueOrDefault("CPU", false);
+                if (OSDShowCPUClockCheckBox != null) OSDShowCPUClockCheckBox.IsChecked = config.GetValueOrDefault("CPUClock", false);
+                if (OSDShowGPUCheckBox != null) OSDShowGPUCheckBox.IsChecked = config.GetValueOrDefault("GPU", false);
+                if (OSDShowGPUClockCheckBox != null) OSDShowGPUClockCheckBox.IsChecked = config.GetValueOrDefault("GPUClock", false);
+                if (OSDShowFanCheckBox != null) OSDShowFanCheckBox.IsChecked = config.GetValueOrDefault("Fan", false);
+                if (OSDShowAutoTDPCheckBox != null) OSDShowAutoTDPCheckBox.IsChecked = config.GetValueOrDefault("AutoTDP", false);
+
+                if (OSDCustomTagsTextBox != null) OSDCustomTagsTextBox.Text = osdCustomTags.GetValueOrDefault(level, "");
+
+                // Load columns for this level
+                int columns = osdLevelColumns.GetValueOrDefault(level, 3);
+                if (OSDColumnsComboBox != null)
+                {
+                    foreach (ComboBoxItem item in OSDColumnsComboBox.Items)
+                    {
+                        if (item.Tag is string tag && int.TryParse(tag, out int val) && val == columns)
+                        {
+                            OSDColumnsComboBox.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                isLoadingOSDConfig = false;
+            }
+        }
+
+        private void OSDOption_Changed(object sender, RoutedEventArgs e)
+        {
+            if (isLoadingOSDConfig) return;
+
+            SaveCurrentOSDConfig();
+        }
+
+        private void OSDCustomTagsTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (isLoadingOSDConfig) return;
+
+            SaveCurrentOSDConfig();
+        }
+
+        private void SaveCurrentOSDConfig()
+        {
+            if (OSDCustomizeLevelComboBox?.SelectedItem is ComboBoxItem selected && selected.Tag is string tagStr)
+            {
+                if (int.TryParse(tagStr, out int level))
+                {
+                    if (!osdLevelConfig.ContainsKey(level))
+                    {
+                        osdLevelConfig[level] = new Dictionary<string, bool>();
+                    }
+
+                    var config = osdLevelConfig[level];
+                    config["AppName"] = OSDShowAppNameCheckBox?.IsChecked ?? false;
+                    config["Time"] = OSDShowTimeCheckBox?.IsChecked ?? false;
+                    config["FPS"] = OSDShowFPSCheckBox?.IsChecked ?? true;
+                    config["Battery"] = OSDShowBatteryCheckBox?.IsChecked ?? true;
+                    config["Memory"] = OSDShowMemoryCheckBox?.IsChecked ?? false;
+                    config["CPU"] = OSDShowCPUCheckBox?.IsChecked ?? false;
+                    config["CPUClock"] = OSDShowCPUClockCheckBox?.IsChecked ?? false;
+                    config["GPU"] = OSDShowGPUCheckBox?.IsChecked ?? false;
+                    config["GPUClock"] = OSDShowGPUClockCheckBox?.IsChecked ?? false;
+                    config["Fan"] = OSDShowFanCheckBox?.IsChecked ?? false;
+                    config["AutoTDP"] = OSDShowAutoTDPCheckBox?.IsChecked ?? false;
+
+                    osdCustomTags[level] = OSDCustomTagsTextBox?.Text ?? "";
+
+                    // Save columns for this level
+                    if (OSDColumnsComboBox?.SelectedItem is ComboBoxItem colItem && colItem.Tag is string colTag)
+                    {
+                        if (int.TryParse(colTag, out int cols))
+                        {
+                            osdLevelColumns[level] = cols;
+                        }
+                    }
+
+                    SaveOSDConfigToStorage();
+                    SendOSDConfigToHelper();
+                }
+            }
+        }
+
+        private void SaveOSDConfigToStorage()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                foreach (var level in osdLevelConfig.Keys)
+                {
+                    var config = osdLevelConfig[level];
+                    foreach (var item in config)
+                    {
+                        settings.Values[$"OSD_L{level}_{item.Key}"] = item.Value;
+                    }
+                    settings.Values[$"OSD_L{level}_CustomTags"] = osdCustomTags.GetValueOrDefault(level, "");
+                    settings.Values[$"OSD_L{level}_Columns"] = osdLevelColumns.GetValueOrDefault(level, 3);
+                }
+
+                // Save global layout settings
+                settings.Values["OSD_TextSize"] = osdTextSize;
+                settings.Values["OSD_TextColor"] = osdTextColor;
+
+                Logger.Info("OSD configuration saved to storage");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error saving OSD config: {ex.Message}");
+            }
+        }
+
+        private void LoadOSDConfigFromStorage()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                var itemKeys = new[] { "AppName", "FPS", "Battery", "Memory", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP" };
+
+                foreach (var level in new[] { 1, 2, 3 })
+                {
+                    if (!osdLevelConfig.ContainsKey(level))
+                    {
+                        osdLevelConfig[level] = new Dictionary<string, bool>();
+                    }
+
+                    foreach (var key in itemKeys)
+                    {
+                        string settingKey = $"OSD_L{level}_{key}";
+                        if (settings.Values.TryGetValue(settingKey, out object val) && val is bool enabled)
+                        {
+                            osdLevelConfig[level][key] = enabled;
+                        }
+                    }
+
+                    string customTagsKey = $"OSD_L{level}_CustomTags";
+                    if (settings.Values.TryGetValue(customTagsKey, out object tagsVal) && tagsVal is string tags)
+                    {
+                        osdCustomTags[level] = tags;
+                    }
+
+                    // Load per-level columns
+                    string columnsKey = $"OSD_L{level}_Columns";
+                    if (settings.Values.TryGetValue(columnsKey, out object colsVal) && colsVal is int levelCols)
+                    {
+                        osdLevelColumns[level] = levelCols;
+                    }
+                }
+
+                // Load global layout settings
+                if (settings.Values.TryGetValue("OSD_TextSize", out object sizeVal) && sizeVal is int size)
+                {
+                    osdTextSize = size;
+                }
+                if (settings.Values.TryGetValue("OSD_TextColor", out object textColorVal) && textColorVal is string textColor)
+                {
+                    osdTextColor = textColor;
+                }
+
+                // Update layout UI
+                UpdateOSDLayoutUI();
+
+                Logger.Info("OSD configuration loaded from storage");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error loading OSD config: {ex.Message}");
+            }
+        }
+
+        private async void SendOSDConfigToHelper()
+        {
+            try
+            {
+                if (App.Connection == null) return;
+
+                // Build config string to send to helper
+                var configParts = new List<string>();
+
+                // Add global layout settings
+                configParts.Add($"TextSize:{osdTextSize}");
+                configParts.Add($"TextColor:{osdTextColor}");
+
+                // Add per-level item configuration
+                foreach (var level in osdLevelConfig.Keys)
+                {
+                    var config = osdLevelConfig[level];
+                    var enabledItems = new List<string>();
+                    foreach (var item in config)
+                    {
+                        if (item.Value)
+                        {
+                            enabledItems.Add(item.Key);
+                        }
+                    }
+                    configParts.Add($"L{level}:{string.Join(",", enabledItems)}");
+
+                    if (!string.IsNullOrWhiteSpace(osdCustomTags.GetValueOrDefault(level, "")))
+                    {
+                        configParts.Add($"L{level}_Custom:{osdCustomTags[level]}");
+                    }
+
+                    // Add per-level columns
+                    configParts.Add($"L{level}_Columns:{osdLevelColumns.GetValueOrDefault(level, 3)}");
+                }
+
+                var configString = string.Join(";", configParts);
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "Command", (int)Shared.Enums.Command.Set },
+                    { "Function", (int)Shared.Enums.Function.OSDConfig },
+                    { "Content", configString },
+                    { "UpdatedTime", DateTimeOffset.Now.Ticks }
+                };
+                await App.Connection.SendMessageAsync(request);
+
+                Logger.Info($"OSD config sent to helper: {configString}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending OSD config to helper: {ex.Message}");
+            }
+        }
+
+        private void OSDCustomizeExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isOSDCustomizeExpanded = !isOSDCustomizeExpanded;
+
+            if (OSDCustomizeContent != null)
+            {
+                OSDCustomizeContent.Visibility = isOSDCustomizeExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (OSDCustomizeExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                OSDCustomizeExpandIcon.Text = isOSDCustomizeExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void OSDLayoutOption_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingOSDConfig) return;
+
+            // Get text size (global setting)
+            if (OSDTextSizeComboBox?.SelectedItem is ComboBoxItem sizeItem && sizeItem.Tag is string sizeTag)
+            {
+                if (int.TryParse(sizeTag, out int size))
+                {
+                    osdTextSize = size;
+                }
+            }
+
+            // Columns are per-level, handled by SaveCurrentOSDConfig
+            SaveCurrentOSDConfig();
+        }
+
+        private void OSDColorOption_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingOSDConfig) return;
+
+            // Get text color
+            if (OSDTextColorComboBox?.SelectedItem is ComboBoxItem textItem && textItem.Tag is string textTag)
+            {
+                osdTextColor = textTag;
+
+                // Update preview
+                if (OSDTextColorPreview != null)
+                {
+                    try
+                    {
+                        if (textTag == "DYNAMIC")
+                        {
+                            // Show gradient for dynamic color preview (blue to green to yellow to red)
+                            var gradient = new LinearGradientBrush();
+                            gradient.StartPoint = new Windows.Foundation.Point(0, 0);
+                            gradient.EndPoint = new Windows.Foundation.Point(1, 0);
+                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0, 128, 255), Offset = 0 });    // Blue (cold)
+                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0, 255, 0), Offset = 0.33 });   // Green (good)
+                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 255, 255, 0), Offset = 0.66 }); // Yellow (warm)
+                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 255, 0, 0), Offset = 1 });      // Red (hot)
+                            OSDTextColorPreview.Background = gradient;
+                        }
+                        else
+                        {
+                            var color = Windows.UI.Color.FromArgb(255,
+                                Convert.ToByte(textTag.Substring(0, 2), 16),
+                                Convert.ToByte(textTag.Substring(2, 2), 16),
+                                Convert.ToByte(textTag.Substring(4, 2), 16));
+                            OSDTextColorPreview.Background = new SolidColorBrush(color);
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            SaveOSDConfigToStorage();
+            SendOSDConfigToHelper();
+        }
+
+        private void UpdateOSDLayoutUI()
+        {
+            isLoadingOSDConfig = true;
+            try
+            {
+                // Columns are per-level, loaded in LoadOSDOptionsForLevel
+
+                // Set text size combobox
+                if (OSDTextSizeComboBox != null)
+                {
+                    foreach (ComboBoxItem item in OSDTextSizeComboBox.Items)
+                    {
+                        if (item.Tag is string tag && int.TryParse(tag, out int val) && val == osdTextSize)
+                        {
+                            OSDTextSizeComboBox.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+
+                // Set text color combobox and preview
+                if (OSDTextColorComboBox != null)
+                {
+                    foreach (ComboBoxItem item in OSDTextColorComboBox.Items)
+                    {
+                        if (item.Tag is string tag && tag == osdTextColor)
+                        {
+                            OSDTextColorComboBox.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+                if (OSDTextColorPreview != null)
+                {
+                    try
+                    {
+                        if (osdTextColor == "DYNAMIC")
+                        {
+                            // Show gradient for dynamic color preview
+                            var gradient = new LinearGradientBrush();
+                            gradient.StartPoint = new Windows.Foundation.Point(0, 0);
+                            gradient.EndPoint = new Windows.Foundation.Point(1, 0);
+                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0, 128, 255), Offset = 0 });
+                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0, 255, 0), Offset = 0.33 });
+                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 255, 255, 0), Offset = 0.66 });
+                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 255, 0, 0), Offset = 1 });
+                            OSDTextColorPreview.Background = gradient;
+                        }
+                        else
+                        {
+                            var color = Windows.UI.Color.FromArgb(255,
+                                Convert.ToByte(osdTextColor.Substring(0, 2), 16),
+                                Convert.ToByte(osdTextColor.Substring(2, 2), 16),
+                                Convert.ToByte(osdTextColor.Substring(4, 2), 16));
+                            OSDTextColorPreview.Background = new SolidColorBrush(color);
+                        }
+                    }
+                    catch { }
+                }
+
+            }
+            finally
+            {
+                isLoadingOSDConfig = false;
             }
         }
 

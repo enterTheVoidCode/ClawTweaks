@@ -300,11 +300,57 @@ namespace XboxGamingBarHelper.Windows
             DEVMODE devMode = new DEVMODE();
             devMode.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
 
+            // Find native resolution by highest total pixel count (width * height)
+            // This correctly identifies 1920x1200 as native over 1920x1080
+            int nativeWidth = 0;
+            int nativeHeight = 0;
+            long maxPixels = 0;
             int modeIndex = 0;
+
+            // First pass: log all resolutions and find native
+            var allResolutions = new List<(int w, int h)>();
             while (EnumDisplaySettings(null, modeIndex++, ref devMode))
             {
-                string res = $"{devMode.dmPelsWidth}x{devMode.dmPelsHeight}";
-                resolutions.Add(res);
+                int w = devMode.dmPelsWidth;
+                int h = devMode.dmPelsHeight;
+                allResolutions.Add((w, h));
+
+                long pixels = (long)w * h;
+                if (pixels > maxPixels)
+                {
+                    maxPixels = pixels;
+                    nativeWidth = w;
+                    nativeHeight = h;
+                }
+            }
+
+            // Log all found resolutions for debugging
+            foreach (var res in allResolutions.Distinct())
+            {
+                Logger.Debug($"Display supports: {res.w}x{res.h}");
+            }
+
+            // Calculate aspect ratio as a fraction (reduce to simplest form)
+            int gcd = GCD(nativeWidth, nativeHeight);
+            int aspectW = nativeWidth / gcd;
+            int aspectH = nativeHeight / gcd;
+            Logger.Info($"Native resolution: {nativeWidth}x{nativeHeight} ({maxPixels} pixels), aspect ratio: {aspectW}:{aspectH}");
+
+            // Filter resolutions by aspect ratio
+            foreach (var res in allResolutions)
+            {
+                int w = res.w;
+                int h = res.h;
+
+                // Check if this resolution matches the native aspect ratio
+                int resGcd = GCD(w, h);
+                int resAspectW = w / resGcd;
+                int resAspectH = h / resGcd;
+
+                if (resAspectW == aspectW && resAspectH == aspectH)
+                {
+                    resolutions.Add($"{w}x{h}");
+                }
             }
 
             // Sort by width then height descending
@@ -324,9 +370,23 @@ namespace XboxGamingBarHelper.Windows
 
             foreach (var resolution in sortedList)
             {
-                Logger.Info($"Found resolution {resolution}");
+                Logger.Info($"Resolution option: {resolution} (matches {aspectW}:{aspectH})");
             }
             return sortedList;
+        }
+
+        /// <summary>
+        /// Calculate Greatest Common Divisor using Euclidean algorithm
+        /// </summary>
+        private static int GCD(int a, int b)
+        {
+            while (b != 0)
+            {
+                int temp = b;
+                b = a % b;
+                a = temp;
+            }
+            return a;
         }
 
         /// <summary>

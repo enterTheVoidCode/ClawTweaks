@@ -7,7 +7,7 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
     {
         private AutoTDPManager autoTDPManager;
 
-        public OSDItemAutoTDP() : base("AutoTDP", Color.FromArgb(0x00, 0xBF, 0xFF)) // DeepSkyBlue
+        public OSDItemAutoTDP() : base("AutoTDP", "AutoTDP", Color.FromArgb(0x00, 0xBF, 0xFF)) // DeepSkyBlue
         {
         }
 
@@ -18,8 +18,8 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
 
         public override string GetOSDString(int osdLevel)
         {
-            // Only show in full overlay (level 3+) and when AutoTDP is enabled
-            if (osdLevel < 3 || autoTDPManager == null || !autoTDPManager.Enabled.Value)
+            // Only show when AutoTDP is enabled
+            if (autoTDPManager == null || !autoTDPManager.Enabled.Value)
             {
                 return string.Empty;
             }
@@ -61,25 +61,25 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
 
             // Build OSD string
             // Format: AutoTDP 58/60 FPS 14W Locked 13W
-            var osdString = $"<C={colorCode}>{name}<C> <C=FFFFFF>{currentFPS}/{targetFPS}<S=50> FPS<S><C>";
+            var osdString = $"<C={colorCode}>{name}<C={textColor}> {currentFPS}/{targetFPS} FPS";
 
             // Show TDP change when increasing, decreasing, or probing
             if (displayStatus.StartsWith("Increasing") || displayStatus.StartsWith("Decreasing") || displayStatus == "Probing")
             {
-                osdString += $" <C=FFFFFF>{currentTDP}W->{newTDP}W<C>";
+                osdString += $" {currentTDP}W->{newTDP}W";
             }
             else if (currentTDP > 0)
             {
                 // Show current TDP for other states
-                osdString += $" <C=FFFFFF>{currentTDP}W<C>";
+                osdString += $" {currentTDP}W";
             }
 
-            osdString += $" <C={statusColor}>{displayStatus}<C>";
+            osdString += $" <C={statusColor}>{displayStatus}<C={textColor}>";
 
             // Show sweet spot if detected but not yet locked
             if (sweetSpotConfidence >= 60 && !isLocked)
             {
-                osdString += $" <C=888888>(sweet:{sweetSpotTDP}W)<C>";
+                osdString += $" <C=888888>(sweet:{sweetSpotTDP}W)<C={textColor}>";
             }
 
             return osdString;

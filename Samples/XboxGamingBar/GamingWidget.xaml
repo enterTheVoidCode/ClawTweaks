@@ -1270,6 +1270,291 @@
                             </Grid>
                         </Border>
 
+                        <!-- OSD Customization Card (Collapsible) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with Expand/Collapse -->
+                                <Button x:Name="OSDCustomizeExpandButton"
+                                        Click="OSDCustomizeExpandButton_Click"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="0"
+                                        UseSystemFocusVisuals="True"
+                                        FocusVisualPrimaryBrush="White">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="OSD Customization" Style="{StaticResource CardTitleStyle}"/>
+                                            <TextBlock Text="Customize overlay appearance and content"
+                                                       Style="{StaticResource CardCaptionStyle}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="OSDCustomizeExpandIcon"
+                                                   Text="&#xE70D;"
+                                                   FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"
+                                                   Grid.Column="1"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Button>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="OSDCustomizeContent" Visibility="Collapsed" Margin="0,12,0,0">
+
+                                    <!-- Overlay Level Selection -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Overlay Level"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="14"/>
+                                        <ComboBox x:Name="OSDCustomizeLevelComboBox"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  Width="120"
+                                                  Grid.Column="1"
+                                                  SelectionChanged="OSDCustomizeLevelComboBox_SelectionChanged"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent">
+                                            <ComboBoxItem Content="Basic" Tag="1" IsSelected="True"/>
+                                            <ComboBoxItem Content="Detailed" Tag="2"/>
+                                            <ComboBoxItem Content="Full" Tag="3"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- Layout Settings Section -->
+                                    <TextBlock Text="Layout"
+                                               Style="{StaticResource CardTitleStyle}"
+                                               Margin="0,0,0,8"/>
+
+                                    <!-- Columns -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Columns"
+                                                       Foreground="#B0B0B0"
+                                                       FontSize="13"/>
+                                            <TextBlock Text="Items per row (1 = vertical list)"
+                                                       Foreground="#707070"
+                                                       FontSize="11"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="OSDColumnsComboBox"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  Width="80"
+                                                  Grid.Column="1"
+                                                  SelectionChanged="OSDLayoutOption_Changed"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White">
+                                            <ComboBoxItem Content="1" Tag="1"/>
+                                            <ComboBoxItem Content="2" Tag="2"/>
+                                            <ComboBoxItem Content="3" Tag="3" IsSelected="True"/>
+                                            <ComboBoxItem Content="4" Tag="4"/>
+                                            <ComboBoxItem Content="5" Tag="5"/>
+                                            <ComboBoxItem Content="6" Tag="6"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- Text Size -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Text Size"
+                                                   Foreground="#B0B0B0"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="13"/>
+                                        <ComboBox x:Name="OSDTextSizeComboBox"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  Width="100"
+                                                  Grid.Column="1"
+                                                  SelectionChanged="OSDLayoutOption_Changed"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White">
+                                            <ComboBoxItem Content="Small" Tag="50"/>
+                                            <ComboBoxItem Content="Medium" Tag="100" IsSelected="True"/>
+                                            <ComboBoxItem Content="Large" Tag="150"/>
+                                            <ComboBoxItem Content="X-Large" Tag="200"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- Colors Section -->
+                                    <TextBlock Text="Colors"
+                                               Style="{StaticResource CardTitleStyle}"
+                                               Margin="0,12,0,8"/>
+
+                                    <!-- Text Color -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Text Color"
+                                                   Foreground="#B0B0B0"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="13"/>
+                                        <StackPanel Orientation="Horizontal" Grid.Column="1">
+                                            <Border x:Name="OSDTextColorPreview"
+                                                    Width="24" Height="24"
+                                                    Background="#FFFFFF"
+                                                    CornerRadius="4"
+                                                    BorderBrush="#505050"
+                                                    BorderThickness="1"
+                                                    Margin="0,0,8,0"/>
+                                            <ComboBox x:Name="OSDTextColorComboBox"
+                                                      Style="{StaticResource ModernComboBoxStyle}"
+                                                      Width="100"
+                                                      SelectionChanged="OSDColorOption_Changed"
+                                                      UseSystemFocusVisuals="True"
+                                                      FocusVisualPrimaryBrush="White">
+                                                <ComboBoxItem Content="Dynamic" Tag="DYNAMIC" IsSelected="True"/>
+                                                <ComboBoxItem Content="White" Tag="FFFFFF"/>
+                                                <ComboBoxItem Content="Yellow" Tag="FFFF00"/>
+                                                <ComboBoxItem Content="Green" Tag="00FF00"/>
+                                                <ComboBoxItem Content="Cyan" Tag="00FFFF"/>
+                                                <ComboBoxItem Content="Red" Tag="FF0000"/>
+                                                <ComboBoxItem Content="Orange" Tag="FF8000"/>
+                                            </ComboBox>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Items Section -->
+                                    <TextBlock Text="Items to Display"
+                                               Style="{StaticResource CardTitleStyle}"
+                                               Margin="0,12,0,8"/>
+
+                                    <!-- OSD Options Panel -->
+                                    <StackPanel x:Name="OSDOptionsPanel">
+                                        <CheckBox x:Name="OSDShowAppNameCheckBox"
+                                                  Content="App Name (D3D11, Vulkan, etc.)"
+                                                  IsChecked="False"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowTimeCheckBox"
+                                                  Content="Time (12-hour)"
+                                                  IsChecked="False"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowFPSCheckBox"
+                                                  Content="FPS &amp; Frametime"
+                                                  IsChecked="True"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowBatteryCheckBox"
+                                                  Content="Battery"
+                                                  IsChecked="True"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowMemoryCheckBox"
+                                                  Content="Memory"
+                                                  IsChecked="True"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowCPUCheckBox"
+                                                  Content="CPU (Usage, Wattage, Temp)"
+                                                  IsChecked="True"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowCPUClockCheckBox"
+                                                  Content="CPU Clock Speed"
+                                                  IsChecked="False"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowGPUCheckBox"
+                                                  Content="GPU (Usage, Wattage, Temp)"
+                                                  IsChecked="True"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowGPUClockCheckBox"
+                                                  Content="GPU Clock Speed"
+                                                  IsChecked="False"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowFanCheckBox"
+                                                  Content="Fan Speed"
+                                                  IsChecked="False"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowAutoTDPCheckBox"
+                                                  Content="AutoTDP Status"
+                                                  IsChecked="False"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
+                                    </StackPanel>
+
+                                    <!-- Custom RTSS Tags Section -->
+                                    <TextBlock Text="Custom RTSS Tags"
+                                               Style="{StaticResource CardTitleStyle}"
+                                               Margin="0,16,0,4"/>
+                                    <TextBlock Text="Add custom RTSS tags (e.g. &lt;FR&gt; for FPS)"
+                                               Style="{StaticResource CardCaptionStyle}"
+                                               Margin="0,0,0,8"/>
+                                    <TextBox x:Name="OSDCustomTagsTextBox"
+                                             PlaceholderText="Enter custom RTSS tags..."
+                                             TextWrapping="Wrap"
+                                             AcceptsReturn="True"
+                                             Height="60"
+                                             TextChanged="OSDCustomTagsTextBox_TextChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <!-- About Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
