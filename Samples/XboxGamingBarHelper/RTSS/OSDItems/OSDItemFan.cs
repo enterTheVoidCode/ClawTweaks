@@ -11,7 +11,7 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
     {
         private LegionManager legionManager;
 
-        public OSDItemFan() : base("FAN", Color.Cyan)
+        public OSDItemFan() : base("FAN", "Fan", Color.Cyan)
         {
         }
 
@@ -28,13 +28,13 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         {
             var osdItems = base.GetValues(osdLevel);
 
-            // Only show fan speed at detailed level (3+) and if Legion is available
-            if (osdLevel >= 3 && legionManager != null)
+            // Show fan speed if Legion is available
+            if (legionManager != null)
             {
                 int fanRpm = legionManager.GetCpuFanSpeed();
                 if (fanRpm > 0)
                 {
-                    osdItems.Add(new OSDItemValue(fanRpm, "RPM"));
+                    osdItems.Add(new OSDItemValue(fanRpm, "RPM", OSDValueType.Speed));
                 }
             }
 
