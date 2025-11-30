@@ -3699,18 +3699,97 @@ namespace XboxGamingBar
                     continue;
                 }
 
-                var checkBox = new CheckBox
+                // For custom shortcuts, add a row with checkbox and delete button
+                if (tile.Id.StartsWith("CustomShortcut_"))
                 {
-                    Content = tile.Name,
-                    IsChecked = tile.IsVisible,
-                    Tag = tile.Id,
-                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
-                    Padding = new Thickness(8, 6, 8, 6)
-                };
-                checkBox.Checked += TileVisibility_Changed;
-                checkBox.Unchecked += TileVisibility_Changed;
-                tile.VisibilityCheckBox = checkBox;
-                TileVisibilityPanel.Children.Add(checkBox);
+                    var row = new Grid();
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    var checkBox = new CheckBox
+                    {
+                        Content = tile.Name,
+                        IsChecked = tile.IsVisible,
+                        Tag = tile.Id,
+                        Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                        Padding = new Thickness(8, 6, 8, 6),
+                        UseSystemFocusVisuals = true,
+                        FocusVisualPrimaryBrush = new SolidColorBrush(Windows.UI.Colors.White),
+                        FocusVisualSecondaryBrush = new SolidColorBrush(Windows.UI.Colors.Transparent)
+                    };
+                    checkBox.Checked += TileVisibility_Changed;
+                    checkBox.Unchecked += TileVisibility_Changed;
+                    tile.VisibilityCheckBox = checkBox;
+                    Grid.SetColumn(checkBox, 0);
+                    row.Children.Add(checkBox);
+
+                    var deleteButton = new Button
+                    {
+                        Content = "\uE74D", // Delete icon
+                        FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                        Tag = tile.Id,
+                        Padding = new Thickness(8, 4, 8, 4),
+                        Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                        Foreground = new SolidColorBrush(Windows.UI.Colors.Red),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        UseSystemFocusVisuals = true,
+                        FocusVisualPrimaryBrush = new SolidColorBrush(Windows.UI.Colors.White),
+                        FocusVisualSecondaryBrush = new SolidColorBrush(Windows.UI.Colors.Transparent)
+                    };
+                    deleteButton.Click += DeleteCustomShortcut_Click;
+                    Grid.SetColumn(deleteButton, 1);
+                    row.Children.Add(deleteButton);
+
+                    TileVisibilityPanel.Children.Add(row);
+                }
+                else
+                {
+                    var checkBox = new CheckBox
+                    {
+                        Content = tile.Name,
+                        IsChecked = tile.IsVisible,
+                        Tag = tile.Id,
+                        Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                        Padding = new Thickness(8, 6, 8, 6),
+                        UseSystemFocusVisuals = true,
+                        FocusVisualPrimaryBrush = new SolidColorBrush(Windows.UI.Colors.White),
+                        FocusVisualSecondaryBrush = new SolidColorBrush(Windows.UI.Colors.Transparent)
+                    };
+                    checkBox.Checked += TileVisibility_Changed;
+                    checkBox.Unchecked += TileVisibility_Changed;
+                    tile.VisibilityCheckBox = checkBox;
+                    TileVisibilityPanel.Children.Add(checkBox);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Delete a custom shortcut tile
+        /// </summary>
+        private void DeleteCustomShortcut_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is Button button && button.Tag is string tileId)
+                {
+                    var tile = qsTileDefinitions.FirstOrDefault(t => t.Id == tileId);
+                    if (tile != null)
+                    {
+                        qsTileDefinitions.Remove(tile);
+                        qsTileMap.Remove(tileId);
+                        qsCustomShortcuts.Remove(tile);
+
+                        SaveCustomShortcutTiles();
+                        RebuildQuickSettingsTiles();
+                        BuildVisibilityPanel();
+
+                        Logger.Info($"Deleted custom shortcut tile: {tile.Name}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error deleting custom shortcut tile: {ex.Message}");
             }
         }
 
