@@ -103,6 +103,9 @@ namespace XboxGamingBar
         private int stickyTDPCheckIntervalSeconds = 5;
         private bool isStickyTDPReapplying = false; // Prevents slider flicker during reapply
 
+        // Power source change TDP reapply timer
+        private DispatcherTimer powerSourceTdpReapplyTimer = null;
+
         // Properties
         private readonly OSDProperty osd;
         private readonly TDPProperty tdp;
@@ -1761,7 +1764,55 @@ namespace XboxGamingBar
             _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 UpdateActiveProfileIndicator();
+
+                // Always schedule TDP reapply after 5 seconds when power source changes
+                // The system automatically changes TDP on power state change, so we restore our value
+                SchedulePowerSourceTdpReapply();
             });
+        }
+
+        /// <summary>
+        /// Schedules a TDP reapply 5 seconds after power source changes.
+        /// This ensures the TDP is properly applied after the system settles.
+        /// </summary>
+        private void SchedulePowerSourceTdpReapply()
+        {
+            try
+            {
+                // Store current TDP value from Performance tab slider
+                int pendingTdpValue = (int)TDPSlider.Value;
+
+                // Cancel existing timer if any
+                if (powerSourceTdpReapplyTimer != null)
+                {
+                    powerSourceTdpReapplyTimer.Stop();
+                }
+
+                // Create and start timer
+                powerSourceTdpReapplyTimer = new DispatcherTimer();
+                powerSourceTdpReapplyTimer.Interval = TimeSpan.FromSeconds(5);
+                powerSourceTdpReapplyTimer.Tick += async (s, args) =>
+                {
+                    powerSourceTdpReapplyTimer.Stop();
+
+                    // Reapply TDP - use the Performance tab TDP value
+                    if (tdp != null)
+                    {
+                        // Force reapply by sending different value to helper first, then the real value
+                        // This ensures the helper doesn't skip due to "equals current value"
+                        tdp.SetValue(pendingTdpValue - 1);
+                        await System.Threading.Tasks.Task.Delay(100);
+                        tdp.SetValue(pendingTdpValue);
+                        Logger.Info($"Power source change: Reapplied TDP {pendingTdpValue}W after 5 seconds");
+                    }
+                };
+                powerSourceTdpReapplyTimer.Start();
+                Logger.Info($"Power source change: Scheduled TDP reapply in 5 seconds (TDP={pendingTdpValue}W)");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error scheduling power source TDP reapply: {ex.Message}");
+            }
         }
 
         private void UpdateActiveProfileIndicator()
@@ -4709,7 +4760,7 @@ namespace XboxGamingBar
         {
             try
             {
-                // Store current TDP value from slider
+                // Store current TDP value from Performance tab slider
                 qsPendingTdpValue = (int)(tdp?.Value ?? 15);
 
                 // Cancel existing timer
@@ -4721,14 +4772,22 @@ namespace XboxGamingBar
                 // Create new timer
                 qsTdpReapplyTimer = new Windows.UI.Xaml.DispatcherTimer();
                 qsTdpReapplyTimer.Interval = TimeSpan.FromSeconds(5);
-                qsTdpReapplyTimer.Tick += (s, e) =>
+                qsTdpReapplyTimer.Tick += async (s, e) =>
                 {
                     qsTdpReapplyTimer.Stop();
-                    // Reapply TDP
-                    if (tdp != null && legionPerformanceMode?.Value == 255)
+                    // Reapply TDP - still in Custom mode?
+                    if (legionPerformanceMode?.Value == 255)
                     {
-                        tdp.SetValue(qsPendingTdpValue);
-                        Logger.Info($"Quick Settings: Reapplied TDP {qsPendingTdpValue}W after Custom mode switch");
+                        // Reapply using Performance tab TDP value
+                        if (tdp != null)
+                        {
+                            // Force reapply by sending different value to helper first, then the real value
+                            // This ensures the helper doesn't skip due to "equals current value"
+                            tdp.SetValue(qsPendingTdpValue - 1);
+                            await System.Threading.Tasks.Task.Delay(100);
+                            tdp.SetValue(qsPendingTdpValue);
+                            Logger.Info($"Quick Settings: Reapplied TDP {qsPendingTdpValue}W after Custom mode switch");
+                        }
                     }
                 };
                 qsTdpReapplyTimer.Start();
