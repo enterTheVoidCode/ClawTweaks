@@ -11,7 +11,9 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         private HardwareSensor cpuWattageSensor;
         private HardwareSensor cpuTemperatureSensor;
 
-        public OSDItemCPU(HardwareSensor cpuUsageSensor, HardwareSensor cpuClockSensor, HardwareSensor cpuWattageSensor, HardwareSensor cpuTemperatureSensor) : base("CPU", Color.Turquoise)
+        private bool showClock = false;
+
+        public OSDItemCPU(HardwareSensor cpuUsageSensor, HardwareSensor cpuClockSensor, HardwareSensor cpuWattageSensor, HardwareSensor cpuTemperatureSensor) : base("CPU", "CPU", Color.Turquoise)
         {
             this.cpuWattageSensor = cpuWattageSensor;
             this.cpuUsageSensor = cpuUsageSensor;
@@ -19,22 +21,24 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             this.cpuTemperatureSensor = cpuTemperatureSensor;
         }
 
+        public void SetShowClock(bool show)
+        {
+            showClock = show;
+        }
+
         protected override List<OSDItemValue> GetValues(int osdLevel)
         {
             var osdItems = base.GetValues(osdLevel);
 
-            // for level 3, show CPU usage, wattage and temperature.
-            if (osdLevel >= 3)
-            {
-                osdItems.Add(new OSDItemValue(cpuUsageSensor.Value, "%"));
-                osdItems.Add(new OSDItemValue(cpuWattageSensor.Value, "W"));
-                osdItems.Add(new OSDItemValue(cpuTemperatureSensor.Value, "°C"));
-            }
+            // Show CPU usage, wattage and temperature when enabled
+            osdItems.Add(new OSDItemValue(cpuUsageSensor.Value, "%", OSDValueType.Percentage));
+            osdItems.Add(new OSDItemValue(cpuWattageSensor.Value, "W", OSDValueType.Wattage));
+            osdItems.Add(new OSDItemValue(cpuTemperatureSensor.Value, "C", OSDValueType.Temperature));
 
-            // for level 4, also show clock speed.
-            if (osdLevel >= 4)
+            // Show clock speed if enabled separately
+            if (showClock)
             {
-                osdItems.Add(new OSDItemValue(cpuClockSensor.Value, "MHz"));
+                osdItems.Add(new OSDItemValue(cpuClockSensor.Value, "MHz", OSDValueType.Speed));
             }
 
             return osdItems;

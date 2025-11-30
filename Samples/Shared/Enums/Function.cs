@@ -86,5 +86,8 @@
         AutoTDPEnabled,             // bool - enable/disable AutoTDP
         AutoTDPTargetFPS,           // int - target FPS (30-144)
         AutoTDPCurrentFPS,          // int - current FPS reading (read-only)
+
+        // OSD Customization
+        OSDConfig,                  // string - OSD configuration per level (L1:items;L2:items;L3:items)
     }
 }

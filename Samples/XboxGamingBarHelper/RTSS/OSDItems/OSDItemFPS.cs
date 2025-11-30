@@ -1,13 +1,17 @@
-﻿namespace XboxGamingBarHelper.RTSS.OSDItems
+﻿using System.Drawing;
+
+namespace XboxGamingBarHelper.RTSS.OSDItems
 {
     internal class OSDItemFPS : OSDItem
     {
+        public OSDItemFPS() : base("FPS", "FPS", Color.Red)
+        {
+        }
+
         public override string GetOSDString(int osdLevel)
         {
-            // Basic (level 2+): FPS and frametime
-            var osdString = "<C=FF0000><APP><C> <C=FFFFFF><FR><S=50> FPS<S><C> <C=FFFF00><FT><S=50> ms<S><C>";
-
-            return osdString;
+            // FPS and frametime - uses text color, yellow for frametime then back to text color
+            return $"<C={textColor}><FR> FPS <C=FFFF00><FT> ms<C={textColor}>";
         }
     }
 }
