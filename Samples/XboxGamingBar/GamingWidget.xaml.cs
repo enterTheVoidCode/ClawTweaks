@@ -97,6 +97,9 @@ namespace XboxGamingBar
         private bool isCompactMode = false;
         private const double CompactModeWidthThreshold = 400;
 
+        // Widget unloading flag - prevents UI updates during shutdown
+        private bool isUnloading = false;
+
         // Sticky TDP monitoring
         private DispatcherTimer stickyTDPTimer = null;
         private double targetTDPLimit = 15; // Stores the TDP limit we want to maintain
@@ -730,6 +733,9 @@ namespace XboxGamingBar
             // Clean up any invalid "No game detected" profiles
             CleanupInvalidProfiles();
 
+            // Load saved Power Source Profile toggle state BEFORE attaching event handler
+            LoadPowerSourceProfileSetting();
+
             // Initialize power source profile
             PowerSourceProfileToggle.Toggled += PowerSourceProfileToggle_Toggled;
 
@@ -808,6 +814,9 @@ namespace XboxGamingBar
             // Load OSD customization settings
             LoadOSDConfigFromStorage();
             LoadOSDOptionsForLevel(1); // Load Basic level options by default
+
+            // Load Performance Overlay setting
+            LoadPerformanceOverlaySetting();
 
             // Send OSD config to helper on startup
             SendOSDConfigToHelper();
@@ -1069,7 +1078,43 @@ namespace XboxGamingBar
                 if (index >= 0)
                 {
                     PerformanceOverlaySlider.Value = index;
+                    // Save the setting
+                    SavePerformanceOverlaySetting();
                 }
+            }
+        }
+
+        private void LoadPerformanceOverlaySetting()
+        {
+            try
+            {
+                if (PerformanceOverlayComboBox == null) return;
+                var settings = ApplicationData.Current.LocalSettings;
+                if (settings.Values.TryGetValue("PerformanceOverlayLevel", out object val) && val is int level)
+                {
+                    if (level >= 0 && level < PerformanceOverlayComboBox.Items.Count)
+                    {
+                        PerformanceOverlayComboBox.SelectedIndex = level;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error loading PerformanceOverlay setting: {ex.Message}");
+            }
+        }
+
+        private void SavePerformanceOverlaySetting()
+        {
+            try
+            {
+                if (PerformanceOverlayComboBox == null) return;
+                var settings = ApplicationData.Current.LocalSettings;
+                settings.Values["PerformanceOverlayLevel"] = PerformanceOverlayComboBox.SelectedIndex;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error saving PerformanceOverlay setting: {ex.Message}");
             }
         }
 
@@ -1092,6 +1137,9 @@ namespace XboxGamingBar
         {
             Logger.Info($"PowerSourceProfileToggle toggled to: {PowerSourceProfileToggle.IsOn}");
 
+            // Save the setting
+            SavePowerSourceProfileSetting();
+
             // Toggle Global Profile display mode
             if (PowerSourceProfileToggle.IsOn)
             {
@@ -1107,6 +1155,37 @@ namespace XboxGamingBar
             }
 
             UpdateActiveProfileIndicator();
+        }
+
+        private void LoadPowerSourceProfileSetting()
+        {
+            try
+            {
+                if (PowerSourceProfileToggle == null) return;
+                var settings = ApplicationData.Current.LocalSettings;
+                if (settings.Values.TryGetValue("PowerSourceProfileEnabled", out object val) && val is bool enabled)
+                {
+                    PowerSourceProfileToggle.IsOn = enabled;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error loading PowerSourceProfile setting: {ex.Message}");
+            }
+        }
+
+        private void SavePowerSourceProfileSetting()
+        {
+            try
+            {
+                if (PowerSourceProfileToggle == null) return;
+                var settings = ApplicationData.Current.LocalSettings;
+                settings.Values["PowerSourceProfileEnabled"] = PowerSourceProfileToggle.IsOn;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error saving PowerSourceProfile setting: {ex.Message}");
+            }
         }
 
         private void StickyTDPToggle_Toggled(object sender, RoutedEventArgs e)
@@ -1757,17 +1836,31 @@ namespace XboxGamingBar
 
         private async void PowerManager_PowerSourceChanged(object sender, object e)
         {
+            if (isUnloading) return;
+
             // Small delay to allow system to update power status
             await System.Threading.Tasks.Task.Delay(100);
+
+            if (isUnloading) return;
 
             // Update the active profile indicator when power source changes
             _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
+                if (isUnloading) return;
+
                 UpdateActiveProfileIndicator();
 
-                // Always schedule TDP reapply after 5 seconds when power source changes
-                // The system automatically changes TDP on power state change, so we restore our value
-                SchedulePowerSourceTdpReapply();
+                // Only reapply TDP after power source change if:
+                // 1. On Legion Go in Custom mode (255) - system changes TDP, need to restore
+                // 2. Power Source Profile toggle is enabled - user wants different profiles per power state
+                // For Legion preset modes (Quiet=1, Balanced=2, Performance=3), let the system handle TDP
+                bool isLegionCustomMode = legionGoDetected?.Value == true && legionPerformanceMode?.Value == 255;
+                bool powerSourceProfileEnabled = PowerSourceProfileToggle?.IsOn == true;
+
+                if (isLegionCustomMode || powerSourceProfileEnabled)
+                {
+                    SchedulePowerSourceTdpReapply();
+                }
             });
         }
 
@@ -2691,6 +2784,9 @@ namespace XboxGamingBar
 
         private void GamingWidget_Unloaded(object sender, RoutedEventArgs e)
         {
+            // Set flag immediately to prevent any pending async operations from updating UI
+            isUnloading = true;
+
             Logger.Info($"GamingWidget_Unloaded called. Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, App.Connection is null: {App.Connection == null}");
 
             // Unsubscribe from power source changes
@@ -5094,50 +5190,60 @@ namespace XboxGamingBar
         /// </summary>
         private void UpdateFPSLimitControls(bool rtssAvailable)
         {
-            FPSLimitToggle.IsEnabled = rtssAvailable;
-
-            // Update slider maximum to current refresh rate
-            int maxRefresh = 60; // Default
-            if (refreshRates?.Value != null && refreshRates.Value.Count > 0)
+            try
             {
-                maxRefresh = refreshRates.Value.Max();
+                // Guard against null controls during initialization or shutdown
+                if (FPSLimitToggle == null || FPSLimitSlider == null) return;
+
+                FPSLimitToggle.IsEnabled = rtssAvailable;
+
+                // Update slider maximum to current refresh rate
+                int maxRefresh = 60; // Default
+                if (refreshRates?.Value != null && refreshRates.Value.Count > 0)
+                {
+                    maxRefresh = refreshRates.Value.Max();
+                }
+                FPSLimitSlider.Maximum = maxRefresh;
+
+                // Set tick frequency based on max refresh rate (show ~5-8 ticks)
+                int tickFreq;
+                if (maxRefresh >= 144)
+                    tickFreq = 24;
+                else if (maxRefresh >= 120)
+                    tickFreq = 20;
+                else if (maxRefresh >= 90)
+                    tickFreq = 15;
+                else
+                    tickFreq = 10;
+                FPSLimitSlider.TickFrequency = tickFreq;
+
+                // Sync toggle/slider with fpsLimit value
+                if (fpsLimit != null)
+                {
+                    isApplyingHelperUpdate = true;
+                    try
+                    {
+                        int limit = fpsLimit.Value;
+                        if (limit > 0)
+                        {
+                            FPSLimitToggle.IsOn = true;
+                            // Clamp value to slider range
+                            FPSLimitSlider.Value = Math.Min(limit, maxRefresh);
+                        }
+                        else
+                        {
+                            FPSLimitToggle.IsOn = false;
+                        }
+                    }
+                    finally
+                    {
+                        isApplyingHelperUpdate = false;
+                    }
+                }
             }
-            FPSLimitSlider.Maximum = maxRefresh;
-
-            // Set tick frequency based on max refresh rate (show ~5-8 ticks)
-            int tickFreq;
-            if (maxRefresh >= 144)
-                tickFreq = 24;
-            else if (maxRefresh >= 120)
-                tickFreq = 20;
-            else if (maxRefresh >= 90)
-                tickFreq = 15;
-            else
-                tickFreq = 10;
-            FPSLimitSlider.TickFrequency = tickFreq;
-
-            // Sync toggle/slider with fpsLimit value
-            if (fpsLimit != null)
+            catch (Exception ex)
             {
-                isApplyingHelperUpdate = true;
-                try
-                {
-                    int limit = fpsLimit.Value;
-                    if (limit > 0)
-                    {
-                        FPSLimitToggle.IsOn = true;
-                        // Clamp value to slider range
-                        FPSLimitSlider.Value = Math.Min(limit, maxRefresh);
-                    }
-                    else
-                    {
-                        FPSLimitToggle.IsOn = false;
-                    }
-                }
-                finally
-                {
-                    isApplyingHelperUpdate = false;
-                }
+                Logger.Error($"Error in UpdateFPSLimitControls: {ex.Message}");
             }
         }
 
