@@ -143,6 +143,7 @@ namespace XboxGamingBarHelper
                 systemManager.TrackedGame,
                 rtssManager.RTSSInstalled,
                 rtssManager.OSDConfig,
+                rtssManager.FPSLimit,
                 settingsManager.IsForeground,
                 amdManager.AMDRadeonSuperResolutionEnabled,
                 amdManager.AMDRadeonSuperResolutionSupported,

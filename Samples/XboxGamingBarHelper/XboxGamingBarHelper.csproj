@@ -416,6 +416,8 @@
     <Compile Include="OnScreenDisplay\OnScreenDisplayProperty.cs" />
     <Compile Include="RTSS\RTSSInstalledProperty.cs" />
     <Compile Include="RTSS\OSDConfigProperty.cs" />
+    <Compile Include="RTSS\FPSLimitProperty.cs" />
+    <Compile Include="RTSS\RTSSFPSLimiter.cs" />
     <Compile Include="RTSS\RTSSManager.cs" />
     <Compile Include="Settings\AutoStartRTSSProperty.cs" />
     <Compile Include="Settings\UseManufacturerWMIProperty.cs" />
