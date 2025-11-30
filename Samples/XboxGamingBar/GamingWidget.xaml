@@ -670,6 +670,37 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- FPS Limit Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="FPS Limit" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock x:Name="FPSLimitCaption"
+                                                   Text=""
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   Visibility="Collapsed"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="FPSLimitToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False" Width="52"/>
+                                </Grid>
+                                <Slider x:Name="FPSLimitSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="15" Maximum="144"
+                                        StepFrequency="1"
+                                        TickFrequency="15"
+                                        TickPlacement="Outside"
+                                        SnapsTo="StepValues"
+                                        Visibility="{Binding ElementName=FPSLimitToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Border>
+
                     </StackPanel>
                 </ScrollViewer>
 

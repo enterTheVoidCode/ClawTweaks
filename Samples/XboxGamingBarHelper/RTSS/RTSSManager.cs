@@ -39,6 +39,12 @@ namespace XboxGamingBarHelper.RTSS
             get { return osdConfig; }
         }
 
+        private readonly FPSLimitProperty fpsLimit;
+        public FPSLimitProperty FPSLimit
+        {
+            get { return fpsLimit; }
+        }
+
         private RivatunerStatisticsServerState rtssState;
 
         // OSD configuration per level - stores which items are enabled
@@ -75,6 +81,10 @@ namespace XboxGamingBarHelper.RTSS
         {
             rtssInstalled = new RTSSInstalledProperty(this);
             osdConfig = new OSDConfigProperty(this);
+            fpsLimit = new FPSLimitProperty(this);
+
+            // Initialize FPS limiter
+            RTSSFPSLimiter.Initialize();
             osdItemFan = new OSDItemFan();
             osdItemAutoTDP = new OSDItemAutoTDP();
             osdItemCPU = new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature);
@@ -394,6 +404,10 @@ namespace XboxGamingBarHelper.RTSS
             if (disposing)
             {
                 Logger.Info("RTSSManager: Disposing resources");
+
+                // Shutdown FPS limiter
+                RTSSFPSLimiter.Shutdown();
+
                 if (rtssOSD != null)
                 {
                     try
