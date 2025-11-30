@@ -16,6 +16,7 @@ using Windows.Foundation.Metadata;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using Windows.System.Power;
@@ -190,6 +191,12 @@ namespace XboxGamingBar
         private readonly AutoTDPTargetFPSProperty autoTDPTargetFPS;
         private readonly AutoTDPCurrentFPSProperty autoTDPCurrentFPS;
 
+        // FPS Limit (RTSS)
+        private readonly FPSLimitProperty fpsLimit;
+        private DispatcherTimer fpsLimitDebounceTimer;
+        private int fpsLimitPendingValue;
+        private const int FPS_LIMIT_DEBOUNCE_MS = 300;
+
         // Profile management
         private PerformanceProfile globalProfile = new PerformanceProfile();
         private PerformanceProfile acProfile = new PerformanceProfile();
@@ -294,6 +301,7 @@ namespace XboxGamingBar
             hdrEnabled = new HDREnabledProperty(HDRToggle, this);
             trackedGame = new TrackedGameProperty(new TrackedGame());
             rtssInstalled = new RTSSInstalledProperty(PerformanceOverlaySlider, this);
+            rtssInstalled.SetAdditionalCallback(UpdateFPSLimitControls);
             isForeground = new IsForegroundProperty();
             amdRadeonSuperResolutionEnabled = new AMDRadeonSuperResolutionEnabledProperty(AMDRadeonSuperResolutionToggle, this);
             amdRadeonSuperResolutionSupported = new AMDRadeonSuperResolutionSupportedProperty(AMDRadeonSuperResolutionToggle, this);
@@ -357,6 +365,9 @@ namespace XboxGamingBar
             autoTDPEnabled = new AutoTDPEnabledProperty(false);
             autoTDPTargetFPS = new AutoTDPTargetFPSProperty(60);
             autoTDPCurrentFPS = new AutoTDPCurrentFPSProperty(0);
+
+            // FPS Limit property
+            fpsLimit = new FPSLimitProperty();
 
             // Set up Legion tab visibility callback
             legionGoDetected.SetVisibilityCallback(SetLegionTabVisibility);
@@ -442,7 +453,8 @@ namespace XboxGamingBar
                 useManufacturerWMI,
                 autoTDPEnabled,
                 autoTDPTargetFPS,
-                autoTDPCurrentFPS
+                autoTDPCurrentFPS,
+                fpsLimit
             );
 
             // Register card focus handlers for all interactive controls
@@ -495,6 +507,12 @@ namespace XboxGamingBar
             LimitCPUClockToggle.LostFocus += Control_LostFocus;
             CPUClockMaxSlider.GotFocus += Control_GotFocus;
             CPUClockMaxSlider.LostFocus += Control_LostFocus;
+
+            // Performance tab - FPS Limit card
+            FPSLimitToggle.GotFocus += Control_GotFocus;
+            FPSLimitToggle.LostFocus += Control_LostFocus;
+            FPSLimitSlider.GotFocus += Control_GotFocus;
+            FPSLimitSlider.LostFocus += Control_LostFocus;
 
             // Profiles tab - Power Source Profile card
             PowerSourceProfileToggle.GotFocus += Control_GotFocus;
@@ -1005,6 +1023,8 @@ namespace XboxGamingBar
             CPUEPPSlider.ValueChanged += SettingChanged;
             LimitCPUClockToggle.Toggled += SettingChanged;
             CPUClockMaxSlider.ValueChanged += SettingChanged;
+            FPSLimitToggle.Toggled += FPSLimitToggle_Toggled;
+            FPSLimitSlider.ValueChanged += FPSLimitSlider_ValueChanged;
 
             // AMD settings
             AMDFluidMotionFrameToggle.Toggled += SettingChanged;
@@ -2838,6 +2858,9 @@ namespace XboxGamingBar
                         await properties.Sync();
                         Logger.Info("Property sync completed.");
 
+                        // Update FPS Limit controls based on RTSS installed status
+                        UpdateFPSLimitControls();
+
                         // Register Chill FPS handlers after first sync to prevent crash
                         RegisterChillFPSHandlers();
                     }
@@ -2864,6 +2887,9 @@ namespace XboxGamingBar
             {
                 Logger.Info("GamingWidget LeavingBackground, syncing UI properties with helper.");
                 await properties.Sync();
+
+                // Update FPS Limit controls based on RTSS installed status
+                UpdateFPSLimitControls();
 
                 // Register Chill FPS handlers after sync to prevent crash
                 RegisterChillFPSHandlers();
@@ -3939,6 +3965,7 @@ namespace XboxGamingBar
             AddTileDefinition("TDPMode", "TDP Mode", "\uE945");
             AddTileDefinition("Profile", "Profile", "\uE77B");
             AddTileDefinition("Overlay", "Overlay", "\uE7B3");
+            AddTileDefinition("FPSLimit", "FPS Limit", "\uE916");
             AddTileDefinition("Resolution", "Resolution", "\uE7F8");
             AddTileDefinition("HDR", "HDR", "\uE706");
             AddTileDefinition("LosslessScaling", "Lossless", "\uE740");
@@ -4412,6 +4439,16 @@ namespace XboxGamingBar
                     overlayTile.TileButton.Background = level > 0 ? tileOnBrush : tileOffBrush;
                 }
 
+                // FPS Limit tile
+                if (qsTileMap.TryGetValue("FPSLimit", out var fpsLimitTile) && fpsLimitTile.TileButton != null)
+                {
+                    int limit = fpsLimit?.Value ?? 0;
+                    string limitText = limit == 0 ? "Off" : $"{limit}";
+                    fpsLimitTile.StateText.Text = limitText;
+                    fpsLimitTile.StateText.Foreground = limit > 0 ? accentForeground : offForeground;
+                    fpsLimitTile.TileButton.Background = limit > 0 ? tileOnBrush : tileOffBrush;
+                }
+
                 // Resolution tile
                 if (qsTileMap.TryGetValue("Resolution", out var resTile) && resTile.TileButton != null)
                 {
@@ -4589,6 +4626,9 @@ namespace XboxGamingBar
                                 break;
                             case "Overlay":
                                 CyclePerformanceOverlay();
+                                break;
+                            case "FPSLimit":
+                                CycleFPSLimit();
                                 break;
                             case "Resolution":
                                 CycleResolution();
@@ -4839,6 +4879,206 @@ namespace XboxGamingBar
                 int nextLevel = (currentLevel + 1) % 4;
                 osd.SetValue(nextLevel);
                 Logger.Info($"Performance Overlay cycled from {currentLevel} to {nextLevel}");
+            }
+        }
+
+        /// <summary>
+        /// Cycle FPS limit through: Off -> MaxRefresh -> MaxRefresh/2 -> MaxRefresh/3 -> Off
+        /// </summary>
+        private void CycleFPSLimit()
+        {
+            if (fpsLimit == null) return;
+
+            // Get max refresh rate from current display
+            int maxRefresh = 60; // Default
+            if (refreshRates?.Value != null && refreshRates.Value.Count > 0)
+            {
+                maxRefresh = refreshRates.Value.Max();
+            }
+
+            // Calculate FPS limit values: Max, Max/2, Max/3
+            int[] fpsValues = new int[]
+            {
+                0,                          // Off (unlimited)
+                maxRefresh,                 // e.g., 144
+                maxRefresh / 2,             // e.g., 72
+                maxRefresh / 3              // e.g., 48
+            };
+
+            // Find current index and cycle to next
+            int currentLimit = fpsLimit.Value;
+            int currentIndex = 0;
+            for (int i = 0; i < fpsValues.Length; i++)
+            {
+                if (fpsValues[i] == currentLimit)
+                {
+                    currentIndex = i;
+                    break;
+                }
+            }
+
+            int nextIndex = (currentIndex + 1) % fpsValues.Length;
+            int nextLimit = fpsValues[nextIndex];
+
+            fpsLimit.SetValue(nextLimit);
+            Logger.Info($"FPS Limit cycled from {currentLimit} to {nextLimit} (max refresh: {maxRefresh})");
+
+            // Sync the Performance tab FPS Limit controls
+            isApplyingHelperUpdate = true;
+            try
+            {
+                // Update slider maximum to current refresh rate
+                FPSLimitSlider.Maximum = maxRefresh;
+
+                if (nextLimit > 0)
+                {
+                    FPSLimitToggle.IsOn = true;
+                    FPSLimitSlider.Value = nextLimit;
+                }
+                else
+                {
+                    FPSLimitToggle.IsOn = false;
+                }
+            }
+            finally
+            {
+                isApplyingHelperUpdate = false;
+            }
+        }
+
+        /// <summary>
+        /// FPS Limit toggle changed - set FPS limit to slider value or 0 (off)
+        /// </summary>
+        private void FPSLimitToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (fpsLimit == null || isApplyingHelperUpdate) return;
+
+            if (FPSLimitToggle.IsOn)
+            {
+                // Get max refresh rate and update slider
+                int maxRefresh = 60;
+                if (refreshRates?.Value != null && refreshRates.Value.Count > 0)
+                {
+                    maxRefresh = refreshRates.Value.Max();
+                }
+                FPSLimitSlider.Maximum = maxRefresh;
+
+                // If slider is at minimum (15) or below, set to max refresh as default
+                int limit = (int)FPSLimitSlider.Value;
+                if (limit <= 15)
+                {
+                    limit = maxRefresh;
+                    FPSLimitSlider.Value = limit;
+                }
+
+                fpsLimit.SetValue(limit);
+                Logger.Info($"FPS Limit enabled: {limit}");
+            }
+            else
+            {
+                // Disable FPS limit (0 = unlimited)
+                fpsLimit.SetValue(0);
+                Logger.Info("FPS Limit disabled");
+            }
+        }
+
+        /// <summary>
+        /// FPS Limit slider changed - update FPS limit if toggle is on (with debouncing)
+        /// </summary>
+        private void FPSLimitSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        {
+            if (fpsLimit == null || isApplyingHelperUpdate) return;
+
+            if (FPSLimitToggle.IsOn)
+            {
+                int limit = (int)e.NewValue;
+                fpsLimitPendingValue = limit;
+
+                // Initialize debounce timer if needed
+                if (fpsLimitDebounceTimer == null)
+                {
+                    fpsLimitDebounceTimer = new DispatcherTimer();
+                    fpsLimitDebounceTimer.Interval = TimeSpan.FromMilliseconds(FPS_LIMIT_DEBOUNCE_MS);
+                    fpsLimitDebounceTimer.Tick += FPSLimitDebounceTimer_Tick;
+                }
+
+                // Restart the debounce timer
+                fpsLimitDebounceTimer.Stop();
+                fpsLimitDebounceTimer.Start();
+            }
+        }
+
+        /// <summary>
+        /// Debounce timer tick - apply the pending FPS limit value
+        /// </summary>
+        private void FPSLimitDebounceTimer_Tick(object sender, object e)
+        {
+            fpsLimitDebounceTimer?.Stop();
+
+            if (fpsLimit != null && FPSLimitToggle.IsOn)
+            {
+                fpsLimit.SetValue(fpsLimitPendingValue);
+                Logger.Info($"FPS Limit changed (debounced): {fpsLimitPendingValue}");
+            }
+        }
+
+        /// <summary>
+        /// Update FPS Limit controls based on RTSS installed status and current fpsLimit value
+        /// </summary>
+        private void UpdateFPSLimitControls()
+        {
+            UpdateFPSLimitControls(rtssInstalled?.Value == true);
+        }
+
+        /// <summary>
+        /// Update FPS Limit controls based on RTSS installed status
+        /// </summary>
+        private void UpdateFPSLimitControls(bool rtssAvailable)
+        {
+            FPSLimitToggle.IsEnabled = rtssAvailable;
+
+            // Update slider maximum to current refresh rate
+            int maxRefresh = 60; // Default
+            if (refreshRates?.Value != null && refreshRates.Value.Count > 0)
+            {
+                maxRefresh = refreshRates.Value.Max();
+            }
+            FPSLimitSlider.Maximum = maxRefresh;
+
+            // Set tick frequency based on max refresh rate (show ~5-8 ticks)
+            int tickFreq;
+            if (maxRefresh >= 144)
+                tickFreq = 24;
+            else if (maxRefresh >= 120)
+                tickFreq = 20;
+            else if (maxRefresh >= 90)
+                tickFreq = 15;
+            else
+                tickFreq = 10;
+            FPSLimitSlider.TickFrequency = tickFreq;
+
+            // Sync toggle/slider with fpsLimit value
+            if (fpsLimit != null)
+            {
+                isApplyingHelperUpdate = true;
+                try
+                {
+                    int limit = fpsLimit.Value;
+                    if (limit > 0)
+                    {
+                        FPSLimitToggle.IsOn = true;
+                        // Clamp value to slider range
+                        FPSLimitSlider.Value = Math.Min(limit, maxRefresh);
+                    }
+                    else
+                    {
+                        FPSLimitToggle.IsOn = false;
+                    }
+                }
+                finally
+                {
+                    isApplyingHelperUpdate = false;
+                }
             }
         }
 
