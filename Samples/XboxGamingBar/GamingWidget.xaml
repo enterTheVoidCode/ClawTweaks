@@ -462,14 +462,14 @@
                                         Content="Add Shortcut Tile"
                                         HorizontalAlignment="Stretch"
                                         Margin="0,8,0,0"
-                                        Style="{StaticResource ModernButtonStyle}"
+                                        Style="{StaticResource StandaloneButtonStyle}"
                                         Click="AddCustomShortcut_Click"/>
 
                                 <!-- Done Button -->
                                 <Button Content="Done"
                                         HorizontalAlignment="Stretch"
                                         Margin="0,16,0,0"
-                                        Style="{StaticResource ModernButtonStyle}"
+                                        Style="{StaticResource StandaloneButtonStyle}"
                                         Click="QuickSettingsCustomizeDone_Click"/>
                             </StackPanel>
                         </Border>
@@ -1154,7 +1154,7 @@
                                                   FocusVisualPrimaryBrush="White"
                                                   FocusVisualSecondaryBrush="Transparent"
                                                   XYFocusUp="{x:Bind ProfileSaveAMDFeaturesCheckBox}"
-                                                  XYFocusDown="{x:Bind StickyTDPIntervalSlider}"/>
+                                                  XYFocusDown="{x:Bind AutoTDPToggle}"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid Margin="0,2,0,0">
@@ -1180,9 +1180,7 @@
                                             ValueChanged="StickyTDPIntervalSlider_ValueChanged"
                                             UseSystemFocusVisuals="True"
                                             FocusVisualPrimaryBrush="White"
-                                            FocusVisualSecondaryBrush="Transparent"
-                                            XYFocusUp="{x:Bind StickyTDPToggle}"
-                                            XYFocusDown="{x:Bind AutoTDPToggle}"/>
+                                            FocusVisualSecondaryBrush="Transparent"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -1209,7 +1207,7 @@
                                                   FocusVisualPrimaryBrush="White"
                                                   FocusVisualSecondaryBrush="Transparent"
                                                   XYFocusUp="{x:Bind StickyTDPToggle}"
-                                                  XYFocusDown="{x:Bind AutoTDPTargetFPSSlider}"/>
+                                                  XYFocusDown="{x:Bind UseManufacturerWMIToggle}"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=AutoTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid Margin="0,12,0,0">
@@ -1231,9 +1229,7 @@
                                             ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"
                                             UseSystemFocusVisuals="True"
                                             FocusVisualPrimaryBrush="White"
-                                            FocusVisualSecondaryBrush="Transparent"
-                                            XYFocusUp="{x:Bind AutoTDPToggle}"
-                                            XYFocusDown="{x:Bind UseManufacturerWMIToggle}"/>
+                                            FocusVisualSecondaryBrush="Transparent"/>
                                     <Grid Margin="0,8,0,0">
                                         <TextBlock Text="Current FPS"
                                                    FontSize="14"
