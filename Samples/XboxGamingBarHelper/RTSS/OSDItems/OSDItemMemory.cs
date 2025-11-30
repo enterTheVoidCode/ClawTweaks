@@ -9,7 +9,7 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         private HardwareSensor memoryUsageSensor;
         private HardwareSensor memoryUsedSensor;
 
-        public OSDItemMemory(HardwareSensor memoryUsageSensor, HardwareSensor memoryUsedSensor) : base("RAM", Color.Purple)
+        public OSDItemMemory(HardwareSensor memoryUsageSensor, HardwareSensor memoryUsedSensor) : base("RAM", "Memory", Color.Purple)
         {
             this.memoryUsageSensor = memoryUsageSensor;
             this.memoryUsedSensor = memoryUsedSensor;
@@ -19,15 +19,9 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         {
             var osdItems = base.GetValues(osdLevel);
 
-            if (osdLevel >= 3)
-            {
-                osdItems.Add(new OSDItemValue(memoryUsageSensor.Value, "%"));
-            }
-
-            if (osdLevel >= 4)
-            {
-                osdItems.Add(new OSDItemValue(memoryUsedSensor.Value, "GB"));
-            }
+            // Always show memory usage when enabled
+            osdItems.Add(new OSDItemValue(memoryUsageSensor.Value, "%", OSDValueType.Percentage));
+            osdItems.Add(new OSDItemValue(memoryUsedSensor.Value, "GB", OSDValueType.None));
 
             return osdItems;
         }
