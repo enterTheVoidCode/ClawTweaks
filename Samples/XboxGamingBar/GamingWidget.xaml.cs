@@ -20,6 +20,8 @@ using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using Windows.System.Power;
 using Windows.Storage;
+using Windows.System;
+using Windows.UI.Xaml.Input;
 using XboxGamingBar.Data;
 using XboxGamingBar.Event;
 using XboxGamingBar.QuickSettings;
@@ -267,6 +269,9 @@ namespace XboxGamingBar
             this.Loaded += GamingWidget_Loaded;
             this.Unloaded += GamingWidget_Unloaded;
             Logger.Info("Registered Loaded and Unloaded event handlers.");
+
+            // Register for LT/RT tab navigation
+            this.KeyDown += GamingWidget_KeyDown;
 
             tdp = new TDPProperty(4, TDPSlider, this);
             currentTdp = new CurrentTDPProperty(CurrentTDPValueText, this);
@@ -2112,6 +2117,68 @@ namespace XboxGamingBar
                         break;
                 }
             }
+        }
+
+        private void GamingWidget_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            // Handle LT (Left Trigger) and RT (Right Trigger) for tab navigation
+            if (e.Key == VirtualKey.GamepadLeftTrigger)
+            {
+                NavigateToPreviousTab();
+                e.Handled = true;
+            }
+            else if (e.Key == VirtualKey.GamepadRightTrigger)
+            {
+                NavigateToNextTab();
+                e.Handled = true;
+            }
+        }
+
+        private void NavigateToPreviousTab()
+        {
+            var visibleItems = GetVisibleNavigationItems();
+            if (visibleItems.Count == 0) return;
+
+            int currentIndex = visibleItems.IndexOf(MainNavigationView.SelectedItem as NavigationViewItem);
+            if (currentIndex > 0)
+            {
+                MainNavigationView.SelectedItem = visibleItems[currentIndex - 1];
+            }
+            else
+            {
+                // Wrap around to last tab
+                MainNavigationView.SelectedItem = visibleItems[visibleItems.Count - 1];
+            }
+        }
+
+        private void NavigateToNextTab()
+        {
+            var visibleItems = GetVisibleNavigationItems();
+            if (visibleItems.Count == 0) return;
+
+            int currentIndex = visibleItems.IndexOf(MainNavigationView.SelectedItem as NavigationViewItem);
+            if (currentIndex < visibleItems.Count - 1)
+            {
+                MainNavigationView.SelectedItem = visibleItems[currentIndex + 1];
+            }
+            else
+            {
+                // Wrap around to first tab
+                MainNavigationView.SelectedItem = visibleItems[0];
+            }
+        }
+
+        private List<NavigationViewItem> GetVisibleNavigationItems()
+        {
+            var visibleItems = new List<NavigationViewItem>();
+            foreach (var item in MainNavigationView.MenuItems)
+            {
+                if (item is NavigationViewItem navItem && navItem.Visibility == Visibility.Visible)
+                {
+                    visibleItems.Add(navItem);
+                }
+            }
+            return visibleItems;
         }
 
         private void GamingWidget_Unloaded(object sender, RoutedEventArgs e)
