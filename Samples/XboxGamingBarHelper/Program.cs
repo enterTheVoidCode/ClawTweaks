@@ -5,6 +5,7 @@ using Shared.Data;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
@@ -225,9 +226,15 @@ namespace XboxGamingBarHelper
             {
                 await Task.Delay(500);
 
-                foreach (var manager in Managers)
+                // Create a copy of the list to avoid "collection was modified" exception
+                // if DisposeManagers() is called while we're iterating
+                var managersCopy = Managers?.ToList();
+                if (managersCopy != null)
                 {
-                    manager.Update();
+                    foreach (var manager in managersCopy)
+                    {
+                        manager?.Update();
+                    }
                 }
             }
             Logger.Info("Helper close...");
@@ -370,7 +377,12 @@ namespace XboxGamingBarHelper
             Logger.Info("Disposing all managers...");
             if (Managers != null)
             {
-                foreach (var manager in Managers)
+                // Create a copy of the list to avoid "collection was modified" exception
+                var managersCopy = Managers.ToList();
+                Managers.Clear();
+                Managers = null;
+
+                foreach (var manager in managersCopy)
                 {
                     try
                     {
@@ -381,8 +393,6 @@ namespace XboxGamingBarHelper
                         Logger.Error($"Error disposing manager: {ex.Message}");
                     }
                 }
-                Managers.Clear();
-                Managers = null;
             }
 
             // Clear references
