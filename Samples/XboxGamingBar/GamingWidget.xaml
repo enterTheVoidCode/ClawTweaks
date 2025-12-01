@@ -597,6 +597,68 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- AutoTDP Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="AutoTDP" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Automatically adjust TDP to maintain target FPS"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="AutoTDPToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  Toggled="AutoTDPToggle_Toggled" Width="50"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  XYFocusUp="{x:Bind TDPSlider}"
+                                                  XYFocusDown="{x:Bind CPUBoostToggle}"/>
+                                </Grid>
+                                <StackPanel Visibility="{Binding ElementName=AutoTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid Margin="0,12,0,0">
+                                        <TextBlock Text="Target FPS"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"/>
+                                        <TextBlock x:Name="AutoTDPTargetFPSValue"
+                                                   Text="60 FPS"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="AutoTDPTargetFPSSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="30" Maximum="144"
+                                            StepFrequency="1"
+                                            Value="60"
+                                            ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"
+                                            UseSystemFocusVisuals="True"
+                                            FocusVisualPrimaryBrush="White"
+                                            FocusVisualSecondaryBrush="Transparent"
+                                            XYFocusUp="{x:Bind AutoTDPToggle}"
+                                            XYFocusDown="{x:Bind CPUBoostToggle}"/>
+                                    <Grid Margin="0,8,0,0">
+                                        <TextBlock Text="Current FPS"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"/>
+                                        <TextBlock x:Name="AutoTDPCurrentFPSValue"
+                                                   Text="-- FPS"
+                                                   FontSize="14"
+                                                   Foreground="#FFCC00"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <!-- CPU Boost Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <Grid>
@@ -725,8 +787,106 @@
                                 <ToggleSwitch x:Name="PowerSourceProfileToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}" Width="47"
-                                              XYFocusUp="{x:Bind ProfilesNavItem}"/>
+                                              XYFocusUp="{x:Bind ProfilesNavItem}"
+                                              XYFocusDown="{x:Bind ProfileSettingsExpandButton}"/>
                             </Grid>
+                        </Border>
+
+                        <!-- Profile Settings Card (Collapsible) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with Expand/Collapse -->
+                                <Button x:Name="ProfileSettingsExpandButton"
+                                        Click="ProfileSettingsExpandButton_Click"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="0"
+                                        UseSystemFocusVisuals="True"
+                                        FocusVisualPrimaryBrush="White"
+                                        XYFocusUp="{x:Bind PowerSourceProfileToggle}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Profile Settings" Style="{StaticResource CardTitleStyle}"/>
+                                            <TextBlock Text="Choose which settings are saved in profiles"
+                                                       Style="{StaticResource CardCaptionStyle}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="ProfileSettingsExpandIcon"
+                                                   Text="&#xE70D;"
+                                                   FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"
+                                                   Grid.Column="1"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Button>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="ProfileSettingsContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <CheckBox x:Name="ProfileSaveTDPCheckBox"
+                                              Content="TDP Power Limit"
+                                              IsChecked="True"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveCPUBoostCheckBox"
+                                              Content="CPU Boost"
+                                              IsChecked="True"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveCPUEPPCheckBox"
+                                              Content="CPU EPP"
+                                              IsChecked="True"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveLimitCPUClockCheckBox"
+                                              Content="Limit CPU Clock"
+                                              IsChecked="True"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveAMDFeaturesCheckBox"
+                                              Content="AMD Features (FMF, Anti-Lag, Boost, Chill)"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveFPSLimitCheckBox"
+                                              Content="FPS Limit"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveAutoTDPCheckBox"
+                                              Content="AutoTDP (Enabled + Target FPS)"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                </StackPanel>
+                            </StackPanel>
                         </Border>
 
                         <!-- Current Game Card -->
@@ -763,6 +923,8 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -777,11 +939,19 @@
 
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="CPU EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0"/>
                                     <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GlobalProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GlobalProfileFPSLimitLabel" Text="FPS Limit" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GlobalProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GlobalProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GlobalProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
                                 </Grid>
 
                                 <!-- AC/DC Mode (Power Source Toggle ON) -->
                                 <Grid x:Name="GlobalProfileACDC" Margin="0,8,0,0" Visibility="Collapsed">
                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
@@ -812,6 +982,16 @@
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
                                     <TextBlock Grid.Row="3" Grid.Column="1" x:Name="ACProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
                                     <TextBlock Grid.Row="3" Grid.Column="2" x:Name="DCProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+
+                                    <!-- FPS Limit Row -->
+                                    <TextBlock Grid.Row="4" Grid.Column="0" x:Name="ACDCProfileFPSLimitLabel" Text="FPS Lim" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="ACProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="2" x:Name="DCProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                    <!-- AutoTDP Row -->
+                                    <TextBlock Grid.Row="5" Grid.Column="0" x:Name="ACDCProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="ACProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="2" x:Name="DCProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -828,6 +1008,8 @@
                                                FontSize="14"/>
                                     <Grid Margin="0,8,0,0">
                                         <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
@@ -858,6 +1040,16 @@
                                         <TextBlock Grid.Row="3" Grid.Column="0" Text="EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
                                         <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GameACProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Row="3" Grid.Column="2" x:Name="GameDCProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+
+                                        <!-- FPS Limit Row -->
+                                        <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GameACDCProfileFPSLimitLabel" Text="FPS Lim" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GameACProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="2" x:Name="GameDCProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                        <!-- AutoTDP Row -->
+                                        <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GameACDCProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GameACProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="2" x:Name="GameDCProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
                                     </Grid>
                                 </StackPanel>
 
@@ -870,6 +1062,8 @@
                                                FontSize="14"/>
                                     <Grid Margin="0,8,0,0">
                                         <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
@@ -887,6 +1081,12 @@
 
                                         <TextBlock Grid.Row="2" Grid.Column="0" Text="CPU EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0"/>
                                         <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GameProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0"/>
+
+                                        <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GameProfileFPSLimitLabel" Text="FPS Limit" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GameProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                        <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GameProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GameProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
@@ -1119,50 +1319,6 @@
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
 
-                        <!-- Profile Settings Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Profile Settings" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
-                                <TextBlock Text="Choose which settings are saved in profiles"
-                                           FontSize="12"
-                                           Foreground="#A0A0A0"
-                                           Margin="0,0,0,12"
-                                           TextWrapping="Wrap"/>
-
-                                <CheckBox x:Name="ProfileSaveTDPCheckBox"
-                                          Content="TDP Power Limit"
-                                          IsChecked="True"
-                                          Foreground="#FFFFFF"
-                                          Margin="0,4,0,0"
-                                          Style="{StaticResource FocusableCheckBoxStyle}"/>
-                                <CheckBox x:Name="ProfileSaveCPUBoostCheckBox"
-                                          Content="CPU Boost"
-                                          IsChecked="True"
-                                          Foreground="#FFFFFF"
-                                          Margin="0,4,0,0"
-                                          Style="{StaticResource FocusableCheckBoxStyle}"/>
-                                <CheckBox x:Name="ProfileSaveCPUEPPCheckBox"
-                                          Content="CPU EPP"
-                                          IsChecked="True"
-                                          Foreground="#FFFFFF"
-                                          Margin="0,4,0,0"
-                                          Style="{StaticResource FocusableCheckBoxStyle}"/>
-                                <CheckBox x:Name="ProfileSaveLimitCPUClockCheckBox"
-                                          Content="Limit CPU Clock"
-                                          IsChecked="True"
-                                          Foreground="#FFFFFF"
-                                          Margin="0,4,0,0"
-                                          Style="{StaticResource FocusableCheckBoxStyle}"/>
-                                <CheckBox x:Name="ProfileSaveAMDFeaturesCheckBox"
-                                          Content="AMD Features (FMF, Anti-Lag, Boost, Chill)"
-                                          IsChecked="False"
-                                          Foreground="#FFFFFF"
-                                          Margin="0,4,0,0"
-                                          Style="{StaticResource FocusableCheckBoxStyle}"
-                                          XYFocusDown="{x:Bind StickyTDPToggle}"/>
-                            </StackPanel>
-                        </Border>
-
                         <!-- Sticky TDP Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -1184,8 +1340,7 @@
                                                   UseSystemFocusVisuals="True"
                                                   FocusVisualPrimaryBrush="White"
                                                   FocusVisualSecondaryBrush="Transparent"
-                                                  XYFocusUp="{x:Bind ProfileSaveAMDFeaturesCheckBox}"
-                                                  XYFocusDown="{x:Bind AutoTDPToggle}"/>
+                                                  XYFocusDown="{x:Bind UseManufacturerWMIToggle}"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid Margin="0,2,0,0">
@@ -1216,67 +1371,6 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- AutoTDP Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="AutoTDP" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Automatically adjust TDP to maintain target FPS when a game is running"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="AutoTDPToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  Toggled="AutoTDPToggle_Toggled" Width="50"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  XYFocusUp="{x:Bind StickyTDPToggle}"/>
-                                </Grid>
-                                <StackPanel Visibility="{Binding ElementName=AutoTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Grid Margin="0,12,0,0">
-                                        <TextBlock Text="Target FPS"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"/>
-                                        <TextBlock x:Name="AutoTDPTargetFPSValue"
-                                                   Text="60 FPS"
-                                                   FontSize="14"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-                                    <Slider x:Name="AutoTDPTargetFPSSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="30" Maximum="144"
-                                            StepFrequency="1"
-                                            Value="60"
-                                            ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"
-                                            UseSystemFocusVisuals="True"
-                                            FocusVisualPrimaryBrush="White"
-                                            FocusVisualSecondaryBrush="Transparent"
-                                            XYFocusUp="{x:Bind AutoTDPToggle}"
-                                            XYFocusDown="{x:Bind UseManufacturerWMIToggle}"/>
-                                    <Grid Margin="0,8,0,0">
-                                        <TextBlock Text="Current FPS"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"/>
-                                        <TextBlock x:Name="AutoTDPCurrentFPSValue"
-                                                   Text="-- FPS"
-                                                   FontSize="14"
-                                                   Foreground="#FFCC00"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
                         <!-- Manufacturer WMI TDP Card -->
                         <Border x:Name="ManufacturerWMICard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <Grid>
@@ -1298,7 +1392,7 @@
                                               UseSystemFocusVisuals="True"
                                               FocusVisualPrimaryBrush="White"
                                               FocusVisualSecondaryBrush="Transparent"
-                                              XYFocusUp="{x:Bind AutoTDPToggle}"/>
+                                              XYFocusUp="{x:Bind StickyTDPToggle}"/>
                             </Grid>
                         </Border>
 
