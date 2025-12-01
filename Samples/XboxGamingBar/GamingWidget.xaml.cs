@@ -276,6 +276,10 @@ namespace XboxGamingBar
         public GamingWidget()
         {
             Logger.Info("GamingWidget constructor called - creating new instance.");
+
+            // Prevent OSD checkbox events from saving during XAML initialization
+            isLoadingOSDConfig = true;
+
             InitializeComponent();
 
             // Register for lifecycle events
@@ -1349,11 +1353,16 @@ namespace XboxGamingBar
 
         #region AutoTDP
 
+        private bool isLoadingAutoTDPSettings = false;
+
         private void AutoTDPToggle_Toggled(object sender, RoutedEventArgs e)
         {
             if (AutoTDPToggle == null) return;
 
             Logger.Info($"AutoTDP toggled to: {AutoTDPToggle.IsOn}");
+
+            // Update XY focus navigation based on toggle state
+            UpdateAutoTDPFocusNavigation();
 
             // Send to helper
             autoTDPEnabled?.SetValue(AutoTDPToggle.IsOn);
@@ -1363,9 +1372,26 @@ namespace XboxGamingBar
             settings.Values["AutoTDPEnabled"] = AutoTDPToggle.IsOn;
         }
 
+        private void UpdateAutoTDPFocusNavigation()
+        {
+            if (AutoTDPToggle == null) return;
+
+            // When AutoTDP is on, focus down goes to the slider
+            // When AutoTDP is off, focus down goes to UseManufacturerWMIToggle
+            if (AutoTDPToggle.IsOn && AutoTDPTargetFPSSlider != null)
+            {
+                AutoTDPToggle.XYFocusDown = AutoTDPTargetFPSSlider;
+            }
+            else if (UseManufacturerWMIToggle != null)
+            {
+                AutoTDPToggle.XYFocusDown = UseManufacturerWMIToggle;
+            }
+        }
+
         private void AutoTDPTargetFPSSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
             if (AutoTDPTargetFPSSlider == null) return;
+            if (isLoadingAutoTDPSettings) return; // Don't save during load
 
             int targetFPS = (int)Math.Round(e.NewValue);
             Logger.Info($"AutoTDP target FPS changed to: {targetFPS}");
@@ -1386,19 +1412,30 @@ namespace XboxGamingBar
 
         private void LoadAutoTDPSettings()
         {
-            var settings = ApplicationData.Current.LocalSettings;
-
-            // Load enabled state
-            if (settings.Values.TryGetValue("AutoTDPEnabled", out object enabledObj) && enabledObj is bool enabled)
+            isLoadingAutoTDPSettings = true;
+            try
             {
-                AutoTDPToggle.IsOn = enabled;
+                var settings = ApplicationData.Current.LocalSettings;
+
+                // Load enabled state
+                if (settings.Values.TryGetValue("AutoTDPEnabled", out object enabledObj) && enabledObj is bool enabled)
+                {
+                    AutoTDPToggle.IsOn = enabled;
+                }
+
+                // Load target FPS
+                if (settings.Values.TryGetValue("AutoTDPTargetFPS", out object targetObj) && targetObj is int target)
+                {
+                    AutoTDPTargetFPSSlider.Value = target;
+                    AutoTDPTargetFPSValue.Text = $"{target} FPS";
+                }
+
+                // Update focus navigation after loading settings
+                UpdateAutoTDPFocusNavigation();
             }
-
-            // Load target FPS
-            if (settings.Values.TryGetValue("AutoTDPTargetFPS", out object targetObj) && targetObj is int target)
+            finally
             {
-                AutoTDPTargetFPSSlider.Value = target;
-                AutoTDPTargetFPSValue.Text = $"{target} FPS";
+                isLoadingAutoTDPSettings = false;
             }
         }
 
@@ -1441,6 +1478,9 @@ namespace XboxGamingBar
 
         private void OSDCustomizeLevelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            // Don't process during initialization - LoadOSDConfigFromStorage will handle it
+            if (isLoadingOSDConfig) return;
+
             if (OSDCustomizeLevelComboBox?.SelectedItem is ComboBoxItem selected && selected.Tag is string tagStr)
             {
                 if (int.TryParse(tagStr, out int level))
@@ -1582,7 +1622,7 @@ namespace XboxGamingBar
             try
             {
                 var settings = ApplicationData.Current.LocalSettings;
-                var itemKeys = new[] { "AppName", "FPS", "Battery", "Memory", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP" };
+                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "Memory", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP" };
 
                 foreach (var level in new[] { 1, 2, 3 })
                 {
@@ -3246,6 +3286,9 @@ namespace XboxGamingBar
             {
                 isApplyingHelperUpdate = false;
             }
+
+            // Send OSD config to helper now that connection is established
+            SendOSDConfigToHelper();
 
             Logger.Info("=== GamingWidget_AppServiceConnected END ===");
         }

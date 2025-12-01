@@ -132,6 +132,14 @@ namespace XboxGamingBarHelper.AutoTDP
                 return;
             }
 
+            // Check if the game is in the foreground - pause AutoTDP if game is in background
+            if (!runningGame.IsForeground)
+            {
+                StatusText = "Game not focused";
+                TrendText = "";
+                return;
+            }
+
             // Rate limit updates
             var now = DateTime.Now;
             if (lastUpdateTime != DateTime.MinValue)
