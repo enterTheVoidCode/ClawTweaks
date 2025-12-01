@@ -51,6 +51,12 @@ namespace XboxGamingBar
         public bool RadeonChill { get; set; } = false;
         public double RadeonChillMinFPS { get; set; } = 30;
         public double RadeonChillMaxFPS { get; set; } = 60;
+        // FPS Limit settings
+        public bool FPSLimitEnabled { get; set; } = false;
+        public int FPSLimitValue { get; set; } = 60;
+        // AutoTDP settings
+        public bool AutoTDPEnabled { get; set; } = false;
+        public int AutoTDPTargetFPS { get; set; } = 60;
 
         public PerformanceProfile Clone()
         {
@@ -67,7 +73,11 @@ namespace XboxGamingBar
                 RadeonBoostResolution = this.RadeonBoostResolution,
                 RadeonChill = this.RadeonChill,
                 RadeonChillMinFPS = this.RadeonChillMinFPS,
-                RadeonChillMaxFPS = this.RadeonChillMaxFPS
+                RadeonChillMaxFPS = this.RadeonChillMaxFPS,
+                FPSLimitEnabled = this.FPSLimitEnabled,
+                FPSLimitValue = this.FPSLimitValue,
+                AutoTDPEnabled = this.AutoTDPEnabled,
+                AutoTDPTargetFPS = this.AutoTDPTargetFPS
             };
         }
     }
@@ -246,6 +256,10 @@ namespace XboxGamingBar
         private bool SaveCPUEPP => ProfileSaveCPUEPPCheckBox?.IsChecked ?? true;
         private bool SaveLimitCPUClock => ProfileSaveLimitCPUClockCheckBox?.IsChecked ?? true;
         private bool SaveAMDFeatures => ProfileSaveAMDFeaturesCheckBox?.IsChecked ?? false;
+        private bool SaveFPSLimit => ProfileSaveFPSLimitCheckBox?.IsChecked ?? false;
+        private bool SaveAutoTDP => ProfileSaveAutoTDPCheckBox?.IsChecked ?? false;
+
+        private bool isLoadingProfileSettings = false;
 
         private string RadeonChillOnText
         {
@@ -279,6 +293,8 @@ namespace XboxGamingBar
 
             // Prevent OSD checkbox events from saving during XAML initialization
             isLoadingOSDConfig = true;
+            // Prevent profile settings checkbox events from saving during XAML initialization
+            isLoadingProfileSettings = true;
 
             InitializeComponent();
 
@@ -761,16 +777,7 @@ namespace XboxGamingBar
             PowerManager.PowerSupplyStatusChanged += PowerManager_PowerSourceChanged;
 
             // Subscribe to checkbox changes to save settings
-            ProfileSaveTDPCheckBox.Checked += ProfileSettingCheckBox_Changed;
-            ProfileSaveTDPCheckBox.Unchecked += ProfileSettingCheckBox_Changed;
-            ProfileSaveCPUBoostCheckBox.Checked += ProfileSettingCheckBox_Changed;
-            ProfileSaveCPUBoostCheckBox.Unchecked += ProfileSettingCheckBox_Changed;
-            ProfileSaveCPUEPPCheckBox.Checked += ProfileSettingCheckBox_Changed;
-            ProfileSaveCPUEPPCheckBox.Unchecked += ProfileSettingCheckBox_Changed;
-            ProfileSaveLimitCPUClockCheckBox.Checked += ProfileSettingCheckBox_Changed;
-            ProfileSaveLimitCPUClockCheckBox.Unchecked += ProfileSettingCheckBox_Changed;
-            ProfileSaveAMDFeaturesCheckBox.Checked += ProfileSettingCheckBox_Changed;
-            ProfileSaveAMDFeaturesCheckBox.Unchecked += ProfileSettingCheckBox_Changed;
+            // Event handlers are now in XAML (ProfileSettingsCheckBox_Changed)
 
             // Subscribe to settings changes for auto-save
             SubscribeToSettingsChanges();
@@ -1358,6 +1365,7 @@ namespace XboxGamingBar
         private void AutoTDPToggle_Toggled(object sender, RoutedEventArgs e)
         {
             if (AutoTDPToggle == null) return;
+            if (isApplyingHelperUpdate) return;
 
             Logger.Info($"AutoTDP toggled to: {AutoTDPToggle.IsOn}");
 
@@ -1367,9 +1375,15 @@ namespace XboxGamingBar
             // Send to helper
             autoTDPEnabled?.SetValue(AutoTDPToggle.IsOn);
 
-            // Save setting
+            // Save global setting
             var settings = ApplicationData.Current.LocalSettings;
             settings.Values["AutoTDPEnabled"] = AutoTDPToggle.IsOn;
+
+            // Save to profile if AutoTDP saving is enabled
+            if (SaveAutoTDP && !isLoadingProfile && !isSwitchingProfile)
+            {
+                SaveCurrentSettingsToProfile(currentProfileName);
+            }
         }
 
         private void UpdateAutoTDPFocusNavigation()
@@ -1392,6 +1406,7 @@ namespace XboxGamingBar
         {
             if (AutoTDPTargetFPSSlider == null) return;
             if (isLoadingAutoTDPSettings) return; // Don't save during load
+            if (isApplyingHelperUpdate) return;
 
             int targetFPS = (int)Math.Round(e.NewValue);
             Logger.Info($"AutoTDP target FPS changed to: {targetFPS}");
@@ -1405,9 +1420,15 @@ namespace XboxGamingBar
             // Send to helper
             autoTDPTargetFPS?.SetValue(targetFPS);
 
-            // Save setting
+            // Save global setting
             var settings = ApplicationData.Current.LocalSettings;
             settings.Values["AutoTDPTargetFPS"] = targetFPS;
+
+            // Save to profile if AutoTDP saving is enabled
+            if (SaveAutoTDP && !isLoadingProfile && !isSwitchingProfile)
+            {
+                SaveCurrentSettingsToProfile(currentProfileName);
+            }
         }
 
         private void LoadAutoTDPSettings()
@@ -1473,6 +1494,7 @@ namespace XboxGamingBar
         private int osdTextSize = 100;    // Percentage: 50=Small, 100=Medium, 150=Large, 200=X-Large
         private string osdTextColor = "DYNAMIC";  // DYNAMIC = value-based colors, or hex color code
         private bool isOSDCustomizeExpanded = false;
+        private bool isProfileSettingsExpanded = false;
 
         private bool isLoadingOSDConfig = false;
 
@@ -1742,6 +1764,22 @@ namespace XboxGamingBar
             {
                 // E70D = ChevronDown, E70E = ChevronUp
                 OSDCustomizeExpandIcon.Text = isOSDCustomizeExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void ProfileSettingsExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isProfileSettingsExpanded = !isProfileSettingsExpanded;
+
+            if (ProfileSettingsContent != null)
+            {
+                ProfileSettingsContent.Visibility = isProfileSettingsExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (ProfileSettingsExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                ProfileSettingsExpandIcon.Text = isProfileSettingsExpanded ? "\uE70E" : "\uE70D";
             }
         }
 
@@ -2145,6 +2183,16 @@ namespace XboxGamingBar
                 profile.RadeonChillMinFPS = AMDRadeonChillMinFPSSlider.Value;
                 profile.RadeonChillMaxFPS = AMDRadeonChillMaxFPSSlider.Value;
             }
+            if (SaveFPSLimit)
+            {
+                profile.FPSLimitEnabled = FPSLimitToggle.IsOn;
+                profile.FPSLimitValue = (int)FPSLimitSlider.Value;
+            }
+            if (SaveAutoTDP)
+            {
+                profile.AutoTDPEnabled = AutoTDPToggle.IsOn;
+                profile.AutoTDPTargetFPS = (int)AutoTDPTargetFPSSlider.Value;
+            }
 
             // Persist to storage
             SaveProfileToStorage(profileName, profile);
@@ -2189,6 +2237,16 @@ namespace XboxGamingBar
                     AMDRadeonChillToggle.IsOn = profile.RadeonChill;
                     AMDRadeonChillMinFPSSlider.Value = profile.RadeonChillMinFPS;
                     AMDRadeonChillMaxFPSSlider.Value = profile.RadeonChillMaxFPS;
+                }
+                if (SaveFPSLimit)
+                {
+                    FPSLimitToggle.IsOn = profile.FPSLimitEnabled;
+                    FPSLimitSlider.Value = profile.FPSLimitValue;
+                }
+                if (SaveAutoTDP)
+                {
+                    AutoTDPToggle.IsOn = profile.AutoTDPEnabled;
+                    AutoTDPTargetFPSSlider.Value = profile.AutoTDPTargetFPS;
                 }
             }
             finally
@@ -2250,6 +2308,10 @@ namespace XboxGamingBar
             container.Values["RadeonChill"] = profile.RadeonChill;
             container.Values["RadeonChillMinFPS"] = profile.RadeonChillMinFPS;
             container.Values["RadeonChillMaxFPS"] = profile.RadeonChillMaxFPS;
+            container.Values["FPSLimitEnabled"] = profile.FPSLimitEnabled;
+            container.Values["FPSLimitValue"] = profile.FPSLimitValue;
+            container.Values["AutoTDPEnabled"] = profile.AutoTDPEnabled;
+            container.Values["AutoTDPTargetFPS"] = profile.AutoTDPTargetFPS;
         }
 
         private void LoadProfileFromStorage(string profileName, PerformanceProfile profile)
@@ -2271,6 +2333,10 @@ namespace XboxGamingBar
                 profile.RadeonChill = container.Values.ContainsKey("RadeonChill") ? (bool)container.Values["RadeonChill"] : false;
                 profile.RadeonChillMinFPS = container.Values.ContainsKey("RadeonChillMinFPS") ? (double)container.Values["RadeonChillMinFPS"] : 30;
                 profile.RadeonChillMaxFPS = container.Values.ContainsKey("RadeonChillMaxFPS") ? (double)container.Values["RadeonChillMaxFPS"] : 60;
+                profile.FPSLimitEnabled = container.Values.ContainsKey("FPSLimitEnabled") ? (bool)container.Values["FPSLimitEnabled"] : false;
+                profile.FPSLimitValue = container.Values.ContainsKey("FPSLimitValue") ? (int)container.Values["FPSLimitValue"] : 60;
+                profile.AutoTDPEnabled = container.Values.ContainsKey("AutoTDPEnabled") ? (bool)container.Values["AutoTDPEnabled"] : false;
+                profile.AutoTDPTargetFPS = container.Values.ContainsKey("AutoTDPTargetFPS") ? (int)container.Values["AutoTDPTargetFPS"] : 60;
 
                 Logger.Info($"Loaded {profileName} profile from storage");
             }
@@ -2278,10 +2344,22 @@ namespace XboxGamingBar
 
         private void UpdateProfileDisplay()
         {
-            // Update Global profile display
+            // Update Global profile display (simple mode)
             GlobalProfileTDPText.Text = $"{globalProfile.TDP}W";
             GlobalProfileCPUBoostText.Text = globalProfile.CPUBoost ? "On" : "Off";
             GlobalProfileCPUEPPText.Text = $"{globalProfile.CPUEPP}";
+
+            // Update Global profile FPS Limit and AutoTDP (simple mode)
+            var fpsLimitVisibility = SaveFPSLimit ? Visibility.Visible : Visibility.Collapsed;
+            var autoTDPVisibility = SaveAutoTDP ? Visibility.Visible : Visibility.Collapsed;
+
+            GlobalProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
+            GlobalProfileFPSLimitText.Visibility = fpsLimitVisibility;
+            GlobalProfileFPSLimitText.Text = globalProfile.FPSLimitEnabled ? $"{globalProfile.FPSLimitValue}" : "Off";
+
+            GlobalProfileAutoTDPLabel.Visibility = autoTDPVisibility;
+            GlobalProfileAutoTDPText.Visibility = autoTDPVisibility;
+            GlobalProfileAutoTDPText.Text = globalProfile.AutoTDPEnabled ? $"{globalProfile.AutoTDPTargetFPS}fps" : "Off";
 
             // Update AC profile display
             ACProfileTDPText.Text = $"{acProfile.TDP}W";
@@ -2292,6 +2370,19 @@ namespace XboxGamingBar
             DCProfileTDPText.Text = $"{dcProfile.TDP}W";
             DCProfileCPUBoostText.Text = dcProfile.CPUBoost ? "On" : "Off";
             DCProfileCPUEPPText.Text = $"{dcProfile.CPUEPP}";
+
+            // Update AC/DC profile FPS Limit and AutoTDP
+            ACDCProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
+            ACProfileFPSLimitText.Visibility = fpsLimitVisibility;
+            DCProfileFPSLimitText.Visibility = fpsLimitVisibility;
+            ACProfileFPSLimitText.Text = acProfile.FPSLimitEnabled ? $"{acProfile.FPSLimitValue}" : "Off";
+            DCProfileFPSLimitText.Text = dcProfile.FPSLimitEnabled ? $"{dcProfile.FPSLimitValue}" : "Off";
+
+            ACDCProfileAutoTDPLabel.Visibility = autoTDPVisibility;
+            ACProfileAutoTDPText.Visibility = autoTDPVisibility;
+            DCProfileAutoTDPText.Visibility = autoTDPVisibility;
+            ACProfileAutoTDPText.Text = acProfile.AutoTDPEnabled ? $"{acProfile.AutoTDPTargetFPS}fps" : "Off";
+            DCProfileAutoTDPText.Text = dcProfile.AutoTDPEnabled ? $"{dcProfile.AutoTDPTargetFPS}fps" : "Off";
 
             // Update game profile display (if game is running)
             if (HasValidGame(currentGameName))
@@ -2306,6 +2397,19 @@ namespace XboxGamingBar
                     GameDCProfileTDPText.Text = $"{gameDCProfile.TDP}W";
                     GameDCProfileCPUBoostText.Text = gameDCProfile.CPUBoost ? "On" : "Off";
                     GameDCProfileCPUEPPText.Text = $"{gameDCProfile.CPUEPP}";
+
+                    // Game AC/DC FPS Limit and AutoTDP
+                    GameACDCProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
+                    GameACProfileFPSLimitText.Visibility = fpsLimitVisibility;
+                    GameDCProfileFPSLimitText.Visibility = fpsLimitVisibility;
+                    GameACProfileFPSLimitText.Text = gameACProfile.FPSLimitEnabled ? $"{gameACProfile.FPSLimitValue}" : "Off";
+                    GameDCProfileFPSLimitText.Text = gameDCProfile.FPSLimitEnabled ? $"{gameDCProfile.FPSLimitValue}" : "Off";
+
+                    GameACDCProfileAutoTDPLabel.Visibility = autoTDPVisibility;
+                    GameACProfileAutoTDPText.Visibility = autoTDPVisibility;
+                    GameDCProfileAutoTDPText.Visibility = autoTDPVisibility;
+                    GameACProfileAutoTDPText.Text = gameACProfile.AutoTDPEnabled ? $"{gameACProfile.AutoTDPTargetFPS}fps" : "Off";
+                    GameDCProfileAutoTDPText.Text = gameDCProfile.AutoTDPEnabled ? $"{gameDCProfile.AutoTDPTargetFPS}fps" : "Off";
                 }
                 else
                 {
@@ -2313,6 +2417,15 @@ namespace XboxGamingBar
                     GameProfileTDPText.Text = $"{gameProfile.TDP}W";
                     GameProfileCPUBoostText.Text = gameProfile.CPUBoost ? "On" : "Off";
                     GameProfileCPUEPPText.Text = $"{gameProfile.CPUEPP}";
+
+                    // Game single profile FPS Limit and AutoTDP
+                    GameProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
+                    GameProfileFPSLimitText.Visibility = fpsLimitVisibility;
+                    GameProfileFPSLimitText.Text = gameProfile.FPSLimitEnabled ? $"{gameProfile.FPSLimitValue}" : "Off";
+
+                    GameProfileAutoTDPLabel.Visibility = autoTDPVisibility;
+                    GameProfileAutoTDPText.Visibility = autoTDPVisibility;
+                    GameProfileAutoTDPText.Text = gameProfile.AutoTDPEnabled ? $"{gameProfile.AutoTDPTargetFPS}fps" : "Off";
                 }
             }
 
@@ -2512,28 +2625,53 @@ namespace XboxGamingBar
                     acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    if (SaveFPSLimit) acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    if (SaveAutoTDP) acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                     acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
+                    int rowIndex = 0;
+
                     // Headers
-                    AddTextBlock(acDcGrid, 0, 1, "AC", 10, "#FFD700", horizontalAlignment: HorizontalAlignment.Center);
-                    AddTextBlock(acDcGrid, 0, 2, "DC", 10, "#FF6B6B", horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, rowIndex, 1, "AC", 10, "#FFD700", horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, rowIndex, 2, "DC", 10, "#FF6B6B", horizontalAlignment: HorizontalAlignment.Center);
+                    rowIndex++;
 
                     // TDP
-                    AddTextBlock(acDcGrid, 1, 0, "TDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                    AddTextBlock(acDcGrid, 1, 1, $"{gameAC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                    AddTextBlock(acDcGrid, 1, 2, $"{gameDC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, rowIndex, 0, "TDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                    AddTextBlock(acDcGrid, rowIndex, 1, $"{gameAC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, rowIndex, 2, $"{gameDC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    rowIndex++;
 
                     // Boost
-                    AddTextBlock(acDcGrid, 2, 0, "Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                    AddTextBlock(acDcGrid, 2, 1, gameAC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                    AddTextBlock(acDcGrid, 2, 2, gameDC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, rowIndex, 0, "Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                    AddTextBlock(acDcGrid, rowIndex, 1, gameAC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, rowIndex, 2, gameDC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    rowIndex++;
 
                     // EPP
-                    AddTextBlock(acDcGrid, 3, 0, "EPP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                    AddTextBlock(acDcGrid, 3, 1, $"{gameAC.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                    AddTextBlock(acDcGrid, 3, 2, $"{gameDC.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, rowIndex, 0, "EPP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                    AddTextBlock(acDcGrid, rowIndex, 1, $"{gameAC.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, rowIndex, 2, $"{gameDC.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    rowIndex++;
+
+                    // FPS Limit (if enabled)
+                    if (SaveFPSLimit)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "FPS Lim", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.FPSLimitEnabled ? $"{gameAC.FPSLimitValue}" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.FPSLimitEnabled ? $"{gameDC.FPSLimitValue}" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+
+                    // AutoTDP (if enabled)
+                    if (SaveAutoTDP)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "AutoTDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.AutoTDPEnabled ? $"{gameAC.AutoTDPTargetFPS}fps" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.AutoTDPEnabled ? $"{gameDC.AutoTDPTargetFPS}fps" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                    }
 
                     stackPanel.Children.Add(acDcGrid);
                 }
@@ -2548,17 +2686,39 @@ namespace XboxGamingBar
                     singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    if (SaveFPSLimit) singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    if (SaveAutoTDP) singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     singleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     singleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                    AddTextBlock(singleGrid, 0, 0, "TDP", 10, "#AAAAAA");
-                    AddTextBlock(singleGrid, 0, 1, $"{game.TDP}W", 10, "#FFFFFF");
+                    int rowIndex = 0;
 
-                    AddTextBlock(singleGrid, 1, 0, "CPU Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                    AddTextBlock(singleGrid, 1, 1, game.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                    AddTextBlock(singleGrid, rowIndex, 0, "TDP", 10, "#AAAAAA");
+                    AddTextBlock(singleGrid, rowIndex, 1, $"{game.TDP}W", 10, "#FFFFFF");
+                    rowIndex++;
 
-                    AddTextBlock(singleGrid, 2, 0, "CPU EPP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                    AddTextBlock(singleGrid, 2, 1, $"{game.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                    AddTextBlock(singleGrid, rowIndex, 0, "CPU Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                    AddTextBlock(singleGrid, rowIndex, 1, game.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                    rowIndex++;
+
+                    AddTextBlock(singleGrid, rowIndex, 0, "CPU EPP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                    AddTextBlock(singleGrid, rowIndex, 1, $"{game.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                    rowIndex++;
+
+                    // FPS Limit (if enabled)
+                    if (SaveFPSLimit)
+                    {
+                        AddTextBlock(singleGrid, rowIndex, 0, "FPS Limit", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, game.FPSLimitEnabled ? $"{game.FPSLimitValue}" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        rowIndex++;
+                    }
+
+                    // AutoTDP (if enabled)
+                    if (SaveAutoTDP)
+                    {
+                        AddTextBlock(singleGrid, rowIndex, 0, "AutoTDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, game.AutoTDPEnabled ? $"{game.AutoTDPTargetFPS}fps" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                    }
 
                     stackPanel.Children.Add(singleGrid);
                 }
@@ -2684,25 +2844,45 @@ namespace XboxGamingBar
 
         private void LoadProfileCustomizationSettings()
         {
-            var settings = ApplicationData.Current.LocalSettings;
-            ProfileSaveTDPCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveTDP") ? (bool)settings.Values["ProfileSaveTDP"] : true;
-            ProfileSaveCPUBoostCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveCPUBoost") ? (bool)settings.Values["ProfileSaveCPUBoost"] : true;
-            ProfileSaveCPUEPPCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveCPUEPP") ? (bool)settings.Values["ProfileSaveCPUEPP"] : true;
-            ProfileSaveLimitCPUClockCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveLimitCPUClock") ? (bool)settings.Values["ProfileSaveLimitCPUClock"] : true;
-            ProfileSaveAMDFeaturesCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveAMDFeatures") ? (bool)settings.Values["ProfileSaveAMDFeatures"] : false;
+            isLoadingProfileSettings = true;
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                ProfileSaveTDPCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveTDP") ? (bool)settings.Values["ProfileSaveTDP"] : true;
+                ProfileSaveCPUBoostCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveCPUBoost") ? (bool)settings.Values["ProfileSaveCPUBoost"] : true;
+                ProfileSaveCPUEPPCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveCPUEPP") ? (bool)settings.Values["ProfileSaveCPUEPP"] : true;
+                ProfileSaveLimitCPUClockCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveLimitCPUClock") ? (bool)settings.Values["ProfileSaveLimitCPUClock"] : true;
+                ProfileSaveAMDFeaturesCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveAMDFeatures") ? (bool)settings.Values["ProfileSaveAMDFeatures"] : false;
+                ProfileSaveFPSLimitCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveFPSLimit") ? (bool)settings.Values["ProfileSaveFPSLimit"] : false;
+                ProfileSaveAutoTDPCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveAutoTDP") ? (bool)settings.Values["ProfileSaveAutoTDP"] : false;
+            }
+            finally
+            {
+                isLoadingProfileSettings = false;
+            }
         }
 
         private void SaveProfileCustomizationSettings()
         {
+            if (isLoadingProfileSettings) return;
+
             var settings = ApplicationData.Current.LocalSettings;
             settings.Values["ProfileSaveTDP"] = ProfileSaveTDPCheckBox.IsChecked;
             settings.Values["ProfileSaveCPUBoost"] = ProfileSaveCPUBoostCheckBox.IsChecked;
             settings.Values["ProfileSaveCPUEPP"] = ProfileSaveCPUEPPCheckBox.IsChecked;
             settings.Values["ProfileSaveLimitCPUClock"] = ProfileSaveLimitCPUClockCheckBox.IsChecked;
             settings.Values["ProfileSaveAMDFeatures"] = ProfileSaveAMDFeaturesCheckBox.IsChecked;
+            settings.Values["ProfileSaveFPSLimit"] = ProfileSaveFPSLimitCheckBox.IsChecked;
+            settings.Values["ProfileSaveAutoTDP"] = ProfileSaveAutoTDPCheckBox.IsChecked;
         }
 
         private void ProfileSettingCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            SaveProfileCustomizationSettings();
+            Logger.Info($"Profile customization settings updated");
+        }
+
+        private void ProfileSettingsCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             SaveProfileCustomizationSettings();
             Logger.Info($"Profile customization settings updated");
@@ -4156,6 +4336,7 @@ namespace XboxGamingBar
             AddTileDefinition("Profile", "Profile", "\uE77B");
             AddTileDefinition("Overlay", "Overlay", "\uE7B3");
             AddTileDefinition("FPSLimit", "FPS Limit", "\uE916");
+            AddTileDefinition("AutoTDP", "AutoTDP", "\uE9F5");
             AddTileDefinition("Resolution", "Resolution", "\uE7F8");
             AddTileDefinition("HDR", "HDR", "\uE706");
             AddTileDefinition("LosslessScaling", "Lossless", "\uE740");
@@ -4600,6 +4781,17 @@ namespace XboxGamingBar
                     }
                 }
 
+                // AutoTDP tile
+                if (qsTileMap.TryGetValue("AutoTDP", out var autoTdpTile) && autoTdpTile.TileButton != null)
+                {
+                    bool enabled = AutoTDPToggle?.IsOn ?? false;
+                    int targetFps = (int)(AutoTDPTargetFPSSlider?.Value ?? 60);
+                    string stateText = enabled ? $"{targetFps} FPS" : "Off";
+                    autoTdpTile.StateText.Text = stateText;
+                    autoTdpTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                    autoTdpTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
                 // Profile tile
                 if (qsTileMap.TryGetValue("Profile", out var profileTile) && profileTile.TileButton != null)
                 {
@@ -4811,6 +5003,9 @@ namespace XboxGamingBar
                             case "TDPMode":
                                 CycleTDPMode();
                                 break;
+                            case "AutoTDP":
+                                ToggleAutoTDPTile();
+                                break;
                             case "Profile":
                                 TogglePerGameProfile();
                                 break;
@@ -4892,6 +5087,15 @@ namespace XboxGamingBar
                 }
 
                 Logger.Info($"TDP Mode cycled from {currentMode} to {nextMode}");
+            }
+        }
+
+        private void ToggleAutoTDPTile()
+        {
+            if (AutoTDPToggle != null)
+            {
+                AutoTDPToggle.IsOn = !AutoTDPToggle.IsOn;
+                Logger.Info($"AutoTDP tile toggled to: {AutoTDPToggle.IsOn}");
             }
         }
 
@@ -5178,6 +5382,12 @@ namespace XboxGamingBar
                 fpsLimit.SetValue(0);
                 Logger.Info("FPS Limit disabled");
             }
+
+            // Save to profile if FPS Limit saving is enabled
+            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
+            {
+                SaveCurrentSettingsToProfile(currentProfileName);
+            }
         }
 
         /// <summary>
@@ -5217,6 +5427,12 @@ namespace XboxGamingBar
             {
                 fpsLimit.SetValue(fpsLimitPendingValue);
                 Logger.Info($"FPS Limit changed (debounced): {fpsLimitPendingValue}");
+
+                // Save to profile if FPS Limit saving is enabled
+                if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
+                {
+                    SaveCurrentSettingsToProfile(currentProfileName);
+                }
             }
         }
 
