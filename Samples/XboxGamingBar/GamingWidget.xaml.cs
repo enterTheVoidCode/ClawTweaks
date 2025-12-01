@@ -2247,6 +2247,14 @@ namespace XboxGamingBar
                 {
                     AutoTDPToggle.IsOn = profile.AutoTDPEnabled;
                     AutoTDPTargetFPSSlider.Value = profile.AutoTDPTargetFPS;
+                    // Update text display explicitly
+                    if (AutoTDPTargetFPSValue != null)
+                    {
+                        AutoTDPTargetFPSValue.Text = $"{profile.AutoTDPTargetFPS} FPS";
+                    }
+                    // Send to helper explicitly (toggle/slider handlers may be blocked by flags)
+                    autoTDPEnabled?.SetValue(profile.AutoTDPEnabled);
+                    autoTDPTargetFPS?.SetValue(profile.AutoTDPTargetFPS);
                 }
             }
             finally
