@@ -1396,6 +1396,115 @@
                             </Grid>
                         </Border>
 
+                        <!-- Device TDP Limits Card (Collapsible) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with Expand/Collapse -->
+                                <Button x:Name="TDPLimitsExpandButton"
+                                        Click="TDPLimitsExpandButton_Click"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="0"
+                                        UseSystemFocusVisuals="True"
+                                        FocusVisualPrimaryBrush="White">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Device TDP Limits" Style="{StaticResource CardTitleStyle}"/>
+                                            <TextBlock Text="Configure minimum and maximum TDP for your device"
+                                                       Style="{StaticResource CardCaptionStyle}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="TDPLimitsExpandIcon"
+                                                   Text="&#xE70D;"
+                                                   FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"
+                                                   Grid.Column="1"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Button>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="TDPLimitsContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <!-- Warning -->
+                                    <Border Background="#3D2A1A" CornerRadius="4" Padding="10" Margin="0,0,0,12">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="&#xE7BA;"
+                                                       Grid.Column="0"
+                                                       FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="16"
+                                                       Foreground="#FFA500"
+                                                       VerticalAlignment="Top"
+                                                       Margin="0,2,8,0"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="Increasing TDP beyond your device's thermal limits may cause overheating, throttling, or hardware damage. Only adjust if you understand your device's capabilities."
+                                                       Foreground="#FFB74D"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Minimum TDP -->
+                                    <Grid Margin="0,0,0,8">
+                                        <TextBlock Text="Minimum TDP"
+                                                   FontSize="14"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="TDPLimitsMinValue"
+                                                   Text="4W"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="TDPLimitsMinSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="4" Maximum="85"
+                                            TickFrequency="1"
+                                            SnapsTo="Ticks"
+                                            Value="4"
+                                            ValueChanged="TDPLimitsMinSlider_ValueChanged"
+                                            UseSystemFocusVisuals="True"
+                                            FocusVisualPrimaryBrush="White"
+                                            FocusVisualSecondaryBrush="Transparent"/>
+
+                                    <!-- Maximum TDP -->
+                                    <Grid Margin="0,12,0,8">
+                                        <TextBlock Text="Maximum TDP"
+                                                   FontSize="14"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="TDPLimitsMaxValue"
+                                                   Text="35W"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="TDPLimitsMaxSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="4" Maximum="85"
+                                            TickFrequency="1"
+                                            SnapsTo="Ticks"
+                                            Value="35"
+                                            ValueChanged="TDPLimitsMaxSlider_ValueChanged"
+                                            UseSystemFocusVisuals="True"
+                                            FocusVisualPrimaryBrush="White"
+                                            FocusVisualSecondaryBrush="Transparent"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <!-- OSD Customization Card (Collapsible) -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>

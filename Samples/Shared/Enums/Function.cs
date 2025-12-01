@@ -92,5 +92,8 @@
 
         // FPS Limiter (RTSS)
         FPSLimit,                   // int - FPS limit (0 = unlimited)
+
+        // Device TDP Limits
+        TDPLimits,                  // string - "min,max" format (e.g., "4,35")
     }
 }

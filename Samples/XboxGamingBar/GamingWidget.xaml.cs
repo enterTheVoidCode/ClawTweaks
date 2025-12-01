@@ -206,6 +206,7 @@ namespace XboxGamingBar
         private readonly AutoTDPEnabledProperty autoTDPEnabled;
         private readonly AutoTDPTargetFPSProperty autoTDPTargetFPS;
         private readonly AutoTDPCurrentFPSProperty autoTDPCurrentFPS;
+        private readonly TDPLimitsProperty tdpLimits;
 
         // FPS Limit (RTSS)
         private readonly FPSLimitProperty fpsLimit;
@@ -295,6 +296,8 @@ namespace XboxGamingBar
             isLoadingOSDConfig = true;
             // Prevent profile settings checkbox events from saving during XAML initialization
             isLoadingProfileSettings = true;
+            // Prevent TDP limits slider events from saving during XAML initialization
+            isLoadingTDPLimits = true;
 
             InitializeComponent();
 
@@ -391,6 +394,7 @@ namespace XboxGamingBar
             autoTDPEnabled = new AutoTDPEnabledProperty(false);
             autoTDPTargetFPS = new AutoTDPTargetFPSProperty(60);
             autoTDPCurrentFPS = new AutoTDPCurrentFPSProperty(0);
+            tdpLimits = new TDPLimitsProperty("4,35");
 
             // FPS Limit property
             fpsLimit = new FPSLimitProperty();
@@ -816,6 +820,9 @@ namespace XboxGamingBar
             // Update profile display
             UpdateProfileDisplay();
             UpdateGameProfileCardVisibility();
+
+            // Load Device TDP limits (must be before AutoTDP settings)
+            LoadTDPLimitsFromStorage();
 
             // Load AutoTDP settings and subscribe to current FPS updates
             LoadAutoTDPSettings();
@@ -1495,6 +1502,12 @@ namespace XboxGamingBar
         private string osdTextColor = "DYNAMIC";  // DYNAMIC = value-based colors, or hex color code
         private bool isOSDCustomizeExpanded = false;
         private bool isProfileSettingsExpanded = false;
+        private bool isTDPLimitsExpanded = false;
+        private bool isLoadingTDPLimits = false;
+        private int deviceTDPMin = 4;
+        private int deviceTDPMax = 35;
+        private DispatcherTimer tdpLimitsDebounceTimer;
+        private const int TDP_LIMITS_DEBOUNCE_MS = 300;
 
         private bool isLoadingOSDConfig = false;
 
@@ -1780,6 +1793,202 @@ namespace XboxGamingBar
             {
                 // E70D = ChevronDown, E70E = ChevronUp
                 ProfileSettingsExpandIcon.Text = isProfileSettingsExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void TDPLimitsExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isTDPLimitsExpanded = !isTDPLimitsExpanded;
+
+            if (TDPLimitsContent != null)
+            {
+                TDPLimitsContent.Visibility = isTDPLimitsExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (TDPLimitsExpandIcon != null)
+            {
+                TDPLimitsExpandIcon.Text = isTDPLimitsExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void TDPLimitsMinSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (isLoadingTDPLimits) return;
+            if (TDPLimitsMinSlider == null || TDPLimitsMaxSlider == null) return;
+
+            int minValue = (int)Math.Round(e.NewValue);
+
+            // Ensure min doesn't exceed max
+            if (minValue > TDPLimitsMaxSlider.Value)
+            {
+                TDPLimitsMinSlider.Value = TDPLimitsMaxSlider.Value;
+                return;
+            }
+
+            deviceTDPMin = minValue;
+
+            if (TDPLimitsMinValue != null)
+            {
+                TDPLimitsMinValue.Text = $"{minValue}W";
+            }
+
+            // Update TDP slider bounds immediately (for UI responsiveness)
+            UpdateTDPSliderBounds();
+
+            // Debounce save and send to helper
+            StartTDPLimitsDebounce();
+        }
+
+        private void TDPLimitsMaxSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (isLoadingTDPLimits) return;
+            if (TDPLimitsMinSlider == null || TDPLimitsMaxSlider == null) return;
+
+            int maxValue = (int)Math.Round(e.NewValue);
+
+            // Ensure max doesn't go below min
+            if (maxValue < TDPLimitsMinSlider.Value)
+            {
+                TDPLimitsMaxSlider.Value = TDPLimitsMinSlider.Value;
+                return;
+            }
+
+            deviceTDPMax = maxValue;
+
+            if (TDPLimitsMaxValue != null)
+            {
+                TDPLimitsMaxValue.Text = $"{maxValue}W";
+            }
+
+            // Update TDP slider bounds immediately (for UI responsiveness)
+            UpdateTDPSliderBounds();
+
+            // Debounce save and send to helper
+            StartTDPLimitsDebounce();
+        }
+
+        private void StartTDPLimitsDebounce()
+        {
+            // Initialize debounce timer if needed
+            if (tdpLimitsDebounceTimer == null)
+            {
+                tdpLimitsDebounceTimer = new DispatcherTimer();
+                tdpLimitsDebounceTimer.Interval = TimeSpan.FromMilliseconds(TDP_LIMITS_DEBOUNCE_MS);
+                tdpLimitsDebounceTimer.Tick += TDPLimitsDebounceTimer_Tick;
+            }
+
+            // Restart the debounce timer
+            tdpLimitsDebounceTimer.Stop();
+            tdpLimitsDebounceTimer.Start();
+        }
+
+        private void TDPLimitsDebounceTimer_Tick(object sender, object e)
+        {
+            tdpLimitsDebounceTimer?.Stop();
+
+            // Save and send to helper after debounce
+            SaveTDPLimitsToStorage();
+            SendTDPLimitsToHelper();
+        }
+
+        private void UpdateTDPSliderBounds()
+        {
+            // Update Performance tab TDP slider
+            if (TDPSlider != null)
+            {
+                TDPSlider.Minimum = deviceTDPMin;
+                TDPSlider.Maximum = deviceTDPMax;
+
+                // Clamp current value if out of bounds
+                if (TDPSlider.Value < deviceTDPMin)
+                    TDPSlider.Value = deviceTDPMin;
+                else if (TDPSlider.Value > deviceTDPMax)
+                    TDPSlider.Value = deviceTDPMax;
+            }
+        }
+
+        private void ApplyTDPLimits()
+        {
+            // Update TDP slider bounds
+            UpdateTDPSliderBounds();
+
+            // Send limits to helper for AutoTDP
+            SendTDPLimitsToHelper();
+        }
+
+        private void SendTDPLimitsToHelper()
+        {
+            try
+            {
+                string limitsString = $"{deviceTDPMin},{deviceTDPMax}";
+                tdpLimits?.SetValue(limitsString);
+                Logger.Info($"Sent TDP limits to helper: Min={deviceTDPMin}W, Max={deviceTDPMax}W");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to send TDP limits to helper: {ex.Message}");
+            }
+        }
+
+        private void SaveTDPLimitsToStorage()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                settings.Values["DeviceTDPMin"] = deviceTDPMin;
+                settings.Values["DeviceTDPMax"] = deviceTDPMax;
+                Logger.Info($"Saved TDP limits: Min={deviceTDPMin}W, Max={deviceTDPMax}W");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to save TDP limits: {ex.Message}");
+            }
+        }
+
+        private void LoadTDPLimitsFromStorage()
+        {
+            isLoadingTDPLimits = true;
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                if (settings.Values.TryGetValue("DeviceTDPMin", out object minObj) && minObj is int min)
+                {
+                    deviceTDPMin = min;
+                }
+
+                if (settings.Values.TryGetValue("DeviceTDPMax", out object maxObj) && maxObj is int max)
+                {
+                    deviceTDPMax = max;
+                }
+
+                // Update UI
+                if (TDPLimitsMinSlider != null)
+                {
+                    TDPLimitsMinSlider.Value = deviceTDPMin;
+                    if (TDPLimitsMinValue != null)
+                        TDPLimitsMinValue.Text = $"{deviceTDPMin}W";
+                }
+
+                if (TDPLimitsMaxSlider != null)
+                {
+                    TDPLimitsMaxSlider.Value = deviceTDPMax;
+                    if (TDPLimitsMaxValue != null)
+                        TDPLimitsMaxValue.Text = $"{deviceTDPMax}W";
+                }
+
+                // Apply to TDP slider
+                ApplyTDPLimits();
+
+                Logger.Info($"Loaded TDP limits: Min={deviceTDPMin}W, Max={deviceTDPMax}W");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to load TDP limits: {ex.Message}");
+            }
+            finally
+            {
+                isLoadingTDPLimits = false;
             }
         }
 
