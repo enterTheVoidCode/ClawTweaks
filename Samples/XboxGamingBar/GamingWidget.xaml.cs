@@ -829,6 +829,9 @@ namespace XboxGamingBar
             if (autoTDPCurrentFPS != null)
                 autoTDPCurrentFPS.PropertyChanged += AutoTDPCurrentFPS_PropertyChanged;
 
+            // Subscribe to property changes that affect Quick Settings tiles
+            SubscribeToQuickSettingsPropertyChanges();
+
             // Load OSD customization settings
             LoadOSDConfigFromStorage();
             LoadOSDOptionsForLevel(1); // Load Basic level options by default
@@ -849,6 +852,53 @@ namespace XboxGamingBar
                     int fps = autoTDPCurrentFPS.Value;
                     AutoTDPCurrentFPSValue.Text = fps > 0 ? $"{fps} FPS" : "-- FPS";
                 }
+            });
+        }
+
+        private void SubscribeToQuickSettingsPropertyChanges()
+        {
+            // Subscribe to properties that affect Quick Settings tile states
+            if (legionPerformanceMode != null)
+                legionPerformanceMode.PropertyChanged += QuickSettingsProperty_Changed;
+            if (tdp != null)
+                tdp.PropertyChanged += QuickSettingsProperty_Changed;
+            if (osd != null)
+                osd.PropertyChanged += QuickSettingsProperty_Changed;
+            if (perGameProfile != null)
+                perGameProfile.PropertyChanged += QuickSettingsProperty_Changed;
+            if (runningGame != null)
+                runningGame.PropertyChanged += QuickSettingsProperty_Changed;
+            if (fpsLimit != null)
+                fpsLimit.PropertyChanged += QuickSettingsProperty_Changed;
+            if (resolution != null)
+                resolution.PropertyChanged += QuickSettingsProperty_Changed;
+            if (hdrEnabled != null)
+                hdrEnabled.PropertyChanged += QuickSettingsProperty_Changed;
+            if (hdrSupported != null)
+                hdrSupported.PropertyChanged += QuickSettingsProperty_Changed;
+            if (losslessScalingEnabled != null)
+                losslessScalingEnabled.PropertyChanged += QuickSettingsProperty_Changed;
+            if (amdFluidMotionFrameEnabled != null)
+                amdFluidMotionFrameEnabled.PropertyChanged += QuickSettingsProperty_Changed;
+            if (amdRadeonSuperResolutionEnabled != null)
+                amdRadeonSuperResolutionEnabled.PropertyChanged += QuickSettingsProperty_Changed;
+            if (amdRadeonAntiLagEnabled != null)
+                amdRadeonAntiLagEnabled.PropertyChanged += QuickSettingsProperty_Changed;
+            if (amdRadeonChillEnabled != null)
+                amdRadeonChillEnabled.PropertyChanged += QuickSettingsProperty_Changed;
+            if (amdRadeonBoostEnabled != null)
+                amdRadeonBoostEnabled.PropertyChanged += QuickSettingsProperty_Changed;
+            if (autoTDPEnabled != null)
+                autoTDPEnabled.PropertyChanged += QuickSettingsProperty_Changed;
+
+            Logger.Info("Subscribed to Quick Settings property changes");
+        }
+
+        private void QuickSettingsProperty_Changed(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                UpdateQuickSettingsTileStates();
             });
         }
 
@@ -2423,6 +2473,12 @@ namespace XboxGamingBar
                 if (SaveTDP)
                 {
                     TDPSlider.Value = profile.TDP;
+                    // Update Sticky TDP target when loading profile
+                    if (StickyTDPToggle?.IsOn == true)
+                    {
+                        targetTDPLimit = profile.TDP;
+                        Logger.Info($"Sticky TDP target updated to: {targetTDPLimit}W (profile load)");
+                    }
                 }
                 if (SaveCPUBoost)
                 {
