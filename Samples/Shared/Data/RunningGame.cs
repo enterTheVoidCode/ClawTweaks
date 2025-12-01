@@ -42,7 +42,7 @@
             if (ReferenceEquals(g1, null) || ReferenceEquals(g2, null))
                 return false;
 
-            return g1.GameId == g2.GameId;
+            return g1.GameId == g2.GameId && g1.IsForeground == g2.IsForeground;
         }
 
         public static bool operator !=(RunningGame g1, RunningGame g2)
@@ -61,7 +61,7 @@
 
         public override int GetHashCode()
         {
-            return GameId.GetHashCode();
+            return GameId.GetHashCode() ^ IsForeground.GetHashCode();
         }
 
         // Export to xml string.

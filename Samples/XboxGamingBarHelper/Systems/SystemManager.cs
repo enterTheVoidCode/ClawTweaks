@@ -276,15 +276,28 @@ namespace XboxGamingBarHelper.Systems
             base.Update();
 
             var currentRunningGame = GetRunningGame();
-            if (RunningGame != currentRunningGame)
+            var previousRunningGame = RunningGame.Value;
+
+            // RunningGame equality now compares both GameId and IsForeground
+            if (previousRunningGame != currentRunningGame)
             {
-                if (currentRunningGame.GameId.IsValid())
+                bool gameChanged = previousRunningGame.GameId != currentRunningGame.GameId;
+                bool foregroundChanged = previousRunningGame.IsForeground != currentRunningGame.IsForeground;
+
+                if (gameChanged)
                 {
-                    Logger.Info($"Detect new running game {currentRunningGame.GameId.Name}.");
+                    if (currentRunningGame.GameId.IsValid())
+                    {
+                        Logger.Info($"Detect new running game {currentRunningGame.GameId.Name}.");
+                    }
+                    else
+                    {
+                        Logger.Info($"Running game {previousRunningGame.GameId.Name} stopped.");
+                    }
                 }
-                else
+                else if (foregroundChanged)
                 {
-                    Logger.Info($"Running game {RunningGame.Value.GameId.Name} stopped.");
+                    Logger.Info($"Game {currentRunningGame.GameId.Name} foreground status changed to {currentRunningGame.IsForeground}.");
                 }
                 RunningGame.SetValue(currentRunningGame);
             }

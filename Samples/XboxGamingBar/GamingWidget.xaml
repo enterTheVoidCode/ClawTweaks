@@ -1237,8 +1237,7 @@
                                                   UseSystemFocusVisuals="True"
                                                   FocusVisualPrimaryBrush="White"
                                                   FocusVisualSecondaryBrush="Transparent"
-                                                  XYFocusUp="{x:Bind StickyTDPToggle}"
-                                                  XYFocusDown="{x:Bind UseManufacturerWMIToggle}"/>
+                                                  XYFocusUp="{x:Bind StickyTDPToggle}"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=AutoTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid Margin="0,12,0,0">
@@ -1260,7 +1259,9 @@
                                             ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"
                                             UseSystemFocusVisuals="True"
                                             FocusVisualPrimaryBrush="White"
-                                            FocusVisualSecondaryBrush="Transparent"/>
+                                            FocusVisualSecondaryBrush="Transparent"
+                                            XYFocusUp="{x:Bind AutoTDPToggle}"
+                                            XYFocusDown="{x:Bind UseManufacturerWMIToggle}"/>
                                     <Grid Margin="0,8,0,0">
                                         <TextBlock Text="Current FPS"
                                                    FontSize="14"
