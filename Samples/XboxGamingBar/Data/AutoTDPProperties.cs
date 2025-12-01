@@ -22,4 +22,11 @@ namespace XboxGamingBar.Data
         {
         }
     }
+
+    internal class TDPLimitsProperty : WidgetProperty<string>
+    {
+        public TDPLimitsProperty(string inValue) : base(inValue, null, Function.TDPLimits)
+        {
+        }
+    }
 }
