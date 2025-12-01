@@ -426,6 +426,7 @@
     <Compile Include="Legion\LegionManager.cs" />
     <Compile Include="Legion\LegionProperties.cs" />
     <Compile Include="AutoTDP\AutoTDPManager.cs" />
+    <Compile Include="AutoTDP\TDPLimitsProperty.cs" />
     <Compile Include="Systems\HDREnabledProperty.cs" />
     <Compile Include="Systems\HDRSupportedProperty.cs" />
     <Compile Include="Systems\RefreshRateProperty.cs" />
