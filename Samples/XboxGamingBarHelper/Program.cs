@@ -194,7 +194,8 @@ namespace XboxGamingBarHelper
                 legionManager.LegionGyroEnabled,
                 autoTDPManager.Enabled,
                 autoTDPManager.TargetFPS,
-                autoTDPManager.CurrentFPS);
+                autoTDPManager.CurrentFPS,
+                autoTDPManager.TDPLimits);
 
             Logger.Info("Initialize callbacks.");
             systemManager.RunningGame.PropertyChanged += RunningGame_PropertyChanged;

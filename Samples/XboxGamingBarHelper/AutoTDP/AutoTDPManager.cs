@@ -27,6 +27,9 @@ namespace XboxGamingBarHelper.AutoTDP
         private readonly AutoTDPCurrentFPSProperty currentFPS;
         public AutoTDPCurrentFPSProperty CurrentFPS => currentFPS;
 
+        private readonly TDPLimitsProperty tdpLimits;
+        public TDPLimitsProperty TDPLimits => tdpLimits;
+
         // Controller state
         private double integral = 0;
         private double previousError = 0;
@@ -43,9 +46,9 @@ namespace XboxGamingBarHelper.AutoTDP
         private const double IncreaseMultiplier = 0.5;  // Very conservative increase
         private const double DecreaseMultiplier = 1.0;  // Aggressive decrease to find minimum TDP
 
-        // TDP limits
-        private const int MinTDP = 4;
-        private const int MaxTDP = 35;
+        // TDP limits (configurable from widget)
+        private int minTDP = 4;
+        private int maxTDP = 35;
 
         // Update interval
         private const double MinUpdateIntervalMs = 1000; // Faster updates for quicker response
@@ -97,8 +100,25 @@ namespace XboxGamingBarHelper.AutoTDP
             enabled = new AutoTDPEnabledProperty(false, this);
             targetFPS = new AutoTDPTargetFPSProperty(60, this);
             currentFPS = new AutoTDPCurrentFPSProperty(0, this);
+            tdpLimits = new TDPLimitsProperty(this);
 
             Logger.Info("AutoTDPManager initialized with conservative tuning");
+        }
+
+        public void SetTDPLimits(int min, int max)
+        {
+            if (min < 4) min = 4;
+            if (max > 85) max = 85;
+            if (min > max) min = max;
+
+            minTDP = min;
+            maxTDP = max;
+
+            // Clamp lastAppliedTDP to new limits
+            if (lastAppliedTDP < minTDP) lastAppliedTDP = minTDP;
+            if (lastAppliedTDP > maxTDP) lastAppliedTDP = maxTDP;
+
+            Logger.Info($"AutoTDP limits updated: Min={minTDP}W, Max={maxTDP}W");
         }
 
         public override void Update()
@@ -440,7 +460,7 @@ namespace XboxGamingBarHelper.AutoTDP
             {
                 consecutiveAtTarget++;
                 Logger.Debug($"AutoTDP: At/above target ({smoothedFPS:F1}/{target}), consecutiveAtTarget={consecutiveAtTarget}/{StableAtTargetRequired}");
-                if (consecutiveAtTarget >= StableAtTargetRequired && currentTDP > MinTDP)
+                if (consecutiveAtTarget >= StableAtTargetRequired && currentTDP > minTDP)
                 {
                     // We've been at target for a while, try reducing TDP
                     IsProbing = true;
@@ -553,7 +573,7 @@ namespace XboxGamingBarHelper.AutoTDP
             newTDP = Math.Max(currentTDP - maxDecreaseCycle, Math.Min(currentTDP + maxIncrease, newTDP));
 
             // Clamp to valid range
-            newTDP = Math.Max(MinTDP, Math.Min(MaxTDP, newTDP));
+            newTDP = Math.Max(minTDP, Math.Min(maxTDP, newTDP));
 
             Logger.Debug($"AutoTDP: Err={error:F1}, PredErr={predictedError:F1}, Trend={trend:F2}, P={P:F2}, I={I:F2}, D={D:F2}, Adj={adjustment:F2}, Stable={consecutiveStableReadings}, AtTarget={consecutiveAtTarget}");
 
