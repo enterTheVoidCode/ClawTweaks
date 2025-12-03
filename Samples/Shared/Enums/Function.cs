@@ -95,5 +95,11 @@
 
         // Device TDP Limits
         TDPLimits,                  // string - "min,max" format (e.g., "4,35")
+
+        // CPU Core Configuration
+        CPUCoreConfig,              // string - "pCores,eCores,isHybrid" format (e.g., "3,5,true") - helper to widget (detection)
+        CPUCoreActiveConfig,        // string - "activePCores,activeECores" format (e.g., "2,4") - widget to helper (user selection)
+        CoreParkingPercent,         // int - CPMAXCORES percentage (0-100), 100 = all cores active, 50 = half parked
+        ForceParkMode,              // bool - Force affinity on ALL processes (aggressive mode)
     }
 }

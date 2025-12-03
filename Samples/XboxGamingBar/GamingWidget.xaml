@@ -1713,8 +1713,17 @@
                                                   Checked="OSDOption_Changed"
                                                   Unchecked="OSDOption_Changed"/>
                                         <CheckBox x:Name="OSDShowMemoryCheckBox"
-                                                  Content="Memory"
+                                                  Content="Memory (RAM)"
                                                   IsChecked="True"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowVRAMCheckBox"
+                                                  Content="VRAM (GPU Memory)"
+                                                  IsChecked="False"
                                                   Foreground="#FFFFFF"
                                                   UseSystemFocusVisuals="True"
                                                   FocusVisualPrimaryBrush="White"
@@ -1802,6 +1811,202 @@
                                            FontSize="14"
                                            Foreground="#A0A0A0"
                                            Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Advanced Card (Collapsible) - Core Parking & Affinity -->
+                        <Border x:Name="AdvancedCard" Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with Expand/Collapse -->
+                                <Button x:Name="AdvancedExpandButton"
+                                        Click="AdvancedExpandButton_Click"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="0"
+                                        UseSystemFocusVisuals="True"
+                                        FocusVisualPrimaryBrush="White">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Advanced" Style="{StaticResource CardTitleStyle}"/>
+                                            <TextBlock x:Name="AdvancedSummary"
+                                                       Text="Core parking and affinity settings"
+                                                       Style="{StaticResource CardCaptionStyle}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="AdvancedExpandIcon"
+                                                   Text="&#xE70D;"
+                                                   FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"
+                                                   Grid.Column="1"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Button>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="AdvancedContent" Visibility="Collapsed" Margin="0,12,0,0">
+
+                                    <!-- Core Parking Section (for non-hybrid CPUs only) -->
+                                    <StackPanel x:Name="CoreParkingSection">
+                                        <TextBlock Text="Core Parking"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#FFFFFF"
+                                                   Margin="0,0,0,4"/>
+                                        <TextBlock Text="Limit the number of active CPU cores system-wide"
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   Margin="0,0,0,8"/>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Active Cores"
+                                                           FontSize="14"
+                                                           Foreground="#FFFFFF"/>
+                                                <TextBlock x:Name="CoreParkingDescription"
+                                                           Text="All cores active"
+                                                           FontSize="11"
+                                                           Foreground="#888888"/>
+                                            </StackPanel>
+                                            <ComboBox x:Name="CoreParkingComboBox"
+                                                      Grid.Column="1"
+                                                      Width="100"
+                                                      SelectionChanged="CoreParkingComboBox_SelectionChanged"
+                                                      UseSystemFocusVisuals="True"
+                                                      FocusVisualPrimaryBrush="White">
+                                                <!-- Items populated dynamically based on CPU core count -->
+                                            </ComboBox>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <!-- Core Affinity Section (for hybrid CPUs - also sets parking) -->
+                                    <StackPanel x:Name="CoreAffinitySection" Visibility="Collapsed">
+                                        <TextBlock Text="Core Affinity &amp; Parking"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#FFFFFF"
+                                                   Margin="0,0,0,4"/>
+                                        <TextBlock Text="Set game affinity and park unused cores (hybrid CPU)"
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,0,0,8"/>
+
+                                        <!-- P-Core Affinity -->
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Performance Cores"
+                                                           FontSize="14"
+                                                           Foreground="#FFFFFF"/>
+                                                <TextBlock Text="Zen 5 high-performance cores"
+                                                           FontSize="11"
+                                                           Foreground="#888888"/>
+                                            </StackPanel>
+                                            <ComboBox x:Name="PCoreCountComboBox"
+                                                      Grid.Column="1"
+                                                      Width="80"
+                                                      SelectionChanged="PCoreCountComboBox_SelectionChanged"
+                                                      UseSystemFocusVisuals="True"
+                                                      FocusVisualPrimaryBrush="White">
+                                                <ComboBoxItem Content="0" Tag="0"/>
+                                                <ComboBoxItem Content="1" Tag="1"/>
+                                                <ComboBoxItem Content="2" Tag="2"/>
+                                                <ComboBoxItem Content="3" Tag="3" IsSelected="True"/>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- E-Core Affinity -->
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Efficiency Cores"
+                                                           FontSize="14"
+                                                           Foreground="#FFFFFF"/>
+                                                <TextBlock Text="Zen 5c power-efficient cores"
+                                                           FontSize="11"
+                                                           Foreground="#888888"/>
+                                            </StackPanel>
+                                            <ComboBox x:Name="ECoreCountComboBox"
+                                                      Grid.Column="1"
+                                                      Width="80"
+                                                      SelectionChanged="ECoreCountComboBox_SelectionChanged"
+                                                      UseSystemFocusVisuals="True"
+                                                      FocusVisualPrimaryBrush="White">
+                                                <ComboBoxItem Content="0" Tag="0"/>
+                                                <ComboBoxItem Content="1" Tag="1"/>
+                                                <ComboBoxItem Content="2" Tag="2"/>
+                                                <ComboBoxItem Content="3" Tag="3"/>
+                                                <ComboBoxItem Content="4" Tag="4"/>
+                                                <ComboBoxItem Content="5" Tag="5" IsSelected="True"/>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- Info text -->
+                                        <TextBlock Text="Note: Affinity is applied only to the detected running game process."
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0"/>
+                                    </StackPanel>
+
+                                    <!-- Force Park Mode (Aggressive) -->
+                                    <StackPanel Margin="0,16,0,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Force Park Mode"
+                                                           FontSize="14"
+                                                           Foreground="#FFFFFF"/>
+                                                <TextBlock Text="Force system processes to parked cores"
+                                                           FontSize="11"
+                                                           Foreground="#888888"/>
+                                            </StackPanel>
+                                            <ToggleSwitch x:Name="ForceParkModeToggle"
+                                                          Grid.Column="1"
+                                                          Style="{StaticResource ModernToggleStyle}"
+                                                          Toggled="ForceParkModeToggle_Toggled"
+                                                          Width="50"
+                                                          UseSystemFocusVisuals="True"
+                                                          FocusVisualPrimaryBrush="White"/>
+                                        </Grid>
+                                        <Border Background="#442200"
+                                                CornerRadius="4"
+                                                Padding="8"
+                                                Margin="0,8,0,0"
+                                                Visibility="{Binding ElementName=ForceParkModeToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <StackPanel>
+                                                <TextBlock Text="⚠ Warning"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#FFAA00"/>
+                                                <TextBlock Text="This applies affinity to ALL running processes, forcing them onto selected cores. May cause system instability or slowdowns. Disable if you experience issues."
+                                                           FontSize="11"
+                                                           Foreground="#FFCC66"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
