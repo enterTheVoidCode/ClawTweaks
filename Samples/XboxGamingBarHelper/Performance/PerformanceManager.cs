@@ -103,6 +103,11 @@ namespace XboxGamingBarHelper.Performance
 
         public MemoryUsageSensor MemoryUsage { get; }
         public MemoryUsedSensor MemoryUsed { get; }
+        public MemoryAvailableSensor MemoryAvailable { get; }
+
+        public GPUMemoryUsedSensor GPUMemoryUsed { get; }
+        public GPUMemoryFreeSensor GPUMemoryFree { get; }
+        public GPUMemoryClockSensor GPUMemoryClock { get; }
 
         public BatteryLevelSensor BatteryLevel { get; }
         public BatteryRemainingTimeSensor BatteryRemainingTime { get; }
@@ -188,12 +193,17 @@ namespace XboxGamingBarHelper.Performance
             GPUWattage = new GPUWattageSensor();
             MemoryUsage = new MemoryUsageSensor();
             MemoryUsed = new MemoryUsedSensor();
+            MemoryAvailable = new MemoryAvailableSensor();
+            GPUMemoryUsed = new GPUMemoryUsedSensor();
+            GPUMemoryFree = new GPUMemoryFreeSensor();
+            GPUMemoryClock = new GPUMemoryClockSensor();
             BatteryLevel = new BatteryLevelSensor();
             BatteryRemainingTime = new BatteryRemainingTimeSensor();
             BatteryDischargeRate = new BatteryDischargeRateSensor();
             BatteryChargeRate = new BatteryChargeRateSensor();
             NetworkDownload = new NetworkDownloadSensor();
             NetworkUpload = new NetworkUploadSensor();
+
             hardwareSensors = new List<HardwareSensor>()
             {
                 CPUClock,
@@ -206,6 +216,10 @@ namespace XboxGamingBarHelper.Performance
                 GPUWattage,
                 MemoryUsage,
                 MemoryUsed,
+                MemoryAvailable,
+                GPUMemoryUsed,
+                GPUMemoryFree,
+                GPUMemoryClock,
                 BatteryLevel,
                 BatteryRemainingTime,
                 BatteryDischargeRate,

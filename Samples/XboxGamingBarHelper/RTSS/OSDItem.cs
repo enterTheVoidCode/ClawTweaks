@@ -72,7 +72,7 @@ namespace XboxGamingBarHelper.RTSS
                 else
                 {
                     var valueColor = GetValueColor(osdValue);
-                    osdString += $"<C={valueColor}>{osdValue.Prefix}{Math.Floor(osdValue.Value)} {osdValue.Unit}";
+                    osdString += $"<C={valueColor}>{osdValue.Prefix}{osdValue.FormattedValue}{osdValue.Unit}";
                 }
                 if (i < osdValues.Count - 1)
                 {

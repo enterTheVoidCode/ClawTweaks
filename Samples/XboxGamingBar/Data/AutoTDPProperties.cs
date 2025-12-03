@@ -29,4 +29,32 @@ namespace XboxGamingBar.Data
         {
         }
     }
+
+    internal class CPUCoreConfigProperty : WidgetProperty<string>
+    {
+        public CPUCoreConfigProperty(string inValue) : base(inValue, null, Function.CPUCoreConfig)
+        {
+        }
+    }
+
+    internal class CPUCoreActiveConfigProperty : WidgetProperty<string>
+    {
+        public CPUCoreActiveConfigProperty(string inValue) : base(inValue, null, Function.CPUCoreActiveConfig)
+        {
+        }
+    }
+
+    internal class CoreParkingPercentProperty : WidgetProperty<int>
+    {
+        public CoreParkingPercentProperty(int inValue) : base(inValue, null, Function.CoreParkingPercent)
+        {
+        }
+    }
+
+    internal class ForceParkModeProperty : WidgetProperty<bool>
+    {
+        public ForceParkModeProperty(bool inValue) : base(inValue, null, Function.ForceParkMode)
+        {
+        }
+    }
 }
