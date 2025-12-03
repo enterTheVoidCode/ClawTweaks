@@ -26,6 +26,7 @@ namespace XboxGamingBarHelper.RTSS
         private readonly OSDItemAutoTDP osdItemAutoTDP;
         private readonly OSDItemCPU osdItemCPU;
         private readonly OSDItemGPU osdItemGPU;
+        private readonly OSDItemVRAM osdItemVRAM;
 
         private readonly RTSSInstalledProperty rtssInstalled;
         public RTSSInstalledProperty RTSSInstalled
@@ -55,7 +56,7 @@ namespace XboxGamingBarHelper.RTSS
         {
             { 1, new HashSet<string> { "Time", "FPS", "Battery" } },
             { 2, new HashSet<string> { "Time", "FPS", "Battery", "CPU", "GPU", "Fan" } },
-            { 3, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "Memory", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP" } }
+            { 3, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP" } }
         };
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
         {
@@ -89,15 +90,17 @@ namespace XboxGamingBarHelper.RTSS
             osdItemAutoTDP = new OSDItemAutoTDP();
             osdItemCPU = new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature);
             osdItemGPU = new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature);
+            osdItemVRAM = new OSDItemVRAM(performanceManager.GPUMemoryUsed, performanceManager.GPUMemoryFree, performanceManager.GPUMemoryClock);
             osdItems = new OSDItem[]
             {
                 new OSDItemTime(),
                 new OSDItemAppName(),
                 new OSDItemFPS(),
                 new OSDItemBattery(performanceManager.BatteryLevel, performanceManager.BatteryDischargeRate, performanceManager.BatteryChargeRate, performanceManager.BatteryRemainingTime),
-                new OSDItemMemory(performanceManager.MemoryUsage, performanceManager.MemoryUsed),
                 osdItemCPU,
                 osdItemGPU,
+                osdItemVRAM,
+                new OSDItemMemory(performanceManager.MemoryUsage, performanceManager.MemoryUsed, performanceManager.MemoryAvailable),
                 osdItemFan,
                 osdItemAutoTDP,
             };

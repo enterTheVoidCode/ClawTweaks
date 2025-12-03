@@ -382,6 +382,10 @@
     <Compile Include="Performance\Sensors\GPUWattageSensor.cs" />
     <Compile Include="Performance\Sensors\MemoryUsageSensor.cs" />
     <Compile Include="Performance\Sensors\MemoryUsedSensor.cs" />
+    <Compile Include="Performance\Sensors\MemoryAvailableSensor.cs" />
+    <Compile Include="Performance\Sensors\GPUMemoryUsedSensor.cs" />
+    <Compile Include="Performance\Sensors\GPUMemoryFreeSensor.cs" />
+    <Compile Include="Performance\Sensors\GPUMemoryClockSensor.cs" />
     <Compile Include="Performance\Sensors\NetworkDownloadSensor.cs" />
     <Compile Include="Performance\Sensors\NetworkUploadSensor.cs" />
     <Compile Include="Performance\TDPProperty.cs" />
@@ -401,6 +405,11 @@
     <Compile Include="Profile\ProfileManager.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
     <Compile Include="RTSS\OSDItem.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemBattery.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemCPU.cs" />
@@ -411,6 +420,7 @@
     <Compile Include="RTSS\OSDItems\OSDItemTime.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemGPU.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemMemory.cs" />
+    <Compile Include="RTSS\OSDItems\OSDItemVRAM.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemNetwork.cs" />
     <Compile Include="RTSS\OSDItemValue.cs" />
     <Compile Include="OnScreenDisplay\OnScreenDisplayProperty.cs" />
@@ -429,6 +439,10 @@
     <Compile Include="AutoTDP\TDPLimitsProperty.cs" />
     <Compile Include="Systems\HDREnabledProperty.cs" />
     <Compile Include="Systems\HDRSupportedProperty.cs" />
+    <Compile Include="Systems\CPUCoreConfigProperty.cs" />
+    <Compile Include="Systems\CPUCoreActiveConfigProperty.cs" />
+    <Compile Include="Systems\CoreParkingPercentProperty.cs" />
+    <Compile Include="Systems\ForceParkModeProperty.cs" />
     <Compile Include="Systems\RefreshRateProperty.cs" />
     <Compile Include="Systems\RefreshRatesProperty.cs" />
     <Compile Include="Systems\ResolutionProperty.cs" />
@@ -450,6 +464,10 @@
     </None>
     <None Include="App.config" />
     <None Include="app.manifest" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
     <None Include="NLog.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

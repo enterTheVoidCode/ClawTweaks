@@ -1,4 +1,6 @@
-﻿namespace XboxGamingBarHelper.RTSS
+﻿using System;
+
+namespace XboxGamingBarHelper.RTSS
 {
     /// <summary>
     /// Type of value for dynamic color calculation
@@ -19,6 +21,7 @@
         public string Unit { get; }
         public string Prefix { get; }
         public OSDValueType ValueType { get; }
+        public int DecimalPlaces { get; }
 
         public OSDItemValue(float value, string unit)
         {
@@ -26,6 +29,7 @@
             Unit = unit;
             Prefix = string.Empty;
             ValueType = OSDValueType.None;
+            DecimalPlaces = 0;
         }
 
         public OSDItemValue(float value, string unit, string prefix)
@@ -34,6 +38,7 @@
             Unit = unit;
             Prefix = prefix;
             ValueType = OSDValueType.None;
+            DecimalPlaces = 0;
         }
 
         public OSDItemValue(float value, string unit, OSDValueType valueType)
@@ -42,6 +47,7 @@
             Unit = unit;
             Prefix = string.Empty;
             ValueType = valueType;
+            DecimalPlaces = 0;
         }
 
         public OSDItemValue(float value, string unit, string prefix, OSDValueType valueType)
@@ -50,6 +56,20 @@
             Unit = unit;
             Prefix = prefix;
             ValueType = valueType;
+            DecimalPlaces = 0;
         }
+
+        public OSDItemValue(float value, string unit, OSDValueType valueType, int decimalPlaces)
+        {
+            Value = value;
+            Unit = unit;
+            Prefix = string.Empty;
+            ValueType = valueType;
+            DecimalPlaces = decimalPlaces;
+        }
+
+        public string FormattedValue => DecimalPlaces > 0
+            ? Value.ToString($"F{DecimalPlaces}")
+            : Math.Floor(Value).ToString();
     }
 }

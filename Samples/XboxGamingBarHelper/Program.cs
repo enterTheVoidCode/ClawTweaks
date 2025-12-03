@@ -141,6 +141,9 @@ namespace XboxGamingBarHelper
                 systemManager.Resolution,
                 systemManager.HDRSupported,
                 systemManager.HDREnabled,
+                systemManager.CPUCoreConfig,
+                systemManager.CPUCoreActiveConfig,
+                systemManager.CoreParkingPercent,
                 systemManager.TrackedGame,
                 rtssManager.RTSSInstalled,
                 rtssManager.OSDConfig,
@@ -195,7 +198,8 @@ namespace XboxGamingBarHelper
                 autoTDPManager.Enabled,
                 autoTDPManager.TargetFPS,
                 autoTDPManager.CurrentFPS,
-                autoTDPManager.TDPLimits);
+                autoTDPManager.TDPLimits,
+                systemManager.ForceParkMode);
 
             Logger.Info("Initialize callbacks.");
             systemManager.RunningGame.PropertyChanged += RunningGame_PropertyChanged;
@@ -335,6 +339,9 @@ namespace XboxGamingBarHelper
                 {
                     Logger.Info($"Game {systemManager.RunningGame.GameId} doesn't have per-game profile.");
                 }
+
+                // Apply CPU core affinity to the new game
+                systemManager.ApplyAffinityToRunningGame();
             }
             else
             {
