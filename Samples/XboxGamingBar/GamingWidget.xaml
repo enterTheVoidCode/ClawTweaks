@@ -659,6 +659,40 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- OS Power Mode Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="OS Power Mode" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Windows power slider setting"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="OSPowerModeValue"
+                                               Grid.Column="1"
+                                               Text="Balanced"
+                                               FontSize="14"
+                                               Foreground="#4CAF50"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,0,0"/>
+                                </Grid>
+                                <ComboBox x:Name="OSPowerModeComboBox"
+                                          Margin="0,12,0,0"
+                                          HorizontalAlignment="Stretch"
+                                          SelectionChanged="OSPowerModeComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Best Power Efficiency"/>
+                                    <ComboBoxItem Content="Balanced"/>
+                                    <ComboBoxItem Content="Best Performance"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+
                         <!-- CPU Boost Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <Grid>
@@ -711,12 +745,22 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Limit CPU Clock" Style="{StaticResource CardTitleStyle}"/>
                                     </StackPanel>
+                                    <TextBlock x:Name="LimitCPUClockValue"
+                                               Grid.Column="1"
+                                               Text=""
+                                               FontSize="14"
+                                               Foreground="#4CAF50"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,12,0"
+                                               Visibility="{Binding ElementName=LimitCPUClockToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                     <ToggleSwitch x:Name="LimitCPUClockToggle"
-                                                  Grid.Column="1"
+                                                  Grid.Column="2"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   IsEnabled="False" Width="52"/>
                                 </Grid>
@@ -739,6 +783,7 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="FPS Limit" Style="{StaticResource CardTitleStyle}"/>
@@ -747,8 +792,17 @@
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    Visibility="Collapsed"/>
                                     </StackPanel>
+                                    <TextBlock x:Name="FPSLimitValue"
+                                               Grid.Column="1"
+                                               Text=""
+                                               FontSize="14"
+                                               Foreground="#4CAF50"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,12,0"
+                                               Visibility="{Binding ElementName=FPSLimitToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                     <ToggleSwitch x:Name="FPSLimitToggle"
-                                                  Grid.Column="1"
+                                                  Grid.Column="2"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   IsEnabled="False" Width="52"/>
                                 </Grid>
@@ -885,6 +939,14 @@
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveOSPowerModeCheckBox"
+                                              Content="OS Power Mode"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -925,6 +987,7 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -945,11 +1008,15 @@
 
                                     <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GlobalProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GlobalProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                    <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GlobalProfilePowerModeLabel" Text="Power Mode" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GlobalProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
                                 </Grid>
 
                                 <!-- AC/DC Mode (Power Source Toggle ON) -->
                                 <Grid x:Name="GlobalProfileACDC" Margin="0,8,0,0" Visibility="Collapsed">
                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
@@ -992,6 +1059,11 @@
                                     <TextBlock Grid.Row="5" Grid.Column="0" x:Name="ACDCProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="5" Grid.Column="1" x:Name="ACProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="5" Grid.Column="2" x:Name="DCProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                    <!-- Power Mode Row -->
+                                    <TextBlock Grid.Row="6" Grid.Column="0" x:Name="ACDCProfilePowerModeLabel" Text="Power" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="1" x:Name="ACProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="2" x:Name="DCProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -1008,6 +1080,7 @@
                                                FontSize="14"/>
                                     <Grid Margin="0,8,0,0">
                                         <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
@@ -1050,6 +1123,11 @@
                                         <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GameACDCProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GameACProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="5" Grid.Column="2" x:Name="GameDCProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                        <!-- Power Mode Row -->
+                                        <TextBlock Grid.Row="6" Grid.Column="0" x:Name="GameACDCProfilePowerModeLabel" Text="Power" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="1" x:Name="GameACProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="2" x:Name="GameDCProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
                                     </Grid>
                                 </StackPanel>
 
@@ -1062,6 +1140,7 @@
                                                FontSize="14"/>
                                     <Grid Margin="0,8,0,0">
                                         <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
@@ -1087,6 +1166,9 @@
 
                                         <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GameProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GameProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                        <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GameProfilePowerModeLabel" Text="Power Mode" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GameProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>

@@ -40,6 +40,12 @@ namespace XboxGamingBarHelper.Power
             get { return cpuClockMax; }
         }
 
+        private readonly OSPowerModeProperty osPowerMode;
+        public OSPowerModeProperty OSPowerMode
+        {
+            get { return osPowerMode; }
+        }
+
         // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
         //private readonly LimitGPUClockProperty limitGPUClock;
         //public LimitGPUClockProperty LimitGPUClock
@@ -70,6 +76,11 @@ namespace XboxGamingBarHelper.Power
             Logger.Info($"Initial CPU clock limit {initialCPUClockMax}Mhz.");
             limitCPUClock = new LimitCPUClockProperty(initialCPUClockMax != 0, this);
             cpuClockMax = new CPUClockMaxProperty(initialCPUClockMax != 0 ? (int)initialCPUClockMax : CPUConstants.DEFAULT_CPU_CLOCK, this);
+
+            // OS Power Mode
+            var initialPowerMode = GetOSPowerMode();
+            Logger.Info($"Initial OS Power Mode: {initialPowerMode} (0=Efficiency, 1=Balanced, 2=Performance)");
+            osPowerMode = new OSPowerModeProperty(initialPowerMode >= 0 ? initialPowerMode : 1, this);
 
             // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
             //// Initialize GPU Clock properties
@@ -226,5 +237,96 @@ namespace XboxGamingBarHelper.Power
             Logger.Info($"Set CPU Clock limit {(isAC ? "AC" : "DC")} {(isSecondary ? "secondary" : "primary")} to {mhzValue}MHz");
             PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
         }
+
+        #region OS Power Mode (Windows 11 Power Slider)
+
+        // Power mode overlay GUIDs
+        private static readonly Guid GUID_POWER_SAVER = new Guid("961cc777-2547-4f9d-8174-7d86181b8a7a");
+        private static readonly Guid GUID_BALANCED = Guid.Empty; // 00000000-0000-0000-0000-000000000000
+        private static readonly Guid GUID_HIGH_PERFORMANCE = new Guid("ded574b5-45a0-4f42-8737-46345c09c238");
+
+        /// <summary>
+        /// Gets the current OS power mode.
+        /// </summary>
+        /// <returns>0 = Best Power Efficiency, 1 = Balanced, 2 = Best Performance, -1 = Unknown/Error</returns>
+        public static int GetOSPowerMode()
+        {
+            try
+            {
+                uint status = PowrProf.PowerGetEffectiveOverlayScheme(out Guid overlayGuid);
+                if (status != 0)
+                {
+                    Logger.Warn($"PowerGetEffectiveOverlayScheme failed with status {status}");
+                    return -1;
+                }
+
+                if (overlayGuid == GUID_POWER_SAVER)
+                    return 0; // Best Power Efficiency
+                else if (overlayGuid == GUID_BALANCED || overlayGuid == Guid.Empty)
+                    return 1; // Balanced
+                else if (overlayGuid == GUID_HIGH_PERFORMANCE)
+                    return 2; // Best Performance
+                else
+                {
+                    Logger.Info($"Unknown power overlay GUID: {overlayGuid}");
+                    return 1; // Default to Balanced for unknown
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error getting OS power mode: {ex.Message}");
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// Sets the OS power mode.
+        /// </summary>
+        /// <param name="mode">0 = Best Power Efficiency, 1 = Balanced, 2 = Best Performance</param>
+        /// <returns>True if successful</returns>
+        public static bool SetOSPowerMode(int mode)
+        {
+            try
+            {
+                Guid targetGuid;
+                string modeName;
+
+                switch (mode)
+                {
+                    case 0:
+                        targetGuid = GUID_POWER_SAVER;
+                        modeName = "Best Power Efficiency";
+                        break;
+                    case 1:
+                        targetGuid = GUID_BALANCED;
+                        modeName = "Balanced";
+                        break;
+                    case 2:
+                        targetGuid = GUID_HIGH_PERFORMANCE;
+                        modeName = "Best Performance";
+                        break;
+                    default:
+                        Logger.Warn($"Invalid power mode: {mode}");
+                        return false;
+                }
+
+                uint status = PowrProf.PowerSetActiveOverlayScheme(targetGuid);
+                if (status != 0)
+                {
+                    Logger.Error($"PowerSetActiveOverlayScheme failed with status {status}");
+                    return false;
+                }
+
+                Logger.Info($"Set OS Power Mode to {modeName} ({targetGuid})");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting OS power mode: {ex.Message}");
+                return false;
+            }
+        }
+
+        #endregion
     }
 }

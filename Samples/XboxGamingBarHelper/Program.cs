@@ -131,6 +131,7 @@ namespace XboxGamingBarHelper
                 powerManager.CPUEPP,
                 powerManager.LimitCPUClock,
                 powerManager.CPUClockMax,
+                powerManager.OSPowerMode,
                 // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
                 //powerManager.LimitGPUClock,
                 //powerManager.GPUClockMin,
