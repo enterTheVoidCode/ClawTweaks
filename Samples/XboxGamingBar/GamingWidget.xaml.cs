@@ -57,6 +57,8 @@ namespace XboxGamingBar
         // AutoTDP settings
         public bool AutoTDPEnabled { get; set; } = false;
         public int AutoTDPTargetFPS { get; set; } = 60;
+        // OS Power Mode (0=Best Power Efficiency, 1=Balanced, 2=Best Performance)
+        public int OSPowerMode { get; set; } = 1;
 
         public PerformanceProfile Clone()
         {
@@ -77,7 +79,8 @@ namespace XboxGamingBar
                 FPSLimitEnabled = this.FPSLimitEnabled,
                 FPSLimitValue = this.FPSLimitValue,
                 AutoTDPEnabled = this.AutoTDPEnabled,
-                AutoTDPTargetFPS = this.AutoTDPTargetFPS
+                AutoTDPTargetFPS = this.AutoTDPTargetFPS,
+                OSPowerMode = this.OSPowerMode
             };
         }
     }
@@ -212,6 +215,10 @@ namespace XboxGamingBar
         private readonly CoreParkingPercentProperty coreParkingPercent;
         private readonly ForceParkModeProperty forceParkMode;
 
+        // OS Power Mode
+        private readonly OSPowerModeProperty osPowerMode;
+        private bool isLoadingOSPowerMode = false;
+
         // FPS Limit (RTSS)
         private readonly FPSLimitProperty fpsLimit;
         private DispatcherTimer fpsLimitDebounceTimer;
@@ -263,6 +270,7 @@ namespace XboxGamingBar
         private bool SaveAMDFeatures => ProfileSaveAMDFeaturesCheckBox?.IsChecked ?? false;
         private bool SaveFPSLimit => ProfileSaveFPSLimitCheckBox?.IsChecked ?? false;
         private bool SaveAutoTDP => ProfileSaveAutoTDPCheckBox?.IsChecked ?? false;
+        private bool SaveOSPowerMode => ProfileSaveOSPowerModeCheckBox?.IsChecked ?? false;
 
         private bool isLoadingProfileSettings = false;
 
@@ -404,6 +412,9 @@ namespace XboxGamingBar
             coreParkingPercent = new CoreParkingPercentProperty(100); // 100% = all cores active
             forceParkMode = new ForceParkModeProperty(false);
 
+            // OS Power Mode property
+            osPowerMode = new OSPowerModeProperty();
+
             // FPS Limit property
             fpsLimit = new FPSLimitProperty();
 
@@ -493,6 +504,7 @@ namespace XboxGamingBar
                 autoTDPTargetFPS,
                 autoTDPCurrentFPS,
                 fpsLimit,
+                osPowerMode,
                 tdpLimits,
                 cpuCoreConfig,
                 cpuCoreActiveConfig,
@@ -883,6 +895,8 @@ namespace XboxGamingBar
                 runningGame.PropertyChanged += QuickSettingsProperty_Changed;
             if (fpsLimit != null)
                 fpsLimit.PropertyChanged += QuickSettingsProperty_Changed;
+            if (osPowerMode != null)
+                osPowerMode.PropertyChanged += OSPowerMode_PropertyChanged;
             if (resolution != null)
                 resolution.PropertyChanged += QuickSettingsProperty_Changed;
             if (hdrEnabled != null)
@@ -1161,6 +1175,12 @@ namespace XboxGamingBar
             {
                 targetTDPLimit = TDPSlider.Value;
                 Logger.Info($"Sticky TDP target updated to: {targetTDPLimit}W (user change)");
+            }
+
+            // Update Limit CPU Clock display text
+            if ((sender == CPUClockMaxSlider || sender == LimitCPUClockToggle) && LimitCPUClockValue != null)
+            {
+                LimitCPUClockValue.Text = $"{(int)CPUClockMaxSlider.Value} MHz";
             }
 
             // Don't save during profile loading, switching, or when helper is updating values
@@ -2957,6 +2977,10 @@ namespace XboxGamingBar
                 profile.AutoTDPEnabled = AutoTDPToggle.IsOn;
                 profile.AutoTDPTargetFPS = (int)AutoTDPTargetFPSSlider.Value;
             }
+            if (SaveOSPowerMode)
+            {
+                profile.OSPowerMode = OSPowerModeComboBox.SelectedIndex;
+            }
 
             // Persist to storage
             SaveProfileToStorage(profileName, profile);
@@ -3012,6 +3036,9 @@ namespace XboxGamingBar
                 {
                     FPSLimitToggle.IsOn = profile.FPSLimitEnabled;
                     FPSLimitSlider.Value = profile.FPSLimitValue;
+                    // Send to helper explicitly (toggle/slider handlers may be blocked by flags)
+                    int fpsLimitValue = profile.FPSLimitEnabled ? profile.FPSLimitValue : 0;
+                    fpsLimit?.SetValue(fpsLimitValue);
                 }
                 if (SaveAutoTDP)
                 {
@@ -3025,6 +3052,24 @@ namespace XboxGamingBar
                     // Send to helper explicitly (toggle/slider handlers may be blocked by flags)
                     autoTDPEnabled?.SetValue(profile.AutoTDPEnabled);
                     autoTDPTargetFPS?.SetValue(profile.AutoTDPTargetFPS);
+                }
+                if (SaveOSPowerMode)
+                {
+                    isLoadingOSPowerMode = true;
+                    try
+                    {
+                        OSPowerModeComboBox.SelectedIndex = profile.OSPowerMode;
+                        if (profile.OSPowerMode >= 0 && profile.OSPowerMode < OSPowerModeNames.Length)
+                        {
+                            OSPowerModeValue.Text = OSPowerModeNames[profile.OSPowerMode];
+                        }
+                        // Send to helper explicitly
+                        osPowerMode?.SetValue(profile.OSPowerMode);
+                    }
+                    finally
+                    {
+                        isLoadingOSPowerMode = false;
+                    }
                 }
             }
             finally
@@ -3090,6 +3135,7 @@ namespace XboxGamingBar
             container.Values["FPSLimitValue"] = profile.FPSLimitValue;
             container.Values["AutoTDPEnabled"] = profile.AutoTDPEnabled;
             container.Values["AutoTDPTargetFPS"] = profile.AutoTDPTargetFPS;
+            container.Values["OSPowerMode"] = profile.OSPowerMode;
         }
 
         private void LoadProfileFromStorage(string profileName, PerformanceProfile profile)
@@ -3115,6 +3161,7 @@ namespace XboxGamingBar
                 profile.FPSLimitValue = container.Values.ContainsKey("FPSLimitValue") ? (int)container.Values["FPSLimitValue"] : 60;
                 profile.AutoTDPEnabled = container.Values.ContainsKey("AutoTDPEnabled") ? (bool)container.Values["AutoTDPEnabled"] : false;
                 profile.AutoTDPTargetFPS = container.Values.ContainsKey("AutoTDPTargetFPS") ? (int)container.Values["AutoTDPTargetFPS"] : 60;
+                profile.OSPowerMode = container.Values.ContainsKey("OSPowerMode") ? (int)container.Values["OSPowerMode"] : 1;
 
                 Logger.Info($"Loaded {profileName} profile from storage");
             }
@@ -3139,6 +3186,12 @@ namespace XboxGamingBar
             GlobalProfileAutoTDPText.Visibility = autoTDPVisibility;
             GlobalProfileAutoTDPText.Text = globalProfile.AutoTDPEnabled ? $"{globalProfile.AutoTDPTargetFPS}fps" : "Off";
 
+            var powerModeVisibility = SaveOSPowerMode ? Visibility.Visible : Visibility.Collapsed;
+
+            GlobalProfilePowerModeLabel.Visibility = powerModeVisibility;
+            GlobalProfilePowerModeText.Visibility = powerModeVisibility;
+            GlobalProfilePowerModeText.Text = GetPowerModeShortName(globalProfile.OSPowerMode);
+
             // Update AC profile display
             ACProfileTDPText.Text = $"{acProfile.TDP}W";
             ACProfileCPUBoostText.Text = acProfile.CPUBoost ? "On" : "Off";
@@ -3161,6 +3214,12 @@ namespace XboxGamingBar
             DCProfileAutoTDPText.Visibility = autoTDPVisibility;
             ACProfileAutoTDPText.Text = acProfile.AutoTDPEnabled ? $"{acProfile.AutoTDPTargetFPS}fps" : "Off";
             DCProfileAutoTDPText.Text = dcProfile.AutoTDPEnabled ? $"{dcProfile.AutoTDPTargetFPS}fps" : "Off";
+
+            ACDCProfilePowerModeLabel.Visibility = powerModeVisibility;
+            ACProfilePowerModeText.Visibility = powerModeVisibility;
+            DCProfilePowerModeText.Visibility = powerModeVisibility;
+            ACProfilePowerModeText.Text = GetPowerModeShortName(acProfile.OSPowerMode);
+            DCProfilePowerModeText.Text = GetPowerModeShortName(dcProfile.OSPowerMode);
 
             // Update game profile display (if game is running)
             if (HasValidGame(currentGameName))
@@ -3188,6 +3247,12 @@ namespace XboxGamingBar
                     GameDCProfileAutoTDPText.Visibility = autoTDPVisibility;
                     GameACProfileAutoTDPText.Text = gameACProfile.AutoTDPEnabled ? $"{gameACProfile.AutoTDPTargetFPS}fps" : "Off";
                     GameDCProfileAutoTDPText.Text = gameDCProfile.AutoTDPEnabled ? $"{gameDCProfile.AutoTDPTargetFPS}fps" : "Off";
+
+                    GameACDCProfilePowerModeLabel.Visibility = powerModeVisibility;
+                    GameACProfilePowerModeText.Visibility = powerModeVisibility;
+                    GameDCProfilePowerModeText.Visibility = powerModeVisibility;
+                    GameACProfilePowerModeText.Text = GetPowerModeShortName(gameACProfile.OSPowerMode);
+                    GameDCProfilePowerModeText.Text = GetPowerModeShortName(gameDCProfile.OSPowerMode);
                 }
                 else
                 {
@@ -3204,11 +3269,26 @@ namespace XboxGamingBar
                     GameProfileAutoTDPLabel.Visibility = autoTDPVisibility;
                     GameProfileAutoTDPText.Visibility = autoTDPVisibility;
                     GameProfileAutoTDPText.Text = gameProfile.AutoTDPEnabled ? $"{gameProfile.AutoTDPTargetFPS}fps" : "Off";
+
+                    GameProfilePowerModeLabel.Visibility = powerModeVisibility;
+                    GameProfilePowerModeText.Visibility = powerModeVisibility;
+                    GameProfilePowerModeText.Text = GetPowerModeShortName(gameProfile.OSPowerMode);
                 }
             }
 
             // Update all saved game profiles display
             UpdateAllGameProfilesDisplay();
+        }
+
+        private static string GetPowerModeShortName(int mode)
+        {
+            switch (mode)
+            {
+                case 0: return "Efficiency";
+                case 1: return "Balanced";
+                case 2: return "Performance";
+                default: return "Balanced";
+            }
         }
 
         private void UpdateGameProfileCardVisibility()
@@ -3405,6 +3485,7 @@ namespace XboxGamingBar
                     acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     if (SaveFPSLimit) acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     if (SaveAutoTDP) acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    if (SaveOSPowerMode) acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                     acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -3449,6 +3530,15 @@ namespace XboxGamingBar
                         AddTextBlock(acDcGrid, rowIndex, 0, "AutoTDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
                         AddTextBlock(acDcGrid, rowIndex, 1, gameAC.AutoTDPEnabled ? $"{gameAC.AutoTDPTargetFPS}fps" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         AddTextBlock(acDcGrid, rowIndex, 2, gameDC.AutoTDPEnabled ? $"{gameDC.AutoTDPTargetFPS}fps" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+
+                    // Power Mode (if enabled)
+                    if (SaveOSPowerMode)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Power", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, GetPowerModeShortName(gameAC.OSPowerMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, GetPowerModeShortName(gameDC.OSPowerMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                     }
 
                     stackPanel.Children.Add(acDcGrid);
@@ -3466,6 +3556,7 @@ namespace XboxGamingBar
                     singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     if (SaveFPSLimit) singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     if (SaveAutoTDP) singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    if (SaveOSPowerMode) singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     singleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     singleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -3496,6 +3587,14 @@ namespace XboxGamingBar
                     {
                         AddTextBlock(singleGrid, rowIndex, 0, "AutoTDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
                         AddTextBlock(singleGrid, rowIndex, 1, game.AutoTDPEnabled ? $"{game.AutoTDPTargetFPS}fps" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        rowIndex++;
+                    }
+
+                    // Power Mode (if enabled)
+                    if (SaveOSPowerMode)
+                    {
+                        AddTextBlock(singleGrid, rowIndex, 0, "Power Mode", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, GetPowerModeShortName(game.OSPowerMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
                     }
 
                     stackPanel.Children.Add(singleGrid);
@@ -3633,6 +3732,7 @@ namespace XboxGamingBar
                 ProfileSaveAMDFeaturesCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveAMDFeatures") ? (bool)settings.Values["ProfileSaveAMDFeatures"] : false;
                 ProfileSaveFPSLimitCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveFPSLimit") ? (bool)settings.Values["ProfileSaveFPSLimit"] : false;
                 ProfileSaveAutoTDPCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveAutoTDP") ? (bool)settings.Values["ProfileSaveAutoTDP"] : false;
+                ProfileSaveOSPowerModeCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveOSPowerMode") ? (bool)settings.Values["ProfileSaveOSPowerMode"] : false;
             }
             finally
             {
@@ -3652,6 +3752,7 @@ namespace XboxGamingBar
             settings.Values["ProfileSaveAMDFeatures"] = ProfileSaveAMDFeaturesCheckBox.IsChecked;
             settings.Values["ProfileSaveFPSLimit"] = ProfileSaveFPSLimitCheckBox.IsChecked;
             settings.Values["ProfileSaveAutoTDP"] = ProfileSaveAutoTDPCheckBox.IsChecked;
+            settings.Values["ProfileSaveOSPowerMode"] = ProfileSaveOSPowerModeCheckBox.IsChecked;
         }
 
         private void ProfileSettingCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -5113,6 +5214,7 @@ namespace XboxGamingBar
             AddTileDefinition("TDPMode", "TDP Mode", "\uE945");
             AddTileDefinition("Profile", "Profile", "\uE77B");
             AddTileDefinition("Overlay", "Overlay", "\uE7B3");
+            AddTileDefinition("PowerMode", "Power Mode", "\uE945");
             AddTileDefinition("FPSLimit", "FPS Limit", "\uE916");
             AddTileDefinition("AutoTDP", "AutoTDP", "\uE9F5");
             AddTileDefinition("Resolution", "Resolution", "\uE7F8");
@@ -5599,6 +5701,23 @@ namespace XboxGamingBar
                     overlayTile.TileButton.Background = level > 0 ? tileOnBrush : tileOffBrush;
                 }
 
+                // Power Mode tile
+                if (qsTileMap.TryGetValue("PowerMode", out var powerModeTile) && powerModeTile.TileButton != null)
+                {
+                    int mode = osPowerMode?.Value ?? 1;
+                    string modeText;
+                    switch (mode)
+                    {
+                        case 0: modeText = "Efficiency"; break;
+                        case 1: modeText = "Balanced"; break;
+                        case 2: modeText = "Performance"; break;
+                        default: modeText = "Balanced"; break;
+                    }
+                    powerModeTile.StateText.Text = modeText;
+                    powerModeTile.StateText.Foreground = mode != 1 ? accentForeground : offForeground;
+                    powerModeTile.TileButton.Background = mode == 2 ? tileOnBrush : (mode == 0 ? tileActiveBrush : tileOffBrush);
+                }
+
                 // FPS Limit tile
                 if (qsTileMap.TryGetValue("FPSLimit", out var fpsLimitTile) && fpsLimitTile.TileButton != null)
                 {
@@ -5789,6 +5908,9 @@ namespace XboxGamingBar
                                 break;
                             case "Overlay":
                                 CyclePerformanceOverlay();
+                                break;
+                            case "PowerMode":
+                                CyclePowerMode();
                                 break;
                             case "FPSLimit":
                                 CycleFPSLimit();
@@ -6052,6 +6174,31 @@ namespace XboxGamingBar
             }
         }
 
+        private void CyclePowerMode()
+        {
+            if (osPowerMode != null)
+            {
+                // Cycle: Efficiency (0) -> Balanced (1) -> Performance (2) -> Efficiency (0)
+                int currentMode = osPowerMode.Value;
+                int nextMode = (currentMode + 1) % 3;
+                osPowerMode.SetValue(nextMode);
+
+                // Update the combobox and value text in Performance tab
+                isLoadingOSPowerMode = true;
+                try
+                {
+                    OSPowerModeComboBox.SelectedIndex = nextMode;
+                    OSPowerModeValue.Text = OSPowerModeNames[nextMode];
+                }
+                finally
+                {
+                    isLoadingOSPowerMode = false;
+                }
+
+                Logger.Info($"Power Mode cycled to {OSPowerModeNames[nextMode]}");
+            }
+        }
+
         private void CycleEPP()
         {
             if (cpuEPP != null)
@@ -6151,6 +6298,12 @@ namespace XboxGamingBar
         /// </summary>
         private void FPSLimitToggle_Toggled(object sender, RoutedEventArgs e)
         {
+            // Update display text when toggle is enabled
+            if (FPSLimitToggle.IsOn && FPSLimitValue != null)
+            {
+                FPSLimitValue.Text = $"{(int)FPSLimitSlider.Value} FPS";
+            }
+
             if (fpsLimit == null || isApplyingHelperUpdate) return;
 
             if (FPSLimitToggle.IsOn)
@@ -6169,6 +6322,12 @@ namespace XboxGamingBar
                 {
                     limit = maxRefresh;
                     FPSLimitSlider.Value = limit;
+                }
+
+                // Update display text with the final value
+                if (FPSLimitValue != null)
+                {
+                    FPSLimitValue.Text = $"{limit} FPS";
                 }
 
                 fpsLimit.SetValue(limit);
@@ -6193,6 +6352,12 @@ namespace XboxGamingBar
         /// </summary>
         private void FPSLimitSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
         {
+            // Always update the display text
+            if (FPSLimitValue != null)
+            {
+                FPSLimitValue.Text = $"{(int)e.NewValue} FPS";
+            }
+
             if (fpsLimit == null || isApplyingHelperUpdate) return;
 
             if (FPSLimitToggle.IsOn)
@@ -6303,6 +6468,57 @@ namespace XboxGamingBar
                 Logger.Error($"Error in UpdateFPSLimitControls: {ex.Message}");
             }
         }
+
+        #region OS Power Mode
+
+        private static readonly string[] OSPowerModeNames = { "Best Power Efficiency", "Balanced", "Best Performance" };
+
+        /// <summary>
+        /// Called when the OS Power Mode property changes (synced from helper)
+        /// </summary>
+        private void OSPowerMode_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                if (isUnloading) return;
+
+                isLoadingOSPowerMode = true;
+                try
+                {
+                    int mode = osPowerMode?.Value ?? 1;
+                    if (mode >= 0 && mode < OSPowerModeNames.Length)
+                    {
+                        OSPowerModeComboBox.SelectedIndex = mode;
+                        OSPowerModeValue.Text = OSPowerModeNames[mode];
+                    }
+
+                    // Update Quick Settings tile
+                    UpdateQuickSettingsTileStates();
+                }
+                finally
+                {
+                    isLoadingOSPowerMode = false;
+                }
+            });
+        }
+
+        /// <summary>
+        /// Called when user changes the OS Power Mode combo box
+        /// </summary>
+        private void OSPowerModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingOSPowerMode || osPowerMode == null) return;
+
+            int selectedIndex = OSPowerModeComboBox.SelectedIndex;
+            if (selectedIndex >= 0 && selectedIndex < OSPowerModeNames.Length)
+            {
+                osPowerMode.SetValue(selectedIndex);
+                OSPowerModeValue.Text = OSPowerModeNames[selectedIndex];
+                Logger.Info($"OS Power Mode changed to: {OSPowerModeNames[selectedIndex]}");
+            }
+        }
+
+        #endregion
 
         private void ToggleLegionTouchpad()
         {
