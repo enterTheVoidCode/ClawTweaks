@@ -11,6 +11,16 @@ namespace XboxGamingBarHelper.Windows
         [DllImport("powrprof.dll", SetLastError = true)]
         public static extern uint PowerSetActiveScheme(IntPtr UserRootPowerKey, ref Guid SchemeGuid);
 
+        // Power Overlay Scheme APIs (Windows 10/11 power mode slider)
+        [DllImport("powrprof.dll", SetLastError = true)]
+        public static extern uint PowerGetActualOverlayScheme(out Guid ActualOverlayGuid);
+
+        [DllImport("powrprof.dll", SetLastError = true)]
+        public static extern uint PowerGetEffectiveOverlayScheme(out Guid EffectiveOverlayGuid);
+
+        [DllImport("powrprof.dll", SetLastError = true)]
+        public static extern uint PowerSetActiveOverlayScheme(Guid OverlaySchemeGuid);
+
         [DllImport("powrprof.dll", SetLastError = true)]
         public static extern uint PowerReadACValueIndex(
             IntPtr RootPowerKey,

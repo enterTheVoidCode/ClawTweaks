@@ -101,5 +101,8 @@
         CPUCoreActiveConfig,        // string - "activePCores,activeECores" format (e.g., "2,4") - widget to helper (user selection)
         CoreParkingPercent,         // int - CPMAXCORES percentage (0-100), 100 = all cores active, 50 = half parked
         ForceParkMode,              // bool - Force affinity on ALL processes (aggressive mode)
+
+        // OS Power Mode (Windows 11 power slider)
+        OSPowerMode,                // int - 0=Best Power Efficiency, 1=Balanced, 2=Best Performance
     }
 }

@@ -399,6 +399,7 @@
     <Compile Include="Power\GPUClockMinProperty.cs" />
     <Compile Include="Power\GPUClockMaxProperty.cs" />-->
     <Compile Include="Power\CPUEPPProperty.cs" />
+    <Compile Include="Power\OSPowerModeProperty.cs" />
     <Compile Include="Power\PowerManager.cs" />
     <Compile Include="Profile\GameProfileProperty.cs" />
     <Compile Include="Profile\PerGameProfileProperty.cs" />
