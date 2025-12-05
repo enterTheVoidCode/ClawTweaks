@@ -71,7 +71,7 @@ namespace XboxGamingBarHelper
             //    await Task.Delay(500);
             //}
 
-            // Initialize managers.
+            // ALL MANAGERS RE-ENABLED - LibreHardwareMonitor sensors disabled in PerformanceManager
             Logger.Info("Initialize Performance Manager.");
             performanceManager = new PerformanceManager(connection);
             Logger.Info("Initialize RTSS Manager.");
@@ -164,6 +164,17 @@ namespace XboxGamingBarHelper
                 amdManager.AMDRadeonChillSupported,
                 amdManager.AMDRadeonChillMinFPS,
                 amdManager.AMDRadeonChillMaxFPS,
+                amdManager.AMDImageSharpeningEnabled,
+                amdManager.AMDImageSharpeningSupported,
+                amdManager.AMDImageSharpeningSharpness,
+                amdManager.AMDDisplayBrightnessSupported,
+                amdManager.AMDDisplayBrightness,
+                amdManager.AMDDisplayContrastSupported,
+                amdManager.AMDDisplayContrast,
+                amdManager.AMDDisplaySaturationSupported,
+                amdManager.AMDDisplaySaturation,
+                amdManager.AMDDisplayTemperatureSupported,
+                amdManager.AMDDisplayTemperature,
                 losslessScalingManager.LosslessScalingInstalled,
                 losslessScalingManager.LosslessScalingRunning,
                 losslessScalingManager.LosslessScalingEnabled,
@@ -190,12 +201,16 @@ namespace XboxGamingBarHelper
                 legionManager.LegionLightMode,
                 legionManager.LegionLightColor,
                 legionManager.LegionLightBrightness,
+                legionManager.LegionLightSpeed,
                 legionManager.LegionPerformanceMode,
                 legionManager.LegionCustomTDPSlow,
                 legionManager.LegionCustomTDPFast,
                 legionManager.LegionCustomTDPPeak,
                 legionManager.LegionFanFullSpeed,
                 legionManager.LegionGyroEnabled,
+                legionManager.LegionVibration,
+                legionManager.LegionPowerLight,
+                legionManager.LegionChargeLimit,
                 autoTDPManager.Enabled,
                 autoTDPManager.TargetFPS,
                 autoTDPManager.CurrentFPS,
@@ -359,6 +374,40 @@ namespace XboxGamingBarHelper
             try
             {
                 Logger.Info($"Helper received message {args.Request.Message.ToDebugString()} from widget.");
+
+                // Handle power plan change request
+                if (args.Request.Message.TryGetValue("PowerPlan", out object powerPlanValue) && powerPlanValue is string guidStr)
+                {
+                    if (Guid.TryParse(guidStr, out Guid planGuid))
+                    {
+                        Logger.Info($"Setting power plan to: {planGuid}");
+                        Power.PowerManager.SetActivePowerPlan(planGuid);
+                    }
+                    return;
+                }
+
+                // Handle get power plans request
+                if (args.Request.Message.TryGetValue("GetPowerPlans", out object _))
+                {
+                    var plans = Power.PowerManager.GetPowerPlans();
+                    var activePlan = Power.PowerManager.GetActivePowerPlan();
+
+                    // Build response: "GUID1|Name1;GUID2|Name2;..." and active plan GUID
+                    var planStrings = new System.Collections.Generic.List<string>();
+                    foreach (var plan in plans)
+                    {
+                        planStrings.Add($"{plan.Guid}|{plan.Name}");
+                    }
+
+                    var response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("PowerPlans", string.Join(";", planStrings));
+                    response.Add("ActivePowerPlan", activePlan.ToString());
+
+                    await args.Request.SendResponseAsync(response);
+                    Logger.Info($"Sent {plans.Count} power plans to widget");
+                    return;
+                }
+
                 await properties.OnRequestReceived(args.Request);
             }
             catch (Exception ex)

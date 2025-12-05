@@ -151,6 +151,21 @@ namespace LegionGoLibrary
     }
 
     /// <summary>
+    /// Controller vibration/haptic feedback intensity levels.
+    /// </summary>
+    public enum ControllerVibrationLevel : byte
+    {
+        /// <summary>Vibration disabled</summary>
+        Off = 0x00,
+        /// <summary>Light vibration</summary>
+        Weak = 0x01,
+        /// <summary>Medium vibration intensity</summary>
+        Medium = 0x02,
+        /// <summary>Strong vibration intensity</summary>
+        Strong = 0x03
+    }
+
+    /// <summary>
     /// Legion Go device variant type.
     /// </summary>
     public enum DeviceType
@@ -884,6 +899,70 @@ namespace LegionGoLibrary
             }
         }
 
+        /// <summary>
+        /// Gets the power button LED status using v2 (new) format.
+        /// Uses Lighting_ID = 0x04 for newer BIOS.
+        /// Returns: 0x02 = on, 0x01 = off
+        /// </summary>
+        /// <returns>Tuple containing success status, message, and enabled state</returns>
+        public (bool Success, string Message, bool? Result) GetPowerLight()
+        {
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(WMI_NAMESPACE, "SELECT * FROM LENOVO_LIGHTING_METHOD");
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    var inParams = obj.GetMethodParameters("Get_Lighting_Current_Status");
+                    inParams["Lighting_ID"] = (byte)0x04;
+                    var result = obj.InvokeMethod("Get_Lighting_Current_Status", inParams, null);
+
+                    // Get the brightness level which contains the state
+                    var brightness = Convert.ToInt32(result["Current_Brightness_Level"]);
+                    // 0x02 = on, 0x01 = off
+                    bool isOn = brightness == 0x02;
+
+                    return (true, $"Power Light: {(isOn ? "On" : "Off")} (raw=0x{brightness:X2})", isOn);
+                }
+                return (false, "No LENOVO_LIGHTING_METHOD instance found", null);
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Error getting power light: {ex.Message}", null);
+            }
+        }
+
+        /// <summary>
+        /// Sets the power button LED using v2 (new) format.
+        /// Uses Lighting_ID = 0x04 for newer BIOS.
+        /// Values for Current_Brightness_Level: 0x01 = off, 0x02 = on
+        /// </summary>
+        /// <param name="enabled">True to turn on, false to turn off</param>
+        /// <returns>Tuple containing success status and message</returns>
+        public (bool Success, string Message) SetPowerLight(bool enabled)
+        {
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(WMI_NAMESPACE, "SELECT * FROM LENOVO_LIGHTING_METHOD");
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    byte brightness = enabled ? (byte)0x02 : (byte)0x01;
+
+                    var inParams = obj.GetMethodParameters("Set_Lighting_Current_Status");
+                    inParams["Lighting_ID"] = (byte)0x04;
+                    inParams["Current_State_Type"] = (byte)0x00;
+                    inParams["Current_Brightness_Level"] = brightness;
+                    obj.InvokeMethod("Set_Lighting_Current_Status", inParams, null);
+
+                    return (true, $"Power Light: {(enabled ? "On" : "Off")}");
+                }
+                return (false, "No LENOVO_LIGHTING_METHOD instance found");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Error setting power light: {ex.Message}");
+            }
+        }
+
         #endregion
 
         #region Bulk Operations
@@ -1553,11 +1632,11 @@ namespace LegionGoLibrary
         /// <param name="blue">Blue color component (0-255)</param>
         /// <param name="brightness">Brightness level (0.0 to 1.0)</param>
         /// <returns>Tuple containing success status and message</returns>
-        public (bool Success, string Message) SetStickLightMode(RgbMode mode, byte red, byte green, byte blue, float brightness = 1.0f)
+        public (bool Success, string Message) SetStickLightMode(RgbMode mode, byte red, byte green, byte blue, float brightness = 1.0f, float speed = 0.5f)
         {
             // Legion Go / Legion Go 2 - set for both controllers
-            var leftResult = SetRgbProfile(Controller.Left, mode, red, green, blue, brightness);
-            var rightResult = SetRgbProfile(Controller.Right, mode, red, green, blue, brightness);
+            var leftResult = SetRgbProfile(Controller.Left, mode, red, green, blue, brightness, speed);
+            var rightResult = SetRgbProfile(Controller.Right, mode, red, green, blue, brightness, speed);
 
             LoadRgbProfile(Controller.Left);
             LoadRgbProfile(Controller.Right);
@@ -1621,6 +1700,68 @@ namespace LegionGoLibrary
             return (result.Success, result.Success
                 ? $"Touchpad vibration set to {levelName}"
                 : result.Message);
+        }
+
+        #endregion
+
+        #region Controller Vibration
+
+        /// <summary>
+        /// Sets the vibration/haptic feedback intensity for a controller.
+        /// This controls the overall motor vibration strength.
+        /// </summary>
+        /// <param name="controller">Which controller (Left or Right)</param>
+        /// <param name="level">Vibration intensity level</param>
+        /// <returns>Tuple containing success status and message</returns>
+        public (bool Success, string Message) SetControllerVibration(Controller controller, ControllerVibrationLevel level)
+        {
+            // Command: 05 06 67 02 [controller] [level] 01
+            byte[] command = {
+                0x05, 0x06, 0x67, 0x02,
+                (byte)controller,
+                (byte)level,
+                0x01
+            };
+
+            var result = SendCommand(command);
+            string levelName = level switch
+            {
+                ControllerVibrationLevel.Off => "Off",
+                ControllerVibrationLevel.Weak => "Weak",
+                ControllerVibrationLevel.Medium => "Medium",
+                ControllerVibrationLevel.Strong => "Strong",
+                _ => "Unknown"
+            };
+
+            return (result.Success, result.Success
+                ? $"Vibration set to {levelName} for {controller} controller"
+                : result.Message);
+        }
+
+        /// <summary>
+        /// Sets vibration intensity for both controllers at once.
+        /// </summary>
+        /// <param name="level">Vibration intensity level</param>
+        /// <returns>Tuple containing success status and message</returns>
+        public (bool Success, string Message) SetBothControllersVibration(ControllerVibrationLevel level)
+        {
+            var leftResult = SetControllerVibration(Controller.Left, level);
+            var rightResult = SetControllerVibration(Controller.Right, level);
+
+            if (leftResult.Success && rightResult.Success)
+            {
+                string levelName = level switch
+                {
+                    ControllerVibrationLevel.Off => "Off",
+                    ControllerVibrationLevel.Weak => "Weak",
+                    ControllerVibrationLevel.Medium => "Medium",
+                    ControllerVibrationLevel.Strong => "Strong",
+                    _ => "Unknown"
+                };
+                return (true, $"Vibration set to {levelName} for both controllers");
+            }
+
+            return (false, $"Left: {leftResult.Message}, Right: {rightResult.Message}");
         }
 
         #endregion

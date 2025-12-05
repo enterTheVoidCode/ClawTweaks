@@ -101,6 +101,10 @@
     <Compile Include="Data\AMDRadeonChillSupportedProperty.cs" />
     <Compile Include="Data\AMDRadeonSuperResolutionEnabledProperty.cs" />
     <Compile Include="Data\AMDRadeonSuperResolutionSharpnessProperty.cs" />
+    <Compile Include="Data\AMDImageSharpeningEnabledProperty.cs" />
+    <Compile Include="Data\AMDImageSharpeningSupportedProperty.cs" />
+    <Compile Include="Data\AMDImageSharpeningSharpnessProperty.cs" />
+    <Compile Include="Data\AMDDisplayColorProperties.cs" />
     <Compile Include="Data\AutoStartRTSSProperty.cs" />
     <Compile Include="Data\UseManufacturerWMIProperty.cs" />
     <Compile Include="Data\CPUBoostProperty.cs" />
@@ -142,10 +146,14 @@
     <Compile Include="Data\LegionLightModeProperty.cs" />
     <Compile Include="Data\LegionLightColorProperty.cs" />
     <Compile Include="Data\LegionLightBrightnessProperty.cs" />
+    <Compile Include="Data\LegionLightSpeedProperty.cs" />
     <Compile Include="Data\LegionPerformanceModeProperty.cs" />
     <Compile Include="Data\LegionCustomTDPProperty.cs" />
     <Compile Include="Data\LegionFanFullSpeedProperty.cs" />
     <Compile Include="Data\LegionGyroEnabledProperty.cs" />
+    <Compile Include="Data\LegionVibrationProperty.cs" />
+    <Compile Include="Data\LegionPowerLightProperty.cs" />
+    <Compile Include="Data\LegionChargeLimitProperty.cs" />
     <Compile Include="Data\AutoTDPProperties.cs" />
     <Compile Include="Data\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />
