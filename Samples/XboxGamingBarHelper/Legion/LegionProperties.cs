@@ -87,6 +87,23 @@ namespace XboxGamingBarHelper.Legion
         }
     }
 
+    // Light speed (0-100, for animated modes)
+    internal class LegionLightSpeedProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionLightSpeedProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionLightSpeed, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionLightSpeed changed to {Value}");
+            Manager?.SetLightSpeed(Value);
+        }
+    }
+
     // Performance mode (1=Quiet, 2=Balanced, 3=Performance, 255=Custom)
     internal class LegionPerformanceModeProperty : HelperProperty<int, LegionManager>
     {
@@ -186,6 +203,57 @@ namespace XboxGamingBarHelper.Legion
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionGyroEnabled changed to {Value} (WIP - not functional)");
             Manager?.SetGyroEnabled(Value);
+        }
+    }
+
+    // Vibration level (0=Off, 1=Weak, 2=Medium, 3=Strong)
+    internal class LegionVibrationProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionVibrationProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionVibration, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionVibration changed to {Value}");
+            Manager?.SetVibration(Value);
+        }
+    }
+
+    // Power Light toggle
+    internal class LegionPowerLightProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionPowerLightProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionPowerLight, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionPowerLight changed to {Value}");
+            Manager?.SetPowerLight(Value);
+        }
+    }
+
+    // Battery Charge Limit (80%)
+    internal class LegionChargeLimitProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionChargeLimitProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionChargeLimit, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionChargeLimit changed to {Value}");
+            Manager?.SetChargeLimit(Value);
         }
     }
 }

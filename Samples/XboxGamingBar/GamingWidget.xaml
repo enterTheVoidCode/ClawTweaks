@@ -1393,6 +1393,85 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Image Sharpening Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Image Sharpening" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Sharpen in-game visuals" Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="AMDImageSharpeningToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False" Width="50"/>
+                                </Grid>
+                                <Slider x:Name="AMDImageSharpeningSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="0" Maximum="100"
+                                        TickFrequency="10"
+                                        SnapsTo="Ticks"
+                                        TickPlacement="BottomRight"
+                                        Header="Sharpness"
+                                        IsEnabled="False"
+                                        Visibility="{Binding ElementName=AMDImageSharpeningToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Display Color Settings Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Color Settings" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Adjust display color output" Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <Button x:Name="ColorSettingsExpandButton"
+                                            Grid.Column="1"
+                                            Content="&#xE70D;"
+                                            FontFamily="Segoe MDL2 Assets"
+                                            FontSize="12"
+                                            Padding="8,4"
+                                            Background="Transparent"
+                                            Click="ColorSettingsExpandButton_Click"/>
+                                </Grid>
+                                <StackPanel x:Name="ColorSettingsContent" Visibility="Collapsed" Margin="0,10,0,0">
+                                    <Slider x:Name="AMDDisplayBrightnessSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="-100" Maximum="100"
+                                            StepFrequency="1"
+                                            Header="Brightness"
+                                            IsEnabled="False"/>
+                                    <Slider x:Name="AMDDisplayContrastSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="200"
+                                            StepFrequency="1"
+                                            Header="Contrast"
+                                            IsEnabled="False"/>
+                                    <Slider x:Name="AMDDisplaySaturationSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="200"
+                                            StepFrequency="1"
+                                            Header="Saturation"
+                                            IsEnabled="False"/>
+                                    <Slider x:Name="AMDDisplayTemperatureSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="4000" Maximum="10000"
+                                            StepFrequency="100"
+                                            Header="Color Temperature (K)"
+                                            IsEnabled="False"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                     </StackPanel>
                 </ScrollViewer>
 
@@ -1587,6 +1666,104 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Power Plan Settings Card (Collapsible) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with Expand/Collapse -->
+                                <Button x:Name="PowerPlanExpandButton"
+                                        Click="PowerPlanExpandButton_Click"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="0"
+                                        UseSystemFocusVisuals="True"
+                                        FocusVisualPrimaryBrush="White"
+                                        FocusVisualSecondaryBrush="Transparent">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Power Plan Settings" Style="{StaticResource CardTitleStyle}"/>
+                                            <TextBlock Text="Configure power plans for AC and battery"
+                                                       Style="{StaticResource CardCaptionStyle}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <FontIcon x:Name="PowerPlanExpandIcon"
+                                                  Grid.Column="1"
+                                                  Glyph="&#xE76C;"
+                                                  FontSize="12"
+                                                  Foreground="#A0A0A0"
+                                                  VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Button>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="PowerPlanOptionsPanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <!-- AC Power Plan -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="AC Power Plan" Foreground="#FFFFFF" FontSize="14"/>
+                                            <TextBlock Text="When plugged in" Foreground="#707070" FontSize="11"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="ACPowerPlanComboBox"
+                                                  Grid.Column="1"
+                                                  Width="180"
+                                                  SelectionChanged="ACPowerPlanComboBox_SelectionChanged"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"/>
+                                    </Grid>
+
+                                    <!-- DC Power Plan -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="DC Power Plan" Foreground="#FFFFFF" FontSize="14"/>
+                                            <TextBlock Text="When on battery" Foreground="#707070" FontSize="11"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="DCPowerPlanComboBox"
+                                                  Grid.Column="1"
+                                                  Width="180"
+                                                  SelectionChanged="DCPowerPlanComboBox_SelectionChanged"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"/>
+                                    </Grid>
+
+                                    <!-- Auto-switch Toggle -->
+                                    <Grid Margin="0,0,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Auto-switch on power change" Foreground="#FFFFFF" FontSize="14"/>
+                                            <TextBlock Text="Automatically apply the corresponding plan" Foreground="#707070" FontSize="11"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="PowerPlanAutoSwitchToggle"
+                                                      Grid.Column="1"
+                                                      IsOn="True"
+                                                      Toggled="PowerPlanAutoSwitchToggle_Toggled"
+                                                      OnContent=""
+                                                      OffContent=""
+                                                      UseSystemFocusVisuals="True"
+                                                      FocusVisualPrimaryBrush="White"
+                                                      FocusVisualSecondaryBrush="Transparent"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <!-- OSD Customization Card (Collapsible) -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -1624,31 +1801,61 @@
                                 <!-- Collapsible Content -->
                                 <StackPanel x:Name="OSDCustomizeContent" Visibility="Collapsed" Margin="0,12,0,0">
 
-                                    <!-- Overlay Level Selection -->
+                                    <!-- OSD Provider Selection -->
                                     <Grid Margin="0,0,0,12">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Overlay Level"
-                                                   Foreground="#FFFFFF"
-                                                   VerticalAlignment="Center"
-                                                   FontSize="14"/>
-                                        <ComboBox x:Name="OSDCustomizeLevelComboBox"
+                                        <StackPanel>
+                                            <TextBlock Text="OSD Provider"
+                                                       Foreground="#FFFFFF"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="14"/>
+                                            <TextBlock Text="Select overlay source"
+                                                       Foreground="#707070"
+                                                       FontSize="11"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="OSDProviderComboBox"
                                                   Style="{StaticResource ModernComboBoxStyle}"
                                                   Width="120"
                                                   Grid.Column="1"
-                                                  SelectionChanged="OSDCustomizeLevelComboBox_SelectionChanged"
+                                                  SelectionChanged="OSDProviderComboBox_SelectionChanged"
                                                   UseSystemFocusVisuals="True"
                                                   FocusVisualPrimaryBrush="White"
                                                   FocusVisualSecondaryBrush="Transparent">
-                                            <ComboBoxItem Content="Basic" Tag="1" IsSelected="True"/>
-                                            <ComboBoxItem Content="Detailed" Tag="2"/>
-                                            <ComboBoxItem Content="Full" Tag="3"/>
+                                            <ComboBoxItem Content="RTSS" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="AMD" Tag="1"/>
                                         </ComboBox>
                                     </Grid>
 
-                                    <!-- Layout Settings Section -->
+                                    <!-- RTSS-specific options (hidden when AMD provider is selected) -->
+                                    <StackPanel x:Name="RTSSOptionsPanel">
+                                        <!-- Overlay Level Selection -->
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Overlay Level"
+                                                       Foreground="#FFFFFF"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="14"/>
+                                            <ComboBox x:Name="OSDCustomizeLevelComboBox"
+                                                      Style="{StaticResource ModernComboBoxStyle}"
+                                                      Width="120"
+                                                      Grid.Column="1"
+                                                      SelectionChanged="OSDCustomizeLevelComboBox_SelectionChanged"
+                                                      UseSystemFocusVisuals="True"
+                                                      FocusVisualPrimaryBrush="White"
+                                                      FocusVisualSecondaryBrush="Transparent">
+                                                <ComboBoxItem Content="Basic" Tag="1" IsSelected="True"/>
+                                                <ComboBoxItem Content="Detailed" Tag="2"/>
+                                                <ComboBoxItem Content="Full" Tag="3"/>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- Layout Settings Section -->
                                     <TextBlock Text="Layout"
                                                Style="{StaticResource CardTitleStyle}"
                                                Margin="0,0,0,8"/>
@@ -1751,13 +1958,13 @@
                                         </StackPanel>
                                     </Grid>
 
-                                    <!-- Items Section -->
-                                    <TextBlock Text="Items to Display"
-                                               Style="{StaticResource CardTitleStyle}"
-                                               Margin="0,12,0,8"/>
+                                        <!-- Items Section -->
+                                        <TextBlock Text="Items to Display"
+                                                   Style="{StaticResource CardTitleStyle}"
+                                                   Margin="0,12,0,8"/>
 
-                                    <!-- OSD Options Panel -->
-                                    <StackPanel x:Name="OSDOptionsPanel">
+                                        <!-- OSD Options Panel -->
+                                        <StackPanel x:Name="OSDOptionsPanel">
                                         <CheckBox x:Name="OSDShowAppNameCheckBox"
                                                   Content="App Name (D3D11, Vulkan, etc.)"
                                                   IsChecked="False"
@@ -1868,19 +2075,31 @@
                                                   Unchecked="OSDOption_Changed"/>
                                     </StackPanel>
 
-                                    <!-- Custom RTSS Tags Section -->
-                                    <TextBlock Text="Custom RTSS Tags"
-                                               Style="{StaticResource CardTitleStyle}"
-                                               Margin="0,16,0,4"/>
-                                    <TextBlock Text="Add custom RTSS tags (e.g. &lt;FR&gt; for FPS)"
-                                               Style="{StaticResource CardCaptionStyle}"
-                                               Margin="0,0,0,8"/>
-                                    <TextBox x:Name="OSDCustomTagsTextBox"
-                                             PlaceholderText="Enter custom RTSS tags..."
-                                             TextWrapping="Wrap"
-                                             AcceptsReturn="True"
-                                             Height="60"
-                                             TextChanged="OSDCustomTagsTextBox_TextChanged"/>
+                                        <!-- Custom RTSS Tags Section -->
+                                        <TextBlock Text="Custom RTSS Tags"
+                                                   Style="{StaticResource CardTitleStyle}"
+                                                   Margin="0,16,0,4"/>
+                                        <TextBlock Text="Add custom RTSS tags (e.g. &lt;FR&gt; for FPS)"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   Margin="0,0,0,8"/>
+                                        <TextBox x:Name="OSDCustomTagsTextBox"
+                                                 PlaceholderText="Enter custom RTSS tags..."
+                                                 TextWrapping="Wrap"
+                                                 AcceptsReturn="True"
+                                                 Height="60"
+                                                 TextChanged="OSDCustomTagsTextBox_TextChanged"/>
+                                    </StackPanel>
+
+                                    <!-- AMD-specific info (shown when AMD provider is selected) -->
+                                    <StackPanel x:Name="AMDOptionsPanel" Visibility="Collapsed">
+                                        <TextBlock Text="AMD Adrenaline Overlay"
+                                                   Style="{StaticResource CardTitleStyle}"
+                                                   Margin="0,0,0,8"/>
+                                        <TextBlock Text="The AMD overlay is controlled through Adrenaline software. Use Ctrl+Shift+O to toggle and Ctrl+Shift+X to cycle overlay levels."
+                                                   Foreground="#A0A0A0"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -2544,7 +2763,7 @@
                             </Grid>
                         </Border>
 
-                        <!-- Gyroscope Control Card -->
+                        <!-- Vibration Control Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -2552,22 +2771,20 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Gyroscope" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="(WIP)"
-                                                   FontSize="12"
-                                                   Foreground="#FFA500"
-                                                   VerticalAlignment="Center"
-                                                   Margin="8,0,0,0"/>
-                                    </StackPanel>
-                                    <TextBlock Text="Enable or disable gyro aiming"
+                                    <TextBlock Text="Vibration" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Touchpad haptic feedback intensity"
                                                Style="{StaticResource CardCaptionStyle}"/>
                                 </StackPanel>
-                                <ToggleSwitch x:Name="LegionGyroToggle"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              IsOn="False" Width="50"
-                                              IsEnabled="False"/>
+                                <ComboBox x:Name="LegionVibrationComboBox"
+                                          Grid.Column="1"
+                                          Width="100"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          SelectedIndex="2">
+                                    <x:String>Off</x:String>
+                                    <x:String>Weak</x:String>
+                                    <x:String>Medium</x:String>
+                                    <x:String>Strong</x:String>
+                                </ComboBox>
                             </Grid>
                         </Border>
 
@@ -2583,7 +2800,8 @@
                                            Margin="0,0,0,8"/>
                                 <ComboBox x:Name="LegionLightModeComboBox"
                                           Style="{StaticResource ModernComboBoxStyle}"
-                                          SelectedIndex="1">
+                                          SelectedIndex="1"
+                                          SelectionChanged="LegionLightModeComboBox_SelectionChanged">
                                     <x:String>Off</x:String>
                                     <x:String>Solid</x:String>
                                     <x:String>Pulse</x:String>
@@ -2593,8 +2811,8 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Light Color Card -->
-                        <Border Style="{StaticResource CardStyle}">
+                        <!-- Light Color Card (Solid, Pulse only) -->
+                        <Border x:Name="LegionColorCard" Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -2639,8 +2857,8 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Light Brightness Card -->
-                        <Border Style="{StaticResource CardStyle}">
+                        <!-- Light Brightness Card (all modes except Off) -->
+                        <Border x:Name="LegionBrightnessCard" Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <Grid>
                                     <TextBlock Text="Brightness" Style="{StaticResource CardTitleStyle}"/>
@@ -2654,6 +2872,42 @@
                                         Value="100"
                                         ValueChanged="LegionBrightnessSlider_ValueChanged"/>
                             </StackPanel>
+                        </Border>
+
+                        <!-- Light Speed Card (Pulse, Dynamic, Spiral only) -->
+                        <Border x:Name="LegionSpeedCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="Speed" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock x:Name="LegionSpeedValue"
+                                               Text="50%"
+                                               Style="{StaticResource CardValueStyle}"/>
+                                </Grid>
+                                <Slider x:Name="LegionSpeedSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="0" Maximum="100"
+                                        Value="50"
+                                        ValueChanged="LegionSpeedSlider_ValueChanged"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Power Light Toggle Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Power Light" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Power button LED on/off"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="LegionPowerLightToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              IsOn="True" Width="50"/>
+                            </Grid>
                         </Border>
 
                         <!-- Performance Mode Section Header -->
@@ -2780,6 +3034,28 @@
                                                Style="{StaticResource CardCaptionStyle}"/>
                                 </StackPanel>
                                 <ToggleSwitch x:Name="LegionFanFullSpeedToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              IsOn="False" Width="50"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Battery Section Header -->
+                        <TextBlock Text="BATTERY" Style="{StaticResource SectionHeaderStyle}"/>
+
+                        <!-- Battery Charge Limit Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Charge Limit (80%)" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Limit battery charge to extend lifespan"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="LegionChargeLimitToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
                                               IsOn="False" Width="50"/>

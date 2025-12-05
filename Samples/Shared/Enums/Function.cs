@@ -37,6 +37,17 @@
         AMDRadeonChillEnabled,
         AMDRadeonChillMinFPS,
         AMDRadeonChillMaxFPS,
+        AMDImageSharpeningSupported,
+        AMDImageSharpeningEnabled,
+        AMDImageSharpeningSharpness,
+        AMDDisplayBrightnessSupported,
+        AMDDisplayBrightness,
+        AMDDisplayContrastSupported,
+        AMDDisplayContrast,
+        AMDDisplaySaturationSupported,
+        AMDDisplaySaturation,
+        AMDDisplayTemperatureSupported,
+        AMDDisplayTemperature,
         Foreground,
 
         LosslessScalingInstalled,
@@ -75,12 +86,16 @@
         LegionLightMode,            // int - RGB mode (Off=0, Solid=1, Pulse=2, Dynamic=3, Spiral=4)
         LegionLightColor,           // string - hex color "#RRGGBB"
         LegionLightBrightness,      // int - brightness (0-100)
+        LegionLightSpeed,           // int - animation speed (0-100)
         LegionPerformanceMode,      // int - TDP mode (Quiet=1, Balanced=2, Performance=3, Custom=255)
         LegionCustomTDPSlow,        // int - Slow TDP (SPL) in watts
         LegionCustomTDPFast,        // int - Fast TDP (SPPL) in watts
         LegionCustomTDPPeak,        // int - Peak TDP (FPPT) in watts
         LegionFanFullSpeed,         // bool - fan full speed mode
         LegionGyroEnabled,          // bool - gyroscope on/off (WIP)
+        LegionVibration,            // int - touchpad vibration level (0=Off, 1=Weak, 2=Medium, 3=Strong)
+        LegionPowerLight,           // bool - power button LED on/off
+        LegionChargeLimit,          // bool - battery charge limit (80%) on/off
 
         // AutoTDP functions
         AutoTDPEnabled,             // bool - enable/disable AutoTDP
