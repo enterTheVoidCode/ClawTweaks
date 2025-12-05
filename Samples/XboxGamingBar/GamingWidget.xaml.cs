@@ -86,6 +86,16 @@ namespace XboxGamingBar
     }
 
     /// <summary>
+    /// Represents a power plan for UI binding
+    /// </summary>
+    public class PowerPlanItem
+    {
+        public Guid Guid { get; set; }
+        public string Name { get; set; }
+        public override string ToString() => Name;
+    }
+
+    /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
     /// </summary>
     public sealed partial class GamingWidget : Page, INotifyPropertyChanged
@@ -161,6 +171,17 @@ namespace XboxGamingBar
         private readonly AMDRadeonChillSupportedProperty amdRadeonChillSupported;
         private readonly AMDRadeonChillMinFPSProperty amdRadeonChillMinFPSProperty;
         private readonly AMDRadeonChillMaxFPSProperty amdRadeonChillMaxFPSProperty;
+        private readonly AMDImageSharpeningEnabledProperty amdImageSharpeningEnabled;
+        private readonly AMDImageSharpeningSupportedProperty amdImageSharpeningSupported;
+        private readonly AMDImageSharpeningSharpnessProperty amdImageSharpeningSharpness;
+        private readonly AMDDisplayBrightnessSupportedProperty amdDisplayBrightnessSupported;
+        private readonly AMDDisplayBrightnessProperty amdDisplayBrightness;
+        private readonly AMDDisplayContrastSupportedProperty amdDisplayContrastSupported;
+        private readonly AMDDisplayContrastProperty amdDisplayContrast;
+        private readonly AMDDisplaySaturationSupportedProperty amdDisplaySaturationSupported;
+        private readonly AMDDisplaySaturationProperty amdDisplaySaturation;
+        private readonly AMDDisplayTemperatureSupportedProperty amdDisplayTemperatureSupported;
+        private readonly AMDDisplayTemperatureProperty amdDisplayTemperature;
 
         // Lossless Scaling properties
         private readonly LosslessScalingInstalledProperty losslessScalingInstalled;
@@ -195,12 +216,16 @@ namespace XboxGamingBar
         private readonly LegionLightModeProperty legionLightMode;
         private readonly LegionLightColorProperty legionLightColor;
         private readonly LegionLightBrightnessProperty legionLightBrightness;
+        private readonly LegionLightSpeedProperty legionLightSpeed;
         private readonly LegionPerformanceModeProperty legionPerformanceMode;
         private readonly LegionCustomTDPSlowProperty legionCustomTDPSlow;
         private readonly LegionCustomTDPFastProperty legionCustomTDPFast;
         private readonly LegionCustomTDPPeakProperty legionCustomTDPPeak;
         private readonly LegionFanFullSpeedProperty legionFanFullSpeed;
         private readonly LegionGyroEnabledProperty legionGyroEnabled;
+        private readonly LegionVibrationProperty legionVibration;
+        private readonly LegionPowerLightProperty legionPowerLight;
+        private readonly LegionChargeLimitProperty legionChargeLimit;
 
         // Settings properties
         private readonly UseManufacturerWMIProperty useManufacturerWMI;
@@ -358,6 +383,17 @@ namespace XboxGamingBar
             amdRadeonChillSupported = new AMDRadeonChillSupportedProperty(AMDRadeonChillToggle, this);
             amdRadeonChillMinFPSProperty = new AMDRadeonChillMinFPSProperty(AMDRadeonChillMinFPSSlider, this);
             amdRadeonChillMaxFPSProperty = new AMDRadeonChillMaxFPSProperty(AMDRadeonChillMaxFPSSlider, this);
+            amdImageSharpeningEnabled = new AMDImageSharpeningEnabledProperty(AMDImageSharpeningToggle, this);
+            amdImageSharpeningSupported = new AMDImageSharpeningSupportedProperty(AMDImageSharpeningToggle, this);
+            amdImageSharpeningSharpness = new AMDImageSharpeningSharpnessProperty(AMDImageSharpeningSlider, this);
+            amdDisplayBrightnessSupported = new AMDDisplayBrightnessSupportedProperty(AMDDisplayBrightnessSlider, this);
+            amdDisplayBrightness = new AMDDisplayBrightnessProperty(AMDDisplayBrightnessSlider, this);
+            amdDisplayContrastSupported = new AMDDisplayContrastSupportedProperty(AMDDisplayContrastSlider, this);
+            amdDisplayContrast = new AMDDisplayContrastProperty(AMDDisplayContrastSlider, this);
+            amdDisplaySaturationSupported = new AMDDisplaySaturationSupportedProperty(AMDDisplaySaturationSlider, this);
+            amdDisplaySaturation = new AMDDisplaySaturationProperty(AMDDisplaySaturationSlider, this);
+            amdDisplayTemperatureSupported = new AMDDisplayTemperatureSupportedProperty(AMDDisplayTemperatureSlider, this);
+            amdDisplayTemperature = new AMDDisplayTemperatureProperty(AMDDisplayTemperatureSlider, this);
 
             // Lossless Scaling properties
             losslessScalingInstalled = new LosslessScalingInstalledProperty();
@@ -392,12 +428,16 @@ namespace XboxGamingBar
             legionLightMode = new LegionLightModeProperty(LegionLightModeComboBox, this);
             legionLightColor = new LegionLightColorProperty(LegionColorPicker, this);
             legionLightBrightness = new LegionLightBrightnessProperty(LegionBrightnessSlider, this);
+            legionLightSpeed = new LegionLightSpeedProperty(LegionSpeedSlider, this);
             legionPerformanceMode = new LegionPerformanceModeProperty(LegionPerformanceModeComboBox, this);
             legionCustomTDPSlow = new LegionCustomTDPSlowProperty(LegionCustomTDPSlowSlider, this);
             legionCustomTDPFast = new LegionCustomTDPFastProperty(LegionCustomTDPFastSlider, this);
             legionCustomTDPPeak = new LegionCustomTDPPeakProperty(LegionCustomTDPPeakSlider, this);
             legionFanFullSpeed = new LegionFanFullSpeedProperty(LegionFanFullSpeedToggle, this);
-            legionGyroEnabled = new LegionGyroEnabledProperty(LegionGyroToggle, this);
+            legionGyroEnabled = new LegionGyroEnabledProperty(null, this); // Gyro removed from UI, kept for backwards compatibility
+            legionVibration = new LegionVibrationProperty(LegionVibrationComboBox, this);
+            legionPowerLight = new LegionPowerLightProperty(LegionPowerLightToggle, this);
+            legionChargeLimit = new LegionChargeLimitProperty(LegionChargeLimitToggle, this);
 
             // Settings properties
             useManufacturerWMI = new UseManufacturerWMIProperty(UseManufacturerWMIToggle, this);
@@ -464,6 +504,17 @@ namespace XboxGamingBar
                 amdRadeonChillSupported,
                 amdRadeonChillMinFPSProperty,
                 amdRadeonChillMaxFPSProperty,
+                amdImageSharpeningEnabled,
+                amdImageSharpeningSupported,
+                amdImageSharpeningSharpness,
+                amdDisplayBrightnessSupported,
+                amdDisplayBrightness,
+                amdDisplayContrastSupported,
+                amdDisplayContrast,
+                amdDisplaySaturationSupported,
+                amdDisplaySaturation,
+                amdDisplayTemperatureSupported,
+                amdDisplayTemperature,
                 losslessScalingInstalled,
                 losslessScalingRunning,
                 losslessScalingEnabled,
@@ -499,6 +550,9 @@ namespace XboxGamingBar
                 legionCustomTDPPeak,
                 legionFanFullSpeed,
                 legionGyroEnabled,
+                legionVibration,
+                legionPowerLight,
+                legionChargeLimit,
                 useManufacturerWMI,
                 autoTDPEnabled,
                 autoTDPTargetFPS,
@@ -667,9 +721,9 @@ namespace XboxGamingBar
             LegionTouchpadToggle.GotFocus += Control_GotFocus;
             LegionTouchpadToggle.LostFocus += Control_LostFocus;
 
-            // Legion tab - Gyroscope card
-            LegionGyroToggle.GotFocus += Control_GotFocus;
-            LegionGyroToggle.LostFocus += Control_LostFocus;
+            // Legion tab - Vibration card
+            LegionVibrationComboBox.GotFocus += Control_GotFocus;
+            LegionVibrationComboBox.LostFocus += Control_LostFocus;
 
             // Legion tab - Light Mode card
             LegionLightModeComboBox.GotFocus += Control_GotFocus;
@@ -698,6 +752,14 @@ namespace XboxGamingBar
             // Legion tab - Fan Full Speed card
             LegionFanFullSpeedToggle.GotFocus += Control_GotFocus;
             LegionFanFullSpeedToggle.LostFocus += Control_LostFocus;
+
+            // Legion tab - Power Light card
+            LegionPowerLightToggle.GotFocus += Control_GotFocus;
+            LegionPowerLightToggle.LostFocus += Control_LostFocus;
+
+            // Legion tab - Charge Limit card
+            LegionChargeLimitToggle.GotFocus += Control_GotFocus;
+            LegionChargeLimitToggle.LostFocus += Control_LostFocus;
         }
 
         private void Control_GotFocus(object sender, RoutedEventArgs e)
@@ -863,6 +925,9 @@ namespace XboxGamingBar
 
             // Load Performance Overlay setting
             LoadPerformanceOverlaySetting();
+
+            // Load Power Plan settings
+            LoadPowerPlanSettings();
 
             // Send OSD config to helper on startup
             SendOSDConfigToHelper();
@@ -1202,7 +1267,30 @@ namespace XboxGamingBar
                 int index = PerformanceOverlayComboBox.SelectedIndex;
                 if (index >= 0)
                 {
-                    PerformanceOverlaySlider.Value = index;
+                    if (osdProvider == 1) // AMD
+                    {
+                        // For AMD: index 0 = Off, index 1-3 maps to AMD levels
+                        if (index == 0 && amdOverlayLevel > 0)
+                        {
+                            // Turn off AMD overlay
+                            SendAMDOverlayToggle();
+                            amdOverlayLevel = 0;
+                            Logger.Info("AMD Overlay toggled OFF via ComboBox");
+                        }
+                        else if (index > 0 && amdOverlayLevel == 0)
+                        {
+                            // Turn on AMD overlay (starts at level 1)
+                            SendAMDOverlayToggle();
+                            amdOverlayLevel = 1;
+                            Logger.Info("AMD Overlay toggled ON via ComboBox");
+                        }
+                        // Note: We can't set specific AMD levels directly, only cycle
+                        UpdateQuickSettingsTileStates();
+                    }
+                    else // RTSS
+                    {
+                        PerformanceOverlaySlider.Value = index;
+                    }
                     // Save the setting
                     SavePerformanceOverlaySetting();
                 }
@@ -1607,10 +1695,19 @@ namespace XboxGamingBar
         // Global OSD layout settings
         private int osdTextSize = 100;    // Percentage: 50=Small, 100=Medium, 150=Large, 200=X-Large
         private string osdTextColor = "DYNAMIC";  // DYNAMIC = value-based colors, or hex color code
+        private int osdProvider = 0;  // 0=RTSS, 1=AMD
+        private int amdOverlayLevel = 0;  // Track AMD overlay level: 0=Off, 1-4=Level 1-4 (can't query from AMD)
         private bool isOSDCustomizeExpanded = false;
         private bool isProfileSettingsExpanded = false;
         private bool isTDPLimitsExpanded = false;
+        private bool isPowerPlanExpanded = false;
+        private bool isColorSettingsExpanded = false;
         private bool isLoadingTDPLimits = false;
+        private bool isLoadingPowerPlans = false;
+        private List<PowerPlanItem> availablePowerPlans = new List<PowerPlanItem>();
+        private Guid acPowerPlanGuid = Guid.Empty;
+        private Guid dcPowerPlanGuid = Guid.Empty;
+        private bool powerPlanAutoSwitch = true;
         private int deviceTDPMin = 4;
         private int deviceTDPMax = 35;
         private DispatcherTimer tdpLimitsDebounceTimer;
@@ -1628,7 +1725,104 @@ namespace XboxGamingBar
                 if (int.TryParse(tagStr, out int level))
                 {
                     LoadOSDOptionsForLevel(level);
+                    // Note: This is only for RTSS customization - AMD overlay doesn't have configurable levels
                 }
+            }
+        }
+
+        private void OSDProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingOSDConfig) return;
+
+            if (OSDProviderComboBox?.SelectedItem is ComboBoxItem selected && selected.Tag is string tagStr)
+            {
+                if (int.TryParse(tagStr, out int provider))
+                {
+                    int previousProvider = osdProvider;
+                    osdProvider = provider;
+
+                    // Save to storage
+                    try
+                    {
+                        ApplicationData.Current.LocalSettings.Values["OSD_Provider"] = osdProvider;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error saving OSD provider: {ex.Message}");
+                    }
+
+                    // Update UI visibility
+                    UpdateOSDProviderUI();
+
+                    // When switching providers, disable the other one
+                    if (provider == 0) // RTSS
+                    {
+                        // Disable AMD overlay if it was enabled (send Ctrl+Shift+O to toggle off)
+                        if (previousProvider == 1 && amdOverlayLevel > 0)
+                        {
+                            SendAMDOverlayToggle();
+                            amdOverlayLevel = 0;
+                        }
+                        // Enable RTSS OSD by sending config
+                        SendOSDConfigToHelper();
+                    }
+                    else if (provider == 1) // AMD
+                    {
+                        // Disable RTSS OSD by setting level to 0
+                        if (osd != null)
+                        {
+                            osd.SetValue(0);
+                        }
+                        // Enable AMD overlay (send Ctrl+Shift+O)
+                        SendAMDOverlayToggle();
+                        amdOverlayLevel = 1;  // Start at level 1
+                    }
+
+                    // Update Quick Settings tiles
+                    UpdateQuickSettingsTileStates();
+
+                    Logger.Info($"OSD Provider changed to: {(provider == 0 ? "RTSS" : "AMD")}");
+                }
+            }
+        }
+
+        private void UpdateOSDProviderUI()
+        {
+            if (RTSSOptionsPanel != null)
+            {
+                RTSSOptionsPanel.Visibility = osdProvider == 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
+            if (AMDOptionsPanel != null)
+            {
+                AMDOptionsPanel.Visibility = osdProvider == 1 ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
+        private void SendAMDOverlayToggle()
+        {
+            // Send Ctrl+Shift+O to toggle AMD Adrenaline's metrics overlay on/off
+            try
+            {
+                QuickSettings.KeyboardShortcutHelper.SendShortcut("Ctrl+Shift+O");
+                Logger.Info("Sent AMD overlay toggle hotkey (Ctrl+Shift+O)");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending AMD overlay toggle: {ex.Message}");
+            }
+        }
+
+        private void CycleAMDOverlayLevel()
+        {
+            // Send Ctrl+Shift+X to cycle AMD Adrenaline's metrics overlay levels
+            try
+            {
+                QuickSettings.KeyboardShortcutHelper.SendShortcut("Ctrl+Shift+X");
+                Logger.Info("Sent AMD overlay cycle hotkey (Ctrl+Shift+X)");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error cycling AMD overlay level: {ex.Message}");
             }
         }
 
@@ -1807,6 +2001,10 @@ namespace XboxGamingBar
                 {
                     osdTextColor = textColor;
                 }
+                if (settings.Values.TryGetValue("OSD_Provider", out object providerVal) && providerVal is int provider)
+                {
+                    osdProvider = provider;
+                }
 
                 // Update layout UI
                 UpdateOSDLayoutUI();
@@ -1917,6 +2115,330 @@ namespace XboxGamingBar
             if (TDPLimitsExpandIcon != null)
             {
                 TDPLimitsExpandIcon.Text = isTDPLimitsExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void PowerPlanExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isPowerPlanExpanded = !isPowerPlanExpanded;
+
+            if (PowerPlanOptionsPanel != null)
+            {
+                PowerPlanOptionsPanel.Visibility = isPowerPlanExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (PowerPlanExpandIcon != null)
+            {
+                PowerPlanExpandIcon.Glyph = isPowerPlanExpanded ? "\uE70E" : "\uE76C";
+            }
+
+            // Load power plans when expanding for the first time
+            if (isPowerPlanExpanded && availablePowerPlans.Count == 0)
+            {
+                LoadPowerPlans();
+            }
+        }
+
+        private async void LoadPowerPlans()
+        {
+            isLoadingPowerPlans = true;
+
+            try
+            {
+                // Request power plans from helper
+                if (App.Connection != null)
+                {
+                    var request = new Windows.Foundation.Collections.ValueSet();
+                    request.Add("GetPowerPlans", true);
+
+                    var response = await App.Connection.SendMessageAsync(request);
+
+                    if (response?.Message != null)
+                    {
+                        availablePowerPlans.Clear();
+
+                        // Parse response: "GUID1|Name1;GUID2|Name2;..."
+                        if (response.Message.TryGetValue("PowerPlans", out object plansValue) && plansValue is string plansStr)
+                        {
+                            var planParts = plansStr.Split(';');
+                            foreach (var part in planParts)
+                            {
+                                if (string.IsNullOrWhiteSpace(part)) continue;
+
+                                var segments = part.Split('|');
+                                if (segments.Length >= 2 && Guid.TryParse(segments[0], out Guid planGuid))
+                                {
+                                    availablePowerPlans.Add(new PowerPlanItem
+                                    {
+                                        Guid = planGuid,
+                                        Name = segments[1]
+                                    });
+                                }
+                            }
+                        }
+
+                        // Get currently active plan
+                        if (response.Message.TryGetValue("ActivePowerPlan", out object activeValue) && activeValue is string activeStr)
+                        {
+                            if (Guid.TryParse(activeStr, out Guid activeGuid))
+                            {
+                                // If no saved preferences, use current active plan as default
+                                if (acPowerPlanGuid == Guid.Empty)
+                                {
+                                    acPowerPlanGuid = activeGuid;
+                                }
+                                if (dcPowerPlanGuid == Guid.Empty)
+                                {
+                                    dcPowerPlanGuid = activeGuid;
+                                }
+                            }
+                        }
+
+                        Logger.Info($"Received {availablePowerPlans.Count} power plans from helper");
+                    }
+                }
+
+                // Fallback to well-known plans if helper didn't respond
+                if (availablePowerPlans.Count == 0)
+                {
+                    Logger.Warn("No power plans received from helper, using defaults");
+                    availablePowerPlans.Add(new PowerPlanItem
+                    {
+                        Guid = new Guid("381b4222-f694-41f0-9685-ff5bb260df2e"),
+                        Name = "Balanced"
+                    });
+                    availablePowerPlans.Add(new PowerPlanItem
+                    {
+                        Guid = new Guid("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"),
+                        Name = "High Performance"
+                    });
+                    availablePowerPlans.Add(new PowerPlanItem
+                    {
+                        Guid = new Guid("a1841308-3541-4fab-bc81-f71556f20b4a"),
+                        Name = "Power Saver"
+                    });
+                }
+
+                // Populate ComboBoxes
+                if (ACPowerPlanComboBox != null)
+                {
+                    ACPowerPlanComboBox.Items.Clear();
+                    foreach (var plan in availablePowerPlans)
+                    {
+                        ACPowerPlanComboBox.Items.Add(new ComboBoxItem { Content = plan.Name, Tag = plan.Guid.ToString() });
+                    }
+
+                    // Select saved or default
+                    SelectPowerPlanInComboBox(ACPowerPlanComboBox, acPowerPlanGuid);
+                }
+
+                if (DCPowerPlanComboBox != null)
+                {
+                    DCPowerPlanComboBox.Items.Clear();
+                    foreach (var plan in availablePowerPlans)
+                    {
+                        DCPowerPlanComboBox.Items.Add(new ComboBoxItem { Content = plan.Name, Tag = plan.Guid.ToString() });
+                    }
+
+                    // Select saved or default
+                    SelectPowerPlanInComboBox(DCPowerPlanComboBox, dcPowerPlanGuid);
+                }
+
+                // Update toggle state
+                if (PowerPlanAutoSwitchToggle != null)
+                {
+                    PowerPlanAutoSwitchToggle.IsOn = powerPlanAutoSwitch;
+                }
+
+                Logger.Info($"Loaded {availablePowerPlans.Count} power plans");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error loading power plans: {ex.Message}");
+            }
+            finally
+            {
+                isLoadingPowerPlans = false;
+            }
+        }
+
+        private void SelectPowerPlanInComboBox(ComboBox comboBox, Guid planGuid)
+        {
+            if (comboBox == null) return;
+
+            for (int i = 0; i < comboBox.Items.Count; i++)
+            {
+                if (comboBox.Items[i] is ComboBoxItem item && item.Tag is string guidStr)
+                {
+                    if (Guid.TryParse(guidStr, out Guid itemGuid) && itemGuid == planGuid)
+                    {
+                        comboBox.SelectedIndex = i;
+                        return;
+                    }
+                }
+            }
+
+            // Default to first item (Balanced) if not found
+            if (comboBox.Items.Count > 0)
+            {
+                comboBox.SelectedIndex = 0;
+            }
+        }
+
+        private void ACPowerPlanComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingPowerPlans) return;
+
+            if (ACPowerPlanComboBox?.SelectedItem is ComboBoxItem selected && selected.Tag is string guidStr)
+            {
+                if (Guid.TryParse(guidStr, out Guid planGuid))
+                {
+                    acPowerPlanGuid = planGuid;
+                    SavePowerPlanSettings();
+
+                    // If currently on AC power, apply the plan immediately
+                    if (powerPlanAutoSwitch && PowerManager.PowerSupplyStatus == PowerSupplyStatus.Adequate)
+                    {
+                        ApplyPowerPlan(planGuid);
+                    }
+
+                    Logger.Info($"AC Power Plan set to: {selected.Content} ({planGuid})");
+                }
+            }
+        }
+
+        private void DCPowerPlanComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingPowerPlans) return;
+
+            if (DCPowerPlanComboBox?.SelectedItem is ComboBoxItem selected && selected.Tag is string guidStr)
+            {
+                if (Guid.TryParse(guidStr, out Guid planGuid))
+                {
+                    dcPowerPlanGuid = planGuid;
+                    SavePowerPlanSettings();
+
+                    // If currently on battery, apply the plan immediately
+                    if (powerPlanAutoSwitch && PowerManager.PowerSupplyStatus != PowerSupplyStatus.Adequate)
+                    {
+                        ApplyPowerPlan(planGuid);
+                    }
+
+                    Logger.Info($"DC Power Plan set to: {selected.Content} ({planGuid})");
+                }
+            }
+        }
+
+        private void PowerPlanAutoSwitchToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (isLoadingPowerPlans) return;
+
+            powerPlanAutoSwitch = PowerPlanAutoSwitchToggle?.IsOn ?? true;
+            SavePowerPlanSettings();
+
+            Logger.Info($"Power Plan auto-switch set to: {powerPlanAutoSwitch}");
+        }
+
+        private void ApplyPowerPlan(Guid planGuid)
+        {
+            if (planGuid == Guid.Empty) return;
+
+            // Send message to helper to apply the power plan
+            // Format: "PowerPlan:GUID"
+            try
+            {
+                var message = new Windows.Foundation.Collections.ValueSet();
+                message.Add("PowerPlan", planGuid.ToString());
+                _ = SendHelperMessageAsync(message);
+                Logger.Info($"Sent power plan change request: {planGuid}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error applying power plan: {ex.Message}");
+            }
+        }
+
+        private async Task SendHelperMessageAsync(Windows.Foundation.Collections.ValueSet message)
+        {
+            if (App.Connection != null)
+            {
+                try
+                {
+                    await App.Connection.SendMessageAsync(message);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error sending message to helper: {ex.Message}");
+                }
+            }
+        }
+
+        private void SavePowerPlanSettings()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                settings.Values["PowerPlan_AC"] = acPowerPlanGuid.ToString();
+                settings.Values["PowerPlan_DC"] = dcPowerPlanGuid.ToString();
+                settings.Values["PowerPlan_AutoSwitch"] = powerPlanAutoSwitch;
+                Logger.Info("Power plan settings saved");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error saving power plan settings: {ex.Message}");
+            }
+        }
+
+        private void LoadPowerPlanSettings()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                if (settings.Values.TryGetValue("PowerPlan_AC", out object acVal) && acVal is string acStr)
+                {
+                    if (Guid.TryParse(acStr, out Guid acGuid))
+                    {
+                        acPowerPlanGuid = acGuid;
+                    }
+                }
+
+                if (settings.Values.TryGetValue("PowerPlan_DC", out object dcVal) && dcVal is string dcStr)
+                {
+                    if (Guid.TryParse(dcStr, out Guid dcGuid))
+                    {
+                        dcPowerPlanGuid = dcGuid;
+                    }
+                }
+
+                if (settings.Values.TryGetValue("PowerPlan_AutoSwitch", out object autoVal) && autoVal is bool autoSwitch)
+                {
+                    powerPlanAutoSwitch = autoSwitch;
+                }
+
+                // Note: If GUIDs are empty, LoadPowerPlans() will use the current active plan as default
+
+                Logger.Info($"Power plan settings loaded: AC={acPowerPlanGuid}, DC={dcPowerPlanGuid}, AutoSwitch={powerPlanAutoSwitch}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error loading power plan settings: {ex.Message}");
+            }
+        }
+
+        private void ColorSettingsExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isColorSettingsExpanded = !isColorSettingsExpanded;
+
+            if (ColorSettingsContent != null)
+            {
+                ColorSettingsContent.Visibility = isColorSettingsExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (ColorSettingsExpandButton != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                ColorSettingsExpandButton.Content = isColorSettingsExpanded ? "\uE70E" : "\uE70D";
             }
         }
 
@@ -2623,6 +3145,22 @@ namespace XboxGamingBar
             isLoadingOSDConfig = true;
             try
             {
+                // Set OSD provider combobox
+                if (OSDProviderComboBox != null)
+                {
+                    foreach (ComboBoxItem item in OSDProviderComboBox.Items)
+                    {
+                        if (item.Tag is string tag && int.TryParse(tag, out int val) && val == osdProvider)
+                        {
+                            OSDProviderComboBox.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+
+                // Update provider-specific UI visibility
+                UpdateOSDProviderUI();
+
                 // Columns are per-level, loaded in LoadOSDOptionsForLevel
 
                 // Set text size combobox
@@ -2701,7 +3239,24 @@ namespace XboxGamingBar
             {
                 if (isUnloading) return;
 
+                var batteryStatus = PowerManager.BatteryStatus;
+                var powerSupplyStatus = PowerManager.PowerSupplyStatus;
+
+                Logger.Info($"Power source event - Battery: {batteryStatus}, PowerSupply: {powerSupplyStatus}");
+
                 UpdateActiveProfileIndicator();
+
+                // Auto-switch power plan based on power source
+                if (powerPlanAutoSwitch)
+                {
+                    bool isOnAC = powerSupplyStatus != PowerSupplyStatus.NotPresent;
+                    Guid planToApply = isOnAC ? acPowerPlanGuid : dcPowerPlanGuid;
+                    if (planToApply != Guid.Empty)
+                    {
+                        ApplyPowerPlan(planToApply);
+                        Logger.Info($"Auto-switched power plan to {(isOnAC ? "AC" : "DC")}: {planToApply}");
+                    }
+                }
 
                 // Only reapply TDP after power source change if:
                 // 1. On Legion Go in Custom mode (255) - system changes TDP, need to restore
@@ -2782,10 +3337,10 @@ namespace XboxGamingBar
                 if (PowerSourceProfileToggle.IsOn)
                 {
                     // Check power status for AC/DC
-                    var batteryStatus = PowerManager.BatteryStatus;
+                    // Only consider DC (battery) when power supply is NotPresent (actually unplugged)
+                    // Inadequate means charger is connected but can't keep up - still treat as AC
                     var powerSupplyStatus = PowerManager.PowerSupplyStatus;
-                    bool isOnAC = batteryStatus == BatteryStatus.Charging ||
-                                  (batteryStatus == BatteryStatus.Idle && powerSupplyStatus == PowerSupplyStatus.Adequate);
+                    bool isOnAC = powerSupplyStatus != PowerSupplyStatus.NotPresent;
 
                     if (isOnAC)
                     {
@@ -2813,18 +3368,14 @@ namespace XboxGamingBar
                 else
                 {
                     // Check power status
-                    var batteryStatus = PowerManager.BatteryStatus;
+                    // Only consider DC (battery) when power supply is NotPresent (actually unplugged)
+                    // Inadequate means charger is connected but can't keep up - still treat as AC
                     var powerSupplyStatus = PowerManager.PowerSupplyStatus;
                     var remainingCharge = PowerManager.RemainingChargePercent;
 
-                    Logger.Info($"Power status - Battery: {batteryStatus}, PowerSupply: {powerSupplyStatus}, Charge: {remainingCharge}%");
+                    Logger.Info($"Power status - PowerSupply: {powerSupplyStatus}, Charge: {remainingCharge}%");
 
-                    // Device is on AC power if:
-                    // 1. Battery is charging, OR
-                    // 2. Battery is idle AND power supply is adequate
-                    // If power supply is NotPresent or Inadequate, we're on battery
-                    bool isOnAC = batteryStatus == BatteryStatus.Charging ||
-                                  (batteryStatus == BatteryStatus.Idle && powerSupplyStatus == PowerSupplyStatus.Adequate);
+                    bool isOnAC = powerSupplyStatus != PowerSupplyStatus.NotPresent;
 
                     if (isOnAC)
                     {
@@ -2879,6 +3430,11 @@ namespace XboxGamingBar
             bool hasGame = HasValidGame(currentGameName);
             bool perGameEnabled = PerGameProfileToggle?.IsOn ?? false;
 
+            // Only consider DC (battery) when power supply is NotPresent (actually unplugged)
+            // Inadequate means charger is connected but can't keep up - still treat as AC
+            var powerSupplyStatus = PowerManager.PowerSupplyStatus;
+            bool isOnAC = powerSupplyStatus != PowerSupplyStatus.NotPresent;
+
             // IMPORTANT: Never create profile names for invalid games
             // If per-game is enabled but no valid game, fall back to global profiles
             if (perGameEnabled && hasGame)
@@ -2888,10 +3444,6 @@ namespace XboxGamingBar
 
                 if (PowerSourceProfileToggle.IsOn)
                 {
-                    var batteryStatus = PowerManager.BatteryStatus;
-                    var powerSupplyStatus = PowerManager.PowerSupplyStatus;
-                    bool isOnAC = batteryStatus == BatteryStatus.Charging ||
-                                  (batteryStatus == BatteryStatus.Idle && powerSupplyStatus == PowerSupplyStatus.Adequate);
                     return isOnAC ? $"Game_{currentGameName}_AC" : $"Game_{currentGameName}_DC";
                 }
                 else
@@ -2913,10 +3465,6 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    var batteryStatus = PowerManager.BatteryStatus;
-                    var powerSupplyStatus = PowerManager.PowerSupplyStatus;
-                    bool isOnAC = batteryStatus == BatteryStatus.Charging ||
-                                  (batteryStatus == BatteryStatus.Idle && powerSupplyStatus == PowerSupplyStatus.Adequate);
                     return isOnAC ? "AC" : "DC";
                 }
             }
@@ -3901,6 +4449,13 @@ namespace XboxGamingBar
             {
                 stickyTDPTimer.Tick -= StickyTDPTimer_Tick;
                 stickyTDPTimer = null;
+            }
+
+            // Stop power source TDP reapply timer
+            if (powerSourceTdpReapplyTimer != null)
+            {
+                powerSourceTdpReapplyTimer.Stop();
+                powerSourceTdpReapplyTimer = null;
             }
 
             // Unregister this instance as the active widget
@@ -5071,6 +5626,74 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Handles speed slider changes
+        /// </summary>
+        private void LegionSpeedSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            try
+            {
+                if (LegionSpeedSlider != null && LegionSpeedValue != null)
+                {
+                    int speed = (int)LegionSpeedSlider.Value;
+                    LegionSpeedValue.Text = $"{speed}%";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LegionSpeedSlider_ValueChanged: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles light mode ComboBox selection - shows/hides appropriate controls
+        /// Mode options visibility:
+        /// - Off (0): hide all
+        /// - Solid (1): Color + Brightness
+        /// - Pulse (2): Color + Speed
+        /// - Dynamic (3): Brightness + Speed
+        /// - Spiral (4): Brightness + Speed
+        /// </summary>
+        private void LegionLightModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                UpdateLegionLightControlsVisibility();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LegionLightModeComboBox_SelectionChanged: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Updates the visibility of Legion light controls based on the selected mode
+        /// </summary>
+        private void UpdateLegionLightControlsVisibility()
+        {
+            if (LegionLightModeComboBox == null || LegionColorCard == null ||
+                LegionBrightnessCard == null || LegionSpeedCard == null)
+                return;
+
+            int mode = LegionLightModeComboBox.SelectedIndex;
+
+            // Off (0): hide all
+            // Solid (1): Color + Brightness
+            // Pulse (2): Color + Brightness + Speed
+            // Dynamic (3): Brightness + Speed
+            // Spiral (4): Brightness + Speed
+
+            bool showColor = mode == 1 || mode == 2; // Solid, Pulse
+            bool showBrightness = mode >= 1; // All modes except Off have brightness
+            bool showSpeed = mode == 2 || mode == 3 || mode == 4; // Pulse, Dynamic, Spiral
+
+            LegionColorCard.Visibility = showColor ? Visibility.Visible : Visibility.Collapsed;
+            LegionBrightnessCard.Visibility = showBrightness ? Visibility.Visible : Visibility.Collapsed;
+            LegionSpeedCard.Visibility = showSpeed ? Visibility.Visible : Visibility.Collapsed;
+
+            Logger.Info($"Legion light mode {mode}: Color={showColor}, Brightness={showBrightness}, Speed={showSpeed}");
+        }
+
+        /// <summary>
         /// Handles performance mode ComboBox selection
         /// </summary>
         private void LegionPerformanceModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -5220,6 +5843,7 @@ namespace XboxGamingBar
             AddTileDefinition("Resolution", "Resolution", "\uE7F8");
             AddTileDefinition("HDR", "HDR", "\uE706");
             AddTileDefinition("LosslessScaling", "Lossless", "\uE740");
+            AddTileDefinition("RIS", "RIS", "\uE8B3");
             AddTileDefinition("AFMF", "AFMF", "\uE916");
             AddTileDefinition("RSR", "RSR", "\uE8B3");
             AddTileDefinition("AntiLag", "Anti-Lag", "\uE916");
@@ -5686,19 +6310,29 @@ namespace XboxGamingBar
                 // Performance Overlay tile
                 if (qsTileMap.TryGetValue("Overlay", out var overlayTile) && overlayTile.TileButton != null)
                 {
-                    int level = (int)(osd?.Value ?? 0);
-                    string levelText;
-                    switch (level)
+                    if (osdProvider == 1) // AMD
                     {
-                        case 0: levelText = "Off"; break;
-                        case 1: levelText = "Basic"; break;
-                        case 2: levelText = "Detailed"; break;
-                        case 3: levelText = "Full"; break;
-                        default: levelText = "Off"; break;
+                        string amdLevelText = amdOverlayLevel > 0 ? $"AMD {amdOverlayLevel}" : "Off";
+                        overlayTile.StateText.Text = amdLevelText;
+                        overlayTile.StateText.Foreground = amdOverlayLevel > 0 ? accentForeground : offForeground;
+                        overlayTile.TileButton.Background = amdOverlayLevel > 0 ? tileOnBrush : tileOffBrush;
                     }
-                    overlayTile.StateText.Text = levelText;
-                    overlayTile.StateText.Foreground = level > 0 ? accentForeground : offForeground;
-                    overlayTile.TileButton.Background = level > 0 ? tileOnBrush : tileOffBrush;
+                    else // RTSS
+                    {
+                        int level = (int)(osd?.Value ?? 0);
+                        string levelText;
+                        switch (level)
+                        {
+                            case 0: levelText = "Off"; break;
+                            case 1: levelText = "Basic"; break;
+                            case 2: levelText = "Detailed"; break;
+                            case 3: levelText = "Full"; break;
+                            default: levelText = "Off"; break;
+                        }
+                        overlayTile.StateText.Text = levelText;
+                        overlayTile.StateText.Foreground = level > 0 ? accentForeground : offForeground;
+                        overlayTile.TileButton.Background = level > 0 ? tileOnBrush : tileOffBrush;
+                    }
                 }
 
                 // Power Mode tile
@@ -5754,6 +6388,16 @@ namespace XboxGamingBar
                     lsTile.StateText.Text = enabled ? "On" : "Off";
                     lsTile.StateText.Foreground = enabled ? accentForeground : offForeground;
                     lsTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
+                // RIS (Radeon Image Sharpening) tile
+                if (qsTileMap.TryGetValue("RIS", out var risTile) && risTile.TileButton != null)
+                {
+                    bool supported = amdImageSharpeningSupported?.Value ?? false;
+                    bool enabled = amdImageSharpeningEnabled?.Value ?? false;
+                    risTile.StateText.Text = !supported ? "N/A" : (enabled ? "On" : "Off");
+                    risTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                    risTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
                 }
 
                 // AFMF tile
@@ -5923,6 +6567,9 @@ namespace XboxGamingBar
                                 break;
                             case "LosslessScaling":
                                 ToggleLosslessScaling();
+                                break;
+                            case "RIS":
+                                ToggleRIS();
                                 break;
                             case "AFMF":
                                 ToggleAFMF();
@@ -6144,6 +6791,17 @@ namespace XboxGamingBar
             }
         }
 
+        private void ToggleRIS()
+        {
+            if (amdImageSharpeningEnabled != null && (amdImageSharpeningSupported?.Value ?? false))
+            {
+                bool newValue = !amdImageSharpeningEnabled.Value;
+                amdImageSharpeningEnabled.SetValue(newValue);
+                AMDImageSharpeningToggle.IsOn = newValue;
+                Logger.Info($"RIS toggled to {newValue}");
+            }
+        }
+
         private void ToggleAntiLag()
         {
             if (amdRadeonAntiLagEnabled != null && (amdRadeonAntiLagSupported?.Value ?? false))
@@ -6220,12 +6878,43 @@ namespace XboxGamingBar
 
         private void CyclePerformanceOverlay()
         {
-            if (osd != null)
+            if (osdProvider == 1) // AMD
             {
-                int currentLevel = (int)osd.Value;
-                int nextLevel = (currentLevel + 1) % 4;
-                osd.SetValue(nextLevel);
-                Logger.Info($"Performance Overlay cycled from {currentLevel} to {nextLevel}");
+                // AMD has 4 overlay levels that cycle with Ctrl+Shift+X
+                // Ctrl+Shift+O toggles the overlay on/off completely
+                // Cycle: Off -> Level 1 -> Level 2 -> Level 3 -> Level 4 -> Off
+                if (amdOverlayLevel == 0)
+                {
+                    // Currently off, turn on (starts at level 1)
+                    SendAMDOverlayToggle();
+                    amdOverlayLevel = 1;
+                    Logger.Info("AMD Overlay toggled ON (Level 1)");
+                }
+                else if (amdOverlayLevel < 4)
+                {
+                    // Cycle to next level
+                    CycleAMDOverlayLevel();
+                    amdOverlayLevel++;
+                    Logger.Info($"AMD Overlay cycled to Level {amdOverlayLevel}");
+                }
+                else
+                {
+                    // At level 4, turn off
+                    SendAMDOverlayToggle();
+                    amdOverlayLevel = 0;
+                    Logger.Info("AMD Overlay toggled OFF");
+                }
+                UpdateQuickSettingsTileStates();
+            }
+            else // RTSS
+            {
+                if (osd != null)
+                {
+                    int currentLevel = (int)osd.Value;
+                    int nextLevel = (currentLevel + 1) % 4;
+                    osd.SetValue(nextLevel);
+                    Logger.Info($"RTSS Performance Overlay cycled from {currentLevel} to {nextLevel}");
+                }
             }
         }
 
