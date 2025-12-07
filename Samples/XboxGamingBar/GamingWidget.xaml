@@ -685,6 +685,7 @@
                                 <ComboBox x:Name="OSPowerModeComboBox"
                                           Margin="0,12,0,0"
                                           HorizontalAlignment="Stretch"
+                                          SelectedIndex="1"
                                           SelectionChanged="OSPowerModeComboBox_SelectionChanged">
                                     <ComboBoxItem Content="Best Power Efficiency"/>
                                     <ComboBoxItem Content="Balanced"/>
@@ -1128,6 +1129,7 @@
                                         <TextBlock Grid.Row="6" Grid.Column="0" x:Name="GameACDCProfilePowerModeLabel" Text="Power" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="6" Grid.Column="1" x:Name="GameACProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="6" Grid.Column="2" x:Name="GameDCProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
                                     </Grid>
                                 </StackPanel>
 
