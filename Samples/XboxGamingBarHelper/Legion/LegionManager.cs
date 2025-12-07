@@ -211,11 +211,19 @@ namespace XboxGamingBarHelper.Legion
         }
 
         /// <summary>
-        /// Gets the current TDP values from Legion WMI.
+        /// Gets the current TDP values.
+        /// When in Custom mode (255), returns our cached values since WMI returns preset values.
         /// Returns (slow/SPL, fast/SPPL, peak/FPPT) or null values if not available.
         /// </summary>
         public (int? slow, int? fast, int? peak) GetCurrentTDPValues()
         {
+            // In Custom mode, return our cached values since WMI GetFeatureValue
+            // returns the preset TDP limits, not the custom values we've applied
+            if (performanceMode == 255)
+            {
+                return (customTDPSlow, customTDPFast, customTDPPeak);
+            }
+
             int? slow = null, fast = null, peak = null;
 
             try

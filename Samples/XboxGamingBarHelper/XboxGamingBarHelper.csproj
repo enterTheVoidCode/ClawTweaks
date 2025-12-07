@@ -237,6 +237,7 @@
     <Compile Include="ADLXDepends\IADLXDisplayServices.cs" />
     <Compile Include="ADLXDepends\IADLXDisplaySettingsChangedEvent.cs" />
     <Compile Include="ADLXDepends\IADLXDisplaySettingsChangedListener.cs" />
+    <Compile Include="ADLXDepends\IADLXDisplayCustomColor.cs" />
     <Compile Include="ADLXDepends\IADLXFPS.cs" />
     <Compile Include="ADLXDepends\IADLXFPSList.cs" />
     <Compile Include="ADLXDepends\IADLXGPU.cs" />
@@ -350,6 +351,8 @@
     <Compile Include="AMD\Properties\AMDRadeonBoostProperties.cs" />
     <Compile Include="AMD\Properties\AMDRadeonChillProperties.cs" />
     <Compile Include="AMD\Properties\AMDRadeonSuperResolutionProperties.cs" />
+    <Compile Include="AMD\Properties\AMDImageSharpeningProperties.cs" />
+    <Compile Include="AMD\Properties\AMDDisplayColorProperties.cs" />
     <Compile Include="LosslessScaling\LosslessScalingManager.cs" />
     <Compile Include="LosslessScaling\Properties\LosslessScalingProperties.cs" />
     <Compile Include="AMD\Settings\AMDFluidMotionFrameSetting.cs" />
@@ -357,6 +360,8 @@
     <Compile Include="AMD\Settings\AMDRadeonBoostSetting.cs" />
     <Compile Include="AMD\Settings\AMDRadeonChillSetting.cs" />
     <Compile Include="AMD\Settings\AMDRadeonSuperResolutionSetting.cs" />
+    <Compile Include="AMD\Settings\AMDImageSharpeningSetting.cs" />
+    <Compile Include="AMD\Settings\AMDDisplayCustomColorSetting.cs" />
     <Compile Include="Core\HelperProperties.cs" />
     <Compile Include="Core\HelperProperty.cs" />
     <Compile Include="Core\IManager.cs" />
@@ -436,6 +441,8 @@
     <Compile Include="Legion\LegionGoLibrary.cs" />
     <Compile Include="Legion\LegionManager.cs" />
     <Compile Include="Legion\LegionProperties.cs" />
+    <Compile Include="PawnIO\PawnIOWrapper.cs" />
+    <Compile Include="PawnIO\RyzenSmuService.cs" />
     <Compile Include="AutoTDP\AutoTDPManager.cs" />
     <Compile Include="AutoTDP\TDPLimitsProperty.cs" />
     <Compile Include="Systems\HDREnabledProperty.cs" />
@@ -472,6 +479,8 @@
     <None Include="NLog.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- WinRing0 kernel driver - only loaded when user disables Manufacturer WMI TDP -->
+    <!-- WARNING: May trigger anti-cheat systems like EAC -->
     <None Include="WinRing0x64.sys">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -492,6 +501,8 @@
     <None Include="libryzenadj.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- WinRing0 DLL - only loaded when user disables Manufacturer WMI TDP -->
+    <!-- WARNING: May trigger anti-cheat systems like EAC -->
     <None Include="WinRing0x64.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -515,6 +526,10 @@
     <None Include="ADLXCSharpBind.pdb">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- PawnIO modules embedded as resources (like ZenStates-Core) -->
+    <EmbeddedResource Include="Resources\PawnIO\RyzenSMU.bin" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
