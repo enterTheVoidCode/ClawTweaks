@@ -175,7 +175,6 @@ namespace XboxGamingBarHelper.LosslessScaling
             losslessScalingBringToForeground.PropertyChanged += LosslessScalingBringToForeground_PropertyChanged;
             losslessScalingLaunch.PropertyChanged += LosslessScalingLaunch_PropertyChanged;
 
-            // Initialize input injector
             inputInjector = InputInjector.TryCreate();
             toggleScalingKeyboardCombo = new InjectedInputKeyboardInfo[]
             {

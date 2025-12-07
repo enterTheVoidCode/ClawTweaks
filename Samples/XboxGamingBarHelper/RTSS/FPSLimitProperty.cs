@@ -13,7 +13,6 @@ namespace XboxGamingBarHelper.RTSS
         {
             base.NotifyPropertyChanged(propertyName);
 
-            // Apply the FPS limit via RTSS
             RTSSFPSLimiter.SetFPSLimit(Value);
         }
     }

@@ -84,7 +84,6 @@ namespace XboxGamingBarHelper.RTSS
             osdConfig = new OSDConfigProperty(this);
             fpsLimit = new FPSLimitProperty(this);
 
-            // Initialize FPS limiter
             RTSSFPSLimiter.Initialize();
             osdItemFan = new OSDItemFan();
             osdItemAutoTDP = new OSDItemAutoTDP();
@@ -260,21 +259,6 @@ namespace XboxGamingBarHelper.RTSS
                     rtssOSD.Dispose();
                     rtssOSD = null;
                 }
-
-                /*var rtssProcess = RTSSHelper.GetProcess();
-                if (rtssProcess != null && SettingsManager.GetInstance().AutoStartRTSS)
-                {
-                    try
-                    {
-                        Logger.Info("Stopping Rivatuner Statistics Server..");
-                        rtssProcess.Kill();
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error(ex, "Failed to stop Rivatuner Statistics Server.");
-                    }
-                }
-                rtssState = RivatunerStatisticsServerState.NotRunning;*/
 
                 return;
             }

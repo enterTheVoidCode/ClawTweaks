@@ -328,5 +328,156 @@ namespace XboxGamingBarHelper.Power
         }
 
         #endregion
+
+        #region Power Plan Management
+
+        /// <summary>
+        /// Represents a Windows power plan
+        /// </summary>
+        public class PowerPlan
+        {
+            public Guid Guid { get; set; }
+            public string Name { get; set; }
+
+            public override string ToString() => Name;
+        }
+
+        /// <summary>
+        /// Enumerates all available power plans on the system.
+        /// </summary>
+        public static System.Collections.Generic.List<PowerPlan> GetPowerPlans()
+        {
+            var plans = new System.Collections.Generic.List<PowerPlan>();
+
+            try
+            {
+                uint index = 0;
+                uint bufferSize = 16; // GUID size
+                IntPtr buffer = Marshal.AllocHGlobal((int)bufferSize);
+
+                try
+                {
+                    while (true)
+                    {
+                        bufferSize = 16;
+                        uint result = PowrProf.PowerEnumerate(
+                            IntPtr.Zero,
+                            IntPtr.Zero,
+                            IntPtr.Zero,
+                            PowrProf.ACCESS_SCHEME,
+                            index,
+                            buffer,
+                            ref bufferSize);
+
+                        if (result != 0)
+                            break; // No more power plans
+
+                        Guid schemeGuid = (Guid)Marshal.PtrToStructure(buffer, typeof(Guid));
+                        string friendlyName = GetPowerPlanName(schemeGuid);
+
+                        plans.Add(new PowerPlan { Guid = schemeGuid, Name = friendlyName });
+                        Logger.Debug($"Found power plan: {friendlyName} ({schemeGuid})");
+
+                        index++;
+                    }
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(buffer);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error enumerating power plans: {ex.Message}");
+            }
+
+            return plans;
+        }
+
+        /// <summary>
+        /// Gets the friendly name of a power plan by its GUID.
+        /// </summary>
+        public static string GetPowerPlanName(Guid schemeGuid)
+        {
+            try
+            {
+                uint bufferSize = 0;
+
+                // First call to get required buffer size
+                PowrProf.PowerReadFriendlyName(
+                    IntPtr.Zero,
+                    ref schemeGuid,
+                    IntPtr.Zero,
+                    IntPtr.Zero,
+                    IntPtr.Zero,
+                    ref bufferSize);
+
+                if (bufferSize == 0)
+                    return schemeGuid.ToString();
+
+                IntPtr buffer = Marshal.AllocHGlobal((int)bufferSize);
+                try
+                {
+                    uint result = PowrProf.PowerReadFriendlyName(
+                        IntPtr.Zero,
+                        ref schemeGuid,
+                        IntPtr.Zero,
+                        IntPtr.Zero,
+                        buffer,
+                        ref bufferSize);
+
+                    if (result == 0)
+                    {
+                        return Marshal.PtrToStringUni(buffer);
+                    }
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(buffer);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error getting power plan name: {ex.Message}");
+            }
+
+            return schemeGuid.ToString();
+        }
+
+        /// <summary>
+        /// Gets the currently active power plan GUID.
+        /// </summary>
+        public static Guid GetActivePowerPlan()
+        {
+            return GetActiveScheme();
+        }
+
+        /// <summary>
+        /// Sets the active power plan by GUID.
+        /// </summary>
+        public static bool SetActivePowerPlan(Guid planGuid)
+        {
+            try
+            {
+                uint result = PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref planGuid);
+                if (result == 0)
+                {
+                    Logger.Info($"Set active power plan to {planGuid}");
+                    return true;
+                }
+                else
+                {
+                    Logger.Error($"Failed to set power plan, error code: {result}");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting power plan: {ex.Message}");
+                return false;
+            }
+        }
+
+        #endregion
     }
 }
