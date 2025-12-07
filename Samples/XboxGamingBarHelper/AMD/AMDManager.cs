@@ -65,6 +65,18 @@ namespace XboxGamingBarHelper.AMD
             get { return amdRadeonChillSetting; }
         }
 
+        private readonly AMDImageSharpeningSetting amdImageSharpeningSetting;
+        public AMDImageSharpeningSetting AMDImageSharpeningSetting
+        {
+            get { return amdImageSharpeningSetting; }
+        }
+
+        private readonly AMDDisplayCustomColorSetting amdDisplayCustomColorSetting;
+        public AMDDisplayCustomColorSetting AMDDisplayCustomColorSetting
+        {
+            get { return amdDisplayCustomColorSetting; }
+        }
+
         private readonly AMD3DSettingsChangedListener amd3DSettingsChangedListener;
 
         // AMD Properties.
@@ -152,6 +164,73 @@ namespace XboxGamingBarHelper.AMD
             get { return amdRadeonChillMaxFPS; }
         }
 
+        private readonly AMDImageSharpeningSupportedProperty amdImageSharpeningSupported;
+        public AMDImageSharpeningSupportedProperty AMDImageSharpeningSupported
+        {
+            get { return amdImageSharpeningSupported; }
+        }
+
+        private readonly AMDImageSharpeningEnabledProperty amdImageSharpeningEnabled;
+        public AMDImageSharpeningEnabledProperty AMDImageSharpeningEnabled
+        {
+            get { return amdImageSharpeningEnabled; }
+        }
+
+        private readonly AMDImageSharpeningSharpnessProperty amdImageSharpeningSharpness;
+        public AMDImageSharpeningSharpnessProperty AMDImageSharpeningSharpness
+        {
+            get { return amdImageSharpeningSharpness; }
+        }
+
+        // Display Color Properties
+        private readonly AMDDisplayBrightnessSupportedProperty amdDisplayBrightnessSupported;
+        public AMDDisplayBrightnessSupportedProperty AMDDisplayBrightnessSupported
+        {
+            get { return amdDisplayBrightnessSupported; }
+        }
+
+        private readonly AMDDisplayBrightnessProperty amdDisplayBrightness;
+        public AMDDisplayBrightnessProperty AMDDisplayBrightness
+        {
+            get { return amdDisplayBrightness; }
+        }
+
+        private readonly AMDDisplayContrastSupportedProperty amdDisplayContrastSupported;
+        public AMDDisplayContrastSupportedProperty AMDDisplayContrastSupported
+        {
+            get { return amdDisplayContrastSupported; }
+        }
+
+        private readonly AMDDisplayContrastProperty amdDisplayContrast;
+        public AMDDisplayContrastProperty AMDDisplayContrast
+        {
+            get { return amdDisplayContrast; }
+        }
+
+        private readonly AMDDisplaySaturationSupportedProperty amdDisplaySaturationSupported;
+        public AMDDisplaySaturationSupportedProperty AMDDisplaySaturationSupported
+        {
+            get { return amdDisplaySaturationSupported; }
+        }
+
+        private readonly AMDDisplaySaturationProperty amdDisplaySaturation;
+        public AMDDisplaySaturationProperty AMDDisplaySaturation
+        {
+            get { return amdDisplaySaturation; }
+        }
+
+        private readonly AMDDisplayTemperatureSupportedProperty amdDisplayTemperatureSupported;
+        public AMDDisplayTemperatureSupportedProperty AMDDisplayTemperatureSupported
+        {
+            get { return amdDisplayTemperatureSupported; }
+        }
+
+        private readonly AMDDisplayTemperatureProperty amdDisplayTemperature;
+        public AMDDisplayTemperatureProperty AMDDisplayTemperature
+        {
+            get { return amdDisplayTemperature; }
+        }
+
         private readonly InputInjector inputInjector;
         private readonly InjectedInputKeyboardInfo[] turnAMDOverlayOnOffKeyboardCombo;
         private readonly InjectedInputKeyboardInfo[] changeAMDOverlayLevelKeyboardCombo;
@@ -162,22 +241,25 @@ namespace XboxGamingBarHelper.AMD
 
         public AMDManager(AppServiceConnection connection) : base(connection)
         {
-            // Initialize ADLX with ADLXHelper
-            adlxHelper = new ADLXHelper();
-            adlxInitializeResult = adlxHelper.Initialize();
-
-            if (adlxInitializeResult != ADLX_RESULT.ADLX_OK)
+            try
             {
-                Logger.Error("AMD Manager initialize failed.");
-                return;
-            }
+                Logger.Info("Initializing ADLX...");
+                // Initialize ADLX with ADLXHelper
+                adlxHelper = new ADLXHelper();
+                adlxInitializeResult = adlxHelper.Initialize();
 
-            adlxSystemSevices = adlxHelper.GetSystemServices();
-            if (adlxSystemSevices == null)
-            {
-                Logger.Error("Can't get AMD system service.");
-                return;
-            }
+                if (adlxInitializeResult != ADLX_RESULT.ADLX_OK)
+                {
+                    Logger.Error("AMD Manager initialize failed.");
+                    throw new Exception("ADLX initialization returned non-OK result");
+                }
+
+                adlxSystemSevices = adlxHelper.GetSystemServices();
+                if (adlxSystemSevices == null)
+                {
+                    Logger.Error("Can't get AMD system service.");
+                    throw new Exception("ADLX GetSystemServices returned null");
+                }
 
             Logger.Info("Get AMD display services.");
             // Get display services
@@ -281,6 +363,90 @@ namespace XboxGamingBarHelper.AMD
             amdRadeonChillMinFPS = new AMDRadeonChillMinFPSProperty(amdRadeonChillSetting.GetMinFPS(), this);
             amdRadeonChillMaxFPS = new AMDRadeonChillMaxFPSProperty(amdRadeonChillSetting.GetMaxFPS(), this);
 
+            Logger.Info("Get AMD Image Sharpening.");
+            var threeDImageSharpeningPointer = ADLX.new_threeDImageSharpeningP_Ptr();
+            adlx3DSettingsServices.GetImageSharpening(adlxInternalGPU, threeDImageSharpeningPointer);
+            var threeDImageSharpening = ADLX.threeDImageSharpeningP_Ptr_value(threeDImageSharpeningPointer);
+            amdImageSharpeningSetting = new AMDImageSharpeningSetting(threeDImageSharpening);
+            amdImageSharpeningSupported = new AMDImageSharpeningSupportedProperty(amdImageSharpeningSetting.IsSupported(), this);
+            amdImageSharpeningEnabled = new AMDImageSharpeningEnabledProperty(amdImageSharpeningSetting.IsEnabled(), this);
+            amdImageSharpeningSharpness = new AMDImageSharpeningSharpnessProperty(amdImageSharpeningSetting.GetSharpness(), this);
+
+            Logger.Info("Get AMD Display Custom Color.");
+            // Get display list and find a display that supports custom color
+            var displayListPointer = ADLX.new_displayListP_Ptr();
+            adlxDisplayServices.GetDisplays(displayListPointer);
+            var displayList = ADLX.displayListP_Ptr_value(displayListPointer);
+            Logger.Info($"Display list: {displayList}, Size: {displayList?.Size() ?? 0}");
+
+            bool foundSupportedDisplay = false;
+            if (displayList != null && displayList.Size() > 0)
+            {
+                // Try each display to find one that supports custom color
+                for (uint i = 0; i < displayList.Size(); i++)
+                {
+                    var displayPointer = ADLX.new_displayP_Ptr();
+                    displayList.At(i, displayPointer);
+                    var display = ADLX.displayP_Ptr_value(displayPointer);
+                    Logger.Info($"Checking display {i}: {display}");
+
+                    var displayCustomColorPointer = ADLX.new_displayCustomColorP_Ptr();
+                    var customColorResult = adlxDisplayServices.GetCustomColor(display, displayCustomColorPointer);
+                    Logger.Info($"Display {i} GetCustomColor result: {customColorResult}");
+
+                    if (customColorResult == ADLX_RESULT.ADLX_OK)
+                    {
+                        var displayCustomColor = ADLX.displayCustomColorP_Ptr_value(displayCustomColorPointer);
+                        Logger.Info($"Display {i} CustomColor: {displayCustomColor}");
+
+                        if (displayCustomColor != null)
+                        {
+                            var tempSetting = new AMDDisplayCustomColorSetting(displayCustomColor);
+                            bool brightnessSupported = tempSetting.IsBrightnessSupported();
+                            bool contrastSupported = tempSetting.IsContrastSupported();
+                            bool saturationSupported = tempSetting.IsSaturationSupported();
+                            bool temperatureSupported = tempSetting.IsTemperatureSupported();
+
+                            Logger.Info($"Display {i} supports: Brightness={brightnessSupported}, Contrast={contrastSupported}, Saturation={saturationSupported}, Temperature={temperatureSupported}");
+
+                            // If this display supports any custom color feature, use it
+                            if (brightnessSupported || contrastSupported || saturationSupported || temperatureSupported)
+                            {
+                                amdDisplayCustomColorSetting = tempSetting;
+                                amdDisplayBrightnessSupported = new AMDDisplayBrightnessSupportedProperty(brightnessSupported, this);
+                                amdDisplayBrightness = new AMDDisplayBrightnessProperty(amdDisplayCustomColorSetting.GetBrightness(), this);
+                                amdDisplayContrastSupported = new AMDDisplayContrastSupportedProperty(contrastSupported, this);
+                                amdDisplayContrast = new AMDDisplayContrastProperty(amdDisplayCustomColorSetting.GetContrast(), this);
+                                amdDisplaySaturationSupported = new AMDDisplaySaturationSupportedProperty(saturationSupported, this);
+                                amdDisplaySaturation = new AMDDisplaySaturationProperty(amdDisplayCustomColorSetting.GetSaturation(), this);
+                                amdDisplayTemperatureSupported = new AMDDisplayTemperatureSupportedProperty(temperatureSupported, this);
+                                amdDisplayTemperature = new AMDDisplayTemperatureProperty(amdDisplayCustomColorSetting.GetTemperature(), this);
+                                Logger.Info($"Using display {i} for custom color settings");
+                                foundSupportedDisplay = true;
+                                break;
+                            }
+                            else
+                            {
+                                tempSetting.Dispose();
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!foundSupportedDisplay)
+            {
+                Logger.Warn("No displays with custom color support found, using defaults.");
+                amdDisplayBrightnessSupported = new AMDDisplayBrightnessSupportedProperty(false, this);
+                amdDisplayBrightness = new AMDDisplayBrightnessProperty(0, this);
+                amdDisplayContrastSupported = new AMDDisplayContrastSupportedProperty(false, this);
+                amdDisplayContrast = new AMDDisplayContrastProperty(100, this);
+                amdDisplaySaturationSupported = new AMDDisplaySaturationSupportedProperty(false, this);
+                amdDisplaySaturation = new AMDDisplaySaturationProperty(100, this);
+                amdDisplayTemperatureSupported = new AMDDisplayTemperatureSupportedProperty(false, this);
+                amdDisplayTemperature = new AMDDisplayTemperatureProperty(6500, this);
+            }
+
             Logger.Info("AMD Manager initialized successfully.");
 
             amdFluidMotionFrameEnabled.PropertyChanged += AmdFluidMotionFrameEnabled;
@@ -332,6 +498,40 @@ namespace XboxGamingBarHelper.AMD
                 amdOverlayLevelMap.Add(amdOverlayLevel.Item1, amdOverlayLevel.Item2);
             }
             lastUpdate = 0;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ADLX initialization failed with exception: {ex.Message}");
+                Logger.Error($"Stack trace: {ex.StackTrace}");
+                adlxInitializeResult = ADLX_RESULT.ADLX_FAIL;
+
+                // Initialize properties with default/disabled values
+                amdRadeonSuperResolutionSupported = amdRadeonSuperResolutionSupported ?? new AMDRadeonSuperResolutionSupportedProperty(false, this);
+                amdRadeonSuperResolutionEnabled = amdRadeonSuperResolutionEnabled ?? new AMDRadeonSuperResolutionEnabledProperty(false, this);
+                amdRadeonSuperResolutionSharpness = amdRadeonSuperResolutionSharpness ?? new AMDRadeonSuperResolutionSharpnessProperty(0, this);
+                amdFluidMotionFrameSupported = amdFluidMotionFrameSupported ?? new AMDFluidMotionFrameSupportedProperty(false, this);
+                amdFluidMotionFrameEnabled = amdFluidMotionFrameEnabled ?? new AMDFluidMotionFrameEnabledProperty(false, this);
+                amdRadeonAntiLagSupported = amdRadeonAntiLagSupported ?? new AMDRadeonAntiLagSupportedProperty(false, this);
+                amdRadeonAntiLagEnabled = amdRadeonAntiLagEnabled ?? new AMDRadeonAntiLagEnabledProperty(false, this);
+                amdRadeonBoostSupported = amdRadeonBoostSupported ?? new AMDRadeonBoostSupportedProperty(false, this);
+                amdRadeonBoostEnabled = amdRadeonBoostEnabled ?? new AMDRadeonBoostEnabledProperty(false, this);
+                amdRadeonBoostResolution = amdRadeonBoostResolution ?? new AMDRadeonBoostResolutionProperty(0, this);
+                amdRadeonChillSupported = amdRadeonChillSupported ?? new AMDRadeonChillSupportedProperty(false, this);
+                amdRadeonChillEnabled = amdRadeonChillEnabled ?? new AMDRadeonChillEnabledProperty(false, this);
+                amdRadeonChillMinFPS = amdRadeonChillMinFPS ?? new AMDRadeonChillMinFPSProperty(0, this);
+                amdRadeonChillMaxFPS = amdRadeonChillMaxFPS ?? new AMDRadeonChillMaxFPSProperty(0, this);
+                amdImageSharpeningSupported = amdImageSharpeningSupported ?? new AMDImageSharpeningSupportedProperty(false, this);
+                amdImageSharpeningEnabled = amdImageSharpeningEnabled ?? new AMDImageSharpeningEnabledProperty(false, this);
+                amdImageSharpeningSharpness = amdImageSharpeningSharpness ?? new AMDImageSharpeningSharpnessProperty(0, this);
+                amdDisplayBrightnessSupported = amdDisplayBrightnessSupported ?? new AMDDisplayBrightnessSupportedProperty(false, this);
+                amdDisplayBrightness = amdDisplayBrightness ?? new AMDDisplayBrightnessProperty(0, this);
+                amdDisplayContrastSupported = amdDisplayContrastSupported ?? new AMDDisplayContrastSupportedProperty(false, this);
+                amdDisplayContrast = amdDisplayContrast ?? new AMDDisplayContrastProperty(0, this);
+                amdDisplaySaturationSupported = amdDisplaySaturationSupported ?? new AMDDisplaySaturationSupportedProperty(false, this);
+                amdDisplaySaturation = amdDisplaySaturation ?? new AMDDisplaySaturationProperty(0, this);
+                amdDisplayTemperatureSupported = amdDisplayTemperatureSupported ?? new AMDDisplayTemperatureSupportedProperty(false, this);
+                amdDisplayTemperature = amdDisplayTemperature ?? new AMDDisplayTemperatureProperty(0, this);
+            }
         }
 
         private void AmdRadeonChillEnabled(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -420,6 +620,8 @@ namespace XboxGamingBarHelper.AMD
                 adlx3DSettingsServices?.Dispose();
                 amdRadeonSuperResolutionSetting?.Dispose();
                 amdFluidMotionFrameSetting?.Dispose();
+                amdImageSharpeningSetting?.Dispose();
+                amdDisplayCustomColorSetting?.Dispose();
                 adlxHelper?.Dispose();
                 Logger.Info("AMDManager: ADLX resources disposed");
             }
