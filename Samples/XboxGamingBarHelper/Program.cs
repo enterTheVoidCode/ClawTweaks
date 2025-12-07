@@ -95,6 +95,11 @@ namespace XboxGamingBarHelper
             // Set LegionManager reference in PerformanceManager for WMI TDP support
             performanceManager.SetLegionManager(legionManager);
 
+            // PawnIO/RyzenSMU initialization disabled - waiting for CPU support
+            // See: https://github.com/namazso/PawnIO.Modules/issues/XX (Ryzen Z2 Extreme model 0x24 not recognized)
+            // Legion WMI is used for TDP control on Legion Go/Go S devices
+            // performanceManager.InitializePawnIO();
+
             // Set LegionManager reference in RTSSManager for fan speed OSD support
             rtssManager.SetLegionManager(legionManager);
 
