@@ -72,6 +72,15 @@ namespace XboxGamingBarHelper.AMD
                 }
             }
 
+            if (p3DSettingsChangedEvent.IsImageSharpeningChanged())
+            {
+                var isEnabled = amdManager.AMDImageSharpeningSetting.IsEnabled();
+                if (amdManager.AMDImageSharpeningEnabled != isEnabled)
+                {
+                    amdManager.AMDImageSharpeningEnabled.SetValue(isEnabled);
+                }
+            }
+
             var isAMDFluidMotionFramesEnabled = amdManager.AMDFluidMotionFrameSetting.IsEnabled();
             if (amdManager.AMDFluidMotionFrameEnabled != isAMDFluidMotionFramesEnabled)
             {
