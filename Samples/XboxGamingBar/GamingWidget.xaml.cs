@@ -5537,11 +5537,18 @@ namespace XboxGamingBar
                 Logger.Info($"Legion tab visibility set to: {visible}");
             }
 
-            // Also show the Manufacturer WMI TDP option on System tab when Legion is detected
-            if (ManufacturerWMICard != null)
+            // Manufacturer WMI TDP card is always visible (device-agnostic)
+            // Update the description based on Legion detection
+            if (ManufacturerWMIDescription != null)
             {
-                ManufacturerWMICard.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-                Logger.Info($"Manufacturer WMI TDP card visibility set to: {visible}");
+                if (visible)
+                {
+                    ManufacturerWMIDescription.Text = "Use device manufacturer's WMI method for TDP control. Supported: Legion Go / Go 2. Disable to use RyzenAdj (may trigger anti-cheat).";
+                }
+                else
+                {
+                    ManufacturerWMIDescription.Text = "Use device manufacturer's WMI method for TDP control. No supported device detected. RyzenAdj will be used (may trigger anti-cheat).";
+                }
             }
 
             // Refresh Quick Settings tiles to show/hide Legion-specific tiles

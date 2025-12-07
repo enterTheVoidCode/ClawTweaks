@@ -1533,7 +1533,7 @@
                         </Border>
 
                         <!-- Manufacturer WMI TDP Card -->
-                        <Border x:Name="ManufacturerWMICard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                        <Border x:Name="ManufacturerWMICard" Style="{StaticResource CardStyle}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -1541,7 +1541,8 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="Manufacturer WMI TDP" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Use device manufacturer's WMI method for TDP control instead of RyzenAdj"
+                                    <TextBlock x:Name="ManufacturerWMIDescription"
+                                               Text="Use device manufacturer's WMI method for TDP control. Supported: Legion Go / Go 2. Disable to use RyzenAdj (may trigger anti-cheat)."
                                                Style="{StaticResource CardCaptionStyle}"
                                                TextWrapping="Wrap"/>
                                 </StackPanel>
