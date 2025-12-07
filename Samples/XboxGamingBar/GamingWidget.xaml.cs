@@ -59,6 +59,8 @@ namespace XboxGamingBar
         public int AutoTDPTargetFPS { get; set; } = 60;
         // OS Power Mode (0=Best Power Efficiency, 1=Balanced, 2=Best Performance)
         public int OSPowerMode { get; set; } = 1;
+        // Legion Performance Mode (1=Quiet, 2=Balanced, 3=Performance, 255=Custom)
+        public int LegionPerformanceMode { get; set; } = 2;
 
         public PerformanceProfile Clone()
         {
@@ -80,7 +82,8 @@ namespace XboxGamingBar
                 FPSLimitValue = this.FPSLimitValue,
                 AutoTDPEnabled = this.AutoTDPEnabled,
                 AutoTDPTargetFPS = this.AutoTDPTargetFPS,
-                OSPowerMode = this.OSPowerMode
+                OSPowerMode = this.OSPowerMode,
+                LegionPerformanceMode = this.LegionPerformanceMode
             };
         }
     }
@@ -264,6 +267,7 @@ namespace XboxGamingBar
         private bool isSwitchingProfile = false;
         private bool isApplyingHelperUpdate = false; // Prevents saves when helper echoes values back
         private bool isInternalToggleDisable = false; // Indicates toggle is being disabled internally (game close)
+        private int savedLegionPerformanceMode = -1; // Stores Legion mode before per-game profile (-1 = not saved)
 
         // Helper to check if we have a valid game (not null, not empty, not "No game detected")
         private bool HasValidGame(string gameName)
@@ -350,6 +354,7 @@ namespace XboxGamingBar
             currentTdp = new CurrentTDPProperty(CurrentTDPValueText, this);
             osd = new OSDProperty(0, PerformanceOverlaySlider, this);
             runningGame = new RunningGameProperty(RunningGameText, PerGameProfileToggle, DetectedGameText, this);
+            runningGame.SetNavigationReferences(PerformanceNavItem, PerformanceOverlayComboBox);
             perGameProfile = new PerGameProfileProperty(PerGameProfileToggle, this);
             cpuBoost = new CPUBoostProperty(CPUBoostToggle, this);
             cpuEPP = new CPUEPPProperty(80, CPUEPPSlider, this);
@@ -603,6 +608,12 @@ namespace XboxGamingBar
             TDPSlider.GotFocus += Control_GotFocus;
             TDPSlider.LostFocus += Control_LostFocus;
 
+            // Performance tab - AutoTDP card
+            AutoTDPToggle.GotFocus += Control_GotFocus;
+            AutoTDPToggle.LostFocus += Control_LostFocus;
+            AutoTDPTargetFPSSlider.GotFocus += Control_GotFocus;
+            AutoTDPTargetFPSSlider.LostFocus += Control_LostFocus;
+
             // Performance tab - CPU Boost card
             CPUBoostToggle.GotFocus += Control_GotFocus;
             CPUBoostToggle.LostFocus += Control_LostFocus;
@@ -622,6 +633,10 @@ namespace XboxGamingBar
             FPSLimitToggle.LostFocus += Control_LostFocus;
             FPSLimitSlider.GotFocus += Control_GotFocus;
             FPSLimitSlider.LostFocus += Control_LostFocus;
+
+            // Performance tab - OS Power Mode card
+            OSPowerModeComboBox.GotFocus += Control_GotFocus;
+            OSPowerModeComboBox.LostFocus += Control_LostFocus;
 
             // Profiles tab - Power Source Profile card
             PowerSourceProfileToggle.GotFocus += Control_GotFocus;
@@ -644,6 +659,24 @@ namespace XboxGamingBar
             AMDRadeonSuperResolutionToggle.LostFocus += Control_LostFocus;
             AMDRadeonSuperResolutionSharpnessSlider.GotFocus += Control_GotFocus;
             AMDRadeonSuperResolutionSharpnessSlider.LostFocus += Control_LostFocus;
+
+            // Graphics tab - Image Sharpening card
+            AMDImageSharpeningToggle.GotFocus += Control_GotFocus;
+            AMDImageSharpeningToggle.LostFocus += Control_LostFocus;
+            AMDImageSharpeningSlider.GotFocus += Control_GotFocus;
+            AMDImageSharpeningSlider.LostFocus += Control_LostFocus;
+
+            // Graphics tab - Color Settings card
+            ColorSettingsExpandButton.GotFocus += Control_GotFocus;
+            ColorSettingsExpandButton.LostFocus += Control_LostFocus;
+            AMDDisplayBrightnessSlider.GotFocus += Control_GotFocus;
+            AMDDisplayBrightnessSlider.LostFocus += Control_LostFocus;
+            AMDDisplayContrastSlider.GotFocus += Control_GotFocus;
+            AMDDisplayContrastSlider.LostFocus += Control_LostFocus;
+            AMDDisplaySaturationSlider.GotFocus += Control_GotFocus;
+            AMDDisplaySaturationSlider.LostFocus += Control_LostFocus;
+            AMDDisplayTemperatureSlider.GotFocus += Control_GotFocus;
+            AMDDisplayTemperatureSlider.LostFocus += Control_LostFocus;
             AMDFluidMotionFrameToggle.GotFocus += Control_GotFocus;
             AMDFluidMotionFrameToggle.LostFocus += Control_LostFocus;
             AMDRadeonAntiLagToggle.GotFocus += Control_GotFocus;
@@ -672,6 +705,36 @@ namespace XboxGamingBar
             StickyTDPToggle.LostFocus += Control_LostFocus;
             StickyTDPIntervalSlider.GotFocus += Control_GotFocus;
             StickyTDPIntervalSlider.LostFocus += Control_LostFocus;
+
+            // System tab - Manufacturer WMI TDP card
+            UseManufacturerWMIToggle.GotFocus += Control_GotFocus;
+            UseManufacturerWMIToggle.LostFocus += Control_LostFocus;
+
+            // System tab - Device TDP Limits card
+            TDPLimitsExpandButton.GotFocus += Control_GotFocus;
+            TDPLimitsExpandButton.LostFocus += Control_LostFocus;
+            TDPLimitsMinSlider.GotFocus += Control_GotFocus;
+            TDPLimitsMinSlider.LostFocus += Control_LostFocus;
+            TDPLimitsMaxSlider.GotFocus += Control_GotFocus;
+            TDPLimitsMaxSlider.LostFocus += Control_LostFocus;
+
+            // System tab - Power Plan Settings card
+            PowerPlanExpandButton.GotFocus += Control_GotFocus;
+            PowerPlanExpandButton.LostFocus += Control_LostFocus;
+            ACPowerPlanComboBox.GotFocus += Control_GotFocus;
+            ACPowerPlanComboBox.LostFocus += Control_LostFocus;
+            DCPowerPlanComboBox.GotFocus += Control_GotFocus;
+            DCPowerPlanComboBox.LostFocus += Control_LostFocus;
+            PowerPlanAutoSwitchToggle.GotFocus += Control_GotFocus;
+            PowerPlanAutoSwitchToggle.LostFocus += Control_LostFocus;
+
+            // System tab - OSD Customization card
+            OSDCustomizeExpandButton.GotFocus += Control_GotFocus;
+            OSDCustomizeExpandButton.LostFocus += Control_LostFocus;
+
+            // System tab - Advanced card
+            AdvancedExpandButton.GotFocus += Control_GotFocus;
+            AdvancedExpandButton.LostFocus += Control_LostFocus;
 
             // Scaling tab - Status card buttons
             ShowLosslessScalingWindowButton.GotFocus += Control_GotFocus;
@@ -730,6 +793,8 @@ namespace XboxGamingBar
             LegionLightModeComboBox.LostFocus += Control_LostFocus;
 
             // Legion tab - Light Color card (ColorPicker)
+            LegionColorExpandButton.GotFocus += Control_GotFocus;
+            LegionColorExpandButton.LostFocus += Control_LostFocus;
             LegionColorPicker.GotFocus += Control_GotFocus;
             LegionColorPicker.LostFocus += Control_LostFocus;
 
@@ -3619,6 +3684,39 @@ namespace XboxGamingBar
                         isLoadingOSPowerMode = false;
                     }
                 }
+                // Legion Performance Mode handling
+                if (LegionPerformanceModeComboBox != null)
+                {
+                    if (profileName.StartsWith("Game_"))
+                    {
+                        // Loading a game profile: save current mode and switch to Custom (255) to allow TDP changes
+                        if (savedLegionPerformanceMode < 0)
+                        {
+                            int[] modeValues = { 1, 2, 3, 255 };
+                            int currentIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                            savedLegionPerformanceMode = (currentIndex >= 0 && currentIndex < modeValues.Length) ? modeValues[currentIndex] : 2;
+                            Logger.Info($"Saved Legion Performance Mode: {GetLegionModeShortName(savedLegionPerformanceMode)} ({savedLegionPerformanceMode}) before game profile");
+                        }
+
+                        // Switch to Custom mode to allow TDP changes
+                        LegionPerformanceModeComboBox.SelectedIndex = 3; // Custom = index 3
+                        legionPerformanceMode?.SetValue(255); // Custom = 255
+                        Logger.Info($"Switched to Custom Legion mode for game profile: {profileName}");
+                    }
+                    else if (savedLegionPerformanceMode >= 0)
+                    {
+                        // Loading Global/AC/DC profile and we have a saved mode to restore
+                        int[] modeValues = { 1, 2, 3, 255 };
+                        int index = Array.IndexOf(modeValues, savedLegionPerformanceMode);
+                        if (index >= 0)
+                        {
+                            LegionPerformanceModeComboBox.SelectedIndex = index;
+                            legionPerformanceMode?.SetValue(savedLegionPerformanceMode);
+                            Logger.Info($"Restored Legion Performance Mode: {GetLegionModeShortName(savedLegionPerformanceMode)} ({savedLegionPerformanceMode}) after game closed");
+                        }
+                        savedLegionPerformanceMode = -1; // Clear saved mode
+                    }
+                }
             }
             finally
             {
@@ -3684,6 +3782,7 @@ namespace XboxGamingBar
             container.Values["AutoTDPEnabled"] = profile.AutoTDPEnabled;
             container.Values["AutoTDPTargetFPS"] = profile.AutoTDPTargetFPS;
             container.Values["OSPowerMode"] = profile.OSPowerMode;
+            container.Values["LegionPerformanceMode"] = profile.LegionPerformanceMode;
         }
 
         private void LoadProfileFromStorage(string profileName, PerformanceProfile profile)
@@ -3710,6 +3809,7 @@ namespace XboxGamingBar
                 profile.AutoTDPEnabled = container.Values.ContainsKey("AutoTDPEnabled") ? (bool)container.Values["AutoTDPEnabled"] : false;
                 profile.AutoTDPTargetFPS = container.Values.ContainsKey("AutoTDPTargetFPS") ? (int)container.Values["AutoTDPTargetFPS"] : 60;
                 profile.OSPowerMode = container.Values.ContainsKey("OSPowerMode") ? (int)container.Values["OSPowerMode"] : 1;
+                profile.LegionPerformanceMode = container.Values.ContainsKey("LegionPerformanceMode") ? (int)container.Values["LegionPerformanceMode"] : 2;
 
                 Logger.Info($"Loaded {profileName} profile from storage");
             }
@@ -3801,6 +3901,7 @@ namespace XboxGamingBar
                     GameDCProfilePowerModeText.Visibility = powerModeVisibility;
                     GameACProfilePowerModeText.Text = GetPowerModeShortName(gameACProfile.OSPowerMode);
                     GameDCProfilePowerModeText.Text = GetPowerModeShortName(gameDCProfile.OSPowerMode);
+
                 }
                 else
                 {
@@ -3835,6 +3936,18 @@ namespace XboxGamingBar
                 case 0: return "Efficiency";
                 case 1: return "Balanced";
                 case 2: return "Performance";
+                default: return "Balanced";
+            }
+        }
+
+        private static string GetLegionModeShortName(int mode)
+        {
+            switch (mode)
+            {
+                case 1: return "Quiet";
+                case 2: return "Balanced";
+                case 3: return "Performance";
+                case 255: return "Custom";
                 default: return "Balanced";
             }
         }

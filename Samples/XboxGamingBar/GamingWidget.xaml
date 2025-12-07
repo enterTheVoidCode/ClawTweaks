@@ -104,14 +104,22 @@
             <Setter Property="Margin" Value="0"/>
             <Setter Property="OffContent" Value=""/>
             <Setter Property="OnContent" Value=""/>
-            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+            <Setter Property="UseSystemFocusVisuals" Value="True"/>
+            <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
+            <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
+            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+            <Setter Property="FocusVisualMargin" Value="-3"/>
         </Style>
 
         <!-- Modern Slider Style - Fluent with System Accent Color, focus on parent card -->
         <Style x:Key="ModernSliderStyle" TargetType="Slider">
             <Setter Property="Margin" Value="0,4,0,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+            <Setter Property="UseSystemFocusVisuals" Value="True"/>
+            <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
+            <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
+            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
+            <Setter Property="FocusVisualMargin" Value="-3"/>
             <Setter Property="ManipulationMode" Value="None"/>
         </Style>
 
@@ -400,14 +408,16 @@
 
             <muxc:NavigationView.MenuItems>
                 <muxc:NavigationViewItem x:Name="QuickNavItem" Content="Quick" Tag="Quick" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem x:Name="PerformanceNavItem" Content="Performance" Tag="Performance" Style="{StaticResource NavItemStyle}"
-                                            XYFocusDown="{x:Bind PerformanceOverlayComboBox}"/>
-                <muxc:NavigationViewItem x:Name="ProfilesNavItem" Content="Profiles" Tag="Game" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem x:Name="PerformanceNavItem" Content="Performance" Tag="Performance" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem x:Name="ProfilesNavItem" Content="Profiles" Tag="Game" Style="{StaticResource NavItemStyle}"
+                                            XYFocusDown="{x:Bind PowerSourceProfileToggle}"/>
                 <muxc:NavigationViewItem x:Name="GraphicsNavItem" Content="Graphics" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem x:Name="ScalingNavItem" Content="Scaling" Tag="Scaling" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem x:Name="LegionNavItem" Content="Legion" Tag="Legion" Style="{StaticResource NavItemStyle}" Visibility="Collapsed"/>
+                <muxc:NavigationViewItem x:Name="ScalingNavItem" Content="Scaling" Tag="Scaling" Style="{StaticResource NavItemStyle}"
+                                            XYFocusDown="{x:Bind LosslessScalingEnabledToggle}"/>
+                <muxc:NavigationViewItem x:Name="LegionNavItem" Content="Legion" Tag="Legion" Style="{StaticResource NavItemStyle}" Visibility="Collapsed"
+                                            XYFocusDown="{x:Bind LegionTouchpadToggle}"/>
                 <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"
-                                            XYFocusDown="{x:Bind ProfileSaveTDPCheckBox}"/>
+                                            XYFocusDown="{x:Bind StickyTDPToggle}"/>
             </muxc:NavigationView.MenuItems>
 
             <!-- QUICK SETTINGS TAB -->
@@ -541,7 +551,6 @@
                                               Width="120"
                                               Grid.Column="1"
                                               SelectionChanged="PerformanceOverlayComboBox_SelectionChanged"
-                                              XYFocusUp="{x:Bind PerformanceNavItem}"
                                               XYFocusDown="{x:Bind TDPSlider}"
                                               XYFocusLeft="{x:Bind PerformanceNavItem}">
                                         <ComboBoxItem Content="Off" Tag="0" IsSelected="True"/>
@@ -615,11 +624,8 @@
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   Toggled="AutoTDPToggle_Toggled" Width="50"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
                                                   XYFocusUp="{x:Bind TDPSlider}"
-                                                  XYFocusDown="{x:Bind CPUBoostToggle}"/>
+                                                  XYFocusDown="{x:Bind AutoTDPTargetFPSSlider}"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=AutoTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid Margin="0,12,0,0">
@@ -639,9 +645,6 @@
                                             StepFrequency="1"
                                             Value="60"
                                             ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"
-                                            UseSystemFocusVisuals="True"
-                                            FocusVisualPrimaryBrush="White"
-                                            FocusVisualSecondaryBrush="Transparent"
                                             XYFocusUp="{x:Bind AutoTDPToggle}"
                                             XYFocusDown="{x:Bind CPUBoostToggle}"/>
                                     <Grid Margin="0,8,0,0">
@@ -1257,6 +1260,58 @@
                             </Grid>
                         </Border>
 
+                        <!-- Display Color Settings Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Color Settings" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Adjust display color output" Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <Button x:Name="ColorSettingsExpandButton"
+                                            Grid.Column="1"
+                                            Content="&#xE70D;"
+                                            FontFamily="Segoe MDL2 Assets"
+                                            FontSize="12"
+                                            Padding="8,4"
+                                            Background="Transparent"
+                                            Click="ColorSettingsExpandButton_Click"
+                                            UseSystemFocusVisuals="True"
+                                            FocusVisualPrimaryBrush="White"/>
+                                </Grid>
+                                <StackPanel x:Name="ColorSettingsContent" Visibility="Collapsed" Margin="0,10,0,0">
+                                    <Slider x:Name="AMDDisplayBrightnessSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="-100" Maximum="100"
+                                            StepFrequency="1"
+                                            Header="Brightness"
+                                            IsEnabled="False"/>
+                                    <Slider x:Name="AMDDisplayContrastSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="200"
+                                            StepFrequency="1"
+                                            Header="Contrast"
+                                            IsEnabled="False"/>
+                                    <Slider x:Name="AMDDisplaySaturationSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="200"
+                                            StepFrequency="1"
+                                            Header="Saturation"
+                                            IsEnabled="False"/>
+                                    <Slider x:Name="AMDDisplayTemperatureSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="4000" Maximum="10000"
+                                            StepFrequency="100"
+                                            Header="Color Temperature (K)"
+                                            IsEnabled="False"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <!-- AMD Section Header -->
                         <TextBlock Text="AMD"
                                    FontSize="16"
@@ -1424,55 +1479,6 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Display Color Settings Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Color Settings" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Adjust display color output" Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <Button x:Name="ColorSettingsExpandButton"
-                                            Grid.Column="1"
-                                            Content="&#xE70D;"
-                                            FontFamily="Segoe MDL2 Assets"
-                                            FontSize="12"
-                                            Padding="8,4"
-                                            Background="Transparent"
-                                            Click="ColorSettingsExpandButton_Click"/>
-                                </Grid>
-                                <StackPanel x:Name="ColorSettingsContent" Visibility="Collapsed" Margin="0,10,0,0">
-                                    <Slider x:Name="AMDDisplayBrightnessSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="-100" Maximum="100"
-                                            StepFrequency="1"
-                                            Header="Brightness"
-                                            IsEnabled="False"/>
-                                    <Slider x:Name="AMDDisplayContrastSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="200"
-                                            StepFrequency="1"
-                                            Header="Contrast"
-                                            IsEnabled="False"/>
-                                    <Slider x:Name="AMDDisplaySaturationSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="200"
-                                            StepFrequency="1"
-                                            Header="Saturation"
-                                            IsEnabled="False"/>
-                                    <Slider x:Name="AMDDisplayTemperatureSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="4000" Maximum="10000"
-                                            StepFrequency="100"
-                                            Header="Color Temperature (K)"
-                                            IsEnabled="False"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
 
                     </StackPanel>
                 </ScrollViewer>
@@ -1500,9 +1506,7 @@
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   Toggled="StickyTDPToggle_Toggled" Width="50"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  XYFocusUp="{x:Bind SystemNavItem}"
                                                   XYFocusDown="{x:Bind UseManufacturerWMIToggle}"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -1526,10 +1530,7 @@
                                             TickPlacement="BottomRight"
                                             Header="Check Interval"
                                             Value="5"
-                                            ValueChanged="StickyTDPIntervalSlider_ValueChanged"
-                                            UseSystemFocusVisuals="True"
-                                            FocusVisualPrimaryBrush="White"
-                                            FocusVisualSecondaryBrush="Transparent"/>
+                                            ValueChanged="StickyTDPIntervalSlider_ValueChanged"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -1553,10 +1554,8 @@
                                               IsOn="True"
                                               Style="{StaticResource ModernToggleStyle}"
                                               Width="50"
-                                              UseSystemFocusVisuals="True"
-                                              FocusVisualPrimaryBrush="White"
-                                              FocusVisualSecondaryBrush="Transparent"
-                                              XYFocusUp="{x:Bind StickyTDPToggle}"/>
+                                              XYFocusUp="{x:Bind StickyTDPToggle}"
+                                              XYFocusDown="{x:Bind TDPLimitsExpandButton}"/>
                             </Grid>
                         </Border>
 
@@ -1572,7 +1571,8 @@
                                         BorderThickness="0"
                                         Padding="0"
                                         UseSystemFocusVisuals="True"
-                                        FocusVisualPrimaryBrush="White">
+                                        FocusVisualPrimaryBrush="White"
+                                        XYFocusUp="{x:Bind UseManufacturerWMIToggle}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -1638,9 +1638,8 @@
                                             SnapsTo="Ticks"
                                             Value="4"
                                             ValueChanged="TDPLimitsMinSlider_ValueChanged"
-                                            UseSystemFocusVisuals="True"
-                                            FocusVisualPrimaryBrush="White"
-                                            FocusVisualSecondaryBrush="Transparent"/>
+                                            XYFocusUp="{x:Bind TDPLimitsExpandButton}"
+                                            XYFocusDown="{x:Bind TDPLimitsMaxSlider}"/>
 
                                     <!-- Maximum TDP -->
                                     <Grid Margin="0,12,0,8">
@@ -1662,9 +1661,8 @@
                                             SnapsTo="Ticks"
                                             Value="35"
                                             ValueChanged="TDPLimitsMaxSlider_ValueChanged"
-                                            UseSystemFocusVisuals="True"
-                                            FocusVisualPrimaryBrush="White"
-                                            FocusVisualSecondaryBrush="Transparent"/>
+                                            XYFocusUp="{x:Bind TDPLimitsMinSlider}"
+                                            XYFocusDown="{x:Bind PowerPlanExpandButton}"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -1682,7 +1680,7 @@
                                         Padding="0"
                                         UseSystemFocusVisuals="True"
                                         FocusVisualPrimaryBrush="White"
-                                        FocusVisualSecondaryBrush="Transparent">
+                                        XYFocusUp="{x:Bind TDPLimitsExpandButton}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -1718,10 +1716,10 @@
                                         <ComboBox x:Name="ACPowerPlanComboBox"
                                                   Grid.Column="1"
                                                   Width="180"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
                                                   SelectionChanged="ACPowerPlanComboBox_SelectionChanged"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"/>
+                                                  XYFocusUp="{x:Bind PowerPlanExpandButton}"
+                                                  XYFocusDown="{x:Bind DCPowerPlanComboBox}"/>
                                     </Grid>
 
                                     <!-- DC Power Plan -->
@@ -1737,10 +1735,10 @@
                                         <ComboBox x:Name="DCPowerPlanComboBox"
                                                   Grid.Column="1"
                                                   Width="180"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
                                                   SelectionChanged="DCPowerPlanComboBox_SelectionChanged"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"/>
+                                                  XYFocusUp="{x:Bind ACPowerPlanComboBox}"
+                                                  XYFocusDown="{x:Bind PowerPlanAutoSwitchToggle}"/>
                                     </Grid>
 
                                     <!-- Auto-switch Toggle -->
@@ -1757,11 +1755,9 @@
                                                       Grid.Column="1"
                                                       IsOn="True"
                                                       Toggled="PowerPlanAutoSwitchToggle_Toggled"
-                                                      OnContent=""
-                                                      OffContent=""
-                                                      UseSystemFocusVisuals="True"
-                                                      FocusVisualPrimaryBrush="White"
-                                                      FocusVisualSecondaryBrush="Transparent"/>
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      XYFocusUp="{x:Bind DCPowerPlanComboBox}"
+                                                      XYFocusDown="{x:Bind OSDCustomizeExpandButton}"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
@@ -1779,7 +1775,9 @@
                                         BorderThickness="0"
                                         Padding="0"
                                         UseSystemFocusVisuals="True"
-                                        FocusVisualPrimaryBrush="White">
+                                        FocusVisualPrimaryBrush="White"
+                                        XYFocusUp="{x:Bind PowerPlanExpandButton}"
+                                        XYFocusDown="{x:Bind AdvancedExpandButton}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -2130,7 +2128,8 @@
                                         BorderThickness="0"
                                         Padding="0"
                                         UseSystemFocusVisuals="True"
-                                        FocusVisualPrimaryBrush="White">
+                                        FocusVisualPrimaryBrush="White"
+                                        XYFocusUp="{x:Bind OSDCustomizeExpandButton}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -2395,7 +2394,9 @@
                                       FontSize="16"
                                       FontWeight="SemiBold"
                                       Margin="0,10,0,0"
-                                      Style="{StaticResource StandaloneToggleButtonStyle}"/>
+                                      Style="{StaticResource StandaloneToggleButtonStyle}"
+                                      XYFocusUp="{x:Bind ScalingNavItem}"
+                                      XYFocusDown="{x:Bind LosslessScalingAutoScaleToggle}"/>
 
                         <!-- Apply and Restart Button -->
                         <Button x:Name="LosslessScalingSaveSettingsButton"
@@ -2423,7 +2424,9 @@
                                     <ToggleSwitch x:Name="LosslessScalingAutoScaleToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False" Width="50"/>
+                                                  IsEnabled="False" Width="50"
+                                                  XYFocusUp="{x:Bind LosslessScalingEnabledToggle}"
+                                                  XYFocusDown="{x:Bind LosslessScalingScalingTypeComboBox}"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=LosslessScalingAutoScaleToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid Margin="0,8,0,0">
@@ -2457,7 +2460,9 @@
                                           HorizontalAlignment="Stretch"
                                           IsEnabled="False"
                                           Style="{StaticResource ModernComboBoxStyle}"
-                                          SelectionChanged="LosslessScalingScalingTypeComboBox_SelectionChanged">
+                                          SelectionChanged="LosslessScalingScalingTypeComboBox_SelectionChanged"
+                                          XYFocusUp="{x:Bind LosslessScalingAutoScaleToggle}"
+                                          XYFocusDown="{x:Bind LosslessScalingScaleModeComboBox}">
                                     <x:String>Off</x:String>
                                     <x:String>LS1</x:String>
                                     <x:String>FSR</x:String>
@@ -2543,7 +2548,9 @@
                                           HorizontalAlignment="Stretch"
                                           IsEnabled="False"
                                           Style="{StaticResource ModernComboBoxStyle}"
-                                          SelectionChanged="LosslessScalingScaleModeComboBox_SelectionChanged">
+                                          SelectionChanged="LosslessScalingScaleModeComboBox_SelectionChanged"
+                                          XYFocusUp="{x:Bind LosslessScalingScalingTypeComboBox}"
+                                          XYFocusDown="{x:Bind LosslessScalingFrameGenTypeComboBox}">
                                     <x:String>Auto</x:String>
                                     <x:String>Custom</x:String>
                                 </ComboBox>
@@ -2592,7 +2599,8 @@
                                           Width="Auto"
                                           HorizontalAlignment="Stretch"
                                           IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}">
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          XYFocusUp="{x:Bind LosslessScalingScaleModeComboBox}">
                                     <x:String>Off</x:String>
                                     <x:String>LSFG1</x:String>
                                     <x:String>LSFG2</x:String>
@@ -2762,7 +2770,9 @@
                                 <ToggleSwitch x:Name="LegionTouchpadToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsOn="True" Width="50"/>
+                                              IsOn="True" Width="50"
+                                              XYFocusUp="{x:Bind LegionNavItem}"
+                                              XYFocusDown="{x:Bind LegionVibrationComboBox}"/>
                             </Grid>
                         </Border>
 
@@ -2841,7 +2851,9 @@
                                                 FontSize="12"
                                                 Padding="8,4"
                                                 Background="Transparent"
-                                                Click="LegionColorExpandButton_Click"/>
+                                                Click="LegionColorExpandButton_Click"
+                                                UseSystemFocusVisuals="True"
+                                                FocusVisualPrimaryBrush="White"/>
                                     </StackPanel>
                                 </Grid>
                                 <ColorPicker x:Name="LegionColorPicker"
