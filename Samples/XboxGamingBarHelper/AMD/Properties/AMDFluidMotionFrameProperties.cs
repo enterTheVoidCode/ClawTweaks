@@ -20,6 +20,10 @@ namespace XboxGamingBarHelper.AMD.Properties
         {
             base.NotifyPropertyChanged(propertyName);
 
+            // Notify the listener to start cooldown before we make the change
+            // This prevents the listener from reading stale values when the driver callback fires
+            Manager.AMD3DSettingsChangedListener?.NotifyAFMFChanged();
+
             Manager.AMDFluidMotionFrameSetting.SetEnabled(Value);
         }
     }

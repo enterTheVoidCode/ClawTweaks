@@ -350,5 +350,30 @@ namespace Shared.Data
             lastUpdatedTime = DateTime.Now.Ticks;
             Logger.Debug($"Silent set {Function} to {newValue}");
         }
+
+        /// <summary>
+        /// Forces the value to be set and sent to the other side, even if it equals the current value.
+        /// Use this when loading profile values to ensure the hardware state is synchronized.
+        /// </summary>
+        public bool ForceSetValue(ValueType newValue)
+        {
+            var updatedTime = DateTime.Now.Ticks;
+            lastUpdatedTime = updatedTime;
+
+            // Only trigger notification if value actually changed
+            if (!EqualityComparer<ValueType>.Default.Equals(value, newValue))
+            {
+                value = newValue;
+                NotifyPropertyChanged(nameof(value));
+            }
+            else
+            {
+                // Value is the same but we still need to send to remote
+                // Directly call NotifyPropertyChanged to send to helper/widget
+                Logger.Info($"Force sending {Function} value {newValue} to remote (value unchanged)");
+                NotifyPropertyChanged(nameof(value));
+            }
+            return true;
+        }
     }
 }

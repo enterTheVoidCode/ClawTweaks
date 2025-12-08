@@ -321,6 +321,20 @@
 
             <!-- QUICK SETTINGS TAB -->
             <Grid>
+                <!-- Connection Status Banner -->
+                <Border x:Name="ConnectionStatusBanner"
+                        Background="#CC3333"
+                        Padding="8,4"
+                        VerticalAlignment="Top"
+                        Visibility="Collapsed"
+                        CornerRadius="0"
+                        Margin="0,0,0,0">
+                    <TextBlock x:Name="ConnectionStatusText"
+                               Text="Not connected to helper"
+                               Foreground="White"
+                               FontSize="12"
+                               HorizontalAlignment="Center"/>
+                </Border>
                 <ScrollViewer x:Name="QuickSettingsScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Visible"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
@@ -586,7 +600,7 @@
                                 </Grid>
                                 <ComboBox x:Name="OSPowerModeComboBox"
                                           Margin="0,12,0,0"
-                                          HorizontalAlignment="Stretch"
+                                          Style="{StaticResource ModernComboBoxStyle}"
                                           SelectedIndex="1"
                                           SelectionChanged="OSPowerModeComboBox_SelectionChanged">
                                     <ComboBoxItem Content="Best Power Efficiency"/>
@@ -1603,42 +1617,28 @@
                                 <!-- Collapsible Content -->
                                 <StackPanel x:Name="PowerPlanOptionsPanel" Visibility="Collapsed" Margin="0,12,0,0">
                                     <!-- AC Power Plan -->
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="AC Power Plan" Foreground="#FFFFFF" FontSize="14"/>
-                                            <TextBlock Text="When plugged in" Foreground="#707070" FontSize="11"/>
-                                        </StackPanel>
+                                    <StackPanel Margin="0,0,0,12">
+                                        <TextBlock Text="AC Power Plan" Foreground="#FFFFFF" FontSize="14"/>
+                                        <TextBlock Text="When plugged in" Foreground="#707070" FontSize="11"/>
                                         <ComboBox x:Name="ACPowerPlanComboBox"
-                                                  Grid.Column="1"
-                                                  Width="180"
+                                                  Margin="0,8,0,0"
                                                   Style="{StaticResource ModernComboBoxStyle}"
                                                   SelectionChanged="ACPowerPlanComboBox_SelectionChanged"
                                                   XYFocusUp="{x:Bind PowerPlanExpandButton}"
                                                   XYFocusDown="{x:Bind DCPowerPlanComboBox}"/>
-                                    </Grid>
+                                    </StackPanel>
 
                                     <!-- DC Power Plan -->
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="DC Power Plan" Foreground="#FFFFFF" FontSize="14"/>
-                                            <TextBlock Text="When on battery" Foreground="#707070" FontSize="11"/>
-                                        </StackPanel>
+                                    <StackPanel Margin="0,0,0,12">
+                                        <TextBlock Text="DC Power Plan" Foreground="#FFFFFF" FontSize="14"/>
+                                        <TextBlock Text="When on battery" Foreground="#707070" FontSize="11"/>
                                         <ComboBox x:Name="DCPowerPlanComboBox"
-                                                  Grid.Column="1"
-                                                  Width="180"
+                                                  Margin="0,8,0,0"
                                                   Style="{StaticResource ModernComboBoxStyle}"
                                                   SelectionChanged="DCPowerPlanComboBox_SelectionChanged"
                                                   XYFocusUp="{x:Bind ACPowerPlanComboBox}"
                                                   XYFocusDown="{x:Bind PowerPlanAutoSwitchToggle}"/>
-                                    </Grid>
+                                    </StackPanel>
 
                                     <!-- Auto-switch Toggle -->
                                     <Grid Margin="0,0,0,0">

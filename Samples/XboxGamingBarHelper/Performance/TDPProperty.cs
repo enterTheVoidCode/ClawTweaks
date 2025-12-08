@@ -30,10 +30,25 @@ namespace XboxGamingBarHelper.Performance
                     intValue = Value; // fallback to current value
 
                 Logger.Info($"Force applying initial TDP value: {intValue}W");
-                SetValueSilent(intValue - 1); // Invalidate cache to force apply
+                // Invalidate cache by setting different value, use timestamp 0 so incoming message is always newer
+                InvalidateCache(intValue - 1);
             }
 
             return base.SetValue(newValue, updatedTime);
+        }
+
+        /// <summary>
+        /// Invalidates the cached value without updating the timestamp.
+        /// This allows the next SetValue call to proceed even with an older timestamp.
+        /// </summary>
+        private void InvalidateCache(int newValue)
+        {
+            // Directly set the backing field without updating lastUpdatedTime
+            // This is a workaround since SetValueSilent updates the timestamp
+            typeof(Shared.Data.GenericProperty<int>)
+                .GetField("value", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                ?.SetValue(this, newValue);
+            Logger.Debug($"Invalidated TDP cache to {newValue}");
         }
 
         protected override void NotifyPropertyChanged(string propertyName = "")

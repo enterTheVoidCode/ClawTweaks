@@ -45,6 +45,10 @@ namespace XboxGamingBar
         public bool LimitCPUClock { get; set; } = false;
         public double CPUClockMax { get; set; } = 5500;
         public bool FluidMotionFrames { get; set; } = false;
+        public bool RadeonSuperResolution { get; set; } = false;
+        public double RadeonSuperResolutionSharpness { get; set; } = 80;
+        public bool ImageSharpening { get; set; } = false;
+        public double ImageSharpeningSharpness { get; set; } = 80;
         public bool RadeonAntiLag { get; set; } = false;
         public bool RadeonBoost { get; set; } = false;
         public double RadeonBoostResolution { get; set; } = 0;
@@ -72,6 +76,10 @@ namespace XboxGamingBar
                 LimitCPUClock = this.LimitCPUClock,
                 CPUClockMax = this.CPUClockMax,
                 FluidMotionFrames = this.FluidMotionFrames,
+                RadeonSuperResolution = this.RadeonSuperResolution,
+                RadeonSuperResolutionSharpness = this.RadeonSuperResolutionSharpness,
+                ImageSharpening = this.ImageSharpening,
+                ImageSharpeningSharpness = this.ImageSharpeningSharpness,
                 RadeonAntiLag = this.RadeonAntiLag,
                 RadeonBoost = this.RadeonBoost,
                 RadeonBoostResolution = this.RadeonBoostResolution,
@@ -266,6 +274,7 @@ namespace XboxGamingBar
         private bool isLoadingProfile = false;
         private bool isSwitchingProfile = false;
         private bool isApplyingHelperUpdate = false; // Prevents saves when helper echoes values back
+        private bool isInitialSync = true; // Prevents saves during initial app startup sync
         private bool isInternalToggleDisable = false; // Indicates toggle is being disabled internally (game close)
         private int savedLegionPerformanceMode = -1; // Stores Legion mode before per-game profile (-1 = not saved)
 
@@ -1273,10 +1282,14 @@ namespace XboxGamingBar
 
             // AMD settings
             AMDFluidMotionFrameToggle.Toggled += SettingChanged;
-            AMDRadeonAntiLagToggle.Toggled += SettingChanged;
-            AMDRadeonBoostToggle.Toggled += SettingChanged;
+            AMDRadeonSuperResolutionToggle.Toggled += AMDRadeonSuperResolutionToggle_Toggled;
+            AMDRadeonSuperResolutionSharpnessSlider.ValueChanged += SettingChanged;
+            AMDImageSharpeningToggle.Toggled += AMDImageSharpeningToggle_Toggled;
+            AMDImageSharpeningSlider.ValueChanged += SettingChanged;
+            AMDRadeonAntiLagToggle.Toggled += AMDRadeonAntiLagToggle_Toggled;
+            AMDRadeonBoostToggle.Toggled += AMDRadeonBoostToggle_Toggled;
             AMDRadeonBoostResolutionSlider.ValueChanged += SettingChanged;
-            AMDRadeonChillToggle.Toggled += SettingChanged;
+            AMDRadeonChillToggle.Toggled += AMDRadeonChillToggle_Toggled;
             AMDRadeonChillMinFPSSlider.ValueChanged += SettingChanged;
             AMDRadeonChillMaxFPSSlider.ValueChanged += SettingChanged;
         }
@@ -1297,10 +1310,10 @@ namespace XboxGamingBar
                 LimitCPUClockValue.Text = $"{(int)CPUClockMaxSlider.Value} MHz";
             }
 
-            // Don't save during profile loading, switching, or when helper is updating values
-            if (isLoadingProfile || isSwitchingProfile || isApplyingHelperUpdate)
+            // Don't save during profile loading, switching, initial sync, or when helper is updating values
+            if (isLoadingProfile || isSwitchingProfile || isApplyingHelperUpdate || isInitialSync)
             {
-                Logger.Debug($"Skipping auto-save during profile operation (loading={isLoadingProfile}, switching={isSwitchingProfile}, helperUpdate={isApplyingHelperUpdate})");
+                Logger.Debug($"Skipping auto-save during profile operation (loading={isLoadingProfile}, switching={isSwitchingProfile}, helperUpdate={isApplyingHelperUpdate}, initialSync={isInitialSync})");
                 return;
             }
 
@@ -3524,6 +3537,7 @@ namespace XboxGamingBar
             // Don't save during helper updates - prevents race conditions
             if (isApplyingHelperUpdate)
             {
+                Logger.Debug($"Skipping profile save for {profileName} - isApplyingHelperUpdate is true");
                 return;
             }
 
@@ -3557,6 +3571,10 @@ namespace XboxGamingBar
             if (SaveAMDFeatures)
             {
                 profile.FluidMotionFrames = AMDFluidMotionFrameToggle.IsOn;
+                profile.RadeonSuperResolution = AMDRadeonSuperResolutionToggle.IsOn;
+                profile.RadeonSuperResolutionSharpness = AMDRadeonSuperResolutionSharpnessSlider.Value;
+                profile.ImageSharpening = AMDImageSharpeningToggle.IsOn;
+                profile.ImageSharpeningSharpness = AMDImageSharpeningSlider.Value;
                 profile.RadeonAntiLag = AMDRadeonAntiLagToggle.IsOn;
                 profile.RadeonBoost = AMDRadeonBoostToggle.IsOn;
                 profile.RadeonBoostResolution = AMDRadeonBoostResolutionSlider.Value;
@@ -3580,6 +3598,7 @@ namespace XboxGamingBar
             }
 
             // Persist to storage
+            Logger.Info($"Saving profile {profileName}: TDP={profile.TDP}W");
             SaveProfileToStorage(profileName, profile);
 
             // Update profile display
@@ -3630,21 +3649,52 @@ namespace XboxGamingBar
                 }
                 if (SaveAMDFeatures)
                 {
+                    // RSR and RIS are mutually exclusive - if both are enabled in profile, prefer RSR
+                    bool rsrEnabled = profile.RadeonSuperResolution;
+                    bool risEnabled = profile.ImageSharpening;
+                    if (rsrEnabled && risEnabled)
+                    {
+                        Logger.Warn("Profile has both RSR and RIS enabled - disabling RIS (mutually exclusive)");
+                        risEnabled = false;
+                    }
+
+                    // Chill is mutually exclusive with Anti-Lag and Boost - if Chill is enabled, disable the others
+                    bool antiLagEnabled = profile.RadeonAntiLag;
+                    bool boostEnabled = profile.RadeonBoost;
+                    bool chillEnabled = profile.RadeonChill;
+                    if (chillEnabled && (antiLagEnabled || boostEnabled))
+                    {
+                        Logger.Warn("Profile has Chill with Anti-Lag/Boost enabled - disabling Anti-Lag and Boost (mutually exclusive)");
+                        antiLagEnabled = false;
+                        boostEnabled = false;
+                    }
+
                     AMDFluidMotionFrameToggle.IsOn = profile.FluidMotionFrames;
-                    AMDRadeonAntiLagToggle.IsOn = profile.RadeonAntiLag;
-                    AMDRadeonBoostToggle.IsOn = profile.RadeonBoost;
+                    AMDRadeonSuperResolutionToggle.IsOn = rsrEnabled;
+                    AMDRadeonSuperResolutionSharpnessSlider.Value = profile.RadeonSuperResolutionSharpness;
+                    AMDImageSharpeningToggle.IsOn = risEnabled;
+                    AMDImageSharpeningSlider.Value = profile.ImageSharpeningSharpness;
+                    AMDRadeonAntiLagToggle.IsOn = antiLagEnabled;
+                    AMDRadeonBoostToggle.IsOn = boostEnabled;
                     AMDRadeonBoostResolutionSlider.Value = profile.RadeonBoostResolution;
-                    AMDRadeonChillToggle.IsOn = profile.RadeonChill;
+                    AMDRadeonChillToggle.IsOn = chillEnabled;
                     AMDRadeonChillMinFPSSlider.Value = profile.RadeonChillMinFPS;
                     AMDRadeonChillMaxFPSSlider.Value = profile.RadeonChillMaxFPS;
-                    // Send to helper explicitly (cast to int for property types)
-                    amdFluidMotionFrameEnabled?.SetValue(profile.FluidMotionFrames);
-                    amdRadeonAntiLagEnabled?.SetValue(profile.RadeonAntiLag);
-                    amdRadeonBoostEnabled?.SetValue(profile.RadeonBoost);
-                    amdRadeonBoostResolution?.SetValue((int)profile.RadeonBoostResolution);
-                    amdRadeonChillEnabled?.SetValue(profile.RadeonChill);
-                    amdRadeonChillMinFPSProperty?.SetValue((int)profile.RadeonChillMinFPS);
-                    amdRadeonChillMaxFPSProperty?.SetValue((int)profile.RadeonChillMaxFPS);
+                    // Send to helper explicitly using ForceSetValue to ensure AMD driver state is synchronized
+                    // even if the cached value appears unchanged (driver state may differ from cache)
+                    // Send RIS first (to disable it if needed), then RSR
+                    // Send Anti-Lag and Boost first (to disable them if needed), then Chill
+                    amdFluidMotionFrameEnabled?.ForceSetValue(profile.FluidMotionFrames);
+                    amdImageSharpeningEnabled?.ForceSetValue(risEnabled);
+                    amdImageSharpeningSharpness?.ForceSetValue((int)profile.ImageSharpeningSharpness);
+                    amdRadeonSuperResolutionEnabled?.ForceSetValue(rsrEnabled);
+                    amdRadeonSuperResolutionSharpness?.ForceSetValue((int)profile.RadeonSuperResolutionSharpness);
+                    amdRadeonAntiLagEnabled?.ForceSetValue(antiLagEnabled);
+                    amdRadeonBoostEnabled?.ForceSetValue(boostEnabled);
+                    amdRadeonBoostResolution?.ForceSetValue((int)profile.RadeonBoostResolution);
+                    amdRadeonChillEnabled?.ForceSetValue(chillEnabled);
+                    amdRadeonChillMinFPSProperty?.ForceSetValue((int)profile.RadeonChillMinFPS);
+                    amdRadeonChillMaxFPSProperty?.ForceSetValue((int)profile.RadeonChillMaxFPS);
                 }
                 if (SaveFPSLimit)
                 {
@@ -3772,6 +3822,10 @@ namespace XboxGamingBar
             container.Values["LimitCPUClock"] = profile.LimitCPUClock;
             container.Values["CPUClockMax"] = profile.CPUClockMax;
             container.Values["FluidMotionFrames"] = profile.FluidMotionFrames;
+            container.Values["RadeonSuperResolution"] = profile.RadeonSuperResolution;
+            container.Values["RadeonSuperResolutionSharpness"] = profile.RadeonSuperResolutionSharpness;
+            container.Values["ImageSharpening"] = profile.ImageSharpening;
+            container.Values["ImageSharpeningSharpness"] = profile.ImageSharpeningSharpness;
             container.Values["RadeonAntiLag"] = profile.RadeonAntiLag;
             container.Values["RadeonBoost"] = profile.RadeonBoost;
             container.Values["RadeonBoostResolution"] = profile.RadeonBoostResolution;
@@ -3799,6 +3853,10 @@ namespace XboxGamingBar
                 profile.LimitCPUClock = container.Values.ContainsKey("LimitCPUClock") ? (bool)container.Values["LimitCPUClock"] : false;
                 profile.CPUClockMax = container.Values.ContainsKey("CPUClockMax") ? (double)container.Values["CPUClockMax"] : 5500;
                 profile.FluidMotionFrames = container.Values.ContainsKey("FluidMotionFrames") ? (bool)container.Values["FluidMotionFrames"] : false;
+                profile.RadeonSuperResolution = container.Values.ContainsKey("RadeonSuperResolution") ? (bool)container.Values["RadeonSuperResolution"] : false;
+                profile.RadeonSuperResolutionSharpness = container.Values.ContainsKey("RadeonSuperResolutionSharpness") ? (double)container.Values["RadeonSuperResolutionSharpness"] : 80;
+                profile.ImageSharpening = container.Values.ContainsKey("ImageSharpening") ? (bool)container.Values["ImageSharpening"] : false;
+                profile.ImageSharpeningSharpness = container.Values.ContainsKey("ImageSharpeningSharpness") ? (double)container.Values["ImageSharpeningSharpness"] : 80;
                 profile.RadeonAntiLag = container.Values.ContainsKey("RadeonAntiLag") ? (bool)container.Values["RadeonAntiLag"] : false;
                 profile.RadeonBoost = container.Values.ContainsKey("RadeonBoost") ? (bool)container.Values["RadeonBoost"] : false;
                 profile.RadeonBoostResolution = container.Values.ContainsKey("RadeonBoostResolution") ? (double)container.Values["RadeonBoostResolution"] : 0;
@@ -4746,6 +4804,13 @@ namespace XboxGamingBar
                 App.AppServiceConnected += GamingWidget_AppServiceConnected;
                 App.AppServiceDisconnected += GamingWidget_AppServiceDisconnected;
 
+                // Show connection status banner while waiting for helper to connect
+                if (ConnectionStatusBanner != null)
+                {
+                    ConnectionStatusBanner.Visibility = Visibility.Visible;
+                    Logger.Info("Connection status banner shown - waiting for helper connection.");
+                }
+
                 Logger.Info("Launching full trust process via FullTrustProcessLauncher.");
                 await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
                 Logger.Info("FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync completed.");
@@ -4758,6 +4823,13 @@ namespace XboxGamingBar
                 if (App.Connection != null)
                 {
                     Logger.Info("AppService connection already exists. Ensuring event handlers are registered.");
+
+                    // Hide connection status banner since we're connected
+                    if (ConnectionStatusBanner != null)
+                    {
+                        ConnectionStatusBanner.Visibility = Visibility.Collapsed;
+                        Logger.Info("Connection status banner hidden - already connected.");
+                    }
 
                     // Use -= before += to ensure we don't register duplicate handlers
                     Logger.Info("Unregistering existing event handlers (if any)...");
@@ -4790,9 +4862,15 @@ namespace XboxGamingBar
                         isApplyingHelperUpdate = false;
                     }
 
-                    // NOTE: Profile is already applied during constructor via UpdateActiveProfileIndicator() -> SwitchProfile()
-                    // The sync above gets current hardware values, which is correct behavior.
-                    // We don't re-apply the profile here to avoid unnecessary state changes.
+                    // Apply profile TDP to helper now that we're synced
+                    // Profile was loaded in constructor before connection, so TDP may not have been applied
+                    await ApplyProfileTDPToHelper();
+
+                    // Clear initial sync flag - profile is loaded and applied, user changes should now save
+                    // Add a small delay to let any pending ValueChanged events settle first
+                    await Task.Delay(200);
+                    isInitialSync = false;
+                    Logger.Info("Initial sync complete - profile saves are now enabled");
                 }
             }
 
@@ -5028,7 +5106,65 @@ namespace XboxGamingBar
             // Send OSD config to helper now that connection is established
             SendOSDConfigToHelper();
 
+            // Apply profile TDP to helper now that connection is established
+            // Profile was loaded in constructor before connection, so TDP wasn't actually applied
+            await ApplyProfileTDPToHelper();
+
+            // Clear initial sync flag - profile is loaded and applied, user changes should now save
+            // Add a small delay to let any pending ValueChanged events settle first
+            await Task.Delay(200);
+            isInitialSync = false;
+            Logger.Info("Initial sync complete - profile saves are now enabled");
+
+            // Hide connection status banner now that we're connected
+            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+            {
+                if (ConnectionStatusBanner != null)
+                {
+                    ConnectionStatusBanner.Visibility = Visibility.Collapsed;
+                    Logger.Info("Connection status banner hidden - connected to helper.");
+                }
+            });
+
             Logger.Info("=== GamingWidget_AppServiceConnected END ===");
+        }
+
+        /// <summary>
+        /// Applies the current profile's TDP value to the helper.
+        /// Called after connection is established since profile loads before connection.
+        /// </summary>
+        private async Task ApplyProfileTDPToHelper()
+        {
+            try
+            {
+                var profile = GetProfile(currentProfileName);
+                if (SaveTDP && tdp != null)
+                {
+                    int targetTDP = (int)profile.TDP;
+                    Logger.Info($"Applying profile TDP to helper: {targetTDP}W (profile: {currentProfileName})");
+
+                    // Run on UI thread since SetValueSilent may touch UI controls
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        // Invalidate cached value first to force send even if values match
+                        // This is needed because profile was loaded before connection, so the cached
+                        // value matches but was never sent to hardware
+                        tdp.SetValueSilent(-1);
+                        tdp.SetValue(targetTDP, DateTime.Now.Ticks);
+
+                        // Update Sticky TDP target if enabled
+                        if (StickyTDPToggle?.IsOn == true)
+                        {
+                            targetTDPLimit = profile.TDP;
+                            Logger.Info($"Sticky TDP target set to: {targetTDPLimit}W");
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error applying profile TDP to helper: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -5053,6 +5189,13 @@ namespace XboxGamingBar
                     {
                         properties.Cleanup();
                         Logger.Info("Properties cleaned up.");
+
+                        // Show connection status banner since we're disconnected
+                        if (ConnectionStatusBanner != null)
+                        {
+                            ConnectionStatusBanner.Visibility = Visibility.Visible;
+                            Logger.Info("Connection status banner shown - disconnected from helper.");
+                        }
                     }
                     catch (Exception cleanupEx)
                     {
@@ -7277,6 +7420,94 @@ namespace XboxGamingBar
             {
                 SaveCurrentSettingsToProfile(currentProfileName);
             }
+        }
+
+        /// <summary>
+        /// RSR toggle changed - disable RIS if RSR is enabled (mutually exclusive)
+        /// </summary>
+        private void AMDRadeonSuperResolutionToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            // RSR and RIS are mutually exclusive - enabling one disables the other
+            if (AMDRadeonSuperResolutionToggle.IsOn && AMDImageSharpeningToggle.IsOn && !isLoadingProfile && !isSwitchingProfile && !isApplyingHelperUpdate)
+            {
+                Logger.Info("RSR enabled - disabling RIS (mutually exclusive)");
+                AMDImageSharpeningToggle.IsOn = false;
+            }
+
+            // Call the generic setting changed handler
+            SettingChanged(sender, e);
+        }
+
+        /// <summary>
+        /// RIS toggle changed - disable RSR if RIS is enabled (mutually exclusive)
+        /// </summary>
+        private void AMDImageSharpeningToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            // RSR and RIS are mutually exclusive - enabling one disables the other
+            if (AMDImageSharpeningToggle.IsOn && AMDRadeonSuperResolutionToggle.IsOn && !isLoadingProfile && !isSwitchingProfile && !isApplyingHelperUpdate)
+            {
+                Logger.Info("RIS enabled - disabling RSR (mutually exclusive)");
+                AMDRadeonSuperResolutionToggle.IsOn = false;
+            }
+
+            // Call the generic setting changed handler
+            SettingChanged(sender, e);
+        }
+
+        /// <summary>
+        /// Radeon Anti-Lag toggle changed - disable Chill if Anti-Lag is enabled (mutually exclusive)
+        /// </summary>
+        private void AMDRadeonAntiLagToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            // Anti-Lag and Chill are mutually exclusive
+            if (AMDRadeonAntiLagToggle.IsOn && AMDRadeonChillToggle.IsOn && !isLoadingProfile && !isSwitchingProfile && !isApplyingHelperUpdate)
+            {
+                Logger.Info("Anti-Lag enabled - disabling Chill (mutually exclusive)");
+                AMDRadeonChillToggle.IsOn = false;
+            }
+
+            // Call the generic setting changed handler
+            SettingChanged(sender, e);
+        }
+
+        /// <summary>
+        /// Radeon Boost toggle changed - disable Chill if Boost is enabled (mutually exclusive)
+        /// </summary>
+        private void AMDRadeonBoostToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            // Boost and Chill are mutually exclusive
+            if (AMDRadeonBoostToggle.IsOn && AMDRadeonChillToggle.IsOn && !isLoadingProfile && !isSwitchingProfile && !isApplyingHelperUpdate)
+            {
+                Logger.Info("Boost enabled - disabling Chill (mutually exclusive)");
+                AMDRadeonChillToggle.IsOn = false;
+            }
+
+            // Call the generic setting changed handler
+            SettingChanged(sender, e);
+        }
+
+        /// <summary>
+        /// Radeon Chill toggle changed - disable Anti-Lag and Boost if Chill is enabled (mutually exclusive)
+        /// </summary>
+        private void AMDRadeonChillToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            // Chill is mutually exclusive with Anti-Lag and Boost
+            if (AMDRadeonChillToggle.IsOn && !isLoadingProfile && !isSwitchingProfile && !isApplyingHelperUpdate)
+            {
+                if (AMDRadeonAntiLagToggle.IsOn)
+                {
+                    Logger.Info("Chill enabled - disabling Anti-Lag (mutually exclusive)");
+                    AMDRadeonAntiLagToggle.IsOn = false;
+                }
+                if (AMDRadeonBoostToggle.IsOn)
+                {
+                    Logger.Info("Chill enabled - disabling Boost (mutually exclusive)");
+                    AMDRadeonBoostToggle.IsOn = false;
+                }
+            }
+
+            // Call the generic setting changed handler
+            SettingChanged(sender, e);
         }
 
         /// <summary>
