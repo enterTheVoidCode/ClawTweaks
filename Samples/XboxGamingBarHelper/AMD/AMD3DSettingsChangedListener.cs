@@ -1,5 +1,5 @@
 ﻿using NLog;
-//using System;
+using System;
 
 namespace XboxGamingBarHelper.AMD
 {
@@ -9,9 +9,34 @@ namespace XboxGamingBarHelper.AMD
 
         protected AMDManager amdManager;
 
+        // Cooldown to prevent reading stale values immediately after we set them
+        // The AMD driver may fire the callback before the change is fully applied
+        private DateTime lastAFMFChange = DateTime.MinValue;
+        private DateTime lastRSRChange = DateTime.MinValue;
+        private DateTime lastRISChange = DateTime.MinValue;
+        private const int CHANGE_COOLDOWN_MS = 2000; // 2 second cooldown
+
         internal AMD3DSettingsChangedListener(AMDManager inAMDManager) : base()
         {
             amdManager = inAMDManager;
+        }
+
+        public void NotifyAFMFChanged()
+        {
+            lastAFMFChange = DateTime.Now;
+            Logger.Debug("AFMF change notified - cooldown started");
+        }
+
+        public void NotifyRSRChanged()
+        {
+            lastRSRChange = DateTime.Now;
+            Logger.Debug("RSR change notified - cooldown started");
+        }
+
+        public void NotifyRISChanged()
+        {
+            lastRISChange = DateTime.Now;
+            Logger.Debug("RIS change notified - cooldown started");
         }
 
         public override bool On3DSettingsChanged(IADLX3DSettingsChangedEvent p3DSettingsChangedEvent)
@@ -56,10 +81,19 @@ namespace XboxGamingBarHelper.AMD
 
             if (p3DSettingsChangedEvent.IsRadeonSuperResolutionChanged())
             {
-                var isEnabled = amdManager.AMDRadeonSuperResolutionSetting.IsEnabled();
-                if (amdManager.AMDRadeonSuperResolutionEnabled != isEnabled)
+                // Skip if we recently made a change to avoid reading stale values
+                if ((DateTime.Now - lastRSRChange).TotalMilliseconds < CHANGE_COOLDOWN_MS)
                 {
-                    amdManager.AMDRadeonSuperResolutionEnabled.SetValue(isEnabled);
+                    Logger.Debug("Skipping RSR read from driver - still in cooldown period");
+                }
+                else
+                {
+                    var isEnabled = amdManager.AMDRadeonSuperResolutionSetting.IsEnabled();
+                    if (amdManager.AMDRadeonSuperResolutionEnabled != isEnabled)
+                    {
+                        Logger.Info($"RSR state changed externally to {isEnabled}");
+                        amdManager.AMDRadeonSuperResolutionEnabled.SetValue(isEnabled);
+                    }
                 }
             }
 
@@ -74,17 +108,36 @@ namespace XboxGamingBarHelper.AMD
 
             if (p3DSettingsChangedEvent.IsImageSharpeningChanged())
             {
-                var isEnabled = amdManager.AMDImageSharpeningSetting.IsEnabled();
-                if (amdManager.AMDImageSharpeningEnabled != isEnabled)
+                // Skip if we recently made a change to avoid reading stale values
+                if ((DateTime.Now - lastRISChange).TotalMilliseconds < CHANGE_COOLDOWN_MS)
                 {
-                    amdManager.AMDImageSharpeningEnabled.SetValue(isEnabled);
+                    Logger.Debug("Skipping RIS read from driver - still in cooldown period");
+                }
+                else
+                {
+                    var isEnabled = amdManager.AMDImageSharpeningSetting.IsEnabled();
+                    if (amdManager.AMDImageSharpeningEnabled != isEnabled)
+                    {
+                        Logger.Info($"RIS state changed externally to {isEnabled}");
+                        amdManager.AMDImageSharpeningEnabled.SetValue(isEnabled);
+                    }
                 }
             }
 
-            var isAMDFluidMotionFramesEnabled = amdManager.AMDFluidMotionFrameSetting.IsEnabled();
-            if (amdManager.AMDFluidMotionFrameEnabled != isAMDFluidMotionFramesEnabled)
+            // AFMF is always checked (not gated by IsAMDFluidMotionFramesChanged)
+            // Skip if we recently made a change to avoid reading stale values
+            if ((DateTime.Now - lastAFMFChange).TotalMilliseconds < CHANGE_COOLDOWN_MS)
             {
-                amdManager.AMDFluidMotionFrameEnabled.SetValue(isAMDFluidMotionFramesEnabled);
+                Logger.Debug("Skipping AFMF read from driver - still in cooldown period");
+            }
+            else
+            {
+                var isAMDFluidMotionFramesEnabled = amdManager.AMDFluidMotionFrameSetting.IsEnabled();
+                if (amdManager.AMDFluidMotionFrameEnabled != isAMDFluidMotionFramesEnabled)
+                {
+                    Logger.Info($"AFMF state changed externally to {isAMDFluidMotionFramesEnabled}");
+                    amdManager.AMDFluidMotionFrameEnabled.SetValue(isAMDFluidMotionFramesEnabled);
+                }
             }
 
             return true;
