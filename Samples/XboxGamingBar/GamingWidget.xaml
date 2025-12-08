@@ -96,42 +96,33 @@
         </Style>
 
         <!-- Modern Toggle Style - Uses system style, focus highlight on parent card -->
-        <Style x:Key="ModernToggleStyle" TargetType="ToggleSwitch">
+        <Style x:Key="ModernToggleStyle" TargetType="ToggleSwitch" BasedOn="{StaticResource DefaultToggleSwitchStyle}">
             <Setter Property="MinWidth" Value="40"/>
+            <Setter Property="MaxWidth" Value="40"/>
             <Setter Property="MinHeight" Value="20"/>
             <Setter Property="HorizontalAlignment" Value="Right"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
             <Setter Property="OffContent" Value=""/>
             <Setter Property="OnContent" Value=""/>
             <Setter Property="UseSystemFocusVisuals" Value="True"/>
             <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
             <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
             <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
-            <Setter Property="FocusVisualMargin" Value="-3"/>
+            <Setter Property="FocusVisualMargin" Value="-3,-3,-3,-3"/>
         </Style>
 
         <!-- Modern Slider Style - Fluent with System Accent Color, focus on parent card -->
-        <Style x:Key="ModernSliderStyle" TargetType="Slider">
+        <Style x:Key="ModernSliderStyle" TargetType="Slider" BasedOn="{StaticResource DefaultSliderStyle}">
             <Setter Property="Margin" Value="0,4,0,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="UseSystemFocusVisuals" Value="True"/>
-            <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
-            <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
-            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
-            <Setter Property="FocusVisualMargin" Value="-3"/>
             <Setter Property="ManipulationMode" Value="None"/>
         </Style>
 
-        <!-- Modern ComboBox Style - Tooth Theme (no focus visual, uses card focus) -->
-        <Style x:Key="ModernComboBoxStyle" TargetType="ComboBox">
-            <Setter Property="UseSystemFocusVisuals" Value="False"/>
-            <Setter Property="Height" Value="40"/>
-            <Setter Property="FontSize" Value="18"/>
-            <Setter Property="CornerRadius" Value="8"/>
+        <!-- Modern ComboBox Style - System style with minor customizations -->
+        <Style x:Key="ModernComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource DefaultComboBoxStyle}">
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
-            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
         </Style>
 
         <!-- Override ComboBox border colors to prevent highlight on focus/hover -->
@@ -142,124 +133,35 @@
         <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#30343A"/>
         <SolidColorBrush x:Key="ComboBoxBackgroundFocused" Color="#30343A"/>
 
-        <!-- Modern Button Style - Tooth Theme (uses card focus) -->
-        <Style x:Key="ModernButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource ButtonBackground}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource ButtonBorderBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontSize" Value="18"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Padding" Value="15,10,15,11"/>
-            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+        <!-- Modern Button Style - System style -->
+        <Style x:Key="ModernButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
         </Style>
 
-        <!-- Standalone Button Style - Shows white focus border (for buttons not in cards) -->
-        <Style x:Key="StandaloneButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource ButtonBackground}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource ButtonBorderBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontSize" Value="18"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Padding" Value="15,10,15,11"/>
-            <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
-            <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
-            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
-            <Setter Property="FocusVisualMargin" Value="-3"/>
-            <Setter Property="UseSystemFocusVisuals" Value="True"/>
+        <!-- Standalone Button Style - System style -->
+        <Style x:Key="StandaloneButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
         </Style>
 
-        <!-- Standalone ToggleButton Style - Shows white focus border (for toggles not in cards) -->
-        <Style x:Key="StandaloneToggleButtonStyle" TargetType="ToggleButton">
-            <Setter Property="Background" Value="{StaticResource ButtonBackground}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource ButtonBorderBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontSize" Value="18"/>
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Padding" Value="15,10,15,11"/>
-            <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
-            <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
-            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
-            <Setter Property="FocusVisualMargin" Value="-3"/>
-            <Setter Property="UseSystemFocusVisuals" Value="True"/>
+        <!-- Standalone ToggleButton Style - System style -->
+        <Style x:Key="StandaloneToggleButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource DefaultToggleButtonStyle}">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
         </Style>
 
-        <!-- Checkbox with individual rounded focus (for checkboxes in settings cards) -->
-        <Style x:Key="FocusableCheckBoxStyle" TargetType="CheckBox">
-            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+        <!-- Checkbox with system style -->
+        <Style x:Key="FocusableCheckBoxStyle" TargetType="CheckBox" BasedOn="{StaticResource DefaultCheckBoxStyle}">
             <Setter Property="Padding" Value="8,6"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="CheckBox">
-                        <Grid Background="Transparent">
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="FocusStates">
-                                    <VisualState x:Name="Focused">
-                                        <Storyboard>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="FocusBorder" Storyboard.TargetProperty="Visibility">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
-                                            </ObjectAnimationUsingKeyFrames>
-                                        </Storyboard>
-                                    </VisualState>
-                                    <VisualState x:Name="Unfocused"/>
-                                    <VisualState x:Name="PointerFocused"/>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-
-                            <!-- Rounded focus border -->
-                            <Border x:Name="FocusBorder"
-                                    BorderBrush="White"
-                                    BorderThickness="2"
-                                    CornerRadius="6"
-                                    Margin="-6,-4,-6,-4"
-                                    Visibility="Collapsed"/>
-
-                            <!-- Default CheckBox content -->
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Border x:Name="CheckboxBorder"
-                                        Width="20" Height="20"
-                                        Background="Transparent"
-                                        BorderBrush="#6B7280"
-                                        BorderThickness="2"
-                                        CornerRadius="4"
-                                        VerticalAlignment="Center">
-                                    <FontIcon x:Name="CheckGlyph"
-                                              Glyph="&#xE73E;"
-                                              FontSize="14"
-                                              Foreground="White"
-                                              Visibility="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                </Border>
-                                <ContentPresenter x:Name="ContentPresenter"
-                                                  Grid.Column="1"
-                                                  Margin="8,0,0,0"
-                                                  VerticalAlignment="Center"
-                                                  Content="{TemplateBinding Content}"
-                                                  ContentTemplate="{TemplateBinding ContentTemplate}"/>
-                            </Grid>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
         </Style>
 
-        <!-- Default Button Style Override (uses card focus) -->
-        <Style TargetType="Button">
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+        <!-- Default Button Style Override - uses system style -->
+        <Style TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
         </Style>
 
-        <!-- Default ToggleButton Style Override (uses card focus) -->
-        <Style TargetType="ToggleButton">
-            <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+        <!-- Default ToggleButton Style Override - uses system style -->
+        <Style TargetType="ToggleButton" BasedOn="{StaticResource DefaultToggleButtonStyle}">
         </Style>
 
-        <!-- Default CheckBox Style Override (uses card focus) -->
-        <Style TargetType="CheckBox">
-            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+        <!-- Default CheckBox Style Override - uses system style -->
+        <Style TargetType="CheckBox" BasedOn="{StaticResource DefaultCheckBoxStyle}">
         </Style>
 
         <!-- Section Header Style - Tooth Theme -->
@@ -376,10 +278,7 @@
         </Style>
 
         <!-- Quick Settings Edit Mode Checkbox Style -->
-        <Style x:Key="TileVisibilityCheckBoxStyle" TargetType="CheckBox">
-            <Setter Property="UseSystemFocusVisuals" Value="True"/>
-            <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
-            <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
+        <Style x:Key="TileVisibilityCheckBoxStyle" TargetType="CheckBox" BasedOn="{StaticResource DefaultCheckBoxStyle}">
             <Setter Property="Padding" Value="8,6"/>
             <Setter Property="Foreground" Value="White"/>
         </Style>
@@ -413,7 +312,7 @@
                                             XYFocusDown="{x:Bind PowerSourceProfileToggle}"/>
                 <muxc:NavigationViewItem x:Name="GraphicsNavItem" Content="Graphics" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem x:Name="ScalingNavItem" Content="Scaling" Tag="Scaling" Style="{StaticResource NavItemStyle}"
-                                            XYFocusDown="{x:Bind LosslessScalingEnabledToggle}"/>
+                                            XYFocusDown="{x:Bind LaunchLosslessScalingButton}"/>
                 <muxc:NavigationViewItem x:Name="LegionNavItem" Content="Legion" Tag="Legion" Style="{StaticResource NavItemStyle}" Visibility="Collapsed"
                                             XYFocusDown="{x:Bind LegionTouchpadToggle}"/>
                 <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"
@@ -529,7 +428,7 @@
                                     <ToggleSwitch x:Name="PerGameProfileToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False" HorizontalAlignment="Right" Width="50"/>
+                                                  IsEnabled="False"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -623,7 +522,7 @@
                                     <ToggleSwitch x:Name="AutoTDPToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  Toggled="AutoTDPToggle_Toggled" Width="50"
+                                                  Toggled="AutoTDPToggle_Toggled"
                                                   XYFocusUp="{x:Bind TDPSlider}"
                                                   XYFocusDown="{x:Bind AutoTDPTargetFPSSlider}"/>
                                 </Grid>
@@ -710,7 +609,8 @@
                                 </StackPanel>
                                 <ToggleSwitch x:Name="CPUBoostToggle"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False" HorizontalAlignment="Stretch" Grid.Column="1" HorizontalContentAlignment="Right" UseLayoutRounding="True" Width="50"/>
+                                              Grid.Column="1"
+                                              IsEnabled="False"/>
                             </Grid>
                         </Border>
 
@@ -1256,7 +1156,7 @@
                                 <ToggleSwitch x:Name="HDRToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False" Width="50"/>
+                                              IsEnabled="False"/>
                             </Grid>
                         </Border>
 
@@ -1334,7 +1234,7 @@
                                     <ToggleSwitch x:Name="AMDRadeonSuperResolutionToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False" Width="50"/>
+                                                  IsEnabled="False"/>
                                 </Grid>
                                 <Slider x:Name="AMDRadeonSuperResolutionSharpnessSlider"
                                         Style="{StaticResource ModernSliderStyle}"
@@ -1362,7 +1262,7 @@
                                 <ToggleSwitch x:Name="AMDFluidMotionFrameToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False" Width="50"/>
+                                              IsEnabled="False"/>
                             </Grid>
                         </Border>
 
@@ -1380,7 +1280,7 @@
                                 <ToggleSwitch x:Name="AMDRadeonAntiLagToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False" Width="50"/>
+                                              IsEnabled="False"/>
                             </Grid>
                         </Border>
 
@@ -1427,7 +1327,7 @@
                                     <ToggleSwitch x:Name="AMDRadeonChillToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False" Width="50"/>
+                                                  IsEnabled="False"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=AMDRadeonChillToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Slider x:Name="AMDRadeonChillMinFPSSlider"
@@ -1465,7 +1365,7 @@
                                     <ToggleSwitch x:Name="AMDImageSharpeningToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False" Width="50"/>
+                                                  IsEnabled="False"/>
                                 </Grid>
                                 <Slider x:Name="AMDImageSharpeningSlider"
                                         Style="{StaticResource ModernSliderStyle}"
@@ -1505,7 +1405,7 @@
                                     <ToggleSwitch x:Name="StickyTDPToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  Toggled="StickyTDPToggle_Toggled" Width="50"
+                                                  Toggled="StickyTDPToggle_Toggled"
                                                   XYFocusUp="{x:Bind SystemNavItem}"
                                                   XYFocusDown="{x:Bind UseManufacturerWMIToggle}"/>
                                 </Grid>
@@ -1553,7 +1453,6 @@
                                               Grid.Column="1"
                                               IsOn="True"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              Width="50"
                                               XYFocusUp="{x:Bind StickyTDPToggle}"
                                               XYFocusDown="{x:Bind TDPLimitsExpandButton}"/>
                             </Grid>
@@ -2286,10 +2185,7 @@
                                             <ToggleSwitch x:Name="ForceParkModeToggle"
                                                           Grid.Column="1"
                                                           Style="{StaticResource ModernToggleStyle}"
-                                                          Toggled="ForceParkModeToggle_Toggled"
-                                                          Width="50"
-                                                          UseSystemFocusVisuals="True"
-                                                          FocusVisualPrimaryBrush="White"/>
+                                                          Toggled="ForceParkModeToggle_Toggled"/>
                                         </Grid>
                                         <Border Background="#442200"
                                                 CornerRadius="4"
@@ -2336,18 +2232,18 @@
                                             Content="Show Window"
                                             Margin="0,0,8,0"
                                             Visibility="Collapsed"
-                                            Style="{StaticResource ModernButtonStyle}"
-                                            Padding="12,8"
-                                            FontSize="14"
-                                            Click="ShowLosslessScalingWindowButton_Click"/>
+                                            Click="ShowLosslessScalingWindowButton_Click"
+                                            XYFocusUp="{x:Bind ScalingNavItem}"
+                                            XYFocusRight="{x:Bind LaunchLosslessScalingButton}"
+                                            XYFocusDown="{x:Bind LosslessScalingEnabledToggle}"/>
                                     <Button x:Name="LaunchLosslessScalingButton"
                                             Grid.Column="2"
                                             Content="Launch"
                                             Visibility="Collapsed"
-                                            Style="{StaticResource ModernButtonStyle}"
-                                            Padding="12,8"
-                                            FontSize="14"
-                                            Click="LaunchLosslessScalingButton_Click"/>
+                                            Click="LaunchLosslessScalingButton_Click"
+                                            XYFocusUp="{x:Bind ScalingNavItem}"
+                                            XYFocusLeft="{x:Bind ShowLosslessScalingWindowButton}"
+                                            XYFocusDown="{x:Bind LosslessScalingEnabledToggle}"/>
                                 </Grid>
                                 <TextBlock x:Name="LosslessScalingStatusText"
                                            Text="Not Installed"
@@ -2378,10 +2274,9 @@
                                             Content="Create Profile"
                                             VerticalAlignment="Center"
                                             IsEnabled="False"
-                                            Style="{StaticResource ModernButtonStyle}"
-                                            Padding="12,8"
-                                            FontSize="14"
-                                            Click="LosslessScalingCreateProfileButton_Click"/>
+                                            Click="LosslessScalingCreateProfileButton_Click"
+                                            XYFocusUp="{x:Bind LaunchLosslessScalingButton}"
+                                            XYFocusDown="{x:Bind LosslessScalingEnabledToggle}"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -2395,8 +2290,8 @@
                                       FontWeight="SemiBold"
                                       Margin="0,10,0,0"
                                       Style="{StaticResource StandaloneToggleButtonStyle}"
-                                      XYFocusUp="{x:Bind ScalingNavItem}"
-                                      XYFocusDown="{x:Bind LosslessScalingAutoScaleToggle}"/>
+                                      XYFocusUp="{x:Bind LaunchLosslessScalingButton}"
+                                      XYFocusDown="{x:Bind LosslessScalingSaveSettingsButton}"/>
 
                         <!-- Apply and Restart Button -->
                         <Button x:Name="LosslessScalingSaveSettingsButton"
@@ -2405,7 +2300,9 @@
                                 Margin="0,8,0,0"
                                 IsEnabled="False"
                                 Style="{StaticResource StandaloneButtonStyle}"
-                                Click="LosslessScalingSaveSettingsButton_Click"/>
+                                Click="LosslessScalingSaveSettingsButton_Click"
+                                XYFocusUp="{x:Bind LosslessScalingEnabledToggle}"
+                                XYFocusDown="{x:Bind LosslessScalingAutoScaleToggle}"/>
 
                         <!-- AutoScale Card -->
                         <Border Style="{StaticResource CardStyle}">
@@ -2424,8 +2321,8 @@
                                     <ToggleSwitch x:Name="LosslessScalingAutoScaleToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False" Width="50"
-                                                  XYFocusUp="{x:Bind LosslessScalingEnabledToggle}"
+                                                  IsEnabled="False"
+                                                  XYFocusUp="{x:Bind LosslessScalingSaveSettingsButton}"
                                                   XYFocusDown="{x:Bind LosslessScalingScalingTypeComboBox}"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=LosslessScalingAutoScaleToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -2492,7 +2389,9 @@
                                             TickFrequency="10"
                                             SnapsTo="Ticks"
                                             TickPlacement="BottomRight"
-                                            IsEnabled="False"/>
+                                            IsEnabled="False"
+                                            XYFocusUp="{x:Bind LosslessScalingScalingTypeComboBox}"
+                                            XYFocusDown="{x:Bind LosslessScalingScaleModeComboBox}"/>
                                 </StackPanel>
 
                                 <!-- FSR Optimize Toggle (FSR only) -->
@@ -2505,7 +2404,9 @@
                                     <ToggleSwitch x:Name="LosslessScalingFSROptimizeToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
+                                                  IsEnabled="False"
+                                                  XYFocusUp="{x:Bind LosslessScalingSharpnessSlider}"
+                                                  XYFocusDown="{x:Bind LosslessScalingScaleModeComboBox}"/>
                                 </Grid>
 
                                 <!-- Anime4K Settings -->
@@ -2516,7 +2417,9 @@
                                               Width="Auto"
                                               HorizontalAlignment="Stretch"
                                               IsEnabled="False"
-                                              Style="{StaticResource ModernComboBoxStyle}">
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              XYFocusUp="{x:Bind LosslessScalingScalingTypeComboBox}"
+                                              XYFocusDown="{x:Bind LosslessScalingAnime4KVRSToggle}">
                                         <x:String>Small</x:String>
                                         <x:String>Medium</x:String>
                                         <x:String>Large</x:String>
@@ -2532,7 +2435,9 @@
                                         <ToggleSwitch x:Name="LosslessScalingAnime4KVRSToggle"
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernToggleStyle}"
-                                                      IsEnabled="False"/>
+                                                      IsEnabled="False"
+                                                      XYFocusUp="{x:Bind LosslessScalingAnime4KSizeComboBox}"
+                                                      XYFocusDown="{x:Bind LosslessScalingScaleModeComboBox}"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
@@ -2563,7 +2468,9 @@
                                               Width="Auto"
                                               HorizontalAlignment="Stretch"
                                               IsEnabled="False"
-                                              Style="{StaticResource ModernComboBoxStyle}">
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              XYFocusUp="{x:Bind LosslessScalingScaleModeComboBox}"
+                                              XYFocusDown="{x:Bind LosslessScalingFrameGenTypeComboBox}">
                                         <x:String>Aspect Ratio</x:String>
                                         <x:String>Fullscreen</x:String>
                                     </ComboBox>
@@ -2585,7 +2492,9 @@
                                             TickFrequency="1"
                                             SnapsTo="Ticks"
                                             TickPlacement="BottomRight"
-                                            IsEnabled="False"/>
+                                            IsEnabled="False"
+                                            XYFocusUp="{x:Bind LosslessScalingScaleModeComboBox}"
+                                            XYFocusDown="{x:Bind LosslessScalingFrameGenTypeComboBox}"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -2600,7 +2509,8 @@
                                           HorizontalAlignment="Stretch"
                                           IsEnabled="False"
                                           Style="{StaticResource ModernComboBoxStyle}"
-                                          XYFocusUp="{x:Bind LosslessScalingScaleModeComboBox}">
+                                          XYFocusUp="{x:Bind LosslessScalingScaleModeComboBox}"
+                                          XYFocusDown="{x:Bind LosslessScalingLSFG3ModeComboBox}">
                                     <x:String>Off</x:String>
                                     <x:String>LSFG1</x:String>
                                     <x:String>LSFG2</x:String>
@@ -2623,7 +2533,9 @@
                                           IsEnabled="False"
                                           Style="{StaticResource ModernComboBoxStyle}"
                                           Margin="0,0,0,12"
-                                          SelectionChanged="LosslessScalingLSFG3ModeComboBox_SelectionChanged">
+                                          SelectionChanged="LosslessScalingLSFG3ModeComboBox_SelectionChanged"
+                                          XYFocusUp="{x:Bind LosslessScalingFrameGenTypeComboBox}"
+                                          XYFocusDown="{x:Bind LosslessScalingLSFG3MultiplierComboBox}">
                                     <x:String>FIXED</x:String>
                                     <x:String>ADAPTIVE</x:String>
                                 </ComboBox>
@@ -2637,7 +2549,9 @@
                                               HorizontalAlignment="Stretch"
                                               IsEnabled="False"
                                               Style="{StaticResource ModernComboBoxStyle}"
-                                              Margin="0,0,0,12">
+                                              Margin="0,0,0,12"
+                                              XYFocusUp="{x:Bind LosslessScalingLSFG3ModeComboBox}"
+                                              XYFocusDown="{x:Bind LosslessScalingLSFG3TargetSlider}">
                                         <x:String>2</x:String>
                                         <x:String>3</x:String>
                                         <x:String>4</x:String>
@@ -2660,7 +2574,9 @@
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
                                         IsEnabled="False"
-                                        Margin="0,0,0,12"/>
+                                        Margin="0,0,0,12"
+                                        XYFocusUp="{x:Bind LosslessScalingLSFG3MultiplierComboBox}"
+                                        XYFocusDown="{x:Bind LosslessScalingFlowScaleSlider}"/>
 
                                 <!-- Flow Scale -->
                                 <Grid>
@@ -2678,7 +2594,9 @@
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
                                         IsEnabled="False"
-                                        Margin="0,0,0,12"/>
+                                        Margin="0,0,0,12"
+                                        XYFocusUp="{x:Bind LosslessScalingLSFG3TargetSlider}"
+                                        XYFocusDown="{x:Bind LosslessScalingSizeToggle}"/>
 
                                 <!-- Size Toggle (Performance/Balanced) -->
                                 <Grid>
@@ -2695,7 +2613,8 @@
                                     <ToggleSwitch x:Name="LosslessScalingSizeToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
+                                                  IsEnabled="False"
+                                                  XYFocusUp="{x:Bind LosslessScalingFlowScaleSlider}"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -2712,7 +2631,8 @@
                                           Width="Auto"
                                           HorizontalAlignment="Stretch"
                                           IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}">
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          XYFocusUp="{x:Bind LosslessScalingFrameGenTypeComboBox}">
                                     <x:String>X2</x:String>
                                     <x:String>X3</x:String>
                                     <x:String>X4</x:String>
@@ -2770,7 +2690,7 @@
                                 <ToggleSwitch x:Name="LegionTouchpadToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsOn="True" Width="50"
+                                              IsOn="True"
                                               XYFocusUp="{x:Bind LegionNavItem}"
                                               XYFocusDown="{x:Bind LegionVibrationComboBox}"/>
                             </Grid>
@@ -2856,15 +2776,15 @@
                                                 FocusVisualPrimaryBrush="White"/>
                                     </StackPanel>
                                 </Grid>
-                                <ColorPicker x:Name="LegionColorPicker"
+                                <muxc:ColorPicker x:Name="LegionColorPicker"
                                              Visibility="Collapsed"
                                              Margin="0,12,0,0"
                                              Color="White"
-                                             ColorSpectrumShape="Ring"
+                                             ColorSpectrumShape="Box"
                                              IsMoreButtonVisible="False"
-                                             IsColorSliderVisible="True"
+                                             IsColorSliderVisible="False"
                                              IsColorChannelTextInputVisible="False"
-                                             IsHexInputVisible="True"
+                                             IsHexInputVisible="False"
                                              IsAlphaEnabled="False"
                                              IsAlphaSliderVisible="False"
                                              IsAlphaTextInputVisible="False"
@@ -2921,7 +2841,7 @@
                                 <ToggleSwitch x:Name="LegionPowerLightToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsOn="True" Width="50"/>
+                                              IsOn="True"/>
                             </Grid>
                         </Border>
 
@@ -3051,7 +2971,7 @@
                                 <ToggleSwitch x:Name="LegionFanFullSpeedToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsOn="False" Width="50"/>
+                                              IsOn="False"/>
                             </Grid>
                         </Border>
 
@@ -3073,7 +2993,7 @@
                                 <ToggleSwitch x:Name="LegionChargeLimitToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
-                                              IsOn="False" Width="50"/>
+                                              IsOn="False"/>
                             </Grid>
                         </Border>
 

@@ -3,6 +3,7 @@ using System;
 using Windows.UI;
 using Windows.UI.Core;
 using Windows.UI.Xaml.Controls;
+using muxc = Microsoft.UI.Xaml.Controls;
 
 namespace XboxGamingBar.Data
 {
@@ -10,9 +11,9 @@ namespace XboxGamingBar.Data
     /// Property for Legion light color as hex string "#RRGGBB"
     /// Uses ColorPicker for selection
     /// </summary>
-    internal class LegionLightColorProperty : WidgetControlProperty<string, Windows.UI.Xaml.Controls.ColorPicker>
+    internal class LegionLightColorProperty : WidgetControlProperty<string, muxc.ColorPicker>
     {
-        public LegionLightColorProperty(Windows.UI.Xaml.Controls.ColorPicker inUI, Page inOwner) : base("#FFFFFF", Function.LegionLightColor, inUI, inOwner)
+        public LegionLightColorProperty(muxc.ColorPicker inUI, Page inOwner) : base("#FFFFFF", Function.LegionLightColor, inUI, inOwner)
         {
             // Don't initialize color in constructor - let the sync from helper set it
         }

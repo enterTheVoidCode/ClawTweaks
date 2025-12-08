@@ -479,6 +479,16 @@ namespace XboxGamingBarHelper.Legion
                 // Apply TDP values immediately
                 ApplyTDPValues(slow, fast, peak);
 
+                // Sync the Legion Custom TDP sliders to match the applied values
+                // This ensures the Legion tab sliders reflect what was set (especially when using main TDP slider)
+                LegionCustomTDPSlow.SetValueSilent(slow);
+                LegionCustomTDPSlow.SyncToRemote();
+                LegionCustomTDPFast.SetValueSilent(fast);
+                LegionCustomTDPFast.SyncToRemote();
+                LegionCustomTDPPeak.SetValueSilent(peak);
+                LegionCustomTDPPeak.SyncToRemote();
+                Logger.Info($"Synced Legion Custom TDP sliders: Slow={slow}W, Fast={fast}W, Peak={peak}W");
+
                 // If mode was changed, schedule a reapply after 5 seconds
                 // This ensures TDP limits are properly applied after the mode switch settles
                 if (modeChanged)
