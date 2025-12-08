@@ -829,23 +829,7 @@ namespace XboxGamingBar
 
         private void Control_GotFocus(object sender, RoutedEventArgs e)
         {
-            var control = sender as FrameworkElement;
-            if (control == null) return;
-
-            // Find parent card (Border with CardStyle)
-            var card = FindParentCard(control);
-            if (card != null)
-            {
-                // Clear previous card highlight
-                if (currentFocusedCard != null && currentFocusedCard != card)
-                {
-                    currentFocusedCard.BorderBrush = cardDefaultBorderBrush;
-                }
-
-                // Highlight current card
-                card.BorderBrush = cardFocusBorderBrush;
-                currentFocusedCard = card;
-            }
+            // Card focus highlighting disabled - only controls show focus visuals
         }
 
         private void Control_LostFocus(object sender, RoutedEventArgs e)
@@ -3615,6 +3599,8 @@ namespace XboxGamingBar
                 if (SaveTDP)
                 {
                     TDPSlider.Value = profile.TDP;
+                    // Send to helper explicitly (slider handler may be blocked by flags or value unchanged)
+                    tdp?.SetValue((int)profile.TDP);
                     // Update Sticky TDP target when loading profile
                     if (StickyTDPToggle?.IsOn == true)
                     {
@@ -3625,15 +3611,22 @@ namespace XboxGamingBar
                 if (SaveCPUBoost)
                 {
                     CPUBoostToggle.IsOn = profile.CPUBoost;
+                    // Send to helper explicitly
+                    cpuBoost?.SetValue(profile.CPUBoost);
                 }
                 if (SaveCPUEPP)
                 {
                     CPUEPPSlider.Value = profile.CPUEPP;
+                    // Send to helper explicitly (cast to int for property type)
+                    cpuEPP?.SetValue((int)profile.CPUEPP);
                 }
                 if (SaveLimitCPUClock)
                 {
                     LimitCPUClockToggle.IsOn = profile.LimitCPUClock;
                     CPUClockMaxSlider.Value = profile.CPUClockMax;
+                    // Send to helper explicitly (cast to int for property type)
+                    limitCPUClock?.SetValue(profile.LimitCPUClock);
+                    cpuClockMax?.SetValue((int)profile.CPUClockMax);
                 }
                 if (SaveAMDFeatures)
                 {
@@ -3644,6 +3637,14 @@ namespace XboxGamingBar
                     AMDRadeonChillToggle.IsOn = profile.RadeonChill;
                     AMDRadeonChillMinFPSSlider.Value = profile.RadeonChillMinFPS;
                     AMDRadeonChillMaxFPSSlider.Value = profile.RadeonChillMaxFPS;
+                    // Send to helper explicitly (cast to int for property types)
+                    amdFluidMotionFrameEnabled?.SetValue(profile.FluidMotionFrames);
+                    amdRadeonAntiLagEnabled?.SetValue(profile.RadeonAntiLag);
+                    amdRadeonBoostEnabled?.SetValue(profile.RadeonBoost);
+                    amdRadeonBoostResolution?.SetValue((int)profile.RadeonBoostResolution);
+                    amdRadeonChillEnabled?.SetValue(profile.RadeonChill);
+                    amdRadeonChillMinFPSProperty?.SetValue((int)profile.RadeonChillMinFPS);
+                    amdRadeonChillMaxFPSProperty?.SetValue((int)profile.RadeonChillMaxFPS);
                 }
                 if (SaveFPSLimit)
                 {
@@ -4624,15 +4625,21 @@ namespace XboxGamingBar
 
         public void OnDeactivated()
         {
-            Logger.Info("GamingWidget being deactivated - stopping pending updates.");
+            Logger.Info("GamingWidget being deactivated - stopping pending updates and unsubscribing from events.");
             try
             {
                 properties.StopPendingUpdates();
                 Logger.Info("Pending updates stopped.");
+
+                // Unsubscribe from AppService events to prevent this deactivated instance from receiving messages
+                App.AppServiceConnected -= GamingWidget_AppServiceConnected;
+                App.AppServiceDisconnected -= GamingWidget_AppServiceDisconnected;
+                App.AppServiceRequestReceived -= AppServiceConnection_RequestReceived;
+                Logger.Info("Event handlers unsubscribed.");
             }
             catch (Exception ex)
             {
-                Logger.Error($"Error stopping pending updates: {ex.Message}");
+                Logger.Error($"Error during deactivation: {ex.Message}");
             }
         }
 
@@ -4782,6 +4789,10 @@ namespace XboxGamingBar
                     {
                         isApplyingHelperUpdate = false;
                     }
+
+                    // NOTE: Profile is already applied during constructor via UpdateActiveProfileIndicator() -> SwitchProfile()
+                    // The sync above gets current hardware values, which is correct behavior.
+                    // We don't re-apply the profile here to avoid unnecessary state changes.
                 }
             }
 
@@ -5309,8 +5320,36 @@ namespace XboxGamingBar
                         if (LosslessScalingLSFG2ModeComboBox != null) LosslessScalingLSFG2ModeComboBox.IsEnabled = enableControls;
                         if (LosslessScalingFlowScaleSlider != null) LosslessScalingFlowScaleSlider.IsEnabled = enableControls;
                         if (LosslessScalingSizeToggle != null) LosslessScalingSizeToggle.IsEnabled = enableControls;
-                        if (LosslessScalingSaveSettingsButton != null) LosslessScalingSaveSettingsButton.IsEnabled = enableSaveButton;
-                        if (LosslessScalingCreateProfileButton != null) LosslessScalingCreateProfileButton.IsEnabled = enableControls && HasValidGame(currentGameName);
+                        if (LosslessScalingSaveSettingsButton != null)
+                        {
+                            LosslessScalingSaveSettingsButton.IsEnabled = enableSaveButton;
+                            // Update XY navigation to skip disabled Save button
+                            LosslessScalingEnabledToggle.XYFocusDown = enableSaveButton ? LosslessScalingSaveSettingsButton : (DependencyObject)LosslessScalingAutoScaleToggle;
+                            LosslessScalingAutoScaleToggle.XYFocusUp = enableSaveButton ? LosslessScalingSaveSettingsButton : (DependencyObject)LosslessScalingEnabledToggle;
+                        }
+                        if (LosslessScalingCreateProfileButton != null)
+                        {
+                            bool enableCreateProfile = enableControls && HasValidGame(currentGameName);
+                            LosslessScalingCreateProfileButton.IsEnabled = enableCreateProfile;
+
+                            // Update XY navigation for Scale toggle based on Create Profile button state
+                            // When Create Profile is disabled, Scale should go up to Launch/ShowWindow button
+                            if (isRunning)
+                            {
+                                // Show Window is visible
+                                LosslessScalingEnabledToggle.XYFocusUp = enableCreateProfile ? LosslessScalingCreateProfileButton : (DependencyObject)ShowLosslessScalingWindowButton;
+                            }
+                            else if (isInstalled)
+                            {
+                                // Launch is visible
+                                LosslessScalingEnabledToggle.XYFocusUp = enableCreateProfile ? LosslessScalingCreateProfileButton : (DependencyObject)LaunchLosslessScalingButton;
+                            }
+                            else
+                            {
+                                // Neither button visible, go to nav
+                                LosslessScalingEnabledToggle.XYFocusUp = ScalingNavItem;
+                            }
+                        }
 
                         // New Scaling Algorithm controls
                         if (LosslessScalingSharpnessSlider != null) LosslessScalingSharpnessSlider.IsEnabled = enableControls;
@@ -5427,17 +5466,36 @@ namespace XboxGamingBar
             {
                 string selectedType = LosslessScalingFrameGenTypeComboBox.SelectedItem as string ?? "Off";
                 bool isFrameGenEnabled = selectedType != "Off";
+                bool showLSFG3 = selectedType == "LSFG3";
+                bool showLSFG2 = selectedType == "LSFG2";
 
                 // Show/hide LSFG3 settings card
                 if (LSFG3SettingsCard != null)
                 {
-                    LSFG3SettingsCard.Visibility = selectedType == "LSFG3" ? Visibility.Visible : Visibility.Collapsed;
+                    LSFG3SettingsCard.Visibility = showLSFG3 ? Visibility.Visible : Visibility.Collapsed;
                 }
 
                 // Show/hide LSFG2 settings card
                 if (LSFG2SettingsCard != null)
                 {
-                    LSFG2SettingsCard.Visibility = selectedType == "LSFG2" ? Visibility.Visible : Visibility.Collapsed;
+                    LSFG2SettingsCard.Visibility = showLSFG2 ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Update XY navigation based on visible controls
+                if (showLSFG3)
+                {
+                    // LSFG3: FrameGen -> LSFG3 Mode
+                    LosslessScalingFrameGenTypeComboBox.XYFocusDown = LosslessScalingLSFG3ModeComboBox;
+                }
+                else if (showLSFG2)
+                {
+                    // LSFG2: FrameGen -> LSFG2 Mode
+                    LosslessScalingFrameGenTypeComboBox.XYFocusDown = LosslessScalingLSFG2ModeComboBox;
+                }
+                else
+                {
+                    // No extra controls - remove XYFocusDown (end of list)
+                    LosslessScalingFrameGenTypeComboBox.XYFocusDown = null;
                 }
 
                 // Handle conflict with AMD Fluid Motion Frames
@@ -5480,6 +5538,9 @@ namespace XboxGamingBar
 
                 // Show/hide Sharpness panel (for FSR, NIS, SGSR, BCAS)
                 bool showSharpness = selectedType == "FSR" || selectedType == "NIS" || selectedType == "SGSR" || selectedType == "BCAS";
+                bool showFSROptimize = selectedType == "FSR";
+                bool showAnime4K = selectedType == "Anime4K";
+
                 if (LosslessScalingSharpnessPanel != null)
                 {
                     LosslessScalingSharpnessPanel.Visibility = showSharpness ? Visibility.Visible : Visibility.Collapsed;
@@ -5488,13 +5549,39 @@ namespace XboxGamingBar
                 // Show/hide FSR Optimize panel (FSR only)
                 if (LosslessScalingFSROptimizePanel != null)
                 {
-                    LosslessScalingFSROptimizePanel.Visibility = selectedType == "FSR" ? Visibility.Visible : Visibility.Collapsed;
+                    LosslessScalingFSROptimizePanel.Visibility = showFSROptimize ? Visibility.Visible : Visibility.Collapsed;
                 }
 
                 // Show/hide Anime4K panel
                 if (LosslessScalingAnime4KPanel != null)
                 {
-                    LosslessScalingAnime4KPanel.Visibility = selectedType == "Anime4K" ? Visibility.Visible : Visibility.Collapsed;
+                    LosslessScalingAnime4KPanel.Visibility = showAnime4K ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Update XY navigation based on visible controls
+                // ScalingTypeComboBox down: Sharpness -> FSROptimize -> Anime4K -> ScaleMode
+                if (showFSROptimize)
+                {
+                    // FSR: Type -> Sharpness -> FSROptimize -> ScaleMode
+                    LosslessScalingScalingTypeComboBox.XYFocusDown = LosslessScalingSharpnessSlider;
+                    LosslessScalingSharpnessSlider.XYFocusDown = LosslessScalingFSROptimizeToggle;
+                    LosslessScalingFSROptimizeToggle.XYFocusDown = LosslessScalingScaleModeComboBox;
+                }
+                else if (showSharpness)
+                {
+                    // NIS, SGSR, BCAS: Type -> Sharpness -> ScaleMode
+                    LosslessScalingScalingTypeComboBox.XYFocusDown = LosslessScalingSharpnessSlider;
+                    LosslessScalingSharpnessSlider.XYFocusDown = LosslessScalingScaleModeComboBox;
+                }
+                else if (showAnime4K)
+                {
+                    // Anime4K: Type -> Size -> VRS -> ScaleMode
+                    LosslessScalingScalingTypeComboBox.XYFocusDown = LosslessScalingAnime4KSizeComboBox;
+                }
+                else
+                {
+                    // No extra controls: Type -> ScaleMode
+                    LosslessScalingScalingTypeComboBox.XYFocusDown = LosslessScalingScaleModeComboBox;
                 }
             }
             catch (Exception ex)
@@ -5508,17 +5595,38 @@ namespace XboxGamingBar
             try
             {
                 string selectedMode = LosslessScalingScaleModeComboBox.SelectedItem as string ?? "Auto";
+                bool showAuto = selectedMode == "Auto";
+                bool showCustom = selectedMode == "Custom";
 
                 // Show/hide Auto mode panel
                 if (LosslessScalingAutoModePanel != null)
                 {
-                    LosslessScalingAutoModePanel.Visibility = selectedMode == "Auto" ? Visibility.Visible : Visibility.Collapsed;
+                    LosslessScalingAutoModePanel.Visibility = showAuto ? Visibility.Visible : Visibility.Collapsed;
                 }
 
                 // Show/hide Custom mode panel
                 if (LosslessScalingCustomModePanel != null)
                 {
-                    LosslessScalingCustomModePanel.Visibility = selectedMode == "Custom" ? Visibility.Visible : Visibility.Collapsed;
+                    LosslessScalingCustomModePanel.Visibility = showCustom ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Update XY navigation based on visible controls
+                if (showAuto)
+                {
+                    // Auto: ScaleMode -> AspectRatio -> FrameGen
+                    LosslessScalingScaleModeComboBox.XYFocusDown = LosslessScalingAspectRatioComboBox;
+                    LosslessScalingAspectRatioComboBox.XYFocusDown = LosslessScalingFrameGenTypeComboBox;
+                }
+                else if (showCustom)
+                {
+                    // Custom: ScaleMode -> ScaleFactor -> FrameGen
+                    LosslessScalingScaleModeComboBox.XYFocusDown = LosslessScalingScaleFactorSlider;
+                    LosslessScalingScaleFactorSlider.XYFocusDown = LosslessScalingFrameGenTypeComboBox;
+                }
+                else
+                {
+                    // No extra controls: ScaleMode -> FrameGen
+                    LosslessScalingScaleModeComboBox.XYFocusDown = LosslessScalingFrameGenTypeComboBox;
                 }
             }
             catch (Exception ex)
@@ -5532,11 +5640,26 @@ namespace XboxGamingBar
             try
             {
                 string selectedMode = LosslessScalingLSFG3ModeComboBox.SelectedItem as string ?? "FIXED";
+                bool isAdaptive = selectedMode == "ADAPTIVE";
 
                 // Hide multiplier when Adaptive mode is selected
                 if (LosslessScalingLSFG3MultiplierPanel != null)
                 {
-                    LosslessScalingLSFG3MultiplierPanel.Visibility = selectedMode == "ADAPTIVE" ? Visibility.Collapsed : Visibility.Visible;
+                    LosslessScalingLSFG3MultiplierPanel.Visibility = isAdaptive ? Visibility.Collapsed : Visibility.Visible;
+                }
+
+                // Update XY navigation based on visible controls
+                if (isAdaptive)
+                {
+                    // ADAPTIVE: Mode -> Target -> FlowScale -> SizeToggle (skip Multiplier)
+                    LosslessScalingLSFG3ModeComboBox.XYFocusDown = LosslessScalingLSFG3TargetSlider;
+                    LosslessScalingLSFG3TargetSlider.XYFocusUp = LosslessScalingLSFG3ModeComboBox;
+                }
+                else
+                {
+                    // FIXED: Mode -> Multiplier -> Target -> FlowScale -> SizeToggle
+                    LosslessScalingLSFG3ModeComboBox.XYFocusDown = LosslessScalingLSFG3MultiplierComboBox;
+                    LosslessScalingLSFG3TargetSlider.XYFocusUp = LosslessScalingLSFG3MultiplierComboBox;
                 }
             }
             catch (Exception ex)
@@ -5708,7 +5831,7 @@ namespace XboxGamingBar
         /// <summary>
         /// Handles ColorPicker color changes and updates the preview
         /// </summary>
-        private void LegionColorPicker_ColorChanged(Windows.UI.Xaml.Controls.ColorPicker sender, Windows.UI.Xaml.Controls.ColorChangedEventArgs args)
+        private void LegionColorPicker_ColorChanged(Microsoft.UI.Xaml.Controls.ColorPicker sender, Microsoft.UI.Xaml.Controls.ColorChangedEventArgs args)
         {
             try
             {
