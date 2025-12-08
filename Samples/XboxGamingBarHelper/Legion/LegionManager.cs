@@ -47,6 +47,16 @@ namespace XboxGamingBarHelper.Legion
         private int pendingTdpFast;
         private int pendingTdpPeak;
 
+        // Cooldown to prevent RefreshTDPValuesFromDevice from overwriting recently-set values
+        private DateTime lastTdpSetTime = DateTime.MinValue;
+        private const int TDP_REFRESH_COOLDOWN_MS = 3000; // 3 seconds cooldown after setting TDP
+
+        // Startup grace period to ignore LegionCustomTDP slider sync during widget startup
+        // The main TDP slider calls SetCustomTDP which syncs all 3 values, so we don't want
+        // the widget's stale cached values to override them
+        private DateTime startupTime;
+        private const int STARTUP_GRACE_PERIOD_MS = 5000; // 5 seconds after manager init
+
         // Properties
         public readonly LegionGoDetectedProperty LegionGoDetected;
         public readonly LegionTouchpadEnabledProperty LegionTouchpadEnabled;
@@ -67,6 +77,9 @@ namespace XboxGamingBarHelper.Legion
         public LegionManager(AppServiceConnection connection) : base(connection)
         {
             Logger.Info("Initializing Legion Manager...");
+
+            // Record startup time for grace period
+            startupTime = DateTime.Now;
 
             // Try to detect Legion Go device
             DetectLegionGo();
@@ -479,6 +492,9 @@ namespace XboxGamingBarHelper.Legion
                 // Apply TDP values immediately
                 ApplyTDPValues(slow, fast, peak);
 
+                // Set cooldown to prevent RefreshTDPValuesFromDevice from overwriting these values
+                lastTdpSetTime = DateTime.Now;
+
                 // Sync the Legion Custom TDP sliders to match the applied values
                 // This ensures the Legion tab sliders reflect what was set (especially when using main TDP slider)
                 LegionCustomTDPSlow.SetValueSilent(slow);
@@ -587,6 +603,13 @@ namespace XboxGamingBarHelper.Legion
         /// </summary>
         public void ApplyCustomTDPSlow(int slow)
         {
+            // Skip during startup grace period to prevent widget sync from overriding main TDP slider
+            if ((DateTime.Now - startupTime).TotalMilliseconds < STARTUP_GRACE_PERIOD_MS)
+            {
+                Logger.Info($"Skipping ApplyCustomTDPSlow({slow}W) - still in startup grace period");
+                return;
+            }
+
             if (wmiService == null)
             {
                 Logger.Warn("Cannot set custom TDP Slow: WMI service not available");
@@ -617,6 +640,13 @@ namespace XboxGamingBarHelper.Legion
         /// </summary>
         public void ApplyCustomTDPFast(int fast)
         {
+            // Skip during startup grace period to prevent widget sync from overriding main TDP slider
+            if ((DateTime.Now - startupTime).TotalMilliseconds < STARTUP_GRACE_PERIOD_MS)
+            {
+                Logger.Info($"Skipping ApplyCustomTDPFast({fast}W) - still in startup grace period");
+                return;
+            }
+
             if (wmiService == null)
             {
                 Logger.Warn("Cannot set custom TDP Fast: WMI service not available");
@@ -647,6 +677,13 @@ namespace XboxGamingBarHelper.Legion
         /// </summary>
         public void ApplyCustomTDPPeak(int peak)
         {
+            // Skip during startup grace period to prevent widget sync from overriding main TDP slider
+            if ((DateTime.Now - startupTime).TotalMilliseconds < STARTUP_GRACE_PERIOD_MS)
+            {
+                Logger.Info($"Skipping ApplyCustomTDPPeak({peak}W) - still in startup grace period");
+                return;
+            }
+
             if (wmiService == null)
             {
                 Logger.Warn("Cannot set custom TDP Peak: WMI service not available");
@@ -810,10 +847,10 @@ namespace XboxGamingBarHelper.Legion
                 }
             }
 
-            // Periodically refresh TDP values and fan speed from device (only if Legion detected)
+            // Periodically refresh fan speed from device (only if Legion detected)
+            // Note: TDP refresh is disabled to prevent conflicts with user-set values
             if (isLegionGoDetected && wmiService != null)
             {
-                RefreshTDPValuesFromDevice();
                 RefreshFanSpeed();
             }
         }
@@ -850,6 +887,13 @@ namespace XboxGamingBarHelper.Legion
         /// </summary>
         private void RefreshTDPValuesFromDevice()
         {
+            // Skip refresh during cooldown period after TDP was set
+            // This prevents stale WMI reads from overwriting recently-set values
+            if ((DateTime.Now - lastTdpSetTime).TotalMilliseconds < TDP_REFRESH_COOLDOWN_MS)
+            {
+                return;
+            }
+
             try
             {
                 var slowResult = wmiService.GetCPUShortTermPowerLimit();

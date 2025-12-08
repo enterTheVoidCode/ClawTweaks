@@ -78,6 +78,10 @@ namespace XboxGamingBarHelper.AMD
         }
 
         private readonly AMD3DSettingsChangedListener amd3DSettingsChangedListener;
+        public AMD3DSettingsChangedListener AMD3DSettingsChangedListener
+        {
+            get { return amd3DSettingsChangedListener; }
+        }
 
         // AMD Properties.
         private readonly AMDRadeonSuperResolutionSupportedProperty amdRadeonSuperResolutionSupported;
