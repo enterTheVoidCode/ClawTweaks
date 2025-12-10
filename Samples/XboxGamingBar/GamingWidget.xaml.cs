@@ -613,6 +613,10 @@ namespace XboxGamingBar
             PerformanceOverlayComboBox.GotFocus += Control_GotFocus;
             PerformanceOverlayComboBox.LostFocus += Control_LostFocus;
 
+            // Performance tab - TDP Mode card (Legion only)
+            TDPModeComboBox.GotFocus += Control_GotFocus;
+            TDPModeComboBox.LostFocus += Control_LostFocus;
+
             // Performance tab - TDP card
             TDPSlider.GotFocus += Control_GotFocus;
             TDPSlider.LostFocus += Control_LostFocus;
@@ -1531,6 +1535,13 @@ namespace XboxGamingBar
         {
             try
             {
+                // Skip Sticky TDP in non-Custom modes - preset modes manage TDP automatically
+                if (legionGoDetected?.Value == true && legionPerformanceMode?.Value != 255)
+                {
+                    Logger.Debug($"Sticky TDP: Skipping - using {GetLegionModeShortName(legionPerformanceMode?.Value ?? 0)} preset mode");
+                    return;
+                }
+
                 // Smart check: Only reapply if current hardware TDP differs from target
                 // Parse STAPM limit from currentTdp (format: "STAPM:21W FAST:21W SLOW:21W")
                 int currentStapmLimit = -1;
@@ -3358,6 +3369,13 @@ namespace XboxGamingBar
                 {
                     powerSourceTdpReapplyTimer.Stop();
 
+                    // Skip TDP reapply if not in Custom mode - preset modes manage TDP automatically
+                    if (legionGoDetected?.Value == true && legionPerformanceMode?.Value != 255)
+                    {
+                        Logger.Info($"Power source change: Skipping TDP reapply - using {GetLegionModeShortName(legionPerformanceMode?.Value ?? 0)} preset mode");
+                        return;
+                    }
+
                     // Reapply TDP - use the Performance tab TDP value
                     if (tdp != null)
                     {
@@ -3553,7 +3571,29 @@ namespace XboxGamingBar
             // Save only enabled settings
             if (SaveTDP)
             {
-                profile.TDP = TDPSlider.Value;
+                // Save TDP Mode for Legion devices
+                if (legionGoDetected?.Value == true && TDPModeComboBox != null)
+                {
+                    int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
+                    int selectedIndex = TDPModeComboBox.SelectedIndex;
+                    if (selectedIndex >= 0 && selectedIndex < modeValues.Length)
+                    {
+                        profile.LegionPerformanceMode = modeValues[selectedIndex];
+
+                        // Only save TDP slider value if in Custom mode (255)
+                        // Preset modes (Quiet/Balanced/Performance) use hardware-defined TDP values
+                        if (modeValues[selectedIndex] == 255)
+                        {
+                            profile.TDP = TDPSlider.Value;
+                        }
+                        // For preset modes, keep the profile's existing TDP value for when Custom mode is used later
+                    }
+                }
+                else
+                {
+                    // Non-Legion devices: always save TDP
+                    profile.TDP = TDPSlider.Value;
+                }
             }
             if (SaveCPUBoost)
             {
@@ -3618,8 +3658,9 @@ namespace XboxGamingBar
                 if (SaveTDP)
                 {
                     TDPSlider.Value = profile.TDP;
-                    // Send to helper explicitly (slider handler may be blocked by flags or value unchanged)
-                    tdp?.SetValue((int)profile.TDP);
+                    // Send to helper explicitly using ForceSetValue to ensure hardware TDP is updated
+                    // even if cached value matches (important when switching TDP modes on Legion)
+                    tdp?.ForceSetValue((int)profile.TDP);
                     // Update Sticky TDP target when loading profile
                     if (StickyTDPToggle?.IsOn == true)
                     {
@@ -3736,38 +3777,109 @@ namespace XboxGamingBar
                     }
                 }
                 // Legion Performance Mode handling
-                if (LegionPerformanceModeComboBox != null)
+                Logger.Info($"LoadProfileSettings Legion check: legionGoDetected={legionGoDetected?.Value}, LegionPerformanceModeComboBox={LegionPerformanceModeComboBox != null}, TDPModeComboBox={TDPModeComboBox != null}");
+                if (legionGoDetected?.Value == true && LegionPerformanceModeComboBox != null && TDPModeComboBox != null)
                 {
+                    int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
+
                     if (profileName.StartsWith("Game_"))
                     {
-                        // Loading a game profile: save current mode and switch to Custom (255) to allow TDP changes
+                        // Loading a game profile: save the GLOBAL PROFILE's TDP mode (not the current UI state)
+                        // This ensures we restore to the intended global profile mode, not whatever the helper
+                        // may have changed it to
                         if (savedLegionPerformanceMode < 0)
                         {
-                            int[] modeValues = { 1, 2, 3, 255 };
-                            int currentIndex = LegionPerformanceModeComboBox.SelectedIndex;
-                            savedLegionPerformanceMode = (currentIndex >= 0 && currentIndex < modeValues.Length) ? modeValues[currentIndex] : 2;
-                            Logger.Info($"Saved Legion Performance Mode: {GetLegionModeShortName(savedLegionPerformanceMode)} ({savedLegionPerformanceMode}) before game profile");
+                            // Get the global profile's saved TDP mode, not the current combobox state
+                            savedLegionPerformanceMode = globalProfile.LegionPerformanceMode;
+                            Logger.Info($"Saved Legion Performance Mode from global profile: {GetLegionModeShortName(savedLegionPerformanceMode)} ({savedLegionPerformanceMode}) before game profile");
                         }
 
-                        // Switch to Custom mode to allow TDP changes
-                        LegionPerformanceModeComboBox.SelectedIndex = 3; // Custom = index 3
-                        legionPerformanceMode?.SetValue(255); // Custom = 255
-                        Logger.Info($"Switched to Custom Legion mode for game profile: {profileName}");
+                        // Apply game profile's TDP Mode if SaveTDP is enabled
+                        if (SaveTDP)
+                        {
+                            int profileMode = profile.LegionPerformanceMode;
+                            int modeIndex = Array.IndexOf(modeValues, profileMode);
+                            if (modeIndex >= 0 && (legionPerformanceMode.Value != profileMode || TDPModeComboBox.SelectedIndex != modeIndex))
+                            {
+                                if (LegionPerformanceModeComboBox.SelectedIndex != modeIndex)
+                                    LegionPerformanceModeComboBox.SelectedIndex = modeIndex;
+                                if (TDPModeComboBox.SelectedIndex != modeIndex)
+                                {
+                                    lastTDPModeIndex = modeIndex;
+                                    TDPModeComboBox.SelectedIndex = modeIndex;
+                                }
+                                legionPerformanceMode?.ForceSetValue(profileMode);
+                                Logger.Info($"Applied game profile TDP Mode: {GetLegionModeShortName(profileMode)} ({profileMode}) for {profileName}");
+                            }
+                        }
+                        else
+                        {
+                            // SaveTDP disabled: default to Custom mode to allow manual TDP adjustment
+                            if (TDPModeComboBox.SelectedIndex != 3)
+                            {
+                                if (LegionPerformanceModeComboBox.SelectedIndex != 3)
+                                    LegionPerformanceModeComboBox.SelectedIndex = 3;
+                                lastTDPModeIndex = 3;
+                                TDPModeComboBox.SelectedIndex = 3;
+                                legionPerformanceMode?.SetValue(255);
+                                Logger.Info($"SaveTDP disabled - using Custom Legion mode for game profile: {profileName}");
+                            }
+                        }
                     }
                     else if (savedLegionPerformanceMode >= 0)
                     {
                         // Loading Global/AC/DC profile and we have a saved mode to restore
-                        int[] modeValues = { 1, 2, 3, 255 };
                         int index = Array.IndexOf(modeValues, savedLegionPerformanceMode);
-                        if (index >= 0)
+                        if (index >= 0 && (legionPerformanceMode.Value != savedLegionPerformanceMode || TDPModeComboBox.SelectedIndex != index))
                         {
-                            LegionPerformanceModeComboBox.SelectedIndex = index;
-                            legionPerformanceMode?.SetValue(savedLegionPerformanceMode);
+                            if (LegionPerformanceModeComboBox.SelectedIndex != index)
+                                LegionPerformanceModeComboBox.SelectedIndex = index;
+                            if (TDPModeComboBox.SelectedIndex != index)
+                            {
+                                lastTDPModeIndex = index;
+                                TDPModeComboBox.SelectedIndex = index;
+                            }
+                            legionPerformanceMode?.ForceSetValue(savedLegionPerformanceMode);
                             Logger.Info($"Restored Legion Performance Mode: {GetLegionModeShortName(savedLegionPerformanceMode)} ({savedLegionPerformanceMode}) after game closed");
+                        }
+                        // Also restore the TDP slider to the profile's TDP value
+                        // This is needed because the slider may still show the game profile's TDP
+                        if (SaveTDP && TDPSlider.Value != profile.TDP)
+                        {
+                            TDPSlider.Value = profile.TDP;
+                            Logger.Info($"Restored TDP slider to {profile.TDP}W after game closed");
                         }
                         savedLegionPerformanceMode = -1; // Clear saved mode
                     }
+                    else if (SaveTDP)
+                    {
+                        // Loading Global profile directly (not returning from game) - apply profile's TDP Mode
+                        int profileMode = profile.LegionPerformanceMode;
+                        int modeIndex = Array.IndexOf(modeValues, profileMode);
+                        Logger.Info($"LoadProfileSettings: profileMode={profileMode}, modeIndex={modeIndex}, legionPerformanceMode.Value={legionPerformanceMode?.Value}, TDPModeComboBox.SelectedIndex={TDPModeComboBox?.SelectedIndex}");
+
+                        // Always update UI to match profile when loading Global profile
+                        // The internal value may already match (set by helper) but UI may be stale
+                        if (modeIndex >= 0)
+                        {
+                            if (LegionPerformanceModeComboBox.SelectedIndex != modeIndex)
+                                LegionPerformanceModeComboBox.SelectedIndex = modeIndex;
+                            if (TDPModeComboBox.SelectedIndex != modeIndex)
+                            {
+                                lastTDPModeIndex = modeIndex;
+                                TDPModeComboBox.SelectedIndex = modeIndex;
+                            }
+                            legionPerformanceMode?.ForceSetValue(profileMode);
+                            Logger.Info($"Applied profile TDP Mode: {GetLegionModeShortName(profileMode)} ({profileMode}) for {profileName}");
+                        }
+                    }
+
+                    // Update TDP slider enabled state based on mode
+                    UpdateTDPSliderEnabledState();
                 }
+
+                // Update profile display to show correct TDP mode in Profiles tab
+                UpdateProfileDisplay();
             }
             finally
             {
@@ -3876,14 +3988,37 @@ namespace XboxGamingBar
 
         private void UpdateProfileDisplay()
         {
-            // Update Global profile display (simple mode)
-            GlobalProfileTDPText.Text = $"{globalProfile.TDP}W";
-            GlobalProfileCPUBoostText.Text = globalProfile.CPUBoost ? "On" : "Off";
-            GlobalProfileCPUEPPText.Text = $"{globalProfile.CPUEPP}";
-
-            // Update Global profile FPS Limit and AutoTDP (simple mode)
+            // Determine visibility based on save settings
+            var tdpModeVisibility = (legionGoDetected?.Value == true && SaveTDP) ? Visibility.Visible : Visibility.Collapsed;
+            var tdpVisibility = SaveTDP ? Visibility.Visible : Visibility.Collapsed;
+            var cpuBoostVisibility = SaveCPUBoost ? Visibility.Visible : Visibility.Collapsed;
+            var cpuEPPVisibility = SaveCPUEPP ? Visibility.Visible : Visibility.Collapsed;
+            var cpuClockVisibility = SaveLimitCPUClock ? Visibility.Visible : Visibility.Collapsed;
             var fpsLimitVisibility = SaveFPSLimit ? Visibility.Visible : Visibility.Collapsed;
             var autoTDPVisibility = SaveAutoTDP ? Visibility.Visible : Visibility.Collapsed;
+            var powerModeVisibility = SaveOSPowerMode ? Visibility.Visible : Visibility.Collapsed;
+            var amdVisibility = SaveAMDFeatures ? Visibility.Visible : Visibility.Collapsed;
+
+            // Update Global profile display (simple mode)
+            GlobalProfileTDPModeLabel.Visibility = tdpModeVisibility;
+            GlobalProfileTDPModeText.Visibility = tdpModeVisibility;
+            GlobalProfileTDPModeText.Text = GetLegionModeShortName(globalProfile.LegionPerformanceMode);
+
+            GlobalProfileTDPLabel.Visibility = tdpVisibility;
+            GlobalProfileTDPText.Visibility = tdpVisibility;
+            GlobalProfileTDPText.Text = $"{globalProfile.TDP}W";
+
+            GlobalProfileCPUBoostLabel.Visibility = cpuBoostVisibility;
+            GlobalProfileCPUBoostText.Visibility = cpuBoostVisibility;
+            GlobalProfileCPUBoostText.Text = globalProfile.CPUBoost ? "On" : "Off";
+
+            GlobalProfileCPUEPPLabel.Visibility = cpuEPPVisibility;
+            GlobalProfileCPUEPPText.Visibility = cpuEPPVisibility;
+            GlobalProfileCPUEPPText.Text = $"{globalProfile.CPUEPP}";
+
+            GlobalProfileCPUClockLabel.Visibility = cpuClockVisibility;
+            GlobalProfileCPUClockText.Visibility = cpuClockVisibility;
+            GlobalProfileCPUClockText.Text = globalProfile.LimitCPUClock ? $"{globalProfile.CPUClockMax}MHz" : "Off";
 
             GlobalProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
             GlobalProfileFPSLimitText.Visibility = fpsLimitVisibility;
@@ -3893,23 +4028,46 @@ namespace XboxGamingBar
             GlobalProfileAutoTDPText.Visibility = autoTDPVisibility;
             GlobalProfileAutoTDPText.Text = globalProfile.AutoTDPEnabled ? $"{globalProfile.AutoTDPTargetFPS}fps" : "Off";
 
-            var powerModeVisibility = SaveOSPowerMode ? Visibility.Visible : Visibility.Collapsed;
-
             GlobalProfilePowerModeLabel.Visibility = powerModeVisibility;
             GlobalProfilePowerModeText.Visibility = powerModeVisibility;
             GlobalProfilePowerModeText.Text = GetPowerModeShortName(globalProfile.OSPowerMode);
 
-            // Update AC profile display
-            ACProfileTDPText.Text = $"{acProfile.TDP}W";
-            ACProfileCPUBoostText.Text = acProfile.CPUBoost ? "On" : "Off";
-            ACProfileCPUEPPText.Text = $"{acProfile.CPUEPP}";
+            GlobalProfileAMDLabel.Visibility = amdVisibility;
+            GlobalProfileAMDText.Visibility = amdVisibility;
+            var globalAmdFeatures = GetAMDFeaturesShortString(globalProfile);
+            GlobalProfileAMDText.Text = string.IsNullOrEmpty(globalAmdFeatures) ? "Off" : globalAmdFeatures;
 
-            // Update DC profile display
+            // Update AC/DC profile display
+            ACDCProfileTDPModeLabel.Visibility = tdpModeVisibility;
+            ACProfileTDPModeText.Visibility = tdpModeVisibility;
+            DCProfileTDPModeText.Visibility = tdpModeVisibility;
+            ACProfileTDPModeText.Text = GetLegionModeShortName(acProfile.LegionPerformanceMode);
+            DCProfileTDPModeText.Text = GetLegionModeShortName(dcProfile.LegionPerformanceMode);
+
+            ACDCProfileTDPLabel.Visibility = tdpVisibility;
+            ACProfileTDPText.Visibility = tdpVisibility;
+            DCProfileTDPText.Visibility = tdpVisibility;
+            ACProfileTDPText.Text = $"{acProfile.TDP}W";
             DCProfileTDPText.Text = $"{dcProfile.TDP}W";
+
+            ACDCProfileCPUBoostLabel.Visibility = cpuBoostVisibility;
+            ACProfileCPUBoostText.Visibility = cpuBoostVisibility;
+            DCProfileCPUBoostText.Visibility = cpuBoostVisibility;
+            ACProfileCPUBoostText.Text = acProfile.CPUBoost ? "On" : "Off";
             DCProfileCPUBoostText.Text = dcProfile.CPUBoost ? "On" : "Off";
+
+            ACDCProfileCPUEPPLabel.Visibility = cpuEPPVisibility;
+            ACProfileCPUEPPText.Visibility = cpuEPPVisibility;
+            DCProfileCPUEPPText.Visibility = cpuEPPVisibility;
+            ACProfileCPUEPPText.Text = $"{acProfile.CPUEPP}";
             DCProfileCPUEPPText.Text = $"{dcProfile.CPUEPP}";
 
-            // Update AC/DC profile FPS Limit and AutoTDP
+            ACDCProfileCPUClockLabel.Visibility = cpuClockVisibility;
+            ACProfileCPUClockText.Visibility = cpuClockVisibility;
+            DCProfileCPUClockText.Visibility = cpuClockVisibility;
+            ACProfileCPUClockText.Text = acProfile.LimitCPUClock ? $"{acProfile.CPUClockMax}MHz" : "Off";
+            DCProfileCPUClockText.Text = dcProfile.LimitCPUClock ? $"{dcProfile.CPUClockMax}MHz" : "Off";
+
             ACDCProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
             ACProfileFPSLimitText.Visibility = fpsLimitVisibility;
             DCProfileFPSLimitText.Visibility = fpsLimitVisibility;
@@ -3928,59 +4086,131 @@ namespace XboxGamingBar
             ACProfilePowerModeText.Text = GetPowerModeShortName(acProfile.OSPowerMode);
             DCProfilePowerModeText.Text = GetPowerModeShortName(dcProfile.OSPowerMode);
 
+            ACDCProfileAMDLabel.Visibility = amdVisibility;
+            ACProfileAMDText.Visibility = amdVisibility;
+            DCProfileAMDText.Visibility = amdVisibility;
+            var acAmdFeatures = GetAMDFeaturesShortString(acProfile);
+            var dcAmdFeatures = GetAMDFeaturesShortString(dcProfile);
+            ACProfileAMDText.Text = string.IsNullOrEmpty(acAmdFeatures) ? "Off" : acAmdFeatures;
+            DCProfileAMDText.Text = string.IsNullOrEmpty(dcAmdFeatures) ? "Off" : dcAmdFeatures;
+
             // Update game profile display (if game is running)
             if (HasValidGame(currentGameName))
             {
                 if (PowerSourceProfileToggle?.IsOn == true)
                 {
-                    // Show AC/DC game profiles
-                    GameACProfileTDPText.Text = $"{gameACProfile.TDP}W";
-                    GameACProfileCPUBoostText.Text = gameACProfile.CPUBoost ? "On" : "Off";
-                    GameACProfileCPUEPPText.Text = $"{gameACProfile.CPUEPP}";
+                    // Show AC/DC game profiles - TDP Mode (Legion only)
+                    GameACDCProfileTDPModeLabel.Visibility = tdpModeVisibility;
+                    GameACProfileTDPModeText.Visibility = tdpModeVisibility;
+                    GameDCProfileTDPModeText.Visibility = tdpModeVisibility;
+                    GameACProfileTDPModeText.Text = GetLegionModeShortName(gameACProfile.LegionPerformanceMode);
+                    GameDCProfileTDPModeText.Text = GetLegionModeShortName(gameDCProfile.LegionPerformanceMode);
 
+                    // TDP
+                    GameACDCProfileTDPLabel.Visibility = tdpVisibility;
+                    GameACProfileTDPText.Visibility = tdpVisibility;
+                    GameDCProfileTDPText.Visibility = tdpVisibility;
+                    GameACProfileTDPText.Text = $"{gameACProfile.TDP}W";
                     GameDCProfileTDPText.Text = $"{gameDCProfile.TDP}W";
+
+                    // CPU Boost
+                    GameACDCProfileCPUBoostLabel.Visibility = cpuBoostVisibility;
+                    GameACProfileCPUBoostText.Visibility = cpuBoostVisibility;
+                    GameDCProfileCPUBoostText.Visibility = cpuBoostVisibility;
+                    GameACProfileCPUBoostText.Text = gameACProfile.CPUBoost ? "On" : "Off";
                     GameDCProfileCPUBoostText.Text = gameDCProfile.CPUBoost ? "On" : "Off";
+
+                    // CPU EPP
+                    GameACDCProfileCPUEPPLabel.Visibility = cpuEPPVisibility;
+                    GameACProfileCPUEPPText.Visibility = cpuEPPVisibility;
+                    GameDCProfileCPUEPPText.Visibility = cpuEPPVisibility;
+                    GameACProfileCPUEPPText.Text = $"{gameACProfile.CPUEPP}";
                     GameDCProfileCPUEPPText.Text = $"{gameDCProfile.CPUEPP}";
 
-                    // Game AC/DC FPS Limit and AutoTDP
+                    // CPU Clock
+                    GameACDCProfileCPUClockLabel.Visibility = cpuClockVisibility;
+                    GameACProfileCPUClockText.Visibility = cpuClockVisibility;
+                    GameDCProfileCPUClockText.Visibility = cpuClockVisibility;
+                    GameACProfileCPUClockText.Text = gameACProfile.LimitCPUClock ? $"{gameACProfile.CPUClockMax}MHz" : "Off";
+                    GameDCProfileCPUClockText.Text = gameDCProfile.LimitCPUClock ? $"{gameDCProfile.CPUClockMax}MHz" : "Off";
+
+                    // FPS Limit
                     GameACDCProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
                     GameACProfileFPSLimitText.Visibility = fpsLimitVisibility;
                     GameDCProfileFPSLimitText.Visibility = fpsLimitVisibility;
                     GameACProfileFPSLimitText.Text = gameACProfile.FPSLimitEnabled ? $"{gameACProfile.FPSLimitValue}" : "Off";
                     GameDCProfileFPSLimitText.Text = gameDCProfile.FPSLimitEnabled ? $"{gameDCProfile.FPSLimitValue}" : "Off";
 
+                    // AutoTDP
                     GameACDCProfileAutoTDPLabel.Visibility = autoTDPVisibility;
                     GameACProfileAutoTDPText.Visibility = autoTDPVisibility;
                     GameDCProfileAutoTDPText.Visibility = autoTDPVisibility;
                     GameACProfileAutoTDPText.Text = gameACProfile.AutoTDPEnabled ? $"{gameACProfile.AutoTDPTargetFPS}fps" : "Off";
                     GameDCProfileAutoTDPText.Text = gameDCProfile.AutoTDPEnabled ? $"{gameDCProfile.AutoTDPTargetFPS}fps" : "Off";
 
+                    // Power Mode
                     GameACDCProfilePowerModeLabel.Visibility = powerModeVisibility;
                     GameACProfilePowerModeText.Visibility = powerModeVisibility;
                     GameDCProfilePowerModeText.Visibility = powerModeVisibility;
                     GameACProfilePowerModeText.Text = GetPowerModeShortName(gameACProfile.OSPowerMode);
                     GameDCProfilePowerModeText.Text = GetPowerModeShortName(gameDCProfile.OSPowerMode);
 
+                    // AMD Features
+                    GameACDCProfileAMDLabel.Visibility = amdVisibility;
+                    GameACProfileAMDText.Visibility = amdVisibility;
+                    GameDCProfileAMDText.Visibility = amdVisibility;
+                    var gameACAmdFeatures = GetAMDFeaturesShortString(gameACProfile);
+                    var gameDCAmdFeatures = GetAMDFeaturesShortString(gameDCProfile);
+                    GameACProfileAMDText.Text = string.IsNullOrEmpty(gameACAmdFeatures) ? "Off" : gameACAmdFeatures;
+                    GameDCProfileAMDText.Text = string.IsNullOrEmpty(gameDCAmdFeatures) ? "Off" : gameDCAmdFeatures;
                 }
                 else
                 {
-                    // Show single game profile
+                    // Show single game profile - TDP Mode (Legion only)
+                    GameProfileTDPModeLabel.Visibility = tdpModeVisibility;
+                    GameProfileTDPModeText.Visibility = tdpModeVisibility;
+                    GameProfileTDPModeText.Text = GetLegionModeShortName(gameProfile.LegionPerformanceMode);
+
+                    // TDP
+                    GameProfileTDPLabel.Visibility = tdpVisibility;
+                    GameProfileTDPText.Visibility = tdpVisibility;
                     GameProfileTDPText.Text = $"{gameProfile.TDP}W";
+
+                    // CPU Boost
+                    GameProfileCPUBoostLabel.Visibility = cpuBoostVisibility;
+                    GameProfileCPUBoostText.Visibility = cpuBoostVisibility;
                     GameProfileCPUBoostText.Text = gameProfile.CPUBoost ? "On" : "Off";
+
+                    // CPU EPP
+                    GameProfileCPUEPPLabel.Visibility = cpuEPPVisibility;
+                    GameProfileCPUEPPText.Visibility = cpuEPPVisibility;
                     GameProfileCPUEPPText.Text = $"{gameProfile.CPUEPP}";
 
-                    // Game single profile FPS Limit and AutoTDP
+                    // CPU Clock
+                    GameProfileCPUClockLabel.Visibility = cpuClockVisibility;
+                    GameProfileCPUClockText.Visibility = cpuClockVisibility;
+                    GameProfileCPUClockText.Text = gameProfile.LimitCPUClock ? $"{gameProfile.CPUClockMax}MHz" : "Off";
+
+                    // FPS Limit
                     GameProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
                     GameProfileFPSLimitText.Visibility = fpsLimitVisibility;
                     GameProfileFPSLimitText.Text = gameProfile.FPSLimitEnabled ? $"{gameProfile.FPSLimitValue}" : "Off";
 
+                    // AutoTDP
                     GameProfileAutoTDPLabel.Visibility = autoTDPVisibility;
                     GameProfileAutoTDPText.Visibility = autoTDPVisibility;
                     GameProfileAutoTDPText.Text = gameProfile.AutoTDPEnabled ? $"{gameProfile.AutoTDPTargetFPS}fps" : "Off";
 
+                    // Power Mode
                     GameProfilePowerModeLabel.Visibility = powerModeVisibility;
                     GameProfilePowerModeText.Visibility = powerModeVisibility;
                     GameProfilePowerModeText.Text = GetPowerModeShortName(gameProfile.OSPowerMode);
+
+                    // AMD Features
+                    GameProfileAMDLabel.Visibility = amdVisibility;
+                    GameProfileAMDText.Visibility = amdVisibility;
+                    var gameAmdFeatures = GetAMDFeaturesShortString(gameProfile);
+                    GameProfileAMDText.Text = string.IsNullOrEmpty(gameAmdFeatures) ? "Off" : gameAmdFeatures;
                 }
             }
 
@@ -4009,6 +4239,23 @@ namespace XboxGamingBar
                 case 255: return "Custom";
                 default: return "Balanced";
             }
+        }
+
+        /// <summary>
+        /// Gets a short string representation of enabled AMD features for display in profile cards
+        /// </summary>
+        private static string GetAMDFeaturesShortString(PerformanceProfile profile)
+        {
+            var features = new List<string>();
+
+            if (profile.FluidMotionFrames) features.Add("AFMF");
+            if (profile.RadeonSuperResolution) features.Add("RSR");
+            if (profile.ImageSharpening) features.Add("RIS");
+            if (profile.RadeonAntiLag) features.Add("AL");
+            if (profile.RadeonBoost) features.Add("Boost");
+            if (profile.RadeonChill) features.Add("Chill");
+
+            return string.Join(",", features);
         }
 
         private void UpdateGameProfileCardVisibility()
@@ -4199,13 +4446,9 @@ namespace XboxGamingBar
 
                     // Create AC/DC comparison grid
                     var acDcGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
-                    acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    if (SaveFPSLimit) acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    if (SaveAutoTDP) acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    if (SaveOSPowerMode) acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    // Add rows dynamically based on enabled settings
+                    for (int i = 0; i < 20; i++) // Max rows
+                        acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                     acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -4217,23 +4460,50 @@ namespace XboxGamingBar
                     AddTextBlock(acDcGrid, rowIndex, 2, "DC", 10, "#FF6B6B", horizontalAlignment: HorizontalAlignment.Center);
                     rowIndex++;
 
+                    // TDP Mode (Legion only)
+                    if (legionGoDetected?.Value == true && SaveTDP)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Mode", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, GetLegionModeShortName(gameAC.LegionPerformanceMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, GetLegionModeShortName(gameDC.LegionPerformanceMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+
                     // TDP
-                    AddTextBlock(acDcGrid, rowIndex, 0, "TDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                    AddTextBlock(acDcGrid, rowIndex, 1, $"{gameAC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                    AddTextBlock(acDcGrid, rowIndex, 2, $"{gameDC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                    rowIndex++;
+                    if (SaveTDP)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "TDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, $"{gameAC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, $"{gameDC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
 
                     // Boost
-                    AddTextBlock(acDcGrid, rowIndex, 0, "Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                    AddTextBlock(acDcGrid, rowIndex, 1, gameAC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                    AddTextBlock(acDcGrid, rowIndex, 2, gameDC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                    rowIndex++;
+                    if (SaveCPUBoost)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
 
                     // EPP
-                    AddTextBlock(acDcGrid, rowIndex, 0, "EPP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                    AddTextBlock(acDcGrid, rowIndex, 1, $"{gameAC.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                    AddTextBlock(acDcGrid, rowIndex, 2, $"{gameDC.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                    rowIndex++;
+                    if (SaveCPUEPP)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "EPP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, $"{gameAC.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, $"{gameDC.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+
+                    // CPU Clock Limit
+                    if (SaveLimitCPUClock)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "CPU Clk", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.LimitCPUClock ? $"{gameAC.CPUClockMax}MHz" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.LimitCPUClock ? $"{gameDC.CPUClockMax}MHz" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
 
                     // FPS Limit (if enabled)
                     if (SaveFPSLimit)
@@ -4259,6 +4529,22 @@ namespace XboxGamingBar
                         AddTextBlock(acDcGrid, rowIndex, 0, "Power", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
                         AddTextBlock(acDcGrid, rowIndex, 1, GetPowerModeShortName(gameAC.OSPowerMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         AddTextBlock(acDcGrid, rowIndex, 2, GetPowerModeShortName(gameDC.OSPowerMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+
+                    // AMD Features (if enabled)
+                    if (SaveAMDFeatures)
+                    {
+                        // Build AMD features string for AC profile
+                        var acAmdFeatures = GetAMDFeaturesShortString(gameAC);
+                        var dcAmdFeatures = GetAMDFeaturesShortString(gameDC);
+
+                        if (!string.IsNullOrEmpty(acAmdFeatures) || !string.IsNullOrEmpty(dcAmdFeatures))
+                        {
+                            AddTextBlock(acDcGrid, rowIndex, 0, "AMD", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                            AddTextBlock(acDcGrid, rowIndex, 1, string.IsNullOrEmpty(acAmdFeatures) ? "Off" : acAmdFeatures, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 2, string.IsNullOrEmpty(dcAmdFeatures) ? "Off" : dcAmdFeatures, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        }
                     }
 
                     stackPanel.Children.Add(acDcGrid);
@@ -4271,28 +4557,53 @@ namespace XboxGamingBar
 
                     // Create simple grid
                     var singleGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
-                    singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    if (SaveFPSLimit) singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    if (SaveAutoTDP) singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    if (SaveOSPowerMode) singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    // Add rows dynamically based on enabled settings
+                    for (int i = 0; i < 20; i++) // Max rows
+                        singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     singleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     singleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
                     int rowIndex = 0;
 
-                    AddTextBlock(singleGrid, rowIndex, 0, "TDP", 10, "#AAAAAA");
-                    AddTextBlock(singleGrid, rowIndex, 1, $"{game.TDP}W", 10, "#FFFFFF");
-                    rowIndex++;
+                    // TDP Mode (Legion only)
+                    if (legionGoDetected?.Value == true && SaveTDP)
+                    {
+                        AddTextBlock(singleGrid, rowIndex, 0, "TDP Mode", 10, "#AAAAAA");
+                        AddTextBlock(singleGrid, rowIndex, 1, GetLegionModeShortName(game.LegionPerformanceMode), 10, "#FFFFFF");
+                        rowIndex++;
+                    }
 
-                    AddTextBlock(singleGrid, rowIndex, 0, "CPU Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                    AddTextBlock(singleGrid, rowIndex, 1, game.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                    rowIndex++;
+                    // TDP
+                    if (SaveTDP)
+                    {
+                        AddTextBlock(singleGrid, rowIndex, 0, "TDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, $"{game.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        rowIndex++;
+                    }
 
-                    AddTextBlock(singleGrid, rowIndex, 0, "CPU EPP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                    AddTextBlock(singleGrid, rowIndex, 1, $"{game.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                    rowIndex++;
+                    // CPU Boost
+                    if (SaveCPUBoost)
+                    {
+                        AddTextBlock(singleGrid, rowIndex, 0, "CPU Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, game.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        rowIndex++;
+                    }
+
+                    // CPU EPP
+                    if (SaveCPUEPP)
+                    {
+                        AddTextBlock(singleGrid, rowIndex, 0, "CPU EPP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, $"{game.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        rowIndex++;
+                    }
+
+                    // CPU Clock Limit
+                    if (SaveLimitCPUClock)
+                    {
+                        AddTextBlock(singleGrid, rowIndex, 0, "CPU Clock", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, game.LimitCPUClock ? $"{game.CPUClockMax}MHz" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        rowIndex++;
+                    }
 
                     // FPS Limit (if enabled)
                     if (SaveFPSLimit)
@@ -4315,6 +4626,15 @@ namespace XboxGamingBar
                     {
                         AddTextBlock(singleGrid, rowIndex, 0, "Power Mode", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
                         AddTextBlock(singleGrid, rowIndex, 1, GetPowerModeShortName(game.OSPowerMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        rowIndex++;
+                    }
+
+                    // AMD Features (if enabled)
+                    if (SaveAMDFeatures)
+                    {
+                        var amdFeatures = GetAMDFeaturesShortString(game);
+                        AddTextBlock(singleGrid, rowIndex, 0, "AMD", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, string.IsNullOrEmpty(amdFeatures) ? "Off" : amdFeatures, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
                     }
 
                     stackPanel.Children.Add(singleGrid);
@@ -4848,6 +5168,34 @@ namespace XboxGamingBar
                     try
                     {
                         isApplyingHelperUpdate = true;
+
+                        // Suppress LegionPerformanceMode value updates during sync - we'll apply profile mode afterward
+                        // This prevents helper's cached Custom mode from overwriting the profile's mode
+                        if (legionPerformanceMode != null)
+                        {
+                            legionPerformanceMode.SuppressUpdates = true;
+                        }
+
+                        // Skip TDP sync if profile uses a preset mode (not Custom)
+                        // This prevents the TDP sync from triggering Custom mode on the hardware LED
+                        try
+                        {
+                            var profile = GetProfile(currentProfileName);
+                            if (profile != null)
+                            {
+                                bool isPresetMode = profile.LegionPerformanceMode != 255; // Not Custom
+                                if (tdp != null && isPresetMode)
+                                {
+                                    tdp.SkipSync = true;
+                                    Logger.Info($"TDP sync will be skipped - profile uses {GetLegionModeShortName(profile.LegionPerformanceMode)} mode");
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"Could not check profile for TDP sync skip: {ex.Message}");
+                        }
+
                         await properties.Sync();
                         Logger.Info("Property sync completed.");
 
@@ -4862,9 +5210,29 @@ namespace XboxGamingBar
                         isApplyingHelperUpdate = false;
                     }
 
+                    // Stop any pending slider updates from the sync - we'll apply profile values instead
+                    properties.StopPendingUpdates();
+
+                    // Re-enable updates for LegionPerformanceMode now that profile is applied
+                    if (legionPerformanceMode != null)
+                    {
+                        legionPerformanceMode.SuppressUpdates = false;
+                    }
+
+                    // Re-enable TDP sync for future syncs
+                    if (tdp != null)
+                    {
+                        tdp.SkipSync = false;
+                    }
+
                     // Apply profile TDP to helper now that we're synced
                     // Profile was loaded in constructor before connection, so TDP may not have been applied
                     await ApplyProfileTDPToHelper();
+
+                    // Update profile display now that legionGoDetected has been synced from helper
+                    // This ensures TDP Mode shows in Profiles tab on fresh start
+                    UpdateProfileDisplay();
+                    Logger.Info("Profile display updated after sync - legionGoDetected=" + (legionGoDetected?.Value.ToString() ?? "null"));
 
                     // Clear initial sync flag - profile is loaded and applied, user changes should now save
                     // Add a small delay to let any pending ValueChanged events settle first
@@ -4896,6 +5264,35 @@ namespace XboxGamingBar
 
                 // Register Chill FPS handlers after sync to prevent crash
                 RegisterChillFPSHandlers();
+
+                // Re-evaluate which profile should be active and reload its settings
+                // This is needed because the game may have closed while widget was in background
+                // and the UI may still show stale game profile values
+                // Must run on UI thread since GetTargetProfileName and LoadProfileSettings access UI controls
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    try
+                    {
+                        string expectedProfile = GetTargetProfileName();
+                        if (expectedProfile != currentProfileName)
+                        {
+                            Logger.Info($"Profile changed while in background: '{currentProfileName}' -> '{expectedProfile}'");
+                            currentProfileName = expectedProfile;
+                            LoadProfileSettings(currentProfileName);
+                        }
+                        else
+                        {
+                            // Even if profile name is same, reload settings to ensure UI matches profile
+                            // (e.g., TDP slider may show game value instead of global profile value)
+                            Logger.Info($"Reloading profile settings after returning from background: {currentProfileName}");
+                            LoadProfileSettings(currentProfileName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error reloading profile after returning from background: {ex.Message}");
+                    }
+                });
             }
             else
             {
@@ -5086,6 +5483,34 @@ namespace XboxGamingBar
             {
                 // Set flag to prevent Sticky TDP target from updating during sync
                 isApplyingHelperUpdate = true;
+
+                // Suppress LegionPerformanceMode value updates during sync - we'll apply profile mode afterward
+                // This prevents the helper's cached mode (e.g., Custom) from overwriting the profile's mode
+                if (legionPerformanceMode != null)
+                {
+                    legionPerformanceMode.SuppressUpdates = true;
+                }
+
+                // Skip TDP sync if profile uses a preset mode (not Custom)
+                // This prevents the TDP sync from triggering Custom mode on the hardware LED
+                try
+                {
+                    var profile = GetProfile(currentProfileName);
+                    if (profile != null)
+                    {
+                        bool isPresetMode = profile.LegionPerformanceMode != 255; // Not Custom
+                        if (tdp != null && isPresetMode)
+                        {
+                            tdp.SkipSync = true;
+                            Logger.Info($"TDP sync will be skipped - profile uses {GetLegionModeShortName(profile.LegionPerformanceMode)} mode");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Could not check profile for TDP sync skip: {ex.Message}");
+                }
+
                 await properties.Sync();
                 Logger.Info("Property sync completed successfully.");
 
@@ -5103,34 +5528,69 @@ namespace XboxGamingBar
                 isApplyingHelperUpdate = false;
             }
 
-            // Send OSD config to helper now that connection is established
-            SendOSDConfigToHelper();
-
-            // Apply profile TDP to helper now that connection is established
-            // Profile was loaded in constructor before connection, so TDP wasn't actually applied
-            await ApplyProfileTDPToHelper();
-
-            // Clear initial sync flag - profile is loaded and applied, user changes should now save
-            // Add a small delay to let any pending ValueChanged events settle first
-            await Task.Delay(200);
-            isInitialSync = false;
-            Logger.Info("Initial sync complete - profile saves are now enabled");
-
-            // Hide connection status banner now that we're connected
-            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+            try
             {
-                if (ConnectionStatusBanner != null)
+                // Stop any pending slider updates from the sync - we'll apply profile values instead
+                // Must run on UI thread since DispatcherTimer is UI-bound
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                 {
-                    ConnectionStatusBanner.Visibility = Visibility.Collapsed;
-                    Logger.Info("Connection status banner hidden - connected to helper.");
+                    properties.StopPendingUpdates();
+                });
+                Logger.Info("Stopped pending updates after sync.");
+
+                // Re-enable updates for LegionPerformanceMode BEFORE applying profile
+                // so the profile's mode correctly updates the UI and internal value
+                if (legionPerformanceMode != null)
+                {
+                    legionPerformanceMode.SuppressUpdates = false;
                 }
-            });
+
+                // Re-enable TDP sync for future syncs
+                if (tdp != null)
+                {
+                    tdp.SkipSync = false;
+                }
+
+                // Send OSD config to helper now that connection is established
+                SendOSDConfigToHelper();
+
+                // Apply profile TDP to helper now that connection is established
+                // Profile was loaded in constructor before connection, so TDP wasn't actually applied
+                await ApplyProfileTDPToHelper();
+
+                // Clear initial sync flag - profile is loaded and applied, user changes should now save
+                // Add a small delay to let any pending ValueChanged events settle first
+                await Task.Delay(200);
+                isInitialSync = false;
+                Logger.Info("Initial sync complete - profile saves are now enabled");
+
+                // Hide connection status banner and update profile display now that we're connected
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    if (ConnectionStatusBanner != null)
+                    {
+                        ConnectionStatusBanner.Visibility = Visibility.Collapsed;
+                        Logger.Info("Connection status banner hidden - connected to helper.");
+                    }
+
+                    // Update profile display now that legionGoDetected has been synced from helper
+                    // This ensures TDP Mode shows in Profiles tab on fresh start
+                    UpdateProfileDisplay();
+                    Logger.Info("Profile display updated after sync - legionGoDetected=" + (legionGoDetected?.Value.ToString() ?? "null"));
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in post-sync initialization: {ex}");
+                Logger.Error($"Exception Type: {ex.GetType().FullName}");
+                Logger.Error($"Stack Trace: {ex.StackTrace}");
+            }
 
             Logger.Info("=== GamingWidget_AppServiceConnected END ===");
         }
 
         /// <summary>
-        /// Applies the current profile's TDP value to the helper.
+        /// Applies the current profile's TDP value and TDP Mode to the helper.
         /// Called after connection is established since profile loads before connection.
         /// </summary>
         private async Task ApplyProfileTDPToHelper()
@@ -5138,14 +5598,60 @@ namespace XboxGamingBar
             try
             {
                 var profile = GetProfile(currentProfileName);
-                if (SaveTDP && tdp != null)
+                if (profile == null)
                 {
-                    int targetTDP = (int)profile.TDP;
-                    Logger.Info($"Applying profile TDP to helper: {targetTDP}W (profile: {currentProfileName})");
+                    Logger.Warn($"Cannot apply profile TDP - profile '{currentProfileName}' not found");
+                    return;
+                }
 
-                    // Run on UI thread since SetValueSilent may touch UI controls
-                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                // Run on UI thread since we're touching UI controls (including SaveTDP which accesses checkbox)
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    if (!SaveTDP) return;
+
+                    // Apply Legion TDP Mode first (for Legion devices)
+                    if (legionGoDetected?.Value == true && legionPerformanceMode != null)
                     {
+                        int profileMode = profile.LegionPerformanceMode;
+                        int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
+                        int modeIndex = Array.IndexOf(modeValues, profileMode);
+
+                        if (modeIndex >= 0)
+                        {
+                            // During initial sync, always apply the profile's TDP mode to ensure
+                            // hardware matches profile (hardware may have been set to Custom by TDP sync)
+                            bool needsUIUpdate = (TDPModeComboBox != null && TDPModeComboBox.SelectedIndex != modeIndex) ||
+                                                 (LegionPerformanceModeComboBox != null && LegionPerformanceModeComboBox.SelectedIndex != modeIndex);
+
+                            Logger.Info($"Applying profile TDP Mode to helper: {GetLegionModeShortName(profileMode)} ({profileMode}) (profile: {currentProfileName})");
+
+                            // Update UI combo boxes if needed
+                            if (LegionPerformanceModeComboBox != null && LegionPerformanceModeComboBox.SelectedIndex != modeIndex)
+                                LegionPerformanceModeComboBox.SelectedIndex = modeIndex;
+                            if (TDPModeComboBox != null && TDPModeComboBox.SelectedIndex != modeIndex)
+                            {
+                                lastTDPModeIndex = modeIndex; // Update tracker to avoid redundant handler call
+                                TDPModeComboBox.SelectedIndex = modeIndex;
+                            }
+
+                            // Always force send to helper during startup to ensure hardware matches profile
+                            // This is necessary because TDP sync may have triggered Custom mode on hardware
+                            legionPerformanceMode.ForceSetValue(profileMode);
+
+                            // Update TDP slider enabled state
+                            UpdateTDPSliderEnabledState();
+                        }
+                    }
+
+                    // Apply TDP value ONLY in Custom mode (255)
+                    // Quiet/Balanced/Performance modes use hardware presets and don't accept TDP values
+                    bool isCustomMode = legionGoDetected?.Value != true || profile.LegionPerformanceMode == 255;
+
+                    if (tdp != null && isCustomMode)
+                    {
+                        int targetTDP = (int)profile.TDP;
+                        Logger.Info($"Applying profile TDP to helper: {targetTDP}W (profile: {currentProfileName})");
+
                         // Invalidate cached value first to force send even if values match
                         // This is needed because profile was loaded before connection, so the cached
                         // value matches but was never sent to hardware
@@ -5158,8 +5664,12 @@ namespace XboxGamingBar
                             targetTDPLimit = profile.TDP;
                             Logger.Info($"Sticky TDP target set to: {targetTDPLimit}W");
                         }
-                    });
-                }
+                    }
+                    else if (tdp != null && !isCustomMode)
+                    {
+                        Logger.Info($"Skipping TDP value application - using {GetLegionModeShortName(profile.LegionPerformanceMode)} preset (profile: {currentProfileName})");
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -5916,6 +6426,23 @@ namespace XboxGamingBar
                 Logger.Info($"Legion tab visibility set to: {visible}");
             }
 
+            // Show/hide TDP Mode card in Performance tab for Legion devices
+            if (TDPModeCard != null)
+            {
+                TDPModeCard.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"TDP Mode card visibility set to: {visible}");
+
+                // Update XY focus bindings based on Legion detection
+                UpdatePerformanceTabXYFocus(visible);
+
+                // Sync TDP Mode with Legion Performance Mode if visible
+                // Skip during initial sync - ApplyProfileTDPToHelper will set the correct value
+                if (visible && LegionPerformanceModeComboBox != null && TDPModeComboBox != null && !isInitialSync)
+                {
+                    TDPModeComboBox.SelectedIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                }
+            }
+
             // Manufacturer WMI TDP card is always visible (device-agnostic)
             // Update the description based on Legion detection
             if (ManufacturerWMIDescription != null)
@@ -5932,6 +6459,28 @@ namespace XboxGamingBar
 
             // Refresh Quick Settings tiles to show/hide Legion-specific tiles
             RefreshQuickSettingsForLegion();
+        }
+
+        /// <summary>
+        /// Updates XY focus bindings in Performance tab based on Legion detection
+        /// </summary>
+        private void UpdatePerformanceTabXYFocus(bool isLegion)
+        {
+            if (PerformanceOverlayComboBox != null && TDPModeComboBox != null && TDPSlider != null)
+            {
+                if (isLegion)
+                {
+                    // Legion: PerformanceOverlay -> TDPMode -> TDPSlider
+                    PerformanceOverlayComboBox.XYFocusDown = TDPModeComboBox;
+                    TDPSlider.XYFocusUp = TDPModeComboBox;
+                }
+                else
+                {
+                    // Non-Legion: PerformanceOverlay -> TDPSlider
+                    PerformanceOverlayComboBox.XYFocusDown = TDPSlider;
+                    TDPSlider.XYFocusUp = PerformanceOverlayComboBox;
+                }
+            }
         }
 
         /// <summary>
@@ -6080,12 +6629,117 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Handles performance mode ComboBox selection
+        /// Handles performance mode ComboBox selection in Legion tab
         /// </summary>
         private void LegionPerformanceModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             // Property handles the update, just log here
-            Logger.Info($"Performance mode selection changed");
+            Logger.Info($"Legion Performance mode selection changed");
+
+            // Sync TDP Mode dropdown in Performance tab
+            // Skip during initial sync - ApplyProfileTDPToHelper will set the correct value
+            if (TDPModeComboBox != null && LegionPerformanceModeComboBox != null && !isInitialSync)
+            {
+                if (TDPModeComboBox.SelectedIndex != LegionPerformanceModeComboBox.SelectedIndex)
+                {
+                    TDPModeComboBox.SelectedIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                }
+            }
+
+            // Update TDP slider enabled state based on mode
+            UpdateTDPSliderEnabledState();
+        }
+
+        /// <summary>
+        /// Handles TDP Mode ComboBox selection in Performance tab (Legion devices only)
+        /// </summary>
+        private int lastTDPModeIndex = -1; // Track last index to avoid redundant updates
+        private void TDPModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (TDPModeComboBox == null) return;
+
+            // Get the selected mode value from tag
+            int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
+            int selectedIndex = TDPModeComboBox.SelectedIndex;
+            if (selectedIndex < 0 || selectedIndex >= modeValues.Length) return;
+
+            // Skip if this is the same index as last time (avoid redundant processing)
+            if (selectedIndex == lastTDPModeIndex) return;
+            lastTDPModeIndex = selectedIndex;
+
+            int modeValue = modeValues[selectedIndex];
+            Logger.Info($"TDP Mode selection changed to index {selectedIndex} (value {modeValue})");
+
+            // Sync with Legion Performance Mode ComboBox and property
+            if (LegionPerformanceModeComboBox != null && LegionPerformanceModeComboBox.SelectedIndex != selectedIndex)
+            {
+                LegionPerformanceModeComboBox.SelectedIndex = selectedIndex;
+            }
+
+            // Send to helper via the Legion Performance Mode property (only if value changed)
+            if (legionPerformanceMode != null && legionPerformanceMode.Value != modeValue)
+            {
+                legionPerformanceMode.SetValue(modeValue);
+            }
+
+            // Update TDP slider enabled state based on mode
+            UpdateTDPSliderEnabledState();
+
+            // Save profile when TDP Mode changes (if not during initialization or helper update)
+            if (!isInitialSync && !isApplyingHelperUpdate && !isLoadingProfile && SaveTDP)
+            {
+                Logger.Info($"Saving TDP Mode change to profile: {currentProfileName}");
+                SaveCurrentSettingsToProfile(currentProfileName);
+            }
+        }
+
+        /// <summary>
+        /// Updates TDP slider enabled state based on TDP Mode (Legion only: disabled when not Custom)
+        /// Also updates XY focus bindings to skip disabled TDP slider
+        /// </summary>
+        private void UpdateTDPSliderEnabledState()
+        {
+            if (TDPSlider == null) return;
+
+            // Only apply this logic for Legion devices
+            if (legionGoDetected?.Value != true) return;
+
+            // Check if in Custom mode (index 3 = Custom = 255)
+            bool isCustomMode = TDPModeComboBox?.SelectedIndex == 3;
+
+            // TDP slider should only be enabled in Custom mode for Legion devices
+            // Note: TDP slider also requires tdp property to be ready (IsEnabled is set elsewhere too)
+            if (!isCustomMode)
+            {
+                TDPSlider.IsEnabled = false;
+                Logger.Debug("TDP slider disabled - not in Custom mode");
+
+                // Update XY focus to skip disabled TDP slider
+                // TDPModeComboBox -> AutoTDPToggle (skip TDPSlider)
+                if (TDPModeComboBox != null && AutoTDPToggle != null)
+                {
+                    TDPModeComboBox.XYFocusDown = AutoTDPToggle;
+                    AutoTDPToggle.XYFocusUp = TDPModeComboBox;
+                    Logger.Debug("XY focus updated to skip disabled TDP slider");
+                }
+            }
+            else
+            {
+                // In Custom mode, enable if tdp property is ready
+                TDPSlider.IsEnabled = tdp != null;
+                Logger.Debug($"TDP slider enabled in Custom mode: {TDPSlider.IsEnabled}");
+
+                // Restore normal XY focus chain
+                // TDPModeComboBox -> TDPSlider -> AutoTDPToggle
+                if (TDPModeComboBox != null && AutoTDPToggle != null)
+                {
+                    TDPModeComboBox.XYFocusDown = TDPSlider;
+                    TDPSlider.XYFocusUp = TDPModeComboBox;
+                    TDPSlider.XYFocusDown = AutoTDPToggle;
+                    AutoTDPToggle.XYFocusUp = TDPSlider;
+                    Logger.Debug("XY focus restored to include TDP slider");
+                }
+            }
         }
 
         /// <summary>
@@ -7020,6 +7674,13 @@ namespace XboxGamingBar
                 }
 
                 Logger.Info($"TDP Mode cycled from {currentMode} to {nextMode}");
+
+                // Save profile after TDP mode cycle (if not during initialization)
+                if (!isInitialSync && !isLoadingProfile && SaveTDP)
+                {
+                    Logger.Info($"Saving TDP Mode cycle to profile: {currentProfileName}");
+                    SaveCurrentSettingsToProfile(currentProfileName);
+                }
             }
         }
 
@@ -7575,61 +8236,67 @@ namespace XboxGamingBar
         /// </summary>
         private void UpdateFPSLimitControls(bool rtssAvailable)
         {
-            try
+            // Dispatch to UI thread since this may be called from property callback on non-UI thread
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
-                // Guard against null controls during initialization or shutdown
-                if (FPSLimitToggle == null || FPSLimitSlider == null) return;
-
-                FPSLimitToggle.IsEnabled = rtssAvailable;
-
-                // Update slider maximum to current refresh rate
-                int maxRefresh = 60; // Default
-                if (refreshRates?.Value != null && refreshRates.Value.Count > 0)
+                try
                 {
-                    maxRefresh = refreshRates.Value.Max();
-                }
-                FPSLimitSlider.Maximum = maxRefresh;
+                    if (isUnloading) return;
 
-                // Set tick frequency based on max refresh rate (show ~5-8 ticks)
-                int tickFreq;
-                if (maxRefresh >= 144)
-                    tickFreq = 24;
-                else if (maxRefresh >= 120)
-                    tickFreq = 20;
-                else if (maxRefresh >= 90)
-                    tickFreq = 15;
-                else
-                    tickFreq = 10;
-                FPSLimitSlider.TickFrequency = tickFreq;
+                    // Guard against null controls during initialization or shutdown
+                    if (FPSLimitToggle == null || FPSLimitSlider == null) return;
 
-                // Sync toggle/slider with fpsLimit value
-                if (fpsLimit != null)
-                {
-                    isApplyingHelperUpdate = true;
-                    try
+                    FPSLimitToggle.IsEnabled = rtssAvailable;
+
+                    // Update slider maximum to current refresh rate
+                    int maxRefresh = 60; // Default
+                    if (refreshRates?.Value != null && refreshRates.Value.Count > 0)
                     {
-                        int limit = fpsLimit.Value;
-                        if (limit > 0)
+                        maxRefresh = refreshRates.Value.Max();
+                    }
+                    FPSLimitSlider.Maximum = maxRefresh;
+
+                    // Set tick frequency based on max refresh rate (show ~5-8 ticks)
+                    int tickFreq;
+                    if (maxRefresh >= 144)
+                        tickFreq = 24;
+                    else if (maxRefresh >= 120)
+                        tickFreq = 20;
+                    else if (maxRefresh >= 90)
+                        tickFreq = 15;
+                    else
+                        tickFreq = 10;
+                    FPSLimitSlider.TickFrequency = tickFreq;
+
+                    // Sync toggle/slider with fpsLimit value
+                    if (fpsLimit != null)
+                    {
+                        isApplyingHelperUpdate = true;
+                        try
                         {
-                            FPSLimitToggle.IsOn = true;
-                            // Clamp value to slider range
-                            FPSLimitSlider.Value = Math.Min(limit, maxRefresh);
+                            int limit = fpsLimit.Value;
+                            if (limit > 0)
+                            {
+                                FPSLimitToggle.IsOn = true;
+                                // Clamp value to slider range
+                                FPSLimitSlider.Value = Math.Min(limit, maxRefresh);
+                            }
+                            else
+                            {
+                                FPSLimitToggle.IsOn = false;
+                            }
                         }
-                        else
+                        finally
                         {
-                            FPSLimitToggle.IsOn = false;
+                            isApplyingHelperUpdate = false;
                         }
                     }
-                    finally
-                    {
-                        isApplyingHelperUpdate = false;
-                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error in UpdateFPSLimitControls: {ex.Message}");
-            }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error in UpdateFPSLimitControls: {ex.Message}");
+                }
+            });
         }
 
         #region OS Power Mode
