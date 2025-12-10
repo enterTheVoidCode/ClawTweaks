@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 using Windows.Storage;
 using NLog;
 
@@ -106,25 +105,25 @@ namespace XboxGamingBar.QuickSettings
             {
                 var settings = ApplicationData.Current.LocalSettings;
 
-                if (settings.Values.TryGetValue(TilesStorageKey, out var tilesJson) && tilesJson is string json)
+                if (settings.Values.TryGetValue(TilesStorageKey, out var tilesData) && tilesData is string data)
                 {
-                    var tileDataList = JsonSerializer.Deserialize<List<TileData>>(json);
+                    var tileDataList = DeserializeTileDataList(data);
                     if (tileDataList != null && tileDataList.Count > 0)
                     {
                         Tiles.Clear();
-                        foreach (var data in tileDataList)
+                        foreach (var tileData in tileDataList)
                         {
                             var tile = new QuickSettingsTile
                             {
-                                Id = data.Id ?? Guid.NewGuid().ToString(),
-                                Type = (TileType)data.Type,
-                                Name = data.Name,
-                                Icon = data.Icon,
-                                CurrentState = data.CurrentState,
-                                Order = data.Order,
-                                IsVisible = data.IsVisible,
-                                CustomShortcut = data.CustomShortcut,
-                                CustomColor = data.CustomColor
+                                Id = tileData.Id ?? Guid.NewGuid().ToString(),
+                                Type = (TileType)tileData.Type,
+                                Name = tileData.Name,
+                                Icon = tileData.Icon,
+                                CurrentState = tileData.CurrentState,
+                                Order = tileData.Order,
+                                IsVisible = tileData.IsVisible,
+                                CustomShortcut = tileData.CustomShortcut,
+                                CustomColor = tileData.CustomColor
                             };
                             Tiles.Add(tile);
                         }
@@ -166,8 +165,8 @@ namespace XboxGamingBar.QuickSettings
                     CustomColor = t.CustomColor
                 }).ToList();
 
-                var json = JsonSerializer.Serialize(tileDataList);
-                settings.Values[TilesStorageKey] = json;
+                var data = SerializeTileDataList(tileDataList);
+                settings.Values[TilesStorageKey] = data;
 
                 Logger.Info($"Saved {Tiles.Count} Quick Settings tiles to storage");
             }
@@ -308,7 +307,7 @@ namespace XboxGamingBar.QuickSettings
         }
 
         /// <summary>
-        /// Export configuration as JSON string
+        /// Export configuration as string
         /// </summary>
         public string ExportConfig()
         {
@@ -325,33 +324,33 @@ namespace XboxGamingBar.QuickSettings
                 CustomColor = t.CustomColor
             }).ToList();
 
-            return JsonSerializer.Serialize(tileDataList, new JsonSerializerOptions { WriteIndented = true });
+            return SerializeTileDataList(tileDataList);
         }
 
         /// <summary>
-        /// Import configuration from JSON string
+        /// Import configuration from string
         /// </summary>
-        public bool ImportConfig(string json)
+        public bool ImportConfig(string data)
         {
             try
             {
-                var tileDataList = JsonSerializer.Deserialize<List<TileData>>(json);
+                var tileDataList = DeserializeTileDataList(data);
                 if (tileDataList != null && tileDataList.Count > 0)
                 {
                     Tiles.Clear();
-                    foreach (var data in tileDataList)
+                    foreach (var tileData in tileDataList)
                     {
                         var tile = new QuickSettingsTile
                         {
-                            Id = data.Id ?? Guid.NewGuid().ToString(),
-                            Type = (TileType)data.Type,
-                            Name = data.Name,
-                            Icon = data.Icon,
+                            Id = tileData.Id ?? Guid.NewGuid().ToString(),
+                            Type = (TileType)tileData.Type,
+                            Name = tileData.Name,
+                            Icon = tileData.Icon,
                             CurrentState = 0,
-                            Order = data.Order,
-                            IsVisible = data.IsVisible,
-                            CustomShortcut = data.CustomShortcut,
-                            CustomColor = data.CustomColor
+                            Order = tileData.Order,
+                            IsVisible = tileData.IsVisible,
+                            CustomShortcut = tileData.CustomShortcut,
+                            CustomColor = tileData.CustomColor
                         };
                         Tiles.Add(tile);
                     }
@@ -371,6 +370,70 @@ namespace XboxGamingBar.QuickSettings
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        /// <summary>
+        /// Serialize tile data list to a simple delimited string format
+        /// Format: tile1|tile2|tile3 where each tile is: Id;Type;Name;Icon;CurrentState;Order;IsVisible;CustomShortcut;CustomColor
+        /// </summary>
+        private static string SerializeTileDataList(List<TileData> tiles)
+        {
+            var tileStrings = tiles.Select(t =>
+                $"{Escape(t.Id)};{t.Type};{Escape(t.Name)};{Escape(t.Icon)};{t.CurrentState};{t.Order};{t.IsVisible};{Escape(t.CustomShortcut)};{Escape(t.CustomColor)}");
+            return string.Join("|", tileStrings);
+        }
+
+        /// <summary>
+        /// Deserialize tile data list from delimited string format
+        /// </summary>
+        private static List<TileData> DeserializeTileDataList(string data)
+        {
+            if (string.IsNullOrEmpty(data)) return null;
+
+            var result = new List<TileData>();
+            var tileStrings = data.Split('|');
+
+            foreach (var tileString in tileStrings)
+            {
+                if (string.IsNullOrEmpty(tileString)) continue;
+
+                var parts = tileString.Split(';');
+                if (parts.Length >= 9)
+                {
+                    result.Add(new TileData
+                    {
+                        Id = Unescape(parts[0]),
+                        Type = int.TryParse(parts[1], out var type) ? type : 0,
+                        Name = Unescape(parts[2]),
+                        Icon = Unescape(parts[3]),
+                        CurrentState = int.TryParse(parts[4], out var state) ? state : 0,
+                        Order = int.TryParse(parts[5], out var order) ? order : 0,
+                        IsVisible = bool.TryParse(parts[6], out var visible) && visible,
+                        CustomShortcut = Unescape(parts[7]),
+                        CustomColor = Unescape(parts[8])
+                    });
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Escape special characters in string values
+        /// </summary>
+        private static string Escape(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            return value.Replace("\\", "\\\\").Replace(";", "\\s").Replace("|", "\\p");
+        }
+
+        /// <summary>
+        /// Unescape special characters in string values
+        /// </summary>
+        private static string Unescape(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            return value.Replace("\\p", "|").Replace("\\s", ";").Replace("\\\\", "\\");
         }
 
         /// <summary>

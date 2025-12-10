@@ -15,6 +15,12 @@ namespace XboxGamingBar.Data
         private static readonly int[] PERFORMANCE_MODE_VALUES = { 1, 2, 3, 255 };
         private Action<bool> _customTDPVisibilityCallback;
 
+        /// <summary>
+        /// When true, both UI updates AND internal value changes from helper sync are suppressed.
+        /// Used during initial sync to prevent helper's cached mode from overwriting profile mode.
+        /// </summary>
+        public bool SuppressUpdates { get; set; } = false;
+
         public LegionPerformanceModeProperty(ComboBox inUI, Page inOwner) : base(2, Function.LegionPerformanceMode, inUI, inOwner)
         {
             if (UI != null)
@@ -60,9 +66,30 @@ namespace XboxGamingBar.Data
             _customTDPVisibilityCallback?.Invoke(Value == 255);
         }
 
+        /// <summary>
+        /// Override SetValue to skip value changes when SuppressUpdates is true.
+        /// This prevents the helper's cached mode from being stored during initial sync.
+        /// </summary>
+        public override bool SetValue(object newValue, long updatedTime = 0)
+        {
+            if (SuppressUpdates)
+            {
+                Logger.Info($"{Function} value update suppressed during initial sync (incoming value={newValue})");
+                return true; // Return true to indicate "handled" without actually setting
+            }
+            return base.SetValue(newValue, updatedTime);
+        }
+
         protected override async void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
+
+            // Skip UI updates during initial sync - profile mode will be applied afterward
+            if (SuppressUpdates)
+            {
+                Logger.Info($"{Function} UI update suppressed during initial sync (value={Value})");
+                return;
+            }
 
             if (UI != null && Owner != null)
             {

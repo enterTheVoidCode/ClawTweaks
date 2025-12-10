@@ -482,6 +482,35 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- TDP Mode Card (Legion devices only) -->
+                        <Border x:Name="TDPModeCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="TDP Mode" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Controls power and thermal profile"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ComboBox x:Name="TDPModeComboBox"
+                                          Width="140"
+                                          Grid.Column="1"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          SelectedIndex="1"
+                                          SelectionChanged="TDPModeComboBox_SelectionChanged"
+                                          XYFocusUp="{x:Bind PerformanceOverlayComboBox}"
+                                          XYFocusDown="{x:Bind TDPSlider}"
+                                          XYFocusLeft="{x:Bind PerformanceNavItem}">
+                                    <ComboBoxItem Content="Quiet" Tag="1"/>
+                                    <ComboBoxItem Content="Balanced" Tag="2"/>
+                                    <ComboBoxItem Content="Performance" Tag="3"/>
+                                    <ComboBoxItem Content="Custom" Tag="255"/>
+                                </ComboBox>
+                            </Grid>
+                        </Border>
+
                         <!-- TDP Power Limit Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -497,7 +526,9 @@
                                         TickFrequency="1"
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
-                                        IsEnabled="False" Value="-5"/>
+                                        IsEnabled="False" Value="-5"
+                                        XYFocusUp="{x:Bind PerformanceOverlayComboBox}"
+                                        XYFocusDown="{x:Bind AutoTDPToggle}"/>
                                 <Grid Margin="0,4,0,0">
                                     <TextBlock x:Name="CurrentTDPText"
                                                Text="Limits:"
@@ -906,34 +937,49 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="TDP" FontSize="11" Foreground="#AAAAAA"/>
-                                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="GlobalProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" x:Name="GlobalProfileTDPModeLabel" Text="TDP Mode" FontSize="11" Foreground="#AAAAAA" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="GlobalProfileTDPModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Visibility="Collapsed"/>
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="CPU Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="GlobalProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" x:Name="GlobalProfileTDPLabel" Text="TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="GlobalProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="CPU EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GlobalProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" x:Name="GlobalProfileCPUBoostLabel" Text="CPU Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GlobalProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                    <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GlobalProfileFPSLimitLabel" Text="FPS Limit" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GlobalProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GlobalProfileCPUEPPLabel" Text="CPU EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GlobalProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                    <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GlobalProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GlobalProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GlobalProfileCPUClockLabel" Text="CPU Clock" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GlobalProfileCPUClockText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                    <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GlobalProfilePowerModeLabel" Text="Power Mode" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GlobalProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GlobalProfileFPSLimitLabel" Text="FPS Limit" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GlobalProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                    <TextBlock Grid.Row="6" Grid.Column="0" x:Name="GlobalProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="1" x:Name="GlobalProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                    <TextBlock Grid.Row="7" Grid.Column="0" x:Name="GlobalProfilePowerModeLabel" Text="Power Mode" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="1" x:Name="GlobalProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                    <TextBlock Grid.Row="8" Grid.Column="0" x:Name="GlobalProfileAMDLabel" Text="AMD" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="8" Grid.Column="1" x:Name="GlobalProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
                                 </Grid>
 
                                 <!-- AC/DC Mode (Power Source Toggle ON) -->
                                 <Grid x:Name="GlobalProfileACDC" Margin="0,8,0,0" Visibility="Collapsed">
                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
@@ -953,35 +999,50 @@
                                     <TextBlock Grid.Row="0" Grid.Column="1" Text="AC" FontSize="11" Foreground="#FFD700" HorizontalAlignment="Center"/>
                                     <TextBlock Grid.Row="0" Grid.Column="2" Text="DC" FontSize="11" Foreground="#FF6B6B" HorizontalAlignment="Center"/>
 
+                                    <!-- TDP Mode Row (Legion only) -->
+                                    <TextBlock Grid.Row="1" Grid.Column="0" x:Name="ACDCProfileTDPModeLabel" Text="Mode" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="ACProfileTDPModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="2" x:Name="DCProfileTDPModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
                                     <!-- TDP Row -->
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="ACProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="2" x:Name="DCProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" x:Name="ACDCProfileTDPLabel" Text="TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="ACProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="2" x:Name="DCProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                     <!-- CPU Boost Row -->
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="ACProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="2" x:Name="DCProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" x:Name="ACDCProfileCPUBoostLabel" Text="Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="ACProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="2" x:Name="DCProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                     <!-- CPU EPP Row -->
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="ACProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="2" x:Name="DCProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="0" x:Name="ACDCProfileCPUEPPLabel" Text="EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="ACProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="2" x:Name="DCProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                    <!-- CPU Clock Row -->
+                                    <TextBlock Grid.Row="5" Grid.Column="0" x:Name="ACDCProfileCPUClockLabel" Text="CPU Clk" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="ACProfileCPUClockText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="2" x:Name="DCProfileCPUClockText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                     <!-- FPS Limit Row -->
-                                    <TextBlock Grid.Row="4" Grid.Column="0" x:Name="ACDCProfileFPSLimitLabel" Text="FPS Lim" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="ACProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="2" x:Name="DCProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="0" x:Name="ACDCProfileFPSLimitLabel" Text="FPS Lim" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="1" x:Name="ACProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="2" x:Name="DCProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                     <!-- AutoTDP Row -->
-                                    <TextBlock Grid.Row="5" Grid.Column="0" x:Name="ACDCProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="ACProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="2" x:Name="DCProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="0" x:Name="ACDCProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="1" x:Name="ACProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="2" x:Name="DCProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                     <!-- Power Mode Row -->
-                                    <TextBlock Grid.Row="6" Grid.Column="0" x:Name="ACDCProfilePowerModeLabel" Text="Power" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="6" Grid.Column="1" x:Name="ACProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="6" Grid.Column="2" x:Name="DCProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="8" Grid.Column="0" x:Name="ACDCProfilePowerModeLabel" Text="Power" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="8" Grid.Column="1" x:Name="ACProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="8" Grid.Column="2" x:Name="DCProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                    <!-- AMD Features Row -->
+                                    <TextBlock Grid.Row="9" Grid.Column="0" x:Name="ACDCProfileAMDLabel" Text="AMD" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="9" Grid.Column="1" x:Name="ACProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="9" Grid.Column="2" x:Name="DCProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -1005,6 +1066,9 @@
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -1017,35 +1081,50 @@
                                         <TextBlock Grid.Row="0" Grid.Column="1" Text="AC" FontSize="11" Foreground="#FFD700" HorizontalAlignment="Center"/>
                                         <TextBlock Grid.Row="0" Grid.Column="2" Text="DC" FontSize="11" Foreground="#FF6B6B" HorizontalAlignment="Center"/>
 
+                                        <!-- TDP Mode Row (Legion only) -->
+                                        <TextBlock Grid.Row="1" Grid.Column="0" x:Name="GameACDCProfileTDPModeLabel" Text="Mode" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="GameACProfileTDPModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="2" x:Name="GameDCProfileTDPModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
                                         <!-- TDP Row -->
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="GameACProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="2" x:Name="GameDCProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" x:Name="GameACDCProfileTDPLabel" Text="TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GameACProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="2" x:Name="GameDCProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                         <!-- CPU Boost Row -->
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GameACProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="2" x:Name="GameDCProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GameACDCProfileCPUBoostLabel" Text="Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GameACProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="2" x:Name="GameDCProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                         <!-- CPU EPP Row -->
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GameACProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="2" x:Name="GameDCProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GameACDCProfileCPUEPPLabel" Text="EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GameACProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="2" x:Name="GameDCProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                        <!-- CPU Clock Row -->
+                                        <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GameACDCProfileCPUClockLabel" Text="CPU Clk" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GameACProfileCPUClockText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="2" x:Name="GameDCProfileCPUClockText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                         <!-- FPS Limit Row -->
-                                        <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GameACDCProfileFPSLimitLabel" Text="FPS Lim" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GameACProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="4" Grid.Column="2" x:Name="GameDCProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="0" x:Name="GameACDCProfileFPSLimitLabel" Text="FPS Lim" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="1" x:Name="GameACProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="2" x:Name="GameDCProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                         <!-- AutoTDP Row -->
-                                        <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GameACDCProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GameACProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="5" Grid.Column="2" x:Name="GameDCProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="7" Grid.Column="0" x:Name="GameACDCProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="7" Grid.Column="1" x:Name="GameACProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="7" Grid.Column="2" x:Name="GameDCProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                         <!-- Power Mode Row -->
-                                        <TextBlock Grid.Row="6" Grid.Column="0" x:Name="GameACDCProfilePowerModeLabel" Text="Power" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="6" Grid.Column="1" x:Name="GameACProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="6" Grid.Column="2" x:Name="GameDCProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="8" Grid.Column="0" x:Name="GameACDCProfilePowerModeLabel" Text="Power" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="8" Grid.Column="1" x:Name="GameACProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="8" Grid.Column="2" x:Name="GameDCProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                        <!-- AMD Features Row -->
+                                        <TextBlock Grid.Row="9" Grid.Column="0" x:Name="GameACDCProfileAMDLabel" Text="AMD" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="9" Grid.Column="1" x:Name="GameACProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="9" Grid.Column="2" x:Name="GameDCProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                     </Grid>
                                 </StackPanel>
@@ -1065,29 +1144,41 @@
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="TDP" FontSize="11" Foreground="#AAAAAA"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="GameProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" x:Name="GameProfileTDPModeLabel" Text="TDP Mode" FontSize="11" Foreground="#AAAAAA" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="GameProfileTDPModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="CPU Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="GameProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" x:Name="GameProfileTDPLabel" Text="TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="GameProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="CPU EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GameProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" x:Name="GameProfileCPUBoostLabel" Text="CPU Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GameProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GameProfileFPSLimitLabel" Text="FPS Limit" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GameProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GameProfileCPUEPPLabel" Text="CPU EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GameProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GameProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GameProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GameProfileCPUClockLabel" Text="CPU Clock" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GameProfileCPUClockText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GameProfilePowerModeLabel" Text="Power Mode" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GameProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GameProfileFPSLimitLabel" Text="FPS Limit" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GameProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                        <TextBlock Grid.Row="6" Grid.Column="0" x:Name="GameProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="1" x:Name="GameProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                        <TextBlock Grid.Row="7" Grid.Column="0" x:Name="GameProfilePowerModeLabel" Text="Power Mode" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="7" Grid.Column="1" x:Name="GameProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                        <TextBlock Grid.Row="8" Grid.Column="0" x:Name="GameProfileAMDLabel" Text="AMD" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="8" Grid.Column="1" x:Name="GameProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
