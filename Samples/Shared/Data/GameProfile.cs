@@ -12,6 +12,12 @@ namespace Shared.Data
 
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+        /// <summary>
+        /// Lock object for thread-safe cache and file operations.
+        /// Prevents race conditions during profile switching.
+        /// </summary>
+        private static readonly object ProfileLock = new object();
+
         [XmlElement("GameId")]
         public GameId GameId;
 
@@ -174,18 +180,21 @@ namespace Shared.Data
 
         public void Save()
         {
-            if (cache != null)
+            lock (ProfileLock)
             {
-                cache[GameId] = this;
-            }
+                if (cache != null)
+                {
+                    cache[GameId] = this;
+                }
 
-            if (string.IsNullOrEmpty(Path))
-            {
-                // Logger.Warn($"Can't save profile {GameId.Name} due to empty path.");
-                return;
-            }
+                if (string.IsNullOrEmpty(Path))
+                {
+                    // Logger.Warn($"Can't save profile {GameId.Name} due to empty path.");
+                    return;
+                }
 
-            XmlHelper.ToXMLFile(this, Path);
+                XmlHelper.ToXMLFile(this, Path);
+            }
         }
     }
 }

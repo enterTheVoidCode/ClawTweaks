@@ -9,6 +9,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
+using Windows.System;
+using Windows.UI.Input.Preview.Injection;
 using XboxGamingBarHelper.AMD;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Legion;
@@ -48,6 +50,17 @@ namespace XboxGamingBarHelper
 
         // Properties
         private static HelperProperties properties;
+
+        /// <summary>
+        /// Guard flag to prevent reentrant profile change handling.
+        /// Prevents race conditions during rapid game switches.
+        /// </summary>
+        private static bool isApplyingProfile = false;
+
+        /// <summary>
+        /// Input injector for sending keyboard shortcuts (works in widget context unlike SendInput)
+        /// </summary>
+        private static InputInjector inputInjector;
 
         static async Task Main(string[] args)
         {
@@ -91,6 +104,13 @@ namespace XboxGamingBarHelper
             legionManager = new LegionManager(connection);
             Logger.Info("Initialize AutoTDP Manager.");
             autoTDPManager = new AutoTDPManager(connection, performanceManager, systemManager);
+
+            // Initialize input injector for keyboard shortcuts (works in widget context unlike SendInput)
+            inputInjector = InputInjector.TryCreate();
+            if (inputInjector == null)
+            {
+                Logger.Warn("Failed to create InputInjector - keyboard shortcuts may not work in widget");
+            }
 
             // Set LegionManager reference in PerformanceManager for WMI TDP support
             performanceManager.SetLegionManager(legionManager);
@@ -295,15 +315,30 @@ namespace XboxGamingBarHelper
 
         private static void CurrentProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            // Prevent reentrant profile handling that can cause race conditions
+            if (isApplyingProfile)
+            {
+                Logger.Debug("Skipping CurrentProfile_PropertyChanged - already applying profile");
+                return;
+            }
+
             if (profileManager.CurrentProfile.Use || profileManager.CurrentProfile.IsGlobalProfile)
             {
-                Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name}, apply it.");
-                performanceManager.TDP.SetValue(profileManager.CurrentProfile.TDP);
-                powerManager.CPUBoost.SetValue(profileManager.CurrentProfile.CPUBoost);
-                powerManager.CPUEPP.SetValue(profileManager.CurrentProfile.CPUEPP);
-                powerManager.LimitCPUClock.SetValue(profileManager.CurrentProfile.CPUClock > 0);
-                powerManager.CPUClockMax.SetValue(profileManager.CurrentProfile.CPUClock > 0 ? profileManager.CurrentProfile.CPUClock : CPUConstants.DEFAULT_CPU_CLOCK);
-                profileManager.PerGameProfile.SetValue(profileManager.CurrentProfile.Use);
+                try
+                {
+                    isApplyingProfile = true;
+                    Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name}, apply it.");
+                    performanceManager.TDP.SetValue(profileManager.CurrentProfile.TDP);
+                    powerManager.CPUBoost.SetValue(profileManager.CurrentProfile.CPUBoost);
+                    powerManager.CPUEPP.SetValue(profileManager.CurrentProfile.CPUEPP);
+                    powerManager.LimitCPUClock.SetValue(profileManager.CurrentProfile.CPUClock > 0);
+                    powerManager.CPUClockMax.SetValue(profileManager.CurrentProfile.CPUClock > 0 ? profileManager.CurrentProfile.CPUClock : CPUConstants.DEFAULT_CPU_CLOCK);
+                    profileManager.PerGameProfile.SetValue(profileManager.CurrentProfile.Use);
+                }
+                finally
+                {
+                    isApplyingProfile = false;
+                }
             }
             else
             {
@@ -313,25 +348,40 @@ namespace XboxGamingBarHelper
 
         private static void PerGameProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            GameProfile gameProfile;
-            if (profileManager.PerGameProfile)
+            // Prevent reentrant profile handling
+            if (isApplyingProfile)
             {
-                if (!profileManager.TryGetProfile(systemManager.RunningGame.Value.GameId, out gameProfile))
-                {
-                    gameProfile = profileManager.AddNewProfile(systemManager.RunningGame.Value.GameId);
-                }
-                Logger.Info($"Enable per-game profile for {systemManager.RunningGame.Value.GameId}");
-                gameProfile.Use = true;
+                Logger.Debug("Skipping PerGameProfile_PropertyChanged - already applying profile");
+                return;
             }
-            else
+
+            try
             {
-                if (profileManager.TryGetProfile(systemManager.RunningGame.Value.GameId, out gameProfile))
+                isApplyingProfile = true;
+                GameProfile gameProfile;
+                if (profileManager.PerGameProfile)
                 {
-                    gameProfile.Use = false;
+                    if (!profileManager.TryGetProfile(systemManager.RunningGame.Value.GameId, out gameProfile))
+                    {
+                        gameProfile = profileManager.AddNewProfile(systemManager.RunningGame.Value.GameId);
+                    }
+                    Logger.Info($"Enable per-game profile for {systemManager.RunningGame.Value.GameId}");
+                    gameProfile.Use = true;
                 }
-                gameProfile = profileManager.GlobalProfile;
+                else
+                {
+                    if (profileManager.TryGetProfile(systemManager.RunningGame.Value.GameId, out gameProfile))
+                    {
+                        gameProfile.Use = false;
+                    }
+                    gameProfile = profileManager.GlobalProfile;
+                }
+                profileManager.CurrentProfile.SetValue(gameProfile);
             }
-            profileManager.CurrentProfile.SetValue(gameProfile);
+            finally
+            {
+                isApplyingProfile = false;
+            }
         }
 
         private static void TDP_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -342,32 +392,47 @@ namespace XboxGamingBarHelper
 
         private static void RunningGame_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            if (systemManager.RunningGame.Value.IsValid())
+            // Prevent reentrant profile handling
+            if (isApplyingProfile)
             {
-                if (profileManager.TryGetProfile(systemManager.RunningGame.Value.GameId, out var runningGameProfile))
+                Logger.Debug("Skipping RunningGame_PropertyChanged - already applying profile");
+                return;
+            }
+
+            try
+            {
+                isApplyingProfile = true;
+                if (systemManager.RunningGame.Value.IsValid())
                 {
-                    if (runningGameProfile.Use)
+                    if (profileManager.TryGetProfile(systemManager.RunningGame.Value.GameId, out var runningGameProfile))
                     {
-                        Logger.Info($"Game {systemManager.RunningGame.GameId} has per-game profile in use.");
-                        profileManager.CurrentProfile.SetValue(runningGameProfile);
+                        if (runningGameProfile.Use)
+                        {
+                            Logger.Info($"Game {systemManager.RunningGame.GameId} has per-game profile in use.");
+                            profileManager.CurrentProfile.SetValue(runningGameProfile);
+                        }
+                        else
+                        {
+                            Logger.Info($"Game {systemManager.RunningGame.GameId} has per-game profile but not in use.");
+                        }
                     }
                     else
                     {
-                        Logger.Info($"Game {systemManager.RunningGame.GameId} has per-game profile but not in use.");
+                        Logger.Info($"Game {systemManager.RunningGame.GameId} doesn't have per-game profile.");
                     }
+
+                    // Apply CPU core affinity to the new game
+                    systemManager.ApplyAffinityToRunningGame();
                 }
                 else
                 {
-                    Logger.Info($"Game {systemManager.RunningGame.GameId} doesn't have per-game profile.");
+                    Logger.Info($"Stopped playing game, use global profile instead.");
+                    profileManager.CurrentProfile.SetValue(profileManager.GlobalProfile);
                 }
-
-                // Apply CPU core affinity to the new game
-                systemManager.ApplyAffinityToRunningGame();
             }
-            else
+            finally
             {
-                Logger.Info($"Stopped playing game, use global profile instead.");
-                profileManager.CurrentProfile.SetValue(profileManager.GlobalProfile);
+                isApplyingProfile = false;
             }
         }
 
@@ -388,6 +453,14 @@ namespace XboxGamingBarHelper
                         Logger.Info($"Setting power plan to: {planGuid}");
                         Power.PowerManager.SetActivePowerPlan(planGuid);
                     }
+                    return;
+                }
+
+                // Handle keyboard shortcut request (uses InputInjector for widget compatibility)
+                if (args.Request.Message.TryGetValue("SendKeyboardShortcut", out object shortcutValue) && shortcutValue is string shortcutStr)
+                {
+                    Logger.Info($"Sending keyboard shortcut via InputInjector: {shortcutStr}");
+                    SendKeyboardShortcutViaInputInjector(shortcutStr);
                     return;
                 }
 
@@ -430,6 +503,118 @@ namespace XboxGamingBarHelper
             Logger.Info("Lost connection to the app.");
             DisposeManagers();
             appServiceConnectionStatus = AppServiceConnectionStatus.AppServiceUnavailable;
+        }
+
+        /// <summary>
+        /// Parse and send a keyboard shortcut using InputInjector (works in widget context unlike SendInput)
+        /// </summary>
+        private static void SendKeyboardShortcutViaInputInjector(string shortcut)
+        {
+            if (inputInjector == null)
+            {
+                Logger.Error("InputInjector not available - falling back to User32.SendKeyboardShortcut");
+                Windows.User32.SendKeyboardShortcut(shortcut);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(shortcut))
+            {
+                Logger.Warn("Empty shortcut string provided");
+                return;
+            }
+
+            try
+            {
+                var parts = shortcut.Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
+                var keyInfos = new List<InjectedInputKeyboardInfo>();
+                var modifierKeys = new List<ushort>();
+                ushort mainKey = 0;
+
+                foreach (var part in parts)
+                {
+                    var trimmed = part.Trim();
+                    var upper = trimmed.ToUpperInvariant();
+                    ushort vk = 0;
+
+                    if (upper == "CTRL" || upper == "CONTROL")
+                        vk = (ushort)VirtualKey.LeftControl;
+                    else if (upper == "ALT")
+                        vk = (ushort)VirtualKey.LeftMenu;
+                    else if (upper == "SHIFT")
+                        vk = (ushort)VirtualKey.LeftShift;
+                    else if (upper == "WIN" || upper == "WINDOWS" || upper == "LWIN")
+                        vk = (ushort)VirtualKey.LeftWindows;
+                    else if (upper == "RWIN")
+                        vk = (ushort)VirtualKey.RightWindows;
+                    else if (upper == "TAB")
+                        vk = (ushort)VirtualKey.Tab;
+                    else if (upper == "ENTER" || upper == "RETURN")
+                        vk = (ushort)VirtualKey.Enter;
+                    else if (upper == "ESCAPE" || upper == "ESC")
+                        vk = (ushort)VirtualKey.Escape;
+                    else if (upper == "SPACE")
+                        vk = (ushort)VirtualKey.Space;
+                    else if (upper.Length == 1)
+                    {
+                        char c = upper[0];
+                        if (c >= 'A' && c <= 'Z')
+                            vk = (ushort)(VirtualKey.A + (c - 'A'));
+                        else if (c >= '0' && c <= '9')
+                            vk = (ushort)(VirtualKey.Number0 + (c - '0'));
+                    }
+                    else if (upper.StartsWith("F") && upper.Length <= 3)
+                    {
+                        if (int.TryParse(upper.Substring(1), out int fNum) && fNum >= 1 && fNum <= 24)
+                            vk = (ushort)(VirtualKey.F1 + (fNum - 1));
+                    }
+
+                    if (vk == 0)
+                    {
+                        Logger.Warn($"Unknown key in shortcut: {trimmed}");
+                        continue;
+                    }
+
+                    // Check if modifier
+                    if (upper == "CTRL" || upper == "CONTROL" || upper == "ALT" ||
+                        upper == "SHIFT" || upper == "WIN" || upper == "WINDOWS" ||
+                        upper == "LWIN" || upper == "RWIN")
+                    {
+                        modifierKeys.Add(vk);
+                    }
+                    else
+                    {
+                        mainKey = vk;
+                    }
+                }
+
+                // Build key sequence: press modifiers, press+release main key, release modifiers
+                // Press modifiers
+                foreach (var mod in modifierKeys)
+                {
+                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mod, KeyOptions = InjectedInputKeyOptions.None });
+                }
+
+                // Press main key
+                if (mainKey != 0)
+                {
+                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mainKey, KeyOptions = InjectedInputKeyOptions.None });
+                    // Release main key
+                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mainKey, KeyOptions = InjectedInputKeyOptions.KeyUp });
+                }
+
+                // Release modifiers in reverse order
+                for (int i = modifierKeys.Count - 1; i >= 0; i--)
+                {
+                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = modifierKeys[i], KeyOptions = InjectedInputKeyOptions.KeyUp });
+                }
+
+                inputInjector.InjectKeyboardInput(keyInfos);
+                Logger.Info($"Sent keyboard shortcut via InputInjector: {shortcut}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending keyboard shortcut '{shortcut}': {ex.Message}");
+            }
         }
 
         /// <summary>
