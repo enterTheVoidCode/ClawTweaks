@@ -300,15 +300,25 @@ namespace XboxGamingBar
             return gameName.Trim();
         }
 
-        // Profile save settings
-        private bool SaveTDP => ProfileSaveTDPCheckBox?.IsChecked ?? true;
-        private bool SaveCPUBoost => ProfileSaveCPUBoostCheckBox?.IsChecked ?? true;
-        private bool SaveCPUEPP => ProfileSaveCPUEPPCheckBox?.IsChecked ?? true;
-        private bool SaveLimitCPUClock => ProfileSaveLimitCPUClockCheckBox?.IsChecked ?? true;
-        private bool SaveAMDFeatures => ProfileSaveAMDFeaturesCheckBox?.IsChecked ?? false;
-        private bool SaveFPSLimit => ProfileSaveFPSLimitCheckBox?.IsChecked ?? false;
-        private bool SaveAutoTDP => ProfileSaveAutoTDPCheckBox?.IsChecked ?? false;
-        private bool SaveOSPowerMode => ProfileSaveOSPowerModeCheckBox?.IsChecked ?? false;
+        // Profile save settings - backed by fields to avoid UI thread access issues
+        // These are updated in LoadProfileCustomizationSettings and ProfileSettingCheckBox_Changed
+        private bool _saveTDP = true;
+        private bool _saveCPUBoost = true;
+        private bool _saveCPUEPP = true;
+        private bool _saveLimitCPUClock = true;
+        private bool _saveAMDFeatures = false;
+        private bool _saveFPSLimit = false;
+        private bool _saveAutoTDP = false;
+        private bool _saveOSPowerMode = false;
+
+        private bool SaveTDP => _saveTDP;
+        private bool SaveCPUBoost => _saveCPUBoost;
+        private bool SaveCPUEPP => _saveCPUEPP;
+        private bool SaveLimitCPUClock => _saveLimitCPUClock;
+        private bool SaveAMDFeatures => _saveAMDFeatures;
+        private bool SaveFPSLimit => _saveFPSLimit;
+        private bool SaveAutoTDP => _saveAutoTDP;
+        private bool SaveOSPowerMode => _saveOSPowerMode;
 
         private bool isLoadingProfileSettings = false;
 
@@ -980,6 +990,9 @@ namespace XboxGamingBar
 
             // Subscribe to property changes that affect Quick Settings tiles
             SubscribeToQuickSettingsPropertyChanges();
+
+            // Initialize Quick Settings tiles (loads custom shortcuts into qsTileMap)
+            InitializeQuickSettings();
 
             // Load OSD customization settings
             LoadOSDConfigFromStorage();
@@ -1780,7 +1793,7 @@ namespace XboxGamingBar
         private List<PowerPlanItem> availablePowerPlans = new List<PowerPlanItem>();
         private Guid acPowerPlanGuid = Guid.Empty;
         private Guid dcPowerPlanGuid = Guid.Empty;
-        private bool powerPlanAutoSwitch = true;
+        private bool powerPlanAutoSwitch = false; // Default to OFF - will be loaded from settings
         private int deviceTDPMin = 4;
         private int deviceTDPMax = 35;
         private DispatcherTimer tdpLimitsDebounceTimer;
@@ -2406,7 +2419,7 @@ namespace XboxGamingBar
         {
             if (isLoadingPowerPlans) return;
 
-            powerPlanAutoSwitch = PowerPlanAutoSwitchToggle?.IsOn ?? true;
+            powerPlanAutoSwitch = PowerPlanAutoSwitchToggle?.IsOn ?? false;
             SavePowerPlanSettings();
 
             Logger.Info($"Power Plan auto-switch set to: {powerPlanAutoSwitch}");
@@ -2443,6 +2456,31 @@ namespace XboxGamingBar
                 {
                     Logger.Error($"Error sending message to helper: {ex.Message}");
                 }
+            }
+        }
+
+        /// <summary>
+        /// Send a keyboard shortcut via the helper process.
+        /// This is required because UWP apps cannot use SendInput directly due to sandboxing.
+        /// </summary>
+        private async Task SendKeyboardShortcutViaHelper(string shortcut)
+        {
+            if (string.IsNullOrWhiteSpace(shortcut))
+            {
+                Logger.Warn("Empty shortcut string provided to SendKeyboardShortcutViaHelper");
+                return;
+            }
+
+            try
+            {
+                var message = new Windows.Foundation.Collections.ValueSet();
+                message.Add("SendKeyboardShortcut", shortcut);
+                await SendHelperMessageAsync(message);
+                Logger.Info($"Sent keyboard shortcut request to helper: {shortcut}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending keyboard shortcut via helper: {ex.Message}");
             }
         }
 
@@ -2484,14 +2522,46 @@ namespace XboxGamingBar
                     }
                 }
 
-                if (settings.Values.TryGetValue("PowerPlan_AutoSwitch", out object autoVal) && autoVal is bool autoSwitch)
+                if (settings.Values.TryGetValue("PowerPlan_AutoSwitch", out object autoVal))
                 {
-                    powerPlanAutoSwitch = autoSwitch;
+                    // Handle different possible types stored in settings
+                    if (autoVal is bool autoSwitch)
+                    {
+                        powerPlanAutoSwitch = autoSwitch;
+                    }
+                    else if (autoVal is string autoStr)
+                    {
+                        powerPlanAutoSwitch = autoStr.Equals("True", StringComparison.OrdinalIgnoreCase);
+                    }
+                    else
+                    {
+                        Logger.Warn($"PowerPlan_AutoSwitch has unexpected type: {autoVal?.GetType().Name ?? "null"}");
+                    }
+                }
+                else
+                {
+                    Logger.Info("PowerPlan_AutoSwitch not found in settings, using default (OFF)");
                 }
 
                 // Note: If GUIDs are empty, LoadPowerPlans() will use the current active plan as default
 
                 Logger.Info($"Power plan settings loaded: AC={acPowerPlanGuid}, DC={dcPowerPlanGuid}, AutoSwitch={powerPlanAutoSwitch}");
+
+                // Immediately sync the toggle UI to the loaded value
+                // Use isLoadingPowerPlans flag to prevent Toggled event from triggering a save
+                isLoadingPowerPlans = true;
+                try
+                {
+                    if (PowerPlanAutoSwitchToggle != null)
+                    {
+                        PowerPlanAutoSwitchToggle.IsOn = powerPlanAutoSwitch;
+                        Logger.Info($"PowerPlanAutoSwitchToggle UI synced to {powerPlanAutoSwitch}");
+                    }
+                }
+                finally
+                {
+                    isLoadingPowerPlans = false;
+                }
             }
             catch (Exception ex)
             {
@@ -3801,13 +3871,14 @@ namespace XboxGamingBar
                             int modeIndex = Array.IndexOf(modeValues, profileMode);
                             if (modeIndex >= 0 && (legionPerformanceMode.Value != profileMode || TDPModeComboBox.SelectedIndex != modeIndex))
                             {
+                                // Update lastTDPModeIndex FIRST to prevent TDPModeComboBox_SelectionChanged
+                                // from treating the profile load as a user-initiated change
+                                lastTDPModeIndex = modeIndex;
+
                                 if (LegionPerformanceModeComboBox.SelectedIndex != modeIndex)
                                     LegionPerformanceModeComboBox.SelectedIndex = modeIndex;
                                 if (TDPModeComboBox.SelectedIndex != modeIndex)
-                                {
-                                    lastTDPModeIndex = modeIndex;
                                     TDPModeComboBox.SelectedIndex = modeIndex;
-                                }
                                 legionPerformanceMode?.ForceSetValue(profileMode);
                                 Logger.Info($"Applied game profile TDP Mode: {GetLegionModeShortName(profileMode)} ({profileMode}) for {profileName}");
                             }
@@ -3862,13 +3933,14 @@ namespace XboxGamingBar
                         // The internal value may already match (set by helper) but UI may be stale
                         if (modeIndex >= 0)
                         {
+                            // Update lastTDPModeIndex FIRST to prevent TDPModeComboBox_SelectionChanged
+                            // from treating the profile load as a user-initiated change
+                            lastTDPModeIndex = modeIndex;
+
                             if (LegionPerformanceModeComboBox.SelectedIndex != modeIndex)
                                 LegionPerformanceModeComboBox.SelectedIndex = modeIndex;
                             if (TDPModeComboBox.SelectedIndex != modeIndex)
-                            {
-                                lastTDPModeIndex = modeIndex;
                                 TDPModeComboBox.SelectedIndex = modeIndex;
-                            }
                             legionPerformanceMode?.ForceSetValue(profileMode);
                             Logger.Info($"Applied profile TDP Mode: {GetLegionModeShortName(profileMode)} ({profileMode}) for {profileName}");
                         }
@@ -4765,14 +4837,26 @@ namespace XboxGamingBar
             try
             {
                 var settings = ApplicationData.Current.LocalSettings;
-                ProfileSaveTDPCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveTDP") ? (bool)settings.Values["ProfileSaveTDP"] : true;
-                ProfileSaveCPUBoostCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveCPUBoost") ? (bool)settings.Values["ProfileSaveCPUBoost"] : true;
-                ProfileSaveCPUEPPCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveCPUEPP") ? (bool)settings.Values["ProfileSaveCPUEPP"] : true;
-                ProfileSaveLimitCPUClockCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveLimitCPUClock") ? (bool)settings.Values["ProfileSaveLimitCPUClock"] : true;
-                ProfileSaveAMDFeaturesCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveAMDFeatures") ? (bool)settings.Values["ProfileSaveAMDFeatures"] : false;
-                ProfileSaveFPSLimitCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveFPSLimit") ? (bool)settings.Values["ProfileSaveFPSLimit"] : false;
-                ProfileSaveAutoTDPCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveAutoTDP") ? (bool)settings.Values["ProfileSaveAutoTDP"] : false;
-                ProfileSaveOSPowerModeCheckBox.IsChecked = settings.Values.ContainsKey("ProfileSaveOSPowerMode") ? (bool)settings.Values["ProfileSaveOSPowerMode"] : false;
+
+                // Load values from settings
+                _saveTDP = settings.Values.ContainsKey("ProfileSaveTDP") ? (bool)settings.Values["ProfileSaveTDP"] : true;
+                _saveCPUBoost = settings.Values.ContainsKey("ProfileSaveCPUBoost") ? (bool)settings.Values["ProfileSaveCPUBoost"] : true;
+                _saveCPUEPP = settings.Values.ContainsKey("ProfileSaveCPUEPP") ? (bool)settings.Values["ProfileSaveCPUEPP"] : true;
+                _saveLimitCPUClock = settings.Values.ContainsKey("ProfileSaveLimitCPUClock") ? (bool)settings.Values["ProfileSaveLimitCPUClock"] : true;
+                _saveAMDFeatures = settings.Values.ContainsKey("ProfileSaveAMDFeatures") ? (bool)settings.Values["ProfileSaveAMDFeatures"] : false;
+                _saveFPSLimit = settings.Values.ContainsKey("ProfileSaveFPSLimit") ? (bool)settings.Values["ProfileSaveFPSLimit"] : false;
+                _saveAutoTDP = settings.Values.ContainsKey("ProfileSaveAutoTDP") ? (bool)settings.Values["ProfileSaveAutoTDP"] : false;
+                _saveOSPowerMode = settings.Values.ContainsKey("ProfileSaveOSPowerMode") ? (bool)settings.Values["ProfileSaveOSPowerMode"] : false;
+
+                // Update UI checkboxes
+                ProfileSaveTDPCheckBox.IsChecked = _saveTDP;
+                ProfileSaveCPUBoostCheckBox.IsChecked = _saveCPUBoost;
+                ProfileSaveCPUEPPCheckBox.IsChecked = _saveCPUEPP;
+                ProfileSaveLimitCPUClockCheckBox.IsChecked = _saveLimitCPUClock;
+                ProfileSaveAMDFeaturesCheckBox.IsChecked = _saveAMDFeatures;
+                ProfileSaveFPSLimitCheckBox.IsChecked = _saveFPSLimit;
+                ProfileSaveAutoTDPCheckBox.IsChecked = _saveAutoTDP;
+                ProfileSaveOSPowerModeCheckBox.IsChecked = _saveOSPowerMode;
             }
             finally
             {
@@ -4797,14 +4881,34 @@ namespace XboxGamingBar
 
         private void ProfileSettingCheckBox_Changed(object sender, RoutedEventArgs e)
         {
+            // Update backing fields from UI checkboxes
+            SyncProfileSettingsBackingFields();
             SaveProfileCustomizationSettings();
             Logger.Info($"Profile customization settings updated");
         }
 
         private void ProfileSettingsCheckBox_Changed(object sender, RoutedEventArgs e)
         {
+            // Update backing fields from UI checkboxes
+            SyncProfileSettingsBackingFields();
             SaveProfileCustomizationSettings();
             Logger.Info($"Profile customization settings updated");
+        }
+
+        /// <summary>
+        /// Sync backing fields from UI checkboxes. Called when checkboxes change.
+        /// This ensures the backing fields are always in sync with the UI.
+        /// </summary>
+        private void SyncProfileSettingsBackingFields()
+        {
+            _saveTDP = ProfileSaveTDPCheckBox?.IsChecked ?? true;
+            _saveCPUBoost = ProfileSaveCPUBoostCheckBox?.IsChecked ?? true;
+            _saveCPUEPP = ProfileSaveCPUEPPCheckBox?.IsChecked ?? true;
+            _saveLimitCPUClock = ProfileSaveLimitCPUClockCheckBox?.IsChecked ?? true;
+            _saveAMDFeatures = ProfileSaveAMDFeaturesCheckBox?.IsChecked ?? false;
+            _saveFPSLimit = ProfileSaveFPSLimitCheckBox?.IsChecked ?? false;
+            _saveAutoTDP = ProfileSaveAutoTDPCheckBox?.IsChecked ?? false;
+            _saveOSPowerMode = ProfileSaveOSPowerModeCheckBox?.IsChecked ?? false;
         }
 
         private void MainNavigationView_SelectionChanged(object sender, object args)
@@ -5196,6 +5300,14 @@ namespace XboxGamingBar
                             Logger.Warn($"Could not check profile for TDP sync skip: {ex.Message}");
                         }
 
+                        // Skip OS Power Mode sync if profile has it saved
+                        // This prevents sync from overwriting profile-loaded OS Power Mode with hardware state
+                        if (SaveOSPowerMode && osPowerMode != null)
+                        {
+                            osPowerMode.SkipSync = true;
+                            Logger.Info("OSPowerMode sync will be skipped - profile has OS Power Mode saved");
+                        }
+
                         await properties.Sync();
                         Logger.Info("Property sync completed.");
 
@@ -5223,6 +5335,12 @@ namespace XboxGamingBar
                     if (tdp != null)
                     {
                         tdp.SkipSync = false;
+                    }
+
+                    // Re-enable OS Power Mode sync for future syncs
+                    if (osPowerMode != null)
+                    {
+                        osPowerMode.SkipSync = false;
                     }
 
                     // Apply profile TDP to helper now that we're synced
@@ -5511,6 +5629,14 @@ namespace XboxGamingBar
                     Logger.Warn($"Could not check profile for TDP sync skip: {ex.Message}");
                 }
 
+                // Skip OS Power Mode sync if profile has it saved
+                // This prevents sync from overwriting profile-loaded OS Power Mode with hardware state
+                if (SaveOSPowerMode && osPowerMode != null)
+                {
+                    osPowerMode.SkipSync = true;
+                    Logger.Info("OSPowerMode sync will be skipped - profile has OS Power Mode saved");
+                }
+
                 await properties.Sync();
                 Logger.Info("Property sync completed successfully.");
 
@@ -5549,6 +5675,12 @@ namespace XboxGamingBar
                 if (tdp != null)
                 {
                     tdp.SkipSync = false;
+                }
+
+                // Re-enable OS Power Mode sync for future syncs
+                if (osPowerMode != null)
+                {
+                    osPowerMode.SkipSync = false;
                 }
 
                 // Send OSD config to helper now that connection is established
@@ -5625,14 +5757,15 @@ namespace XboxGamingBar
 
                             Logger.Info($"Applying profile TDP Mode to helper: {GetLegionModeShortName(profileMode)} ({profileMode}) (profile: {currentProfileName})");
 
+                            // Update lastTDPModeIndex FIRST before any ComboBox changes to prevent
+                            // TDPModeComboBox_SelectionChanged from treating this as a user-initiated change
+                            lastTDPModeIndex = modeIndex;
+
                             // Update UI combo boxes if needed
                             if (LegionPerformanceModeComboBox != null && LegionPerformanceModeComboBox.SelectedIndex != modeIndex)
                                 LegionPerformanceModeComboBox.SelectedIndex = modeIndex;
                             if (TDPModeComboBox != null && TDPModeComboBox.SelectedIndex != modeIndex)
-                            {
-                                lastTDPModeIndex = modeIndex; // Update tracker to avoid redundant handler call
                                 TDPModeComboBox.SelectedIndex = modeIndex;
-                            }
 
                             // Always force send to helper during startup to ensure hardware matches profile
                             // This is necessary because TDP sync may have triggered Custom mode on hardware
@@ -6910,41 +7043,41 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Load custom shortcut tiles from storage
+        /// Load custom shortcut tiles from storage using QuickSettingsConfig
         /// </summary>
         private void LoadCustomShortcutTiles()
         {
             try
             {
-                var settings = ApplicationData.Current.LocalSettings;
-                if (settings.Values.TryGetValue("QS_CustomShortcuts", out object val) && val is string json && !string.IsNullOrEmpty(json))
+                // Load from QuickSettingsConfig (the new unified storage)
+                var config = QuickSettings.QuickSettingsConfig.Instance;
+                var customTiles = config.Tiles.Where(t => t.Type == QuickSettings.TileType.CustomShortcut).ToList();
+
+                int index = 0;
+                foreach (var tile in customTiles)
                 {
-                    // Parse simple format: "Name1|Shortcut1;Name2|Shortcut2"
-                    var shortcuts = json.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
-                    int index = 0;
-                    foreach (var shortcut in shortcuts)
+                    if (!string.IsNullOrEmpty(tile.CustomShortcut))
                     {
-                        var parts = shortcut.Split('|');
-                        if (parts.Length == 2)
+                        string tileId = $"CustomShortcut_{index}";
+                        var def = new TileDefinition
                         {
-                            string tileId = $"CustomShortcut_{index}";
-                            var def = new TileDefinition
-                            {
-                                Id = tileId,
-                                Name = parts[0],
-                                Glyph = "\uE768",
-                                IsVisible = true,
-                                IsTrigger = true,
-                                CustomShortcut = parts[1]
-                            };
-                            qsTileDefinitions.Add(def);
-                            qsTileMap[tileId] = def;
-                            qsCustomShortcuts.Add(def);
-                            index++;
-                        }
+                            Id = tileId,
+                            Name = tile.Name,
+                            Glyph = tile.Icon ?? "\uE768",
+                            IsVisible = tile.IsVisible,
+                            IsTrigger = true,
+                            CustomShortcut = tile.CustomShortcut
+                        };
+                        qsTileDefinitions.Add(def);
+                        qsTileMap[tileId] = def;
+                        qsCustomShortcuts.Add(def);
+                        index++;
                     }
-                    Logger.Info($"Loaded {index} custom shortcut tiles");
                 }
+                Logger.Info($"Loaded {index} custom shortcut tiles from QuickSettingsConfig");
+
+                // Migration: If old storage has shortcuts that aren't in the new system, migrate them
+                MigrateOldCustomShortcuts();
             }
             catch (Exception ex)
             {
@@ -6953,23 +7086,62 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Save custom shortcut tiles to storage
+        /// Migrate old custom shortcuts from the legacy storage format to QuickSettingsConfig
+        /// </summary>
+        private void MigrateOldCustomShortcuts()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                if (settings.Values.TryGetValue("QS_CustomShortcuts", out object val) && val is string data && !string.IsNullOrEmpty(data))
+                {
+                    var config = QuickSettings.QuickSettingsConfig.Instance;
+                    var existingShortcuts = config.Tiles
+                        .Where(t => t.Type == QuickSettings.TileType.CustomShortcut)
+                        .Select(t => t.CustomShortcut)
+                        .ToHashSet();
+
+                    var shortcuts = data.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                    int migratedCount = 0;
+
+                    foreach (var shortcut in shortcuts)
+                    {
+                        var parts = shortcut.Split('|');
+                        if (parts.Length == 2 && !existingShortcuts.Contains(parts[1]))
+                        {
+                            // Add to QuickSettingsConfig if not already present
+                            config.AddCustomTile(parts[0], "\uE768", parts[1]);
+                            migratedCount++;
+                        }
+                    }
+
+                    if (migratedCount > 0)
+                    {
+                        Logger.Info($"Migrated {migratedCount} custom shortcuts from legacy storage");
+                        // Clear old storage after migration
+                        settings.Values.Remove("QS_CustomShortcuts");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error migrating old custom shortcuts: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Save custom shortcut tiles to QuickSettingsConfig
+        /// Note: This is now handled automatically by QuickSettingsConfig.AddCustomTile
+        /// This method is kept for compatibility but delegates to QuickSettingsConfig
         /// </summary>
         private void SaveCustomShortcutTiles()
         {
             try
             {
-                var settings = ApplicationData.Current.LocalSettings;
-                var parts = new List<string>();
-                foreach (var tile in qsCustomShortcuts)
-                {
-                    if (!string.IsNullOrEmpty(tile.Name) && !string.IsNullOrEmpty(tile.CustomShortcut))
-                    {
-                        parts.Add($"{tile.Name}|{tile.CustomShortcut}");
-                    }
-                }
-                settings.Values["QS_CustomShortcuts"] = string.Join(";", parts);
-                Logger.Info($"Saved {parts.Count} custom shortcut tiles");
+                // QuickSettingsConfig.Save() is called automatically by AddCustomTile
+                // This method now just triggers a save to ensure consistency
+                QuickSettings.QuickSettingsConfig.Instance.Save();
+                Logger.Info($"Custom shortcut tiles saved to QuickSettingsConfig");
             }
             catch (Exception ex)
             {
@@ -6978,12 +7150,17 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Add a new custom shortcut tile
+        /// Add a new custom shortcut tile using QuickSettingsConfig
         /// </summary>
         private void AddCustomShortcutTile(string name, string shortcut)
         {
             try
             {
+                // Add to QuickSettingsConfig (saves automatically)
+                var config = QuickSettings.QuickSettingsConfig.Instance;
+                config.AddCustomTile(name, "\uE768", shortcut);
+
+                // Also add to local tile definitions for immediate use
                 int index = qsCustomShortcuts.Count;
                 string tileId = $"CustomShortcut_{index}";
                 var def = new TileDefinition
@@ -6999,7 +7176,6 @@ namespace XboxGamingBar
                 qsTileMap[tileId] = def;
                 qsCustomShortcuts.Add(def);
 
-                SaveCustomShortcutTiles();
                 RebuildQuickSettingsTiles();
                 BuildVisibilityPanel();
 
@@ -7569,12 +7745,34 @@ namespace XboxGamingBar
                 try
                 {
                     // Check for custom shortcut tiles first
-                    if (tileTag.StartsWith("CustomShortcut_") && qsTileMap.TryGetValue(tileTag, out var customTile))
+                    if (tileTag.StartsWith("CustomShortcut_"))
                     {
-                        if (!string.IsNullOrEmpty(customTile.CustomShortcut))
+                        // First try local qsTileMap
+                        if (qsTileMap.TryGetValue(tileTag, out var customTile) && !string.IsNullOrEmpty(customTile.CustomShortcut))
                         {
-                            QuickSettings.KeyboardShortcutHelper.SendShortcut(customTile.CustomShortcut);
+                            _ = SendKeyboardShortcutViaHelper(customTile.CustomShortcut);
                             Logger.Info($"Custom shortcut tile clicked: {customTile.Name} -> {customTile.CustomShortcut}");
+                        }
+                        else
+                        {
+                            // Fallback: Try to find in QuickSettingsConfig by matching index
+                            var config = QuickSettings.QuickSettingsConfig.Instance;
+                            var customTiles = config.Tiles.Where(t => t.Type == QuickSettings.TileType.CustomShortcut).ToList();
+
+                            // Parse index from tileTag (e.g., "CustomShortcut_0" -> 0)
+                            if (int.TryParse(tileTag.Replace("CustomShortcut_", ""), out int index) && index < customTiles.Count)
+                            {
+                                var tile = customTiles[index];
+                                if (!string.IsNullOrEmpty(tile.CustomShortcut))
+                                {
+                                    _ = SendKeyboardShortcutViaHelper(tile.CustomShortcut);
+                                    Logger.Info($"Custom shortcut tile clicked (from config): {tile.Name} -> {tile.CustomShortcut}");
+                                }
+                            }
+                            else
+                            {
+                                Logger.Warn($"Custom shortcut tile not found: {tileTag}");
+                            }
                         }
                     }
                     else
@@ -8345,6 +8543,13 @@ namespace XboxGamingBar
                 osPowerMode.SetValue(selectedIndex);
                 OSPowerModeValue.Text = OSPowerModeNames[selectedIndex];
                 Logger.Info($"OS Power Mode changed to: {OSPowerModeNames[selectedIndex]}");
+
+                // Save the change to profile
+                if (!isInitialSync && !isApplyingHelperUpdate && !isLoadingProfile && SaveOSPowerMode)
+                {
+                    Logger.Info($"Saving OS Power Mode change to profile: {currentProfileName}");
+                    SaveCurrentSettingsToProfile(currentProfileName);
+                }
             }
         }
 

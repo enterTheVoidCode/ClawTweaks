@@ -1743,7 +1743,7 @@
                                         </StackPanel>
                                         <ToggleSwitch x:Name="PowerPlanAutoSwitchToggle"
                                                       Grid.Column="1"
-                                                      IsOn="True"
+                                                      IsOn="False"
                                                       Toggled="PowerPlanAutoSwitchToggle_Toggled"
                                                       Style="{StaticResource ModernToggleStyle}"
                                                       XYFocusUp="{x:Bind DCPowerPlanComboBox}"
