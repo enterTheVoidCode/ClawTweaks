@@ -23,6 +23,20 @@ namespace XboxGamingBar.Data
         }
     }
 
+    internal class AutoTDPMinTDPProperty : WidgetProperty<int>
+    {
+        public AutoTDPMinTDPProperty(int inValue) : base(inValue, null, Function.AutoTDPMinTDP)
+        {
+        }
+    }
+
+    internal class AutoTDPMaxTDPProperty : WidgetProperty<int>
+    {
+        public AutoTDPMaxTDPProperty(int inValue) : base(inValue, null, Function.AutoTDPMaxTDP)
+        {
+        }
+    }
+
     internal class TDPLimitsProperty : WidgetProperty<string>
     {
         public TDPLimitsProperty(string inValue) : base(inValue, null, Function.TDPLimits)

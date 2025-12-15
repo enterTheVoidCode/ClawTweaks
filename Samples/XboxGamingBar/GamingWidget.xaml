@@ -590,7 +590,7 @@
                                             Value="60"
                                             ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"
                                             XYFocusUp="{x:Bind AutoTDPToggle}"
-                                            XYFocusDown="{x:Bind CPUBoostToggle}"/>
+                                            XYFocusDown="{x:Bind AutoTDPMinSlider}"/>
                                     <Grid Margin="0,8,0,0">
                                         <TextBlock Text="Current FPS"
                                                    FontSize="14"
@@ -602,6 +602,46 @@
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Right"/>
                                     </Grid>
+                                    <!-- Min TDP Range -->
+                                    <Grid Margin="0,12,0,0">
+                                        <TextBlock Text="Min TDP"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"/>
+                                        <TextBlock x:Name="AutoTDPMinValue"
+                                                   Text="8W"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="AutoTDPMinSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="4" Maximum="85"
+                                            StepFrequency="1"
+                                            Value="8"
+                                            ValueChanged="AutoTDPMinSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind AutoTDPTargetFPSSlider}"
+                                            XYFocusDown="{x:Bind AutoTDPMaxSlider}"/>
+                                    <!-- Max TDP Range -->
+                                    <Grid Margin="0,8,0,0">
+                                        <TextBlock Text="Max TDP"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"/>
+                                        <TextBlock x:Name="AutoTDPMaxValue"
+                                                   Text="30W"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="AutoTDPMaxSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="4" Maximum="85"
+                                            StepFrequency="1"
+                                            Value="30"
+                                            ValueChanged="AutoTDPMaxSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind AutoTDPMinSlider}"
+                                            XYFocusDown="{x:Bind CPUBoostToggle}"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>

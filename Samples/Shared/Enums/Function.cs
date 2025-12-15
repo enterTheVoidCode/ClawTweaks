@@ -101,6 +101,8 @@
         AutoTDPEnabled,             // bool - enable/disable AutoTDP
         AutoTDPTargetFPS,           // int - target FPS (30-144)
         AutoTDPCurrentFPS,          // int - current FPS reading (read-only)
+        AutoTDPMinTDP,              // int - minimum TDP for AutoTDP range (4-85)
+        AutoTDPMaxTDP,              // int - maximum TDP for AutoTDP range (4-85)
 
         // OSD Customization
         OSDConfig,                  // string - OSD configuration per level (L1:items;L2:items;L3:items)
