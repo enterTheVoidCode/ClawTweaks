@@ -109,8 +109,8 @@
     <Compile Include="Data\UseManufacturerWMIProperty.cs" />
     <Compile Include="Data\CPUBoostProperty.cs" />
     <Compile Include="Data\IsForegroundProperty.cs" />
-    <Compile Include="Data\LimitCPUClockProperty.cs" />
-    <Compile Include="Data\CPUClockMaxProperty.cs" />
+    <Compile Include="Data\MaxCPUStateProperty.cs" />
+    <Compile Include="Data\MinCPUStateProperty.cs" />
     <!-- GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1) -->
     <!--<Compile Include="Data\LimitGPUClockProperty.cs" />
     <Compile Include="Data\GPUClockMinProperty.cs" />
