@@ -14,7 +14,7 @@ namespace XboxGamingBarHelper.Core
             Connection = connection;
         }
 
-        public AppServiceConnection Connection { get; }
+        public AppServiceConnection Connection { get; set; }
 
         public virtual void Update()
         {
