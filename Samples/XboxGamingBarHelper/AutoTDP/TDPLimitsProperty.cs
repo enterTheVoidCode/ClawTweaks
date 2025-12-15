@@ -20,7 +20,7 @@ namespace XboxGamingBarHelper.AutoTDP
                     int.TryParse(parts[0], out int min) &&
                     int.TryParse(parts[1], out int max))
                 {
-                    manager.SetTDPLimits(min, max);
+                    manager.UpdateTDPLimits(min, max);
                 }
             }
             return result;

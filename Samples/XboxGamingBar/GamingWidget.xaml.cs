@@ -61,6 +61,8 @@ namespace XboxGamingBar
         // AutoTDP settings
         public bool AutoTDPEnabled { get; set; } = false;
         public int AutoTDPTargetFPS { get; set; } = 60;
+        public int AutoTDPMinTDP { get; set; } = 8;
+        public int AutoTDPMaxTDP { get; set; } = 30;
         // OS Power Mode (0=Best Power Efficiency, 1=Balanced, 2=Best Performance)
         public int OSPowerMode { get; set; } = 1;
         // Legion Performance Mode (1=Quiet, 2=Balanced, 3=Performance, 255=Custom)
@@ -90,6 +92,8 @@ namespace XboxGamingBar
                 FPSLimitValue = this.FPSLimitValue,
                 AutoTDPEnabled = this.AutoTDPEnabled,
                 AutoTDPTargetFPS = this.AutoTDPTargetFPS,
+                AutoTDPMinTDP = this.AutoTDPMinTDP,
+                AutoTDPMaxTDP = this.AutoTDPMaxTDP,
                 OSPowerMode = this.OSPowerMode,
                 LegionPerformanceMode = this.LegionPerformanceMode
             };
@@ -245,6 +249,8 @@ namespace XboxGamingBar
         private readonly AutoTDPEnabledProperty autoTDPEnabled;
         private readonly AutoTDPTargetFPSProperty autoTDPTargetFPS;
         private readonly AutoTDPCurrentFPSProperty autoTDPCurrentFPS;
+        private readonly AutoTDPMinTDPProperty autoTDPMinTDP;
+        private readonly AutoTDPMaxTDPProperty autoTDPMaxTDP;
         private readonly TDPLimitsProperty tdpLimits;
         private readonly CPUCoreConfigProperty cpuCoreConfig;
         private readonly CPUCoreActiveConfigProperty cpuCoreActiveConfig;
@@ -470,6 +476,8 @@ namespace XboxGamingBar
             autoTDPEnabled = new AutoTDPEnabledProperty(false);
             autoTDPTargetFPS = new AutoTDPTargetFPSProperty(60);
             autoTDPCurrentFPS = new AutoTDPCurrentFPSProperty(0);
+            autoTDPMinTDP = new AutoTDPMinTDPProperty(8);
+            autoTDPMaxTDP = new AutoTDPMaxTDPProperty(30);
             tdpLimits = new TDPLimitsProperty("4,35");
             cpuCoreConfig = new CPUCoreConfigProperty("");
             cpuCoreActiveConfig = new CPUCoreActiveConfigProperty("");
@@ -581,6 +589,8 @@ namespace XboxGamingBar
                 autoTDPEnabled,
                 autoTDPTargetFPS,
                 autoTDPCurrentFPS,
+                autoTDPMinTDP,
+                autoTDPMaxTDP,
                 fpsLimit,
                 osPowerMode,
                 tdpLimits,
@@ -1731,6 +1741,82 @@ namespace XboxGamingBar
             }
         }
 
+        private void AutoTDPMinSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (AutoTDPMinSlider == null) return;
+            if (isLoadingAutoTDPSettings) return;
+            if (isApplyingHelperUpdate) return;
+
+            int minTDP = (int)Math.Round(e.NewValue);
+
+            // Ensure min doesn't exceed max
+            if (AutoTDPMaxSlider != null && minTDP > AutoTDPMaxSlider.Value)
+            {
+                minTDP = (int)AutoTDPMaxSlider.Value;
+                AutoTDPMinSlider.Value = minTDP;
+                return;
+            }
+
+            Logger.Info($"AutoTDP min TDP changed to: {minTDP}W");
+
+            // Update display
+            if (AutoTDPMinValue != null)
+            {
+                AutoTDPMinValue.Text = $"{minTDP}W";
+            }
+
+            // Send to helper
+            autoTDPMinTDP?.SetValue(minTDP);
+
+            // Save global setting
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["AutoTDPMinTDP"] = minTDP;
+
+            // Save to profile if AutoTDP saving is enabled
+            if (SaveAutoTDP && !isLoadingProfile && !isSwitchingProfile)
+            {
+                SaveCurrentSettingsToProfile(currentProfileName);
+            }
+        }
+
+        private void AutoTDPMaxSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (AutoTDPMaxSlider == null) return;
+            if (isLoadingAutoTDPSettings) return;
+            if (isApplyingHelperUpdate) return;
+
+            int maxTDP = (int)Math.Round(e.NewValue);
+
+            // Ensure max doesn't go below min
+            if (AutoTDPMinSlider != null && maxTDP < AutoTDPMinSlider.Value)
+            {
+                maxTDP = (int)AutoTDPMinSlider.Value;
+                AutoTDPMaxSlider.Value = maxTDP;
+                return;
+            }
+
+            Logger.Info($"AutoTDP max TDP changed to: {maxTDP}W");
+
+            // Update display
+            if (AutoTDPMaxValue != null)
+            {
+                AutoTDPMaxValue.Text = $"{maxTDP}W";
+            }
+
+            // Send to helper
+            autoTDPMaxTDP?.SetValue(maxTDP);
+
+            // Save global setting
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["AutoTDPMaxTDP"] = maxTDP;
+
+            // Save to profile if AutoTDP saving is enabled
+            if (SaveAutoTDP && !isLoadingProfile && !isSwitchingProfile)
+            {
+                SaveCurrentSettingsToProfile(currentProfileName);
+            }
+        }
+
         private void LoadAutoTDPSettings()
         {
             isLoadingAutoTDPSettings = true;
@@ -1738,10 +1824,14 @@ namespace XboxGamingBar
             {
                 var settings = ApplicationData.Current.LocalSettings;
 
-                // Load enabled state
+                // Load enabled state (default to OFF if not saved)
                 if (settings.Values.TryGetValue("AutoTDPEnabled", out object enabledObj) && enabledObj is bool enabled)
                 {
                     AutoTDPToggle.IsOn = enabled;
+                }
+                else
+                {
+                    AutoTDPToggle.IsOn = false;
                 }
 
                 // Load target FPS
@@ -1749,6 +1839,22 @@ namespace XboxGamingBar
                 {
                     AutoTDPTargetFPSSlider.Value = target;
                     AutoTDPTargetFPSValue.Text = $"{target} FPS";
+                }
+
+                // Load min TDP
+                if (settings.Values.TryGetValue("AutoTDPMinTDP", out object minObj) && minObj is int minTDP)
+                {
+                    AutoTDPMinSlider.Value = minTDP;
+                    AutoTDPMinValue.Text = $"{minTDP}W";
+                    autoTDPMinTDP?.SetValue(minTDP);
+                }
+
+                // Load max TDP
+                if (settings.Values.TryGetValue("AutoTDPMaxTDP", out object maxObj) && maxObj is int maxTDP)
+                {
+                    AutoTDPMaxSlider.Value = maxTDP;
+                    AutoTDPMaxValue.Text = $"{maxTDP}W";
+                    autoTDPMaxTDP?.SetValue(maxTDP);
                 }
 
                 // Update focus navigation after loading settings
@@ -2714,6 +2820,32 @@ namespace XboxGamingBar
                     TDPSlider.Value = deviceTDPMin;
                 else if (TDPSlider.Value > deviceTDPMax)
                     TDPSlider.Value = deviceTDPMax;
+            }
+
+            // Update AutoTDP Min slider bounds
+            if (AutoTDPMinSlider != null)
+            {
+                AutoTDPMinSlider.Minimum = deviceTDPMin;
+                AutoTDPMinSlider.Maximum = deviceTDPMax;
+
+                // Clamp current value if out of bounds
+                if (AutoTDPMinSlider.Value < deviceTDPMin)
+                    AutoTDPMinSlider.Value = deviceTDPMin;
+                else if (AutoTDPMinSlider.Value > deviceTDPMax)
+                    AutoTDPMinSlider.Value = deviceTDPMax;
+            }
+
+            // Update AutoTDP Max slider bounds
+            if (AutoTDPMaxSlider != null)
+            {
+                AutoTDPMaxSlider.Minimum = deviceTDPMin;
+                AutoTDPMaxSlider.Maximum = deviceTDPMax;
+
+                // Clamp current value if out of bounds
+                if (AutoTDPMaxSlider.Value < deviceTDPMin)
+                    AutoTDPMaxSlider.Value = deviceTDPMin;
+                else if (AutoTDPMaxSlider.Value > deviceTDPMax)
+                    AutoTDPMaxSlider.Value = deviceTDPMax;
             }
         }
 
@@ -3738,6 +3870,8 @@ namespace XboxGamingBar
             {
                 profile.AutoTDPEnabled = AutoTDPToggle.IsOn;
                 profile.AutoTDPTargetFPS = (int)AutoTDPTargetFPSSlider.Value;
+                profile.AutoTDPMinTDP = (int)AutoTDPMinSlider.Value;
+                profile.AutoTDPMaxTDP = (int)AutoTDPMaxSlider.Value;
             }
             if (SaveOSPowerMode)
             {
@@ -3856,14 +3990,26 @@ namespace XboxGamingBar
                 {
                     AutoTDPToggle.IsOn = profile.AutoTDPEnabled;
                     AutoTDPTargetFPSSlider.Value = profile.AutoTDPTargetFPS;
-                    // Update text display explicitly
+                    AutoTDPMinSlider.Value = profile.AutoTDPMinTDP;
+                    AutoTDPMaxSlider.Value = profile.AutoTDPMaxTDP;
+                    // Update text displays explicitly
                     if (AutoTDPTargetFPSValue != null)
                     {
                         AutoTDPTargetFPSValue.Text = $"{profile.AutoTDPTargetFPS} FPS";
                     }
+                    if (AutoTDPMinValue != null)
+                    {
+                        AutoTDPMinValue.Text = $"{profile.AutoTDPMinTDP}W";
+                    }
+                    if (AutoTDPMaxValue != null)
+                    {
+                        AutoTDPMaxValue.Text = $"{profile.AutoTDPMaxTDP}W";
+                    }
                     // Send to helper explicitly (toggle/slider handlers may be blocked by flags)
                     autoTDPEnabled?.SetValue(profile.AutoTDPEnabled);
                     autoTDPTargetFPS?.SetValue(profile.AutoTDPTargetFPS);
+                    autoTDPMinTDP?.SetValue(profile.AutoTDPMinTDP);
+                    autoTDPMaxTDP?.SetValue(profile.AutoTDPMaxTDP);
                 }
                 if (SaveOSPowerMode)
                 {
@@ -4057,6 +4203,8 @@ namespace XboxGamingBar
             container.Values["FPSLimitValue"] = profile.FPSLimitValue;
             container.Values["AutoTDPEnabled"] = profile.AutoTDPEnabled;
             container.Values["AutoTDPTargetFPS"] = profile.AutoTDPTargetFPS;
+            container.Values["AutoTDPMinTDP"] = profile.AutoTDPMinTDP;
+            container.Values["AutoTDPMaxTDP"] = profile.AutoTDPMaxTDP;
             container.Values["OSPowerMode"] = profile.OSPowerMode;
             container.Values["LegionPerformanceMode"] = profile.LegionPerformanceMode;
         }
@@ -4088,6 +4236,8 @@ namespace XboxGamingBar
                 profile.FPSLimitValue = container.Values.ContainsKey("FPSLimitValue") ? (int)container.Values["FPSLimitValue"] : 60;
                 profile.AutoTDPEnabled = container.Values.ContainsKey("AutoTDPEnabled") ? (bool)container.Values["AutoTDPEnabled"] : false;
                 profile.AutoTDPTargetFPS = container.Values.ContainsKey("AutoTDPTargetFPS") ? (int)container.Values["AutoTDPTargetFPS"] : 60;
+                profile.AutoTDPMinTDP = container.Values.ContainsKey("AutoTDPMinTDP") ? (int)container.Values["AutoTDPMinTDP"] : 8;
+                profile.AutoTDPMaxTDP = container.Values.ContainsKey("AutoTDPMaxTDP") ? (int)container.Values["AutoTDPMaxTDP"] : 30;
                 profile.OSPowerMode = container.Values.ContainsKey("OSPowerMode") ? (int)container.Values["OSPowerMode"] : 1;
                 // Only load LegionPerformanceMode if it exists in storage - keep profile's existing value otherwise
                 // This preserves the default (Balanced=2) for new profiles but doesn't override if storage key is missing
