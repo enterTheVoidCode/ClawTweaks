@@ -365,6 +365,8 @@ namespace XboxGamingBarHelper.Performance
             // Only use if the setting is enabled
             if (useManufacturerWMI && legionDetected && legionManager != null)
             {
+                // Note: SetCustomTDP will automatically switch to Custom mode (255) if needed
+                // The widget handles skipping TDP sync during preset modes via tdp.SkipSync flag
                 Logger.Info($"Using Legion WMI to set TDP to {tdp}W (SPL={tdp}, SPPL={tdp}, FPPT={tdp})");
                 legionManager.SetCustomTDP(tdp, tdp, tdp);
                 return;

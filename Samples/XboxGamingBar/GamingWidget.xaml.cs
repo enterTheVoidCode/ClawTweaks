@@ -1351,6 +1351,7 @@ namespace XboxGamingBar
                             // Turn off AMD overlay
                             SendAMDOverlayToggle();
                             amdOverlayLevel = 0;
+                            SaveAMDOverlayLevel();
                             Logger.Info("AMD Overlay toggled OFF via ComboBox");
                         }
                         else if (index > 0 && amdOverlayLevel == 0)
@@ -1358,6 +1359,7 @@ namespace XboxGamingBar
                             // Turn on AMD overlay (starts at level 1)
                             SendAMDOverlayToggle();
                             amdOverlayLevel = 1;
+                            SaveAMDOverlayLevel();
                             Logger.Info("AMD Overlay toggled ON via ComboBox");
                         }
                         // Note: We can't set specific AMD levels directly, only cycle
@@ -1404,6 +1406,19 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Error saving PerformanceOverlay setting: {ex.Message}");
+            }
+        }
+
+        private void SaveAMDOverlayLevel()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                settings.Values["AMD_OverlayLevel"] = amdOverlayLevel;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error saving AMD overlay level: {ex.Message}");
             }
         }
 
@@ -1845,6 +1860,7 @@ namespace XboxGamingBar
                         {
                             SendAMDOverlayToggle();
                             amdOverlayLevel = 0;
+                            SaveAMDOverlayLevel();
                         }
                         // Enable RTSS OSD by sending config
                         SendOSDConfigToHelper();
@@ -1856,9 +1872,8 @@ namespace XboxGamingBar
                         {
                             osd.SetValue(0);
                         }
-                        // Enable AMD overlay (send Ctrl+Shift+O)
-                        SendAMDOverlayToggle();
-                        amdOverlayLevel = 1;  // Start at level 1
+                        // Don't auto-toggle AMD overlay - we can't know its actual state
+                        // User should manually enable via Quick Settings tile if needed
                     }
 
                     // Update Quick Settings tiles
@@ -1881,13 +1896,23 @@ namespace XboxGamingBar
             }
         }
 
-        private void SendAMDOverlayToggle()
+        private async void SendAMDOverlayToggle()
         {
             // Send Ctrl+Shift+O to toggle AMD Adrenaline's metrics overlay on/off
+            // Use helper's InputInjector since UWP widget can't use SendInput directly
             try
             {
-                QuickSettings.KeyboardShortcutHelper.SendShortcut("Ctrl+Shift+O");
-                Logger.Info("Sent AMD overlay toggle hotkey (Ctrl+Shift+O)");
+                if (App.Connection != null)
+                {
+                    var request = new Windows.Foundation.Collections.ValueSet();
+                    request.Add("SendKeyboardShortcut", "Ctrl+Shift+O");
+                    await App.Connection.SendMessageAsync(request);
+                    Logger.Info("Sent AMD overlay toggle hotkey (Ctrl+Shift+O) via helper");
+                }
+                else
+                {
+                    Logger.Warn("Cannot send AMD overlay toggle - not connected to helper");
+                }
             }
             catch (Exception ex)
             {
@@ -1895,13 +1920,23 @@ namespace XboxGamingBar
             }
         }
 
-        private void CycleAMDOverlayLevel()
+        private async void CycleAMDOverlayLevel()
         {
             // Send Ctrl+Shift+X to cycle AMD Adrenaline's metrics overlay levels
+            // Use helper's InputInjector since UWP widget can't use SendInput directly
             try
             {
-                QuickSettings.KeyboardShortcutHelper.SendShortcut("Ctrl+Shift+X");
-                Logger.Info("Sent AMD overlay cycle hotkey (Ctrl+Shift+X)");
+                if (App.Connection != null)
+                {
+                    var request = new Windows.Foundation.Collections.ValueSet();
+                    request.Add("SendKeyboardShortcut", "Ctrl+Shift+X");
+                    await App.Connection.SendMessageAsync(request);
+                    Logger.Info("Sent AMD overlay cycle hotkey (Ctrl+Shift+X) via helper");
+                }
+                else
+                {
+                    Logger.Warn("Cannot cycle AMD overlay level - not connected to helper");
+                }
             }
             catch (Exception ex)
             {
@@ -2087,6 +2122,10 @@ namespace XboxGamingBar
                 if (settings.Values.TryGetValue("OSD_Provider", out object providerVal) && providerVal is int provider)
                 {
                     osdProvider = provider;
+                }
+                if (settings.Values.TryGetValue("AMD_OverlayLevel", out object amdLevelVal) && amdLevelVal is int amdLevel)
+                {
+                    amdOverlayLevel = amdLevel;
                 }
 
                 // Update layout UI
@@ -3420,9 +3459,6 @@ namespace XboxGamingBar
         {
             try
             {
-                // Store current TDP value from Performance tab slider
-                int pendingTdpValue = (int)TDPSlider.Value;
-
                 // Cancel existing timer if any
                 if (powerSourceTdpReapplyTimer != null)
                 {
@@ -3443,7 +3479,11 @@ namespace XboxGamingBar
                         return;
                     }
 
-                    // Reapply TDP - use the Performance tab TDP value
+                    // Read TDP value NOW (at timer fire time), not when scheduled
+                    // This ensures we use the new profile's TDP after profile switch completes
+                    int currentTdpValue = (int)TDPSlider.Value;
+
+                    // Reapply TDP - use the current Performance tab TDP value
                     if (tdp != null)
                     {
                         // Set guard flag to prevent saving TDP-1 to profile
@@ -3452,10 +3492,10 @@ namespace XboxGamingBar
                         {
                             // Force reapply by sending different value to helper first, then the real value
                             // This ensures the helper doesn't skip due to "equals current value"
-                            tdp.SetValue(pendingTdpValue - 1);
+                            tdp.SetValue(currentTdpValue - 1);
                             await System.Threading.Tasks.Task.Delay(100);
-                            tdp.SetValue(pendingTdpValue);
-                            Logger.Info($"Power source change: Reapplied TDP {pendingTdpValue}W after 5 seconds");
+                            tdp.SetValue(currentTdpValue);
+                            Logger.Info($"Power source change: Reapplied TDP {currentTdpValue}W after 5 seconds");
                         }
                         finally
                         {
@@ -3464,7 +3504,7 @@ namespace XboxGamingBar
                     }
                 };
                 powerSourceTdpReapplyTimer.Start();
-                Logger.Info($"Power source change: Scheduled TDP reapply in 5 seconds (TDP={pendingTdpValue}W)");
+                Logger.Info($"Power source change: Scheduled TDP reapply in 5 seconds");
             }
             catch (Exception ex)
             {
@@ -4049,7 +4089,12 @@ namespace XboxGamingBar
                 profile.AutoTDPEnabled = container.Values.ContainsKey("AutoTDPEnabled") ? (bool)container.Values["AutoTDPEnabled"] : false;
                 profile.AutoTDPTargetFPS = container.Values.ContainsKey("AutoTDPTargetFPS") ? (int)container.Values["AutoTDPTargetFPS"] : 60;
                 profile.OSPowerMode = container.Values.ContainsKey("OSPowerMode") ? (int)container.Values["OSPowerMode"] : 1;
-                profile.LegionPerformanceMode = container.Values.ContainsKey("LegionPerformanceMode") ? (int)container.Values["LegionPerformanceMode"] : 2;
+                // Only load LegionPerformanceMode if it exists in storage - keep profile's existing value otherwise
+                // This preserves the default (Balanced=2) for new profiles but doesn't override if storage key is missing
+                if (container.Values.ContainsKey("LegionPerformanceMode"))
+                {
+                    profile.LegionPerformanceMode = (int)container.Values["LegionPerformanceMode"];
+                }
 
                 Logger.Info($"Loaded {profileName} profile from storage");
             }
@@ -5182,19 +5227,22 @@ namespace XboxGamingBar
             properties.Cleanup();
             Logger.Info("Properties cleaned up.");
 
-            // Clean up widget activity
-            if (widgetActivity != null)
+            // Clean up widget activity - capture to local var to avoid race condition
+            var activity = widgetActivity;
+            if (activity != null)
             {
                 Logger.Info("Completing widget activity during page unload.");
                 try
                 {
-                    widgetActivity.Complete();
-                    widgetActivity = null;
+                    activity.Complete();
                     Logger.Info("Widget activity completed and disposed.");
                 }
                 catch (Exception ex)
                 {
                     Logger.Error($"Error completing widget activity during unload: {ex.Message}");
+                }
+                finally
+                {
                     widgetActivity = null;
                 }
             }
@@ -5952,19 +6000,22 @@ namespace XboxGamingBar
                 Logger.Error($"Error dispatching properties cleanup: {ex.Message}");
             }
 
-            // Clean up widget activity
-            if (widgetActivity != null)
+            // Clean up widget activity - capture to local var to avoid race condition
+            var activity = widgetActivity;
+            if (activity != null)
             {
                 Logger.Info("Completing and disposing widget activity.");
                 try
                 {
-                    widgetActivity.Complete();
-                    widgetActivity = null;
+                    activity.Complete();
                     Logger.Info("Widget activity stopped successfully.");
                 }
                 catch (Exception ex)
                 {
                     Logger.Error($"Error completing widget activity: {ex.Message}");
+                }
+                finally
+                {
                     widgetActivity = null;
                 }
             }
@@ -6887,10 +6938,13 @@ namespace XboxGamingBar
         /// <summary>
         /// Handles TDP Mode ComboBox selection in Performance tab (Legion devices only)
         /// </summary>
-        private int lastTDPModeIndex = -1; // Track last index to avoid redundant updates
+        private int lastTDPModeIndex = 1; // Track last index to avoid redundant updates (init to XAML default: Balanced)
         private void TDPModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (TDPModeComboBox == null) return;
+
+            // Skip during initialization or profile loading to prevent cycling
+            if (isInitialSync || isLoadingProfile) return;
 
             // Get the selected mode value from tag
             int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
@@ -6924,6 +6978,10 @@ namespace XboxGamingBar
             {
                 Logger.Info($"Saving TDP Mode change to profile: {currentProfileName}");
                 SaveCurrentSettingsToProfile(currentProfileName);
+            }
+            else
+            {
+                Logger.Warn($"TDP Mode save skipped: isInitialSync={isInitialSync}, isApplyingHelperUpdate={isApplyingHelperUpdate}, isLoadingProfile={isLoadingProfile}, SaveTDP={SaveTDP}");
             }
         }
 
@@ -7038,7 +7096,6 @@ namespace XboxGamingBar
 
         // Timer for TDP reapply when switching to Custom mode
         private Windows.UI.Xaml.DispatcherTimer qsTdpReapplyTimer;
-        private int qsPendingTdpValue;
 
         /// <summary>
         /// Initialize Quick Settings resources and build tiles
@@ -7996,9 +8053,6 @@ namespace XboxGamingBar
         {
             try
             {
-                // Store current TDP value from Performance tab slider
-                qsPendingTdpValue = (int)(tdp?.Value ?? 15);
-
                 // Cancel existing timer
                 if (qsTdpReapplyTimer != null)
                 {
@@ -8014,20 +8068,24 @@ namespace XboxGamingBar
                     // Reapply TDP - still in Custom mode?
                     if (legionPerformanceMode?.Value == 255)
                     {
-                        // Reapply using Performance tab TDP value
+                        // Read TDP value NOW (at timer fire time), not when scheduled
+                        // This ensures we use the current profile's TDP if profile switched
+                        int currentTdpValue = (int)(TDPSlider?.Value ?? 15);
+
+                        // Reapply using current Performance tab TDP value
                         if (tdp != null)
                         {
                             // Force reapply by sending different value to helper first, then the real value
                             // This ensures the helper doesn't skip due to "equals current value"
-                            tdp.SetValue(qsPendingTdpValue - 1);
+                            tdp.SetValue(currentTdpValue - 1);
                             await System.Threading.Tasks.Task.Delay(100);
-                            tdp.SetValue(qsPendingTdpValue);
-                            Logger.Info($"Quick Settings: Reapplied TDP {qsPendingTdpValue}W after Custom mode switch");
+                            tdp.SetValue(currentTdpValue);
+                            Logger.Info($"Quick Settings: Reapplied TDP {currentTdpValue}W after Custom mode switch");
                         }
                     }
                 };
                 qsTdpReapplyTimer.Start();
-                Logger.Info($"Quick Settings: Scheduled TDP reapply in 5 seconds (TDP={qsPendingTdpValue}W)");
+                Logger.Info($"Quick Settings: Scheduled TDP reapply in 5 seconds");
             }
             catch (Exception ex)
             {
@@ -8200,6 +8258,13 @@ namespace XboxGamingBar
                 }
 
                 Logger.Info($"Power Mode cycled to {OSPowerModeNames[nextMode]}");
+
+                // Save the change to profile
+                if (!isInitialSync && !isApplyingHelperUpdate && !isLoadingProfile && SaveOSPowerMode)
+                {
+                    Logger.Info($"Saving OS Power Mode change to profile: {currentProfileName}");
+                    SaveCurrentSettingsToProfile(currentProfileName);
+                }
             }
         }
 
@@ -8234,6 +8299,7 @@ namespace XboxGamingBar
                     // Currently off, turn on (starts at level 1)
                     SendAMDOverlayToggle();
                     amdOverlayLevel = 1;
+                    SaveAMDOverlayLevel();
                     Logger.Info("AMD Overlay toggled ON (Level 1)");
                 }
                 else if (amdOverlayLevel < 4)
@@ -8241,6 +8307,7 @@ namespace XboxGamingBar
                     // Cycle to next level
                     CycleAMDOverlayLevel();
                     amdOverlayLevel++;
+                    SaveAMDOverlayLevel();
                     Logger.Info($"AMD Overlay cycled to Level {amdOverlayLevel}");
                 }
                 else
@@ -8248,6 +8315,7 @@ namespace XboxGamingBar
                     // At level 4, turn off
                     SendAMDOverlayToggle();
                     amdOverlayLevel = 0;
+                    SaveAMDOverlayLevel();
                     Logger.Info("AMD Overlay toggled OFF");
                 }
                 UpdateQuickSettingsTileStates();
