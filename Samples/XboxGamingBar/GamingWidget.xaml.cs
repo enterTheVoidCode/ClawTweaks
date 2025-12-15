@@ -42,8 +42,8 @@ namespace XboxGamingBar
         public double TDP { get; set; } = 15;
         public bool CPUBoost { get; set; } = false;
         public double CPUEPP { get; set; } = 0;
-        public bool LimitCPUClock { get; set; } = false;
-        public double CPUClockMax { get; set; } = 5500;
+        public int MaxCPUState { get; set; } = 100;
+        public int MinCPUState { get; set; } = 5;
         public bool FluidMotionFrames { get; set; } = false;
         public bool RadeonSuperResolution { get; set; } = false;
         public double RadeonSuperResolutionSharpness { get; set; } = 80;
@@ -73,8 +73,8 @@ namespace XboxGamingBar
                 TDP = this.TDP,
                 CPUBoost = this.CPUBoost,
                 CPUEPP = this.CPUEPP,
-                LimitCPUClock = this.LimitCPUClock,
-                CPUClockMax = this.CPUClockMax,
+                MaxCPUState = this.MaxCPUState,
+                MinCPUState = this.MinCPUState,
                 FluidMotionFrames = this.FluidMotionFrames,
                 RadeonSuperResolution = this.RadeonSuperResolution,
                 RadeonSuperResolutionSharpness = this.RadeonSuperResolutionSharpness,
@@ -151,8 +151,8 @@ namespace XboxGamingBar
         private readonly PerGameProfileProperty perGameProfile;
         private readonly CPUBoostProperty cpuBoost;
         private readonly CPUEPPProperty cpuEPP;
-        private readonly LimitCPUClockProperty limitCPUClock;
-        private readonly CPUClockMaxProperty cpuClockMax;
+        private readonly MaxCPUStateProperty maxCPUState;
+        private readonly MinCPUStateProperty minCPUState;
         // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
         //private readonly LimitGPUClockProperty limitGPUClock;
         //private readonly GPUClockMinProperty gpuClockMin;
@@ -305,7 +305,7 @@ namespace XboxGamingBar
         private bool _saveTDP = true;
         private bool _saveCPUBoost = true;
         private bool _saveCPUEPP = true;
-        private bool _saveLimitCPUClock = true;
+        private bool _saveCPUState = true;
         private bool _saveAMDFeatures = false;
         private bool _saveFPSLimit = false;
         private bool _saveAutoTDP = false;
@@ -314,7 +314,7 @@ namespace XboxGamingBar
         private bool SaveTDP => _saveTDP;
         private bool SaveCPUBoost => _saveCPUBoost;
         private bool SaveCPUEPP => _saveCPUEPP;
-        private bool SaveLimitCPUClock => _saveLimitCPUClock;
+        private bool SaveCPUState => _saveCPUState;
         private bool SaveAMDFeatures => _saveAMDFeatures;
         private bool SaveFPSLimit => _saveFPSLimit;
         private bool SaveAutoTDP => _saveAutoTDP;
@@ -377,8 +377,8 @@ namespace XboxGamingBar
             perGameProfile = new PerGameProfileProperty(PerGameProfileToggle, this);
             cpuBoost = new CPUBoostProperty(CPUBoostToggle, this);
             cpuEPP = new CPUEPPProperty(80, CPUEPPSlider, this);
-            limitCPUClock = new LimitCPUClockProperty(LimitCPUClockToggle, this);
-            cpuClockMax = new CPUClockMaxProperty(CPUClockMaxSlider, this);
+            maxCPUState = new MaxCPUStateProperty();
+            minCPUState = new MinCPUStateProperty();
             // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
             //limitGPUClock = new LimitGPUClockProperty(LimitGPUClockToggle, this);
             //gpuClockMin = new GPUClockMinProperty(GPUClockMinSlider, this);
@@ -499,8 +499,8 @@ namespace XboxGamingBar
                 perGameProfile,
                 cpuBoost,
                 cpuEPP,
-                limitCPUClock,
-                cpuClockMax,
+                maxCPUState,
+                minCPUState,
                 // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
                 //limitGPUClock,
                 //gpuClockMin,
@@ -645,11 +645,11 @@ namespace XboxGamingBar
             CPUEPPSlider.GotFocus += Control_GotFocus;
             CPUEPPSlider.LostFocus += Control_LostFocus;
 
-            // Performance tab - Limit CPU Clock card
-            LimitCPUClockToggle.GotFocus += Control_GotFocus;
-            LimitCPUClockToggle.LostFocus += Control_LostFocus;
-            CPUClockMaxSlider.GotFocus += Control_GotFocus;
-            CPUClockMaxSlider.LostFocus += Control_LostFocus;
+            // Performance tab - CPU State card
+            MinCPUStateComboBox.GotFocus += Control_GotFocus;
+            MinCPUStateComboBox.LostFocus += Control_LostFocus;
+            MaxCPUStateComboBox.GotFocus += Control_GotFocus;
+            MaxCPUStateComboBox.LostFocus += Control_LostFocus;
 
             // Performance tab - FPS Limit card
             FPSLimitToggle.GotFocus += Control_GotFocus;
@@ -720,7 +720,7 @@ namespace XboxGamingBar
             ProfileSaveTDPCheckBox.GotFocus += StandaloneControl_GotFocus;
             ProfileSaveCPUBoostCheckBox.GotFocus += StandaloneControl_GotFocus;
             ProfileSaveCPUEPPCheckBox.GotFocus += StandaloneControl_GotFocus;
-            ProfileSaveLimitCPUClockCheckBox.GotFocus += StandaloneControl_GotFocus;
+            ProfileSaveCPUStateCheckBox.GotFocus += StandaloneControl_GotFocus;
             ProfileSaveAMDFeaturesCheckBox.GotFocus += StandaloneControl_GotFocus;
 
             // System tab - Sticky TDP card
@@ -907,6 +907,9 @@ namespace XboxGamingBar
 
             // Load profile customization settings
             LoadProfileCustomizationSettings();
+
+            // Initialize CPU State comboboxes with percentage values
+            InitializeCPUStateComboBoxes();
 
             // Load profiles from storage
             LoadProfileFromStorage("Global", globalProfile);
@@ -1292,8 +1295,8 @@ namespace XboxGamingBar
             TDPSlider.ValueChanged += SettingChanged;
             CPUBoostToggle.Toggled += SettingChanged;
             CPUEPPSlider.ValueChanged += SettingChanged;
-            LimitCPUClockToggle.Toggled += SettingChanged;
-            CPUClockMaxSlider.ValueChanged += SettingChanged;
+            MinCPUStateComboBox.SelectionChanged += SettingChanged;
+            MaxCPUStateComboBox.SelectionChanged += SettingChanged;
             FPSLimitToggle.Toggled += FPSLimitToggle_Toggled;
             FPSLimitSlider.ValueChanged += FPSLimitSlider_ValueChanged;
 
@@ -1319,12 +1322,6 @@ namespace XboxGamingBar
             {
                 targetTDPLimit = TDPSlider.Value;
                 Logger.Info($"Sticky TDP target updated to: {targetTDPLimit}W (user change)");
-            }
-
-            // Update Limit CPU Clock display text
-            if ((sender == CPUClockMaxSlider || sender == LimitCPUClockToggle) && LimitCPUClockValue != null)
-            {
-                LimitCPUClockValue.Text = $"{(int)CPUClockMaxSlider.Value} MHz";
             }
 
             // Don't save during profile loading, switching, initial sync, or when helper is updating values
@@ -3673,10 +3670,10 @@ namespace XboxGamingBar
             {
                 profile.CPUEPP = CPUEPPSlider.Value;
             }
-            if (SaveLimitCPUClock)
+            if (SaveCPUState)
             {
-                profile.LimitCPUClock = LimitCPUClockToggle.IsOn;
-                profile.CPUClockMax = CPUClockMaxSlider.Value;
+                profile.MaxCPUState = GetSelectedCPUStateValue(MaxCPUStateComboBox);
+                profile.MinCPUState = GetSelectedCPUStateValue(MinCPUStateComboBox);
             }
             if (SaveAMDFeatures)
             {
@@ -3750,13 +3747,13 @@ namespace XboxGamingBar
                     // Send to helper explicitly (cast to int for property type)
                     cpuEPP?.SetValue((int)profile.CPUEPP);
                 }
-                if (SaveLimitCPUClock)
+                if (SaveCPUState)
                 {
-                    LimitCPUClockToggle.IsOn = profile.LimitCPUClock;
-                    CPUClockMaxSlider.Value = profile.CPUClockMax;
-                    // Send to helper explicitly (cast to int for property type)
-                    limitCPUClock?.SetValue(profile.LimitCPUClock);
-                    cpuClockMax?.SetValue((int)profile.CPUClockMax);
+                    SetCPUStateComboBoxValue(MaxCPUStateComboBox, profile.MaxCPUState);
+                    SetCPUStateComboBoxValue(MinCPUStateComboBox, profile.MinCPUState);
+                    // Send to helper explicitly
+                    maxCPUState?.SetValue(profile.MaxCPUState);
+                    minCPUState?.SetValue(profile.MinCPUState);
                 }
                 if (SaveAMDFeatures)
                 {
@@ -4003,8 +4000,8 @@ namespace XboxGamingBar
             container.Values["TDP"] = profile.TDP;
             container.Values["CPUBoost"] = profile.CPUBoost;
             container.Values["CPUEPP"] = profile.CPUEPP;
-            container.Values["LimitCPUClock"] = profile.LimitCPUClock;
-            container.Values["CPUClockMax"] = profile.CPUClockMax;
+            container.Values["MaxCPUState"] = profile.MaxCPUState;
+            container.Values["MinCPUState"] = profile.MinCPUState;
             container.Values["FluidMotionFrames"] = profile.FluidMotionFrames;
             container.Values["RadeonSuperResolution"] = profile.RadeonSuperResolution;
             container.Values["RadeonSuperResolutionSharpness"] = profile.RadeonSuperResolutionSharpness;
@@ -4034,8 +4031,8 @@ namespace XboxGamingBar
                 profile.TDP = container.Values.ContainsKey("TDP") ? (double)container.Values["TDP"] : 15;
                 profile.CPUBoost = container.Values.ContainsKey("CPUBoost") ? (bool)container.Values["CPUBoost"] : false;
                 profile.CPUEPP = container.Values.ContainsKey("CPUEPP") ? (double)container.Values["CPUEPP"] : 0;
-                profile.LimitCPUClock = container.Values.ContainsKey("LimitCPUClock") ? (bool)container.Values["LimitCPUClock"] : false;
-                profile.CPUClockMax = container.Values.ContainsKey("CPUClockMax") ? (double)container.Values["CPUClockMax"] : 5500;
+                profile.MaxCPUState = container.Values.ContainsKey("MaxCPUState") ? (int)container.Values["MaxCPUState"] : 100;
+                profile.MinCPUState = container.Values.ContainsKey("MinCPUState") ? (int)container.Values["MinCPUState"] : 5;
                 profile.FluidMotionFrames = container.Values.ContainsKey("FluidMotionFrames") ? (bool)container.Values["FluidMotionFrames"] : false;
                 profile.RadeonSuperResolution = container.Values.ContainsKey("RadeonSuperResolution") ? (bool)container.Values["RadeonSuperResolution"] : false;
                 profile.RadeonSuperResolutionSharpness = container.Values.ContainsKey("RadeonSuperResolutionSharpness") ? (double)container.Values["RadeonSuperResolutionSharpness"] : 80;
@@ -4065,7 +4062,7 @@ namespace XboxGamingBar
             var tdpVisibility = SaveTDP ? Visibility.Visible : Visibility.Collapsed;
             var cpuBoostVisibility = SaveCPUBoost ? Visibility.Visible : Visibility.Collapsed;
             var cpuEPPVisibility = SaveCPUEPP ? Visibility.Visible : Visibility.Collapsed;
-            var cpuClockVisibility = SaveLimitCPUClock ? Visibility.Visible : Visibility.Collapsed;
+            var cpuStateVisibility = SaveCPUState ? Visibility.Visible : Visibility.Collapsed;
             var fpsLimitVisibility = SaveFPSLimit ? Visibility.Visible : Visibility.Collapsed;
             var autoTDPVisibility = SaveAutoTDP ? Visibility.Visible : Visibility.Collapsed;
             var powerModeVisibility = SaveOSPowerMode ? Visibility.Visible : Visibility.Collapsed;
@@ -4088,9 +4085,9 @@ namespace XboxGamingBar
             GlobalProfileCPUEPPText.Visibility = cpuEPPVisibility;
             GlobalProfileCPUEPPText.Text = $"{globalProfile.CPUEPP}";
 
-            GlobalProfileCPUClockLabel.Visibility = cpuClockVisibility;
-            GlobalProfileCPUClockText.Visibility = cpuClockVisibility;
-            GlobalProfileCPUClockText.Text = globalProfile.LimitCPUClock ? $"{globalProfile.CPUClockMax}MHz" : "Off";
+            GlobalProfileCPUStateLabel.Visibility = cpuStateVisibility;
+            GlobalProfileCPUStateText.Visibility = cpuStateVisibility;
+            GlobalProfileCPUStateText.Text = $"{globalProfile.MinCPUState}-{globalProfile.MaxCPUState}%";
 
             GlobalProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
             GlobalProfileFPSLimitText.Visibility = fpsLimitVisibility;
@@ -4134,11 +4131,11 @@ namespace XboxGamingBar
             ACProfileCPUEPPText.Text = $"{acProfile.CPUEPP}";
             DCProfileCPUEPPText.Text = $"{dcProfile.CPUEPP}";
 
-            ACDCProfileCPUClockLabel.Visibility = cpuClockVisibility;
-            ACProfileCPUClockText.Visibility = cpuClockVisibility;
-            DCProfileCPUClockText.Visibility = cpuClockVisibility;
-            ACProfileCPUClockText.Text = acProfile.LimitCPUClock ? $"{acProfile.CPUClockMax}MHz" : "Off";
-            DCProfileCPUClockText.Text = dcProfile.LimitCPUClock ? $"{dcProfile.CPUClockMax}MHz" : "Off";
+            ACDCProfileCPUStateLabel.Visibility = cpuStateVisibility;
+            ACProfileCPUStateText.Visibility = cpuStateVisibility;
+            DCProfileCPUStateText.Visibility = cpuStateVisibility;
+            ACProfileCPUStateText.Text = $"{acProfile.MinCPUState}-{acProfile.MaxCPUState}%";
+            DCProfileCPUStateText.Text = $"{dcProfile.MinCPUState}-{dcProfile.MaxCPUState}%";
 
             ACDCProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
             ACProfileFPSLimitText.Visibility = fpsLimitVisibility;
@@ -4199,12 +4196,12 @@ namespace XboxGamingBar
                     GameACProfileCPUEPPText.Text = $"{gameACProfile.CPUEPP}";
                     GameDCProfileCPUEPPText.Text = $"{gameDCProfile.CPUEPP}";
 
-                    // CPU Clock
-                    GameACDCProfileCPUClockLabel.Visibility = cpuClockVisibility;
-                    GameACProfileCPUClockText.Visibility = cpuClockVisibility;
-                    GameDCProfileCPUClockText.Visibility = cpuClockVisibility;
-                    GameACProfileCPUClockText.Text = gameACProfile.LimitCPUClock ? $"{gameACProfile.CPUClockMax}MHz" : "Off";
-                    GameDCProfileCPUClockText.Text = gameDCProfile.LimitCPUClock ? $"{gameDCProfile.CPUClockMax}MHz" : "Off";
+                    // CPU State
+                    GameACDCProfileCPUStateLabel.Visibility = cpuStateVisibility;
+                    GameACProfileCPUStateText.Visibility = cpuStateVisibility;
+                    GameDCProfileCPUStateText.Visibility = cpuStateVisibility;
+                    GameACProfileCPUStateText.Text = $"{gameACProfile.MinCPUState}-{gameACProfile.MaxCPUState}%";
+                    GameDCProfileCPUStateText.Text = $"{gameDCProfile.MinCPUState}-{gameDCProfile.MaxCPUState}%";
 
                     // FPS Limit
                     GameACDCProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
@@ -4258,10 +4255,10 @@ namespace XboxGamingBar
                     GameProfileCPUEPPText.Visibility = cpuEPPVisibility;
                     GameProfileCPUEPPText.Text = $"{gameProfile.CPUEPP}";
 
-                    // CPU Clock
-                    GameProfileCPUClockLabel.Visibility = cpuClockVisibility;
-                    GameProfileCPUClockText.Visibility = cpuClockVisibility;
-                    GameProfileCPUClockText.Text = gameProfile.LimitCPUClock ? $"{gameProfile.CPUClockMax}MHz" : "Off";
+                    // CPU State
+                    GameProfileCPUStateLabel.Visibility = cpuStateVisibility;
+                    GameProfileCPUStateText.Visibility = cpuStateVisibility;
+                    GameProfileCPUStateText.Text = $"{gameProfile.MinCPUState}-{gameProfile.MaxCPUState}%";
 
                     // FPS Limit
                     GameProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
@@ -4311,6 +4308,110 @@ namespace XboxGamingBar
                 case 255: return "Custom";
                 default: return "Balanced";
             }
+        }
+
+        /// <summary>
+        /// Initializes CPU State comboboxes with percentage values (5%, 10%, 15%... 100%)
+        /// </summary>
+        private void InitializeCPUStateComboBoxes()
+        {
+            MinCPUStateComboBox.Items.Clear();
+            MaxCPUStateComboBox.Items.Clear();
+
+            // Add values from 5 to 100 in 5% increments
+            for (int i = 5; i <= 100; i += 5)
+            {
+                MinCPUStateComboBox.Items.Add(new ComboBoxItem { Content = $"{i}%", Tag = i });
+                MaxCPUStateComboBox.Items.Add(new ComboBoxItem { Content = $"{i}%", Tag = i });
+            }
+
+            // Set defaults: Min=5%, Max=100%
+            MinCPUStateComboBox.SelectedIndex = 0; // 5%
+            MaxCPUStateComboBox.SelectedIndex = 19; // 100%
+
+            // Enable the comboboxes
+            MinCPUStateComboBox.IsEnabled = true;
+            MaxCPUStateComboBox.IsEnabled = true;
+        }
+
+        /// <summary>
+        /// Gets the CPU state percentage value from a ComboBox selection
+        /// </summary>
+        private int GetSelectedCPUStateValue(ComboBox comboBox)
+        {
+            if (comboBox.SelectedItem is ComboBoxItem item && item.Tag is int value)
+            {
+                return value;
+            }
+            // Default values: 100 for max, 5 for min
+            return comboBox == MaxCPUStateComboBox ? 100 : 5;
+        }
+
+        /// <summary>
+        /// Sets the CPU State ComboBox to the specified percentage value
+        /// </summary>
+        private void SetCPUStateComboBoxValue(ComboBox comboBox, int value)
+        {
+            // Clamp to valid range and round to nearest 5
+            value = Math.Max(5, Math.Min(100, value));
+            value = (int)(Math.Round(value / 5.0) * 5);
+            if (value < 5) value = 5;
+
+            // Find and select the matching item
+            for (int i = 0; i < comboBox.Items.Count; i++)
+            {
+                if (comboBox.Items[i] is ComboBoxItem item && item.Tag is int itemValue && itemValue == value)
+                {
+                    comboBox.SelectedIndex = i;
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handler for Min CPU State ComboBox selection change
+        /// </summary>
+        private void MinCPUStateComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingProfile || isSwitchingProfile || isApplyingHelperUpdate || isInitialSync)
+                return;
+
+            int minValue = GetSelectedCPUStateValue(MinCPUStateComboBox);
+            int maxValue = GetSelectedCPUStateValue(MaxCPUStateComboBox);
+
+            // Ensure min doesn't exceed max
+            if (minValue > maxValue)
+            {
+                SetCPUStateComboBoxValue(MaxCPUStateComboBox, minValue);
+            }
+
+            // Send to helper
+            minCPUState?.SetValue(minValue);
+
+            Logger.Info($"Min CPU State changed to {minValue}%");
+        }
+
+        /// <summary>
+        /// Handler for Max CPU State ComboBox selection change
+        /// </summary>
+        private void MaxCPUStateComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingProfile || isSwitchingProfile || isApplyingHelperUpdate || isInitialSync)
+                return;
+
+            int minValue = GetSelectedCPUStateValue(MinCPUStateComboBox);
+            int maxValue = GetSelectedCPUStateValue(MaxCPUStateComboBox);
+
+            // Ensure max doesn't go below min
+            if (maxValue < minValue)
+            {
+                SetCPUStateComboBoxValue(MinCPUStateComboBox, maxValue);
+            }
+
+            // Send to helper
+            maxCPUState?.SetValue(maxValue);
+
+            Logger.Info($"Max CPU State changed to {maxValue}%");
         }
 
         /// <summary>
@@ -4568,12 +4669,12 @@ namespace XboxGamingBar
                         rowIndex++;
                     }
 
-                    // CPU Clock Limit
-                    if (SaveLimitCPUClock)
+                    // CPU State
+                    if (SaveCPUState)
                     {
-                        AddTextBlock(acDcGrid, rowIndex, 0, "CPU Clk", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.LimitCPUClock ? $"{gameAC.CPUClockMax}MHz" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.LimitCPUClock ? $"{gameDC.CPUClockMax}MHz" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 0, "CPU St", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, $"{gameAC.MinCPUState}-{gameAC.MaxCPUState}%", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, $"{gameDC.MinCPUState}-{gameDC.MaxCPUState}%", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
 
@@ -4669,11 +4770,11 @@ namespace XboxGamingBar
                         rowIndex++;
                     }
 
-                    // CPU Clock Limit
-                    if (SaveLimitCPUClock)
+                    // CPU State
+                    if (SaveCPUState)
                     {
-                        AddTextBlock(singleGrid, rowIndex, 0, "CPU Clock", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                        AddTextBlock(singleGrid, rowIndex, 1, game.LimitCPUClock ? $"{game.CPUClockMax}MHz" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 0, "CPU State", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, $"{game.MinCPUState}-{game.MaxCPUState}%", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
                         rowIndex++;
                     }
 
@@ -4842,7 +4943,7 @@ namespace XboxGamingBar
                 _saveTDP = settings.Values.ContainsKey("ProfileSaveTDP") ? (bool)settings.Values["ProfileSaveTDP"] : true;
                 _saveCPUBoost = settings.Values.ContainsKey("ProfileSaveCPUBoost") ? (bool)settings.Values["ProfileSaveCPUBoost"] : true;
                 _saveCPUEPP = settings.Values.ContainsKey("ProfileSaveCPUEPP") ? (bool)settings.Values["ProfileSaveCPUEPP"] : true;
-                _saveLimitCPUClock = settings.Values.ContainsKey("ProfileSaveLimitCPUClock") ? (bool)settings.Values["ProfileSaveLimitCPUClock"] : true;
+                _saveCPUState = settings.Values.ContainsKey("ProfileSaveCPUState") ? (bool)settings.Values["ProfileSaveCPUState"] : true;
                 _saveAMDFeatures = settings.Values.ContainsKey("ProfileSaveAMDFeatures") ? (bool)settings.Values["ProfileSaveAMDFeatures"] : false;
                 _saveFPSLimit = settings.Values.ContainsKey("ProfileSaveFPSLimit") ? (bool)settings.Values["ProfileSaveFPSLimit"] : false;
                 _saveAutoTDP = settings.Values.ContainsKey("ProfileSaveAutoTDP") ? (bool)settings.Values["ProfileSaveAutoTDP"] : false;
@@ -4852,7 +4953,7 @@ namespace XboxGamingBar
                 ProfileSaveTDPCheckBox.IsChecked = _saveTDP;
                 ProfileSaveCPUBoostCheckBox.IsChecked = _saveCPUBoost;
                 ProfileSaveCPUEPPCheckBox.IsChecked = _saveCPUEPP;
-                ProfileSaveLimitCPUClockCheckBox.IsChecked = _saveLimitCPUClock;
+                ProfileSaveCPUStateCheckBox.IsChecked = _saveCPUState;
                 ProfileSaveAMDFeaturesCheckBox.IsChecked = _saveAMDFeatures;
                 ProfileSaveFPSLimitCheckBox.IsChecked = _saveFPSLimit;
                 ProfileSaveAutoTDPCheckBox.IsChecked = _saveAutoTDP;
@@ -4872,7 +4973,7 @@ namespace XboxGamingBar
             settings.Values["ProfileSaveTDP"] = ProfileSaveTDPCheckBox.IsChecked;
             settings.Values["ProfileSaveCPUBoost"] = ProfileSaveCPUBoostCheckBox.IsChecked;
             settings.Values["ProfileSaveCPUEPP"] = ProfileSaveCPUEPPCheckBox.IsChecked;
-            settings.Values["ProfileSaveLimitCPUClock"] = ProfileSaveLimitCPUClockCheckBox.IsChecked;
+            settings.Values["ProfileSaveCPUState"] = ProfileSaveCPUStateCheckBox.IsChecked;
             settings.Values["ProfileSaveAMDFeatures"] = ProfileSaveAMDFeaturesCheckBox.IsChecked;
             settings.Values["ProfileSaveFPSLimit"] = ProfileSaveFPSLimitCheckBox.IsChecked;
             settings.Values["ProfileSaveAutoTDP"] = ProfileSaveAutoTDPCheckBox.IsChecked;
@@ -4904,7 +5005,7 @@ namespace XboxGamingBar
             _saveTDP = ProfileSaveTDPCheckBox?.IsChecked ?? true;
             _saveCPUBoost = ProfileSaveCPUBoostCheckBox?.IsChecked ?? true;
             _saveCPUEPP = ProfileSaveCPUEPPCheckBox?.IsChecked ?? true;
-            _saveLimitCPUClock = ProfileSaveLimitCPUClockCheckBox?.IsChecked ?? true;
+            _saveCPUState = ProfileSaveCPUStateCheckBox?.IsChecked ?? true;
             _saveAMDFeatures = ProfileSaveAMDFeaturesCheckBox?.IsChecked ?? false;
             _saveFPSLimit = ProfileSaveFPSLimitCheckBox?.IsChecked ?? false;
             _saveAutoTDP = ProfileSaveAutoTDPCheckBox?.IsChecked ?? false;

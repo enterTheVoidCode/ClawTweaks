@@ -397,8 +397,8 @@
     <Compile Include="Performance\CurrentTDPProperty.cs" />
     <Compile Include="Performance\UpdateVisitor.cs" />
     <Compile Include="Power\CPUBoostProperty.cs" />
-    <Compile Include="Power\LimitCPUClockProperty.cs" />
-    <Compile Include="Power\CPUClockMaxProperty.cs" />
+    <Compile Include="Power\MaxCPUStateProperty.cs" />
+    <Compile Include="Power\MinCPUStateProperty.cs" />
     <!-- GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1) -->
     <!--<Compile Include="Power\LimitGPUClockProperty.cs" />
     <Compile Include="Power\GPUClockMinProperty.cs" />

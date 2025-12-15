@@ -28,16 +28,16 @@ namespace XboxGamingBarHelper.Power
             get { return cpuEPP; }
         }
 
-        private readonly LimitCPUClockProperty limitCPUClock;
-        public LimitCPUClockProperty LimitCPUClock
+        private readonly MaxCPUStateProperty maxCPUState;
+        public MaxCPUStateProperty MaxCPUState
         {
-            get { return limitCPUClock; }
+            get { return maxCPUState; }
         }
 
-        private readonly CPUClockMaxProperty cpuClockMax;
-        public CPUClockMaxProperty CPUClockMax
+        private readonly MinCPUStateProperty minCPUState;
+        public MinCPUStateProperty MinCPUState
         {
-            get { return cpuClockMax; }
+            get { return minCPUState; }
         }
 
         private readonly OSPowerModeProperty osPowerMode;
@@ -72,10 +72,13 @@ namespace XboxGamingBarHelper.Power
             Logger.Info($"Check CPU Boost Mode and EPP.");
             cpuBoost = new CPUBoostProperty(GetCpuBoostMode(false), this);
             cpuEPP = new CPUEPPProperty((int)GetEppValue(false), this);
-            var initialCPUClockMax = GetCpuFreqLimit(false);
-            Logger.Info($"Initial CPU clock limit {initialCPUClockMax}Mhz.");
-            limitCPUClock = new LimitCPUClockProperty(initialCPUClockMax != 0, this);
-            cpuClockMax = new CPUClockMaxProperty(initialCPUClockMax != 0 ? (int)initialCPUClockMax : CPUConstants.DEFAULT_CPU_CLOCK, this);
+
+            // CPU State limits (percentage)
+            var initialMaxCPUState = GetMaxCPUState(false);
+            var initialMinCPUState = GetMinCPUState(false);
+            Logger.Info($"Initial CPU State: Min={initialMinCPUState}%, Max={initialMaxCPUState}%");
+            maxCPUState = new MaxCPUStateProperty((int)initialMaxCPUState, this);
+            minCPUState = new MinCPUStateProperty((int)initialMinCPUState, this);
 
             // OS Power Mode
             var initialPowerMode = GetOSPowerMode();
@@ -235,6 +238,132 @@ namespace XboxGamingBarHelper.Power
             }
 
             Logger.Info($"Set CPU Clock limit {(isAC ? "AC" : "DC")} {(isSecondary ? "secondary" : "primary")} to {mhzValue}MHz");
+            PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
+        }
+
+        /// <summary>
+        /// Gets the maximum processor state (percentage 0-100).
+        /// </summary>
+        public static uint GetMaxCPUState(bool isAC)
+        {
+            Guid scheme = GetActiveScheme();
+            Guid subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
+            Guid setting = PowerGuids.GUID_PROCESSOR_THROTTLE_MAX;
+
+            uint result;
+            uint status = isAC
+                ? PowrProf.PowerReadACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out result)
+                : PowrProf.PowerReadDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out result);
+
+            if (status != 0)
+            {
+                Logger.Error("Can't read Maximum CPU State.");
+                return 100;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Sets the maximum processor state (percentage 0-100).
+        /// Also sets the E-core (efficiency core) max state on hybrid processors.
+        /// </summary>
+        public static void SetMaxCPUState(bool isAC, uint percentage)
+        {
+            Guid scheme = GetActiveScheme();
+            Guid subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
+            Guid setting = PowerGuids.GUID_PROCESSOR_THROTTLE_MAX;
+
+            uint status = isAC
+                ? PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, percentage)
+                : PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, percentage);
+
+            if (status != 0)
+            {
+                Logger.Error("Can't set Maximum CPU State.");
+                return;
+            }
+
+            Logger.Info($"Set Maximum CPU State {(isAC ? "AC" : "DC")} to {percentage}%");
+
+            // Also set E-core (efficiency core) max state on hybrid processors
+            Guid settingECore = PowerGuids.GUID_PROCESSOR_THROTTLE_MAX1;
+            uint statusECore = isAC
+                ? PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref settingECore, percentage)
+                : PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref settingECore, percentage);
+
+            if (statusECore == 0)
+            {
+                Logger.Info($"Set Maximum CPU State (E-cores) {(isAC ? "AC" : "DC")} to {percentage}%");
+            }
+            else
+            {
+                Logger.Warn($"Failed to set Maximum CPU State (E-cores) {(isAC ? "AC" : "DC")} - status: {statusECore} (may not have E-cores)");
+            }
+
+            PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
+        }
+
+        /// <summary>
+        /// Gets the minimum processor state (percentage 0-100).
+        /// </summary>
+        public static uint GetMinCPUState(bool isAC)
+        {
+            Guid scheme = GetActiveScheme();
+            Guid subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
+            Guid setting = PowerGuids.GUID_PROCESSOR_THROTTLE_MIN;
+
+            uint result;
+            uint status = isAC
+                ? PowrProf.PowerReadACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out result)
+                : PowrProf.PowerReadDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out result);
+
+            if (status != 0)
+            {
+                Logger.Error("Can't read Minimum CPU State.");
+                return 5;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Sets the minimum processor state (percentage 0-100).
+        /// Also sets the E-core (efficiency core) min state on hybrid processors.
+        /// </summary>
+        public static void SetMinCPUState(bool isAC, uint percentage)
+        {
+            Guid scheme = GetActiveScheme();
+            Guid subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
+            Guid setting = PowerGuids.GUID_PROCESSOR_THROTTLE_MIN;
+
+            uint status = isAC
+                ? PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, percentage)
+                : PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, percentage);
+
+            if (status != 0)
+            {
+                Logger.Error("Can't set Minimum CPU State.");
+                return;
+            }
+
+            Logger.Info($"Set Minimum CPU State {(isAC ? "AC" : "DC")} to {percentage}%");
+
+            // Also set E-core (efficiency core) min state on hybrid processors
+            Guid settingECore = PowerGuids.GUID_PROCESSOR_THROTTLE_MIN1;
+            uint statusECore = isAC
+                ? PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref settingECore, percentage)
+                : PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref settingECore, percentage);
+
+            if (statusECore == 0)
+            {
+                Logger.Info($"Set Minimum CPU State (E-cores) {(isAC ? "AC" : "DC")} to {percentage}%");
+            }
+            else
+            {
+                Logger.Warn($"Failed to set Minimum CPU State (E-cores) {(isAC ? "AC" : "DC")} - status: {statusECore} (may not have E-cores)");
+            }
+
             PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
         }
 

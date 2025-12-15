@@ -96,16 +96,31 @@ namespace Shared.Data
             }
         }
 
-        [XmlElement("CPUClock")]
-        private int cpuClock;
-        public int CPUClock
+        [XmlElement("MaxCPUState")]
+        private int maxCPUState;
+        public int MaxCPUState
         {
-            get { return cpuClock; }
+            get { return maxCPUState; }
             set
             {
-                if (cpuClock != value)
+                if (maxCPUState != value)
                 {
-                    cpuClock = value;
+                    maxCPUState = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("MinCPUState")]
+        private int minCPUState;
+        public int MinCPUState
+        {
+            get { return minCPUState; }
+            set
+            {
+                if (minCPUState != value)
+                {
+                    minCPUState = value;
                     Save();
                 }
             }
@@ -125,14 +140,15 @@ namespace Shared.Data
             set { cache = value; }
         }
 
-        public GameProfile(string gameName, string gamePath, bool inUse, int inTDP, bool inCPUBoost, int inCPUEPP, int inCPUClock, string inPath, IDictionary<GameId, GameProfile> inCache)
+        public GameProfile(string gameName, string gamePath, bool inUse, int inTDP, bool inCPUBoost, int inCPUEPP, int inMaxCPUState, int inMinCPUState, string inPath, IDictionary<GameId, GameProfile> inCache)
         {
             GameId = new GameId(gameName, gamePath);
             use = inUse;
             tdp = inTDP;
             cpuBoost = inCPUBoost;
             cpuEPP = inCPUEPP;
-            cpuClock = inCPUClock;
+            maxCPUState = inMaxCPUState;
+            minCPUState = inMinCPUState;
             Path = inPath;
             cache = inCache;
         }
