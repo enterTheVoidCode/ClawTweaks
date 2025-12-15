@@ -292,6 +292,8 @@ namespace XboxGamingBarHelper
                 autoTDPManager.Enabled,
                 autoTDPManager.TargetFPS,
                 autoTDPManager.CurrentFPS,
+                autoTDPManager.MinTDP,
+                autoTDPManager.MaxTDP,
                 autoTDPManager.TDPLimits,
                 systemManager.ForceParkMode);
 
