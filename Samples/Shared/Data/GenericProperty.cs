@@ -351,6 +351,52 @@ namespace Shared.Data
         }
 
         /// <summary>
+        /// Sets the value without triggering NotifyPropertyChanged (object overload with type conversion).
+        /// Use this when syncing values during Sync() to avoid sending the value back.
+        /// </summary>
+        public override bool SetValueSilent(object newValue, long updatedTime)
+        {
+            if (updatedTime == 0)
+            {
+                updatedTime = DateTime.Now.Ticks;
+            }
+
+            if (updatedTime < lastUpdatedTime)
+            {
+                Logger.Debug($"Skip silent set value {newValue} of {Function} because it is older than current value {updatedTime} vs {lastUpdatedTime}.");
+                return false;
+            }
+
+            ValueType myTypeValue;
+            if (TypeHelper.IsStruct<ValueType>() && newValue is string structStringValue)
+            {
+                myTypeValue = XmlHelper.FromXMLString<ValueType>(structStringValue);
+            }
+            else if (typeof(ValueType) == typeof(List<int>) && newValue is string listIntStringValue)
+            {
+                myTypeValue = (ValueType)(object)listIntStringValue.Split(StringConstants.COMMA.ToCharArray()).Select(int.Parse).ToList();
+            }
+            else if (typeof(ValueType) == typeof(List<string>) && newValue is string listStringValue)
+            {
+                myTypeValue = (ValueType)(object)listStringValue.Split(StringConstants.COMMA.ToCharArray()).ToList();
+            }
+            else if (newValue is ValueType correctValueType)
+            {
+                myTypeValue = correctValueType;
+            }
+            else
+            {
+                Logger.Error($"Can't silent set value {newValue} of type {newValue.GetType().Name} to property type {typeof(ValueType).Name}");
+                return false;
+            }
+
+            value = myTypeValue;
+            lastUpdatedTime = updatedTime;
+            Logger.Debug($"Silent set {Function} to {myTypeValue}");
+            return true;
+        }
+
+        /// <summary>
         /// Forces the value to be set and sent to the other side, even if it equals the current value.
         /// Use this when loading profile values to ensure the hardware state is synchronized.
         /// </summary>
