@@ -476,17 +476,13 @@ namespace XboxGamingBarHelper.Legion
 
             try
             {
-                bool modeChanged = false;
-
-                // Set to Custom mode first
+                // Only apply TDP if already in Custom mode (255)
+                // Don't automatically switch modes - preset modes manage TDP via hardware
+                // The widget should explicitly switch to Custom mode first if needed
                 if (performanceMode != 255)
                 {
-                    SetPerformanceMode(255);
-                    // Sync performance mode change to widget
-                    LegionPerformanceMode.SetValueSilent(255);
-                    LegionPerformanceMode.SyncToRemote();
-                    Logger.Info("Performance mode switched to Custom (255) and synced to widget");
-                    modeChanged = true;
+                    Logger.Info($"Skipping SetCustomTDP({slow}, {fast}, {peak}) - not in Custom mode (current mode: {performanceMode})");
+                    return;
                 }
 
                 // Apply TDP values immediately
@@ -504,13 +500,6 @@ namespace XboxGamingBarHelper.Legion
                 LegionCustomTDPPeak.SetValueSilent(peak);
                 LegionCustomTDPPeak.SyncToRemote();
                 Logger.Info($"Synced Legion Custom TDP sliders: Slow={slow}W, Fast={fast}W, Peak={peak}W");
-
-                // If mode was changed, schedule a reapply after 5 seconds
-                // This ensures TDP limits are properly applied after the mode switch settles
-                if (modeChanged)
-                {
-                    ScheduleTDPReapply(slow, fast, peak);
-                }
             }
             catch (Exception ex)
             {

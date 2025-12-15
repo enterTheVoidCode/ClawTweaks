@@ -51,6 +51,8 @@ namespace Shared.Data
 
         public abstract bool SetValue(object newValue, long updatedTime);
 
+        public abstract bool SetValueSilent(object newValue, long updatedTime);
+
         public abstract object GetValue();
 
         public abstract Task Sync();
