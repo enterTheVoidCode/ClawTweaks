@@ -88,7 +88,7 @@ namespace Shared.Data
             }
 
             var response = await sentMessage;
-            if (response != null)
+            if (response != null && response.Message != null)
             {
                 if (response.Message.TryGetValue(nameof(Content), out object responseValue))
                 {
@@ -113,6 +113,10 @@ namespace Shared.Data
                 {
                     Logger.Warn($"Got empty response when trying to sync property {function}.");
                 }
+            }
+            else if (response != null && response.Message == null)
+            {
+                Logger.Warn($"Got null Message when trying to sync property {function}.");
             }
             else
             {

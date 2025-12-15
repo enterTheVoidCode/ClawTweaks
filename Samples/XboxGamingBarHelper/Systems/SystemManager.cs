@@ -10,11 +10,15 @@ using XboxGamingBarHelper.Core;
 using Windows.ApplicationModel.AppService;
 using System.Collections.Generic;
 using Shared.Utilities;
+using Microsoft.Win32;
 
 namespace XboxGamingBarHelper.Systems
 {
+    public delegate void ResumeFromSleepEventHandler(object sender);
+
     internal class SystemManager : Manager
     {
+        public event ResumeFromSleepEventHandler ResumeFromSleep;
         private static readonly string[] IgnoredProcesses =
         {
             "rustdesk.exe",
@@ -177,6 +181,26 @@ namespace XboxGamingBarHelper.Systems
             cpuCoreActiveConfig = new CPUCoreActiveConfigProperty(this);
             coreParkingPercent = new CoreParkingPercentProperty(this);
             forceParkMode = new ForceParkModeProperty(this);
+
+            // Subscribe to system power events for sleep/wake detection
+            SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
+        }
+
+        private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
+        {
+            switch (e.Mode)
+            {
+                case PowerModes.Resume:
+                    Logger.Info($"System resumed from sleep/hibernate at: {DateTime.Now}");
+                    ResumeFromSleep?.Invoke(this);
+                    break;
+                case PowerModes.Suspend:
+                    Logger.Info($"System is going to sleep/hibernate at: {DateTime.Now}");
+                    break;
+                case PowerModes.StatusChange:
+                    Logger.Debug($"Power mode status change detected: {DateTime.Now}");
+                    break;
+            }
         }
 
         private RunningGame GetRunningGame()

@@ -167,13 +167,13 @@ namespace Shared.Data
         {
             if (updatedTime < lastUpdatedTime)
             {
-                Logger.Warn($"Skip value {newValue} of {Function} because it is older than current value {updatedTime} vs {lastUpdatedTime}.");
+                Logger.Debug($"Skip value {newValue} of {Function} because it is older than current value {updatedTime} vs {lastUpdatedTime}.");
                 return false;
             }
 
             if (EqualityComparer<ValueType>.Default.Equals(value, newValue))
             {
-                Logger.Warn($"Skip value {newValue} of {Function} because it equals to current value.");
+                Logger.Debug($"Skip value {newValue} of {Function} because it equals to current value.");
                 lastUpdatedTime = updatedTime;
                 return true;
             }
@@ -203,8 +203,7 @@ namespace Shared.Data
 
                 if (identical)
                 {
-
-                    Logger.Warn($"Skip value list of {Function} because it equals to current value.");
+                    Logger.Debug($"Skip value list of {Function} because it equals to current value.");
                     lastUpdatedTime = updatedTime;
                     return true;
                 }
@@ -235,7 +234,7 @@ namespace Shared.Data
 
                 if (identical)
                 {
-                    Logger.Warn($"Skip value string list of {Function} because it equals to current value.");
+                    Logger.Debug($"Skip value string list of {Function} because it equals to current value.");
                     lastUpdatedTime = updatedTime;
                     return true;
                 }
