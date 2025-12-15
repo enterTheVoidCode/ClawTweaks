@@ -46,14 +46,26 @@ namespace XboxGamingBarHelper.Profile
             }
         }
 
-        public int CPUClock
+        public int MaxCPUState
         {
-            get { return value.CPUClock; }
+            get { return value.MaxCPUState; }
             set
             {
-                if (this.Value.CPUClock != value)
+                if (this.value.MaxCPUState != value)
                 {
-                    this.value.CPUClock = value;
+                    this.value.MaxCPUState = value;
+                }
+            }
+        }
+
+        public int MinCPUState
+        {
+            get { return value.MinCPUState; }
+            set
+            {
+                if (this.value.MinCPUState != value)
+                {
+                    this.value.MinCPUState = value;
                 }
             }
         }

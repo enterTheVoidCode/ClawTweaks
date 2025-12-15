@@ -687,41 +687,31 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Limit CPU Clock Card -->
+                        <!-- CPU State Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <Grid>
+                                <TextBlock Text="CPU State" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Processor performance limits" Style="{StaticResource CardCaptionStyle}"/>
+                                <Grid Margin="0,12,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Limit CPU Clock" Style="{StaticResource CardTitleStyle}"/>
+                                    <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                        <TextBlock Text="Min %" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="MinCPUStateComboBox"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  SelectionChanged="MinCPUStateComboBox_SelectionChanged"
+                                                  IsEnabled="False"/>
                                     </StackPanel>
-                                    <TextBlock x:Name="LimitCPUClockValue"
-                                               Grid.Column="1"
-                                               Text=""
-                                               FontSize="14"
-                                               Foreground="#4CAF50"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center"
-                                               Margin="0,0,12,0"
-                                               Visibility="{Binding ElementName=LimitCPUClockToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                    <ToggleSwitch x:Name="LimitCPUClockToggle"
-                                                  Grid.Column="2"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False" Width="52"/>
+                                    <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                        <TextBlock Text="Max %" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="MaxCPUStateComboBox"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  SelectionChanged="MaxCPUStateComboBox_SelectionChanged"
+                                                  IsEnabled="False"/>
+                                    </StackPanel>
                                 </Grid>
-                                <Slider x:Name="CPUClockMaxSlider"
-                                        Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="1400" Maximum="5500"
-                                        TickFrequency="100"
-                                        SnapsTo="Ticks"
-                                        TickPlacement="BottomRight"
-                                        Header="Max Frequency (MHz)"
-                                        IsEnabled="False"
-                                        Visibility="{Binding ElementName=LimitCPUClockToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                             </StackPanel>
                         </Border>
 
@@ -856,8 +846,8 @@
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveLimitCPUClockCheckBox"
-                                              Content="Limit CPU Clock"
+                                    <CheckBox x:Name="ProfileSaveCPUStateCheckBox"
+                                              Content="CPU State"
                                               IsChecked="True"
                                               Foreground="#FFFFFF"
                                               Margin="0,4,0,0"
@@ -958,8 +948,8 @@
                                     <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GlobalProfileCPUEPPLabel" Text="CPU EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GlobalProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                    <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GlobalProfileCPUClockLabel" Text="CPU Clock" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GlobalProfileCPUClockText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GlobalProfileCPUStateLabel" Text="CPU State" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GlobalProfileCPUStateText" Text="5-100%" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
                                     <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GlobalProfileFPSLimitLabel" Text="FPS Limit" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GlobalProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
@@ -1020,9 +1010,9 @@
                                     <TextBlock Grid.Row="4" Grid.Column="2" x:Name="DCProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                     <!-- CPU Clock Row -->
-                                    <TextBlock Grid.Row="5" Grid.Column="0" x:Name="ACDCProfileCPUClockLabel" Text="CPU Clk" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="ACProfileCPUClockText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="2" x:Name="DCProfileCPUClockText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="0" x:Name="ACDCProfileCPUStateLabel" Text="CPU St" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="ACProfileCPUStateText" Text="5-100%" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="2" x:Name="DCProfileCPUStateText" Text="5-100%" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                     <!-- FPS Limit Row -->
                                     <TextBlock Grid.Row="6" Grid.Column="0" x:Name="ACDCProfileFPSLimitLabel" Text="FPS Lim" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
@@ -1102,9 +1092,9 @@
                                         <TextBlock Grid.Row="4" Grid.Column="2" x:Name="GameDCProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                         <!-- CPU Clock Row -->
-                                        <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GameACDCProfileCPUClockLabel" Text="CPU Clk" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GameACProfileCPUClockText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="5" Grid.Column="2" x:Name="GameDCProfileCPUClockText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GameACDCProfileCPUStateLabel" Text="CPU St" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GameACProfileCPUStateText" Text="5-100%" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="2" x:Name="GameDCProfileCPUStateText" Text="5-100%" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
                                         <!-- FPS Limit Row -->
                                         <TextBlock Grid.Row="6" Grid.Column="0" x:Name="GameACDCProfileFPSLimitLabel" Text="FPS Lim" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
@@ -1165,8 +1155,8 @@
                                         <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GameProfileCPUEPPLabel" Text="CPU EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GameProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GameProfileCPUClockLabel" Text="CPU Clock" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GameProfileCPUClockText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GameProfileCPUStateLabel" Text="CPU State" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GameProfileCPUStateText" Text="5-100%" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
                                         <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GameProfileFPSLimitLabel" Text="FPS Limit" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GameProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>

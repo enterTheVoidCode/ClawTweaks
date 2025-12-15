@@ -16,5 +16,11 @@ namespace XboxGamingBarHelper.Windows
         // Processor frequency limits
         public static readonly Guid GUID_PROCESSOR_FREQUENCY_LIMIT = new Guid("75b0ae3f-bce0-45a7-8c89-c9611c25e100"); // PROCFREQMAX
         public static readonly Guid GUID_PROCESSOR_FREQUENCY_LIMIT1 = new Guid("75b0ae3f-bce0-45a7-8c89-c9611c25e101"); // PROCFREQMAX1
+
+        // Processor state limits (percentage)
+        public static readonly Guid GUID_PROCESSOR_THROTTLE_MAX = new Guid("bc5038f7-23e0-4960-96da-33abaf5935ec"); // Maximum processor state %
+        public static readonly Guid GUID_PROCESSOR_THROTTLE_MIN = new Guid("893dee8e-2bef-41e0-89c6-b55d0929964c"); // Minimum processor state %
+        public static readonly Guid GUID_PROCESSOR_THROTTLE_MAX1 = new Guid("bc5038f7-23e0-4960-96da-33abaf5935ed"); // Maximum processor state % for Processor Power Efficiency Class 1
+        public static readonly Guid GUID_PROCESSOR_THROTTLE_MIN1 = new Guid("893dee8e-2bef-41e0-89c6-b55d0929964d"); // Minimum processor state % for Processor Power Efficiency Class 1
     }
 }
