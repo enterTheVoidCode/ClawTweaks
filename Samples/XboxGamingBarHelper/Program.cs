@@ -1,5 +1,4 @@
-﻿using Microsoft.Win32;
-using NLog;
+﻿using NLog;
 using Shared.Constants;
 using Shared.Data;
 using System;
@@ -68,16 +67,70 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
-        /// Open connection to UWP app service
+        /// Initialize the app service connection
         /// </summary>
-        private static async Task Initialize()
+        private static void InitializeConnection()
         {
-            // Initialize app service connection.
+            Logger.Info("Initialize connection...");
             connection = new AppServiceConnection();
             connection.AppServiceName = "XboxGamingBarService";
             connection.PackageFamilyName = Package.Current.Id.FamilyName;
             connection.RequestReceived += Connection_RequestReceived;
             connection.ServiceClosed += Connection_ServiceClosed;
+        }
+
+        /// <summary>
+        /// Connect to the widget with optional blocking retry
+        /// </summary>
+        private static async Task ConnectToWidget(bool blocking)
+        {
+            if (blocking)
+            {
+                do
+                {
+                    Logger.Info("Start connecting to the widget.");
+                    try
+                    {
+                        appServiceConnectionStatus = await connection.OpenAsync();
+                    }
+                    catch (Exception exception)
+                    {
+                        Logger.Error($"Exception occurred when connecting to the widget: {exception}");
+                        appServiceConnectionStatus = AppServiceConnectionStatus.AppServiceUnavailable;
+                    }
+
+                    if (appServiceConnectionStatus != AppServiceConnectionStatus.Success)
+                    {
+                        Logger.Info("Can't connect to the widget. Try again in 1 second...");
+                        await Task.Delay(1000);
+                    }
+                } while (appServiceConnectionStatus != AppServiceConnectionStatus.Success);
+                Logger.Info("Connected to the widget.");
+            }
+            else
+            {
+                Logger.Info("Start trying to connect to the widget.");
+                try
+                {
+                    appServiceConnectionStatus = await connection.OpenAsync();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error(ex, "Exception occurred when trying to connect to the widget.");
+                    appServiceConnectionStatus = AppServiceConnectionStatus.AppServiceUnavailable;
+                }
+
+                Logger.Info($"Try to connect to the widget: {appServiceConnectionStatus}.");
+            }
+        }
+
+        /// <summary>
+        /// Open connection to UWP app service
+        /// </summary>
+        private static async Task Initialize()
+        {
+            // Initialize app service connection.
+            InitializeConnection();
 
             //while (!System.Diagnostics.Debugger.IsAttached)
             //{
@@ -244,6 +297,7 @@ namespace XboxGamingBarHelper
 
             Logger.Info("Initialize callbacks.");
             systemManager.RunningGame.PropertyChanged += RunningGame_PropertyChanged;
+            systemManager.ResumeFromSleep += SystemManager_ResumeFromSleep;
             profileManager.PerGameProfile.PropertyChanged += PerGameProfile_PropertyChanged;
             performanceManager.TDP.PropertyChanged += TDP_PropertyChanged;
             powerManager.CPUBoost.PropertyChanged += CPUBoost_PropertyChanged;
@@ -256,34 +310,27 @@ namespace XboxGamingBarHelper
             //powerManager.GPUClockMax.PropertyChanged += GPUClock_PropertyChanged;
             profileManager.CurrentProfile.PropertyChanged += CurrentProfile_PropertyChanged;
 
-            // Subscribe to system power events for sleep/wake detection
-            SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
+            // Initial blocking connection to widget
+            await ConnectToWidget(true);
 
-            Logger.Info("Start connecting to the widget.");
-            appServiceConnectionStatus = await connection.OpenAsync();
-            if (appServiceConnectionStatus != AppServiceConnectionStatus.Success)
-            {
-                Logger.Info("Can't conncect to the widget.");
-                return;
-            }
+            Logger.Info($"Widget connection status: {appServiceConnectionStatus}");
 
-            Logger.Info("Can't conncect to the widget.");
-            while (appServiceConnectionStatus == AppServiceConnectionStatus.Success)
+            // Infinite loop - helper runs forever and auto-reconnects if needed
+            while (true)
             {
+                if (appServiceConnectionStatus != AppServiceConnectionStatus.Success)
+                {
+                    Logger.Info("Try to reconnect to the widget.");
+                    await ConnectToWidget(false);
+                }
+
                 await Task.Delay(500);
 
-                // Create a copy of the list to avoid "collection was modified" exception
-                // if DisposeManagers() is called while we're iterating
-                var managersCopy = Managers?.ToList();
-                if (managersCopy != null)
+                foreach (var manager in Managers)
                 {
-                    foreach (var manager in managersCopy)
-                    {
-                        manager?.Update();
-                    }
+                    manager.Update();
                 }
             }
-            Logger.Info("Helper close...");
         }
 
         private static void CPUState_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -291,6 +338,13 @@ namespace XboxGamingBarHelper
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s CPU State to Max={powerManager.MaxCPUState.Value}%, Min={powerManager.MinCPUState.Value}%.");
             profileManager.CurrentProfile.MaxCPUState = powerManager.MaxCPUState.Value;
             profileManager.CurrentProfile.MinCPUState = powerManager.MinCPUState.Value;
+        }
+
+        private static void SystemManager_ResumeFromSleep(object sender)
+        {
+            Logger.Info("System resumed from sleep, re-apply current profile settings.");
+            // Re-apply current profile settings (TDP, CPU boost, EPP, CPU state)
+            CurrentProfile_PropertyChanged(sender, null);
         }
 
         // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
@@ -500,9 +554,27 @@ namespace XboxGamingBarHelper
         /// </summary>
         private static void Connection_ServiceClosed(AppServiceConnection sender, AppServiceClosedEventArgs args)
         {
-            Logger.Info("Lost connection to the app.");
-            DisposeManagers();
+            Logger.Info("Lost connection to the widget.");
             appServiceConnectionStatus = AppServiceConnectionStatus.AppServiceUnavailable;
+
+            Logger.Info("Prepare to re-connect to the widget.");
+            try
+            {
+                connection?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception occurred when disposing the connection: {ex}");
+            }
+
+            // Recreate connection
+            InitializeConnection();
+
+            // Update all manager connection references
+            foreach (var manager in Managers)
+            {
+                manager.Connection = connection;
+            }
         }
 
         /// <summary>
@@ -655,24 +727,6 @@ namespace XboxGamingBarHelper
             legionManager = null;
 
             Logger.Info("All managers disposed.");
-        }
-
-        /// <summary>
-        /// Handles system power mode changes (sleep/wake)
-        /// </summary>
-        private static void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
-        {
-            Logger.Info($"Power mode changed: {e.Mode}");
-            if (e.Mode == PowerModes.Resume)
-            {
-                Logger.Info("System resumed from sleep/hibernate, reinitializing RyzenAdj...");
-                // Request RyzenAdj reinit on next TDP update by triggering a read
-                if (performanceManager != null)
-                {
-                    // The existing retry/reinit logic in UpdateCurrentTDP will handle this
-                    Logger.Info("RyzenAdj will reinitialize on next TDP read if needed.");
-                }
-            }
         }
     }
 }

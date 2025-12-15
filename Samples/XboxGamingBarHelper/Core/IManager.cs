@@ -5,7 +5,7 @@ namespace XboxGamingBarHelper.Core
 {
     internal interface IManager : IDisposable
     {
-        AppServiceConnection Connection { get; }
+        AppServiceConnection Connection { get; set; }
 
         void Update();
     }
