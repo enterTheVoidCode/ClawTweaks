@@ -27,6 +27,12 @@ namespace XboxGamingBarHelper.AutoTDP
         private readonly AutoTDPCurrentFPSProperty currentFPS;
         public AutoTDPCurrentFPSProperty CurrentFPS => currentFPS;
 
+        private readonly AutoTDPMinTDPProperty minTDPProperty;
+        public AutoTDPMinTDPProperty MinTDP => minTDPProperty;
+
+        private readonly AutoTDPMaxTDPProperty maxTDPProperty;
+        public AutoTDPMaxTDPProperty MaxTDP => maxTDPProperty;
+
         private readonly TDPLimitsProperty tdpLimits;
         public TDPLimitsProperty TDPLimits => tdpLimits;
 
@@ -100,12 +106,18 @@ namespace XboxGamingBarHelper.AutoTDP
             enabled = new AutoTDPEnabledProperty(false, this);
             targetFPS = new AutoTDPTargetFPSProperty(60, this);
             currentFPS = new AutoTDPCurrentFPSProperty(0, this);
+            minTDPProperty = new AutoTDPMinTDPProperty(8, this);  // Default 8W
+            maxTDPProperty = new AutoTDPMaxTDPProperty(30, this); // Default 30W
             tdpLimits = new TDPLimitsProperty(this);
+
+            // Initialize limits from properties
+            minTDP = minTDPProperty.Value;
+            maxTDP = maxTDPProperty.Value;
 
             Logger.Info("AutoTDPManager initialized with conservative tuning");
         }
 
-        public void SetTDPLimits(int min, int max)
+        public void UpdateTDPLimits(int min, int max)
         {
             if (min < 4) min = 4;
             if (max > 85) max = 85;
@@ -647,6 +659,38 @@ namespace XboxGamingBarHelper.AutoTDP
     {
         public AutoTDPCurrentFPSProperty(int inValue, AutoTDPManager inManager) : base(inValue, null, Function.AutoTDPCurrentFPS, inManager)
         {
+        }
+    }
+
+    internal class AutoTDPMinTDPProperty : HelperProperty<int, AutoTDPManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public AutoTDPMinTDPProperty(int inValue, AutoTDPManager inManager) : base(inValue, null, Function.AutoTDPMinTDP, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"AutoTDP min TDP: {Value}W");
+            Manager.UpdateTDPLimits(Value, Manager.MaxTDP.Value);
+        }
+    }
+
+    internal class AutoTDPMaxTDPProperty : HelperProperty<int, AutoTDPManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public AutoTDPMaxTDPProperty(int inValue, AutoTDPManager inManager) : base(inValue, null, Function.AutoTDPMaxTDP, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"AutoTDP max TDP: {Value}W");
+            Manager.UpdateTDPLimits(Manager.MinTDP.Value, Value);
         }
     }
 }
