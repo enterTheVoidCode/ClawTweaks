@@ -295,13 +295,17 @@ namespace XboxGamingBarHelper
                 autoTDPManager.MinTDP,
                 autoTDPManager.MaxTDP,
                 autoTDPManager.TDPLimits,
-                systemManager.ForceParkMode);
+                systemManager.ForceParkMode,
+                performanceManager.TDPBoostEnabled,
+                performanceManager.TDPBoostSPPT,
+                performanceManager.TDPBoostFPPT);
 
             Logger.Info("Initialize callbacks.");
             systemManager.RunningGame.PropertyChanged += RunningGame_PropertyChanged;
             systemManager.ResumeFromSleep += SystemManager_ResumeFromSleep;
             profileManager.PerGameProfile.PropertyChanged += PerGameProfile_PropertyChanged;
             performanceManager.TDP.PropertyChanged += TDP_PropertyChanged;
+            performanceManager.TDPBoostEnabled.PropertyChanged += TDPBoostEnabled_PropertyChanged;
             powerManager.CPUBoost.PropertyChanged += CPUBoost_PropertyChanged;
             powerManager.CPUEPP.PropertyChanged += CPUEPP_PropertyChanged;
             powerManager.MaxCPUState.PropertyChanged += CPUState_PropertyChanged;
@@ -385,6 +389,7 @@ namespace XboxGamingBarHelper
                     isApplyingProfile = true;
                     Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name}, apply it.");
                     performanceManager.TDP.SetValue(profileManager.CurrentProfile.TDP);
+                    performanceManager.TDPBoostEnabled.SetValue(profileManager.CurrentProfile.TDPBoostEnabled);
                     powerManager.CPUBoost.SetValue(profileManager.CurrentProfile.CPUBoost);
                     powerManager.CPUEPP.SetValue(profileManager.CurrentProfile.CPUEPP);
                     powerManager.MaxCPUState.SetValue(profileManager.CurrentProfile.MaxCPUState);
@@ -444,6 +449,12 @@ namespace XboxGamingBarHelper
         {
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s TDP from {profileManager.CurrentProfile.TDP} to {performanceManager.TDP}.");
             profileManager.CurrentProfile.TDP = performanceManager.TDP;
+        }
+
+        private static void TDPBoostEnabled_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s TDPBoostEnabled from {profileManager.CurrentProfile.TDPBoostEnabled} to {performanceManager.TDPBoostEnabled.Value}.");
+            profileManager.CurrentProfile.TDPBoostEnabled = performanceManager.TDPBoostEnabled.Value;
         }
 
         private static void RunningGame_PropertyChanged(object sender, PropertyChangedEventArgs e)

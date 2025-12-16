@@ -67,6 +67,8 @@ namespace XboxGamingBar
         public int OSPowerMode { get; set; } = 1;
         // Legion Performance Mode (1=Quiet, 2=Balanced, 3=Performance, 255=Custom)
         public int LegionPerformanceMode { get; set; } = 2;
+        // TDP Boost toggle state (per-profile)
+        public bool TDPBoostEnabled { get; set; } = false;
 
         public PerformanceProfile Clone()
         {
@@ -95,7 +97,8 @@ namespace XboxGamingBar
                 AutoTDPMinTDP = this.AutoTDPMinTDP,
                 AutoTDPMaxTDP = this.AutoTDPMaxTDP,
                 OSPowerMode = this.OSPowerMode,
-                LegionPerformanceMode = this.LegionPerformanceMode
+                LegionPerformanceMode = this.LegionPerformanceMode,
+                TDPBoostEnabled = this.TDPBoostEnabled
             };
         }
     }
@@ -256,6 +259,13 @@ namespace XboxGamingBar
         private readonly CPUCoreActiveConfigProperty cpuCoreActiveConfig;
         private readonly CoreParkingPercentProperty coreParkingPercent;
         private readonly ForceParkModeProperty forceParkMode;
+
+        // TDP Boost properties
+        private readonly TDPBoostEnabledProperty tdpBoostEnabled;
+        private readonly TDPBoostSPPTProperty tdpBoostSPPT;
+        private readonly TDPBoostFPPTProperty tdpBoostFPPT;
+        private bool isTDPBoostExpanded = false;
+        private bool isLoadingTDPBoostSettings = false;
 
         // OS Power Mode
         private readonly OSPowerModeProperty osPowerMode;
@@ -484,6 +494,11 @@ namespace XboxGamingBar
             coreParkingPercent = new CoreParkingPercentProperty(100); // 100% = all cores active
             forceParkMode = new ForceParkModeProperty(false);
 
+            // TDP Boost properties (defaults: enabled=false, SPPT=1W, FPPT=3W)
+            tdpBoostEnabled = new TDPBoostEnabledProperty(false);
+            tdpBoostSPPT = new TDPBoostSPPTProperty(1);
+            tdpBoostFPPT = new TDPBoostFPPTProperty(3);
+
             // OS Power Mode property
             osPowerMode = new OSPowerModeProperty();
 
@@ -597,7 +612,10 @@ namespace XboxGamingBar
                 cpuCoreConfig,
                 cpuCoreActiveConfig,
                 coreParkingPercent,
-                forceParkMode
+                forceParkMode,
+                tdpBoostEnabled,
+                tdpBoostSPPT,
+                tdpBoostFPPT
             );
 
             // Register card focus handlers for all interactive controls
@@ -1000,6 +1018,13 @@ namespace XboxGamingBar
             LoadAutoTDPSettings();
             if (autoTDPCurrentFPS != null)
                 autoTDPCurrentFPS.PropertyChanged += AutoTDPCurrentFPS_PropertyChanged;
+
+            // Load TDP Boost settings (SPPT/FPPT from LocalSettings)
+            LoadTDPBoostSettings();
+
+            // Subscribe to TDP Boost property changes from helper (profile sync)
+            if (tdpBoostEnabled != null)
+                tdpBoostEnabled.PropertyChanged += TDPBoostEnabled_PropertyChanged;
 
             // Subscribe to property changes that affect Quick Settings tiles
             SubscribeToQuickSettingsPropertyChanges();
@@ -2348,6 +2373,189 @@ namespace XboxGamingBar
                 TDPLimitsExpandIcon.Text = isTDPLimitsExpanded ? "\uE70E" : "\uE70D";
             }
         }
+
+        #region TDP Boost Handlers
+
+        private void TDPBoostExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isTDPBoostExpanded = !isTDPBoostExpanded;
+
+            if (TDPBoostContent != null)
+            {
+                TDPBoostContent.Visibility = isTDPBoostExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (TDPBoostExpandIcon != null)
+            {
+                TDPBoostExpandIcon.Text = isTDPBoostExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void TDPBoostToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (TDPBoostToggle == null) return;
+            if (isApplyingHelperUpdate) return;
+
+            Logger.Info($"TDP Boost toggled to: {TDPBoostToggle.IsOn}");
+
+            // Send to helper
+            tdpBoostEnabled?.SetValue(TDPBoostToggle.IsOn);
+
+            // When enabling boost, also send current SPPT/FPPT values to ensure helper has them
+            if (TDPBoostToggle.IsOn)
+            {
+                int spptBoost = (int)(TDPBoostSPPTSlider?.Value ?? 1);
+                int fpptBoost = (int)(TDPBoostFPPTSlider?.Value ?? 3);
+                tdpBoostSPPT?.SetValue(spptBoost);
+                tdpBoostFPPT?.SetValue(fpptBoost);
+                Logger.Info($"TDP Boost enabled - sent SPPT={spptBoost}W, FPPT={fpptBoost}W to helper");
+            }
+
+            // Save to profile if not loading
+            if (!isLoadingProfile && !isSwitchingProfile)
+            {
+                SaveCurrentSettingsToProfile(currentProfileName);
+            }
+        }
+
+        private void TDPBoostSPPTSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (isLoadingTDPBoostSettings) return;
+            if (TDPBoostSPPTSlider == null) return;
+
+            int spptBoost = (int)Math.Round(e.NewValue);
+            Logger.Info($"TDP Boost SPPT changed to: {spptBoost}W");
+
+            if (TDPBoostSPPTValue != null)
+            {
+                TDPBoostSPPTValue.Text = $"{spptBoost}W";
+            }
+
+            // Send to helper
+            tdpBoostSPPT?.SetValue(spptBoost);
+
+            // Save to local settings
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["TDPBoostSPPT"] = spptBoost;
+        }
+
+        private void TDPBoostFPPTSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (isLoadingTDPBoostSettings) return;
+            if (TDPBoostFPPTSlider == null) return;
+
+            int fpptBoost = (int)Math.Round(e.NewValue);
+            Logger.Info($"TDP Boost FPPT changed to: {fpptBoost}W");
+
+            if (TDPBoostFPPTValue != null)
+            {
+                TDPBoostFPPTValue.Text = $"{fpptBoost}W";
+            }
+
+            // Send to helper
+            tdpBoostFPPT?.SetValue(fpptBoost);
+
+            // Save to local settings
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["TDPBoostFPPT"] = fpptBoost;
+        }
+
+        private void LoadTDPBoostSettings()
+        {
+            isLoadingTDPBoostSettings = true;
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                // Load SPPT boost (default 1W)
+                int spptBoost = 1; // Default
+                if (settings.Values.TryGetValue("TDPBoostSPPT", out object spptObj) && spptObj != null)
+                {
+                    try
+                    {
+                        spptBoost = Convert.ToInt32(spptObj);
+                    }
+                    catch
+                    {
+                        spptBoost = 1;
+                    }
+                }
+                if (TDPBoostSPPTSlider != null)
+                {
+                    TDPBoostSPPTSlider.Value = spptBoost;
+                }
+                if (TDPBoostSPPTValue != null)
+                {
+                    TDPBoostSPPTValue.Text = $"{spptBoost}W";
+                }
+                tdpBoostSPPT?.SetValue(spptBoost);
+                // Ensure value is saved (in case it was missing or converted)
+                settings.Values["TDPBoostSPPT"] = spptBoost;
+
+                // Load FPPT boost (default 3W)
+                int fpptBoost = 3; // Default
+                if (settings.Values.TryGetValue("TDPBoostFPPT", out object fpptObj) && fpptObj != null)
+                {
+                    try
+                    {
+                        fpptBoost = Convert.ToInt32(fpptObj);
+                    }
+                    catch
+                    {
+                        fpptBoost = 3;
+                    }
+                }
+                if (TDPBoostFPPTSlider != null)
+                {
+                    TDPBoostFPPTSlider.Value = fpptBoost;
+                }
+                if (TDPBoostFPPTValue != null)
+                {
+                    TDPBoostFPPTValue.Text = $"{fpptBoost}W";
+                }
+                tdpBoostFPPT?.SetValue(fpptBoost);
+                // Ensure value is saved (in case it was missing or converted)
+                settings.Values["TDPBoostFPPT"] = fpptBoost;
+
+                Logger.Info($"TDP Boost settings loaded - SPPT: {spptBoost}W, FPPT: {fpptBoost}W");
+            }
+            finally
+            {
+                isLoadingTDPBoostSettings = false;
+            }
+        }
+
+        private void TDPBoostEnabled_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            // Update UI when helper sends TDPBoostEnabled changes (profile sync)
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                if (TDPBoostToggle == null || tdpBoostEnabled == null) return;
+
+                isApplyingHelperUpdate = true;
+                try
+                {
+                    TDPBoostToggle.IsOn = tdpBoostEnabled.Value;
+                    Logger.Info($"TDP Boost toggle updated from helper: {tdpBoostEnabled.Value}");
+
+                    // When boost is enabled from profile, send current SPPT/FPPT values to helper
+                    if (tdpBoostEnabled.Value)
+                    {
+                        int spptBoost = (int)(TDPBoostSPPTSlider?.Value ?? 1);
+                        int fpptBoost = (int)(TDPBoostFPPTSlider?.Value ?? 3);
+                        tdpBoostSPPT?.SetValue(spptBoost);
+                        tdpBoostFPPT?.SetValue(fpptBoost);
+                        Logger.Info($"TDP Boost enabled from profile - sent SPPT={spptBoost}W, FPPT={fpptBoost}W to helper");
+                    }
+                }
+                finally
+                {
+                    isApplyingHelperUpdate = false;
+                }
+            });
+        }
+
+        #endregion
 
         private void PowerPlanExpandButton_Click(object sender, RoutedEventArgs e)
         {
@@ -3886,6 +4094,11 @@ namespace XboxGamingBar
             {
                 profile.OSPowerMode = OSPowerModeComboBox.SelectedIndex;
             }
+            // TDP Boost is always saved with TDP (they go together)
+            if (SaveTDP && TDPBoostToggle != null)
+            {
+                profile.TDPBoostEnabled = TDPBoostToggle.IsOn;
+            }
 
             // Persist to storage
             Logger.Info($"Saving profile {profileName}: TDP={profile.TDP}W");
@@ -3920,6 +4133,13 @@ namespace XboxGamingBar
                     {
                         targetTDPLimit = profile.TDP;
                         Logger.Info($"Sticky TDP target updated to: {targetTDPLimit}W (profile load)");
+                    }
+                    // Load TDP Boost toggle state from profile
+                    if (TDPBoostToggle != null)
+                    {
+                        TDPBoostToggle.IsOn = profile.TDPBoostEnabled;
+                        tdpBoostEnabled?.SetValue(profile.TDPBoostEnabled);
+                        Logger.Info($"TDP Boost loaded from profile: {profile.TDPBoostEnabled}");
                     }
                 }
                 if (SaveCPUBoost)

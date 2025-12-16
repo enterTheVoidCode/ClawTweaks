@@ -132,6 +132,25 @@ namespace XboxGamingBarHelper.Performance
             get { return currentTdp; }
         }
 
+        // TDP Boost properties
+        private TDPBoostEnabledProperty tdpBoostEnabled;
+        public TDPBoostEnabledProperty TDPBoostEnabled
+        {
+            get { return tdpBoostEnabled; }
+        }
+
+        private TDPBoostSPPTProperty tdpBoostSPPT;
+        public TDPBoostSPPTProperty TDPBoostSPPT
+        {
+            get { return tdpBoostSPPT; }
+        }
+
+        private TDPBoostFPPTProperty tdpBoostFPPT;
+        public TDPBoostFPPTProperty TDPBoostFPPT
+        {
+            get { return tdpBoostFPPT; }
+        }
+
         private System.Timers.Timer currentTdpTimer;
         private string lastTdpString = "";
         private int consecutiveReadFailures = 0;
@@ -288,6 +307,12 @@ namespace XboxGamingBarHelper.Performance
             currentTdp = new CurrentTDPProperty(initialCurrentTDP, null, this);
             lastTdpString = initialCurrentTDP;
 
+            // Initialize TDP Boost properties (defaults: enabled=false, SPPT=1W, FPPT=3W)
+            tdpBoostEnabled = new TDPBoostEnabledProperty(false, this);
+            tdpBoostSPPT = new TDPBoostSPPTProperty(1, this);
+            tdpBoostFPPT = new TDPBoostFPPTProperty(3, this);
+            Logger.Info("TDP Boost properties initialized (defaults: enabled=false, SPPT=1W, FPPT=3W)");
+
             // Set up timer to update current TDP every 3 seconds
             currentTdpTimer = new System.Timers.Timer(NormalTimerInterval);
             currentTdpTimer.Elapsed += UpdateCurrentTDP;
@@ -361,14 +386,30 @@ namespace XboxGamingBarHelper.Performance
             bool useManufacturerWMI = settingsManager?.UseManufacturerWMI?.Value ?? true;
             bool legionDetected = legionManager?.LegionGoDetected?.Value ?? false;
 
+            // Calculate actual TDP values based on TDP Boost settings
+            // When boost is enabled: SPPT = TDP + boost_sppt, FPPT = TDP + boost_fppt
+            // SPL/STAPM stays at base TDP value
+            int spl = tdp;
+            int sppt = tdp;
+            int fppt = tdp;
+
+            if (tdpBoostEnabled?.Value == true)
+            {
+                int spptBoost = tdpBoostSPPT?.Value ?? 1;
+                int fpptBoost = tdpBoostFPPT?.Value ?? 3;
+                sppt = tdp + spptBoost;
+                fppt = tdp + fpptBoost;
+                Logger.Info($"TDP Boost enabled: SPL={spl}W, SPPT={sppt}W (+{spptBoost}), FPPT={fppt}W (+{fpptBoost})");
+            }
+
             // Priority 1: Legion WMI (anti-cheat compatible, works on Legion Go/Go S)
             // Only use if the setting is enabled
             if (useManufacturerWMI && legionDetected && legionManager != null)
             {
                 // Note: SetCustomTDP will automatically switch to Custom mode (255) if needed
                 // The widget handles skipping TDP sync during preset modes via tdp.SkipSync flag
-                Logger.Info($"Using Legion WMI to set TDP to {tdp}W (SPL={tdp}, SPPL={tdp}, FPPT={tdp})");
-                legionManager.SetCustomTDP(tdp, tdp, tdp);
+                Logger.Info($"Using Legion WMI to set TDP (SPL={spl}W, SPPL={sppt}W, FPPT={fppt}W)");
+                legionManager.SetCustomTDP(spl, sppt, fppt);
                 return;
             }
 
@@ -376,10 +417,10 @@ namespace XboxGamingBarHelper.Performance
             // Note: Currently disabled - waiting for CPU support in RyzenSMU module
             // if (pawnIOAvailable && ryzenSmuService != null && ryzenSmuService.IsInitialized)
             // {
-            //     Logger.Info($"Using PawnIO/RyzenSMU to set TDP to {tdp}W");
-            //     if (ryzenSmuService.SetAllLimits(tdp, tdp, tdp))
+            //     Logger.Info($"Using PawnIO/RyzenSMU to set TDP (SPL={spl}W, SPPT={sppt}W, FPPT={fppt}W)");
+            //     if (ryzenSmuService.SetAllLimits(spl, sppt, fppt))
             //     {
-            //         Logger.Info($"PawnIO: TDP set to {tdp}W successfully");
+            //         Logger.Info($"PawnIO: TDP set successfully");
             //         return;
             //     }
             //     else
@@ -396,13 +437,13 @@ namespace XboxGamingBarHelper.Performance
                 return;
             }
 
-            Logger.Info($"Using RyzenAdj to set TDP to {tdp}W (WinRing0 loaded - may trigger anti-cheat)");
-            RyzenAdj.set_fast_limit(ryzenAdjHandle, (uint)(tdp * 1000));
-            RyzenAdj.set_slow_limit(ryzenAdjHandle, (uint)(tdp * 1000));
-            RyzenAdj.set_stapm_limit(ryzenAdjHandle, (uint)(tdp * 1000));
+            Logger.Info($"Using RyzenAdj to set TDP (STAPM={spl}W, SLOW={sppt}W, FAST={fppt}W) (WinRing0 loaded - may trigger anti-cheat)");
+            RyzenAdj.set_fast_limit(ryzenAdjHandle, (uint)(fppt * 1000));
+            RyzenAdj.set_slow_limit(ryzenAdjHandle, (uint)(sppt * 1000));
+            RyzenAdj.set_stapm_limit(ryzenAdjHandle, (uint)(spl * 1000));
 #if DEBUG
             RyzenAdj.refresh_table(ryzenAdjHandle);
-            Logger.Info($"Set TDP to {tdp}, current TDP is {RyzenAdj.get_fast_limit(ryzenAdjHandle)}");
+            Logger.Info($"Set TDP, current fast limit is {RyzenAdj.get_fast_limit(ryzenAdjHandle)}");
 #endif
         }
 

@@ -126,6 +126,21 @@ namespace Shared.Data
             }
         }
 
+        [XmlElement("TDPBoostEnabled")]
+        private bool tdpBoostEnabled;
+        public bool TDPBoostEnabled
+        {
+            get { return tdpBoostEnabled; }
+            set
+            {
+                if (tdpBoostEnabled != value)
+                {
+                    tdpBoostEnabled = value;
+                    Save();
+                }
+            }
+        }
+
         [XmlIgnore]
         public string Path;
 
@@ -140,7 +155,7 @@ namespace Shared.Data
             set { cache = value; }
         }
 
-        public GameProfile(string gameName, string gamePath, bool inUse, int inTDP, bool inCPUBoost, int inCPUEPP, int inMaxCPUState, int inMinCPUState, string inPath, IDictionary<GameId, GameProfile> inCache)
+        public GameProfile(string gameName, string gamePath, bool inUse, int inTDP, bool inCPUBoost, int inCPUEPP, int inMaxCPUState, int inMinCPUState, bool inTDPBoostEnabled, string inPath, IDictionary<GameId, GameProfile> inCache)
         {
             GameId = new GameId(gameName, gamePath);
             use = inUse;
@@ -149,6 +164,7 @@ namespace Shared.Data
             cpuEPP = inCPUEPP;
             maxCPUState = inMaxCPUState;
             minCPUState = inMinCPUState;
+            tdpBoostEnabled = inTDPBoostEnabled;
             Path = inPath;
             cache = inCache;
         }
