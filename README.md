@@ -98,43 +98,28 @@ The widget is designed for full gamepad/controller navigation:
 #### Option A: Use Install Script (Recommended)
 
 1. Download and extract the latest release package from [Releases](https://github.com/namquang93/XboxGamingBar/releases)
-2. **Close any apps that might be running** (Game Bar, previous versions of this widget)
-3. Right-click `Install.ps1` → **Run with PowerShell**
+2. Right-click `Install.ps1` → **Run with PowerShell**
+3. If prompted, click **Yes** to allow Administrator access
 
-This script automatically installs all required dependencies.
+The script automatically:
+- Closes any blocking processes (Game Bar, previous widget versions)
+- Uninstalls previous versions cleanly
+- Installs the signing certificate
+- Installs all required dependencies
+- Installs the widget
 
-#### Option B: Manual Install with Developer Mode
+**Silent install:** Run `.\Install.ps1 -Force` from an Admin PowerShell.
 
-1. **Enable Developer Mode** (one-time setup):
-   - Open **Settings** → **Privacy & security** → **For developers**
-   - Toggle **Developer Mode** to **On**
-
-2. **Install Dependencies** from the `Dependencies\x64` folder:
-   - `Microsoft.VCLibs.x64.Debug.14.00.appx`
-   - `Microsoft.VCLibs.x64.Debug.14.00.Desktop.appx`
-   - `Microsoft.NET.CoreRuntime.2.2.appx`
-   - `Microsoft.NET.CoreFramework.Debug.2.2.appx`
-   - `Microsoft.UI.Xaml.2.8.appx`
-
-3. **Install the App**: Double-click the `.msixbundle` file
-
-#### Option C: PowerShell Install
-
-```powershell
-# Run PowerShell as Administrator
-$folder = "path\to\XboxGamingBarPackage_x.x.xxx_Debug_Test"
-Get-ChildItem "$folder\Dependencies\x64\*.appx" | ForEach-Object { Add-AppxPackage $_.FullName }
-Add-AppxPackage "$folder\XboxGamingBarPackage_*.msixbundle"
-```
-
-#### Option D: Install Certificate (Without Developer Mode)
-
-If you prefer not to enable Developer Mode:
+#### Option B: Install Certificate (Manual Install)
 
 1. Right-click the `.cer` certificate file → **Install Certificate**
 2. Select **Local Machine** → **Place in: Trusted People**
-3. Install dependencies from `Dependencies\x64` folder
+3. Install dependencies from `Dependencies\x64` folder (double-click each `.appx` file)
 4. Double-click the `.msixbundle` to install
+
+### Updating
+
+To update to a new version, simply double-click the `.msixbundle` file and click **Update**.
 
 ### Step 2: Enable the Widget in Game Bar
 
