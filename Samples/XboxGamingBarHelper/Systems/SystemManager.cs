@@ -163,7 +163,7 @@ namespace XboxGamingBarHelper.Systems
             Logger.Info("Check supported refresh rates.");
             refreshRates = new RefreshRatesProperty(User32.GetSupportedRefreshRates(), this);
             Logger.Info("Check current refresh rate.");
-            refreshRate = new RefreshRateProperty(User32.GetCurrentRefreshRate(), this);
+            refreshRate = new RefreshRateProperty(User32.GetCurrentRefreshRateFromDisplayConfig(), this);
             Logger.Info("Check supported resolutions.");
             resolutions = new ResolutionsProperty(User32.GetSupportedResolutions(), this);
             Logger.Info("Check current resolution.");
@@ -184,6 +184,8 @@ namespace XboxGamingBarHelper.Systems
 
             // Subscribe to system power events for sleep/wake detection
             SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
+            // Subscribe to display change events for dock/undock detection
+            SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
         }
 
         private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
@@ -193,6 +195,8 @@ namespace XboxGamingBarHelper.Systems
                 case PowerModes.Resume:
                     Logger.Info($"System resumed from sleep/hibernate at: {DateTime.Now}");
                     ResumeFromSleep?.Invoke(this);
+                    // Refresh display settings in case display changed during sleep
+                    RefreshDisplaySettings();
                     break;
                 case PowerModes.Suspend:
                     Logger.Info($"System is going to sleep/hibernate at: {DateTime.Now}");
@@ -200,6 +204,70 @@ namespace XboxGamingBarHelper.Systems
                 case PowerModes.StatusChange:
                     Logger.Debug($"Power mode status change detected: {DateTime.Now}");
                     break;
+            }
+        }
+
+        private void SystemEvents_DisplaySettingsChanged(object sender, EventArgs e)
+        {
+            Logger.Info("Display settings changed (dock/undock detected)");
+            // Delay refresh to allow Windows to fully update display configuration
+            // Without delay, we may query stale values (e.g., 60Hz instead of 144Hz)
+            System.Threading.Tasks.Task.Delay(1000).ContinueWith(_ =>
+            {
+                Logger.Info("Executing delayed display refresh");
+                RefreshDisplaySettings();
+            });
+        }
+
+        /// <summary>
+        /// Re-queries and updates display resolutions, refresh rates, and HDR status.
+        /// Called when displays change (dock/undock) or on system wake.
+        /// </summary>
+        public void RefreshDisplaySettings()
+        {
+            try
+            {
+                // Refresh supported refresh rates
+                var newRefreshRates = User32.GetSupportedRefreshRates();
+                if (newRefreshRates != null && newRefreshRates.Count > 0)
+                {
+                    Logger.Info($"Refreshing refresh rates: {string.Join(", ", newRefreshRates)}Hz");
+                    refreshRates.SetValue(newRefreshRates);
+                }
+
+                // Refresh current refresh rate (use QueryDisplayConfig for accurate value)
+                var currentRate = User32.GetCurrentRefreshRateFromDisplayConfig();
+                if (currentRate > 0)
+                {
+                    Logger.Info($"Current refresh rate: {currentRate}Hz");
+                    refreshRate.SetValue(currentRate);
+                }
+
+                // Refresh supported resolutions
+                var newResolutions = User32.GetSupportedResolutions();
+                if (newResolutions != null && newResolutions.Count > 0)
+                {
+                    Logger.Info($"Refreshing resolutions: {string.Join(", ", newResolutions)}");
+                    resolutions.SetValue(newResolutions);
+                }
+
+                // Refresh current resolution
+                var currentRes = User32.GetCurrentResolution();
+                if (!string.IsNullOrEmpty(currentRes))
+                {
+                    Logger.Info($"Current resolution: {currentRes}");
+                    resolution.SetValue(currentRes);
+                }
+
+                // Refresh HDR status
+                var hdrStatus = User32.GetHDRStatus();
+                Logger.Info($"HDR status: Supported={hdrStatus.Supported}, Enabled={hdrStatus.Enabled}");
+                hdrSupported.SetValue(hdrStatus.Supported);
+                hdrEnabled.SetValue(hdrStatus.Enabled);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error refreshing display settings: {ex.Message}");
             }
         }
 

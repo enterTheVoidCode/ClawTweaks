@@ -8,8 +8,19 @@ namespace XboxGamingBar.Data
 {
     internal class ResolutionsProperty : WidgetControlProperty<List<string>, ComboBox>
     {
+        // Reference to the ResolutionProperty to restore selection after list updates
+        private ResolutionProperty resolutionProperty;
+
         public ResolutionsProperty(ComboBox inUI, Page inOwner) : base(new List<string>() { "1920x1080" }, Function.Resolutions, inUI, inOwner)
         {
+        }
+
+        /// <summary>
+        /// Sets the ResolutionProperty reference so we can restore selection after list updates.
+        /// </summary>
+        public void SetResolutionProperty(ResolutionProperty property)
+        {
+            resolutionProperty = property;
         }
 
         protected override async void NotifyPropertyChanged(string propertyName = "")
@@ -27,6 +38,22 @@ namespace XboxGamingBar.Data
                         foreach (var value in Value)
                         {
                             UI.Items.Add(value);
+                        }
+                    }
+
+                    // After updating items, restore the current resolution selection
+                    // This handles the case where the value doesn't change but items do (e.g., dock/undock)
+                    if (resolutionProperty != null)
+                    {
+                        var currentRes = resolutionProperty.Value;
+                        for (int i = 0; i < UI.Items.Count; i++)
+                        {
+                            if (UI.Items[i] is string res && res == currentRes)
+                            {
+                                Logger.Info($"Restoring {Function} selection to index {i} ({currentRes}) after list update.");
+                                UI.SelectedIndex = i;
+                                break;
+                            }
                         }
                     }
                 });

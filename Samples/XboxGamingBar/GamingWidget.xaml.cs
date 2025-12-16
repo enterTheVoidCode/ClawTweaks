@@ -401,8 +401,10 @@ namespace XboxGamingBar
             //gpuClockMax = new GPUClockMaxProperty(GPUClockMaxSlider, this);
             refreshRates = new RefreshRatesProperty(RefreshRatesComboBox, this);
             refreshRate = new RefreshRateProperty(RefreshRatesComboBox, this);
+            refreshRates.SetRefreshRateProperty(refreshRate); // Wire up for selection restoration on dock/undock
             resolutions = new ResolutionsProperty(ResolutionComboBox, this);
             resolution = new ResolutionProperty(ResolutionComboBox, this);
+            resolutions.SetResolutionProperty(resolution); // Wire up for selection restoration on dock/undock
             hdrSupported = new HDRSupportedProperty(HDRToggle, this);
             hdrEnabled = new HDREnabledProperty(HDRToggle, this);
             trackedGame = new TrackedGameProperty(new TrackedGame());
