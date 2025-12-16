@@ -45,7 +45,7 @@ namespace XboxGamingBarHelper.Profile
             if (!File.Exists(globalProfilePath))
             {
                 // Create global profile path when it's not previously exist.
-                GlobalProfile = new GameProfile(GameProfile.GLOBAL_PROFILE_NAME, GameProfile.GLOBAL_PROFILE_NAME, true, 25, true, 80, 100, 5, globalProfilePath, gameProfiles);
+                GlobalProfile = new GameProfile(GameProfile.GLOBAL_PROFILE_NAME, GameProfile.GLOBAL_PROFILE_NAME, true, 25, true, 80, 100, 5, false, globalProfilePath, gameProfiles);
                 GlobalProfile.Save();
             }
             else
@@ -109,7 +109,7 @@ namespace XboxGamingBarHelper.Profile
             }
 
             var newGameProfilePath = Path.Combine(GetGameProfilesFolder(), $"{Path.GetFileNameWithoutExtension(gameId.Path)}{XML_EXTENSION}");
-            var newGameProfile = new GameProfile(gameId.Name, gameId.Path, true, CurrentProfile.TDP, CurrentProfile.CPUBoost, CurrentProfile.CPUEPP, CurrentProfile.MaxCPUState, CurrentProfile.MinCPUState, newGameProfilePath, gameProfiles);
+            var newGameProfile = new GameProfile(gameId.Name, gameId.Path, true, CurrentProfile.TDP, CurrentProfile.CPUBoost, CurrentProfile.CPUEPP, CurrentProfile.MaxCPUState, CurrentProfile.MinCPUState, CurrentProfile.TDPBoostEnabled, newGameProfilePath, gameProfiles);
             newGameProfile.Save();
             Logger.Info($"Add new profile for {gameId.Name} at {newGameProfilePath}.");
             return newGameProfile;

@@ -528,7 +528,7 @@
                                         TickPlacement="BottomRight"
                                         IsEnabled="False" Value="-5"
                                         XYFocusUp="{x:Bind PerformanceOverlayComboBox}"
-                                        XYFocusDown="{x:Bind AutoTDPToggle}"/>
+                                        XYFocusDown="{x:Bind TDPBoostToggle}"/>
                                 <Grid Margin="0,4,0,0">
                                     <TextBlock x:Name="CurrentTDPText"
                                                Text="Limits:"
@@ -550,6 +550,37 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- TDP Boost Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="TDP Boost" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Apply boost values to SPPT and FPPT for burst performance"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="TDPBoostToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  Toggled="TDPBoostToggle_Toggled"
+                                                  XYFocusUp="{x:Bind TDPSlider}"
+                                                  XYFocusDown="{x:Bind AutoTDPToggle}"/>
+                                </Grid>
+                                <!-- TDP Boost Active Indicator -->
+                                <TextBlock Text="TDP Boost: Active"
+                                           FontSize="13"
+                                           Foreground="#4CAF50"
+                                           FontWeight="SemiBold"
+                                           Margin="0,4,0,0"
+                                           Visibility="{Binding ElementName=TDPBoostToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- AutoTDP Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -568,7 +599,7 @@
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   Toggled="AutoTDPToggle_Toggled"
-                                                  XYFocusUp="{x:Bind TDPSlider}"
+                                                  XYFocusUp="{x:Bind TDPBoostToggle}"
                                                   XYFocusDown="{x:Bind AutoTDPTargetFPSSlider}"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=AutoTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -1696,6 +1727,112 @@
                                             Value="35"
                                             ValueChanged="TDPLimitsMaxSlider_ValueChanged"
                                             XYFocusUp="{x:Bind TDPLimitsMinSlider}"
+                                            XYFocusDown="{x:Bind TDPBoostExpandButton}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- TDP Boost Settings Card (Collapsible) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with Expand/Collapse -->
+                                <Button x:Name="TDPBoostExpandButton"
+                                        Click="TDPBoostExpandButton_Click"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="0"
+                                        UseSystemFocusVisuals="True"
+                                        FocusVisualPrimaryBrush="White"
+                                        XYFocusUp="{x:Bind TDPLimitsExpandButton}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="TDP Boost Settings" Style="{StaticResource CardTitleStyle}"/>
+                                            <TextBlock Text="Configure SPPT and FPPT boost values above base TDP"
+                                                       Style="{StaticResource CardCaptionStyle}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="TDPBoostExpandIcon"
+                                                   Text="&#xE70D;"
+                                                   FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"
+                                                   Grid.Column="1"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Button>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="TDPBoostContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <!-- Info -->
+                                    <Border Background="#1A2A3D" CornerRadius="4" Padding="10" Margin="0,0,0,12">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="&#xE946;"
+                                                       Grid.Column="0"
+                                                       FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="16"
+                                                       Foreground="#4CAF50"
+                                                       VerticalAlignment="Top"
+                                                       Margin="0,2,8,0"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="When TDP Boost is enabled, SPPT and FPPT will be set to TDP + boost value. This allows short bursts of higher power for better performance."
+                                                       Foreground="#A0D4A0"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- SPPT Boost -->
+                                    <Grid Margin="0,0,0,8">
+                                        <TextBlock Text="SPPT Boost"
+                                                   FontSize="14"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="TDPBoostSPPTValue"
+                                                   Text="1W"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="TDPBoostSPPTSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="10"
+                                            TickFrequency="1"
+                                            SnapsTo="Ticks"
+                                            ValueChanged="TDPBoostSPPTSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind TDPBoostExpandButton}"
+                                            XYFocusDown="{x:Bind TDPBoostFPPTSlider}"/>
+
+                                    <!-- FPPT Boost -->
+                                    <Grid Margin="0,12,0,8">
+                                        <TextBlock Text="FPPT Boost"
+                                                   FontSize="14"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="TDPBoostFPPTValue"
+                                                   Text="3W"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="TDPBoostFPPTSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="15"
+                                            TickFrequency="1"
+                                            SnapsTo="Ticks"
+                                            ValueChanged="TDPBoostFPPTSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind TDPBoostSPPTSlider}"
                                             XYFocusDown="{x:Bind PowerPlanExpandButton}"/>
                                 </StackPanel>
                             </StackPanel>
@@ -1714,7 +1851,7 @@
                                         Padding="0"
                                         UseSystemFocusVisuals="True"
                                         FocusVisualPrimaryBrush="White"
-                                        XYFocusUp="{x:Bind TDPLimitsExpandButton}">
+                                        XYFocusUp="{x:Bind TDPBoostExpandButton}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
