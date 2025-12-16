@@ -8533,6 +8533,13 @@ namespace XboxGamingBar
                 }
                 legionPerformanceMode.SetValue(nextMode);
 
+                // Update TDPModeComboBox to match (SaveCurrentSettingsToProfile reads from it)
+                int nextIndex = Array.IndexOf(new int[] { 1, 2, 3, 255 }, nextMode);
+                if (nextIndex >= 0 && TDPModeComboBox != null)
+                {
+                    TDPModeComboBox.SelectedIndex = nextIndex;
+                }
+
                 // If switching to Custom mode, schedule TDP reapply after 5 seconds
                 if (nextMode == 255)
                 {
@@ -8542,10 +8549,20 @@ namespace XboxGamingBar
                 Logger.Info($"TDP Mode cycled from {currentMode} to {nextMode}");
 
                 // Save profile after TDP mode cycle (if not during initialization)
-                if (!isInitialSync && !isLoadingProfile && SaveTDP)
+                // Use direct save to bypass isApplyingHelperUpdate check - this is a user-initiated action
+                if (!isInitialSync && !isLoadingProfile && SaveTDP && !string.IsNullOrEmpty(currentProfileName))
                 {
-                    Logger.Info($"Saving TDP Mode cycle to profile: {currentProfileName}");
-                    SaveCurrentSettingsToProfile(currentProfileName);
+                    try
+                    {
+                        var profile = GetProfile(currentProfileName);
+                        profile.LegionPerformanceMode = nextMode;
+                        SaveProfileToStorage(currentProfileName, profile);
+                        Logger.Info($"Saved TDP Mode {nextMode} to profile: {currentProfileName}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Failed to save TDP Mode to profile: {ex.Message}");
+                    }
                 }
             }
         }
@@ -8793,7 +8810,31 @@ namespace XboxGamingBar
                     default: nextValue = 0; break;
                 }
                 cpuEPP.SetValue(nextValue);
+
+                // Update slider to match (SaveCurrentSettingsToProfile reads from it)
+                if (CPUEPPSlider != null)
+                {
+                    CPUEPPSlider.Value = nextValue;
+                }
+
                 Logger.Info($"EPP cycled from {currentValue} to {nextValue}");
+
+                // Save the change to profile
+                // Use direct save to bypass isApplyingHelperUpdate check - this is a user-initiated action
+                if (!isInitialSync && !isLoadingProfile && SaveCPUEPP && !string.IsNullOrEmpty(currentProfileName))
+                {
+                    try
+                    {
+                        var profile = GetProfile(currentProfileName);
+                        profile.CPUEPP = nextValue;
+                        SaveProfileToStorage(currentProfileName, profile);
+                        Logger.Info($"Saved EPP {nextValue} to profile: {currentProfileName}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Failed to save EPP to profile: {ex.Message}");
+                    }
+                }
             }
         }
 
