@@ -1001,6 +1001,54 @@ namespace XboxGamingBarHelper.Windows
             }
         }
 
+        /// <summary>
+        /// Get actual current refresh rate using QueryDisplayConfig (more accurate than EnumDisplaySettings).
+        /// This properly reports the actual refresh rate on VRR displays and after display changes.
+        /// </summary>
+        public static int GetCurrentRefreshRateFromDisplayConfig()
+        {
+            try
+            {
+                int result = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out uint pathCount, out uint modeCount);
+                if (result != ERROR_SUCCESS)
+                {
+                    Logger.Warn($"GetDisplayConfigBufferSizes failed with error {result}, falling back to EnumDisplaySettings");
+                    return GetCurrentRefreshRate();
+                }
+
+                var paths = new DISPLAYCONFIG_PATH_INFO[pathCount];
+                var modes = new DISPLAYCONFIG_MODE_INFO[modeCount];
+
+                result = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero);
+                if (result != ERROR_SUCCESS)
+                {
+                    Logger.Warn($"QueryDisplayConfig failed with error {result}, falling back to EnumDisplaySettings");
+                    return GetCurrentRefreshRate();
+                }
+
+                // Get refresh rate from the first/primary active display path
+                if (paths.Length > 0)
+                {
+                    var refreshRate = paths[0].targetInfo.refreshRate;
+                    if (refreshRate.Denominator > 0)
+                    {
+                        // Calculate actual refresh rate (e.g., 144000/1000 = 144Hz, 143998/1000 ≈ 144Hz)
+                        int hz = (int)Math.Round((double)refreshRate.Numerator / refreshRate.Denominator);
+                        Logger.Info($"QueryDisplayConfig refresh rate: {refreshRate.Numerator}/{refreshRate.Denominator} = {hz}Hz");
+                        return hz;
+                    }
+                }
+
+                Logger.Warn("No active display paths found, falling back to EnumDisplaySettings");
+                return GetCurrentRefreshRate();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"GetCurrentRefreshRateFromDisplayConfig exception: {ex}, falling back to EnumDisplaySettings");
+                return GetCurrentRefreshRate();
+            }
+        }
+
         #endregion
     }
 }
