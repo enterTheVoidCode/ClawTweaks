@@ -637,7 +637,7 @@ namespace XboxGamingBarHelper.AMD
             base.Update();
 
             var now = DateTime.Now.Ticks;
-            Logger.Info($"Time since last update: {now - lastUpdate}");
+            Logger.Debug($"Time since last update: {now - lastUpdate}");
             if (now - lastUpdate < TimeSpan.TicksPerSecond * 2)
             {
                 return;

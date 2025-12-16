@@ -51,6 +51,10 @@ namespace XboxGamingBarHelper.Legion
         private DateTime lastTdpSetTime = DateTime.MinValue;
         private const int TDP_REFRESH_COOLDOWN_MS = 3000; // 3 seconds cooldown after setting TDP
 
+        // Rate-limiting for fan speed refresh (WMI calls are CPU-expensive)
+        private DateTime lastFanSpeedRefresh = DateTime.MinValue;
+        private const int FAN_SPEED_REFRESH_INTERVAL_MS = 2000; // Refresh fan speed every 2 seconds
+
         // Startup grace period to ignore LegionCustomTDP slider sync during widget startup
         // The main TDP slider calls SetCustomTDP which syncs all 3 values, so we don't want
         // the widget's stale cached values to override them
@@ -836,11 +840,16 @@ namespace XboxGamingBarHelper.Legion
                 }
             }
 
-            // Periodically refresh fan speed from device (only if Legion detected)
+            // Rate-limit fan speed refresh to reduce WMI call overhead (every 2 seconds instead of every update)
             // Note: TDP refresh is disabled to prevent conflicts with user-set values
             if (isLegionGoDetected && wmiService != null)
             {
-                RefreshFanSpeed();
+                var now = DateTime.Now;
+                if ((now - lastFanSpeedRefresh).TotalMilliseconds >= FAN_SPEED_REFRESH_INTERVAL_MS)
+                {
+                    RefreshFanSpeed();
+                    lastFanSpeedRefresh = now;
+                }
             }
         }
 

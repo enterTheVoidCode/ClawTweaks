@@ -326,7 +326,7 @@ namespace XboxGamingBarHelper
                     await ConnectToWidget(false);
                 }
 
-                await Task.Delay(500);
+                await Task.Delay(1000);
 
                 foreach (var manager in Managers)
                 {
