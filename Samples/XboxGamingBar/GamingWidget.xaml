@@ -904,7 +904,7 @@
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
                                     <CheckBox x:Name="ProfileSaveFPSLimitCheckBox"
                                               Content="FPS Limit"
-                                              IsChecked="False"
+                                              IsChecked="True"
                                               Foreground="#FFFFFF"
                                               Margin="0,4,0,0"
                                               Style="{StaticResource FocusableCheckBoxStyle}"
@@ -912,7 +912,7 @@
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
                                     <CheckBox x:Name="ProfileSaveAutoTDPCheckBox"
                                               Content="AutoTDP (Enabled + Target FPS)"
-                                              IsChecked="False"
+                                              IsChecked="True"
                                               Foreground="#FFFFFF"
                                               Margin="0,4,0,0"
                                               Style="{StaticResource FocusableCheckBoxStyle}"
@@ -920,7 +920,7 @@
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
                                     <CheckBox x:Name="ProfileSaveOSPowerModeCheckBox"
                                               Content="OS Power Mode"
-                                              IsChecked="False"
+                                              IsChecked="True"
                                               Foreground="#FFFFFF"
                                               Margin="0,4,0,0"
                                               Style="{StaticResource FocusableCheckBoxStyle}"
