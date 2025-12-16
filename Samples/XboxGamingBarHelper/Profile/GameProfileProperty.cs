@@ -70,6 +70,18 @@ namespace XboxGamingBarHelper.Profile
             }
         }
 
+        public bool TDPBoostEnabled
+        {
+            get { return value.TDPBoostEnabled; }
+            set
+            {
+                if (this.value.TDPBoostEnabled != value)
+                {
+                    this.value.TDPBoostEnabled = value;
+                }
+            }
+        }
+
         public GameId GameId
         {
             get { return value.GameId; }

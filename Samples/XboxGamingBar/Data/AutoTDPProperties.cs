@@ -71,4 +71,25 @@ namespace XboxGamingBar.Data
         {
         }
     }
+
+    internal class TDPBoostEnabledProperty : WidgetProperty<bool>
+    {
+        public TDPBoostEnabledProperty(bool inValue) : base(inValue, null, Function.TDPBoostEnabled)
+        {
+        }
+    }
+
+    internal class TDPBoostSPPTProperty : WidgetProperty<int>
+    {
+        public TDPBoostSPPTProperty(int inValue) : base(inValue, null, Function.TDPBoostSPPT)
+        {
+        }
+    }
+
+    internal class TDPBoostFPPTProperty : WidgetProperty<int>
+    {
+        public TDPBoostFPPTProperty(int inValue) : base(inValue, null, Function.TDPBoostFPPT)
+        {
+        }
+    }
 }

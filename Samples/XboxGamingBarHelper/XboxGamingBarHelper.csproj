@@ -394,6 +394,7 @@
     <Compile Include="Performance\Sensors\NetworkDownloadSensor.cs" />
     <Compile Include="Performance\Sensors\NetworkUploadSensor.cs" />
     <Compile Include="Performance\TDPProperty.cs" />
+    <Compile Include="Performance\TDPBoostProperties.cs" />
     <Compile Include="Performance\CurrentTDPProperty.cs" />
     <Compile Include="Performance\UpdateVisitor.cs" />
     <Compile Include="Power\CPUBoostProperty.cs" />

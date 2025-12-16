@@ -113,6 +113,11 @@
         // Device TDP Limits
         TDPLimits,                  // string - "min,max" format (e.g., "4,35")
 
+        // TDP Boost (apply additional power to SPPT/FPPT above base TDP)
+        TDPBoostEnabled,            // bool - enable/disable TDP boost (profile-synced)
+        TDPBoostSPPT,               // int - additional watts for SPPT (0-10, default 1)
+        TDPBoostFPPT,               // int - additional watts for FPPT (0-15, default 3)
+
         // CPU Core Configuration
         CPUCoreConfig,              // string - "pCores,eCores,isHybrid" format (e.g., "3,5,true") - helper to widget (detection)
         CPUCoreActiveConfig,        // string - "activePCores,activeECores" format (e.g., "2,4") - widget to helper (user selection)
