@@ -1152,11 +1152,20 @@ namespace XboxGamingBar
 
             try
             {
+                var settings = ApplicationData.Current.LocalSettings;
+
                 if (PerGameProfileToggle.IsOn)
                 {
                     // Per-game profiles enabled - only proceed if we have a valid game
                     if (HasValidGame(currentGameName))
                     {
+                        // Clear the disabled preference since user is enabling it
+                        string disabledKey = $"PerGameProfileDisabled_{currentGameName}";
+                        if (settings.Values.ContainsKey(disabledKey))
+                        {
+                            settings.Values.Remove(disabledKey);
+                            Logger.Info($"Cleared per-game profile disabled preference for {currentGameName}");
+                        }
                         LoadOrCreateGameProfiles();
                     }
                     else
@@ -1174,7 +1183,6 @@ namespace XboxGamingBar
                     // But ALLOW internal disables (when game closes) and user-initiated toggles
                     if (HasValidGame(currentGameName) && isApplyingHelperUpdate && !isInternalToggleDisable && !isUserInitiatedProfileToggle)
                     {
-                        var settings = ApplicationData.Current.LocalSettings;
                         bool hasExistingProfile = false;
 
                         if (PowerSourceProfileToggle?.IsOn == true)
@@ -1192,6 +1200,15 @@ namespace XboxGamingBar
                             PerGameProfileToggle.IsOn = true; // Keep it on
                             return;
                         }
+                    }
+
+                    // Save user's preference to disable per-game profile for this game
+                    // (only for valid games and user-initiated toggles, not internal/game-close disables)
+                    if (HasValidGame(currentGameName) && !isInternalToggleDisable)
+                    {
+                        string disabledKey = $"PerGameProfileDisabled_{currentGameName}";
+                        settings.Values[disabledKey] = true;
+                        Logger.Info($"Saved per-game profile disabled preference for {currentGameName}");
                     }
                 }
 
@@ -1244,8 +1261,13 @@ namespace XboxGamingBar
                         hasExistingProfile = settings.Containers.ContainsKey($"Profile_Game_{currentGameName}");
                     }
 
+                    // Check if user explicitly disabled per-game profile for this game
+                    string disabledKey = $"PerGameProfileDisabled_{currentGameName}";
+                    bool userDisabledProfile = settings.Values.ContainsKey(disabledKey) && (bool)settings.Values[disabledKey];
+
                     // Auto-enable per-game toggle if profile exists OR if it's already on
-                    if (hasExistingProfile || (PerGameProfileToggle?.IsOn == true))
+                    // BUT respect user's preference if they explicitly disabled it
+                    if ((hasExistingProfile || (PerGameProfileToggle?.IsOn == true)) && !userDisabledProfile)
                     {
                         if (!PerGameProfileToggle.IsOn)
                         {
