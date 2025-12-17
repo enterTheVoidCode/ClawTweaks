@@ -416,7 +416,7 @@ namespace XboxGamingBarHelper.AutoTDP
         {
             try
             {
-                var appEntries = OSD.GetAppEntries();
+                var appEntries = OSD.GetAppEntries(AppFlags.MASK);
                 var entry = appEntries?.FirstOrDefault(e => e.ProcessId == processId);
                 if (entry != null)
                 {
