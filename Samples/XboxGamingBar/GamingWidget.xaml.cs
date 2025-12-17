@@ -4530,6 +4530,7 @@ namespace XboxGamingBar
             container.Values["AutoTDPMaxTDP"] = profile.AutoTDPMaxTDP;
             container.Values["OSPowerMode"] = profile.OSPowerMode;
             container.Values["LegionPerformanceMode"] = profile.LegionPerformanceMode;
+            container.Values["TDPBoostEnabled"] = profile.TDPBoostEnabled;
         }
 
         private void LoadProfileFromStorage(string profileName, PerformanceProfile profile)
@@ -4568,6 +4569,7 @@ namespace XboxGamingBar
                 {
                     profile.LegionPerformanceMode = (int)container.Values["LegionPerformanceMode"];
                 }
+                profile.TDPBoostEnabled = container.Values.ContainsKey("TDPBoostEnabled") ? (bool)container.Values["TDPBoostEnabled"] : false;
 
                 Logger.Info($"Loaded {profileName} profile from storage");
             }
