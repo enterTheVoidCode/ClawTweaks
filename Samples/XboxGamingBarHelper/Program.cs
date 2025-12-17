@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
@@ -28,6 +29,7 @@ namespace XboxGamingBarHelper
     internal class Program
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private static Mutex singleInstanceMutex;
         private static AppServiceConnection connection = null;
 
         // Managers
@@ -63,7 +65,37 @@ namespace XboxGamingBarHelper
 
         static async Task Main(string[] args)
         {
-            await Initialize();
+            // Ensure only one instance of the helper runs at a time
+            const string mutexName = "Global\\XboxGamingBarHelper_SingleInstance";
+            bool createdNew;
+
+            try
+            {
+                singleInstanceMutex = new Mutex(true, mutexName, out createdNew);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to create mutex: {ex.Message}");
+                return;
+            }
+
+            if (!createdNew)
+            {
+                Logger.Warn("Another instance of XboxGamingBarHelper is already running. Exiting.");
+                return;
+            }
+
+            Logger.Info("Single instance mutex acquired. Starting helper.");
+
+            try
+            {
+                await Initialize();
+            }
+            finally
+            {
+                singleInstanceMutex?.ReleaseMutex();
+                singleInstanceMutex?.Dispose();
+            }
         }
 
         /// <summary>
@@ -388,7 +420,8 @@ namespace XboxGamingBarHelper
                 {
                     isApplyingProfile = true;
                     Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name}, apply it.");
-                    performanceManager.TDP.SetValue(profileManager.CurrentProfile.TDP);
+                    // Use SetProfileValue to ensure profile TDP takes precedence over in-flight widget messages
+                    performanceManager.TDP.SetProfileValue(profileManager.CurrentProfile.TDP);
                     performanceManager.TDPBoostEnabled.SetValue(profileManager.CurrentProfile.TDPBoostEnabled);
                     powerManager.CPUBoost.SetValue(profileManager.CurrentProfile.CPUBoost);
                     powerManager.CPUEPP.SetValue(profileManager.CurrentProfile.CPUEPP);
@@ -490,11 +523,25 @@ namespace XboxGamingBarHelper
 
                     // Apply CPU core affinity to the new game
                     systemManager.ApplyAffinityToRunningGame();
+
+                    // Switch Lossless Scaling profile for the detected game
+                    if (losslessScalingManager.LosslessScalingInstalled.Value)
+                    {
+                        var gameName = systemManager.RunningGame.Value.GameId.Name;
+                        var gamePath = systemManager.RunningGame.Value.GameId.Path;
+                        losslessScalingManager.SetCurrentGame(gameName, gamePath);
+                    }
                 }
                 else
                 {
                     Logger.Info($"Stopped playing game, use global profile instead.");
                     profileManager.CurrentProfile.SetValue(profileManager.GlobalProfile);
+
+                    // Reset Lossless Scaling to Default profile when game stops
+                    if (losslessScalingManager.LosslessScalingInstalled.Value)
+                    {
+                        losslessScalingManager.SetCurrentGame("Default", "");
+                    }
                 }
             }
             finally
@@ -528,6 +575,57 @@ namespace XboxGamingBarHelper
                 {
                     Logger.Info($"Sending keyboard shortcut via InputInjector: {shortcutStr}");
                     SendKeyboardShortcutViaInputInjector(shortcutStr);
+                    return;
+                }
+
+                // Handle close game request - closes foreground window (not Game Bar)
+                if (args.Request.Message.TryGetValue("CloseGame", out object _))
+                {
+                    Logger.Info("CloseGame request received - attempting to close foreground window");
+                    bool success = Windows.User32.CloseForegroundWindow();
+                    Logger.Info($"CloseGame result: {success}");
+                    return;
+                }
+
+                // Handle launch process request (for TabTip.exe touch keyboard etc.)
+                if (args.Request.Message.TryGetValue("LaunchProcess", out object processValue) && processValue is string processPath)
+                {
+                    try
+                    {
+                        Logger.Info($"LaunchProcess request received: {processPath}");
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = processPath,
+                            UseShellExecute = true
+                        });
+                        Logger.Info($"Process launched: {processPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Failed to launch process {processPath}: {ex.Message}");
+                    }
+                    return;
+                }
+
+                // Handle Energy Saver toggle request
+                if (args.Request.Message.TryGetValue("ToggleEnergySaver", out object _toggleEs))
+                {
+                    bool success = Power.PowerManager.ToggleEnergySaver();
+                    bool newState = Power.PowerManager.GetEnergySaverEnabled();
+                    var response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("EnergySaverEnabled", newState);
+                    response.Add("Success", success);
+                    await args.Request.SendResponseAsync(response);
+                    return;
+                }
+
+                // Handle Get Energy Saver status request
+                if (args.Request.Message.TryGetValue("GetEnergySaver", out object _getEs))
+                {
+                    bool enabled = Power.PowerManager.GetEnergySaverEnabled();
+                    var response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("EnergySaverEnabled", enabled);
+                    await args.Request.SendResponseAsync(response);
                     return;
                 }
 
