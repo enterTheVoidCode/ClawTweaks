@@ -292,6 +292,8 @@ namespace XboxGamingBar
         private bool isApplyingHelperUpdate = false; // Prevents saves when helper echoes values back
         private bool isInitialSync = true; // Prevents saves during initial app startup sync
         private bool isInternalToggleDisable = false; // Indicates toggle is being disabled internally (game close)
+        private bool isUserInitiatedProfileToggle = false; // Indicates user clicked Profile tile to toggle
+        private bool isUserInitiatedTDPModeChange = false; // Indicates user clicked TDP Mode tile in Quick Tab
         private int savedLegionPerformanceMode = -1; // Stores Legion mode before per-game profile (-1 = not saved)
 
         // Helper to check if we have a valid game (not null, not empty, not "No game detected")
@@ -1169,8 +1171,8 @@ namespace XboxGamingBar
                 {
                     // Toggle is being turned OFF - check if we should reject this
                     // (Prevents helper messages from disabling auto-enabled toggle)
-                    // But ALLOW internal disables (when game closes)
-                    if (HasValidGame(currentGameName) && isApplyingHelperUpdate && !isInternalToggleDisable)
+                    // But ALLOW internal disables (when game closes) and user-initiated toggles
+                    if (HasValidGame(currentGameName) && isApplyingHelperUpdate && !isInternalToggleDisable && !isUserInitiatedProfileToggle)
                     {
                         var settings = ApplicationData.Current.LocalSettings;
                         bool hasExistingProfile = false;
@@ -7182,7 +7184,7 @@ namespace XboxGamingBar
             {
                 if (!string.IsNullOrEmpty(currentGameName))
                 {
-                    // Format: "GameName<||>WindowTitle" - use window title as filter for Lossless Scaling profile matching
+                    // Format: "GameName<||>WindowFilter" - use game name as window title filter for Lossless Scaling profile matching
                     string profileData = $"{currentGameName}<||>{currentGameName}";
                     losslessScalingCreateProfile.SetValue(profileData);
                     Logger.Info($"Creating Lossless Scaling profile for: {currentGameName}");
@@ -7488,14 +7490,15 @@ namespace XboxGamingBar
             UpdateTDPSliderEnabledState();
 
             // Save profile when TDP Mode changes (if not during initialization or helper update)
-            if (!isInitialSync && !isApplyingHelperUpdate && !isLoadingProfile && SaveTDP)
+            // Allow save if user-initiated from Quick Tab tile (bypasses isApplyingHelperUpdate)
+            if (!isInitialSync && !isLoadingProfile && SaveTDP && (!isApplyingHelperUpdate || isUserInitiatedTDPModeChange))
             {
                 Logger.Info($"Saving TDP Mode change to profile: {currentProfileName}");
                 SaveCurrentSettingsToProfile(currentProfileName);
             }
             else
             {
-                Logger.Warn($"TDP Mode save skipped: isInitialSync={isInitialSync}, isApplyingHelperUpdate={isApplyingHelperUpdate}, isLoadingProfile={isLoadingProfile}, SaveTDP={SaveTDP}");
+                Logger.Warn($"TDP Mode save skipped: isInitialSync={isInitialSync}, isApplyingHelperUpdate={isApplyingHelperUpdate}, isLoadingProfile={isLoadingProfile}, SaveTDP={SaveTDP}, isUserInitiatedTDPModeChange={isUserInitiatedTDPModeChange}");
             }
         }
 
@@ -7612,7 +7615,9 @@ namespace XboxGamingBar
             public string Glyph { get; set; }
             public bool IsVisible { get; set; } = true;
             public bool IsTrigger { get; set; } = false;  // True for tiles that trigger actions (keyboard, custom shortcuts)
+            public bool IsAction { get; set; } = false;   // True for action tiles (Task Manager, Explorer, etc.) - shown at bottom
             public string CustomShortcut { get; set; }    // For custom shortcut tiles
+            public int Order { get; set; } = 0;           // Display order (lower = first)
             public Button TileButton { get; set; }
             public TextBlock StateText { get; set; }
             public CheckBox VisibilityCheckBox { get; set; }
@@ -7623,6 +7628,13 @@ namespace XboxGamingBar
 
         private List<TileDefinition> qsTileDefinitions = new List<TileDefinition>();
         private Dictionary<string, TileDefinition> qsTileMap = new Dictionary<string, TileDefinition>();
+
+        // Edit mode state for tile customization
+        private bool qsEditMode = false;
+        private TileDefinition qsSelectedTileForMove = null;
+
+        // Column count setting (3 or 4 columns)
+        private int qsColumnCount = 3;
 
         // Timer for TDP reapply when switching to Custom mode
         private Windows.UI.Xaml.DispatcherTimer qsTdpReapplyTimer;
@@ -7654,8 +7666,8 @@ namespace XboxGamingBar
                 // Build tile UI
                 RebuildQuickSettingsTiles();
 
-                // Build visibility panel
-                BuildVisibilityPanel();
+                // Build sortable grid (for customize panel, initially hidden)
+                BuildSortableGrid();
 
                 quickSettingsInitialized = true;
                 Logger.Info("Quick Settings initialized with system accent color");
@@ -7676,7 +7688,7 @@ namespace XboxGamingBar
             try
             {
                 RebuildQuickSettingsTiles();
-                BuildVisibilityPanel();
+                BuildSortableGrid();
                 UpdateQuickSettingsTileStates();
                 Logger.Info("Quick Settings refreshed for Legion detection change");
             }
@@ -7694,38 +7706,47 @@ namespace XboxGamingBar
             qsTileDefinitions.Clear();
             qsTileMap.Clear();
 
+            int order = 0;
+
             // Core tiles
-            AddTileDefinition("TDPMode", "TDP Mode", "\uE945");
-            AddTileDefinition("Profile", "Profile", "\uE77B");
-            AddTileDefinition("Overlay", "Overlay", "\uE7B3");
-            AddTileDefinition("PowerMode", "Power Mode", "\uE945");
-            AddTileDefinition("FPSLimit", "FPS Limit", "\uE916");
-            AddTileDefinition("AutoTDP", "AutoTDP", "\uE9F5");
-            AddTileDefinition("Resolution", "Resolution", "\uE7F8");
-            AddTileDefinition("HDR", "HDR", "\uE706");
-            AddTileDefinition("LosslessScaling", "Lossless", "\uE740");
-            AddTileDefinition("RIS", "RIS", "\uE8B3");
-            AddTileDefinition("AFMF", "AFMF", "\uE916");
-            AddTileDefinition("RSR", "RSR", "\uE8B3");
-            AddTileDefinition("AntiLag", "Anti-Lag", "\uE916");
-            AddTileDefinition("RadeonChill", "Chill", "\uE9CA");
-            AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4");
-            AddTileDefinition("EPP", "EPP", "\uE83E");
+            AddTileDefinition("TDPMode", "TDP Mode", "\uE945", order: order++);
+            AddTileDefinition("Profile", "Profile", "\uE77B", order: order++);
+            AddTileDefinition("Overlay", "Overlay", "\uE7B3", order: order++);
+            AddTileDefinition("PowerMode", "Power Mode", "\uE945", order: order++);
+            AddTileDefinition("FPSLimit", "FPS Limit", "\uE916", order: order++);
+            AddTileDefinition("AutoTDP", "AutoTDP", "\uE9F5", order: order++);
+            AddTileDefinition("Resolution", "Resolution", "\uE7F8", order: order++);
+            AddTileDefinition("HDR", "HDR", "\uE706", order: order++);
+            AddTileDefinition("LosslessScaling", "Lossless", "\uE740", order: order++);
+            AddTileDefinition("RIS", "RIS", "\uE8B3", order: order++);
+            AddTileDefinition("AFMF", "AFMF", "\uE916", order: order++);
+            AddTileDefinition("RSR", "RSR", "\uE8B3", order: order++);
+            AddTileDefinition("AntiLag", "Anti-Lag", "\uE916", order: order++);
+            AddTileDefinition("RadeonChill", "Chill", "\uE9CA", order: order++);
+            AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4", order: order++);
+            AddTileDefinition("EPP", "EPP", "\uE83E", order: order++);
 
             // Keyboard trigger tile
-            AddTileDefinition("Keyboard", "Keyboard", "\uE765", isTrigger: true);
+            AddTileDefinition("Keyboard", "Keyboard", "\uE765", isTrigger: true, order: order++);
 
             // Legion-specific tiles (will be hidden if Legion not detected)
-            AddTileDefinition("LegionTouchpad", "Touchpad", "\uE962");
-            AddTileDefinition("LegionLightMode", "Light Mode", "\uE781");
+            AddTileDefinition("LegionTouchpad", "Touchpad", "\uE962", order: order++);
+            AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);
 
             // Load custom shortcut tiles from storage
             LoadCustomShortcutTiles();
+
+            // Action tiles at the bottom (high order numbers)
+            int actionOrder = 1000;  // Start action tiles at high order to keep them at bottom
+            AddTileDefinition("ActionTaskManager", "Task Mgr", "\uE7EF", isAction: true, order: actionOrder++);
+            AddTileDefinition("ActionExplorer", "Explorer", "\uEC50", isAction: true, order: actionOrder++);
+            AddTileDefinition("ActionEndTask", "End Task", "\uE711", isAction: true, order: actionOrder++);
+            AddTileDefinition("ActionFullscreen", "Fullscreen", "\uE740", isAction: true, order: actionOrder++);
         }
 
-        private void AddTileDefinition(string id, string name, string glyph, bool isTrigger = false, string customShortcut = null)
+        private void AddTileDefinition(string id, string name, string glyph, bool isTrigger = false, bool isAction = false, string customShortcut = null, int order = 0)
         {
-            var def = new TileDefinition { Id = id, Name = name, Glyph = glyph, IsVisible = true, IsTrigger = isTrigger, CustomShortcut = customShortcut };
+            var def = new TileDefinition { Id = id, Name = name, Glyph = glyph, IsVisible = true, IsTrigger = isTrigger, IsAction = isAction, CustomShortcut = customShortcut, Order = order };
             qsTileDefinitions.Add(def);
             qsTileMap[id] = def;
         }
@@ -7741,6 +7762,9 @@ namespace XboxGamingBar
                 var config = QuickSettings.QuickSettingsConfig.Instance;
                 var customTiles = config.Tiles.Where(t => t.Type == QuickSettings.TileType.CustomShortcut).ToList();
 
+                // Calculate starting order (after built-in tiles)
+                int startingOrder = qsTileDefinitions.Count > 0 ? qsTileDefinitions.Max(t => t.Order) + 1 : 100;
+
                 int index = 0;
                 foreach (var tile in customTiles)
                 {
@@ -7754,7 +7778,8 @@ namespace XboxGamingBar
                             Glyph = tile.Icon ?? "\uE768",
                             IsVisible = tile.IsVisible,
                             IsTrigger = true,
-                            CustomShortcut = tile.CustomShortcut
+                            CustomShortcut = tile.CustomShortcut,
+                            Order = startingOrder + index  // Order will be overridden by LoadQuickSettingsConfig if saved
                         };
                         qsTileDefinitions.Add(def);
                         qsTileMap[tileId] = def;
@@ -7848,6 +7873,9 @@ namespace XboxGamingBar
                 var config = QuickSettings.QuickSettingsConfig.Instance;
                 config.AddCustomTile(name, "\uE768", shortcut);
 
+                // Calculate new order (place at end)
+                int maxOrder = qsTileDefinitions.Count > 0 ? qsTileDefinitions.Max(t => t.Order) : 0;
+
                 // Also add to local tile definitions for immediate use
                 int index = qsCustomShortcuts.Count;
                 string tileId = $"CustomShortcut_{index}";
@@ -7858,14 +7886,15 @@ namespace XboxGamingBar
                     Glyph = "\uE768",
                     IsVisible = true,
                     IsTrigger = true,
-                    CustomShortcut = shortcut
+                    CustomShortcut = shortcut,
+                    Order = maxOrder + 1
                 };
                 qsTileDefinitions.Add(def);
                 qsTileMap[tileId] = def;
                 qsCustomShortcuts.Add(def);
 
                 RebuildQuickSettingsTiles();
-                BuildVisibilityPanel();
+                BuildSortableGrid();
 
                 Logger.Info($"Added custom shortcut tile: {name} -> {shortcut}");
             }
@@ -7884,16 +7913,28 @@ namespace XboxGamingBar
             {
                 var settings = ApplicationData.Current.LocalSettings;
 
+                // Load column count setting
+                if (settings.Values.TryGetValue("QS_ColumnCount", out object colVal) && colVal is int colCount)
+                {
+                    qsColumnCount = Math.Max(3, Math.Min(4, colCount));  // Clamp to 3-4
+                }
+
                 foreach (var tile in qsTileDefinitions)
                 {
-                    string key = $"QS_{tile.Id}_Visible";
-                    if (settings.Values.TryGetValue(key, out object val) && val is bool visible)
+                    string visKey = $"QS_{tile.Id}_Visible";
+                    string orderKey = $"QS_{tile.Id}_Order";
+
+                    if (settings.Values.TryGetValue(visKey, out object val) && val is bool visible)
                     {
                         tile.IsVisible = visible;
                     }
+                    if (settings.Values.TryGetValue(orderKey, out object orderVal) && orderVal is int order)
+                    {
+                        tile.Order = order;
+                    }
                 }
 
-                Logger.Info("Quick Settings config loaded");
+                Logger.Info($"Quick Settings config loaded (columns: {qsColumnCount})");
             }
             catch (Exception ex)
             {
@@ -7910,13 +7951,16 @@ namespace XboxGamingBar
             {
                 var settings = ApplicationData.Current.LocalSettings;
 
+                // Save column count setting
+                settings.Values["QS_ColumnCount"] = qsColumnCount;
+
                 foreach (var tile in qsTileDefinitions)
                 {
-                    string key = $"QS_{tile.Id}_Visible";
-                    settings.Values[key] = tile.IsVisible;
+                    settings.Values[$"QS_{tile.Id}_Visible"] = tile.IsVisible;
+                    settings.Values[$"QS_{tile.Id}_Order"] = tile.Order;
                 }
 
-                Logger.Info("Quick Settings config saved");
+                Logger.Info($"Quick Settings config saved (columns: {qsColumnCount})");
             }
             catch (Exception ex)
             {
@@ -7925,89 +7969,382 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Build visibility checkbox panel
+        /// Build sortable grid for tile customization
         /// </summary>
-        private void BuildVisibilityPanel()
+        private void BuildSortableGrid()
         {
-            if (TileVisibilityPanel == null) return;
+            if (TileSortableGrid == null) return;
 
-            TileVisibilityPanel.Children.Clear();
+            TileSortableGrid.Children.Clear();
 
-            foreach (var tile in qsTileDefinitions)
+            // Get all tiles sorted by order (including hidden ones)
+            var allTiles = qsTileDefinitions
+                .Where(t => !ShouldSkipTile(t))
+                .OrderBy(t => t.Order)
+                .ToList();
+
+            // Build rows of tiles (3 or 4 columns based on setting)
+            Grid currentRow = null;
+            int colIndex = 0;
+
+            for (int i = 0; i < allTiles.Count; i++)
             {
-                // Skip Legion tiles if Legion not detected
-                if ((tile.Id == "LegionTouchpad" || tile.Id == "LegionLightMode") &&
-                    (legionGoDetected?.Value != true))
+                if (colIndex == 0)
                 {
-                    continue;
+                    currentRow = new Grid { Margin = new Thickness(0, 4, 0, 4) };
+                    // Add column definitions dynamically based on qsColumnCount
+                    for (int c = 0; c < qsColumnCount; c++)
+                    {
+                        if (c > 0) currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4) });  // Spacer
+                        currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    }
+                    TileSortableGrid.Children.Add(currentRow);
                 }
 
-                // For custom shortcuts, add a row with checkbox and delete button
-                if (tile.Id.StartsWith("CustomShortcut_"))
+                var tile = allTiles[i];
+                var miniTile = CreateMiniTileForSort(tile, i);
+                Grid.SetColumn(miniTile, colIndex * 2);
+                currentRow.Children.Add(miniTile);
+
+                colIndex++;
+                if (colIndex >= qsColumnCount)
                 {
-                    var row = new Grid();
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-                    var checkBox = new CheckBox
-                    {
-                        Content = tile.Name,
-                        IsChecked = tile.IsVisible,
-                        Tag = tile.Id,
-                        Foreground = new SolidColorBrush(Windows.UI.Colors.White),
-                        Padding = new Thickness(8, 6, 8, 6),
-                        UseSystemFocusVisuals = true,
-                        FocusVisualPrimaryBrush = new SolidColorBrush(Windows.UI.Colors.White),
-                        FocusVisualSecondaryBrush = new SolidColorBrush(Windows.UI.Colors.Transparent)
-                    };
-                    checkBox.Checked += TileVisibility_Changed;
-                    checkBox.Unchecked += TileVisibility_Changed;
-                    tile.VisibilityCheckBox = checkBox;
-                    Grid.SetColumn(checkBox, 0);
-                    row.Children.Add(checkBox);
-
-                    var deleteButton = new Button
-                    {
-                        Content = "\uE74D", // Delete icon
-                        FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                        Tag = tile.Id,
-                        Padding = new Thickness(8, 4, 8, 4),
-                        Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
-                        Foreground = new SolidColorBrush(Windows.UI.Colors.Red),
-                        VerticalAlignment = VerticalAlignment.Center,
-                        UseSystemFocusVisuals = true,
-                        FocusVisualPrimaryBrush = new SolidColorBrush(Windows.UI.Colors.White),
-                        FocusVisualSecondaryBrush = new SolidColorBrush(Windows.UI.Colors.Transparent)
-                    };
-                    deleteButton.Click += DeleteCustomShortcut_Click;
-                    Grid.SetColumn(deleteButton, 1);
-                    row.Children.Add(deleteButton);
-
-                    TileVisibilityPanel.Children.Add(row);
-                }
-                else
-                {
-                    var checkBox = new CheckBox
-                    {
-                        Content = tile.Name,
-                        IsChecked = tile.IsVisible,
-                        Tag = tile.Id,
-                        Foreground = new SolidColorBrush(Windows.UI.Colors.White),
-                        Padding = new Thickness(8, 6, 8, 6),
-                        UseSystemFocusVisuals = true,
-                        FocusVisualPrimaryBrush = new SolidColorBrush(Windows.UI.Colors.White),
-                        FocusVisualSecondaryBrush = new SolidColorBrush(Windows.UI.Colors.Transparent)
-                    };
-                    checkBox.Checked += TileVisibility_Changed;
-                    checkBox.Unchecked += TileVisibility_Changed;
-                    tile.VisibilityCheckBox = checkBox;
-                    TileVisibilityPanel.Children.Add(checkBox);
+                    colIndex = 0;
                 }
             }
         }
 
         /// <summary>
+        /// Create a mini tile button for the sortable grid
+        /// </summary>
+        private Button CreateMiniTileForSort(TileDefinition tile, int index)
+        {
+            bool isSelected = qsSelectedTileForMove?.Id == tile.Id;
+
+            var button = new Button
+            {
+                Tag = tile.Id,
+                MinHeight = 60,
+                Padding = new Thickness(4),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Background = isSelected
+                    ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 180))  // Highlight selected
+                    : (tile.IsVisible
+                        ? tileOffBrush
+                        : new SolidColorBrush(Windows.UI.Color.FromArgb(128, 26, 28, 30))),  // Dimmed if hidden
+                BorderBrush = isSelected
+                    ? new SolidColorBrush(Windows.UI.Colors.White)
+                    : new SolidColorBrush(Windows.UI.Color.FromArgb(80, 80, 85, 92)),
+                BorderThickness = new Thickness(isSelected ? 2 : 1),
+                CornerRadius = new CornerRadius(8),
+                UseSystemFocusVisuals = true,
+                FocusVisualPrimaryBrush = new SolidColorBrush(Windows.UI.Colors.White),
+                FocusVisualSecondaryBrush = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                TabIndex = index
+            };
+
+            var content = new Grid();
+
+            // Icon and name stack
+            var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            stack.Children.Add(new FontIcon
+            {
+                Glyph = tile.Glyph,
+                FontSize = 18,
+                Foreground = new SolidColorBrush(tile.IsVisible ? Windows.UI.Colors.White : Windows.UI.Colors.Gray)
+            });
+            stack.Children.Add(new TextBlock
+            {
+                Text = tile.Name,
+                FontSize = 10,
+                Foreground = new SolidColorBrush(tile.IsVisible ? Windows.UI.Colors.White : Windows.UI.Colors.Gray),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            content.Children.Add(stack);
+
+            // Eye icon (top-right) - shows visibility status
+            var eyeIcon = new FontIcon
+            {
+                Glyph = tile.IsVisible ? "\uE7B3" : "\uED1A",  // Eye / Eye crossed
+                FontSize = 12,
+                Foreground = new SolidColorBrush(tile.IsVisible
+                    ? Windows.UI.Color.FromArgb(255, 100, 200, 100)   // Green for visible
+                    : Windows.UI.Color.FromArgb(255, 200, 100, 100)), // Red for hidden
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 2, 2, 0)
+            };
+            content.Children.Add(eyeIcon);
+
+            // Order number badge (bottom-left)
+            var orderText = new TextBlock
+            {
+                Text = (index + 1).ToString(),
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(128, 255, 255, 255)),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                Margin = new Thickness(4, 0, 0, 2)
+            };
+            content.Children.Add(orderText);
+
+            // Custom shortcut indicator (bottom-right) - shows it can be deleted
+            if (tile.Id.StartsWith("CustomShortcut_"))
+            {
+                var customIcon = new FontIcon
+                {
+                    Glyph = "\uE932",  // Pin icon to indicate custom
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(180, 255, 200, 100)),
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Bottom,
+                    Margin = new Thickness(0, 0, 4, 2)
+                };
+                content.Children.Add(customIcon);
+            }
+
+            button.Content = content;
+            button.Click += SortableTile_Click;
+
+            return button;
+        }
+
+        /// <summary>
+        /// Handle delete button click on sortable tile for custom shortcuts
+        /// </summary>
+        private void SortableTileDelete_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!(sender is Button button) || !(button.Tag is string tileId))
+                    return;
+
+                if (!qsTileMap.TryGetValue(tileId, out var tile))
+                    return;
+
+                DeleteCustomShortcutTile(tile);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error handling sortable tile delete: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle tap on sortable tile - select, swap, or toggle visibility
+        /// </summary>
+        private void SortableTile_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!(sender is Button button) || !(button.Tag is string tileId))
+                    return;
+
+                if (!qsTileMap.TryGetValue(tileId, out var clickedTile))
+                    return;
+
+                if (qsSelectedTileForMove == null)
+                {
+                    // First tap: select tile - just update visuals, don't rebuild
+                    qsSelectedTileForMove = clickedTile;
+                    UpdateSelectedTileIndicator(clickedTile);
+                    UpdateSortableGridVisuals(tileId);
+                }
+                else if (qsSelectedTileForMove.Id == clickedTile.Id)
+                {
+                    // Tap same tile: toggle visibility - need rebuild for eye icon change
+                    clickedTile.IsVisible = !clickedTile.IsVisible;
+                    qsSelectedTileForMove = null;
+                    UpdateSelectedTileIndicator(null);
+                    BuildSortableGridPreserveScroll(tileId);
+                    Logger.Info($"Toggled visibility for {clickedTile.Name}: {clickedTile.IsVisible}");
+                }
+                else
+                {
+                    // Tap different tile: swap Order values - need rebuild for reorder
+                    int tempOrder = qsSelectedTileForMove.Order;
+                    qsSelectedTileForMove.Order = clickedTile.Order;
+                    clickedTile.Order = tempOrder;
+
+                    Logger.Info($"Swapped tile order: {qsSelectedTileForMove.Name} <-> {clickedTile.Name}");
+
+                    qsSelectedTileForMove = null;
+                    UpdateSelectedTileIndicator(null);
+                    BuildSortableGridPreserveScroll(tileId);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error handling sortable tile click: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Build sortable grid while preserving scroll position and focus
+        /// </summary>
+        private void BuildSortableGridPreserveScroll(string focusTileId = null)
+        {
+            // Save scroll position
+            double scrollOffset = 0;
+            if (QuickSettingsScrollViewer != null)
+            {
+                scrollOffset = QuickSettingsScrollViewer.VerticalOffset;
+            }
+
+            BuildSortableGrid();
+
+            // Restore scroll position and focus after layout update
+            _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
+            {
+                if (QuickSettingsScrollViewer != null && scrollOffset > 0)
+                {
+                    QuickSettingsScrollViewer.ChangeView(null, scrollOffset, null, true);
+                }
+
+                // Restore focus to the specified tile
+                if (!string.IsNullOrEmpty(focusTileId) && TileSortableGrid != null)
+                {
+                    foreach (var child in TileSortableGrid.Children)
+                    {
+                        if (child is Grid row)
+                        {
+                            foreach (var cell in row.Children)
+                            {
+                                if (cell is Button btn && btn.Tag is string id && id == focusTileId)
+                                {
+                                    btn.Focus(FocusState.Programmatic);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// Update visual state of sortable tiles without rebuilding (for selection changes)
+        /// </summary>
+        private void UpdateSortableGridVisuals(string focusTileId = null)
+        {
+            if (TileSortableGrid == null) return;
+
+            foreach (var child in TileSortableGrid.Children)
+            {
+                if (child is Grid row)
+                {
+                    foreach (var cell in row.Children)
+                    {
+                        if (cell is Button btn && btn.Tag is string id && qsTileMap.TryGetValue(id, out var tile))
+                        {
+                            bool isSelected = qsSelectedTileForMove?.Id == id;
+
+                            // Update button background and border
+                            btn.Background = isSelected
+                                ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 180))
+                                : (tile.IsVisible
+                                    ? tileOffBrush
+                                    : new SolidColorBrush(Windows.UI.Color.FromArgb(128, 26, 28, 30)));
+                            btn.BorderBrush = isSelected
+                                ? new SolidColorBrush(Windows.UI.Colors.White)
+                                : new SolidColorBrush(Windows.UI.Color.FromArgb(80, 80, 85, 92));
+                            btn.BorderThickness = new Thickness(isSelected ? 2 : 1);
+
+                            // Focus the specified tile
+                            if (!string.IsNullOrEmpty(focusTileId) && id == focusTileId)
+                            {
+                                btn.Focus(FocusState.Programmatic);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Update the selected tile indicator text
+        /// </summary>
+        private void UpdateSelectedTileIndicator(TileDefinition tile)
+        {
+            if (SelectedTileIndicator == null || SelectedTileText == null)
+                return;
+
+            if (tile == null)
+            {
+                SelectedTileIndicator.Visibility = Visibility.Collapsed;
+                if (DeleteSelectedTileButton != null)
+                    DeleteSelectedTileButton.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                SelectedTileIndicator.Visibility = Visibility.Visible;
+                SelectedTileText.Text = $"Selected: {tile.Name}\nTap another tile to swap, or tap again to toggle visibility";
+
+                // Show delete button for custom shortcuts
+                if (DeleteSelectedTileButton != null)
+                {
+                    DeleteSelectedTileButton.Visibility = tile.Id.StartsWith("CustomShortcut_")
+                        ? Visibility.Visible
+                        : Visibility.Collapsed;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handle delete button click in the selected tile indicator
+        /// </summary>
+        private void DeleteSelectedTile_Click(object sender, RoutedEventArgs e)
+        {
+            if (qsSelectedTileForMove != null && qsSelectedTileForMove.Id.StartsWith("CustomShortcut_"))
+            {
+                DeleteCustomShortcutTile(qsSelectedTileForMove);
+            }
+        }
+
+        /// <summary>
         /// Delete a custom shortcut tile
+        /// </summary>
+        private void DeleteCustomShortcutTile(TileDefinition tile)
+        {
+            try
+            {
+                // Remove from QuickSettingsConfig persistent storage first
+                // Need to find the matching config tile by custom shortcut path
+                var config = QuickSettings.QuickSettingsConfig.Instance;
+                var configTile = config.Tiles.FirstOrDefault(t =>
+                    t.Type == QuickSettings.TileType.CustomShortcut &&
+                    t.CustomShortcut == tile.CustomShortcut);
+                if (configTile != null)
+                {
+                    config.RemoveTile(configTile.Id);
+                }
+
+                // Remove from local lists
+                qsTileDefinitions.Remove(tile);
+                qsTileMap.Remove(tile.Id);
+                qsCustomShortcuts.Remove(tile);
+
+                // Clear selection if we deleted the selected tile
+                if (qsSelectedTileForMove?.Id == tile.Id)
+                {
+                    qsSelectedTileForMove = null;
+                    UpdateSelectedTileIndicator(null);
+                }
+
+                BuildSortableGridPreserveScroll();
+                // Don't rebuild main tiles here - they'll update when panel closes
+
+                Logger.Info($"Deleted custom shortcut tile: {tile.Name}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error deleting custom shortcut tile: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Delete a custom shortcut tile (button click handler - legacy)
         /// </summary>
         private void DeleteCustomShortcut_Click(object sender, RoutedEventArgs e)
         {
@@ -8018,15 +8355,7 @@ namespace XboxGamingBar
                     var tile = qsTileDefinitions.FirstOrDefault(t => t.Id == tileId);
                     if (tile != null)
                     {
-                        qsTileDefinitions.Remove(tile);
-                        qsTileMap.Remove(tileId);
-                        qsCustomShortcuts.Remove(tile);
-
-                        SaveCustomShortcutTiles();
-                        RebuildQuickSettingsTiles();
-                        BuildVisibilityPanel();
-
-                        Logger.Info($"Deleted custom shortcut tile: {tile.Name}");
+                        DeleteCustomShortcutTile(tile);
                     }
                 }
             }
@@ -8034,6 +8363,27 @@ namespace XboxGamingBar
             {
                 Logger.Error($"Error deleting custom shortcut tile: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Check if a tile should be skipped based on hardware detection
+        /// </summary>
+        private bool ShouldSkipTile(TileDefinition tile)
+        {
+            // Skip Legion tiles if not detected
+            if ((tile.Id == "LegionTouchpad" || tile.Id == "LegionLightMode") &&
+                (legionGoDetected?.Value != true))
+            {
+                return true;
+            }
+
+            // Skip TDP Mode if Legion not detected
+            if (tile.Id == "TDPMode" && (legionGoDetected?.Value != true))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -8045,53 +8395,37 @@ namespace XboxGamingBar
 
             QuickSettingsTilesContainer.Children.Clear();
 
-            // Get visible tiles
-            var visibleTiles = new List<TileDefinition>();
-            foreach (var tile in qsTileDefinitions)
-            {
-                // Skip Legion tiles if not detected
-                if ((tile.Id == "LegionTouchpad" || tile.Id == "LegionLightMode") &&
-                    (legionGoDetected?.Value != true))
-                {
-                    continue;
-                }
+            // Get tiles to display - in edit mode show all (including hidden), otherwise only visible
+            var tilesToShow = qsTileDefinitions
+                .Where(t => !ShouldSkipTile(t) && (qsEditMode || t.IsVisible))
+                .OrderBy(t => t.Order)
+                .ToList();
 
-                // Skip TDP Mode if Legion not detected
-                if (tile.Id == "TDPMode" && (legionGoDetected?.Value != true))
-                {
-                    continue;
-                }
-
-                if (tile.IsVisible)
-                {
-                    visibleTiles.Add(tile);
-                }
-            }
-
-            // Build rows of 3 tiles
+            // Build rows of tiles (3 or 4 columns based on setting)
             Grid currentRow = null;
             int colIndex = 0;
 
-            for (int i = 0; i < visibleTiles.Count; i++)
+            for (int i = 0; i < tilesToShow.Count; i++)
             {
                 if (colIndex == 0)
                 {
                     currentRow = new Grid { Margin = new Thickness(0, 4, 0, 4) };
-                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
-                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
-                    currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    // Add column definitions dynamically based on qsColumnCount
+                    for (int c = 0; c < qsColumnCount; c++)
+                    {
+                        if (c > 0) currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });  // Spacer
+                        currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    }
                     QuickSettingsTilesContainer.Children.Add(currentRow);
                 }
 
-                var tile = visibleTiles[i];
+                var tile = tilesToShow[i];
                 var tileButton = CreateTileButton(tile);
                 Grid.SetColumn(tileButton, colIndex * 2);
                 currentRow.Children.Add(tileButton);
 
                 colIndex++;
-                if (colIndex >= 3)
+                if (colIndex >= qsColumnCount)
                 {
                     colIndex = 0;
                 }
@@ -8103,11 +8437,16 @@ namespace XboxGamingBar
         /// </summary>
         private Button CreateTileButton(TileDefinition tile)
         {
+            // Action tiles get a distinct background color
+            var bgBrush = tile.IsAction
+                ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 37, 32, 48))  // Dark purple for action tiles
+                : tileOffBrush;
+
             var button = new Button
             {
                 Tag = tile.Id,
                 Style = Resources["QuickSettingsTileStyle"] as Style,
-                Background = tileOffBrush,
+                Background = bgBrush,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch
             };
@@ -8131,11 +8470,14 @@ namespace XboxGamingBar
                 TextAlignment = TextAlignment.Center
             });
 
+            // Action tiles show "Action" instead of state
             var stateText = new TextBlock
             {
-                Text = "Off",
+                Text = tile.IsAction ? "Action" : "Off",
                 FontSize = 13,
-                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136)),
+                Foreground = tile.IsAction
+                    ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 150, 200))  // Light purple for action
+                    : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136)),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 2, 0, 0)
             };
@@ -8165,27 +8507,41 @@ namespace XboxGamingBar
                 var accentForeground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 200, 255));
                 var offForeground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
 
-                // TDP Mode tile
+                // TDP Mode tile - color-coded backgrounds: Quiet=Blue, Balanced=White/Grey, Performance=Red, Custom=Purple
                 if (qsTileMap.TryGetValue("TDPMode", out var tdpTile) && tdpTile.TileButton != null)
                 {
                     if (legionGoDetected?.Value == true && legionPerformanceMode != null)
                     {
                         int mode = legionPerformanceMode.Value;
                         string modeText;
+                        SolidColorBrush tdpModeBrush;
                         switch (mode)
                         {
-                            case 1: modeText = "Quiet"; break;
-                            case 2: modeText = "Balanced"; break;
-                            case 3: modeText = "Performance"; break;
-                            case 255:
+                            case 1: // Quiet - Desaturated Blue
+                                modeText = "Quiet";
+                                tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 35, 45, 60));
+                                break;
+                            case 2: // Balanced - Grey
+                                modeText = "Balanced";
+                                tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 55));
+                                break;
+                            case 3: // Performance - Desaturated Red
+                                modeText = "Performance";
+                                tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 40, 40));
+                                break;
+                            case 255: // Custom - Desaturated Purple
                                 int currentTdp = (int)(tdp?.Value ?? 15);
                                 modeText = $"Custom ({currentTdp}W)";
+                                tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 42, 58));
                                 break;
-                            default: modeText = "Balanced"; break;
+                            default:
+                                modeText = "Balanced";
+                                tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 55));
+                                break;
                         }
                         tdpTile.StateText.Text = modeText;
                         tdpTile.StateText.Foreground = accentForeground;
-                        tdpTile.TileButton.Background = mode == 255 ? tileActiveBrush : (mode == 3 ? tileOnBrush : tileOffBrush);
+                        tdpTile.TileButton.Background = tdpModeBrush;
                     }
                 }
 
@@ -8524,6 +8880,19 @@ namespace XboxGamingBar
                             case "LegionLightMode":
                                 CycleLegionLightMode();
                                 break;
+                            // Action tiles
+                            case "ActionTaskManager":
+                                LaunchTaskManager();
+                                break;
+                            case "ActionExplorer":
+                                LaunchExplorer();
+                                break;
+                            case "ActionEndTask":
+                                SendAltF4();
+                                break;
+                            case "ActionFullscreen":
+                                ToggleFullscreen();
+                                break;
                         }
                     }
 
@@ -8553,11 +8922,13 @@ namespace XboxGamingBar
                 }
                 legionPerformanceMode.SetValue(nextMode);
 
-                // Update TDPModeComboBox to match (SaveCurrentSettingsToProfile reads from it)
+                // Update TDPModeComboBox to match - set flag so SelectionChanged handler saves properly
                 int nextIndex = Array.IndexOf(new int[] { 1, 2, 3, 255 }, nextMode);
                 if (nextIndex >= 0 && TDPModeComboBox != null)
                 {
+                    isUserInitiatedTDPModeChange = true; // Flag this as user-initiated
                     TDPModeComboBox.SelectedIndex = nextIndex;
+                    isUserInitiatedTDPModeChange = false;
                 }
 
                 // If switching to Custom mode, schedule TDP reapply after 5 seconds
@@ -8567,23 +8938,6 @@ namespace XboxGamingBar
                 }
 
                 Logger.Info($"TDP Mode cycled from {currentMode} to {nextMode}");
-
-                // Save profile after TDP mode cycle (if not during initialization)
-                // Use direct save to bypass isApplyingHelperUpdate check - this is a user-initiated action
-                if (!isInitialSync && !isLoadingProfile && SaveTDP && !string.IsNullOrEmpty(currentProfileName))
-                {
-                    try
-                    {
-                        var profile = GetProfile(currentProfileName);
-                        profile.LegionPerformanceMode = nextMode;
-                        SaveProfileToStorage(currentProfileName, profile);
-                        Logger.Info($"Saved TDP Mode {nextMode} to profile: {currentProfileName}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Failed to save TDP Mode to profile: {ex.Message}");
-                    }
-                }
             }
         }
 
@@ -8646,7 +9000,9 @@ namespace XboxGamingBar
             if (perGameProfile != null && runningGame != null && runningGame.Value.IsValid())
             {
                 bool newValue = !perGameProfile.Value;
+                isUserInitiatedProfileToggle = true; // Flag this as user-initiated
                 perGameProfile.SetValue(newValue);
+                isUserInitiatedProfileToggle = false;
                 Logger.Info($"Per-game profile toggled to {newValue}");
             }
             else
@@ -8655,17 +9011,109 @@ namespace XboxGamingBar
             }
         }
 
-        private void TriggerOnScreenKeyboard()
+        private async void TriggerOnScreenKeyboard()
         {
             try
             {
-                // Send Win+Ctrl+O to toggle on-screen keyboard (works in UWP sandbox)
-                QuickSettings.KeyboardShortcutHelper.SendShortcut("Win+Ctrl+O");
-                Logger.Info("On-screen keyboard triggered via Win+Ctrl+O");
+                // Launch the accessibility on-screen keyboard via helper
+                if (App.Connection != null)
+                {
+                    var message = new Windows.Foundation.Collections.ValueSet { { "LaunchProcess", "osk.exe" } };
+                    await App.Connection.SendMessageAsync(message);
+                    Logger.Info("On-screen keyboard launched via osk.exe");
+                }
+                else
+                {
+                    // Fallback to Win+Ctrl+O
+                    QuickSettings.KeyboardShortcutHelper.SendShortcut("Win+Ctrl+O");
+                    Logger.Info("On-screen keyboard triggered via Win+Ctrl+O (fallback)");
+                }
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error triggering on-screen keyboard: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Launch Task Manager via helper
+        /// </summary>
+        private void LaunchTaskManager()
+        {
+            try
+            {
+                _ = SendKeyboardShortcutViaHelper("Ctrl+Shift+Escape");
+                Logger.Info("Task Manager launched via Ctrl+Shift+Escape");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error launching Task Manager: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Launch File Explorer via helper
+        /// </summary>
+        private void LaunchExplorer()
+        {
+            try
+            {
+                _ = SendKeyboardShortcutViaHelper("Win+E");
+                Logger.Info("Explorer launched via Win+E");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error launching Explorer: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Close the foreground game window
+        /// Uses Alt+Tab to switch to game, then Alt+F4 to close it
+        /// </summary>
+        private async void SendAltF4()
+        {
+            try
+            {
+                // Alt+Tab to switch focus to the game (away from Game Bar)
+                _ = SendKeyboardShortcutViaHelper("Alt+Tab");
+                Logger.Info("Alt+Tab sent to focus game");
+
+                // Wait for focus switch
+                await Task.Delay(200);
+
+                // Now send Alt+F4 to close the focused game
+                _ = SendKeyboardShortcutViaHelper("Alt+F4");
+                Logger.Info("Alt+F4 sent to close game");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error closing game: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Toggle fullscreen via F11
+        /// Uses Alt+Tab first to focus the game
+        /// </summary>
+        private async void ToggleFullscreen()
+        {
+            try
+            {
+                // Alt+Tab to switch focus to the game (away from Game Bar)
+                _ = SendKeyboardShortcutViaHelper("Alt+Tab");
+                Logger.Info("Alt+Tab sent to focus game");
+
+                // Wait for focus switch
+                await Task.Delay(200);
+
+                // F11 is the most universal fullscreen toggle
+                _ = SendKeyboardShortcutViaHelper("F11");
+                Logger.Info("Fullscreen toggled via F11");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error toggling fullscreen: {ex.Message}");
             }
         }
 
@@ -9323,8 +9771,41 @@ namespace XboxGamingBar
         {
             if (QuickSettingsCustomizePanel != null)
             {
+                // Enter edit mode
+                qsEditMode = true;
+                qsSelectedTileForMove = null;
+
                 QuickSettingsCustomizePanel.Visibility = Visibility.Visible;
                 QuickSettingsCustomizeButton.Visibility = Visibility.Collapsed;
+
+                // Register keyboard handler for B/Escape to deselect
+                QuickSettingsCustomizePanel.KeyDown -= QuickSettingsCustomizePanel_KeyDown;
+                QuickSettingsCustomizePanel.KeyDown += QuickSettingsCustomizePanel_KeyDown;
+
+                // Update column button visuals
+                UpdateColumnButtonVisuals();
+
+                // Rebuild UIs with edit mode enabled
+                BuildSortableGrid();
+                RebuildQuickSettingsTiles();  // Shows hidden tiles with overlay in edit mode
+            }
+        }
+
+        /// <summary>
+        /// Handle keyboard input in customize panel (B/Escape to deselect)
+        /// </summary>
+        private void QuickSettingsCustomizePanel_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Escape ||
+                e.Key == Windows.System.VirtualKey.GamepadB)
+            {
+                if (qsSelectedTileForMove != null)
+                {
+                    qsSelectedTileForMove = null;
+                    UpdateSelectedTileIndicator(null);
+                    BuildSortableGrid();
+                    e.Handled = true;
+                }
             }
         }
 
@@ -9335,12 +9816,61 @@ namespace XboxGamingBar
         {
             if (QuickSettingsCustomizePanel != null)
             {
+                // Exit edit mode
+                qsEditMode = false;
+                qsSelectedTileForMove = null;
+                UpdateSelectedTileIndicator(null);
+
                 QuickSettingsCustomizePanel.Visibility = Visibility.Collapsed;
                 QuickSettingsCustomizeButton.Visibility = Visibility.Visible;
+
+                // Save config and rebuild tiles without edit overlays
                 SaveQuickSettingsConfig();
                 RebuildQuickSettingsTiles();
                 UpdateQuickSettingsTileStates();
             }
+        }
+
+        /// <summary>
+        /// Set column count to 3
+        /// </summary>
+        private void ColumnCount3_Click(object sender, RoutedEventArgs e)
+        {
+            if (qsColumnCount != 3)
+            {
+                qsColumnCount = 3;
+                UpdateColumnButtonVisuals();
+                BuildSortableGrid();
+                RebuildQuickSettingsTiles();
+            }
+        }
+
+        /// <summary>
+        /// Set column count to 4
+        /// </summary>
+        private void ColumnCount4_Click(object sender, RoutedEventArgs e)
+        {
+            if (qsColumnCount != 4)
+            {
+                qsColumnCount = 4;
+                UpdateColumnButtonVisuals();
+                BuildSortableGrid();
+                RebuildQuickSettingsTiles();
+            }
+        }
+
+        /// <summary>
+        /// Update column button visuals to show current selection
+        /// </summary>
+        private void UpdateColumnButtonVisuals()
+        {
+            if (Column3Button == null || Column4Button == null) return;
+
+            var selectedBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 180));
+            var normalBrush = tileOffBrush ?? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 26, 28, 30));
+
+            Column3Button.Background = qsColumnCount == 3 ? selectedBrush : normalBrush;
+            Column4Button.Background = qsColumnCount == 4 ? selectedBrush : normalBrush;
         }
 
         /// <summary>

@@ -211,8 +211,8 @@ namespace XboxGamingBarHelper.LosslessScaling
             currentGameExePath = exePath;
             Logger.Info($"Current game changed to: {gameName} ({exePath})");
 
-            // Find profile for this game
-            string profileName = FindProfileByExePath(exePath);
+            // Find profile for this game - try multiple matching strategies
+            string profileName = FindProfileForGame(gameName, exePath);
             if (string.IsNullOrEmpty(profileName))
             {
                 profileName = "Default";
@@ -484,6 +484,103 @@ namespace XboxGamingBarHelper.LosslessScaling
             public string Size { get; set; } = "BALANCED";
             public bool AutoScale { get; set; } = false;
             public int AutoScaleDelay { get; set; } = 0;
+        }
+
+        /// <summary>
+        /// Finds a profile for the given game using multiple matching strategies.
+        /// Lossless Scaling uses the Path field as a window title filter (substring match).
+        /// </summary>
+        private string FindProfileForGame(string gameName, string exePath)
+        {
+            try
+            {
+                if (!File.Exists(SETTINGS_PATH))
+                    return null;
+
+                var doc = XDocument.Load(SETTINGS_PATH);
+                var profiles = doc.Descendants("Profile")
+                    .Where(p => p.Element("Title")?.Value != "Default")
+                    .ToList();
+
+                // Strategy 1: Exact match on Path (legacy exe path matching)
+                if (!string.IsNullOrEmpty(exePath))
+                {
+                    var exactPathMatch = profiles.FirstOrDefault(p =>
+                        string.Equals(p.Element("Path")?.Value, exePath, StringComparison.OrdinalIgnoreCase));
+                    if (exactPathMatch != null)
+                    {
+                        Logger.Debug($"Found profile by exact path match: {exactPathMatch.Element("Title")?.Value}");
+                        return exactPathMatch.Element("Title")?.Value;
+                    }
+                }
+
+                // Strategy 2: Profile Title matches game name (case-insensitive)
+                if (!string.IsNullOrEmpty(gameName))
+                {
+                    var titleMatch = profiles.FirstOrDefault(p =>
+                        string.Equals(p.Element("Title")?.Value, gameName, StringComparison.OrdinalIgnoreCase));
+                    if (titleMatch != null)
+                    {
+                        Logger.Debug($"Found profile by title match: {titleMatch.Element("Title")?.Value}");
+                        return titleMatch.Element("Title")?.Value;
+                    }
+                }
+
+                // Strategy 3: Path filter contains game name or game name contains Path filter (window title matching)
+                if (!string.IsNullOrEmpty(gameName))
+                {
+                    foreach (var profile in profiles)
+                    {
+                        var pathFilter = profile.Element("Path")?.Value;
+                        if (string.IsNullOrEmpty(pathFilter))
+                            continue;
+
+                        // Check if game name contains the path filter (Lossless Scaling style matching)
+                        if (gameName.IndexOf(pathFilter, StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            Logger.Debug($"Found profile by window filter match (game contains filter): {profile.Element("Title")?.Value}");
+                            return profile.Element("Title")?.Value;
+                        }
+
+                        // Check if path filter contains game name
+                        if (pathFilter.IndexOf(gameName, StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            Logger.Debug($"Found profile by window filter match (filter contains game): {profile.Element("Title")?.Value}");
+                            return profile.Element("Title")?.Value;
+                        }
+                    }
+                }
+
+                // Strategy 4: Extract exe name from path and match against Path filter
+                if (!string.IsNullOrEmpty(exePath))
+                {
+                    string exeName = System.IO.Path.GetFileNameWithoutExtension(exePath);
+                    if (!string.IsNullOrEmpty(exeName))
+                    {
+                        foreach (var profile in profiles)
+                        {
+                            var pathFilter = profile.Element("Path")?.Value;
+                            if (string.IsNullOrEmpty(pathFilter))
+                                continue;
+
+                            if (exeName.IndexOf(pathFilter, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                pathFilter.IndexOf(exeName, StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                Logger.Debug($"Found profile by exe name match: {profile.Element("Title")?.Value}");
+                                return profile.Element("Title")?.Value;
+                            }
+                        }
+                    }
+                }
+
+                Logger.Debug($"No matching profile found for game '{gameName}'");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to find profile for game: {ex.Message}");
+                return null;
+            }
         }
 
         private string FindProfileByExePath(string exePath)

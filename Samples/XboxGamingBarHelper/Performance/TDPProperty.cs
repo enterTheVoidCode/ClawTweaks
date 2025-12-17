@@ -7,13 +7,35 @@ namespace XboxGamingBarHelper.Performance
     internal class TDPProperty : HelperProperty<int, PerformanceManager>
     {
         private bool forceNextApply = true; // Force apply on first SetValue after startup
+        private long profileAppliedTimestamp = 0; // Timestamp when profile TDP was applied
 
         public TDPProperty(int inValue, IProperty inParentProperty, PerformanceManager inManager) : base(inValue, inParentProperty, Function.TDP, inManager)
         {
         }
 
+        /// <summary>
+        /// Sets TDP from a profile switch. Uses a guaranteed future timestamp to ensure
+        /// it takes precedence over any in-flight widget messages.
+        /// </summary>
+        public void SetProfileValue(int tdp)
+        {
+            // Use current time + 1 second buffer to ensure this beats any in-flight widget messages
+            long futureTimestamp = System.DateTime.Now.Ticks + System.TimeSpan.TicksPerSecond;
+            profileAppliedTimestamp = futureTimestamp;
+            Logger.Info($"Setting profile TDP: {tdp}W (timestamp: {futureTimestamp})");
+            base.SetValue(tdp, futureTimestamp);
+        }
+
         public override bool SetValue(object newValue, long updatedTime = 0)
         {
+            // Ignore widget messages with timestamps older than our last profile-applied timestamp
+            // This prevents stale widget messages from overwriting profile TDP
+            if (updatedTime > 0 && updatedTime < profileAppliedTimestamp)
+            {
+                Logger.Debug($"Ignoring TDP update with stale timestamp {updatedTime} < {profileAppliedTimestamp}");
+                return false;
+            }
+
             // On first SetValue after startup, force apply even if value matches
             // Convert to int first since ValueSet may deserialize as different numeric types
             if (forceNextApply)
