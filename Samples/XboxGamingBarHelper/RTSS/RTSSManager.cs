@@ -4,6 +4,7 @@ using Shared.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.AutoTDP;
 using XboxGamingBarHelper.Legion;
@@ -11,6 +12,7 @@ using XboxGamingBarHelper.OnScreenDisplay;
 using XboxGamingBarHelper.Performance;
 using XboxGamingBarHelper.RTSS.OSDItems;
 using XboxGamingBarHelper.Settings;
+using XboxGamingBarHelper.Windows;
 
 namespace XboxGamingBarHelper.RTSS
 {
@@ -48,15 +50,40 @@ namespace XboxGamingBarHelper.RTSS
 
         private RivatunerStatisticsServerState rtssState;
 
+        // Frametime graph settings - now using native RTSS buffer (1024 per-frame samples)
+        private const int FrametimeHistorySize = 256;  // Show last 256 frames (~4 seconds at 60fps)
+        private const int GraphWidth = 256;    // pixels (1 pixel per frame)
+        private const int GraphHeight = 32;    // pixels
+        private const int GraphMargin = 1;
+        private const float GraphMinMs = 0f;
+        private const float GraphMaxMs = 50f;  // 50ms = 20 FPS floor
+        private readonly float[] frametimeHistory = new float[FrametimeHistorySize];
+        private uint frametimeHistoryPos = 0;
+        private uint lastEmbeddedGraphSize = 0;
+        private float currentMinFt = 0f;
+        private float currentAvgFt = 0f;
+        private float currentMaxFt = 0f;
+
+        // Fast OSD update timer (for smooth graph updates)
+        private Timer osdUpdateTimer;
+        private const int DefaultOSDUpdateIntervalMs = 50; // 20Hz default
+        private const int MinOSDUpdateIntervalMs = 8;      // Max 120Hz (cap for CPU load)
+        private const int MaxOSDUpdateIntervalMs = 100;    // Min 10Hz
+        private int currentUpdateIntervalMs = DefaultOSDUpdateIntervalMs;
+        private readonly object osdUpdateLock = new object();
+        private string cachedOsdString = "";
+        private bool osdUpdatePending = false;
+        private int cachedForegroundPid = 0;  // Cached foreground process ID for direct API
+
         // OSD configuration per level - stores which items are enabled
         // Level 1 (Basic): Time, FPS, Battery - 3 columns
-        // Level 2 (Detailed): Time, FPS, Battery, CPU, GPU, Fan - 1 column
+        // Level 2 (Detailed): Time, FPS, Battery, CPU, GPU, Fan, FrametimeGraph - 1 column
         // Level 3 (Full): All options - 1 column
         private Dictionary<int, HashSet<string>> osdLevelConfig = new Dictionary<int, HashSet<string>>
         {
             { 1, new HashSet<string> { "Time", "FPS", "Battery" } },
-            { 2, new HashSet<string> { "Time", "FPS", "Battery", "CPU", "GPU", "Fan" } },
-            { 3, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP" } }
+            { 2, new HashSet<string> { "Time", "FPS", "Battery", "CPU", "GPU", "Fan", "FrametimeGraph" } },
+            { 3, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "FrametimeGraph" } }
         };
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
         {
@@ -105,6 +132,148 @@ namespace XboxGamingBarHelper.RTSS
             };
 
             rtssState = RivatunerStatisticsServerState.NotInstalled;
+
+            // Start fast OSD update timer for smooth graph updates (adaptive timing)
+            osdUpdateTimer = new Timer(FastOSDUpdate, null, DefaultOSDUpdateIntervalMs, DefaultOSDUpdateIntervalMs);
+        }
+
+        /// <summary>
+        /// Fast timer callback for updating the OSD graph at high frequency.
+        /// Uses EmbedGraphDirect for optimal performance - reads directly from RTSS shared memory.
+        /// Adapts update rate to match game FPS.
+        /// </summary>
+        private void FastOSDUpdate(object state)
+        {
+            if (rtssOSD == null || onScreenDisplayLevel == 0)
+                return;
+
+            if (!IsItemEnabled("FrametimeGraph"))
+                return;
+
+            try
+            {
+                // Update the graph in RTSS using direct API
+                lock (osdUpdateLock)
+                {
+                    if (!string.IsNullOrEmpty(cachedOsdString) && rtssOSD != null && cachedForegroundPid != 0)
+                    {
+                        // Use EmbedGraphDirect - reads directly from RTSS shared memory
+                        // Eliminates intermediate copy operations
+                        float minFt, avgFt, maxFt;
+                        uint graphOffset = 0;
+                        var flags = (EMBEDDED_OBJECT_GRAPH)0;
+
+                        uint graphSize = rtssOSD.EmbedGraphDirect(
+                            graphOffset,
+                            (uint)cachedForegroundPid,
+                            (uint)FrametimeHistorySize,
+                            GraphWidth,
+                            GraphHeight,
+                            GraphMargin,
+                            GraphMinMs,
+                            GraphMaxMs,
+                            flags,
+                            out minFt,
+                            out avgFt,
+                            out maxFt);
+
+                        if (graphSize > 0)
+                        {
+                            // Update cached statistics from direct API
+                            currentMinFt = minFt;
+                            currentAvgFt = avgFt;
+                            currentMaxFt = maxFt;
+                            lastEmbeddedGraphSize = graphSize;
+                        }
+
+                        // Update the OSD with cached string (graph data is in buffer)
+                        rtssOSD.Update(cachedOsdString);
+
+                        // Adapt update rate to match game FPS
+                        AdjustUpdateInterval();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"FastOSDUpdate error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Gets the game process ID from RTSS app entries.
+        /// Prioritizes the foreground window if it's in RTSS, otherwise falls back to first valid app.
+        /// </summary>
+        private int GetRTSSGameProcessId()
+        {
+            try
+            {
+                var appEntries = OSD.GetAppEntries(AppFlags.MASK);
+                if (appEntries == null || appEntries.Length == 0)
+                    return 0;
+
+                int foregroundPid = User32.GetForegroundProcessId();
+                int fallbackPid = 0;
+
+                foreach (var entry in appEntries)
+                {
+                    if (entry.StatFrameTimeBuf != null && entry.StatFrameTimeBuf.Length > 0)
+                    {
+                        // Check if this is the foreground app
+                        if (entry.ProcessId == foregroundPid)
+                        {
+                            return entry.ProcessId; // Found foreground app in RTSS
+                        }
+                        // Keep track of first valid entry as fallback
+                        if (fallbackPid == 0)
+                        {
+                            fallbackPid = entry.ProcessId;
+                        }
+                    }
+                }
+
+                return fallbackPid; // Return fallback if foreground not in RTSS
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"GetRTSSGameProcessId error: {ex.Message}");
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Adjusts the OSD update timer interval to match the game's framerate.
+        /// This ensures the graph updates at a rate appropriate for the game's FPS.
+        /// </summary>
+        private void AdjustUpdateInterval()
+        {
+            try
+            {
+                if (cachedForegroundPid == 0)
+                    return;
+
+                // Get current game framerate from RTSS
+                uint gameFramerate = OSD.GetAppFramerate((uint)cachedForegroundPid);
+
+                if (gameFramerate > 0)
+                {
+                    // Calculate target interval to match game FPS (capped)
+                    int targetInterval = Math.Max(MinOSDUpdateIntervalMs,
+                        Math.Min(MaxOSDUpdateIntervalMs, (int)(1000.0f / gameFramerate)));
+
+                    // Only adjust if significantly different (avoid constant changes)
+                    if (Math.Abs(targetInterval - currentUpdateIntervalMs) > 5)
+                    {
+                        currentUpdateIntervalMs = targetInterval;
+                        osdUpdateTimer.Change(targetInterval, targetInterval);
+                        Logger.Debug($"Graph update rate adjusted to {1000 / targetInterval}Hz (game: {gameFramerate}fps)");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"AdjustUpdateInterval error: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -296,6 +465,13 @@ namespace XboxGamingBarHelper.RTSS
                 rtssOSD = new OSD(OSDAppName);
             }
 
+            // Update cached game PID for direct graph API
+            // Gets the RTSS app entry that matches the foreground window, or falls back to first valid app
+            if (IsItemEnabled("FrametimeGraph"))
+            {
+                cachedForegroundPid = GetRTSSGameProcessId();
+            }
+
             // Update clock display settings based on config
             osdItemCPU.SetShowClock(IsItemEnabled("CPUClock"));
             osdItemGPU.SetShowClock(IsItemEnabled("GPUClock"));
@@ -371,6 +547,68 @@ namespace XboxGamingBarHelper.RTSS
                 osdString += "<S>";
             }
 
+            // Embed frametime graph if enabled and add reference tag
+            if (IsItemEnabled("FrametimeGraph") && cachedForegroundPid != 0)
+            {
+                try
+                {
+                    uint graphOffset = 0;
+                    // No flags = transparent line graph (no fill, no background)
+                    var flags = (EMBEDDED_OBJECT_GRAPH)0;
+
+                    // Use EmbedGraphDirect for optimal performance - reads directly from RTSS shared memory
+                    float minFt, avgFt, maxFt;
+                    lastEmbeddedGraphSize = rtssOSD.EmbedGraphDirect(
+                        graphOffset,
+                        (uint)cachedForegroundPid,
+                        (uint)FrametimeHistorySize,
+                        GraphWidth,
+                        GraphHeight,
+                        GraphMargin,
+                        GraphMinMs,
+                        GraphMaxMs,
+                        flags,
+                        out minFt,
+                        out avgFt,
+                        out maxFt);
+
+                    if (lastEmbeddedGraphSize > 0)
+                    {
+                        // Update cached statistics from direct API
+                        currentMinFt = minFt;
+                        currentAvgFt = avgFt;
+                        currentMaxFt = maxFt;
+
+                        // Add min/avg/max labels in smaller text above graph
+                        string statsLabel = "";
+                        if (currentMinFt > 0 && currentMaxFt > 0)
+                        {
+                            // Smaller text (50%) for stats: "min: X.Xms  avg: X.Xms  max: X.Xms"
+                            statsLabel = $"<S=50><C=808080>min:<C=00FF00>{currentMinFt:F1}ms <C=808080>avg:<C=FFFF00>{currentAvgFt:F1}ms <C=808080>max:<C=FF6600>{currentMaxFt:F1}ms<C><S>\n";
+                        }
+                        // Add Y-axis scale legend vertically: max above graph, min below graph
+                        // Layout:
+                        //   stats line
+                        //   50ms  <- max at top
+                        //   [graph]
+                        //   0ms   <- min at bottom
+                        string yAxisMax = $"<S=50><C=808080>{GraphMaxMs:F0}ms<C><S>";
+                        string yAxisMin = $"<S=50><C=808080>{GraphMinMs:F0}ms<C><S>";
+                        osdString += $"\n{statsLabel}{yAxisMax}\n<OBJ={graphOffset:X8}>\n{yAxisMin}";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"Failed to embed frametime graph: {ex.Message}");
+                }
+            }
+
+            // Cache the OSD string for fast timer updates
+            lock (osdUpdateLock)
+            {
+                cachedOsdString = osdString;
+            }
+
             rtssOSD.Update(osdString);
         }
 
@@ -386,11 +624,117 @@ namespace XboxGamingBarHelper.RTSS
             return "";
         }
 
+        /// <summary>
+        /// Collects frametime data from RTSS for the frametime graph.
+        /// Uses the native RTSS frametime buffer (StatFrameTimeBuf) which contains
+        /// per-frame data (up to 1024 samples at actual framerate).
+        /// Frametime values are in microseconds, converted to milliseconds for display.
+        /// </summary>
+        private void CollectFrametimeData()
+        {
+            try
+            {
+                var appEntries = OSD.GetAppEntries(AppFlags.MASK);
+                if (appEntries == null || appEntries.Length == 0)
+                    return;
+
+                // Get the foreground window's process ID to prioritize that app's data
+                int foregroundPid = User32.GetForegroundProcessId();
+                AppEntry targetEntry = null;
+                AppEntry fallbackEntry = null;
+
+                // Find the matching app entry - prioritize foreground window
+                foreach (var entry in appEntries)
+                {
+                    if (entry.StatFrameTimeBuf != null && entry.StatFrameTimeBuf.Length > 0)
+                    {
+                        // Check if this is the foreground app
+                        if (entry.ProcessId == foregroundPid)
+                        {
+                            targetEntry = entry;
+                            break; // Found foreground app, use it
+                        }
+                        // Keep track of first valid entry as fallback
+                        if (fallbackEntry == null)
+                        {
+                            fallbackEntry = entry;
+                        }
+                    }
+                }
+
+                // Use foreground app if found, otherwise fallback to first valid app
+                var selectedEntry = targetEntry ?? fallbackEntry;
+                if (selectedEntry == null)
+                    return;
+
+                // Process the selected app's frametime data
+                uint nativeBufSize = (uint)selectedEntry.StatFrameTimeBuf.Length; // 1024
+                uint nativePos = selectedEntry.StatFrameTimeBufPos;
+
+                // Copy the most recent FrametimeHistorySize samples from RTSS's circular buffer
+                // RTSS buffer is 1024 entries, we take the last 256
+                float minFt = float.MaxValue;
+                float maxFt = 0f;
+                float sumFt = 0f;
+                int validSamples = 0;
+
+                for (int i = 0; i < FrametimeHistorySize; i++)
+                {
+                    // Calculate index in RTSS circular buffer
+                    // Start from (nativePos - FrametimeHistorySize) and go forward
+                    uint srcIndex = (nativePos - (uint)FrametimeHistorySize + (uint)i + nativeBufSize) % nativeBufSize;
+
+                    // Convert from microseconds to milliseconds
+                    float frametimeMs = selectedEntry.StatFrameTimeBuf[srcIndex] / 1000.0f;
+
+                    // Store in our buffer (linear, starting from position 0)
+                    frametimeHistory[i] = frametimeMs;
+
+                    // Track min/avg/max (only non-zero values)
+                    if (frametimeMs > 0 && frametimeMs < 1000)
+                    {
+                        validSamples++;
+                        sumFt += frametimeMs;
+                        if (frametimeMs < minFt) minFt = frametimeMs;
+                        if (frametimeMs > maxFt) maxFt = frametimeMs;
+                    }
+                }
+
+                // Set buffer position to end (since we copied linearly)
+                frametimeHistoryPos = 0;
+
+                if (validSamples > 0)
+                {
+                    currentMinFt = minFt;
+                    currentAvgFt = sumFt / validSamples;
+                    currentMaxFt = maxFt;
+                }
+                else
+                {
+                    currentMinFt = 0f;
+                    currentAvgFt = 0f;
+                    currentMaxFt = 0f;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Error collecting frametime data: {ex.Message}");
+            }
+        }
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
                 Logger.Info("RTSSManager: Disposing resources");
+
+                // Stop the fast OSD update timer
+                if (osdUpdateTimer != null)
+                {
+                    osdUpdateTimer.Dispose();
+                    osdUpdateTimer = null;
+                    Logger.Info("RTSSManager: OSD update timer disposed");
+                }
 
                 // Shutdown FPS limiter
                 RTSSFPSLimiter.Shutdown();
