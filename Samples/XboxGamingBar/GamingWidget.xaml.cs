@@ -2407,6 +2407,10 @@ namespace XboxGamingBar
             // Send to helper
             tdpBoostEnabled?.SetValue(TDPBoostToggle.IsOn);
 
+            // Save to local settings for persistence across widget restarts
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["TDPBoostEnabled"] = TDPBoostToggle.IsOn;
+
             // When enabling boost, also send current SPPT/FPPT values to ensure helper has them
             if (TDPBoostToggle.IsOn)
             {
@@ -2472,6 +2476,17 @@ namespace XboxGamingBar
             try
             {
                 var settings = ApplicationData.Current.LocalSettings;
+
+                // Load TDP Boost enabled state (default OFF)
+                if (settings.Values.TryGetValue("TDPBoostEnabled", out object enabledObj) && enabledObj is bool enabled)
+                {
+                    if (TDPBoostToggle != null)
+                    {
+                        TDPBoostToggle.IsOn = enabled;
+                    }
+                    tdpBoostEnabled?.SetValue(enabled);
+                    Logger.Info($"TDP Boost enabled state loaded from settings: {enabled}");
+                }
 
                 // Load SPPT boost (default 1W)
                 int spptBoost = 1; // Default
