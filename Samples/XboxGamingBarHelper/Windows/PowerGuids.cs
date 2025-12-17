@@ -22,5 +22,9 @@ namespace XboxGamingBarHelper.Windows
         public static readonly Guid GUID_PROCESSOR_THROTTLE_MIN = new Guid("893dee8e-2bef-41e0-89c6-b55d0929964c"); // Minimum processor state %
         public static readonly Guid GUID_PROCESSOR_THROTTLE_MAX1 = new Guid("bc5038f7-23e0-4960-96da-33abaf5935ed"); // Maximum processor state % for Processor Power Efficiency Class 1
         public static readonly Guid GUID_PROCESSOR_THROTTLE_MIN1 = new Guid("893dee8e-2bef-41e0-89c6-b55d0929964d"); // Minimum processor state % for Processor Power Efficiency Class 1
+
+        // Energy Saver settings
+        public static readonly Guid GUID_ENERGY_SAVER_SUBGROUP = new Guid("de830923-a562-41af-a086-e3a2c6bad2da");
+        public static readonly Guid GUID_ENERGY_SAVER_BATTERY_THRESHOLD = new Guid("e69653ca-cf7f-4f05-aa73-cb833fa90ad4"); // 0=never, 100=always
     }
 }

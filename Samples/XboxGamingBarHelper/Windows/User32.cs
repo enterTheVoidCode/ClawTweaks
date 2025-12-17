@@ -511,12 +511,56 @@ namespace XboxGamingBarHelper.Windows
         }
 
         public const UInt32 WM_KEYDOWN = 0x0100;
+        public const UInt32 WM_CLOSE = 0x0010;
         public const int VK_CONTROL = 0x11;
         public const int VK_SHIFT = 0x10;
         public const int VK_O = 0x4F; // Virtual key code for 'O'
 
         [DllImport("user32.dll")]
         public static extern bool PostMessage(IntPtr hWnd, UInt32 Msg, int wParam, int lParam);
+
+        /// <summary>
+        /// Close the foreground window by sending WM_CLOSE
+        /// Skips Game Bar and other system windows
+        /// </summary>
+        public static bool CloseForegroundWindow()
+        {
+            try
+            {
+                IntPtr hwnd = GetForegroundWindow();
+                if (hwnd == IntPtr.Zero)
+                {
+                    Logger.Warn("No foreground window found");
+                    return false;
+                }
+
+                // Get window title and process info to avoid closing system windows
+                GetWindowThreadProcessId(hwnd, out IntPtr processIdPtr);
+                int processId = processIdPtr.ToInt32();
+
+                string windowTitle = GetWindowTitle(hwnd);
+
+                // Skip Game Bar, desktop, and other system windows
+                if (string.IsNullOrEmpty(windowTitle) ||
+                    windowTitle.Contains("Xbox Game Bar") ||
+                    windowTitle.Contains("GameBar") ||
+                    windowTitle == "Program Manager" ||
+                    windowTitle == "Windows Shell Experience Host")
+                {
+                    Logger.Info($"Skipping system window: {windowTitle}");
+                    return false;
+                }
+
+                Logger.Info($"Closing foreground window: '{windowTitle}' (PID: {processId})");
+                PostMessage(hwnd, WM_CLOSE, 0, 0);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error closing foreground window: {ex.Message}");
+                return false;
+            }
+        }
 
         [DllImport("kernel32.dll")]
         private static extern void Sleep(uint dwMilliseconds);
