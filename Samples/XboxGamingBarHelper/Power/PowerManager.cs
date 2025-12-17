@@ -458,6 +458,139 @@ namespace XboxGamingBarHelper.Power
 
         #endregion
 
+        #region Energy Saver
+
+        /// <summary>
+        /// Gets whether Energy Saver is currently enabled using powercfg.
+        /// </summary>
+        public static bool GetEnergySaverEnabled()
+        {
+            try
+            {
+                // Use powercfg to query Energy Saver threshold
+                var process = new System.Diagnostics.Process
+                {
+                    StartInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "powercfg",
+                        Arguments = "/query SCHEME_CURRENT de830923-a562-41af-a086-e3a2c6bad2da e69653ca-cf7f-4f05-aa73-cb833fa90ad4",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        CreateNoWindow = true
+                    }
+                };
+                process.Start();
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+
+                // Parse output to find current setting value
+                // Look for "Current DC Power Setting Index:" or "Current AC Power Setting Index:"
+                // Value of 0x00000064 (100) means always on, 0x00000000 means never
+                bool isEnabled = false;
+                foreach (var line in output.Split('\n'))
+                {
+                    if (line.Contains("Current") && line.Contains("Power Setting Index"))
+                    {
+                        // Extract hex value
+                        var match = System.Text.RegularExpressions.Regex.Match(line, @"0x([0-9a-fA-F]+)");
+                        if (match.Success)
+                        {
+                            uint value = Convert.ToUInt32(match.Groups[1].Value, 16);
+                            if (value >= 100)
+                            {
+                                isEnabled = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                Logger.Debug($"Energy Saver enabled: {isEnabled}");
+                return isEnabled;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error getting Energy Saver status: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Toggles Energy Saver on or off using powercfg.
+        /// Sets both AC and DC values for the Energy Saver battery threshold.
+        /// </summary>
+        public static bool SetEnergySaverEnabled(bool enabled)
+        {
+            try
+            {
+                // 100 = always on (0x64), 0 = never
+                string value = enabled ? "100" : "0";
+                string subgroup = "de830923-a562-41af-a086-e3a2c6bad2da"; // Energy Saver subgroup
+                string setting = "e69653ca-cf7f-4f05-aa73-cb833fa90ad4";  // Battery threshold setting
+
+                // Set DC value (battery mode)
+                var processDC = new System.Diagnostics.Process
+                {
+                    StartInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "powercfg",
+                        Arguments = $"/setdcvalueindex SCHEME_CURRENT {subgroup} {setting} {value}",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                processDC.Start();
+                processDC.WaitForExit();
+
+                // Set AC value (plugged in mode)
+                var processAC = new System.Diagnostics.Process
+                {
+                    StartInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "powercfg",
+                        Arguments = $"/setacvalueindex SCHEME_CURRENT {subgroup} {setting} {value}",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                processAC.Start();
+                processAC.WaitForExit();
+
+                // Apply the change
+                var processApply = new System.Diagnostics.Process
+                {
+                    StartInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "powercfg",
+                        Arguments = "/setactive SCHEME_CURRENT",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                processApply.Start();
+                processApply.WaitForExit();
+
+                Logger.Info($"Energy Saver {(enabled ? "enabled" : "disabled")} (threshold: {value}% for both AC and DC)");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting Energy Saver: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Toggles Energy Saver state.
+        /// </summary>
+        public static bool ToggleEnergySaver()
+        {
+            bool currentState = GetEnergySaverEnabled();
+            return SetEnergySaverEnabled(!currentState);
+        }
+
+        #endregion
+
         #region Power Plan Management
 
         /// <summary>

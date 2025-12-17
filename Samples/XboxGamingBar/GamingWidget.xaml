@@ -357,12 +357,70 @@
                                 Margin="0,8,0,0">
                             <StackPanel>
                                 <TextBlock Text="Customize Tiles" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Show/hide tiles"
+                                <TextBlock Text="Tap tile to select, tap another to swap. Tap same tile to toggle visibility."
                                            Style="{StaticResource CardCaptionStyle}"
-                                           Margin="0,0,0,12"/>
+                                           Margin="0,0,0,8"
+                                           TextWrapping="Wrap"/>
 
-                                <!-- Tile Visibility Checkboxes - generated in code-behind -->
-                                <StackPanel x:Name="TileVisibilityPanel"/>
+                                <!-- Column Count Toggle -->
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Columns:"
+                                               VerticalAlignment="Center"
+                                               Foreground="#AAAAAA"
+                                               FontSize="13"/>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                        <Button x:Name="Column3Button"
+                                                Content="3"
+                                                MinWidth="40"
+                                                Margin="0,0,4,0"
+                                                Click="ColumnCount3_Click"/>
+                                        <Button x:Name="Column4Button"
+                                                Content="4"
+                                                MinWidth="40"
+                                                Click="ColumnCount4_Click"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Sortable Tile Grid - generated in code-behind -->
+                                <StackPanel x:Name="TileSortableGrid"/>
+
+                                <!-- Selected tile indicator -->
+                                <Border x:Name="SelectedTileIndicator"
+                                        Visibility="Collapsed"
+                                        Background="#1A2530"
+                                        CornerRadius="4"
+                                        Padding="8"
+                                        Margin="0,8,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="SelectedTileText"
+                                                   Foreground="#00C8FF"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap"
+                                                   VerticalAlignment="Center"/>
+                                        <Button x:Name="DeleteSelectedTileButton"
+                                                Grid.Column="1"
+                                                Visibility="Collapsed"
+                                                Background="#662020"
+                                                Foreground="White"
+                                                Margin="8,0,0,0"
+                                                Padding="12,6"
+                                                Click="DeleteSelectedTile_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <FontIcon Glyph="&#xE74D;" FontSize="14" Margin="0,0,6,0"/>
+                                                <TextBlock Text="Delete"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+                                </Border>
 
                                 <!-- Add Custom Shortcut Section -->
                                 <TextBlock Text="Add Custom Shortcut"

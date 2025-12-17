@@ -144,10 +144,20 @@ namespace XboxGamingBarHelper.RTSS
         /// </summary>
         private void FastOSDUpdate(object state)
         {
+            // Early exit checks - avoid any work if not properly initialized
             if (rtssOSD == null || onScreenDisplayLevel == 0)
                 return;
 
             if (!IsItemEnabled("FrametimeGraph"))
+                return;
+
+            // Verify RTSS is still running before attempting any operations
+            if (!RTSSHelper.IsRunning())
+                return;
+
+            // Verify process is still valid before using cached PID
+            int pid = cachedForegroundPid;
+            if (pid <= 0)
                 return;
 
             try
@@ -155,36 +165,37 @@ namespace XboxGamingBarHelper.RTSS
                 // Update the graph in RTSS using direct API
                 lock (osdUpdateLock)
                 {
-                    if (!string.IsNullOrEmpty(cachedOsdString) && rtssOSD != null && cachedForegroundPid != 0)
+                    // Re-check rtssOSD inside lock as it could be disposed
+                    if (string.IsNullOrEmpty(cachedOsdString) || rtssOSD == null)
+                        return;
+
+                    // Use EmbedGraphDirect - reads directly from RTSS shared memory
+                    // Eliminates intermediate copy operations
+                    float minFt, avgFt, maxFt;
+                    uint graphOffset = 0;
+                    var flags = (EMBEDDED_OBJECT_GRAPH)0;
+
+                    uint graphSize = rtssOSD.EmbedGraphDirect(
+                        graphOffset,
+                        (uint)pid,
+                        (uint)FrametimeHistorySize,
+                        GraphWidth,
+                        GraphHeight,
+                        GraphMargin,
+                        GraphMinMs,
+                        GraphMaxMs,
+                        flags,
+                        out minFt,
+                        out avgFt,
+                        out maxFt);
+
+                    if (graphSize > 0)
                     {
-                        // Use EmbedGraphDirect - reads directly from RTSS shared memory
-                        // Eliminates intermediate copy operations
-                        float minFt, avgFt, maxFt;
-                        uint graphOffset = 0;
-                        var flags = (EMBEDDED_OBJECT_GRAPH)0;
-
-                        uint graphSize = rtssOSD.EmbedGraphDirect(
-                            graphOffset,
-                            (uint)cachedForegroundPid,
-                            (uint)FrametimeHistorySize,
-                            GraphWidth,
-                            GraphHeight,
-                            GraphMargin,
-                            GraphMinMs,
-                            GraphMaxMs,
-                            flags,
-                            out minFt,
-                            out avgFt,
-                            out maxFt);
-
-                        if (graphSize > 0)
-                        {
-                            // Update cached statistics from direct API
-                            currentMinFt = minFt;
-                            currentAvgFt = avgFt;
-                            currentMaxFt = maxFt;
-                            lastEmbeddedGraphSize = graphSize;
-                        }
+                        // Update cached statistics from direct API
+                        currentMinFt = minFt;
+                        currentAvgFt = avgFt;
+                        currentMaxFt = maxFt;
+                        lastEmbeddedGraphSize = graphSize;
 
                         // Update the OSD with cached string (graph data is in buffer)
                         rtssOSD.Update(cachedOsdString);
@@ -192,11 +203,18 @@ namespace XboxGamingBarHelper.RTSS
                         // Adapt update rate to match game FPS
                         AdjustUpdateInterval();
                     }
+                    else
+                    {
+                        // Graph embedding failed - process may have exited, clear cached PID
+                        cachedForegroundPid = 0;
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Logger.Debug($"FastOSDUpdate error: {ex.Message}");
+                // Clear cached PID on error to force re-detection
+                cachedForegroundPid = 0;
             }
         }
 
@@ -424,8 +442,15 @@ namespace XboxGamingBarHelper.RTSS
             {
                 if (rtssOSD != null)
                 {
-                    rtssOSD.Update(string.Empty);
-                    rtssOSD.Dispose();
+                    try
+                    {
+                        rtssOSD.Update(string.Empty);
+                        rtssOSD.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"Error clearing OSD: {ex.Message}");
+                    }
                     rtssOSD = null;
                 }
 
@@ -609,7 +634,14 @@ namespace XboxGamingBarHelper.RTSS
                 cachedOsdString = osdString;
             }
 
-            rtssOSD.Update(osdString);
+            try
+            {
+                rtssOSD.Update(osdString);
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Error updating OSD: {ex.Message}");
+            }
         }
 
         /// <summary>
