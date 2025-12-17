@@ -128,6 +128,15 @@ namespace XboxGamingBarHelper.Windows
             return sb.ToString();
         }
 
+        /// <summary>
+        /// Gets the process ID of the current foreground window.
+        /// Returns -1 if no window has focus or process ID cannot be determined.
+        /// </summary>
+        public static int GetForegroundProcessId()
+        {
+            return GetWindowProcessId(GetForegroundWindow());
+        }
+
         public static void GetOpenWindows(IDictionary<int, ProcessWindow> windows)
         {
             var shellWindow = GetShellWindow();

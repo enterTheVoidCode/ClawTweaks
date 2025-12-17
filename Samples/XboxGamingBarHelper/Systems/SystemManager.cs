@@ -21,13 +21,27 @@ namespace XboxGamingBarHelper.Systems
         public event ResumeFromSleepEventHandler ResumeFromSleep;
         private static readonly string[] IgnoredProcesses =
         {
+            // Remote desktop tools
             "rustdesk.exe",
             "anydesk.exe",
             "parsecd.exe",
+            // Game engines/editors
             "unity.exe",
             "unrealeditor.exe",
             "eacefsubprocess.exe",
             "rider64.exe",
+            // Windows system apps that may render frames
+            "appinstaller.exe",
+            "winstore.app.exe",
+            "systemsettings.exe",
+            // Monitoring/overlay tools
+            "rtss.exe",
+            "rivatuner.exe",
+            "rivatuner statistics server.exe",
+            "msiafterburner.exe",
+            "hwinfo64.exe",
+            "hwinfo32.exe",
+            "hwinfo.exe",
         };
 
         // Some games might not be detected by Xbox Game Bar, emulated games using RetroArch, MelonDS, Citra, etc.
@@ -294,7 +308,7 @@ namespace XboxGamingBarHelper.Systems
             {
                 try
                 {
-                    appEntries = OSD.GetAppEntries();
+                    appEntries = OSD.GetAppEntries(AppFlags.MASK);
                     Logger.Debug($"RTSS returned {appEntries.Length} app entries");
                     foreach (var entry in appEntries)
                     {
