@@ -2231,6 +2231,15 @@
                                                   FocusVisualSecondaryBrush="Transparent"
                                                   Checked="OSDOption_Changed"
                                                   Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowFrametimeGraphCheckBox"
+                                                  Content="Frametime Graph"
+                                                  IsChecked="False"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
                                     </StackPanel>
 
                                         <!-- Custom RTSS Tags Section -->

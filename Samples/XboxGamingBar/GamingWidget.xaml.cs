@@ -1906,9 +1906,9 @@ namespace XboxGamingBar
         // Level 3 (Full): All options - 1 column
         private Dictionary<int, Dictionary<string, bool>> osdLevelConfig = new Dictionary<int, Dictionary<string, bool>>
         {
-            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false } } },
-            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "Memory", false }, { "VRAM", false }, { "CPU", true }, { "CPUClock", false }, { "GPU", true }, { "GPUClock", false }, { "Fan", true }, { "AutoTDP", false } } },
-            { 3, new Dictionary<string, bool> { { "AppName", true }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "Memory", true }, { "VRAM", true }, { "CPU", true }, { "CPUClock", true }, { "GPU", true }, { "GPUClock", true }, { "Fan", true }, { "AutoTDP", true } } }
+            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
+            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "Memory", false }, { "VRAM", false }, { "CPU", true }, { "CPUClock", false }, { "GPU", true }, { "GPUClock", false }, { "Fan", true }, { "AutoTDP", false }, { "FrametimeGraph", true } } },
+            { 3, new Dictionary<string, bool> { { "AppName", true }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "Memory", true }, { "VRAM", true }, { "CPU", true }, { "CPUClock", true }, { "GPU", true }, { "GPUClock", true }, { "Fan", true }, { "AutoTDP", true }, { "FrametimeGraph", true } } }
         };
 
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
@@ -2101,6 +2101,7 @@ namespace XboxGamingBar
                 if (OSDShowGPUClockCheckBox != null) OSDShowGPUClockCheckBox.IsChecked = config.GetValueOrDefault("GPUClock", false);
                 if (OSDShowFanCheckBox != null) OSDShowFanCheckBox.IsChecked = config.GetValueOrDefault("Fan", false);
                 if (OSDShowAutoTDPCheckBox != null) OSDShowAutoTDPCheckBox.IsChecked = config.GetValueOrDefault("AutoTDP", false);
+                if (OSDShowFrametimeGraphCheckBox != null) OSDShowFrametimeGraphCheckBox.IsChecked = config.GetValueOrDefault("FrametimeGraph", false);
 
                 if (OSDCustomTagsTextBox != null) OSDCustomTagsTextBox.Text = osdCustomTags.GetValueOrDefault(level, "");
 
@@ -2162,6 +2163,7 @@ namespace XboxGamingBar
                     config["GPUClock"] = OSDShowGPUClockCheckBox?.IsChecked ?? false;
                     config["Fan"] = OSDShowFanCheckBox?.IsChecked ?? false;
                     config["AutoTDP"] = OSDShowAutoTDPCheckBox?.IsChecked ?? false;
+                    config["FrametimeGraph"] = OSDShowFrametimeGraphCheckBox?.IsChecked ?? false;
 
                     osdCustomTags[level] = OSDCustomTagsTextBox?.Text ?? "";
 
@@ -2214,7 +2216,7 @@ namespace XboxGamingBar
             try
             {
                 var settings = ApplicationData.Current.LocalSettings;
-                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP" };
+                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "FrametimeGraph" };
 
                 foreach (var level in new[] { 1, 2, 3 })
                 {
@@ -7532,6 +7534,22 @@ namespace XboxGamingBar
                 // In Custom mode, enable if tdp property is ready
                 TDPSlider.IsEnabled = tdp != null;
                 Logger.Debug($"TDP slider enabled in Custom mode: {TDPSlider.IsEnabled}");
+
+                // CRITICAL FIX: Sync TDPProperty.Value with the slider's current visual value
+                // When TDP sync is skipped (preset modes), TDPProperty.Value stays at initial value (4).
+                // Profile loads set TDPSlider.Value but not TDPProperty.Value.
+                // Without this sync, Slider_ValueChanged comparison (newValue != Value) fails
+                // because the property's Value doesn't match what the user sees on screen.
+                if (tdp != null)
+                {
+                    int currentSliderValue = (int)TDPSlider.Value;
+                    tdp.StopDebounceTimer(); // Cancel any pending debounce
+                    tdp.SetValueSilent(currentSliderValue); // Update internal Value without sending
+
+                    // Also send current value to helper to ensure hardware matches UI
+                    tdp.ForceSetValue(currentSliderValue);
+                    Logger.Info($"Custom mode enabled - synced TDP property to slider value: {currentSliderValue}W");
+                }
 
                 // Restore normal XY focus chain
                 // TDPModeComboBox -> TDPSlider -> AutoTDPToggle
