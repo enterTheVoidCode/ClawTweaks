@@ -101,6 +101,9 @@ The widget is designed for full gamepad/controller navigation:
 2. Right-click `Install.ps1` → **Run with PowerShell**
 3. If prompted, click **Yes** to allow Administrator access
 
+Script not running, run with `powershell.exe -ExecutionPolicy Bypass -File .\Install.ps1`
+
+
 The script automatically:
 - Closes any blocking processes (Game Bar, previous widget versions)
 - Uninstalls previous versions cleanly
@@ -165,3 +168,4 @@ Original project created by [namquang93](https://github.com/namquang93).
 ## License
 
 This project is open source. See LICENSE file for details.
+
