@@ -42,6 +42,7 @@ namespace XboxGamingBarHelper.AutoTDP
         private DateTime lastUpdateTime = DateTime.MinValue;
         private int lastAppliedTDP = 15;
         private int consecutiveStableReadings = 0;
+        private bool wasActivelyManaging = false; // Track if we were actively managing TDP
 
         // PID Tuning - conservative increase, aggressive decrease
         private const double Kp = 0.15;   // Lower proportional gain for gentler response
@@ -139,11 +140,27 @@ namespace XboxGamingBarHelper.AutoTDP
 
             if (!enabled.Value)
             {
+                // Restore profile TDP when transitioning from active to disabled
+                if (wasActivelyManaging && performanceManager.TDP != null)
+                {
+                    int profileTDP = performanceManager.TDP.Value;
+                    Logger.Info($"AutoTDP disabled - restoring profile TDP: {profileTDP}W");
+                    performanceManager.SetTDP(profileTDP);
+                }
+                wasActivelyManaging = false;
+
                 // Reset state when disabled
                 if (integral != 0 || previousError != 0)
                 {
                     ResetState();
                 }
+                // Sync lastAppliedTDP with current TDP so we start from correct value when re-enabled
+                if (performanceManager.TDP != null)
+                {
+                    lastAppliedTDP = performanceManager.TDP.Value;
+                }
+                // Clear the AutoTDP active flag so widget TDP changes are applied
+                performanceManager.IsAutoTDPActive = false;
                 StatusText = "";
                 TrendText = "";
                 return;
@@ -153,12 +170,23 @@ namespace XboxGamingBarHelper.AutoTDP
             var runningGame = systemManager.RunningGame.Value;
             if (!runningGame.IsValid())
             {
+                // Restore profile TDP when game exits
+                if (wasActivelyManaging && performanceManager.TDP != null)
+                {
+                    int profileTDP = performanceManager.TDP.Value;
+                    Logger.Info($"AutoTDP: Game exited - restoring profile TDP: {profileTDP}W");
+                    performanceManager.SetTDP(profileTDP);
+                }
+                wasActivelyManaging = false;
+
                 // No game running - reset state and clear FPS
                 if (currentFPS.Value != 0)
                 {
                     currentFPS.SetValue(0);
                 }
                 ResetState();
+                // Clear flag so widget TDP changes are applied when no game is running
+                performanceManager.IsAutoTDPActive = false;
                 StatusText = "Waiting for game";
                 TrendText = "";
                 return;
@@ -167,10 +195,25 @@ namespace XboxGamingBarHelper.AutoTDP
             // Check if the game is in the foreground - pause AutoTDP if game is in background
             if (!runningGame.IsForeground)
             {
+                // Restore profile TDP when game goes to background
+                if (wasActivelyManaging && performanceManager.TDP != null)
+                {
+                    int profileTDP = performanceManager.TDP.Value;
+                    Logger.Info($"AutoTDP: Game in background - restoring profile TDP: {profileTDP}W");
+                    performanceManager.SetTDP(profileTDP);
+                }
+                wasActivelyManaging = false;
+
+                // Allow widget TDP changes when game is in background
+                performanceManager.IsAutoTDPActive = false;
                 StatusText = "Game not focused";
                 TrendText = "";
                 return;
             }
+
+            // Now we're actively managing TDP - block widget changes
+            performanceManager.IsAutoTDPActive = true;
+            wasActivelyManaging = true;
 
             // Rate limit updates
             var now = DateTime.Now;
@@ -260,7 +303,8 @@ namespace XboxGamingBarHelper.AutoTDP
                 TrendText = "Falling";
 
             // Run conservative controller
-            int currentTDP = performanceManager.TDP?.Value ?? lastAppliedTDP;
+            // Use lastAppliedTDP as source of truth since SetTDP debounces and TDP.Value may be stale
+            int currentTDP = lastAppliedTDP;
             int newTDP = CalculateConservativeTDP(smoothedFPS, predictedFPS, trend, currentTDP);
 
             // Update TDP values for OSD display
@@ -282,7 +326,8 @@ namespace XboxGamingBarHelper.AutoTDP
                 }
                 Logger.Info($"AutoTDP: FPS={measuredFPS} (smooth={smoothedFPS:F1}, pred={predictedFPS:F1}), Trend={trend:F2}, Target={targetFPS.Value}, TDP: {currentTDP}W -> {newTDP}W, SweetSpot={sweetSpotTDP}W@{sweetSpotConfidence}%");
                 performanceManager.SetTDP(newTDP);
-                performanceManager.TDP?.SetValue(newTDP);
+                // Note: Removed duplicate SetValue call that was causing double hardware apply
+                // SetTDP already applies to hardware; the widget will sync via IPC
                 lastAppliedTDP = newTDP;
                 consecutiveStableReadings = 0;
             }

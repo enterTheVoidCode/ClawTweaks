@@ -7557,12 +7557,32 @@ namespace XboxGamingBar
             // Check if in Custom mode (index 3 = Custom = 255)
             bool isCustomMode = TDPModeComboBox?.SelectedIndex == 3;
 
-            // TDP slider should only be enabled in Custom mode for Legion devices
+            // TDP slider, TDP Boost, and AutoTDP should only be enabled in Custom mode for Legion devices
             // Note: TDP slider also requires tdp property to be ready (IsEnabled is set elsewhere too)
             if (!isCustomMode)
             {
                 TDPSlider.IsEnabled = false;
-                Logger.Debug("TDP slider disabled - not in Custom mode");
+
+                // Also disable TDP Boost and AutoTDP controls in preset modes
+                if (TDPBoostToggle != null)
+                {
+                    TDPBoostToggle.IsEnabled = false;
+                    TDPBoostToggle.IsOn = false; // Turn off when switching to preset mode
+                }
+                if (TDPBoostContent != null)
+                {
+                    TDPBoostContent.Visibility = Visibility.Collapsed;
+                }
+                if (AutoTDPToggle != null)
+                {
+                    AutoTDPToggle.IsEnabled = false;
+                    AutoTDPToggle.IsOn = false; // Turn off when switching to preset mode
+                }
+                if (AutoTDPTargetFPSSlider != null) AutoTDPTargetFPSSlider.IsEnabled = false;
+                if (AutoTDPMinSlider != null) AutoTDPMinSlider.IsEnabled = false;
+                if (AutoTDPMaxSlider != null) AutoTDPMaxSlider.IsEnabled = false;
+
+                Logger.Debug("TDP slider, TDP Boost, and AutoTDP disabled - not in Custom mode");
 
                 // Update XY focus to skip disabled TDP slider
                 // TDPModeComboBox -> AutoTDPToggle (skip TDPSlider)
@@ -7577,7 +7597,15 @@ namespace XboxGamingBar
             {
                 // In Custom mode, enable if tdp property is ready
                 TDPSlider.IsEnabled = tdp != null;
-                Logger.Debug($"TDP slider enabled in Custom mode: {TDPSlider.IsEnabled}");
+
+                // Re-enable TDP Boost and AutoTDP controls in Custom mode
+                if (TDPBoostToggle != null) TDPBoostToggle.IsEnabled = true;
+                if (AutoTDPToggle != null) AutoTDPToggle.IsEnabled = true;
+                if (AutoTDPTargetFPSSlider != null) AutoTDPTargetFPSSlider.IsEnabled = true;
+                if (AutoTDPMinSlider != null) AutoTDPMinSlider.IsEnabled = true;
+                if (AutoTDPMaxSlider != null) AutoTDPMaxSlider.IsEnabled = true;
+
+                Logger.Debug($"TDP slider, TDP Boost, and AutoTDP enabled in Custom mode: {TDPSlider.IsEnabled}");
 
                 // CRITICAL FIX: Sync TDPProperty.Value with the slider's current visual value
                 // When TDP sync is skipped (preset modes), TDPProperty.Value stays at initial value (4).

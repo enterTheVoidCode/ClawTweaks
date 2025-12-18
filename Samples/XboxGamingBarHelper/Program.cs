@@ -59,6 +59,12 @@ namespace XboxGamingBarHelper
         private static bool isApplyingProfile = false;
 
         /// <summary>
+        /// Lock object to ensure atomic profile application.
+        /// Prevents race conditions when rapid game switches cause interleaved settings.
+        /// </summary>
+        private static readonly object profileApplicationLock = new object();
+
+        /// <summary>
         /// Input injector for sending keyboard shortcuts (works in widget context unlike SendInput)
         /// </summary>
         private static InputInjector inputInjector;
@@ -373,6 +379,13 @@ namespace XboxGamingBarHelper
 
         private static void CPUState_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            // Skip during profile application to prevent cross-contamination
+            if (isApplyingProfile)
+            {
+                Logger.Debug($"Skipping CPUState_PropertyChanged - already applying profile");
+                return;
+            }
+
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s CPU State to Max={powerManager.MaxCPUState.Value}%, Min={powerManager.MinCPUState.Value}%.");
             profileManager.CurrentProfile.MaxCPUState = powerManager.MaxCPUState.Value;
             profileManager.CurrentProfile.MinCPUState = powerManager.MinCPUState.Value;
@@ -395,48 +408,68 @@ namespace XboxGamingBarHelper
 
         private static void CPUBoost_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            // Skip during profile application to prevent cross-contamination
+            if (isApplyingProfile)
+            {
+                Logger.Debug($"Skipping CPUBoost_PropertyChanged - already applying profile");
+                return;
+            }
+
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s CPU Boost from {profileManager.CurrentProfile.CPUBoost} to {powerManager.CPUBoost}.");
             profileManager.CurrentProfile.CPUBoost = powerManager.CPUBoost;
         }
 
         private static void CPUEPP_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            // Skip during profile application to prevent cross-contamination
+            if (isApplyingProfile)
+            {
+                Logger.Debug($"Skipping CPUEPP_PropertyChanged - already applying profile");
+                return;
+            }
+
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s CPU EPP from {profileManager.CurrentProfile.CPUEPP} to {powerManager.CPUEPP}.");
             profileManager.CurrentProfile.CPUEPP = powerManager.CPUEPP;
         }
 
         private static void CurrentProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            // Prevent reentrant profile handling that can cause race conditions
-            if (isApplyingProfile)
+            // Use lock to ensure atomic profile application and prevent interleaved settings
+            // from rapid game switches (Game A → Game B → Game A)
+            lock (profileApplicationLock)
             {
-                Logger.Debug("Skipping CurrentProfile_PropertyChanged - already applying profile");
-                return;
-            }
+                // Prevent reentrant profile handling that can cause race conditions
+                if (isApplyingProfile)
+                {
+                    Logger.Debug("Skipping CurrentProfile_PropertyChanged - already applying profile");
+                    return;
+                }
 
-            if (profileManager.CurrentProfile.Use || profileManager.CurrentProfile.IsGlobalProfile)
-            {
-                try
+                if (profileManager.CurrentProfile.Use || profileManager.CurrentProfile.IsGlobalProfile)
                 {
-                    isApplyingProfile = true;
-                    Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name}, apply it.");
-                    // Use SetProfileValue to ensure profile TDP takes precedence over in-flight widget messages
-                    performanceManager.TDP.SetProfileValue(profileManager.CurrentProfile.TDP);
-                    performanceManager.TDPBoostEnabled.SetValue(profileManager.CurrentProfile.TDPBoostEnabled);
-                    powerManager.CPUBoost.SetValue(profileManager.CurrentProfile.CPUBoost);
-                    powerManager.CPUEPP.SetValue(profileManager.CurrentProfile.CPUEPP);
-                    powerManager.MaxCPUState.SetValue(profileManager.CurrentProfile.MaxCPUState);
-                    powerManager.MinCPUState.SetValue(profileManager.CurrentProfile.MinCPUState);
-                    profileManager.PerGameProfile.SetValue(profileManager.CurrentProfile.Use);
+                    try
+                    {
+                        isApplyingProfile = true;
+                        Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name}, apply it.");
+                        // Use SetProfileValue to ensure profile TDP takes precedence over in-flight widget messages
+                        // All settings applied atomically under lock to prevent cross-contamination
+                        performanceManager.TDP.SetProfileValue(profileManager.CurrentProfile.TDP);
+                        performanceManager.TDPBoostEnabled.SetValue(profileManager.CurrentProfile.TDPBoostEnabled);
+                        powerManager.CPUBoost.SetValue(profileManager.CurrentProfile.CPUBoost);
+                        powerManager.CPUEPP.SetValue(profileManager.CurrentProfile.CPUEPP);
+                        powerManager.MaxCPUState.SetValue(profileManager.CurrentProfile.MaxCPUState);
+                        powerManager.MinCPUState.SetValue(profileManager.CurrentProfile.MinCPUState);
+                        profileManager.PerGameProfile.SetValue(profileManager.CurrentProfile.Use);
+                    }
+                    finally
+                    {
+                        isApplyingProfile = false;
+                    }
                 }
-                finally
+                else
                 {
-                    isApplyingProfile = false;
+                    Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name} is not used.");
                 }
-            }
-            else
-            {
-                Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name} is not used.");
             }
         }
 
@@ -480,12 +513,27 @@ namespace XboxGamingBarHelper
 
         private static void TDP_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            // Skip during profile application to prevent cross-contamination
+            // (e.g., writing game profile TDP to global profile during switch)
+            if (isApplyingProfile)
+            {
+                Logger.Debug($"Skipping TDP_PropertyChanged - already applying profile (TDP={performanceManager.TDP})");
+                return;
+            }
+
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s TDP from {profileManager.CurrentProfile.TDP} to {performanceManager.TDP}.");
             profileManager.CurrentProfile.TDP = performanceManager.TDP;
         }
 
         private static void TDPBoostEnabled_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            // Skip during profile application to prevent cross-contamination
+            if (isApplyingProfile)
+            {
+                Logger.Debug($"Skipping TDPBoostEnabled_PropertyChanged - already applying profile");
+                return;
+            }
+
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s TDPBoostEnabled from {profileManager.CurrentProfile.TDPBoostEnabled} to {performanceManager.TDPBoostEnabled.Value}.");
             profileManager.CurrentProfile.TDPBoostEnabled = performanceManager.TDPBoostEnabled.Value;
         }
