@@ -36,8 +36,8 @@ namespace XboxGamingBarHelper.Performance
                 return false;
             }
 
-            // On first SetValue after startup, force apply even if value matches
-            // Convert to int first since ValueSet may deserialize as different numeric types
+            // On first SetValue after startup, force apply TDP to hardware
+            // This ensures TDP is applied even if the value matches the cached value
             if (forceNextApply)
             {
                 forceNextApply = false;
@@ -52,30 +52,23 @@ namespace XboxGamingBarHelper.Performance
                     intValue = Value; // fallback to current value
 
                 Logger.Info($"Force applying initial TDP value: {intValue}W");
-                // Invalidate cache by setting different value, use timestamp 0 so incoming message is always newer
-                InvalidateCache(intValue - 1);
+                // Apply TDP directly to hardware, bypassing the cache check
+                Manager.SetTDP(intValue);
             }
 
             return base.SetValue(newValue, updatedTime);
         }
 
-        /// <summary>
-        /// Invalidates the cached value without updating the timestamp.
-        /// This allows the next SetValue call to proceed even with an older timestamp.
-        /// </summary>
-        private void InvalidateCache(int newValue)
-        {
-            // Directly set the backing field without updating lastUpdatedTime
-            // This is a workaround since SetValueSilent updates the timestamp
-            typeof(Shared.Data.GenericProperty<int>)
-                .GetField("value", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                ?.SetValue(this, newValue);
-            Logger.Debug($"Invalidated TDP cache to {newValue}");
-        }
-
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
+
+            // Skip hardware apply if AutoTDP is managing TDP
+            if (Manager.IsAutoTDPActive)
+            {
+                Logger.Debug($"Skipping TDP hardware apply - AutoTDP is active (value={Value}W)");
+                return;
+            }
 
             Manager.SetTDP(Value);
         }

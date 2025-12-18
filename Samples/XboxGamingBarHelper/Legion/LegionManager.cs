@@ -61,6 +61,12 @@ namespace XboxGamingBarHelper.Legion
         private DateTime startupTime;
         private const int STARTUP_GRACE_PERIOD_MS = 5000; // 5 seconds after manager init
 
+        // Performance mode debouncing to prevent queue buildup from rapid mode changes
+        private System.Threading.Timer performanceModeDebounceTimer;
+        private int pendingPerformanceMode = -1; // -1 means no pending mode
+        private readonly object performanceModeDebounceLock = new object();
+        private const int PERFORMANCE_MODE_DEBOUNCE_MS = 150;
+
         // Properties
         public readonly LegionGoDetectedProperty LegionGoDetected;
         public readonly LegionTouchpadEnabledProperty LegionTouchpadEnabled;
@@ -444,6 +450,55 @@ namespace XboxGamingBarHelper.Legion
 
         public void SetPerformanceMode(int mode)
         {
+            // Debounce rapid mode changes to prevent queue buildup
+            lock (performanceModeDebounceLock)
+            {
+                pendingPerformanceMode = mode;
+
+                // Update cached mode immediately so SetCustomTDP knows our intended mode
+                // This prevents race conditions where TDP is skipped because mode hasn't changed yet
+                performanceMode = mode;
+
+                // Cancel existing timer and start a new one
+                performanceModeDebounceTimer?.Dispose();
+                performanceModeDebounceTimer = new System.Threading.Timer(
+                    _ => ApplyPendingPerformanceMode(),
+                    null,
+                    PERFORMANCE_MODE_DEBOUNCE_MS,
+                    System.Threading.Timeout.Infinite // Don't repeat
+                );
+
+                Logger.Debug($"SetPerformanceMode: Debouncing mode change to {mode} (will apply in {PERFORMANCE_MODE_DEBOUNCE_MS}ms if no new changes)");
+            }
+        }
+
+        /// <summary>
+        /// Called by the debounce timer to apply the pending performance mode.
+        /// </summary>
+        private void ApplyPendingPerformanceMode()
+        {
+            int modeToApply;
+            lock (performanceModeDebounceLock)
+            {
+                if (pendingPerformanceMode < 0)
+                {
+                    return; // No pending mode
+                }
+                modeToApply = pendingPerformanceMode;
+                pendingPerformanceMode = -1; // Clear pending
+            }
+
+            ApplyPerformanceModeInternal(modeToApply);
+        }
+
+        /// <summary>
+        /// Internal method that actually applies the performance mode via WMI.
+        /// Called after debouncing completes.
+        /// Note: performanceMode is already set optimistically in SetPerformanceMode.
+        /// We only need to revert it here if the WMI call fails.
+        /// </summary>
+        private void ApplyPerformanceModeInternal(int mode)
+        {
             if (wmiService == null)
             {
                 Logger.Warn("Cannot set performance mode: WMI service not available");
@@ -456,12 +511,14 @@ namespace XboxGamingBarHelper.Legion
                 var result = wmiService.SetSmartFanMode(tdpMode);
                 if (result.Success)
                 {
-                    performanceMode = mode;
+                    // Mode was already set optimistically, just log success
                     Logger.Info($"Performance mode set to {tdpMode}");
                 }
                 else
                 {
                     Logger.Error($"Failed to set performance mode: {result.Message}");
+                    // Note: We don't revert performanceMode here because rapid toggling
+                    // means the cached value might be for a different pending change
                 }
             }
             catch (Exception ex)
@@ -480,13 +537,39 @@ namespace XboxGamingBarHelper.Legion
 
             try
             {
-                // Only apply TDP if already in Custom mode (255)
+                // Only apply TDP if in Custom mode (255)
                 // Don't automatically switch modes - preset modes manage TDP via hardware
                 // The widget should explicitly switch to Custom mode first if needed
                 if (performanceMode != 255)
                 {
                     Logger.Info($"Skipping SetCustomTDP({slow}, {fast}, {peak}) - not in Custom mode (current mode: {performanceMode})");
                     return;
+                }
+
+                // If there's a pending Custom mode change waiting on debounce, apply it immediately
+                // This ensures the hardware is in Custom mode before we try to set TDP values
+                lock (performanceModeDebounceLock)
+                {
+                    if (pendingPerformanceMode == 255)
+                    {
+                        Logger.Info("Flushing pending Custom mode change before applying TDP");
+                        performanceModeDebounceTimer?.Dispose();
+                        performanceModeDebounceTimer = null;
+                        pendingPerformanceMode = -1;
+
+                        // Apply mode change synchronously
+                        TdpMode tdpMode = (TdpMode)255;
+                        var modeResult = wmiService.SetSmartFanMode(tdpMode);
+                        if (modeResult.Success)
+                        {
+                            Logger.Info($"Performance mode set to {tdpMode}");
+                        }
+                        else
+                        {
+                            Logger.Error($"Failed to set performance mode: {modeResult.Message}");
+                            return; // Don't try to set TDP if mode change failed
+                        }
+                    }
                 }
 
                 // Apply TDP values immediately
@@ -512,42 +595,55 @@ namespace XboxGamingBarHelper.Legion
         }
 
         /// <summary>
-        /// Applies TDP values via WMI
+        /// Applies TDP values via WMI with rollback on partial failure.
+        /// All three values are applied atomically - if any fails, previous values are restored.
         /// </summary>
         private void ApplyTDPValues(int slow, int fast, int peak)
         {
+            // Store previous values for rollback on partial failure
+            int previousSlow = customTDPSlow;
+            int previousFast = customTDPFast;
+            int previousPeak = customTDPPeak;
+
+            // Step 1: Set Slow TDP (SPL)
             var slowResult = wmiService.SetCPUShortTermPowerLimit(slow);
-            if (slowResult.Success)
-            {
-                customTDPSlow = slow;
-                Logger.Info($"Slow TDP (SPL) set to {slow}W");
-            }
-            else
+            if (!slowResult.Success)
             {
                 Logger.Error($"Failed to set Slow TDP: {slowResult.Message}");
+                return; // Nothing to rollback yet
             }
+            Logger.Info($"Slow TDP (SPL) set to {slow}W");
 
+            // Step 2: Set Fast TDP (SPPL)
             var fastResult = wmiService.SetCPULongTermPowerLimit(fast);
-            if (fastResult.Success)
-            {
-                customTDPFast = fast;
-                Logger.Info($"Fast TDP (SPPL) set to {fast}W");
-            }
-            else
+            if (!fastResult.Success)
             {
                 Logger.Error($"Failed to set Fast TDP: {fastResult.Message}");
+                // Rollback Slow TDP
+                Logger.Warn($"Rolling back Slow TDP to {previousSlow}W due to Fast TDP failure");
+                wmiService.SetCPUShortTermPowerLimit(previousSlow);
+                return;
             }
+            Logger.Info($"Fast TDP (SPPL) set to {fast}W");
 
+            // Step 3: Set Peak TDP (FPPT)
             var peakResult = wmiService.SetCPUPeakPowerLimit(peak);
-            if (peakResult.Success)
-            {
-                customTDPPeak = peak;
-                Logger.Info($"Peak TDP (FPPT) set to {peak}W");
-            }
-            else
+            if (!peakResult.Success)
             {
                 Logger.Error($"Failed to set Peak TDP: {peakResult.Message}");
+                // Rollback both Slow and Fast TDP
+                Logger.Warn($"Rolling back Slow TDP to {previousSlow}W and Fast TDP to {previousFast}W due to Peak TDP failure");
+                wmiService.SetCPUShortTermPowerLimit(previousSlow);
+                wmiService.SetCPULongTermPowerLimit(previousFast);
+                return;
             }
+            Logger.Info($"Peak TDP (FPPT) set to {peak}W");
+
+            // All succeeded - update cached values
+            customTDPSlow = slow;
+            customTDPFast = fast;
+            customTDPPeak = peak;
+            Logger.Info($"All TDP values applied successfully: SPL={slow}W, SPPL={fast}W, FPPT={peak}W");
         }
 
         /// <summary>

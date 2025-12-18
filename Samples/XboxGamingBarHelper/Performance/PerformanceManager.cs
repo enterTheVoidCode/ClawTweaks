@@ -156,6 +156,9 @@ namespace XboxGamingBarHelper.Performance
         public int CurrentSPPT { get; private set; }
         public int CurrentFPPT { get; private set; }
 
+        // Flag to indicate AutoTDP is managing TDP - when true, widget TDP updates are ignored
+        public bool IsAutoTDPActive { get; set; }
+
         private System.Timers.Timer currentTdpTimer;
         private string lastTdpString = "";
         private int consecutiveReadFailures = 0;
@@ -170,6 +173,10 @@ namespace XboxGamingBarHelper.Performance
         // RyzenAdj lazy loading - only load when user disables Manufacturer WMI
         private bool ryzenAdjInitialized = false;
         private bool ryzenAdjInitAttempted = false;
+
+        // Thread synchronization locks to prevent race conditions
+        private readonly object tdpLock = new object();
+        private readonly object ryzenAdjInitLock = new object();
 
         /// <summary>
         /// Gets whether PawnIO is available for TDP control.
@@ -219,8 +226,15 @@ namespace XboxGamingBarHelper.Performance
             }
         }
         private const int MaxConsecutiveFailuresBeforeReinit = 5;
-        private const double NormalTimerInterval = 3000; // 3 seconds
+        private const double NormalTimerInterval = 2000; // 2 seconds
         private const double BackoffTimerInterval = 10000; // 10 seconds during failures
+        private const int VerificationDelayMs = 500; // Delay before verification read after SetTDP
+        private const int TDPDebounceDelayMs = 150; // Debounce delay for rapid TDP changes
+
+        // TDP debouncing to prevent queue buildup from rapid changes
+        private System.Threading.Timer tdpDebounceTimer;
+        private int pendingTDP = -1; // -1 means no pending TDP
+        private readonly object debounceLock = new object();
 
         internal PerformanceManager(AppServiceConnection connection) : base(connection)
         {
@@ -387,74 +401,146 @@ namespace XboxGamingBarHelper.Performance
 
         public void SetTDP(int tdp)
         {
-            var settingsManager = SettingsManager.GetInstance();
-            bool useManufacturerWMI = settingsManager?.UseManufacturerWMI?.Value ?? true;
-            bool legionDetected = legionManager?.LegionGoDetected?.Value ?? false;
-
-            // Calculate actual TDP values based on TDP Boost settings
-            // When boost is enabled: SPPT = TDP + boost_sppt, FPPT = TDP + boost_fppt
-            // SPL/STAPM stays at base TDP value
-            int spl = tdp;
-            int sppt = tdp;
-            int fppt = tdp;
-
-            if (tdpBoostEnabled?.Value == true)
+            // Debounce rapid TDP changes to prevent queue buildup
+            // Only the final value will be applied after the debounce delay
+            lock (debounceLock)
             {
-                int spptBoost = tdpBoostSPPT?.Value ?? 1;
-                int fpptBoost = tdpBoostFPPT?.Value ?? 3;
-                sppt = tdp + spptBoost;
-                fppt = tdp + fpptBoost;
-                Logger.Info($"TDP Boost enabled: SPL={spl}W, SPPT={sppt}W (+{spptBoost}), FPPT={fppt}W (+{fpptBoost})");
+                pendingTDP = tdp;
+
+                // Cancel existing timer and start a new one
+                tdpDebounceTimer?.Dispose();
+                tdpDebounceTimer = new System.Threading.Timer(
+                    _ => ApplyPendingTDP(),
+                    null,
+                    TDPDebounceDelayMs,
+                    System.Threading.Timeout.Infinite // Don't repeat
+                );
+
+                Logger.Debug($"SetTDP: Debouncing TDP change to {tdp}W (will apply in {TDPDebounceDelayMs}ms if no new changes)");
+            }
+        }
+
+        /// <summary>
+        /// Called by the debounce timer to apply the pending TDP value.
+        /// </summary>
+        private void ApplyPendingTDP()
+        {
+            int tdpToApply;
+            lock (debounceLock)
+            {
+                if (pendingTDP < 0)
+                {
+                    return; // No pending TDP
+                }
+                tdpToApply = pendingTDP;
+                pendingTDP = -1; // Clear pending
             }
 
-            // Store current limits for OSD display
-            CurrentSPL = spl;
-            CurrentSPPT = sppt;
-            CurrentFPPT = fppt;
+            ApplyTDPInternal(tdpToApply);
+        }
 
-            // Priority 1: Legion WMI (anti-cheat compatible, works on Legion Go/Go S)
-            // Only use if the setting is enabled
-            if (useManufacturerWMI && legionDetected && legionManager != null)
+        /// <summary>
+        /// Internal method that actually applies the TDP to hardware.
+        /// Called after debouncing completes.
+        /// </summary>
+        private void ApplyTDPInternal(int tdp)
+        {
+            // Lock to prevent race conditions from multiple sources calling SetTDP simultaneously
+            // (widget slider, AutoTDP, TDP Boost changes, profile switches)
+            lock (tdpLock)
             {
-                // Note: SetCustomTDP will automatically switch to Custom mode (255) if needed
-                // The widget handles skipping TDP sync during preset modes via tdp.SkipSync flag
-                Logger.Info($"Using Legion WMI to set TDP (SPL={spl}W, SPPL={sppt}W, FPPT={fppt}W)");
-                legionManager.SetCustomTDP(spl, sppt, fppt);
-                return;
-            }
+                var settingsManager = SettingsManager.GetInstance();
+                bool useManufacturerWMI = settingsManager?.UseManufacturerWMI?.Value ?? true;
+                bool legionDetected = legionManager?.LegionGoDetected?.Value ?? false;
 
-            // Priority 2: PawnIO/RyzenSMU (anti-cheat compatible, for non-Legion devices)
-            // Note: Currently disabled - waiting for CPU support in RyzenSMU module
-            // if (pawnIOAvailable && ryzenSmuService != null && ryzenSmuService.IsInitialized)
-            // {
-            //     Logger.Info($"Using PawnIO/RyzenSMU to set TDP (SPL={spl}W, SPPT={sppt}W, FPPT={fppt}W)");
-            //     if (ryzenSmuService.SetAllLimits(spl, sppt, fppt))
-            //     {
-            //         Logger.Info($"PawnIO: TDP set successfully");
-            //         return;
-            //     }
-            //     else
-            //     {
-            //         Logger.Warn("PawnIO: Failed to set TDP, falling back to RyzenAdj");
-            //     }
-            // }
+                // Calculate actual TDP values based on TDP Boost settings
+                // When boost is enabled: SPPT = TDP + boost_sppt, FPPT = TDP + boost_fppt
+                // SPL/STAPM stays at base TDP value
+                int spl = tdp;
+                int sppt = tdp;
+                int fppt = tdp;
 
-            // Priority 3: RyzenAdj (fallback - loads WinRing0 which may trigger anti-cheat)
-            // Lazy-load RyzenAdj only when actually needed
-            if (!EnsureRyzenAdjInitialized())
-            {
-                Logger.Warn("SetTDP: No TDP control method available (Legion WMI disabled, RyzenAdj failed to initialize)");
-                return;
-            }
+                if (tdpBoostEnabled?.Value == true)
+                {
+                    int spptBoost = tdpBoostSPPT?.Value ?? 1;
+                    int fpptBoost = tdpBoostFPPT?.Value ?? 3;
+                    sppt = tdp + spptBoost;
+                    fppt = tdp + fpptBoost;
+                    Logger.Info($"TDP Boost enabled: SPL={spl}W, SPPT={sppt}W (+{spptBoost}), FPPT={fppt}W (+{fpptBoost})");
+                }
 
-            Logger.Info($"Using RyzenAdj to set TDP (STAPM={spl}W, SLOW={sppt}W, FAST={fppt}W) (WinRing0 loaded - may trigger anti-cheat)");
-            RyzenAdj.set_fast_limit(ryzenAdjHandle, (uint)(fppt * 1000));
-            RyzenAdj.set_slow_limit(ryzenAdjHandle, (uint)(sppt * 1000));
-            RyzenAdj.set_stapm_limit(ryzenAdjHandle, (uint)(spl * 1000));
+                // Note: CurrentSPL/SPPT/FPPT are now updated from actual hardware values
+                // in UpdateCurrentTDP, which is called via ScheduleVerificationRead after SetTDP
+
+                // Priority 1: Legion WMI (anti-cheat compatible, works on Legion Go/Go S)
+                // Only use if the setting is enabled
+                if (useManufacturerWMI && legionDetected && legionManager != null)
+                {
+                    // Note: SetCustomTDP will automatically switch to Custom mode (255) if needed
+                    // The widget handles skipping TDP sync during preset modes via tdp.SkipSync flag
+                    Logger.Info($"Using Legion WMI to set TDP (SPL={spl}W, SPPL={sppt}W, FPPT={fppt}W)");
+                    legionManager.SetCustomTDP(spl, sppt, fppt);
+                    ScheduleVerificationRead();
+                    return;
+                }
+
+                // Priority 2: PawnIO/RyzenSMU (anti-cheat compatible, for non-Legion devices)
+                // Note: Currently disabled - waiting for CPU support in RyzenSMU module
+                // if (pawnIOAvailable && ryzenSmuService != null && ryzenSmuService.IsInitialized)
+                // {
+                //     Logger.Info($"Using PawnIO/RyzenSMU to set TDP (SPL={spl}W, SPPT={sppt}W, FPPT={fppt}W)");
+                //     if (ryzenSmuService.SetAllLimits(spl, sppt, fppt))
+                //     {
+                //         Logger.Info($"PawnIO: TDP set successfully");
+                //         return;
+                //     }
+                //     else
+                //     {
+                //         Logger.Warn("PawnIO: Failed to set TDP, falling back to RyzenAdj");
+                //     }
+                // }
+
+                // Priority 3: RyzenAdj (fallback - loads WinRing0 which may trigger anti-cheat)
+                // Lazy-load RyzenAdj only when actually needed
+                if (!EnsureRyzenAdjInitialized())
+                {
+                    Logger.Warn("SetTDP: No TDP control method available (Legion WMI disabled, RyzenAdj failed to initialize)");
+                    return;
+                }
+
+                Logger.Info($"Using RyzenAdj to set TDP (STAPM={spl}W, SLOW={sppt}W, FAST={fppt}W) (WinRing0 loaded - may trigger anti-cheat)");
+                RyzenAdj.set_fast_limit(ryzenAdjHandle, (uint)(fppt * 1000));
+                RyzenAdj.set_slow_limit(ryzenAdjHandle, (uint)(sppt * 1000));
+                RyzenAdj.set_stapm_limit(ryzenAdjHandle, (uint)(spl * 1000));
 #if DEBUG
-            RyzenAdj.refresh_table(ryzenAdjHandle);
-            Logger.Info($"Set TDP, current fast limit is {RyzenAdj.get_fast_limit(ryzenAdjHandle)}");
+                RyzenAdj.refresh_table(ryzenAdjHandle);
+                Logger.Info($"Set TDP, current fast limit is {RyzenAdj.get_fast_limit(ryzenAdjHandle)}");
 #endif
+            }
+
+            // Schedule a verification read after a short delay to confirm the TDP was applied
+            ScheduleVerificationRead();
+        }
+
+        /// <summary>
+        /// Schedules a delayed verification read of TDP values after SetTDP.
+        /// This allows the hardware time to apply the new values before reading back.
+        /// </summary>
+        private void ScheduleVerificationRead()
+        {
+            System.Threading.Tasks.Task.Run(async () =>
+            {
+                try
+                {
+                    await System.Threading.Tasks.Task.Delay(VerificationDelayMs);
+                    UpdateCurrentTDP(null, null);
+                    Logger.Debug("ScheduleVerificationRead: Verification read completed");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"ScheduleVerificationRead: Error during verification read: {ex.Message}");
+                }
+            });
         }
 
         /// <summary>
@@ -464,72 +550,82 @@ namespace XboxGamingBarHelper.Performance
         /// <returns>True if RyzenAdj is available</returns>
         private bool EnsureRyzenAdjInitialized()
         {
-            if (ryzenAdjInitialized)
-                return ryzenAdjHandle != IntPtr.Zero;
-
-            if (ryzenAdjInitAttempted)
-                return false; // Already tried and failed
-
-            ryzenAdjInitAttempted = true;
-            Logger.Info("EnsureRyzenAdjInitialized: Loading RyzenAdj (WinRing0 driver will be loaded - may trigger anti-cheat)");
-
-            try
+            // Lock to prevent double-initialization race condition when multiple threads
+            // try to initialize RyzenAdj simultaneously
+            lock (ryzenAdjInitLock)
             {
-                ryzenAdjHandle = RyzenAdj.init_ryzenadj();
-                if (ryzenAdjHandle == IntPtr.Zero)
+                if (ryzenAdjInitialized)
+                    return ryzenAdjHandle != IntPtr.Zero;
+
+                if (ryzenAdjInitAttempted)
+                    return false; // Already tried and failed
+
+                ryzenAdjInitAttempted = true;
+                Logger.Info("EnsureRyzenAdjInitialized: Loading RyzenAdj (WinRing0 driver will be loaded - may trigger anti-cheat)");
+
+                try
                 {
-                    Logger.Warn("RyzenAdj initialization failed");
+                    ryzenAdjHandle = RyzenAdj.init_ryzenadj();
+                    if (ryzenAdjHandle == IntPtr.Zero)
+                    {
+                        Logger.Warn("RyzenAdj initialization failed");
+                        return false;
+                    }
+
+                    RyzenAdj.refresh_table(ryzenAdjHandle);
+                    var stapm = (int)RyzenAdj.get_stapm_limit(ryzenAdjHandle);
+                    var fast = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
+                    var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
+
+                    if (stapm > 0 && fast > 0 && slow > 0 &&
+                        stapm != int.MinValue && fast != int.MinValue && slow != int.MinValue)
+                    {
+                        Logger.Info($"RyzenAdj initialized successfully - STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W");
+                        ryzenAdjInitialized = true;
+                        return true;
+                    }
+                    else
+                    {
+                        Logger.Warn($"RyzenAdj returned invalid values - STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W");
+                        return false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"RyzenAdj initialization failed: {ex.Message}");
+                    ryzenAdjHandle = IntPtr.Zero;
                     return false;
                 }
-
-                RyzenAdj.refresh_table(ryzenAdjHandle);
-                var stapm = (int)RyzenAdj.get_stapm_limit(ryzenAdjHandle);
-                var fast = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
-                var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
-
-                if (stapm > 0 && fast > 0 && slow > 0 &&
-                    stapm != int.MinValue && fast != int.MinValue && slow != int.MinValue)
-                {
-                    Logger.Info($"RyzenAdj initialized successfully - STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W");
-                    ryzenAdjInitialized = true;
-                    return true;
-                }
-                else
-                {
-                    Logger.Warn($"RyzenAdj returned invalid values - STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W");
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"RyzenAdj initialization failed: {ex.Message}");
-                ryzenAdjHandle = IntPtr.Zero;
-                return false;
             }
         }
 
         private void ReinitializeRyzenAdj()
         {
-            Logger.Info("ReinitializeRyzenAdj: Attempting to reinitialize RyzenAdj handle");
-
-            // Clean up old handle if it exists
-            if (ryzenAdjHandle != IntPtr.Zero)
+            // Lock to ensure thread-safe reinitialization
+            lock (ryzenAdjInitLock)
             {
-                try
+                Logger.Info("ReinitializeRyzenAdj: Attempting to reinitialize RyzenAdj handle");
+
+                // Clean up old handle if it exists
+                if (ryzenAdjHandle != IntPtr.Zero)
                 {
-                    RyzenAdj.cleanup_ryzenadj(ryzenAdjHandle);
-                    Logger.Info("ReinitializeRyzenAdj: Old handle cleaned up");
+                    try
+                    {
+                        RyzenAdj.cleanup_ryzenadj(ryzenAdjHandle);
+                        Logger.Info("ReinitializeRyzenAdj: Old handle cleaned up");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"ReinitializeRyzenAdj: Error cleaning up old handle: {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Logger.Warn($"ReinitializeRyzenAdj: Error cleaning up old handle: {ex.Message}");
-                }
+
+                // Reset flags and try again
+                ryzenAdjInitialized = false;
+                ryzenAdjInitAttempted = false;
             }
 
-            // Reset flags and try again
-            ryzenAdjInitialized = false;
-            ryzenAdjInitAttempted = false;
-
+            // Call outside lock since EnsureRyzenAdjInitialized acquires the same lock
             if (EnsureRyzenAdjInitialized())
             {
                 consecutiveReadFailures = 0;
@@ -568,6 +664,11 @@ namespace XboxGamingBarHelper.Performance
 
                     if (slow.HasValue && fast.HasValue && peak.HasValue)
                     {
+                        // Update actual hardware limits for OSD display
+                        CurrentSPL = slow.Value;
+                        CurrentSPPT = fast.Value;
+                        CurrentFPPT = peak.Value;
+
                         var newTdpString = $"SPL:{slow}W SPPL:{fast}W FPPT:{peak}W";
                         Logger.Debug($"UpdateCurrentTDP (Legion WMI): Read values - {newTdpString}");
 
@@ -642,6 +743,12 @@ namespace XboxGamingBarHelper.Performance
                         Logger.Info($"UpdateCurrentTDP: Restored timer to {NormalTimerInterval}ms");
                     }
                 }
+
+                // Update actual hardware limits for OSD display
+                // RyzenAdj: STAPM=SPL (base), SLOW=SPPT, FAST=FPPT
+                CurrentSPL = stapm;
+                CurrentSPPT = slowVal;
+                CurrentFPPT = fastVal;
 
                 // Only show limits (power consumption methods not working on this hardware)
                 var newTdpStringRyzen = $"STAPM:{stapm}W FAST:{fastVal}W SLOW:{slowVal}W";
