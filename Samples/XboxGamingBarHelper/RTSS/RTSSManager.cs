@@ -26,6 +26,7 @@ namespace XboxGamingBarHelper.RTSS
         private readonly OSDItem[] osdItems;
         private readonly OSDItemFan osdItemFan;
         private readonly OSDItemAutoTDP osdItemAutoTDP;
+        private readonly OSDItemTDPLimits osdItemTDPLimits;
         private readonly OSDItemCPU osdItemCPU;
         private readonly OSDItemGPU osdItemGPU;
         private readonly OSDItemVRAM osdItemVRAM;
@@ -114,6 +115,8 @@ namespace XboxGamingBarHelper.RTSS
             RTSSFPSLimiter.Initialize();
             osdItemFan = new OSDItemFan();
             osdItemAutoTDP = new OSDItemAutoTDP();
+            osdItemTDPLimits = new OSDItemTDPLimits();
+            osdItemTDPLimits.SetPerformanceManager(performanceManager);
             osdItemCPU = new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature);
             osdItemGPU = new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature);
             osdItemVRAM = new OSDItemVRAM(performanceManager.GPUMemoryUsed, performanceManager.GPUMemoryFree, performanceManager.GPUMemoryClock);
@@ -129,6 +132,7 @@ namespace XboxGamingBarHelper.RTSS
                 new OSDItemMemory(performanceManager.MemoryUsage, performanceManager.MemoryUsed, performanceManager.MemoryAvailable),
                 osdItemFan,
                 osdItemAutoTDP,
+                osdItemTDPLimits,
             };
 
             rtssState = RivatunerStatisticsServerState.NotInstalled;
