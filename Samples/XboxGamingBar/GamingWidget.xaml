@@ -2289,6 +2289,15 @@
                                                   FocusVisualSecondaryBrush="Transparent"
                                                   Checked="OSDOption_Changed"
                                                   Unchecked="OSDOption_Changed"/>
+                                        <CheckBox x:Name="OSDShowTDPLimitsCheckBox"
+                                                  Content="TDP Limits (SPL/SPPT/FPPT)"
+                                                  IsChecked="False"
+                                                  Foreground="#FFFFFF"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent"
+                                                  Checked="OSDOption_Changed"
+                                                  Unchecked="OSDOption_Changed"/>
                                         <CheckBox x:Name="OSDShowFrametimeGraphCheckBox"
                                                   Content="Frametime Graph"
                                                   IsChecked="False"

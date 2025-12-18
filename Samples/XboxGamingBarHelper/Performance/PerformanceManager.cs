@@ -151,6 +151,11 @@ namespace XboxGamingBarHelper.Performance
             get { return tdpBoostFPPT; }
         }
 
+        // Current TDP limits (for OSD display)
+        public int CurrentSPL { get; private set; }
+        public int CurrentSPPT { get; private set; }
+        public int CurrentFPPT { get; private set; }
+
         private System.Timers.Timer currentTdpTimer;
         private string lastTdpString = "";
         private int consecutiveReadFailures = 0;
@@ -401,6 +406,11 @@ namespace XboxGamingBarHelper.Performance
                 fppt = tdp + fpptBoost;
                 Logger.Info($"TDP Boost enabled: SPL={spl}W, SPPT={sppt}W (+{spptBoost}), FPPT={fppt}W (+{fpptBoost})");
             }
+
+            // Store current limits for OSD display
+            CurrentSPL = spl;
+            CurrentSPPT = sppt;
+            CurrentFPPT = fppt;
 
             // Priority 1: Legion WMI (anti-cheat compatible, works on Legion Go/Go S)
             // Only use if the setting is enabled
