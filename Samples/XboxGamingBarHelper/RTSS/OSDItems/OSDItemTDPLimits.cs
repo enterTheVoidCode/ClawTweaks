@@ -1,0 +1,48 @@
+using System.Collections.Generic;
+using System.Drawing;
+using XboxGamingBarHelper.Performance;
+
+namespace XboxGamingBarHelper.RTSS.OSDItems
+{
+    /// <summary>
+    /// OSD item for displaying current TDP limits (SPL/SPPT/FPPT)
+    /// </summary>
+    internal class OSDItemTDPLimits : OSDItem
+    {
+        private PerformanceManager performanceManager;
+
+        public OSDItemTDPLimits() : base("Limits", "TDPLimits", Color.Orange)
+        {
+        }
+
+        /// <summary>
+        /// Sets the Performance Manager reference to read TDP limits from.
+        /// Must be called after PerformanceManager is initialized.
+        /// </summary>
+        public void SetPerformanceManager(PerformanceManager manager)
+        {
+            performanceManager = manager;
+        }
+
+        public override string GetOSDString(int osdLevel)
+        {
+            if (performanceManager == null)
+            {
+                return string.Empty;
+            }
+
+            int spl = performanceManager.CurrentSPL;
+            int sppt = performanceManager.CurrentSPPT;
+            int fppt = performanceManager.CurrentFPPT;
+
+            // Don't show if no TDP has been set yet
+            if (spl == 0 && sppt == 0 && fppt == 0)
+            {
+                return string.Empty;
+            }
+
+            // Format: "Limits: SPL/SPPT/FPPT" e.g. "Limits: 25/26/28"
+            return $"<C={colorCode}>Limits<C={textColor}> <C={textColor}>{spl}/{sppt}/{fppt}W<C={textColor}>";
+        }
+    }
+}

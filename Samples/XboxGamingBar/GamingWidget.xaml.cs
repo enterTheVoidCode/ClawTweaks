@@ -2125,6 +2125,7 @@ namespace XboxGamingBar
                 if (OSDShowGPUClockCheckBox != null) OSDShowGPUClockCheckBox.IsChecked = config.GetValueOrDefault("GPUClock", false);
                 if (OSDShowFanCheckBox != null) OSDShowFanCheckBox.IsChecked = config.GetValueOrDefault("Fan", false);
                 if (OSDShowAutoTDPCheckBox != null) OSDShowAutoTDPCheckBox.IsChecked = config.GetValueOrDefault("AutoTDP", false);
+                if (OSDShowTDPLimitsCheckBox != null) OSDShowTDPLimitsCheckBox.IsChecked = config.GetValueOrDefault("TDPLimits", false);
                 if (OSDShowFrametimeGraphCheckBox != null) OSDShowFrametimeGraphCheckBox.IsChecked = config.GetValueOrDefault("FrametimeGraph", false);
 
                 if (OSDCustomTagsTextBox != null) OSDCustomTagsTextBox.Text = osdCustomTags.GetValueOrDefault(level, "");
@@ -2187,6 +2188,7 @@ namespace XboxGamingBar
                     config["GPUClock"] = OSDShowGPUClockCheckBox?.IsChecked ?? false;
                     config["Fan"] = OSDShowFanCheckBox?.IsChecked ?? false;
                     config["AutoTDP"] = OSDShowAutoTDPCheckBox?.IsChecked ?? false;
+                    config["TDPLimits"] = OSDShowTDPLimitsCheckBox?.IsChecked ?? false;
                     config["FrametimeGraph"] = OSDShowFrametimeGraphCheckBox?.IsChecked ?? false;
 
                     osdCustomTags[level] = OSDCustomTagsTextBox?.Text ?? "";
