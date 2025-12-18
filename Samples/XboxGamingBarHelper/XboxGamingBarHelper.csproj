@@ -429,6 +429,7 @@
     <Compile Include="RTSS\OSDItems\OSDItemMemory.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemVRAM.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemNetwork.cs" />
+    <Compile Include="RTSS\OSDItems\OSDItemTDPLimits.cs" />
     <Compile Include="RTSS\OSDItemValue.cs" />
     <Compile Include="OnScreenDisplay\OnScreenDisplayProperty.cs" />
     <Compile Include="RTSS\RTSSInstalledProperty.cs" />
