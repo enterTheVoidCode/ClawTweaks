@@ -6383,6 +6383,13 @@ namespace XboxGamingBar
                 // Hide connection status banner and update profile display now that we're connected
                 await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                 {
+                    // Verify connection still exists (could have been cleared by disconnect during sync)
+                    if (App.Connection == null)
+                    {
+                        Logger.Warn("Connection was cleared during sync - keeping banner visible");
+                        return;
+                    }
+
                     if (ConnectionStatusBanner != null)
                     {
                         ConnectionStatusBanner.Visibility = Visibility.Collapsed;
