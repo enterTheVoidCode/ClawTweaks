@@ -608,22 +608,27 @@ namespace XboxGamingBarHelper.RTSS
                         currentAvgFt = avgFt;
                         currentMaxFt = maxFt;
 
-                        // Add min/avg/max labels in smaller text above graph
+                        // Get the graph color from OSD text color setting (or default to cyan for graphs)
+                        string graphColor = (osdTextColor == "DYNAMIC" || string.IsNullOrEmpty(osdTextColor)) ? "00FFFF" : osdTextColor;
+
+                        // Layout: graph on top, stats below
+                        //   50ms  <- max at top (Y-axis)
+                        //   [graph] <- colored based on OSD settings
+                        //   0ms   <- min at bottom (Y-axis)
+                        //   min/avg/max stats
+                        string yAxisMax = $"<S=50><C=808080>{GraphMaxMs:F0}ms<C><S>";
+                        string yAxisMin = $"<S=50><C=808080>{GraphMinMs:F0}ms<C><S>";
+
+                        // Stats label below graph
                         string statsLabel = "";
                         if (currentMinFt > 0 && currentMaxFt > 0)
                         {
                             // Smaller text (50%) for stats: "min: X.Xms  avg: X.Xms  max: X.Xms"
-                            statsLabel = $"<S=50><C=808080>min:<C=00FF00>{currentMinFt:F1}ms <C=808080>avg:<C=FFFF00>{currentAvgFt:F1}ms <C=808080>max:<C=FF6600>{currentMaxFt:F1}ms<C><S>\n";
+                            statsLabel = $"<S=50><C=808080>min:<C=00FF00>{currentMinFt:F1}ms <C=808080>avg:<C=FFFF00>{currentAvgFt:F1}ms <C=808080>max:<C=FF6600>{currentMaxFt:F1}ms<C><S>";
                         }
-                        // Add Y-axis scale legend vertically: max above graph, min below graph
-                        // Layout:
-                        //   stats line
-                        //   50ms  <- max at top
-                        //   [graph]
-                        //   0ms   <- min at bottom
-                        string yAxisMax = $"<S=50><C=808080>{GraphMaxMs:F0}ms<C><S>";
-                        string yAxisMin = $"<S=50><C=808080>{GraphMinMs:F0}ms<C><S>";
-                        osdString += $"\n{statsLabel}{yAxisMax}\n<OBJ={graphOffset:X8}>\n{yAxisMin}";
+
+                        // Build layout: Y-axis max, graph (colored), Y-axis min, stats
+                        osdString += $"\n{yAxisMax}\n<C={graphColor}><OBJ={graphOffset:X8}><C>\n{yAxisMin}\n{statsLabel}";
                     }
                 }
                 catch (Exception ex)
