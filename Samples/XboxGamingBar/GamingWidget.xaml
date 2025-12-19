@@ -3055,6 +3055,476 @@
                             </Grid>
                         </Border>
 
+                        <!-- Vibration Mode Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Vibration Mode" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Game-optimized vibration patterns"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ComboBox x:Name="LegionVibrationModeComboBox"
+                                          Grid.Column="1"
+                                          Width="100"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          SelectedIndex="0">
+                                    <x:String>FPS</x:String>
+                                    <x:String>Racing</x:String>
+                                    <x:String>AVG</x:String>
+                                    <x:String>SPG</x:String>
+                                    <x:String>RPG</x:String>
+                                </ComboBox>
+                            </Grid>
+                        </Border>
+
+                        <!-- Touchpad Vibration Card (GLOBAL setting) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Touchpad Haptics" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Enable or disable touchpad haptic feedback"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="LegionTouchpadVibrationToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              IsOn="True"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Controller Remapping Section Header -->
+                        <TextBlock Text="CONTROLLER REMAPPING" Style="{StaticResource SectionHeaderStyle}"/>
+
+                        <!-- Per-Game Controller Profile Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Per-Game Controller Profile" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock x:Name="LegionControllerProfileGameText"
+                                               Text="No game detected"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="LegionControllerProfileToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              IsOn="False"
+                                              IsEnabled="False"
+                                              Toggled="LegionControllerProfileToggle_Toggled"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Button Remapping Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Button Remapping" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Assign actions to back and grip buttons"
+                                           Style="{StaticResource CardCaptionStyle}"
+                                           Margin="0,0,0,12"/>
+
+                                <!-- Y1 Button -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="50"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Y1" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                    <ComboBox x:Name="LegionButtonY1ComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              HorizontalAlignment="Stretch"
+                                              SelectedIndex="0">
+                                        <x:String>Disabled</x:String>
+                                        <x:String>LS Click</x:String>
+                                        <x:String>LS Up</x:String>
+                                        <x:String>LS Down</x:String>
+                                        <x:String>LS Left</x:String>
+                                        <x:String>LS Right</x:String>
+                                        <x:String>RS Click</x:String>
+                                        <x:String>RS Up</x:String>
+                                        <x:String>RS Down</x:String>
+                                        <x:String>RS Left</x:String>
+                                        <x:String>RS Right</x:String>
+                                        <x:String>D-Pad Up</x:String>
+                                        <x:String>D-Pad Down</x:String>
+                                        <x:String>D-Pad Left</x:String>
+                                        <x:String>D-Pad Right</x:String>
+                                        <x:String>A</x:String>
+                                        <x:String>B</x:String>
+                                        <x:String>X</x:String>
+                                        <x:String>Y</x:String>
+                                        <x:String>LB</x:String>
+                                        <x:String>LT</x:String>
+                                        <x:String>RB</x:String>
+                                        <x:String>RT</x:String>
+                                        <x:String>View</x:String>
+                                        <x:String>Menu</x:String>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- Y2 Button -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="50"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Y2" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                    <ComboBox x:Name="LegionButtonY2ComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              HorizontalAlignment="Stretch"
+                                              SelectedIndex="0">
+                                        <x:String>Disabled</x:String>
+                                        <x:String>LS Click</x:String>
+                                        <x:String>LS Up</x:String>
+                                        <x:String>LS Down</x:String>
+                                        <x:String>LS Left</x:String>
+                                        <x:String>LS Right</x:String>
+                                        <x:String>RS Click</x:String>
+                                        <x:String>RS Up</x:String>
+                                        <x:String>RS Down</x:String>
+                                        <x:String>RS Left</x:String>
+                                        <x:String>RS Right</x:String>
+                                        <x:String>D-Pad Up</x:String>
+                                        <x:String>D-Pad Down</x:String>
+                                        <x:String>D-Pad Left</x:String>
+                                        <x:String>D-Pad Right</x:String>
+                                        <x:String>A</x:String>
+                                        <x:String>B</x:String>
+                                        <x:String>X</x:String>
+                                        <x:String>Y</x:String>
+                                        <x:String>LB</x:String>
+                                        <x:String>LT</x:String>
+                                        <x:String>RB</x:String>
+                                        <x:String>RT</x:String>
+                                        <x:String>View</x:String>
+                                        <x:String>Menu</x:String>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- Y3 Button -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="50"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Y3" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                    <ComboBox x:Name="LegionButtonY3ComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              HorizontalAlignment="Stretch"
+                                              SelectedIndex="0">
+                                        <x:String>Disabled</x:String>
+                                        <x:String>LS Click</x:String>
+                                        <x:String>LS Up</x:String>
+                                        <x:String>LS Down</x:String>
+                                        <x:String>LS Left</x:String>
+                                        <x:String>LS Right</x:String>
+                                        <x:String>RS Click</x:String>
+                                        <x:String>RS Up</x:String>
+                                        <x:String>RS Down</x:String>
+                                        <x:String>RS Left</x:String>
+                                        <x:String>RS Right</x:String>
+                                        <x:String>D-Pad Up</x:String>
+                                        <x:String>D-Pad Down</x:String>
+                                        <x:String>D-Pad Left</x:String>
+                                        <x:String>D-Pad Right</x:String>
+                                        <x:String>A</x:String>
+                                        <x:String>B</x:String>
+                                        <x:String>X</x:String>
+                                        <x:String>Y</x:String>
+                                        <x:String>LB</x:String>
+                                        <x:String>LT</x:String>
+                                        <x:String>RB</x:String>
+                                        <x:String>RT</x:String>
+                                        <x:String>View</x:String>
+                                        <x:String>Menu</x:String>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- M2 Button -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="50"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="M2" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                    <ComboBox x:Name="LegionButtonM2ComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              HorizontalAlignment="Stretch"
+                                              SelectedIndex="0">
+                                        <x:String>Disabled</x:String>
+                                        <x:String>LS Click</x:String>
+                                        <x:String>LS Up</x:String>
+                                        <x:String>LS Down</x:String>
+                                        <x:String>LS Left</x:String>
+                                        <x:String>LS Right</x:String>
+                                        <x:String>RS Click</x:String>
+                                        <x:String>RS Up</x:String>
+                                        <x:String>RS Down</x:String>
+                                        <x:String>RS Left</x:String>
+                                        <x:String>RS Right</x:String>
+                                        <x:String>D-Pad Up</x:String>
+                                        <x:String>D-Pad Down</x:String>
+                                        <x:String>D-Pad Left</x:String>
+                                        <x:String>D-Pad Right</x:String>
+                                        <x:String>A</x:String>
+                                        <x:String>B</x:String>
+                                        <x:String>X</x:String>
+                                        <x:String>Y</x:String>
+                                        <x:String>LB</x:String>
+                                        <x:String>LT</x:String>
+                                        <x:String>RB</x:String>
+                                        <x:String>RT</x:String>
+                                        <x:String>View</x:String>
+                                        <x:String>Menu</x:String>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- M3 Button -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="50"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="M3" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                    <ComboBox x:Name="LegionButtonM3ComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              HorizontalAlignment="Stretch"
+                                              SelectedIndex="0">
+                                        <x:String>Disabled</x:String>
+                                        <x:String>LS Click</x:String>
+                                        <x:String>LS Up</x:String>
+                                        <x:String>LS Down</x:String>
+                                        <x:String>LS Left</x:String>
+                                        <x:String>LS Right</x:String>
+                                        <x:String>RS Click</x:String>
+                                        <x:String>RS Up</x:String>
+                                        <x:String>RS Down</x:String>
+                                        <x:String>RS Left</x:String>
+                                        <x:String>RS Right</x:String>
+                                        <x:String>D-Pad Up</x:String>
+                                        <x:String>D-Pad Down</x:String>
+                                        <x:String>D-Pad Left</x:String>
+                                        <x:String>D-Pad Right</x:String>
+                                        <x:String>A</x:String>
+                                        <x:String>B</x:String>
+                                        <x:String>X</x:String>
+                                        <x:String>Y</x:String>
+                                        <x:String>LB</x:String>
+                                        <x:String>LT</x:String>
+                                        <x:String>RB</x:String>
+                                        <x:String>RT</x:String>
+                                        <x:String>View</x:String>
+                                        <x:String>Menu</x:String>
+                                    </ComboBox>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Nintendo Layout Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Nintendo Layout" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Swap A↔B and X↔Y face buttons"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="LegionNintendoLayoutToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              IsOn="False"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Stick Deadzones Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Stick Deadzones" Style="{StaticResource CardTitleStyle}"/>
+
+                                <!-- Left Stick Deadzone -->
+                                <StackPanel>
+                                    <Grid>
+                                        <TextBlock Text="Left Stick" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="LegionLeftStickDeadzoneValue"
+                                                   Text="4%"
+                                                   Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+                                    <Slider x:Name="LegionLeftStickDeadzoneSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="50"
+                                            Value="4"
+                                            StepFrequency="1"/>
+                                </StackPanel>
+
+                                <!-- Right Stick Deadzone -->
+                                <StackPanel>
+                                    <Grid>
+                                        <TextBlock Text="Right Stick" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="LegionRightStickDeadzoneValue"
+                                                   Text="4%"
+                                                   Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+                                    <Slider x:Name="LegionRightStickDeadzoneSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="50"
+                                            Value="4"
+                                            StepFrequency="1"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Gyro Settings Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Gyro Settings" Style="{StaticResource CardTitleStyle}"/>
+
+                                <!-- Gyro Target -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Target" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                    <ComboBox x:Name="LegionGyroTargetComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              HorizontalAlignment="Stretch"
+                                              SelectedIndex="0">
+                                        <x:String>Disabled</x:String>
+                                        <x:String>Left Stick</x:String>
+                                        <x:String>Right Stick</x:String>
+                                        <x:String>Mouse</x:String>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- Gyro Sensitivity X -->
+                                <StackPanel>
+                                    <Grid>
+                                        <TextBlock Text="Sensitivity X" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="LegionGyroSensitivityXValue"
+                                                   Text="50"
+                                                   Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+                                    <Slider x:Name="LegionGyroSensitivityXSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="1" Maximum="100"
+                                            Value="50"
+                                            StepFrequency="1"/>
+                                </StackPanel>
+
+                                <!-- Gyro Sensitivity Y -->
+                                <StackPanel>
+                                    <Grid>
+                                        <TextBlock Text="Sensitivity Y" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="LegionGyroSensitivityYValue"
+                                                   Text="50"
+                                                   Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+                                    <Slider x:Name="LegionGyroSensitivityYSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="1" Maximum="100"
+                                            Value="50"
+                                            StepFrequency="1"/>
+                                </StackPanel>
+
+                                <!-- Gyro Invert X/Y Toggles -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                        <TextBlock Text="Invert X" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14" Margin="0,0,12,0"/>
+                                        <ToggleSwitch x:Name="LegionGyroInvertXToggle"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      IsOn="False"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <TextBlock Text="Invert Y" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14" Margin="0,0,12,0"/>
+                                        <ToggleSwitch x:Name="LegionGyroInvertYToggle"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      IsOn="False"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Gyro Mapping Type -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Mapping" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                    <ComboBox x:Name="LegionGyroMappingTypeComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              HorizontalAlignment="Stretch"
+                                              SelectedIndex="0">
+                                        <x:String>Instant</x:String>
+                                        <x:String>Continuous</x:String>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- Gyro Activation Mode -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Activation" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                    <ComboBox x:Name="LegionGyroActivationModeComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              HorizontalAlignment="Stretch"
+                                              SelectedIndex="0">
+                                        <x:String>Hold</x:String>
+                                        <x:String>Toggle</x:String>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- Gyro Activation Button -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Button" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                    <ComboBox x:Name="LegionGyroActivationButtonComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              HorizontalAlignment="Stretch"
+                                              SelectedIndex="0">
+                                        <x:String>None</x:String>
+                                        <x:String>LB</x:String>
+                                        <x:String>LT</x:String>
+                                        <x:String>RB</x:String>
+                                        <x:String>RT</x:String>
+                                        <x:String>Y1</x:String>
+                                        <x:String>Y2</x:String>
+                                        <x:String>M2</x:String>
+                                        <x:String>M3</x:String>
+                                    </ComboBox>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
                         <!-- RGB Lighting Section Header -->
                         <TextBlock Text="RGB LIGHTING" Style="{StaticResource SectionHeaderStyle}"/>
 

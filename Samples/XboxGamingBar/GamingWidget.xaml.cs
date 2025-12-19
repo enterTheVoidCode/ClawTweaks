@@ -104,6 +104,62 @@ namespace XboxGamingBar
     }
 
     /// <summary>
+    /// Controller profile settings storage for per-game button remapping
+    /// </summary>
+    public class ControllerProfile
+    {
+        public int ButtonY1 { get; set; } = 0;  // Disabled
+        public int ButtonY2 { get; set; } = 0;
+        public int ButtonY3 { get; set; } = 0;
+        public int ButtonM2 { get; set; } = 0;
+        public int ButtonM3 { get; set; } = 0;
+        public bool NintendoLayout { get; set; } = false;
+        public int VibrationLevel { get; set; } = 2;  // Medium
+        public int VibrationMode { get; set; } = 1;   // FPS
+
+        // Gyro settings (per-game profile)
+        public int GyroTarget { get; set; } = 0;           // Disabled
+        public int GyroSensitivityX { get; set; } = 50;
+        public int GyroSensitivityY { get; set; } = 50;
+        public bool GyroInvertX { get; set; } = false;
+        public bool GyroInvertY { get; set; } = false;
+        public int GyroMappingType { get; set; } = 0;      // Instant
+        public int GyroActivationMode { get; set; } = 0;   // Hold
+        public int GyroActivationButton { get; set; } = 0; // None
+
+        // Stick deadzones (per-game profile)
+        public int LeftStickDeadzone { get; set; } = 4;    // Default 4%
+        public int RightStickDeadzone { get; set; } = 4;
+
+        public ControllerProfile Clone()
+        {
+            return new ControllerProfile
+            {
+                ButtonY1 = this.ButtonY1,
+                ButtonY2 = this.ButtonY2,
+                ButtonY3 = this.ButtonY3,
+                ButtonM2 = this.ButtonM2,
+                ButtonM3 = this.ButtonM3,
+                NintendoLayout = this.NintendoLayout,
+                VibrationLevel = this.VibrationLevel,
+                VibrationMode = this.VibrationMode,
+                // Gyro settings
+                GyroTarget = this.GyroTarget,
+                GyroSensitivityX = this.GyroSensitivityX,
+                GyroSensitivityY = this.GyroSensitivityY,
+                GyroInvertX = this.GyroInvertX,
+                GyroInvertY = this.GyroInvertY,
+                GyroMappingType = this.GyroMappingType,
+                GyroActivationMode = this.GyroActivationMode,
+                GyroActivationButton = this.GyroActivationButton,
+                // Stick deadzones
+                LeftStickDeadzone = this.LeftStickDeadzone,
+                RightStickDeadzone = this.RightStickDeadzone
+            };
+        }
+    }
+
+    /// <summary>
     /// Represents a power plan for UI binding
     /// </summary>
     public class PowerPlanItem
@@ -245,6 +301,33 @@ namespace XboxGamingBar
         private readonly LegionPowerLightProperty legionPowerLight;
         private readonly LegionChargeLimitProperty legionChargeLimit;
 
+        // Legion controller remapping properties
+        private readonly LegionButtonY1Property legionButtonY1;
+        private readonly LegionButtonY2Property legionButtonY2;
+        private readonly LegionButtonY3Property legionButtonY3;
+        private readonly LegionButtonM2Property legionButtonM2;
+        private readonly LegionButtonM3Property legionButtonM3;
+        private readonly LegionNintendoLayoutProperty legionNintendoLayout;
+        private readonly LegionVibrationModeProperty legionVibrationMode;
+        private readonly LegionControllerProfileProperty legionControllerProfile;
+
+        // Gyro properties
+        private readonly LegionGyroTargetProperty legionGyroTarget;
+        private readonly LegionGyroSensitivityXProperty legionGyroSensitivityX;
+        private readonly LegionGyroSensitivityYProperty legionGyroSensitivityY;
+        private readonly LegionGyroInvertXProperty legionGyroInvertX;
+        private readonly LegionGyroInvertYProperty legionGyroInvertY;
+        private readonly LegionGyroMappingTypeProperty legionGyroMappingType;
+        private readonly LegionGyroActivationModeProperty legionGyroActivationMode;
+        private readonly LegionGyroActivationButtonProperty legionGyroActivationButton;
+
+        // Stick deadzone properties
+        private readonly LegionLeftStickDeadzoneProperty legionLeftStickDeadzone;
+        private readonly LegionRightStickDeadzoneProperty legionRightStickDeadzone;
+
+        // Touchpad vibration property (GLOBAL setting)
+        private readonly LegionTouchpadVibrationProperty legionTouchpadVibration;
+
         // Settings properties
         private readonly UseManufacturerWMIProperty useManufacturerWMI;
 
@@ -295,6 +378,12 @@ namespace XboxGamingBar
         private bool isUserInitiatedProfileToggle = false; // Indicates user clicked Profile tile to toggle
         private bool isUserInitiatedTDPModeChange = false; // Indicates user clicked TDP Mode tile in Quick Tab
         private int savedLegionPerformanceMode = -1; // Stores Legion mode before per-game profile (-1 = not saved)
+
+        // Controller profile state
+        private ControllerProfile globalControllerProfile = new ControllerProfile();
+        private ControllerProfile gameControllerProfile = new ControllerProfile();
+        private bool isLoadingControllerProfile = false;
+        private bool isSwitchingControllerProfile = false;
 
         // Helper to check if we have a valid game (not null, not empty, not "No game detected")
         private bool HasValidGame(string gameName)
@@ -482,6 +571,33 @@ namespace XboxGamingBar
             legionVibration = new LegionVibrationProperty(LegionVibrationComboBox, this);
             legionPowerLight = new LegionPowerLightProperty(LegionPowerLightToggle, this);
             legionChargeLimit = new LegionChargeLimitProperty(LegionChargeLimitToggle, this);
+
+            // Controller remapping properties
+            legionButtonY1 = new LegionButtonY1Property(LegionButtonY1ComboBox, this);
+            legionButtonY2 = new LegionButtonY2Property(LegionButtonY2ComboBox, this);
+            legionButtonY3 = new LegionButtonY3Property(LegionButtonY3ComboBox, this);
+            legionButtonM2 = new LegionButtonM2Property(LegionButtonM2ComboBox, this);
+            legionButtonM3 = new LegionButtonM3Property(LegionButtonM3ComboBox, this);
+            legionNintendoLayout = new LegionNintendoLayoutProperty(LegionNintendoLayoutToggle, this);
+            legionVibrationMode = new LegionVibrationModeProperty(LegionVibrationModeComboBox, this);
+            legionControllerProfile = new LegionControllerProfileProperty(LegionControllerProfileToggle, this);
+
+            // Gyro properties
+            legionGyroTarget = new LegionGyroTargetProperty(LegionGyroTargetComboBox, this);
+            legionGyroSensitivityX = new LegionGyroSensitivityXProperty(LegionGyroSensitivityXSlider, this);
+            legionGyroSensitivityY = new LegionGyroSensitivityYProperty(LegionGyroSensitivityYSlider, this);
+            legionGyroInvertX = new LegionGyroInvertXProperty(LegionGyroInvertXToggle, this);
+            legionGyroInvertY = new LegionGyroInvertYProperty(LegionGyroInvertYToggle, this);
+            legionGyroMappingType = new LegionGyroMappingTypeProperty(LegionGyroMappingTypeComboBox, this);
+            legionGyroActivationMode = new LegionGyroActivationModeProperty(LegionGyroActivationModeComboBox, this);
+            legionGyroActivationButton = new LegionGyroActivationButtonProperty(LegionGyroActivationButtonComboBox, this);
+
+            // Stick deadzone properties
+            legionLeftStickDeadzone = new LegionLeftStickDeadzoneProperty(LegionLeftStickDeadzoneSlider, this);
+            legionRightStickDeadzone = new LegionRightStickDeadzoneProperty(LegionRightStickDeadzoneSlider, this);
+
+            // Touchpad vibration property (GLOBAL setting)
+            legionTouchpadVibration = new LegionTouchpadVibrationProperty(LegionTouchpadVibrationToggle, this);
 
             // Settings properties
             useManufacturerWMI = new UseManufacturerWMIProperty(UseManufacturerWMIToggle, this);
@@ -948,6 +1064,9 @@ namespace XboxGamingBar
             LoadProfileFromStorage("AC", acProfile);
             LoadProfileFromStorage("DC", dcProfile);
 
+            // Load global controller profile from storage
+            LoadControllerProfileFromStorage("Global", globalControllerProfile);
+
             // Clean up any invalid "No game detected" profiles
             CleanupInvalidProfiles();
 
@@ -979,6 +1098,9 @@ namespace XboxGamingBar
 
             // Subscribe to settings changes for auto-save
             SubscribeToSettingsChanges();
+
+            // Apply global controller profile to UI controls
+            ApplyControllerProfile(globalControllerProfile);
 
             // Subscribe to power source profile toggle changes to update game profile card
             PowerSourceProfileToggle.Toggled += PowerSourceToggle_Changed;
@@ -1303,6 +1425,99 @@ namespace XboxGamingBar
                     bool isInstalled = losslessScalingInstalled?.Value ?? false;
                     LosslessScalingCreateProfileButton.IsEnabled = isInstalled && HasValidGame(currentGameName);
                 }
+
+                // Update controller profile toggle and game name display
+                UpdateControllerProfileForGameChange(newGameName);
+            }
+        }
+
+        private void UpdateControllerProfileForGameChange(string newGameName)
+        {
+            // Update the game name display in controller profile card
+            if (LegionControllerProfileGameText != null)
+            {
+                LegionControllerProfileGameText.Text = HasValidGame(newGameName) ? newGameName : "No game detected";
+            }
+
+            // Enable/disable the toggle based on game detection
+            if (LegionControllerProfileToggle != null)
+            {
+                LegionControllerProfileToggle.IsEnabled = HasValidGame(newGameName);
+
+                if (!HasValidGame(newGameName))
+                {
+                    // No valid game, turn off and disable toggle, switch to global profile
+                    if (LegionControllerProfileToggle.IsOn)
+                    {
+                        isSwitchingControllerProfile = true;
+                        try
+                        {
+                            LegionControllerProfileToggle.IsOn = false;
+                            LoadControllerProfileFromStorage("Global", globalControllerProfile);
+                            ApplyControllerProfile(globalControllerProfile);
+                            Logger.Info("Game closed - switched to global controller profile");
+                        }
+                        finally
+                        {
+                            isSwitchingControllerProfile = false;
+                        }
+                    }
+                }
+                else
+                {
+                    // Valid game detected - check for existing controller profile
+                    var settings = ApplicationData.Current.LocalSettings;
+                    bool hasExistingControllerProfile = settings.Containers.ContainsKey($"ControllerProfile_Game_{newGameName}");
+
+                    // Check if user explicitly disabled controller profile for this game
+                    string disabledKey = $"ControllerProfileDisabled_{newGameName}";
+                    bool userDisabledProfile = settings.Values.ContainsKey(disabledKey) && (bool)settings.Values[disabledKey];
+
+                    // Auto-enable if profile exists and user hasn't disabled it
+                    if (hasExistingControllerProfile && !userDisabledProfile)
+                    {
+                        isSwitchingControllerProfile = true;
+                        try
+                        {
+                            if (!LegionControllerProfileToggle.IsOn)
+                            {
+                                LegionControllerProfileToggle.IsOn = true;
+                            }
+                            LoadControllerProfileFromStorage($"Game_{newGameName}", gameControllerProfile);
+                            ApplyControllerProfile(gameControllerProfile);
+                            Logger.Info($"Auto-enabled controller profile for {newGameName}");
+                        }
+                        finally
+                        {
+                            isSwitchingControllerProfile = false;
+                        }
+                    }
+                    else if (LegionControllerProfileToggle.IsOn)
+                    {
+                        // Toggle was on for previous game, switch to new game's profile or create one
+                        isSwitchingControllerProfile = true;
+                        try
+                        {
+                            if (!hasExistingControllerProfile)
+                            {
+                                // Create new profile from current UI state
+                                gameControllerProfile = GetCurrentControllerProfileFromUI();
+                                SaveControllerProfileToStorage($"Game_{newGameName}", gameControllerProfile);
+                                Logger.Info($"Created new controller profile for {newGameName}");
+                            }
+                            else
+                            {
+                                LoadControllerProfileFromStorage($"Game_{newGameName}", gameControllerProfile);
+                                ApplyControllerProfile(gameControllerProfile);
+                                Logger.Info($"Switched to controller profile for {newGameName}");
+                            }
+                        }
+                        finally
+                        {
+                            isSwitchingControllerProfile = false;
+                        }
+                    }
+                }
             }
         }
 
@@ -1373,6 +1588,48 @@ namespace XboxGamingBar
             AMDRadeonChillToggle.Toggled += AMDRadeonChillToggle_Toggled;
             AMDRadeonChillMinFPSSlider.ValueChanged += SettingChanged;
             AMDRadeonChillMaxFPSSlider.ValueChanged += SettingChanged;
+
+            // Legion controller settings
+            if (LegionButtonY1ComboBox != null)
+                LegionButtonY1ComboBox.SelectionChanged += ControllerSettingChanged;
+            if (LegionButtonY2ComboBox != null)
+                LegionButtonY2ComboBox.SelectionChanged += ControllerSettingChanged;
+            if (LegionButtonY3ComboBox != null)
+                LegionButtonY3ComboBox.SelectionChanged += ControllerSettingChanged;
+            if (LegionButtonM2ComboBox != null)
+                LegionButtonM2ComboBox.SelectionChanged += ControllerSettingChanged;
+            if (LegionButtonM3ComboBox != null)
+                LegionButtonM3ComboBox.SelectionChanged += ControllerSettingChanged;
+            if (LegionNintendoLayoutToggle != null)
+                LegionNintendoLayoutToggle.Toggled += ControllerSettingChanged;
+            if (LegionVibrationComboBox != null)
+                LegionVibrationComboBox.SelectionChanged += ControllerSettingChanged;
+            if (LegionVibrationModeComboBox != null)
+                LegionVibrationModeComboBox.SelectionChanged += ControllerSettingChanged;
+
+            // Gyro settings (per-game profile)
+            if (LegionGyroTargetComboBox != null)
+                LegionGyroTargetComboBox.SelectionChanged += ControllerSettingChanged;
+            if (LegionGyroSensitivityXSlider != null)
+                LegionGyroSensitivityXSlider.ValueChanged += ControllerSettingChanged;
+            if (LegionGyroSensitivityYSlider != null)
+                LegionGyroSensitivityYSlider.ValueChanged += ControllerSettingChanged;
+            if (LegionGyroInvertXToggle != null)
+                LegionGyroInvertXToggle.Toggled += ControllerSettingChanged;
+            if (LegionGyroInvertYToggle != null)
+                LegionGyroInvertYToggle.Toggled += ControllerSettingChanged;
+            if (LegionGyroMappingTypeComboBox != null)
+                LegionGyroMappingTypeComboBox.SelectionChanged += ControllerSettingChanged;
+            if (LegionGyroActivationModeComboBox != null)
+                LegionGyroActivationModeComboBox.SelectionChanged += ControllerSettingChanged;
+            if (LegionGyroActivationButtonComboBox != null)
+                LegionGyroActivationButtonComboBox.SelectionChanged += ControllerSettingChanged;
+
+            // Stick deadzones (per-game profile)
+            if (LegionLeftStickDeadzoneSlider != null)
+                LegionLeftStickDeadzoneSlider.ValueChanged += ControllerSettingChanged;
+            if (LegionRightStickDeadzoneSlider != null)
+                LegionRightStickDeadzoneSlider.ValueChanged += ControllerSettingChanged;
         }
 
         private void SettingChanged(object sender, object e)
@@ -4633,6 +4890,303 @@ namespace XboxGamingBar
                 Logger.Info($"Loaded {profileName} profile from storage");
             }
         }
+
+        #region Controller Profile Storage
+
+        private void SaveControllerProfileToStorage(string profileName, ControllerProfile profile)
+        {
+            // Never save to "No game detected" profile
+            if (profileName.IndexOf("No game detected", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                Logger.Warn($"Attempted to save controller profile with invalid name: {profileName}, skipping");
+                return;
+            }
+
+            var settings = ApplicationData.Current.LocalSettings;
+            var container = settings.CreateContainer($"ControllerProfile_{profileName}", ApplicationDataCreateDisposition.Always);
+
+            container.Values["ButtonY1"] = profile.ButtonY1;
+            container.Values["ButtonY2"] = profile.ButtonY2;
+            container.Values["ButtonY3"] = profile.ButtonY3;
+            container.Values["ButtonM2"] = profile.ButtonM2;
+            container.Values["ButtonM3"] = profile.ButtonM3;
+            container.Values["NintendoLayout"] = profile.NintendoLayout;
+            container.Values["VibrationLevel"] = profile.VibrationLevel;
+            container.Values["VibrationMode"] = profile.VibrationMode;
+
+            // Gyro settings
+            container.Values["GyroTarget"] = profile.GyroTarget;
+            container.Values["GyroSensitivityX"] = profile.GyroSensitivityX;
+            container.Values["GyroSensitivityY"] = profile.GyroSensitivityY;
+            container.Values["GyroInvertX"] = profile.GyroInvertX;
+            container.Values["GyroInvertY"] = profile.GyroInvertY;
+            container.Values["GyroMappingType"] = profile.GyroMappingType;
+            container.Values["GyroActivationMode"] = profile.GyroActivationMode;
+            container.Values["GyroActivationButton"] = profile.GyroActivationButton;
+
+            // Stick deadzones
+            container.Values["LeftStickDeadzone"] = profile.LeftStickDeadzone;
+            container.Values["RightStickDeadzone"] = profile.RightStickDeadzone;
+
+            Logger.Info($"Saved controller profile: {profileName}");
+        }
+
+        private void LoadControllerProfileFromStorage(string profileName, ControllerProfile profile)
+        {
+            var settings = ApplicationData.Current.LocalSettings;
+            if (settings.Containers.ContainsKey($"ControllerProfile_{profileName}"))
+            {
+                var container = settings.Containers[$"ControllerProfile_{profileName}"];
+
+                profile.ButtonY1 = container.Values.ContainsKey("ButtonY1") ? (int)container.Values["ButtonY1"] : 0;
+                profile.ButtonY2 = container.Values.ContainsKey("ButtonY2") ? (int)container.Values["ButtonY2"] : 0;
+                profile.ButtonY3 = container.Values.ContainsKey("ButtonY3") ? (int)container.Values["ButtonY3"] : 0;
+                profile.ButtonM2 = container.Values.ContainsKey("ButtonM2") ? (int)container.Values["ButtonM2"] : 0;
+                profile.ButtonM3 = container.Values.ContainsKey("ButtonM3") ? (int)container.Values["ButtonM3"] : 0;
+                profile.NintendoLayout = container.Values.ContainsKey("NintendoLayout") ? (bool)container.Values["NintendoLayout"] : false;
+                profile.VibrationLevel = container.Values.ContainsKey("VibrationLevel") ? (int)container.Values["VibrationLevel"] : 2;
+                profile.VibrationMode = container.Values.ContainsKey("VibrationMode") ? (int)container.Values["VibrationMode"] : 1;
+
+                // Gyro settings
+                profile.GyroTarget = container.Values.ContainsKey("GyroTarget") ? (int)container.Values["GyroTarget"] : 0;
+                profile.GyroSensitivityX = container.Values.ContainsKey("GyroSensitivityX") ? (int)container.Values["GyroSensitivityX"] : 50;
+                profile.GyroSensitivityY = container.Values.ContainsKey("GyroSensitivityY") ? (int)container.Values["GyroSensitivityY"] : 50;
+                profile.GyroInvertX = container.Values.ContainsKey("GyroInvertX") ? (bool)container.Values["GyroInvertX"] : false;
+                profile.GyroInvertY = container.Values.ContainsKey("GyroInvertY") ? (bool)container.Values["GyroInvertY"] : false;
+                profile.GyroMappingType = container.Values.ContainsKey("GyroMappingType") ? (int)container.Values["GyroMappingType"] : 0;
+                profile.GyroActivationMode = container.Values.ContainsKey("GyroActivationMode") ? (int)container.Values["GyroActivationMode"] : 0;
+                profile.GyroActivationButton = container.Values.ContainsKey("GyroActivationButton") ? (int)container.Values["GyroActivationButton"] : 0;
+
+                // Stick deadzones
+                profile.LeftStickDeadzone = container.Values.ContainsKey("LeftStickDeadzone") ? (int)container.Values["LeftStickDeadzone"] : 4;
+                profile.RightStickDeadzone = container.Values.ContainsKey("RightStickDeadzone") ? (int)container.Values["RightStickDeadzone"] : 4;
+
+                Logger.Info($"Loaded controller profile: {profileName}");
+            }
+        }
+
+        private void ApplyControllerProfile(ControllerProfile profile)
+        {
+            isLoadingControllerProfile = true;
+
+            try
+            {
+                // Apply button mappings
+                if (LegionButtonY1ComboBox != null)
+                    LegionButtonY1ComboBox.SelectedIndex = profile.ButtonY1;
+                if (LegionButtonY2ComboBox != null)
+                    LegionButtonY2ComboBox.SelectedIndex = profile.ButtonY2;
+                if (LegionButtonY3ComboBox != null)
+                    LegionButtonY3ComboBox.SelectedIndex = profile.ButtonY3;
+                if (LegionButtonM2ComboBox != null)
+                    LegionButtonM2ComboBox.SelectedIndex = profile.ButtonM2;
+                if (LegionButtonM3ComboBox != null)
+                    LegionButtonM3ComboBox.SelectedIndex = profile.ButtonM3;
+
+                // Apply Nintendo layout
+                if (LegionNintendoLayoutToggle != null)
+                    LegionNintendoLayoutToggle.IsOn = profile.NintendoLayout;
+
+                // Apply vibration settings
+                if (LegionVibrationComboBox != null)
+                    LegionVibrationComboBox.SelectedIndex = profile.VibrationLevel;
+                if (LegionVibrationModeComboBox != null)
+                    LegionVibrationModeComboBox.SelectedIndex = profile.VibrationMode - 1; // Mode is 1-based, index is 0-based
+
+                // Apply gyro settings
+                if (LegionGyroTargetComboBox != null)
+                    LegionGyroTargetComboBox.SelectedIndex = profile.GyroTarget;
+                if (LegionGyroSensitivityXSlider != null)
+                {
+                    LegionGyroSensitivityXSlider.Value = profile.GyroSensitivityX;
+                    if (LegionGyroSensitivityXValue != null)
+                        LegionGyroSensitivityXValue.Text = profile.GyroSensitivityX.ToString();
+                }
+                if (LegionGyroSensitivityYSlider != null)
+                {
+                    LegionGyroSensitivityYSlider.Value = profile.GyroSensitivityY;
+                    if (LegionGyroSensitivityYValue != null)
+                        LegionGyroSensitivityYValue.Text = profile.GyroSensitivityY.ToString();
+                }
+                if (LegionGyroInvertXToggle != null)
+                    LegionGyroInvertXToggle.IsOn = profile.GyroInvertX;
+                if (LegionGyroInvertYToggle != null)
+                    LegionGyroInvertYToggle.IsOn = profile.GyroInvertY;
+                if (LegionGyroMappingTypeComboBox != null)
+                    LegionGyroMappingTypeComboBox.SelectedIndex = profile.GyroMappingType;
+                if (LegionGyroActivationModeComboBox != null)
+                    LegionGyroActivationModeComboBox.SelectedIndex = profile.GyroActivationMode;
+                if (LegionGyroActivationButtonComboBox != null)
+                    LegionGyroActivationButtonComboBox.SelectedIndex = profile.GyroActivationButton;
+
+                // Apply stick deadzones
+                if (LegionLeftStickDeadzoneSlider != null)
+                {
+                    LegionLeftStickDeadzoneSlider.Value = profile.LeftStickDeadzone;
+                    if (LegionLeftStickDeadzoneValue != null)
+                        LegionLeftStickDeadzoneValue.Text = $"{profile.LeftStickDeadzone}%";
+                }
+                if (LegionRightStickDeadzoneSlider != null)
+                {
+                    LegionRightStickDeadzoneSlider.Value = profile.RightStickDeadzone;
+                    if (LegionRightStickDeadzoneValue != null)
+                        LegionRightStickDeadzoneValue.Text = $"{profile.RightStickDeadzone}%";
+                }
+
+                Logger.Info($"Applied controller profile: Y1={profile.ButtonY1}, Y2={profile.ButtonY2}, Y3={profile.ButtonY3}, M2={profile.ButtonM2}, M3={profile.ButtonM3}, Nintendo={profile.NintendoLayout}, Vib={profile.VibrationLevel}, VibMode={profile.VibrationMode}, GyroTarget={profile.GyroTarget}, LDZ={profile.LeftStickDeadzone}, RDZ={profile.RightStickDeadzone}");
+            }
+            finally
+            {
+                isLoadingControllerProfile = false;
+            }
+        }
+
+        private ControllerProfile GetCurrentControllerProfileFromUI()
+        {
+            return new ControllerProfile
+            {
+                ButtonY1 = LegionButtonY1ComboBox?.SelectedIndex ?? 0,
+                ButtonY2 = LegionButtonY2ComboBox?.SelectedIndex ?? 0,
+                ButtonY3 = LegionButtonY3ComboBox?.SelectedIndex ?? 0,
+                ButtonM2 = LegionButtonM2ComboBox?.SelectedIndex ?? 0,
+                ButtonM3 = LegionButtonM3ComboBox?.SelectedIndex ?? 0,
+                NintendoLayout = LegionNintendoLayoutToggle?.IsOn ?? false,
+                VibrationLevel = LegionVibrationComboBox?.SelectedIndex ?? 2,
+                VibrationMode = (LegionVibrationModeComboBox?.SelectedIndex ?? 0) + 1, // Index is 0-based, mode is 1-based
+                // Gyro settings
+                GyroTarget = LegionGyroTargetComboBox?.SelectedIndex ?? 0,
+                GyroSensitivityX = (int)(LegionGyroSensitivityXSlider?.Value ?? 50),
+                GyroSensitivityY = (int)(LegionGyroSensitivityYSlider?.Value ?? 50),
+                GyroInvertX = LegionGyroInvertXToggle?.IsOn ?? false,
+                GyroInvertY = LegionGyroInvertYToggle?.IsOn ?? false,
+                GyroMappingType = LegionGyroMappingTypeComboBox?.SelectedIndex ?? 0,
+                GyroActivationMode = LegionGyroActivationModeComboBox?.SelectedIndex ?? 0,
+                GyroActivationButton = LegionGyroActivationButtonComboBox?.SelectedIndex ?? 0,
+                // Stick deadzones
+                LeftStickDeadzone = (int)(LegionLeftStickDeadzoneSlider?.Value ?? 4),
+                RightStickDeadzone = (int)(LegionRightStickDeadzoneSlider?.Value ?? 4)
+            };
+        }
+
+        private void LegionControllerProfileToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            // Protect entire toggle change sequence
+            isSwitchingControllerProfile = true;
+
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                if (LegionControllerProfileToggle.IsOn)
+                {
+                    // Per-game controller profiles enabled - only proceed if we have a valid game
+                    if (HasValidGame(currentGameName))
+                    {
+                        // Clear the disabled preference since user is enabling it
+                        string disabledKey = $"ControllerProfileDisabled_{currentGameName}";
+                        if (settings.Values.ContainsKey(disabledKey))
+                        {
+                            settings.Values.Remove(disabledKey);
+                            Logger.Info($"Cleared controller profile disabled preference for {currentGameName}");
+                        }
+
+                        // Load or create game controller profile
+                        string profileKey = $"ControllerProfile_Game_{currentGameName}";
+                        if (!settings.Containers.ContainsKey(profileKey))
+                        {
+                            // Initialize new game controller profile from current UI state (global)
+                            gameControllerProfile = GetCurrentControllerProfileFromUI();
+                            SaveControllerProfileToStorage($"Game_{currentGameName}", gameControllerProfile);
+                            Logger.Info($"Initialized game controller profile for {currentGameName} from current settings");
+                        }
+                        else
+                        {
+                            // Load existing game controller profile
+                            LoadControllerProfileFromStorage($"Game_{currentGameName}", gameControllerProfile);
+                            ApplyControllerProfile(gameControllerProfile);
+                            Logger.Info($"Loaded existing controller profile for {currentGameName}");
+                        }
+                    }
+                    else
+                    {
+                        // No valid game, turn toggle back off
+                        Logger.Warn($"Cannot enable per-game controller profile without a valid game, forcing toggle OFF");
+                        LegionControllerProfileToggle.IsOn = false;
+                        return;
+                    }
+                }
+                else
+                {
+                    // Toggle is being turned OFF
+                    if (HasValidGame(currentGameName))
+                    {
+                        // Save user's preference to disable per-game controller profile for this game
+                        string disabledKey = $"ControllerProfileDisabled_{currentGameName}";
+                        settings.Values[disabledKey] = true;
+                        Logger.Info($"Saved controller profile disabled preference for {currentGameName}");
+                    }
+
+                    // Switch back to global controller profile
+                    LoadControllerProfileFromStorage("Global", globalControllerProfile);
+                    ApplyControllerProfile(globalControllerProfile);
+                    Logger.Info("Switched to global controller profile");
+                }
+            }
+            finally
+            {
+                isSwitchingControllerProfile = false;
+            }
+        }
+
+        private void ControllerSettingChanged(object sender, object e)
+        {
+            // Update slider value displays
+            UpdateControllerSliderDisplays(sender);
+
+            // Don't save during profile loading or switching
+            if (isLoadingControllerProfile || isSwitchingControllerProfile)
+                return;
+
+            // Determine which profile to save to
+            if (LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName))
+            {
+                // Save to game controller profile
+                gameControllerProfile = GetCurrentControllerProfileFromUI();
+                SaveControllerProfileToStorage($"Game_{currentGameName}", gameControllerProfile);
+            }
+            else
+            {
+                // Save to global controller profile
+                globalControllerProfile = GetCurrentControllerProfileFromUI();
+                SaveControllerProfileToStorage("Global", globalControllerProfile);
+            }
+        }
+
+        /// <summary>
+        /// Updates the display text for controller setting sliders
+        /// </summary>
+        private void UpdateControllerSliderDisplays(object sender)
+        {
+            try
+            {
+                // Gyro sensitivity sliders
+                if (sender == LegionGyroSensitivityXSlider && LegionGyroSensitivityXValue != null)
+                    LegionGyroSensitivityXValue.Text = ((int)LegionGyroSensitivityXSlider.Value).ToString();
+                else if (sender == LegionGyroSensitivityYSlider && LegionGyroSensitivityYValue != null)
+                    LegionGyroSensitivityYValue.Text = ((int)LegionGyroSensitivityYSlider.Value).ToString();
+                // Stick deadzone sliders
+                else if (sender == LegionLeftStickDeadzoneSlider && LegionLeftStickDeadzoneValue != null)
+                    LegionLeftStickDeadzoneValue.Text = $"{(int)LegionLeftStickDeadzoneSlider.Value}%";
+                else if (sender == LegionRightStickDeadzoneSlider && LegionRightStickDeadzoneValue != null)
+                    LegionRightStickDeadzoneValue.Text = $"{(int)LegionRightStickDeadzoneSlider.Value}%";
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Error updating controller slider display: {ex.Message}");
+            }
+        }
+
+        #endregion
 
         private void UpdateProfileDisplay()
         {
