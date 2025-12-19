@@ -548,6 +548,7 @@ namespace XboxGamingBarHelper.Legion
 
                 // If there's a pending Custom mode change waiting on debounce, apply it immediately
                 // This ensures the hardware is in Custom mode before we try to set TDP values
+                bool flushedModeChange = false;
                 lock (performanceModeDebounceLock)
                 {
                     if (pendingPerformanceMode == 255)
@@ -563,6 +564,7 @@ namespace XboxGamingBarHelper.Legion
                         if (modeResult.Success)
                         {
                             Logger.Info($"Performance mode set to {tdpMode}");
+                            flushedModeChange = true;
                         }
                         else
                         {
@@ -572,7 +574,37 @@ namespace XboxGamingBarHelper.Legion
                     }
                 }
 
-                // Apply TDP values immediately
+                // If we just flushed a mode change, wait for hardware to confirm it's in Custom mode
+                // The WMI call returns quickly but hardware takes ~400ms to actually switch modes
+                if (flushedModeChange)
+                {
+                    const int maxAttempts = 10; // ~500ms max wait
+                    const int delayMs = 50;
+                    bool hardwareInCustomMode = false;
+
+                    for (int i = 0; i < maxAttempts; i++)
+                    {
+                        var result = wmiService.GetSmartFanMode();
+                        if (result.Success && result.Result == TdpMode.Custom)
+                        {
+                            hardwareInCustomMode = true;
+                            Logger.Info($"Hardware confirmed Custom mode after {(i + 1) * delayMs}ms");
+                            break;
+                        }
+                        System.Threading.Thread.Sleep(delayMs);
+                    }
+
+                    if (!hardwareInCustomMode)
+                    {
+                        Logger.Warn("Hardware did not confirm Custom mode within 500ms, applying TDP anyway and scheduling reapply");
+                        // Apply TDP values now and schedule a reapply to ensure they stick
+                        ApplyTDPValues(slow, fast, peak);
+                        ScheduleTDPReapply(slow, fast, peak);
+                        return;
+                    }
+                }
+
+                // Apply TDP values
                 ApplyTDPValues(slow, fast, peak);
 
                 // Set cooldown to prevent RefreshTDPValuesFromDevice from overwriting these values

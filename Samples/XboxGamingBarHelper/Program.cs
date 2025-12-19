@@ -55,8 +55,9 @@ namespace XboxGamingBarHelper
         /// <summary>
         /// Guard flag to prevent reentrant profile change handling.
         /// Prevents race conditions during rapid game switches.
+        /// Also used by TDPBoostProperties to skip redundant TDP re-apply during profile application.
         /// </summary>
-        private static bool isApplyingProfile = false;
+        internal static bool isApplyingProfile = false;
 
         /// <summary>
         /// Lock object to ensure atomic profile application.

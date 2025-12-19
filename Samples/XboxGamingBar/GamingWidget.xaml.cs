@@ -2882,6 +2882,41 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Send a custom shortcut by first closing Game Bar, then focusing the previous app, then sending the shortcut.
+        /// Game Bar holds focus, so shortcuts won't work unless we close Game Bar and focus another window first.
+        /// Sequence: Win+G (close Game Bar) → Alt+Tab (focus previous app) → Custom shortcut
+        /// </summary>
+        private async Task SendCustomShortcutAsync(string shortcut, string tileName)
+        {
+            try
+            {
+                Logger.Info($"Custom shortcut tile clicked: {tileName} -> {shortcut}");
+
+                // First close Game Bar with Win+G
+                await SendKeyboardShortcutViaHelper("Win+G");
+                Logger.Debug("Win+G sent to close Game Bar");
+
+                // Wait for Game Bar to close
+                await Task.Delay(150);
+
+                // Alt+Tab to focus the most recent app (nothing is focused after Win+G)
+                await SendKeyboardShortcutViaHelper("Alt+Tab");
+                Logger.Debug("Alt+Tab sent to focus previous app");
+
+                // Wait for focus switch
+                await Task.Delay(150);
+
+                // Now send the actual shortcut
+                await SendKeyboardShortcutViaHelper(shortcut);
+                Logger.Info($"Custom shortcut sent: {shortcut}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending custom shortcut '{shortcut}': {ex.Message}");
+            }
+        }
+
         private void SavePowerPlanSettings()
         {
             try
@@ -5786,6 +5821,9 @@ namespace XboxGamingBar
                 Logger.Info("No widget activity to clean up during unload.");
             }
 
+            // Reset Quick Settings initialized flag so next instance starts fresh
+            quickSettingsInitialized = false;
+
             Logger.Info("GamingWidget_Unloaded completed.");
         }
 
@@ -7724,6 +7762,14 @@ namespace XboxGamingBar
 
             try
             {
+                // Clear any stale state from previous initialization attempts
+                // This ensures fresh state when widget is reloaded
+                qsTileDefinitions.Clear();
+                qsTileMap.Clear();
+                qsCustomShortcuts.Clear();
+                qsEditMode = false;
+                qsSelectedTileForMove = null;
+
                 // Dark mode colors with sharp contrast for handheld devices
                 // On state: dark green
                 tileOnBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 26, 46, 31));    // #1A2E1F
@@ -7846,7 +7892,9 @@ namespace XboxGamingBar
                 {
                     if (!string.IsNullOrEmpty(tile.CustomShortcut))
                     {
-                        string tileId = $"CustomShortcut_{index}";
+                        // Use the stable GUID from QuickSettingsConfig instead of index-based ID
+                        // This prevents tile ID mismatch when widget is reloaded
+                        string tileId = tile.Id;
                         var def = new TileDefinition
                         {
                             Id = tileId,
@@ -7863,7 +7911,7 @@ namespace XboxGamingBar
                         index++;
                     }
                 }
-                Logger.Info($"Loaded {index} custom shortcut tiles from QuickSettingsConfig");
+                Logger.Info($"Loaded {index} custom shortcut tiles from QuickSettingsConfig (using stable GUIDs)");
 
                 // Migration: If old storage has shortcuts that aren't in the new system, migrate them
                 MigrateOldCustomShortcuts();
@@ -7945,16 +7993,15 @@ namespace XboxGamingBar
         {
             try
             {
-                // Add to QuickSettingsConfig (saves automatically)
+                // Add to QuickSettingsConfig (saves automatically) - returns tile with GUID
                 var config = QuickSettings.QuickSettingsConfig.Instance;
-                config.AddCustomTile(name, "\uE768", shortcut);
+                var configTile = config.AddCustomTile(name, "\uE768", shortcut);
 
                 // Calculate new order (place at end)
                 int maxOrder = qsTileDefinitions.Count > 0 ? qsTileDefinitions.Max(t => t.Order) : 0;
 
-                // Also add to local tile definitions for immediate use
-                int index = qsCustomShortcuts.Count;
-                string tileId = $"CustomShortcut_{index}";
+                // Use the GUID from QuickSettingsConfig for stable tile identification
+                string tileId = configTile.Id;
                 var def = new TileDefinition
                 {
                     Id = tileId,
@@ -7972,7 +8019,7 @@ namespace XboxGamingBar
                 RebuildQuickSettingsTiles();
                 BuildSortableGrid();
 
-                Logger.Info($"Added custom shortcut tile: {name} -> {shortcut}");
+                Logger.Info($"Added custom shortcut tile: {name} -> {shortcut} (id: {tileId})");
             }
             catch (Exception ex)
             {
@@ -8166,7 +8213,7 @@ namespace XboxGamingBar
             content.Children.Add(orderText);
 
             // Custom shortcut indicator (bottom-right) - shows it can be deleted
-            if (tile.Id.StartsWith("CustomShortcut_"))
+            if (!string.IsNullOrEmpty(tile.CustomShortcut))
             {
                 var customIcon = new FontIcon
                 {
@@ -8357,10 +8404,10 @@ namespace XboxGamingBar
                 SelectedTileIndicator.Visibility = Visibility.Visible;
                 SelectedTileText.Text = $"Selected: {tile.Name}\nTap another tile to swap, or tap again to toggle visibility";
 
-                // Show delete button for custom shortcuts
+                // Show delete button for custom shortcuts (identified by having a CustomShortcut value)
                 if (DeleteSelectedTileButton != null)
                 {
-                    DeleteSelectedTileButton.Visibility = tile.Id.StartsWith("CustomShortcut_")
+                    DeleteSelectedTileButton.Visibility = !string.IsNullOrEmpty(tile.CustomShortcut)
                         ? Visibility.Visible
                         : Visibility.Collapsed;
                 }
@@ -8372,7 +8419,7 @@ namespace XboxGamingBar
         /// </summary>
         private void DeleteSelectedTile_Click(object sender, RoutedEventArgs e)
         {
-            if (qsSelectedTileForMove != null && qsSelectedTileForMove.Id.StartsWith("CustomShortcut_"))
+            if (qsSelectedTileForMove != null && !string.IsNullOrEmpty(qsSelectedTileForMove.CustomShortcut))
             {
                 DeleteCustomShortcutTile(qsSelectedTileForMove);
             }
@@ -8864,36 +8911,17 @@ namespace XboxGamingBar
             {
                 try
                 {
-                    // Check for custom shortcut tiles first
-                    if (tileTag.StartsWith("CustomShortcut_"))
+                    // First check if it's in our local qsTileMap (includes custom shortcuts with GUID IDs)
+                    if (qsTileMap.TryGetValue(tileTag, out var mappedTile) && !string.IsNullOrEmpty(mappedTile.CustomShortcut))
                     {
-                        // First try local qsTileMap
-                        if (qsTileMap.TryGetValue(tileTag, out var customTile) && !string.IsNullOrEmpty(customTile.CustomShortcut))
-                        {
-                            _ = SendKeyboardShortcutViaHelper(customTile.CustomShortcut);
-                            Logger.Info($"Custom shortcut tile clicked: {customTile.Name} -> {customTile.CustomShortcut}");
-                        }
-                        else
-                        {
-                            // Fallback: Try to find in QuickSettingsConfig by matching index
-                            var config = QuickSettings.QuickSettingsConfig.Instance;
-                            var customTiles = config.Tiles.Where(t => t.Type == QuickSettings.TileType.CustomShortcut).ToList();
-
-                            // Parse index from tileTag (e.g., "CustomShortcut_0" -> 0)
-                            if (int.TryParse(tileTag.Replace("CustomShortcut_", ""), out int index) && index < customTiles.Count)
-                            {
-                                var tile = customTiles[index];
-                                if (!string.IsNullOrEmpty(tile.CustomShortcut))
-                                {
-                                    _ = SendKeyboardShortcutViaHelper(tile.CustomShortcut);
-                                    Logger.Info($"Custom shortcut tile clicked (from config): {tile.Name} -> {tile.CustomShortcut}");
-                                }
-                            }
-                            else
-                            {
-                                Logger.Warn($"Custom shortcut tile not found: {tileTag}");
-                            }
-                        }
+                        _ = SendCustomShortcutAsync(mappedTile.CustomShortcut, mappedTile.Name);
+                    }
+                    // Fallback: Check QuickSettingsConfig by ID (tile IDs are now GUIDs)
+                    else if (QuickSettings.QuickSettingsConfig.Instance.GetTile(tileTag) is QuickSettings.QuickSettingsTile configTile
+                             && configTile.Type == QuickSettings.TileType.CustomShortcut
+                             && !string.IsNullOrEmpty(configTile.CustomShortcut))
+                    {
+                        _ = SendCustomShortcutAsync(configTile.CustomShortcut, configTile.Name);
                     }
                     else
                     {
