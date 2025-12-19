@@ -93,9 +93,36 @@
         LegionCustomTDPPeak,        // int - Peak TDP (FPPT) in watts
         LegionFanFullSpeed,         // bool - fan full speed mode
         LegionGyroEnabled,          // bool - gyroscope on/off (WIP)
-        LegionVibration,            // int - touchpad vibration level (0=Off, 1=Weak, 2=Medium, 3=Strong)
+        LegionVibration,            // int - vibration level (0=Off, 1=Weak, 2=Medium, 3=Strong)
         LegionPowerLight,           // bool - power button LED on/off
         LegionChargeLimit,          // bool - battery charge limit (80%) on/off
+
+        // Legion Go Controller Remapping
+        LegionButtonY1,             // int - Y1 button remap action (0-28, RemapAction enum index)
+        LegionButtonY2,             // int - Y2 button remap action
+        LegionButtonY3,             // int - Y3 button remap action
+        LegionButtonM2,             // int - M2 button remap action
+        LegionButtonM3,             // int - M3 button remap action
+        LegionNintendoLayout,       // bool - Nintendo-style face button swap (A↔B, X↔Y)
+        LegionVibrationMode,        // int - vibration mode preset (FPS=1, Racing=2, AVG=3, SPG=4, RPG=5)
+        LegionControllerProfileEnabled, // bool - per-game controller profile toggle
+
+        // Legion Go Gyro Settings (per-game profile)
+        LegionGyroTarget,               // int - 0=Disabled, 1=LeftStick, 2=RightStick, 3=Mouse
+        LegionGyroSensitivityX,         // int - 1-100
+        LegionGyroSensitivityY,         // int - 1-100
+        LegionGyroInvertX,              // bool
+        LegionGyroInvertY,              // bool
+        LegionGyroMappingType,          // int - 0=Instant, 1=Continuous
+        LegionGyroActivationMode,       // int - 0=Hold, 1=Toggle
+        LegionGyroActivationButton,     // int - 0-8 (None, LB, LT, RB, RT, Y1, Y2, M2, M3)
+
+        // Legion Go Stick Deadzones (per-game profile)
+        LegionLeftStickDeadzone,        // int - 0-50 (percent)
+        LegionRightStickDeadzone,       // int - 0-50 (percent)
+
+        // Legion Go Touchpad Vibration (GLOBAL setting)
+        LegionTouchpadVibration,        // bool - on/off toggle for touchpad haptics
 
         // AutoTDP functions
         AutoTDPEnabled,             // bool - enable/disable AutoTDP

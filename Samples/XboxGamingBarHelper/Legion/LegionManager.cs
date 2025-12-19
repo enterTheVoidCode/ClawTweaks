@@ -1,3 +1,4 @@
+using LegionGo;
 using LegionGoLibrary;
 using NLog;
 using Shared.Enums;
@@ -37,6 +38,15 @@ namespace XboxGamingBarHelper.Legion
         private int vibrationLevel = 2; // Medium
         private bool powerLightEnabled = true;
         private bool chargeLimitEnabled = false;
+
+        // Controller remapping state (cached)
+        private int buttonY1Action = 0; // Disabled
+        private int buttonY2Action = 0;
+        private int buttonY3Action = 0;
+        private int buttonM2Action = 0;
+        private int buttonM3Action = 0;
+        private bool nintendoLayoutEnabled = false;
+        private int vibrationMode = 1; // FPS
 
         // Fan speed (RPM)
         private int cpuFanSpeed = 0;
@@ -84,6 +94,33 @@ namespace XboxGamingBarHelper.Legion
         public readonly LegionPowerLightProperty LegionPowerLight;
         public readonly LegionChargeLimitProperty LegionChargeLimit;
 
+        // Controller remapping properties
+        public readonly LegionButtonY1Property LegionButtonY1;
+        public readonly LegionButtonY2Property LegionButtonY2;
+        public readonly LegionButtonY3Property LegionButtonY3;
+        public readonly LegionButtonM2Property LegionButtonM2;
+        public readonly LegionButtonM3Property LegionButtonM3;
+        public readonly LegionNintendoLayoutProperty LegionNintendoLayout;
+        public readonly LegionVibrationModeProperty LegionVibrationMode;
+        public readonly LegionControllerProfileEnabledProperty LegionControllerProfileEnabled;
+
+        // Gyro settings properties (per-game profile)
+        public readonly LegionGyroTargetProperty LegionGyroTarget;
+        public readonly LegionGyroSensitivityXProperty LegionGyroSensitivityX;
+        public readonly LegionGyroSensitivityYProperty LegionGyroSensitivityY;
+        public readonly LegionGyroInvertXProperty LegionGyroInvertX;
+        public readonly LegionGyroInvertYProperty LegionGyroInvertY;
+        public readonly LegionGyroMappingTypeProperty LegionGyroMappingType;
+        public readonly LegionGyroActivationModeProperty LegionGyroActivationMode;
+        public readonly LegionGyroActivationButtonProperty LegionGyroActivationButton;
+
+        // Stick deadzone properties (per-game profile)
+        public readonly LegionLeftStickDeadzoneProperty LegionLeftStickDeadzone;
+        public readonly LegionRightStickDeadzoneProperty LegionRightStickDeadzone;
+
+        // Touchpad vibration property (GLOBAL setting)
+        public readonly LegionTouchpadVibrationProperty LegionTouchpadVibration;
+
         public LegionManager(AppServiceConnection connection) : base(connection)
         {
             Logger.Info("Initializing Legion Manager...");
@@ -110,6 +147,33 @@ namespace XboxGamingBarHelper.Legion
             LegionVibration = new LegionVibrationProperty(vibrationLevel, this);
             LegionPowerLight = new LegionPowerLightProperty(powerLightEnabled, this);
             LegionChargeLimit = new LegionChargeLimitProperty(chargeLimitEnabled, this);
+
+            // Initialize controller remapping properties
+            LegionButtonY1 = new LegionButtonY1Property(buttonY1Action, this);
+            LegionButtonY2 = new LegionButtonY2Property(buttonY2Action, this);
+            LegionButtonY3 = new LegionButtonY3Property(buttonY3Action, this);
+            LegionButtonM2 = new LegionButtonM2Property(buttonM2Action, this);
+            LegionButtonM3 = new LegionButtonM3Property(buttonM3Action, this);
+            LegionNintendoLayout = new LegionNintendoLayoutProperty(nintendoLayoutEnabled, this);
+            LegionVibrationMode = new LegionVibrationModeProperty(vibrationMode, this);
+            LegionControllerProfileEnabled = new LegionControllerProfileEnabledProperty(false, this);
+
+            // Initialize gyro settings properties
+            LegionGyroTarget = new LegionGyroTargetProperty(gyroTarget, this);
+            LegionGyroSensitivityX = new LegionGyroSensitivityXProperty(gyroSensitivityX, this);
+            LegionGyroSensitivityY = new LegionGyroSensitivityYProperty(gyroSensitivityY, this);
+            LegionGyroInvertX = new LegionGyroInvertXProperty(gyroInvertX, this);
+            LegionGyroInvertY = new LegionGyroInvertYProperty(gyroInvertY, this);
+            LegionGyroMappingType = new LegionGyroMappingTypeProperty(gyroMappingType, this);
+            LegionGyroActivationMode = new LegionGyroActivationModeProperty(gyroActivationMode, this);
+            LegionGyroActivationButton = new LegionGyroActivationButtonProperty(gyroActivationButton, this);
+
+            // Initialize stick deadzone properties
+            LegionLeftStickDeadzone = new LegionLeftStickDeadzoneProperty(leftStickDeadzone, this);
+            LegionRightStickDeadzone = new LegionRightStickDeadzoneProperty(rightStickDeadzone, this);
+
+            // Initialize touchpad vibration property (GLOBAL setting)
+            LegionTouchpadVibration = new LegionTouchpadVibrationProperty(touchpadVibration, this);
 
             if (isLegionGoDetected)
             {
@@ -945,6 +1009,453 @@ namespace XboxGamingBarHelper.Legion
                 Logger.Error($"Error setting charge limit: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// Sets the button mapping for a remappable button.
+        /// </summary>
+        /// <param name="buttonIndex">Button index: 0=Y1, 1=Y2, 2=Y3, 3=M2, 4=M3</param>
+        /// <param name="actionIndex">Action index matching RemapAction enum (0-28)</param>
+        public void SetButtonMapping(int buttonIndex, int actionIndex)
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn("Cannot set button mapping: controller not connected");
+                    return;
+                }
+
+                // Map button index to RemappableButton enum
+                LegionGo.RemappableButton remapButton = buttonIndex switch
+                {
+                    0 => LegionGo.RemappableButton.Y1,
+                    1 => LegionGo.RemappableButton.Y2,
+                    2 => LegionGo.RemappableButton.Y3,
+                    3 => LegionGo.RemappableButton.M2,
+                    4 => LegionGo.RemappableButton.M3,
+                    _ => throw new ArgumentException($"Invalid button index: {buttonIndex}")
+                };
+
+                LegionGo.RemapAction remapAction = LegionGo.RemapActionHelper.GetByIndex(actionIndex);
+
+                bool success = controller.SetButtonMapping(remapButton, remapAction);
+                if (success)
+                {
+                    // Update cached value
+                    switch (buttonIndex)
+                    {
+                        case 0: buttonY1Action = actionIndex; break;
+                        case 1: buttonY2Action = actionIndex; break;
+                        case 2: buttonY3Action = actionIndex; break;
+                        case 3: buttonM2Action = actionIndex; break;
+                        case 4: buttonM3Action = actionIndex; break;
+                    }
+                    Logger.Info($"Button {remapButton} mapped to {remapAction}");
+                }
+                else
+                {
+                    Logger.Error($"Failed to set button mapping for {remapButton}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting button mapping: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sets the Nintendo layout mode (swaps A↔B and X↔Y face buttons).
+        /// </summary>
+        public void SetNintendoLayout(bool enabled)
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn("Cannot set Nintendo layout: controller not connected");
+                    return;
+                }
+
+                bool success = controller.SetNintendoLayout(enabled);
+                if (success)
+                {
+                    nintendoLayoutEnabled = enabled;
+                    Logger.Info($"Nintendo layout {(enabled ? "enabled" : "disabled")}");
+                }
+                else
+                {
+                    Logger.Error("Failed to set Nintendo layout");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting Nintendo layout: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sets the vibration mode preset (game-specific vibration patterns).
+        /// </summary>
+        /// <param name="mode">Vibration mode: 1=FPS, 2=Racing, 3=AVG, 4=SPG, 5=RPG</param>
+        public void SetVibrationMode(int mode)
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn("Cannot set vibration mode: controller not connected");
+                    return;
+                }
+
+                LegionGo.VibrationMode vibMode = (LegionGo.VibrationMode)mode;
+                bool success = controller.SetVibrationMode(vibMode);
+                if (success)
+                {
+                    vibrationMode = mode;
+                    Logger.Info($"Vibration mode set to {vibMode}");
+                }
+                else
+                {
+                    Logger.Error($"Failed to set vibration mode to {vibMode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting vibration mode: {ex.Message}");
+            }
+        }
+
+        #region Gyro Settings
+
+        private int gyroTarget = 0;
+        private int gyroSensitivityX = 50;
+        private int gyroSensitivityY = 50;
+        private bool gyroInvertX = false;
+        private bool gyroInvertY = false;
+        private int gyroMappingType = 0;
+        private int gyroActivationMode = 0;
+        private int gyroActivationButton = 0;
+
+        /// <summary>
+        /// Sets the gyro target output (0=Disabled, 1=LeftStick, 2=RightStick, 3=Mouse).
+        /// </summary>
+        public void SetGyroTarget(int target)
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn("Cannot set gyro target: controller not connected");
+                    return;
+                }
+
+                // Map index to GyroTarget enum (0=Disabled maps to 0x01, etc.)
+                LegionGo.GyroTarget gyroTargetValue = target switch
+                {
+                    0 => LegionGo.GyroTarget.Disabled,
+                    1 => LegionGo.GyroTarget.LeftStick,
+                    2 => LegionGo.GyroTarget.RightStick,
+                    3 => LegionGo.GyroTarget.Mouse,
+                    _ => LegionGo.GyroTarget.Disabled
+                };
+
+                bool success = controller.SetGyroTarget(gyroTargetValue);
+                if (success)
+                {
+                    gyroTarget = target;
+                    Logger.Info($"Gyro target set to {gyroTargetValue}");
+                }
+                else
+                {
+                    Logger.Error($"Failed to set gyro target to {gyroTargetValue}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting gyro target: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sets the gyro X-axis sensitivity (1-100).
+        /// </summary>
+        public void SetGyroSensitivityX(int sensitivity)
+        {
+            gyroSensitivityX = sensitivity;
+            ApplyGyroSettings();
+        }
+
+        /// <summary>
+        /// Sets the gyro Y-axis sensitivity (1-100).
+        /// </summary>
+        public void SetGyroSensitivityY(int sensitivity)
+        {
+            gyroSensitivityY = sensitivity;
+            ApplyGyroSettings();
+        }
+
+        /// <summary>
+        /// Sets the gyro X-axis inversion.
+        /// </summary>
+        public void SetGyroInvertX(bool invert)
+        {
+            gyroInvertX = invert;
+            ApplyGyroSettings();
+        }
+
+        /// <summary>
+        /// Sets the gyro Y-axis inversion.
+        /// </summary>
+        public void SetGyroInvertY(bool invert)
+        {
+            gyroInvertY = invert;
+            ApplyGyroSettings();
+        }
+
+        /// <summary>
+        /// Sets the gyro mapping type (0=Instant, 1=Continuous).
+        /// </summary>
+        public void SetGyroMappingType(int mappingType)
+        {
+            gyroMappingType = mappingType;
+            ApplyGyroSettings();
+        }
+
+        /// <summary>
+        /// Applies all gyro settings at once.
+        /// </summary>
+        private void ApplyGyroSettings()
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn("Cannot apply gyro settings: controller not connected");
+                    return;
+                }
+
+                LegionGo.GyroMappingType mappingTypeValue = gyroMappingType switch
+                {
+                    0 => LegionGo.GyroMappingType.Instant,
+                    1 => LegionGo.GyroMappingType.Continuous,
+                    _ => LegionGo.GyroMappingType.Instant
+                };
+
+                bool success = controller.SetGyroSettings(mappingTypeValue, gyroSensitivityX, gyroSensitivityY, gyroInvertX, gyroInvertY);
+                if (success)
+                {
+                    Logger.Info($"Gyro settings applied: MappingType={mappingTypeValue}, SensX={gyroSensitivityX}, SensY={gyroSensitivityY}, InvX={gyroInvertX}, InvY={gyroInvertY}");
+                }
+                else
+                {
+                    Logger.Error("Failed to apply gyro settings");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error applying gyro settings: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sets the gyro activation mode (0=Hold, 1=Toggle).
+        /// </summary>
+        public void SetGyroActivationMode(int mode)
+        {
+            gyroActivationMode = mode;
+            ApplyGyroActivation();
+        }
+
+        /// <summary>
+        /// Sets the gyro activation button (0-8: None, LB, LT, RB, RT, Y1, Y2, M2, M3).
+        /// </summary>
+        public void SetGyroActivationButton(int button)
+        {
+            gyroActivationButton = button;
+            ApplyGyroActivation();
+        }
+
+        /// <summary>
+        /// Applies gyro activation settings.
+        /// </summary>
+        private void ApplyGyroActivation()
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn("Cannot apply gyro activation: controller not connected");
+                    return;
+                }
+
+                // If button is 0 (None), reset to always-on mode
+                if (gyroActivationButton == 0)
+                {
+                    bool resetSuccess = controller.ResetGyroActivation();
+                    if (resetSuccess)
+                    {
+                        Logger.Info("Gyro activation reset to always-on mode");
+                    }
+                    else
+                    {
+                        Logger.Error("Failed to reset gyro activation");
+                    }
+                    return;
+                }
+
+                // Map index to GyroActivationMode
+                LegionGo.GyroActivationMode modeValue = gyroActivationMode switch
+                {
+                    0 => LegionGo.GyroActivationMode.Hold,
+                    1 => LegionGo.GyroActivationMode.Toggle,
+                    _ => LegionGo.GyroActivationMode.Hold
+                };
+
+                // Map index to GyroActivationButton (0=None is handled above)
+                // 1=LB, 2=LT, 3=RB, 4=RT, 5=Y1, 6=Y2, 7=M2, 8=M3
+                LegionGo.GyroActivationButton buttonValue = gyroActivationButton switch
+                {
+                    1 => LegionGo.GyroActivationButton.LB,
+                    2 => LegionGo.GyroActivationButton.LT,
+                    3 => LegionGo.GyroActivationButton.RB,
+                    4 => LegionGo.GyroActivationButton.RT,
+                    5 => LegionGo.GyroActivationButton.Y1,
+                    6 => LegionGo.GyroActivationButton.Y2,
+                    7 => LegionGo.GyroActivationButton.M2,
+                    8 => LegionGo.GyroActivationButton.M3,
+                    _ => LegionGo.GyroActivationButton.None
+                };
+
+                bool success = controller.SetGyroActivationButtons(modeValue, buttonValue);
+                if (success)
+                {
+                    Logger.Info($"Gyro activation set: Mode={modeValue}, Button={buttonValue}");
+                }
+                else
+                {
+                    Logger.Error($"Failed to set gyro activation");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error applying gyro activation: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region Stick Deadzone
+
+        private int leftStickDeadzone = 4;
+        private int rightStickDeadzone = 4;
+
+        /// <summary>
+        /// Sets the left stick deadzone (0-50%).
+        /// </summary>
+        public void SetLeftStickDeadzone(int percent)
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn("Cannot set left stick deadzone: controller not connected");
+                    return;
+                }
+
+                bool success = controller.SetStickDeadzone(LegionGo.Controller.Left, percent);
+                if (success)
+                {
+                    leftStickDeadzone = percent;
+                    Logger.Info($"Left stick deadzone set to {percent}%");
+                }
+                else
+                {
+                    Logger.Error($"Failed to set left stick deadzone to {percent}%");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting left stick deadzone: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sets the right stick deadzone (0-50%).
+        /// </summary>
+        public void SetRightStickDeadzone(int percent)
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn("Cannot set right stick deadzone: controller not connected");
+                    return;
+                }
+
+                bool success = controller.SetStickDeadzone(LegionGo.Controller.Right, percent);
+                if (success)
+                {
+                    rightStickDeadzone = percent;
+                    Logger.Info($"Right stick deadzone set to {percent}%");
+                }
+                else
+                {
+                    Logger.Error($"Failed to set right stick deadzone to {percent}%");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting right stick deadzone: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region Touchpad Vibration
+
+        private bool touchpadVibration = true;
+
+        /// <summary>
+        /// Sets the touchpad vibration (haptic feedback) on/off.
+        /// This is a GLOBAL setting, not per-game.
+        /// </summary>
+        public void SetTouchpadVibration(bool enabled)
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn("Cannot set touchpad vibration: controller not connected");
+                    return;
+                }
+
+                bool success = controller.SetTouchpadVibration(enabled);
+                if (success)
+                {
+                    touchpadVibration = enabled;
+                    Logger.Info($"Touchpad vibration {(enabled ? "enabled" : "disabled")}");
+                }
+                else
+                {
+                    Logger.Error($"Failed to set touchpad vibration to {enabled}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting touchpad vibration: {ex.Message}");
+            }
+        }
+
+        #endregion
 
         public override void Update()
         {
