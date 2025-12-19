@@ -22,6 +22,14 @@ namespace XboxGamingBarHelper.Performance
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"TDP Boost enabled: {Value}");
 
+            // Skip TDP re-apply during profile application to prevent redundant calls
+            // Profile application handles TDP setting after all properties are updated
+            if (Program.isApplyingProfile)
+            {
+                Logger.Debug("Skipping TDP re-apply - profile is being applied");
+                return;
+            }
+
             // Re-apply current TDP with new boost setting
             if (Manager?.TDP != null)
             {
@@ -48,6 +56,13 @@ namespace XboxGamingBarHelper.Performance
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"TDP Boost SPPT: {Value}W");
 
+            // Skip TDP re-apply during profile application to prevent redundant calls
+            if (Program.isApplyingProfile)
+            {
+                Logger.Debug("Skipping TDP re-apply - profile is being applied");
+                return;
+            }
+
             // Re-apply current TDP with new boost value if boost is enabled
             if (Manager?.TDPBoostEnabled?.Value == true && Manager?.TDP != null)
             {
@@ -73,6 +88,13 @@ namespace XboxGamingBarHelper.Performance
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"TDP Boost FPPT: {Value}W");
+
+            // Skip TDP re-apply during profile application to prevent redundant calls
+            if (Program.isApplyingProfile)
+            {
+                Logger.Debug("Skipping TDP re-apply - profile is being applied");
+                return;
+            }
 
             // Re-apply current TDP with new boost value if boost is enabled
             if (Manager?.TDPBoostEnabled?.Value == true && Manager?.TDP != null)
