@@ -256,4 +256,327 @@ namespace XboxGamingBarHelper.Legion
             Manager?.SetChargeLimit(Value);
         }
     }
+
+    // Button Y1 remap action (0-28)
+    internal class LegionButtonY1Property : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionButtonY1Property(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionButtonY1, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionButtonY1 changed to {Value}");
+            Manager?.SetButtonMapping(0, Value);
+        }
+    }
+
+    // Button Y2 remap action (0-28)
+    internal class LegionButtonY2Property : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionButtonY2Property(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionButtonY2, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionButtonY2 changed to {Value}");
+            Manager?.SetButtonMapping(1, Value);
+        }
+    }
+
+    // Button Y3 remap action (0-28)
+    internal class LegionButtonY3Property : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionButtonY3Property(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionButtonY3, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionButtonY3 changed to {Value}");
+            Manager?.SetButtonMapping(2, Value);
+        }
+    }
+
+    // Button M2 remap action (0-28)
+    internal class LegionButtonM2Property : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionButtonM2Property(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionButtonM2, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionButtonM2 changed to {Value}");
+            Manager?.SetButtonMapping(3, Value);
+        }
+    }
+
+    // Button M3 remap action (0-28)
+    internal class LegionButtonM3Property : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionButtonM3Property(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionButtonM3, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionButtonM3 changed to {Value}");
+            Manager?.SetButtonMapping(4, Value);
+        }
+    }
+
+    // Nintendo layout toggle (A↔B, X↔Y swap)
+    internal class LegionNintendoLayoutProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionNintendoLayoutProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionNintendoLayout, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionNintendoLayout changed to {Value}");
+            Manager?.SetNintendoLayout(Value);
+        }
+    }
+
+    // Vibration mode preset (FPS=1, Racing=2, AVG=3, SPG=4, RPG=5)
+    internal class LegionVibrationModeProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionVibrationModeProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionVibrationMode, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionVibrationMode changed to {Value}");
+            Manager?.SetVibrationMode(Value);
+        }
+    }
+
+    // Controller profile enabled (per-game toggle) - notification only, storage in widget
+    internal class LegionControllerProfileEnabledProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionControllerProfileEnabledProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionControllerProfileEnabled, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionControllerProfileEnabled changed to {Value}");
+            // No action needed - profile storage is handled by the widget
+        }
+    }
+
+    // Gyro Target (0=Disabled, 1=LeftStick, 2=RightStick, 3=Mouse)
+    internal class LegionGyroTargetProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionGyroTargetProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionGyroTarget, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionGyroTarget changed to {Value}");
+            Manager?.SetGyroTarget(Value);
+        }
+    }
+
+    // Gyro Sensitivity X (1-100)
+    internal class LegionGyroSensitivityXProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionGyroSensitivityXProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionGyroSensitivityX, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionGyroSensitivityX changed to {Value}");
+            Manager?.SetGyroSensitivityX(Value);
+        }
+    }
+
+    // Gyro Sensitivity Y (1-100)
+    internal class LegionGyroSensitivityYProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionGyroSensitivityYProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionGyroSensitivityY, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionGyroSensitivityY changed to {Value}");
+            Manager?.SetGyroSensitivityY(Value);
+        }
+    }
+
+    // Gyro Invert X
+    internal class LegionGyroInvertXProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionGyroInvertXProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionGyroInvertX, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionGyroInvertX changed to {Value}");
+            Manager?.SetGyroInvertX(Value);
+        }
+    }
+
+    // Gyro Invert Y
+    internal class LegionGyroInvertYProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionGyroInvertYProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionGyroInvertY, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionGyroInvertY changed to {Value}");
+            Manager?.SetGyroInvertY(Value);
+        }
+    }
+
+    // Gyro Mapping Type (0=Instant, 1=Continuous)
+    internal class LegionGyroMappingTypeProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionGyroMappingTypeProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionGyroMappingType, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionGyroMappingType changed to {Value}");
+            Manager?.SetGyroMappingType(Value);
+        }
+    }
+
+    // Gyro Activation Mode (0=Hold, 1=Toggle)
+    internal class LegionGyroActivationModeProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionGyroActivationModeProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionGyroActivationMode, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionGyroActivationMode changed to {Value}");
+            Manager?.SetGyroActivationMode(Value);
+        }
+    }
+
+    // Gyro Activation Button (0-8: None, LB, LT, RB, RT, Y1, Y2, M2, M3)
+    internal class LegionGyroActivationButtonProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionGyroActivationButtonProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionGyroActivationButton, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionGyroActivationButton changed to {Value}");
+            Manager?.SetGyroActivationButton(Value);
+        }
+    }
+
+    // Left Stick Deadzone (0-50%)
+    internal class LegionLeftStickDeadzoneProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionLeftStickDeadzoneProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionLeftStickDeadzone, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionLeftStickDeadzone changed to {Value}");
+            Manager?.SetLeftStickDeadzone(Value);
+        }
+    }
+
+    // Right Stick Deadzone (0-50%)
+    internal class LegionRightStickDeadzoneProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionRightStickDeadzoneProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionRightStickDeadzone, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionRightStickDeadzone changed to {Value}");
+            Manager?.SetRightStickDeadzone(Value);
+        }
+    }
+
+    // Touchpad Vibration (on/off - GLOBAL setting)
+    internal class LegionTouchpadVibrationProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionTouchpadVibrationProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionTouchpadVibration, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionTouchpadVibration changed to {Value}");
+            Manager?.SetTouchpadVibration(Value);
+        }
+    }
 }
