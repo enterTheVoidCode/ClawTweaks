@@ -1,171 +1,235 @@
 # Xbox Gaming Bar
 
-## What is it?
-
-Xbox Gaming Bar is a helper tool for gamers to control all gaming-related settings using the gamepad/game controller.
-Xbox Gaming Bar is built as a Xbox Game Bar widget as the frontend, and a Win32 helper as the backend tool.
+A powerful Xbox Game Bar widget for controlling gaming settings with your controller. Designed for handheld gaming PCs with deep integration for Legion Go, AMD Radeon GPUs, and performance tuning.
 
 ## Features
 
 ### Quick Settings
-- Customizable tile grid for quick access to frequently used settings
-- One-tap toggles for TDP Mode, Profile, Overlay, Lossless Scaling, and more
-- Custom keyboard shortcut tiles with add/remove functionality
-- Device-specific tiles (Legion Touchpad, Light Mode) when supported hardware detected
+Customizable dashboard with quick-access tiles for your most-used settings.
 
-![Quick Settings Screenshot](Screenshots/quick_settings.png)
+- One-tap toggles for TDP Mode, Profile, Overlay, Lossless Scaling
+- Custom keyboard shortcut tiles with add/remove functionality
+- Device-specific tiles that appear when supported hardware is detected
+
+![Screenshot: Quick Settings](Screenshots/quick_settings.png)
+
+---
 
 ### Performance Control
-- **TDP Power Limit** - Adjust system TDP with real-time monitoring
-- **Sticky TDP** - Automatically restore TDP limits if changed by other apps
-- **AutoTDP (Beta)** - Automatically adjust TDP to maintain target FPS
-  - PID controller with smart sweet spot detection
-  - Conservative algorithm to find minimum TDP needed
-  - OSD overlay showing AutoTDP status and adjustments
-- **CPU Boost** - Enable or disable CPU boost
-- **CPU EPP** - Set CPU Energy Performance Preference (0-100)
-- **CPU Clock Limit** - Set maximum CPU clock speed
+Fine-tune power and CPU settings for optimal performance or battery life.
 
-![Performance Tab Screenshot](Screenshots/performance.png)
+**TDP Management:**
+- **Custom TDP** - Adjust system power limits with real-time monitoring
+- **Sticky TDP** - Automatically restore TDP if changed by other apps
+- **TDP Boost** - Per-game boost with separate SPPT/FPPT controls
+
+**AutoTDP (Beta):**
+- Automatically adjusts TDP to maintain your target FPS
+- Smart algorithm finds the minimum power needed
+- Real-time status shown in OSD overlay
+
+**CPU Controls:**
+- **CPU Boost** - Enable or disable CPU boost
+- **CPU EPP** - Energy Performance Preference (0-100)
+- **Min/Max CPU State** - Control CPU clock speed range
+
+![Screenshot: Performance Tab](Screenshots/performance.png)
+
+---
 
 ### Per-Game Profiles
-- Save and load settings per game
-- Automatic profile switching when games are detected
-- Configurable settings per profile (TDP, CPU Boost, EPP, CPU Clock, AMD features)
+Automatically apply your preferred settings when each game launches.
 
-![Profiles Tab Screenshot](Screenshots/profiles.png)
+- Automatic profile switching on game detection
+- Saves all performance settings per game:
+  - TDP, TDP Boost, CPU settings
+  - AMD Radeon features
+  - Lossless Scaling configuration
+  - Legion Go controller settings (if applicable)
 
-### Performance Overlay (RTSS)
-- Real-time on-screen display using RivaTuner Statistics Server
-- Multiple detail levels (Off, Minimal, Standard, Detailed)
-- Shows FPS, frametime, CPU/GPU usage, temperatures, power, memory, battery
-- Fan speed display for supported devices
-- AutoTDP status in detailed mode
+![Screenshot: Profiles Tab](Screenshots/profiles.png)
 
-![OSD Screenshot](Screenshots/osd.png)
-
-### Graphics Settings
-- **Resolution** - Change display resolution
-- **HDR** - Toggle HDR on/off (when supported)
-- **Refresh Rate** - Change display refresh rate
-
-![Graphics Tab Screenshot](Screenshots/graphics.png)
-
-### AMD Radeon Features
-- **Radeon Super Resolution (RSR)** - GPU upscaling with sharpness control
-- **AMD Fluid Motion Frames (AFMF)** - Frame generation
-- **Radeon Anti-Lag** - Reduce input latency
-- **Radeon Boost** - Dynamic resolution scaling
-- **Radeon Chill** - Power saving when idle with min/max FPS control
-
-### Lossless Scaling Integration
-- Launch and control Lossless Scaling from the widget
-- Configure scaling type, frame generation, and profiles
-- Quick toggle from Quick Settings
-
-![Scaling Tab Screenshot](Screenshots/scaling.png)
+---
 
 ### Legion Go Support
-- Automatic device detection for Legion Go and Legion Go 2
-- **Touchpad Toggle** - Enable/disable touchpad
-- **RGB Lighting** - Control light mode, color, and brightness
-- **Performance Modes** - Quiet, Balanced, Performance, Custom
-- **Custom TDP** - Fine-grained TDP control (SPL, SPPL, FPPT)
-- **Fan Full Speed** - Toggle maximum fan speed
-- **Gyroscope** - Toggle gyroscope (WIP)
+Comprehensive support for Legion Go and Legion Go S with automatic device detection.
 
-![Legion Tab Screenshot](Screenshots/legion.png)
+**Performance Modes:**
+- Quiet, Balanced, Performance, and Custom modes
+- Custom TDP with fine-grained control (SPL, SPPL, FPPT)
+- Fan Full Speed toggle
 
-### System Settings
-- Profile settings configuration
-- Sticky TDP interval adjustment
-- AutoTDP configuration with target FPS
-- Manufacturer WMI TDP option for supported devices
+**Controller Settings:**
+- **Button Remapping** - Customize M2, M3, Y1, Y2, Y3 buttons
+- **Nintendo Layout** - Swap button layout
+- **Stick Deadzones** - Adjust left/right stick deadzones (0-50%)
+- **Gyroscope Settings:**
+  - Enable/disable with target selection
+  - Sensitivity X/Y adjustment
+  - Invert axes options
+  - Activation mode (Hold/Toggle) with button selection
+- **Vibration Mode** - Configure vibration behavior
+- **Touchpad Haptics** - Toggle haptic feedback
 
-![System Tab Screenshot](Screenshots/system.png)
+**RGB Lighting:**
+- Light mode, color, brightness, and speed control
+- Power light toggle
 
-## Controller Navigation
+**Other:**
+- Touchpad toggle
+- Battery charge limit
 
-The widget is designed for full gamepad/controller navigation:
+![Screenshot: Legion Go Tab](Screenshots/legion.png)
+
+![Screenshot: Controller Settings](Screenshots/legion_controller.png)
+
+---
+
+### AMD Radeon Features
+GPU-based enhancements for AMD graphics cards.
+
+**Upscaling & Frame Generation:**
+- **Radeon Super Resolution (RSR)** - GPU upscaling with sharpness control
+- **AMD Fluid Motion Frames (AFMF)** - Frame generation
+
+**Performance:**
+- **Radeon Anti-Lag** - Reduce input latency
+- **Radeon Boost** - Dynamic resolution scaling
+
+**Power Saving:**
+- **Radeon Chill** - Reduce power when idle with min/max FPS control
+
+**Image Quality:**
+- **Image Sharpening** - Enhance visual clarity
+- **Display Color Controls** - Brightness, contrast, saturation, color temperature
+
+![Screenshot: AMD Features Tab](Screenshots/amd.png)
+
+---
+
+### Lossless Scaling Integration
+Control Lossless Scaling directly from the widget.
+
+- Launch and manage Lossless Scaling
+- Configure scaling type and factor
+- Frame generation modes (LSFG2, LSFG3)
+- Auto-scaling with delay configuration
+- Anime4K and FSR optimization options
+- Per-profile configurations
+
+![Screenshot: Scaling Tab](Screenshots/scaling.png)
+
+---
+
+### Graphics Settings
+Display and resolution management.
+
+- Resolution control with auto-detection
+- Refresh rate adjustment
+- HDR toggle (when supported)
+
+![Screenshot: Graphics Tab](Screenshots/graphics.png)
+
+---
+
+### Performance Overlay (OSD)
+Real-time on-screen display powered by RivaTuner Statistics Server.
+
+**Multiple Detail Levels:**
+- Off, Minimal, Standard, Detailed
+
+**Metrics Displayed:**
+- FPS and frametime graph
+- CPU/GPU usage and temperatures
+- Power consumption
+- Memory and VRAM usage
+- Battery level and status
+- Fan speed (supported devices)
+- TDP Limits (SPL/SPPT/FPPT) or current performance mode
+- AutoTDP status (in detailed mode)
+
+![Screenshot: OSD Overlay](Screenshots/osd.png)
+
+---
+
+### Controller Navigation
+Designed for full gamepad control - no mouse needed.
+
 - D-pad navigation between all controls
-- Focus indicators on all interactive elements
-- Scroll views automatically bring focused items into view
+- Visual focus indicators
+- Automatic scroll to focused items
+- Works with Xbox, PlayStation, and other controllers
+
+---
 
 ## Installation
 
-### Step 1: Install the App
+### Option A: Install Script (Recommended)
 
-#### Option A: Use Install Script (Recommended)
+1. Download the latest release from [Releases](https://github.com/namquang93/XboxGamingBar/releases)
+2. Extract the package
+3. Right-click `Install.ps1` → **Run with PowerShell**
+4. Click **Yes** if prompted for Administrator access
 
-1. Download and extract the latest release package from [Releases](https://github.com/namquang93/XboxGamingBar/releases)
-2. Right-click `Install.ps1` → **Run with PowerShell**
-3. If prompted, click **Yes** to allow Administrator access
+The script automatically handles:
+- Closing blocking processes
+- Uninstalling previous versions
+- Installing certificates and dependencies
+- Installing the widget
 
-Script not running, run with `powershell.exe -ExecutionPolicy Bypass -File .\Install.ps1`
+**Silent install:** `powershell.exe -ExecutionPolicy Bypass -File .\Install.ps1 -Force`
 
+### Option B: Manual Install
 
-The script automatically:
-- Closes any blocking processes (Game Bar, previous widget versions)
-- Uninstalls previous versions cleanly
-- Installs the signing certificate
-- Installs all required dependencies
-- Installs the widget
+1. Install the `.cer` certificate → Local Machine → Trusted People
+2. Install dependencies from `Dependencies\x64` folder
+3. Double-click the `.msixbundle` to install
 
-**Silent install:** Run `.\Install.ps1 -Force` from an Admin PowerShell.
+### Enable the Widget
 
-#### Option B: Install Certificate (Manual Install)
+1. Open Xbox Game Bar (`Win + G`)
+2. Click the **Widgets** menu
+3. Find and enable **"Gaming"**
 
-1. Right-click the `.cer` certificate file → **Install Certificate**
-2. Select **Local Machine** → **Place in: Trusted People**
-3. Install dependencies from `Dependencies\x64` folder (double-click each `.appx` file)
-4. Double-click the `.msixbundle` to install
+### Enable Game Detection
 
-### Updating
+Required for per-game profiles and AutoTDP:
 
-To update to a new version, simply double-click the `.msixbundle` file and click **Update**.
+1. Open Xbox Game Bar → **Settings** → **More Settings**
+2. Find **Gaming** widget
+3. Enable **"Know which game or app is in focus"**
 
-### Step 2: Enable the Widget in Game Bar
-
-1. Open Xbox Game Bar (Win + G)
-2. Click the **Widgets** menu (widget icon)
-3. Scroll down to find **"Gaming"**
-4. Click on it to enable the widget
-
-### Step 3: Enable Game Detection (Required for Per-Game Profiles)
-
-1. Open Xbox Game Bar (Win + G)
-2. Go to **Settings** (gear icon)
-3. Scroll down and click **More Settings**
-4. Find **Gaming** widget
-5. Enable **"Know which game or app is in focus"**
-
-This allows the widget to detect which game is running for automatic profile switching and AutoTDP.
-
-For detailed instructions, see our [Wiki](https://github.com/namquang93/XboxGamingBar/wiki/Installation-Instruction).
+---
 
 ## Requirements
 
 - Windows 10/11
 - Xbox Game Bar
-- RivaTuner Statistics Server (for OSD overlay)
-- AMD GPU (for Radeon features)
-- Supported handheld device (for device-specific features)
+- **Optional:**
+  - RivaTuner Statistics Server (for OSD overlay)
+  - AMD GPU (for Radeon features)
+  - Legion Go/Go S (for device-specific features)
+  - Lossless Scaling (for scaling integration)
+
+---
 
 ## Technology
 
-Xbox Gaming Bar is 100% free and open source. Built with C#.
+100% free and open source. Built with C#.
 
-### Libraries Used
-- **LibreHardwareMonitor** - Performance statistics and sensor data
+### Libraries
+- **LibreHardwareMonitor** - Hardware sensors and monitoring
 - **RyzenAdj** - AMD TDP control
 - **RTSSSharedMemoryNET** - RTSS OSD integration
 - **ADLX** - AMD Display Library for Radeon features
+- **LegionGoLibrary** - Legion Go hardware control
+
+---
 
 ## Credits
 
-Original project created by [namquang93](https://github.com/namquang93).
+Original project by [namquang93](https://github.com/namquang93).
 
 ## License
 
 This project is open source. See LICENSE file for details.
-
