@@ -1,15 +1,17 @@
 using System.Collections.Generic;
 using System.Drawing;
+using XboxGamingBarHelper.Legion;
 using XboxGamingBarHelper.Performance;
 
 namespace XboxGamingBarHelper.RTSS.OSDItems
 {
     /// <summary>
-    /// OSD item for displaying current TDP limits (SPL/SPPT/FPPT)
+    /// OSD item for displaying current TDP limits (SPL/SPPT/FPPT) or mode name
     /// </summary>
     internal class OSDItemTDPLimits : OSDItem
     {
         private PerformanceManager performanceManager;
+        private LegionManager legionManager;
 
         public OSDItemTDPLimits() : base("Limits", "TDPLimits", Color.Orange)
         {
@@ -24,11 +26,31 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             performanceManager = manager;
         }
 
+        /// <summary>
+        /// Sets the Legion Manager reference to read performance mode from.
+        /// Must be called after LegionManager is initialized.
+        /// </summary>
+        public void SetLegionManager(LegionManager manager)
+        {
+            legionManager = manager;
+        }
+
         public override string GetOSDString(int osdLevel)
         {
             if (performanceManager == null)
             {
                 return string.Empty;
+            }
+
+            // If Legion Go is detected and not in Custom mode, show mode name instead of limits
+            if (legionManager != null && legionManager.LegionGoDetected?.Value == true)
+            {
+                int mode = legionManager.CurrentPerformanceMode;
+                if (mode != 255) // Not Custom mode
+                {
+                    string modeName = LegionManager.GetPerformanceModeName(mode);
+                    return $"<C={colorCode}>Mode<C={textColor}> <C={textColor}>{modeName}<C={textColor}>";
+                }
             }
 
             int spl = performanceManager.CurrentSPL;

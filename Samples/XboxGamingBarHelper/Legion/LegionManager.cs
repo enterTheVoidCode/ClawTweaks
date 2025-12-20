@@ -30,6 +30,26 @@ namespace XboxGamingBarHelper.Legion
         private int lightBrightness = 100;
         private int lightSpeed = 50; // 0-100, default 50%
         private int performanceMode = 2; // Balanced
+
+        /// <summary>
+        /// Gets the current performance mode (Quiet=1, Balanced=2, Performance=3, Custom=255).
+        /// </summary>
+        public int CurrentPerformanceMode => performanceMode;
+
+        /// <summary>
+        /// Gets the display name for a performance mode value.
+        /// </summary>
+        public static string GetPerformanceModeName(int mode)
+        {
+            return mode switch
+            {
+                1 => "Quiet Mode",
+                2 => "Balanced Mode",
+                3 => "Performance Mode",
+                255 => "Custom",
+                _ => $"Mode {mode}"
+            };
+        }
         private int customTDPSlow = 15;
         private int customTDPFast = 25;
         private int customTDPPeak = 35;
