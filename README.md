@@ -179,6 +179,12 @@ The script automatically handles:
 
 **Silent install:** `powershell.exe -ExecutionPolicy Bypass -File .\Install.ps1 -Force`
 
+**Troubleshooting:** If the script doesn't run, open PowerShell as Administrator and run:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+.\Install.ps1
+```
+
 ### Option B: Manual Install
 
 1. Install the `.cer` certificate → Local Machine → Trusted People
@@ -220,9 +226,8 @@ Required for per-game profiles and AutoTDP:
 ### Libraries
 - **LibreHardwareMonitor** - Hardware sensors and monitoring
 - **RyzenAdj** - AMD TDP control
-- **RTSSSharedMemoryNET** - RTSS OSD integration
+- **RTSSSharedMemoryNET** - Custom implementation with frametime graph support, optimized for low CPU and memory usage
 - **ADLX** - AMD Display Library for Radeon features
-- **LegionGoLibrary** - Legion Go hardware control
 
 ---
 
