@@ -414,7 +414,8 @@ namespace XboxGamingBarHelper.RTSS
         public void SetLegionManager(LegionManager legionManager)
         {
             osdItemFan.SetLegionManager(legionManager);
-            Logger.Info("LegionManager reference set for RTSS OSD fan speed");
+            osdItemTDPLimits.SetLegionManager(legionManager);
+            Logger.Info("LegionManager reference set for RTSS OSD fan speed and TDP limits");
         }
 
         /// <summary>

@@ -659,7 +659,21 @@ namespace XboxGamingBarHelper.Performance
                 // Priority 1: Legion WMI (when enabled and Legion is detected)
                 if (useManufacturerWMI && legionDetected && legionManager != null)
                 {
-                    // Use Legion WMI to get TDP values
+                    // Check current performance mode - if not Custom, show mode name instead of TDP values
+                    int performanceMode = legionManager.CurrentPerformanceMode;
+                    if (performanceMode != 255) // Not Custom mode
+                    {
+                        string modeName = Legion.LegionManager.GetPerformanceModeName(performanceMode);
+                        if (modeName != lastTdpString)
+                        {
+                            Logger.Info($"UpdateCurrentTDP: Mode changed to '{modeName}', sending update");
+                            currentTdp.SetValue(modeName);
+                            lastTdpString = modeName;
+                        }
+                        return;
+                    }
+
+                    // Custom mode - use Legion WMI to get TDP values
                     var (slow, fast, peak) = legionManager.GetCurrentTDPValues();
 
                     if (slow.HasValue && fast.HasValue && peak.HasValue)
