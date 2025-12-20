@@ -2,7 +2,7 @@
 
 A powerful Xbox Game Bar widget for controlling gaming settings with your controller. Designed for handheld gaming PCs with deep integration for Legion Go, AMD Radeon GPUs, and performance tuning.
 
-[![Video Overview](https://img.youtube.com/vi/6zoOBG9X_WU/0.jpg)](https://www.youtube.com/watch?v=6zoOBG9X_WU&t=582s)
+[![Video Overview](https://img.youtube.com/vi/6zoOBG9X_WU/0.jpg)](https://www.youtube.com/watch?v=6zoOBG9X_WU)
 
 *Video by [GameTechPlanet](https://www.youtube.com/@GameTechPlanet) - Note: Installation has been simplified and the widget has received many updates since this video.*
 
@@ -247,3 +247,4 @@ Original project by [namquang93](https://github.com/namquang93).
 ## License
 
 This project is open source. See LICENSE file for details.
+
