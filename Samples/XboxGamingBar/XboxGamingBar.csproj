@@ -157,6 +157,7 @@
     <Compile Include="Data\LegionButtonY1Property.cs" />
     <Compile Include="Data\LegionButtonY2Property.cs" />
     <Compile Include="Data\LegionButtonY3Property.cs" />
+    <Compile Include="Data\LegionButtonM1Property.cs" />
     <Compile Include="Data\LegionButtonM2Property.cs" />
     <Compile Include="Data\LegionButtonM3Property.cs" />
     <Compile Include="Data\LegionNintendoLayoutProperty.cs" />
@@ -170,6 +171,7 @@
     <Compile Include="Data\LegionGyroMappingTypeProperty.cs" />
     <Compile Include="Data\LegionGyroActivationModeProperty.cs" />
     <Compile Include="Data\LegionGyroActivationButtonProperty.cs" />
+    <Compile Include="Data\LegionGyroDeadzoneProperty.cs" />
     <Compile Include="Data\LegionLeftStickDeadzoneProperty.cs" />
     <Compile Include="Data\LegionRightStickDeadzoneProperty.cs" />
     <Compile Include="Data\LegionTouchpadVibrationProperty.cs" />

@@ -1,9 +1,81 @@
 using NLog;
 using Shared.Enums;
+using System;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Legion
 {
+    /// <summary>
+    /// Helper class to parse ButtonMapping JSON format
+    /// Format: {"Type":0,"GamepadAction":5,"KeyboardKeys":[4,5,6],"MouseButton":0}
+    /// </summary>
+    internal static class ButtonMappingParser
+    {
+        public static (int type, int gamepadAction, int[] keyboardKeys, int mouseButton) Parse(string json)
+        {
+            if (string.IsNullOrEmpty(json))
+                return (0, 0, Array.Empty<int>(), 0);
+
+            try
+            {
+                int type = ExtractInt(json, "Type") ?? 0;
+                int gamepadAction = ExtractInt(json, "GamepadAction") ?? 0;
+                int mouseButton = ExtractInt(json, "MouseButton") ?? 0;
+                int[] keyboardKeys = ExtractIntArray(json, "KeyboardKeys");
+
+                return (type, gamepadAction, keyboardKeys, mouseButton);
+            }
+            catch
+            {
+                return (0, 0, Array.Empty<int>(), 0);
+            }
+        }
+
+        private static int? ExtractInt(string json, string property)
+        {
+            var match = Regex.Match(json, $"\"{property}\"\\s*:\\s*(-?\\d+)");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int value))
+                return value;
+            return null;
+        }
+
+        private static int[] ExtractIntArray(string json, string property)
+        {
+            var match = Regex.Match(json, $"\"{property}\"\\s*:\\s*\\[([^\\]]*)\\]");
+            if (!match.Success)
+                return Array.Empty<int>();
+
+            var values = new List<int>();
+            var numbers = match.Groups[1].Value.Split(',');
+            foreach (var num in numbers)
+            {
+                if (int.TryParse(num.Trim(), out int value))
+                    values.Add(value);
+            }
+            return values.ToArray();
+        }
+
+        /// <summary>
+        /// Gets the mapping values to send to the HID command based on mapping type
+        /// </summary>
+        public static int[] GetMappingValues(int type, int gamepadAction, int[] keyboardKeys, int mouseButton)
+        {
+            switch (type)
+            {
+                case 0: // Gamepad
+                    return gamepadAction > 0 ? new[] { gamepadAction } : Array.Empty<int>();
+                case 1: // Keyboard
+                    return keyboardKeys;
+                case 2: // Mouse
+                    return mouseButton > 0 ? new[] { mouseButton } : Array.Empty<int>();
+                default:
+                    return Array.Empty<int>();
+            }
+        }
+    }
+
     // Legion Go detection (read-only)
     internal class LegionGoDetectedProperty : HelperProperty<bool, LegionManager>
     {
@@ -257,12 +329,12 @@ namespace XboxGamingBarHelper.Legion
         }
     }
 
-    // Button Y1 remap action (0-28)
-    internal class LegionButtonY1Property : HelperProperty<int, LegionManager>
+    // Button Y1 remap (JSON ButtonMapping: Type, GamepadAction, KeyboardKeys[], MouseButton)
+    internal class LegionButtonY1Property : HelperProperty<string, LegionManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        public LegionButtonY1Property(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionButtonY1, inManager)
+        public LegionButtonY1Property(string initialValue, LegionManager inManager) : base(initialValue ?? "", null, Function.LegionButtonY1, inManager)
         {
         }
 
@@ -270,16 +342,17 @@ namespace XboxGamingBarHelper.Legion
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionButtonY1 changed to {Value}");
-            Manager?.SetButtonMapping(0, Value);
+            var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
+            Manager?.SetButtonMappingAdvanced(0, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
     }
 
-    // Button Y2 remap action (0-28)
-    internal class LegionButtonY2Property : HelperProperty<int, LegionManager>
+    // Button Y2 remap (JSON ButtonMapping: Type, GamepadAction, KeyboardKeys[], MouseButton)
+    internal class LegionButtonY2Property : HelperProperty<string, LegionManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        public LegionButtonY2Property(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionButtonY2, inManager)
+        public LegionButtonY2Property(string initialValue, LegionManager inManager) : base(initialValue ?? "", null, Function.LegionButtonY2, inManager)
         {
         }
 
@@ -287,16 +360,17 @@ namespace XboxGamingBarHelper.Legion
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionButtonY2 changed to {Value}");
-            Manager?.SetButtonMapping(1, Value);
+            var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
+            Manager?.SetButtonMappingAdvanced(1, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
     }
 
-    // Button Y3 remap action (0-28)
-    internal class LegionButtonY3Property : HelperProperty<int, LegionManager>
+    // Button Y3 remap (JSON ButtonMapping: Type, GamepadAction, KeyboardKeys[], MouseButton)
+    internal class LegionButtonY3Property : HelperProperty<string, LegionManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        public LegionButtonY3Property(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionButtonY3, inManager)
+        public LegionButtonY3Property(string initialValue, LegionManager inManager) : base(initialValue ?? "", null, Function.LegionButtonY3, inManager)
         {
         }
 
@@ -304,16 +378,35 @@ namespace XboxGamingBarHelper.Legion
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionButtonY3 changed to {Value}");
-            Manager?.SetButtonMapping(2, Value);
+            var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
+            Manager?.SetButtonMappingAdvanced(2, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
     }
 
-    // Button M2 remap action (0-28)
-    internal class LegionButtonM2Property : HelperProperty<int, LegionManager>
+    // Button M1 remap (JSON ButtonMapping: Type, GamepadAction, KeyboardKeys[], MouseButton)
+    internal class LegionButtonM1Property : HelperProperty<string, LegionManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        public LegionButtonM2Property(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionButtonM2, inManager)
+        public LegionButtonM1Property(string initialValue, LegionManager inManager) : base(initialValue ?? "", null, Function.LegionButtonM1, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionButtonM1 changed to {Value}");
+            var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
+            Manager?.SetButtonMappingAdvanced(3, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
+        }
+    }
+
+    // Button M2 remap (JSON ButtonMapping: Type, GamepadAction, KeyboardKeys[], MouseButton)
+    internal class LegionButtonM2Property : HelperProperty<string, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionButtonM2Property(string initialValue, LegionManager inManager) : base(initialValue ?? "", null, Function.LegionButtonM2, inManager)
         {
         }
 
@@ -321,16 +414,17 @@ namespace XboxGamingBarHelper.Legion
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionButtonM2 changed to {Value}");
-            Manager?.SetButtonMapping(3, Value);
+            var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
+            Manager?.SetButtonMappingAdvanced(4, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
     }
 
-    // Button M3 remap action (0-28)
-    internal class LegionButtonM3Property : HelperProperty<int, LegionManager>
+    // Button M3 remap (JSON ButtonMapping: Type, GamepadAction, KeyboardKeys[], MouseButton)
+    internal class LegionButtonM3Property : HelperProperty<string, LegionManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        public LegionButtonM3Property(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionButtonM3, inManager)
+        public LegionButtonM3Property(string initialValue, LegionManager inManager) : base(initialValue ?? "", null, Function.LegionButtonM3, inManager)
         {
         }
 
@@ -338,7 +432,8 @@ namespace XboxGamingBarHelper.Legion
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionButtonM3 changed to {Value}");
-            Manager?.SetButtonMapping(4, Value);
+            var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
+            Manager?.SetButtonMappingAdvanced(5, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
     }
 
@@ -526,6 +621,23 @@ namespace XboxGamingBarHelper.Legion
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionGyroActivationButton changed to {Value}");
             Manager?.SetGyroActivationButton(Value);
+        }
+    }
+
+    // Gyro Deadzone (1-100)
+    internal class LegionGyroDeadzoneProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionGyroDeadzoneProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionGyroDeadzone, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionGyroDeadzone changed to {Value}");
+            Manager?.SetGyroDeadzone(Value);
         }
     }
 

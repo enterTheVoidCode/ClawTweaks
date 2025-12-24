@@ -331,6 +331,7 @@ namespace XboxGamingBarHelper
                 legionManager.LegionButtonY1,
                 legionManager.LegionButtonY2,
                 legionManager.LegionButtonY3,
+                legionManager.LegionButtonM1,
                 legionManager.LegionButtonM2,
                 legionManager.LegionButtonM3,
                 legionManager.LegionNintendoLayout,
@@ -345,6 +346,8 @@ namespace XboxGamingBarHelper
                 legionManager.LegionGyroMappingType,
                 legionManager.LegionGyroActivationMode,
                 legionManager.LegionGyroActivationButton,
+                // Gyro deadzone property
+                legionManager.LegionGyroDeadzone,
                 // Stick deadzone properties
                 legionManager.LegionLeftStickDeadzone,
                 legionManager.LegionRightStickDeadzone,
@@ -719,6 +722,16 @@ namespace XboxGamingBarHelper
 
                     await args.Request.SendResponseAsync(response);
                     Logger.Info($"Sent {plans.Count} power plans to widget");
+                    return;
+                }
+
+                // Handle refresh display settings request (called when game closes to update resolution tile)
+                if (args.Request.Message.TryGetValue("RefreshDisplaySettings", out object _))
+                {
+                    Logger.Info("RefreshDisplaySettings request received - refreshing display settings");
+                    // Use a small delay to allow Windows to fully update display configuration
+                    await System.Threading.Tasks.Task.Delay(500);
+                    systemManager?.RefreshDisplaySettings();
                     return;
                 }
 
