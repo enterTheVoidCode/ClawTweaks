@@ -97,12 +97,13 @@
         LegionPowerLight,           // bool - power button LED on/off
         LegionChargeLimit,          // bool - battery charge limit (80%) on/off
 
-        // Legion Go Controller Remapping
-        LegionButtonY1,             // int - Y1 button remap action (0-28, RemapAction enum index)
-        LegionButtonY2,             // int - Y2 button remap action
-        LegionButtonY3,             // int - Y3 button remap action
-        LegionButtonM2,             // int - M2 button remap action
-        LegionButtonM3,             // int - M3 button remap action
+        // Legion Go Controller Remapping (supports Gamepad, Keyboard, Mouse mapping)
+        LegionButtonY1,             // string - JSON ButtonMapping (type, gamepadAction, keyboardKeys[], mouseButton)
+        LegionButtonY2,             // string - JSON ButtonMapping
+        LegionButtonY3,             // string - JSON ButtonMapping
+        LegionButtonM1,             // string - JSON ButtonMapping (new button)
+        LegionButtonM2,             // string - JSON ButtonMapping
+        LegionButtonM3,             // string - JSON ButtonMapping
         LegionNintendoLayout,       // bool - Nintendo-style face button swap (A↔B, X↔Y)
         LegionVibrationMode,        // int - vibration mode preset (FPS=1, Racing=2, AVG=3, SPG=4, RPG=5)
         LegionControllerProfileEnabled, // bool - per-game controller profile toggle
@@ -116,6 +117,9 @@
         LegionGyroMappingType,          // int - 0=Instant, 1=Continuous
         LegionGyroActivationMode,       // int - 0=Hold, 1=Toggle
         LegionGyroActivationButton,     // int - 0-8 (None, LB, LT, RB, RT, Y1, Y2, M2, M3)
+
+        // Legion Go Advanced Gyro Settings (per-game profile)
+        LegionGyroDeadzone,             // int - 1-100 (suppresses small motions near center)
 
         // Legion Go Stick Deadzones (per-game profile)
         LegionLeftStickDeadzone,        // int - 0-50 (percent)
@@ -153,5 +157,8 @@
 
         // OS Power Mode (Windows 11 power slider)
         OSPowerMode,                // int - 0=Best Power Efficiency, 1=Balanced, 2=Best Performance
+
+        // System Actions
+        RefreshDisplaySettings,     // Action: re-query display resolution, refresh rate, HDR status
     }
 }

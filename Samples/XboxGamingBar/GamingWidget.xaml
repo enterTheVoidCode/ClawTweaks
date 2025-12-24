@@ -308,15 +308,11 @@
             <muxc:NavigationView.MenuItems>
                 <muxc:NavigationViewItem x:Name="QuickNavItem" Content="Quick" Tag="Quick" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem x:Name="PerformanceNavItem" Content="Performance" Tag="Performance" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem x:Name="ProfilesNavItem" Content="Profiles" Tag="Game" Style="{StaticResource NavItemStyle}"
-                                            XYFocusDown="{x:Bind PowerSourceProfileToggle}"/>
+                <muxc:NavigationViewItem x:Name="ProfilesNavItem" Content="Profiles" Tag="Game" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem x:Name="GraphicsNavItem" Content="Graphics" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem x:Name="ScalingNavItem" Content="Scaling" Tag="Scaling" Style="{StaticResource NavItemStyle}"
-                                            XYFocusDown="{x:Bind LaunchLosslessScalingButton}"/>
-                <muxc:NavigationViewItem x:Name="LegionNavItem" Content="Legion" Tag="Legion" Style="{StaticResource NavItemStyle}" Visibility="Collapsed"
-                                            XYFocusDown="{x:Bind LegionTouchpadToggle}"/>
-                <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"
-                                            XYFocusDown="{x:Bind StickyTDPToggle}"/>
+                <muxc:NavigationViewItem x:Name="ScalingNavItem" Content="Scaling" Tag="Scaling" Style="{StaticResource NavItemStyle}"/>
+                <muxc:NavigationViewItem x:Name="LegionNavItem" Content="Legion" Tag="Legion" Style="{StaticResource NavItemStyle}" Visibility="Collapsed"/>
+                <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"/>
             </muxc:NavigationView.MenuItems>
 
             <!-- QUICK SETTINGS TAB -->
@@ -557,10 +553,7 @@
                                           Grid.Column="1"
                                           Style="{StaticResource ModernComboBoxStyle}"
                                           SelectedIndex="1"
-                                          SelectionChanged="TDPModeComboBox_SelectionChanged"
-                                          XYFocusUp="{x:Bind PerformanceOverlayComboBox}"
-                                          XYFocusDown="{x:Bind TDPSlider}"
-                                          XYFocusLeft="{x:Bind PerformanceNavItem}">
+                                          SelectionChanged="TDPModeComboBox_SelectionChanged">
                                     <ComboBoxItem Content="Quiet" Tag="1"/>
                                     <ComboBoxItem Content="Balanced" Tag="2"/>
                                     <ComboBoxItem Content="Performance" Tag="3"/>
@@ -584,9 +577,7 @@
                                         TickFrequency="1"
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
-                                        IsEnabled="False" Value="-5"
-                                        XYFocusUp="{x:Bind PerformanceOverlayComboBox}"
-                                        XYFocusDown="{x:Bind TDPBoostToggle}"/>
+                                        IsEnabled="False" Value="-5"/>
                                 <Grid Margin="0,4,0,0">
                                     <TextBlock x:Name="CurrentTDPText"
                                                Text="Limits:"
@@ -625,9 +616,7 @@
                                     <ToggleSwitch x:Name="TDPBoostToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  Toggled="TDPBoostToggle_Toggled"
-                                                  XYFocusUp="{x:Bind TDPSlider}"
-                                                  XYFocusDown="{x:Bind AutoTDPToggle}"/>
+                                                  Toggled="TDPBoostToggle_Toggled"/>
                                 </Grid>
                                 <!-- TDP Boost Active Indicator -->
                                 <TextBlock Text="TDP Boost: Active"
@@ -656,9 +645,7 @@
                                     <ToggleSwitch x:Name="AutoTDPToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  Toggled="AutoTDPToggle_Toggled"
-                                                  XYFocusUp="{x:Bind TDPBoostToggle}"
-                                                  XYFocusDown="{x:Bind AutoTDPTargetFPSSlider}"/>
+                                                  Toggled="AutoTDPToggle_Toggled"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=AutoTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid Margin="0,12,0,0">
@@ -677,9 +664,7 @@
                                             Minimum="30" Maximum="144"
                                             StepFrequency="1"
                                             Value="60"
-                                            ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind AutoTDPToggle}"
-                                            XYFocusDown="{x:Bind AutoTDPMinSlider}"/>
+                                            ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"/>
                                     <Grid Margin="0,8,0,0">
                                         <TextBlock Text="Current FPS"
                                                    FontSize="14"
@@ -708,9 +693,7 @@
                                             Minimum="4" Maximum="85"
                                             StepFrequency="1"
                                             Value="8"
-                                            ValueChanged="AutoTDPMinSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind AutoTDPTargetFPSSlider}"
-                                            XYFocusDown="{x:Bind AutoTDPMaxSlider}"/>
+                                            ValueChanged="AutoTDPMinSlider_ValueChanged"/>
                                     <!-- Max TDP Range -->
                                     <Grid Margin="0,8,0,0">
                                         <TextBlock Text="Max TDP"
@@ -728,9 +711,52 @@
                                             Minimum="4" Maximum="85"
                                             StepFrequency="1"
                                             Value="30"
-                                            ValueChanged="AutoTDPMaxSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind AutoTDPMinSlider}"
-                                            XYFocusDown="{x:Bind CPUBoostToggle}"/>
+                                            ValueChanged="AutoTDPMaxSlider_ValueChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Sticky TDP Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Sticky TDP" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Automatically restore TDP limits if changed by other apps"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="StickyTDPToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  Toggled="StickyTDPToggle_Toggled"/>
+                                </Grid>
+                                <StackPanel Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid Margin="0,2,0,0">
+                                        <TextBlock Text="How often to reapply TDP settings"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"
+                                                   TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="StickyTDPIntervalValue"
+                                                   Text="5s"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="StickyTDPIntervalSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="3" Maximum="15"
+                                            TickFrequency="2"
+                                            SnapsTo="Ticks"
+                                            TickPlacement="BottomRight"
+                                            Header="Check Interval"
+                                            Value="5"
+                                            ValueChanged="StickyTDPIntervalSlider_ValueChanged"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -1266,6 +1292,7 @@
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -1278,26 +1305,29 @@
                                         <TextBlock Grid.Row="1" Grid.Column="0" x:Name="GameProfileTDPLabel" Text="TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="1" Grid.Column="1" x:Name="GameProfileTDPText" Text="15W" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="2" Grid.Column="0" x:Name="GameProfileCPUBoostLabel" Text="CPU Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GameProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" x:Name="GameProfileTDPBoostLabel" Text="TDP Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GameProfileTDPBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GameProfileCPUEPPLabel" Text="CPU EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GameProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GameProfileCPUBoostLabel" Text="CPU Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GameProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GameProfileCPUStateLabel" Text="CPU State" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GameProfileCPUStateText" Text="5-100%" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GameProfileCPUEPPLabel" Text="CPU EPP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GameProfileCPUEPPText" Text="0" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GameProfileFPSLimitLabel" Text="FPS Limit" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GameProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="0" x:Name="GameProfileCPUStateLabel" Text="CPU State" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" x:Name="GameProfileCPUStateText" Text="5-100%" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="6" Grid.Column="0" x:Name="GameProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="6" Grid.Column="1" x:Name="GameProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="0" x:Name="GameProfileFPSLimitLabel" Text="FPS Limit" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="1" x:Name="GameProfileFPSLimitText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="7" Grid.Column="0" x:Name="GameProfilePowerModeLabel" Text="Power Mode" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="7" Grid.Column="1" x:Name="GameProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="7" Grid.Column="0" x:Name="GameProfileAutoTDPLabel" Text="AutoTDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="7" Grid.Column="1" x:Name="GameProfileAutoTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="8" Grid.Column="0" x:Name="GameProfileAMDLabel" Text="AMD" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="8" Grid.Column="1" x:Name="GameProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="8" Grid.Column="0" x:Name="GameProfilePowerModeLabel" Text="Power Mode" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="8" Grid.Column="1" x:Name="GameProfilePowerModeText" Text="Balanced" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                        <TextBlock Grid.Row="9" Grid.Column="0" x:Name="GameProfileAMDLabel" Text="AMD" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="9" Grid.Column="1" x:Name="GameProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
@@ -1337,8 +1367,7 @@
                                           Width="150"
                                           Grid.Column="1"
                                           IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          XYFocusUp="{x:Bind GraphicsNavItem}">
+                                          Style="{StaticResource ModernComboBoxStyle}">
                                     <x:String>1920x1080</x:String>
                                 </ComboBox>
                             </Grid>
@@ -1611,53 +1640,6 @@
                 <ScrollViewer x:Name="SystemScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
-
-                        <!-- Sticky TDP Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Sticky TDP" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Automatically restore TDP limits if changed by other apps"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="StickyTDPToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  Toggled="StickyTDPToggle_Toggled"
-                                                  XYFocusUp="{x:Bind SystemNavItem}"
-                                                  XYFocusDown="{x:Bind UseManufacturerWMIToggle}"/>
-                                </Grid>
-                                <StackPanel Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Grid Margin="0,2,0,0">
-                                        <TextBlock Text="How often to reapply TDP settings"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"
-                                                   TextWrapping="Wrap"/>
-                                        <TextBlock x:Name="StickyTDPIntervalValue"
-                                                   Text="5s"
-                                                   FontSize="14"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-                                    <Slider x:Name="StickyTDPIntervalSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="3" Maximum="15"
-                                            TickFrequency="2"
-                                            SnapsTo="Ticks"
-                                            TickPlacement="BottomRight"
-                                            Header="Check Interval"
-                                            Value="5"
-                                            ValueChanged="StickyTDPIntervalSlider_ValueChanged"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
 
                         <!-- Manufacturer WMI TDP Card -->
                         <Border x:Name="ManufacturerWMICard" Style="{StaticResource CardStyle}">
@@ -2566,18 +2548,12 @@
                                             Content="Show Window"
                                             Margin="0,0,8,0"
                                             Visibility="Collapsed"
-                                            Click="ShowLosslessScalingWindowButton_Click"
-                                            XYFocusUp="{x:Bind ScalingNavItem}"
-                                            XYFocusRight="{x:Bind LaunchLosslessScalingButton}"
-                                            XYFocusDown="{x:Bind LosslessScalingEnabledToggle}"/>
+                                            Click="ShowLosslessScalingWindowButton_Click"/>
                                     <Button x:Name="LaunchLosslessScalingButton"
                                             Grid.Column="2"
                                             Content="Launch"
                                             Visibility="Collapsed"
-                                            Click="LaunchLosslessScalingButton_Click"
-                                            XYFocusUp="{x:Bind ScalingNavItem}"
-                                            XYFocusLeft="{x:Bind ShowLosslessScalingWindowButton}"
-                                            XYFocusDown="{x:Bind LosslessScalingEnabledToggle}"/>
+                                            Click="LaunchLosslessScalingButton_Click"/>
                                 </Grid>
                                 <TextBlock x:Name="LosslessScalingStatusText"
                                            Text="Not Installed"
@@ -2608,9 +2584,7 @@
                                             Content="Create Profile"
                                             VerticalAlignment="Center"
                                             IsEnabled="False"
-                                            Click="LosslessScalingCreateProfileButton_Click"
-                                            XYFocusUp="{x:Bind LaunchLosslessScalingButton}"
-                                            XYFocusDown="{x:Bind LosslessScalingEnabledToggle}"/>
+                                            Click="LosslessScalingCreateProfileButton_Click"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -2623,9 +2597,7 @@
                                       FontSize="16"
                                       FontWeight="SemiBold"
                                       Margin="0,10,0,0"
-                                      Style="{StaticResource StandaloneToggleButtonStyle}"
-                                      XYFocusUp="{x:Bind LaunchLosslessScalingButton}"
-                                      XYFocusDown="{x:Bind LosslessScalingSaveSettingsButton}"/>
+                                      Style="{StaticResource StandaloneToggleButtonStyle}"/>
 
                         <!-- Apply and Restart Button -->
                         <Button x:Name="LosslessScalingSaveSettingsButton"
@@ -2634,9 +2606,7 @@
                                 Margin="0,8,0,0"
                                 IsEnabled="False"
                                 Style="{StaticResource StandaloneButtonStyle}"
-                                Click="LosslessScalingSaveSettingsButton_Click"
-                                XYFocusUp="{x:Bind LosslessScalingEnabledToggle}"
-                                XYFocusDown="{x:Bind LosslessScalingAutoScaleToggle}"/>
+                                Click="LosslessScalingSaveSettingsButton_Click"/>
 
                         <!-- AutoScale Card -->
                         <Border Style="{StaticResource CardStyle}">
@@ -2655,9 +2625,7 @@
                                     <ToggleSwitch x:Name="LosslessScalingAutoScaleToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"
-                                                  XYFocusUp="{x:Bind LosslessScalingSaveSettingsButton}"
-                                                  XYFocusDown="{x:Bind LosslessScalingScalingTypeComboBox}"/>
+                                                  IsEnabled="False"/>
                                 </Grid>
                                 <StackPanel Visibility="{Binding ElementName=LosslessScalingAutoScaleToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid Margin="0,8,0,0">
@@ -2691,9 +2659,7 @@
                                           HorizontalAlignment="Stretch"
                                           IsEnabled="False"
                                           Style="{StaticResource ModernComboBoxStyle}"
-                                          SelectionChanged="LosslessScalingScalingTypeComboBox_SelectionChanged"
-                                          XYFocusUp="{x:Bind LosslessScalingAutoScaleToggle}"
-                                          XYFocusDown="{x:Bind LosslessScalingScaleModeComboBox}">
+                                          SelectionChanged="LosslessScalingScalingTypeComboBox_SelectionChanged">
                                     <x:String>Off</x:String>
                                     <x:String>LS1</x:String>
                                     <x:String>FSR</x:String>
@@ -2723,9 +2689,7 @@
                                             TickFrequency="10"
                                             SnapsTo="Ticks"
                                             TickPlacement="BottomRight"
-                                            IsEnabled="False"
-                                            XYFocusUp="{x:Bind LosslessScalingScalingTypeComboBox}"
-                                            XYFocusDown="{x:Bind LosslessScalingScaleModeComboBox}"/>
+                                            IsEnabled="False"/>
                                 </StackPanel>
 
                                 <!-- FSR Optimize Toggle (FSR only) -->
@@ -2738,9 +2702,7 @@
                                     <ToggleSwitch x:Name="LosslessScalingFSROptimizeToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"
-                                                  XYFocusUp="{x:Bind LosslessScalingSharpnessSlider}"
-                                                  XYFocusDown="{x:Bind LosslessScalingScaleModeComboBox}"/>
+                                                  IsEnabled="False"/>
                                 </Grid>
 
                                 <!-- Anime4K Settings -->
@@ -2751,9 +2713,7 @@
                                               Width="Auto"
                                               HorizontalAlignment="Stretch"
                                               IsEnabled="False"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              XYFocusUp="{x:Bind LosslessScalingScalingTypeComboBox}"
-                                              XYFocusDown="{x:Bind LosslessScalingAnime4KVRSToggle}">
+                                              Style="{StaticResource ModernComboBoxStyle}">
                                         <x:String>Small</x:String>
                                         <x:String>Medium</x:String>
                                         <x:String>Large</x:String>
@@ -2769,9 +2729,7 @@
                                         <ToggleSwitch x:Name="LosslessScalingAnime4KVRSToggle"
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernToggleStyle}"
-                                                      IsEnabled="False"
-                                                      XYFocusUp="{x:Bind LosslessScalingAnime4KSizeComboBox}"
-                                                      XYFocusDown="{x:Bind LosslessScalingScaleModeComboBox}"/>
+                                                      IsEnabled="False"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
@@ -2787,9 +2745,7 @@
                                           HorizontalAlignment="Stretch"
                                           IsEnabled="False"
                                           Style="{StaticResource ModernComboBoxStyle}"
-                                          SelectionChanged="LosslessScalingScaleModeComboBox_SelectionChanged"
-                                          XYFocusUp="{x:Bind LosslessScalingScalingTypeComboBox}"
-                                          XYFocusDown="{x:Bind LosslessScalingFrameGenTypeComboBox}">
+                                          SelectionChanged="LosslessScalingScaleModeComboBox_SelectionChanged">
                                     <x:String>Auto</x:String>
                                     <x:String>Custom</x:String>
                                 </ComboBox>
@@ -2802,9 +2758,7 @@
                                               Width="Auto"
                                               HorizontalAlignment="Stretch"
                                               IsEnabled="False"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              XYFocusUp="{x:Bind LosslessScalingScaleModeComboBox}"
-                                              XYFocusDown="{x:Bind LosslessScalingFrameGenTypeComboBox}">
+                                              Style="{StaticResource ModernComboBoxStyle}">
                                         <x:String>Aspect Ratio</x:String>
                                         <x:String>Fullscreen</x:String>
                                     </ComboBox>
@@ -2826,9 +2780,7 @@
                                             TickFrequency="1"
                                             SnapsTo="Ticks"
                                             TickPlacement="BottomRight"
-                                            IsEnabled="False"
-                                            XYFocusUp="{x:Bind LosslessScalingScaleModeComboBox}"
-                                            XYFocusDown="{x:Bind LosslessScalingFrameGenTypeComboBox}"/>
+                                            IsEnabled="False"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -2842,9 +2794,7 @@
                                           Width="Auto"
                                           HorizontalAlignment="Stretch"
                                           IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          XYFocusUp="{x:Bind LosslessScalingScaleModeComboBox}"
-                                          XYFocusDown="{x:Bind LosslessScalingLSFG3ModeComboBox}">
+                                          Style="{StaticResource ModernComboBoxStyle}">
                                     <x:String>Off</x:String>
                                     <x:String>LSFG1</x:String>
                                     <x:String>LSFG2</x:String>
@@ -2867,9 +2817,7 @@
                                           IsEnabled="False"
                                           Style="{StaticResource ModernComboBoxStyle}"
                                           Margin="0,0,0,12"
-                                          SelectionChanged="LosslessScalingLSFG3ModeComboBox_SelectionChanged"
-                                          XYFocusUp="{x:Bind LosslessScalingFrameGenTypeComboBox}"
-                                          XYFocusDown="{x:Bind LosslessScalingLSFG3MultiplierComboBox}">
+                                          SelectionChanged="LosslessScalingLSFG3ModeComboBox_SelectionChanged">
                                     <x:String>FIXED</x:String>
                                     <x:String>ADAPTIVE</x:String>
                                 </ComboBox>
@@ -2883,9 +2831,7 @@
                                               HorizontalAlignment="Stretch"
                                               IsEnabled="False"
                                               Style="{StaticResource ModernComboBoxStyle}"
-                                              Margin="0,0,0,12"
-                                              XYFocusUp="{x:Bind LosslessScalingLSFG3ModeComboBox}"
-                                              XYFocusDown="{x:Bind LosslessScalingLSFG3TargetSlider}">
+                                              Margin="0,0,0,12">
                                         <x:String>2</x:String>
                                         <x:String>3</x:String>
                                         <x:String>4</x:String>
@@ -2908,9 +2854,7 @@
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
                                         IsEnabled="False"
-                                        Margin="0,0,0,12"
-                                        XYFocusUp="{x:Bind LosslessScalingLSFG3MultiplierComboBox}"
-                                        XYFocusDown="{x:Bind LosslessScalingFlowScaleSlider}"/>
+                                        Margin="0,0,0,12"/>
 
                                 <!-- Flow Scale -->
                                 <Grid>
@@ -2928,9 +2872,7 @@
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
                                         IsEnabled="False"
-                                        Margin="0,0,0,12"
-                                        XYFocusUp="{x:Bind LosslessScalingLSFG3TargetSlider}"
-                                        XYFocusDown="{x:Bind LosslessScalingSizeToggle}"/>
+                                        Margin="0,0,0,12"/>
 
                                 <!-- Size Toggle (Performance/Balanced) -->
                                 <Grid>
@@ -2947,8 +2889,7 @@
                                     <ToggleSwitch x:Name="LosslessScalingSizeToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"
-                                                  XYFocusUp="{x:Bind LosslessScalingFlowScaleSlider}"/>
+                                                  IsEnabled="False"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -2965,8 +2906,7 @@
                                           Width="Auto"
                                           HorizontalAlignment="Stretch"
                                           IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          XYFocusUp="{x:Bind LosslessScalingFrameGenTypeComboBox}">
+                                          Style="{StaticResource ModernComboBoxStyle}">
                                     <x:String>X2</x:String>
                                     <x:String>X3</x:String>
                                     <x:String>X4</x:String>
@@ -3129,209 +3069,238 @@
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <TextBlock Text="Button Remapping" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Assign actions to back and grip buttons"
+                                <TextBlock Text="Map buttons to gamepad, keyboard, or mouse"
                                            Style="{StaticResource CardCaptionStyle}"
                                            Margin="0,0,0,12"/>
 
                                 <!-- Y1 Button -->
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="50"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Y1" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
-                                    <ComboBox x:Name="LegionButtonY1ComboBox"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              HorizontalAlignment="Stretch"
-                                              SelectedIndex="0">
-                                        <x:String>Disabled</x:String>
-                                        <x:String>LS Click</x:String>
-                                        <x:String>LS Up</x:String>
-                                        <x:String>LS Down</x:String>
-                                        <x:String>LS Left</x:String>
-                                        <x:String>LS Right</x:String>
-                                        <x:String>RS Click</x:String>
-                                        <x:String>RS Up</x:String>
-                                        <x:String>RS Down</x:String>
-                                        <x:String>RS Left</x:String>
-                                        <x:String>RS Right</x:String>
-                                        <x:String>D-Pad Up</x:String>
-                                        <x:String>D-Pad Down</x:String>
-                                        <x:String>D-Pad Left</x:String>
-                                        <x:String>D-Pad Right</x:String>
-                                        <x:String>A</x:String>
-                                        <x:String>B</x:String>
-                                        <x:String>X</x:String>
-                                        <x:String>Y</x:String>
-                                        <x:String>LB</x:String>
-                                        <x:String>LT</x:String>
-                                        <x:String>RB</x:String>
-                                        <x:String>RT</x:String>
-                                        <x:String>View</x:String>
-                                        <x:String>Menu</x:String>
-                                    </ComboBox>
-                                </Grid>
+                                <StackPanel Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Y1" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                        <ComboBox x:Name="LegionButtonY1TypeComboBox" Grid.Column="1" Margin="0,0,8,0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Gamepad</x:String>
+                                            <x:String>Keyboard</x:String>
+                                            <x:String>Mouse</x:String>
+                                        </ComboBox>
+                                        <ComboBox x:Name="LegionButtonY1ComboBox" Grid.Column="2"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Disabled</x:String>
+                                            <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
+                                            <x:String>RS Click</x:String><x:String>RS Up</x:String><x:String>RS Down</x:String><x:String>RS Left</x:String><x:String>RS Right</x:String>
+                                            <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
+                                            <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
+                                            <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
+                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                        </ComboBox>
+                                        <ComboBox x:Name="LegionButtonY1MouseComboBox" Grid.Column="2" Visibility="Collapsed"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Left Click</x:String><x:String>Right Click</x:String><x:String>Middle Click</x:String>
+                                            <x:String>Scroll Up</x:String><x:String>Scroll Down</x:String><x:String>Scroll Left</x:String><x:String>Scroll Right</x:String>
+                                        </ComboBox>
+                                    </Grid>
+                                    <StackPanel x:Name="LegionButtonY1KeyboardPanel" Visibility="Collapsed" Margin="40,8,0,0" Orientation="Horizontal">
+                                        <StackPanel x:Name="LegionButtonY1KeyTags" Orientation="Horizontal"/>
+                                        <ComboBox x:Name="LegionButtonY1KeyComboBox" Width="100" Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>+ Key</x:String>
+                                            <x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String>
+                                            <x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>0</x:String>
+                                            <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                            <x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                            <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
 
                                 <!-- Y2 Button -->
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="50"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Y2" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
-                                    <ComboBox x:Name="LegionButtonY2ComboBox"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              HorizontalAlignment="Stretch"
-                                              SelectedIndex="0">
-                                        <x:String>Disabled</x:String>
-                                        <x:String>LS Click</x:String>
-                                        <x:String>LS Up</x:String>
-                                        <x:String>LS Down</x:String>
-                                        <x:String>LS Left</x:String>
-                                        <x:String>LS Right</x:String>
-                                        <x:String>RS Click</x:String>
-                                        <x:String>RS Up</x:String>
-                                        <x:String>RS Down</x:String>
-                                        <x:String>RS Left</x:String>
-                                        <x:String>RS Right</x:String>
-                                        <x:String>D-Pad Up</x:String>
-                                        <x:String>D-Pad Down</x:String>
-                                        <x:String>D-Pad Left</x:String>
-                                        <x:String>D-Pad Right</x:String>
-                                        <x:String>A</x:String>
-                                        <x:String>B</x:String>
-                                        <x:String>X</x:String>
-                                        <x:String>Y</x:String>
-                                        <x:String>LB</x:String>
-                                        <x:String>LT</x:String>
-                                        <x:String>RB</x:String>
-                                        <x:String>RT</x:String>
-                                        <x:String>View</x:String>
-                                        <x:String>Menu</x:String>
-                                    </ComboBox>
-                                </Grid>
+                                <StackPanel Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Y2" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                        <ComboBox x:Name="LegionButtonY2TypeComboBox" Grid.Column="1" Margin="0,0,8,0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String>
+                                        </ComboBox>
+                                        <ComboBox x:Name="LegionButtonY2ComboBox" Grid.Column="2"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Disabled</x:String>
+                                            <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
+                                            <x:String>RS Click</x:String><x:String>RS Up</x:String><x:String>RS Down</x:String><x:String>RS Left</x:String><x:String>RS Right</x:String>
+                                            <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
+                                            <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
+                                            <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
+                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                        </ComboBox>
+                                        <ComboBox x:Name="LegionButtonY2MouseComboBox" Grid.Column="2" Visibility="Collapsed"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Left Click</x:String><x:String>Right Click</x:String><x:String>Middle Click</x:String>
+                                            <x:String>Scroll Up</x:String><x:String>Scroll Down</x:String><x:String>Scroll Left</x:String><x:String>Scroll Right</x:String>
+                                        </ComboBox>
+                                    </Grid>
+                                    <StackPanel x:Name="LegionButtonY2KeyboardPanel" Visibility="Collapsed" Margin="40,8,0,0" Orientation="Horizontal">
+                                        <StackPanel x:Name="LegionButtonY2KeyTags" Orientation="Horizontal"/>
+                                        <ComboBox x:Name="LegionButtonY2KeyComboBox" Width="100" Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>0</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
 
                                 <!-- Y3 Button -->
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="50"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Y3" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
-                                    <ComboBox x:Name="LegionButtonY3ComboBox"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              HorizontalAlignment="Stretch"
-                                              SelectedIndex="0">
-                                        <x:String>Disabled</x:String>
-                                        <x:String>LS Click</x:String>
-                                        <x:String>LS Up</x:String>
-                                        <x:String>LS Down</x:String>
-                                        <x:String>LS Left</x:String>
-                                        <x:String>LS Right</x:String>
-                                        <x:String>RS Click</x:String>
-                                        <x:String>RS Up</x:String>
-                                        <x:String>RS Down</x:String>
-                                        <x:String>RS Left</x:String>
-                                        <x:String>RS Right</x:String>
-                                        <x:String>D-Pad Up</x:String>
-                                        <x:String>D-Pad Down</x:String>
-                                        <x:String>D-Pad Left</x:String>
-                                        <x:String>D-Pad Right</x:String>
-                                        <x:String>A</x:String>
-                                        <x:String>B</x:String>
-                                        <x:String>X</x:String>
-                                        <x:String>Y</x:String>
-                                        <x:String>LB</x:String>
-                                        <x:String>LT</x:String>
-                                        <x:String>RB</x:String>
-                                        <x:String>RT</x:String>
-                                        <x:String>View</x:String>
-                                        <x:String>Menu</x:String>
-                                    </ComboBox>
-                                </Grid>
+                                <StackPanel Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Y3" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                        <ComboBox x:Name="LegionButtonY3TypeComboBox" Grid.Column="1" Margin="0,0,8,0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String>
+                                        </ComboBox>
+                                        <ComboBox x:Name="LegionButtonY3ComboBox" Grid.Column="2"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Disabled</x:String>
+                                            <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
+                                            <x:String>RS Click</x:String><x:String>RS Up</x:String><x:String>RS Down</x:String><x:String>RS Left</x:String><x:String>RS Right</x:String>
+                                            <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
+                                            <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
+                                            <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
+                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                        </ComboBox>
+                                        <ComboBox x:Name="LegionButtonY3MouseComboBox" Grid.Column="2" Visibility="Collapsed"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Left Click</x:String><x:String>Right Click</x:String><x:String>Middle Click</x:String>
+                                            <x:String>Scroll Up</x:String><x:String>Scroll Down</x:String><x:String>Scroll Left</x:String><x:String>Scroll Right</x:String>
+                                        </ComboBox>
+                                    </Grid>
+                                    <StackPanel x:Name="LegionButtonY3KeyboardPanel" Visibility="Collapsed" Margin="40,8,0,0" Orientation="Horizontal">
+                                        <StackPanel x:Name="LegionButtonY3KeyTags" Orientation="Horizontal"/>
+                                        <ComboBox x:Name="LegionButtonY3KeyComboBox" Width="100" Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>0</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- M1 Button (new) -->
+                                <StackPanel Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="M1" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                        <ComboBox x:Name="LegionButtonM1TypeComboBox" Grid.Column="1" Margin="0,0,8,0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String>
+                                        </ComboBox>
+                                        <ComboBox x:Name="LegionButtonM1ComboBox" Grid.Column="2"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Disabled</x:String>
+                                            <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
+                                            <x:String>RS Click</x:String><x:String>RS Up</x:String><x:String>RS Down</x:String><x:String>RS Left</x:String><x:String>RS Right</x:String>
+                                            <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
+                                            <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
+                                            <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
+                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                        </ComboBox>
+                                        <ComboBox x:Name="LegionButtonM1MouseComboBox" Grid.Column="2" Visibility="Collapsed"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Left Click</x:String><x:String>Right Click</x:String><x:String>Middle Click</x:String>
+                                            <x:String>Scroll Up</x:String><x:String>Scroll Down</x:String><x:String>Scroll Left</x:String><x:String>Scroll Right</x:String>
+                                        </ComboBox>
+                                    </Grid>
+                                    <StackPanel x:Name="LegionButtonM1KeyboardPanel" Visibility="Collapsed" Margin="40,8,0,0" Orientation="Horizontal">
+                                        <StackPanel x:Name="LegionButtonM1KeyTags" Orientation="Horizontal"/>
+                                        <ComboBox x:Name="LegionButtonM1KeyComboBox" Width="100" Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>0</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
 
                                 <!-- M2 Button -->
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="50"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="M2" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
-                                    <ComboBox x:Name="LegionButtonM2ComboBox"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              HorizontalAlignment="Stretch"
-                                              SelectedIndex="0">
-                                        <x:String>Disabled</x:String>
-                                        <x:String>LS Click</x:String>
-                                        <x:String>LS Up</x:String>
-                                        <x:String>LS Down</x:String>
-                                        <x:String>LS Left</x:String>
-                                        <x:String>LS Right</x:String>
-                                        <x:String>RS Click</x:String>
-                                        <x:String>RS Up</x:String>
-                                        <x:String>RS Down</x:String>
-                                        <x:String>RS Left</x:String>
-                                        <x:String>RS Right</x:String>
-                                        <x:String>D-Pad Up</x:String>
-                                        <x:String>D-Pad Down</x:String>
-                                        <x:String>D-Pad Left</x:String>
-                                        <x:String>D-Pad Right</x:String>
-                                        <x:String>A</x:String>
-                                        <x:String>B</x:String>
-                                        <x:String>X</x:String>
-                                        <x:String>Y</x:String>
-                                        <x:String>LB</x:String>
-                                        <x:String>LT</x:String>
-                                        <x:String>RB</x:String>
-                                        <x:String>RT</x:String>
-                                        <x:String>View</x:String>
-                                        <x:String>Menu</x:String>
-                                    </ComboBox>
-                                </Grid>
+                                <StackPanel Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="M2" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                        <ComboBox x:Name="LegionButtonM2TypeComboBox" Grid.Column="1" Margin="0,0,8,0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String>
+                                        </ComboBox>
+                                        <ComboBox x:Name="LegionButtonM2ComboBox" Grid.Column="2"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Disabled</x:String>
+                                            <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
+                                            <x:String>RS Click</x:String><x:String>RS Up</x:String><x:String>RS Down</x:String><x:String>RS Left</x:String><x:String>RS Right</x:String>
+                                            <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
+                                            <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
+                                            <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
+                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                        </ComboBox>
+                                        <ComboBox x:Name="LegionButtonM2MouseComboBox" Grid.Column="2" Visibility="Collapsed"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Left Click</x:String><x:String>Right Click</x:String><x:String>Middle Click</x:String>
+                                            <x:String>Scroll Up</x:String><x:String>Scroll Down</x:String><x:String>Scroll Left</x:String><x:String>Scroll Right</x:String>
+                                        </ComboBox>
+                                    </Grid>
+                                    <StackPanel x:Name="LegionButtonM2KeyboardPanel" Visibility="Collapsed" Margin="40,8,0,0" Orientation="Horizontal">
+                                        <StackPanel x:Name="LegionButtonM2KeyTags" Orientation="Horizontal"/>
+                                        <ComboBox x:Name="LegionButtonM2KeyComboBox" Width="100" Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>0</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
 
                                 <!-- M3 Button -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="50"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="M3" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
-                                    <ComboBox x:Name="LegionButtonM3ComboBox"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              HorizontalAlignment="Stretch"
-                                              SelectedIndex="0">
-                                        <x:String>Disabled</x:String>
-                                        <x:String>LS Click</x:String>
-                                        <x:String>LS Up</x:String>
-                                        <x:String>LS Down</x:String>
-                                        <x:String>LS Left</x:String>
-                                        <x:String>LS Right</x:String>
-                                        <x:String>RS Click</x:String>
-                                        <x:String>RS Up</x:String>
-                                        <x:String>RS Down</x:String>
-                                        <x:String>RS Left</x:String>
-                                        <x:String>RS Right</x:String>
-                                        <x:String>D-Pad Up</x:String>
-                                        <x:String>D-Pad Down</x:String>
-                                        <x:String>D-Pad Left</x:String>
-                                        <x:String>D-Pad Right</x:String>
-                                        <x:String>A</x:String>
-                                        <x:String>B</x:String>
-                                        <x:String>X</x:String>
-                                        <x:String>Y</x:String>
-                                        <x:String>LB</x:String>
-                                        <x:String>LT</x:String>
-                                        <x:String>RB</x:String>
-                                        <x:String>RT</x:String>
-                                        <x:String>View</x:String>
-                                        <x:String>Menu</x:String>
-                                    </ComboBox>
-                                </Grid>
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="M3" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                        <ComboBox x:Name="LegionButtonM3TypeComboBox" Grid.Column="1" Margin="0,0,8,0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String>
+                                        </ComboBox>
+                                        <ComboBox x:Name="LegionButtonM3ComboBox" Grid.Column="2"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Disabled</x:String>
+                                            <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
+                                            <x:String>RS Click</x:String><x:String>RS Up</x:String><x:String>RS Down</x:String><x:String>RS Left</x:String><x:String>RS Right</x:String>
+                                            <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
+                                            <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
+                                            <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
+                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                        </ComboBox>
+                                        <ComboBox x:Name="LegionButtonM3MouseComboBox" Grid.Column="2" Visibility="Collapsed"
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>Left Click</x:String><x:String>Right Click</x:String><x:String>Middle Click</x:String>
+                                            <x:String>Scroll Up</x:String><x:String>Scroll Down</x:String><x:String>Scroll Left</x:String><x:String>Scroll Right</x:String>
+                                        </ComboBox>
+                                    </Grid>
+                                    <StackPanel x:Name="LegionButtonM3KeyboardPanel" Visibility="Collapsed" Margin="40,8,0,0" Orientation="Horizontal">
+                                        <StackPanel x:Name="LegionButtonM3KeyTags" Orientation="Horizontal"/>
+                                        <ComboBox x:Name="LegionButtonM3KeyComboBox" Width="100" Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>0</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
@@ -3442,6 +3411,21 @@
                                             Style="{StaticResource ModernSliderStyle}"
                                             Minimum="1" Maximum="100"
                                             Value="50"
+                                            StepFrequency="1"/>
+                                </StackPanel>
+
+                                <!-- Gyro Deadzone -->
+                                <StackPanel>
+                                    <Grid>
+                                        <TextBlock Text="Deadzone" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="LegionGyroDeadzoneValue"
+                                                   Text="10"
+                                                   Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+                                    <Slider x:Name="LegionGyroDeadzoneSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="1" Maximum="100"
+                                            Value="10"
                                             StepFrequency="1"/>
                                 </StackPanel>
 
