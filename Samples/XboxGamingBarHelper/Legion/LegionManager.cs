@@ -3,6 +3,7 @@ using LegionGoLibrary;
 using NLog;
 using Shared.Enums;
 using System;
+using System.Linq;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.Core;
 
@@ -60,11 +61,6 @@ namespace XboxGamingBarHelper.Legion
         private bool chargeLimitEnabled = false;
 
         // Controller remapping state (cached)
-        private int buttonY1Action = 0; // Disabled
-        private int buttonY2Action = 0;
-        private int buttonY3Action = 0;
-        private int buttonM2Action = 0;
-        private int buttonM3Action = 0;
         private bool nintendoLayoutEnabled = false;
         private int vibrationMode = 1; // FPS
 
@@ -118,6 +114,7 @@ namespace XboxGamingBarHelper.Legion
         public readonly LegionButtonY1Property LegionButtonY1;
         public readonly LegionButtonY2Property LegionButtonY2;
         public readonly LegionButtonY3Property LegionButtonY3;
+        public readonly LegionButtonM1Property LegionButtonM1;
         public readonly LegionButtonM2Property LegionButtonM2;
         public readonly LegionButtonM3Property LegionButtonM3;
         public readonly LegionNintendoLayoutProperty LegionNintendoLayout;
@@ -133,6 +130,9 @@ namespace XboxGamingBarHelper.Legion
         public readonly LegionGyroMappingTypeProperty LegionGyroMappingType;
         public readonly LegionGyroActivationModeProperty LegionGyroActivationMode;
         public readonly LegionGyroActivationButtonProperty LegionGyroActivationButton;
+
+        // Advanced gyro properties (per-game profile)
+        public readonly LegionGyroDeadzoneProperty LegionGyroDeadzone;
 
         // Stick deadzone properties (per-game profile)
         public readonly LegionLeftStickDeadzoneProperty LegionLeftStickDeadzone;
@@ -168,12 +168,13 @@ namespace XboxGamingBarHelper.Legion
             LegionPowerLight = new LegionPowerLightProperty(powerLightEnabled, this);
             LegionChargeLimit = new LegionChargeLimitProperty(chargeLimitEnabled, this);
 
-            // Initialize controller remapping properties
-            LegionButtonY1 = new LegionButtonY1Property(buttonY1Action, this);
-            LegionButtonY2 = new LegionButtonY2Property(buttonY2Action, this);
-            LegionButtonY3 = new LegionButtonY3Property(buttonY3Action, this);
-            LegionButtonM2 = new LegionButtonM2Property(buttonM2Action, this);
-            LegionButtonM3 = new LegionButtonM3Property(buttonM3Action, this);
+            // Initialize controller remapping properties (JSON ButtonMapping format)
+            LegionButtonY1 = new LegionButtonY1Property("", this);
+            LegionButtonY2 = new LegionButtonY2Property("", this);
+            LegionButtonY3 = new LegionButtonY3Property("", this);
+            LegionButtonM1 = new LegionButtonM1Property("", this);
+            LegionButtonM2 = new LegionButtonM2Property("", this);
+            LegionButtonM3 = new LegionButtonM3Property("", this);
             LegionNintendoLayout = new LegionNintendoLayoutProperty(nintendoLayoutEnabled, this);
             LegionVibrationMode = new LegionVibrationModeProperty(vibrationMode, this);
             LegionControllerProfileEnabled = new LegionControllerProfileEnabledProperty(false, this);
@@ -187,6 +188,9 @@ namespace XboxGamingBarHelper.Legion
             LegionGyroMappingType = new LegionGyroMappingTypeProperty(gyroMappingType, this);
             LegionGyroActivationMode = new LegionGyroActivationModeProperty(gyroActivationMode, this);
             LegionGyroActivationButton = new LegionGyroActivationButtonProperty(gyroActivationButton, this);
+
+            // Initialize advanced gyro properties
+            LegionGyroDeadzone = new LegionGyroDeadzoneProperty(gyroDeadzone, this);
 
             // Initialize stick deadzone properties
             LegionLeftStickDeadzone = new LegionLeftStickDeadzoneProperty(leftStickDeadzone, this);
@@ -1031,11 +1035,23 @@ namespace XboxGamingBarHelper.Legion
         }
 
         /// <summary>
-        /// Sets the button mapping for a remappable button.
+        /// Sets the button mapping for a remappable button (legacy gamepad-only method).
         /// </summary>
-        /// <param name="buttonIndex">Button index: 0=Y1, 1=Y2, 2=Y3, 3=M2, 4=M3</param>
+        /// <param name="buttonIndex">Button index: 0=Y1, 1=Y2, 2=Y3, 3=M1, 4=M2, 5=M3</param>
         /// <param name="actionIndex">Action index matching RemapAction enum (0-28)</param>
         public void SetButtonMapping(int buttonIndex, int actionIndex)
+        {
+            // Forward to advanced method with gamepad type
+            SetButtonMappingAdvanced(buttonIndex, 0, new int[] { actionIndex });
+        }
+
+        /// <summary>
+        /// Sets the button mapping with type support (Gamepad, Keyboard, Mouse).
+        /// </summary>
+        /// <param name="buttonIndex">Button index: 0=Y1, 1=Y2, 2=Y3, 3=M1, 4=M2, 5=M3</param>
+        /// <param name="mappingType">0=Gamepad, 1=Keyboard, 2=Mouse</param>
+        /// <param name="values">Mapping values (gamepad action, keyboard keys[], or mouse button)</param>
+        public void SetButtonMappingAdvanced(int buttonIndex, int mappingType, int[] values)
         {
             try
             {
@@ -1052,28 +1068,47 @@ namespace XboxGamingBarHelper.Legion
                     0 => LegionGo.RemappableButton.Y1,
                     1 => LegionGo.RemappableButton.Y2,
                     2 => LegionGo.RemappableButton.Y3,
-                    3 => LegionGo.RemappableButton.M2,
-                    4 => LegionGo.RemappableButton.M3,
+                    3 => LegionGo.RemappableButton.M1,
+                    4 => LegionGo.RemappableButton.M2,
+                    5 => LegionGo.RemappableButton.M3,
                     _ => throw new ArgumentException($"Invalid button index: {buttonIndex}")
                 };
 
-                LegionGo.RemapAction remapAction = LegionGo.RemapActionHelper.GetByIndex(actionIndex);
+                // Log the button details for debugging
+                var ctrl = LegionGo.LegionGoController.GetControllerForButton(remapButton);
+                Logger.Info($"SetButtonMappingAdvanced: buttonIndex={buttonIndex}, button={remapButton}(0x{(byte)remapButton:X2}), controller={ctrl}(0x{(byte)ctrl:X2}), mappingType={mappingType}, values=[{string.Join(",", values ?? Array.Empty<int>())}]");
 
-                bool success = controller.SetButtonMapping(remapButton, remapAction);
-                if (success)
+                bool success;
+                if (mappingType == 0 && (values == null || values.Length == 0 || values[0] == 0))
                 {
-                    // Update cached value
-                    switch (buttonIndex)
-                    {
-                        case 0: buttonY1Action = actionIndex; break;
-                        case 1: buttonY2Action = actionIndex; break;
-                        case 2: buttonY3Action = actionIndex; break;
-                        case 3: buttonM2Action = actionIndex; break;
-                        case 4: buttonM3Action = actionIndex; break;
-                    }
-                    Logger.Info($"Button {remapButton} mapped to {remapAction}");
+                    // Clear mapping (disabled)
+                    success = controller.ClearButtonMapping(remapButton);
+                    Logger.Info($"Button {remapButton} mapping cleared (HID: 05 00 12 0A {(byte)ctrl:X2} 01 11 01 {(byte)remapButton:X2} 01)");
                 }
                 else
+                {
+                    // Set mapping with type
+                    var type = (LegionGo.MappingType)(mappingType + 1);  // 0→1, 1→2, 2→3
+                    byte[] mappings;
+
+                    if (mappingType == 0)
+                    {
+                        // Gamepad: use RemapAction
+                        var action = LegionGo.RemapActionHelper.GetByIndex(values[0]);
+                        mappings = new byte[] { (byte)action };
+                    }
+                    else
+                    {
+                        // Keyboard or Mouse: use raw values
+                        mappings = values.Select(v => (byte)v).ToArray();
+                    }
+
+                    success = controller.SetButtonMappingAdvanced(remapButton, type, mappings);
+                    var hidBytes = $"05 00 12 0A {(byte)ctrl:X2} 01 11 01 {(byte)remapButton:X2} {(byte)type:X2} {string.Join(" ", mappings.Select(b => b.ToString("X2")))}";
+                    Logger.Info($"Button {remapButton} mapped to {type} with mappings=[{string.Join(",", mappings.Select(b => $"0x{b:X2}"))}] (HID: {hidBytes})");
+                }
+
+                if (!success)
                 {
                     Logger.Error($"Failed to set button mapping for {remapButton}");
                 }
@@ -1158,6 +1193,9 @@ namespace XboxGamingBarHelper.Legion
         private int gyroMappingType = 0;
         private int gyroActivationMode = 0;
         private int gyroActivationButton = 0;
+
+        // Advanced gyro settings
+        private int gyroDeadzone = 10;         // 1-100
 
         /// <summary>
         /// Sets the gyro target output (0=Disabled, 1=LeftStick, 2=RightStick, 3=Mouse).
@@ -1365,6 +1403,45 @@ namespace XboxGamingBarHelper.Legion
             catch (Exception ex)
             {
                 Logger.Error($"Error applying gyro activation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sets the gyro deadzone (1-100, suppresses small motions near center).
+        /// </summary>
+        public void SetGyroDeadzone(int deadzone)
+        {
+            gyroDeadzone = deadzone;
+            ApplyAdvancedGyroSetting("Deadzone", deadzone, controller => controller.SetGyroDeadzone(deadzone));
+        }
+
+        /// <summary>
+        /// Helper to apply advanced gyro settings with common logging/error handling.
+        /// </summary>
+        private void ApplyAdvancedGyroSetting(string settingName, int value, Func<LegionGo.LegionGoController, bool> applyAction)
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn($"Cannot apply gyro {settingName}: controller not connected");
+                    return;
+                }
+
+                bool success = applyAction(controller);
+                if (success)
+                {
+                    Logger.Info($"Gyro {settingName} set to {value}");
+                }
+                else
+                {
+                    Logger.Error($"Failed to set gyro {settingName} to {value}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error applying gyro {settingName}: {ex.Message}");
             }
         }
 

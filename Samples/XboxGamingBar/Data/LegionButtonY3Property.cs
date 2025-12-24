@@ -6,46 +6,25 @@ using Windows.UI.Xaml.Controls;
 namespace XboxGamingBar.Data
 {
     /// <summary>
-    /// Property for Legion Y3 button remap action (0-28 RemapAction values)
+    /// Property for Legion Y3 button remap (JSON ButtonMapping format).
+    /// Not auto-bound to UI - call SendMapping() explicitly to send to helper.
     /// </summary>
-    internal class LegionButtonY3Property : WidgetControlProperty<int, ComboBox>
+    internal class LegionButtonY3Property : WidgetControlProperty<string, ComboBox>
     {
-        public LegionButtonY3Property(ComboBox inUI, Page inOwner) : base(0, Function.LegionButtonY3, inUI, inOwner)
+        public LegionButtonY3Property(ComboBox inUI, Page inOwner) : base("", Function.LegionButtonY3, inUI, inOwner)
         {
-            if (UI != null)
-            {
-                UI.SelectionChanged += ComboBox_SelectionChanged;
-                if (UI.Items.Count > Value)
-                {
-                    UI.SelectedIndex = Value;
-                }
-            }
+            // Don't auto-bind to ComboBox - we'll manually send via SendMapping()
         }
 
-        private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        /// <summary>
+        /// Sends the button mapping JSON to the helper.
+        /// </summary>
+        public void SendMapping(string json)
         {
-            int newIndex = UI.SelectedIndex;
-            if (newIndex >= 0 && newIndex != Value)
+            if (!string.IsNullOrEmpty(json) && json != Value)
             {
-                Logger.Info($"{Function} combo box updated to index {newIndex}.");
-                SetValue(newIndex);
-            }
-        }
-
-        protected override async void NotifyPropertyChanged(string propertyName = "")
-        {
-            base.NotifyPropertyChanged(propertyName);
-
-            if (UI != null && Owner != null)
-            {
-                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
-                {
-                    if (UI.Items.Count > Value && UI.SelectedIndex != Value)
-                    {
-                        Logger.Info($"{Function} combo box selected index {Value}.");
-                        UI.SelectedIndex = Value;
-                    }
-                });
+                Logger.Info($"{Function} sending mapping: {json}");
+                SetValue(json);
             }
         }
     }
