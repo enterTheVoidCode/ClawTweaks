@@ -104,15 +104,97 @@ namespace XboxGamingBar
     }
 
     /// <summary>
+    /// Button mapping with type support (Gamepad, Keyboard, Mouse)
+    /// </summary>
+    public class ButtonMapping
+    {
+        /// <summary>Mapping type: 0=Gamepad, 1=Keyboard, 2=Mouse</summary>
+        public int Type { get; set; } = 0;
+        /// <summary>Gamepad action index (0-24, into RemapAction)</summary>
+        public int GamepadAction { get; set; } = 0;
+        /// <summary>Keyboard key codes (up to 5 keys)</summary>
+        public List<int> KeyboardKeys { get; set; } = new List<int>();
+        /// <summary>Mouse button code (1-7)</summary>
+        public int MouseButton { get; set; } = 0;
+
+        public ButtonMapping Clone() => new ButtonMapping
+        {
+            Type = this.Type,
+            GamepadAction = this.GamepadAction,
+            KeyboardKeys = new List<int>(this.KeyboardKeys),
+            MouseButton = this.MouseButton
+        };
+
+        /// <summary>
+        /// Serializes to JSON string format for IPC/storage.
+        /// Format: {"Type":0,"GamepadAction":5,"KeyboardKeys":[4,5],"MouseButton":0}
+        /// </summary>
+        public string ToJson()
+        {
+            var keys = KeyboardKeys.Count > 0 ? string.Join(",", KeyboardKeys) : "";
+            return $"{{\"Type\":{Type},\"GamepadAction\":{GamepadAction},\"KeyboardKeys\":[{keys}],\"MouseButton\":{MouseButton}}}";
+        }
+
+        /// <summary>
+        /// Deserializes from JSON string. Returns new ButtonMapping if parsing fails.
+        /// </summary>
+        public static ButtonMapping FromJson(string json)
+        {
+            var result = new ButtonMapping();
+            if (string.IsNullOrEmpty(json)) return result;
+
+            try
+            {
+                // Parse Type
+                var typeMatch = System.Text.RegularExpressions.Regex.Match(json, "\"Type\"\\s*:\\s*(-?\\d+)");
+                if (typeMatch.Success && int.TryParse(typeMatch.Groups[1].Value, out int type))
+                    result.Type = type;
+
+                // Parse GamepadAction
+                var gamepadMatch = System.Text.RegularExpressions.Regex.Match(json, "\"GamepadAction\"\\s*:\\s*(-?\\d+)");
+                if (gamepadMatch.Success && int.TryParse(gamepadMatch.Groups[1].Value, out int gamepadAction))
+                    result.GamepadAction = gamepadAction;
+
+                // Parse MouseButton
+                var mouseMatch = System.Text.RegularExpressions.Regex.Match(json, "\"MouseButton\"\\s*:\\s*(-?\\d+)");
+                if (mouseMatch.Success && int.TryParse(mouseMatch.Groups[1].Value, out int mouseButton))
+                    result.MouseButton = mouseButton;
+
+                // Parse KeyboardKeys array
+                var keysMatch = System.Text.RegularExpressions.Regex.Match(json, "\"KeyboardKeys\"\\s*:\\s*\\[([^\\]]*)\\]");
+                if (keysMatch.Success)
+                {
+                    var keysStr = keysMatch.Groups[1].Value;
+                    if (!string.IsNullOrWhiteSpace(keysStr))
+                    {
+                        foreach (var part in keysStr.Split(','))
+                        {
+                            if (int.TryParse(part.Trim(), out int key))
+                                result.KeyboardKeys.Add(key);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Return default on any parse error
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>
     /// Controller profile settings storage for per-game button remapping
     /// </summary>
     public class ControllerProfile
     {
-        public int ButtonY1 { get; set; } = 0;  // Disabled
-        public int ButtonY2 { get; set; } = 0;
-        public int ButtonY3 { get; set; } = 0;
-        public int ButtonM2 { get; set; } = 0;
-        public int ButtonM3 { get; set; } = 0;
+        public ButtonMapping ButtonY1 { get; set; } = new ButtonMapping();
+        public ButtonMapping ButtonY2 { get; set; } = new ButtonMapping();
+        public ButtonMapping ButtonY3 { get; set; } = new ButtonMapping();
+        public ButtonMapping ButtonM1 { get; set; } = new ButtonMapping();
+        public ButtonMapping ButtonM2 { get; set; } = new ButtonMapping();
+        public ButtonMapping ButtonM3 { get; set; } = new ButtonMapping();
         public bool NintendoLayout { get; set; } = false;
         public int VibrationLevel { get; set; } = 2;  // Medium
         public int VibrationMode { get; set; } = 1;   // FPS
@@ -127,6 +209,9 @@ namespace XboxGamingBar
         public int GyroActivationMode { get; set; } = 0;   // Hold
         public int GyroActivationButton { get; set; } = 0; // None
 
+        // Advanced gyro settings (per-game profile)
+        public int GyroDeadzone { get; set; } = 10;         // 1-100
+
         // Stick deadzones (per-game profile)
         public int LeftStickDeadzone { get; set; } = 4;    // Default 4%
         public int RightStickDeadzone { get; set; } = 4;
@@ -135,11 +220,12 @@ namespace XboxGamingBar
         {
             return new ControllerProfile
             {
-                ButtonY1 = this.ButtonY1,
-                ButtonY2 = this.ButtonY2,
-                ButtonY3 = this.ButtonY3,
-                ButtonM2 = this.ButtonM2,
-                ButtonM3 = this.ButtonM3,
+                ButtonY1 = this.ButtonY1.Clone(),
+                ButtonY2 = this.ButtonY2.Clone(),
+                ButtonY3 = this.ButtonY3.Clone(),
+                ButtonM1 = this.ButtonM1.Clone(),
+                ButtonM2 = this.ButtonM2.Clone(),
+                ButtonM3 = this.ButtonM3.Clone(),
                 NintendoLayout = this.NintendoLayout,
                 VibrationLevel = this.VibrationLevel,
                 VibrationMode = this.VibrationMode,
@@ -152,6 +238,8 @@ namespace XboxGamingBar
                 GyroMappingType = this.GyroMappingType,
                 GyroActivationMode = this.GyroActivationMode,
                 GyroActivationButton = this.GyroActivationButton,
+                // Advanced gyro settings
+                GyroDeadzone = this.GyroDeadzone,
                 // Stick deadzones
                 LeftStickDeadzone = this.LeftStickDeadzone,
                 RightStickDeadzone = this.RightStickDeadzone
@@ -305,6 +393,7 @@ namespace XboxGamingBar
         private readonly LegionButtonY1Property legionButtonY1;
         private readonly LegionButtonY2Property legionButtonY2;
         private readonly LegionButtonY3Property legionButtonY3;
+        private readonly LegionButtonM1Property legionButtonM1;
         private readonly LegionButtonM2Property legionButtonM2;
         private readonly LegionButtonM3Property legionButtonM3;
         private readonly LegionNintendoLayoutProperty legionNintendoLayout;
@@ -320,6 +409,9 @@ namespace XboxGamingBar
         private readonly LegionGyroMappingTypeProperty legionGyroMappingType;
         private readonly LegionGyroActivationModeProperty legionGyroActivationMode;
         private readonly LegionGyroActivationButtonProperty legionGyroActivationButton;
+
+        // Advanced gyro properties
+        private readonly LegionGyroDeadzoneProperty legionGyroDeadzone;
 
         // Stick deadzone properties
         private readonly LegionLeftStickDeadzoneProperty legionLeftStickDeadzone;
@@ -349,6 +441,7 @@ namespace XboxGamingBar
         private readonly TDPBoostFPPTProperty tdpBoostFPPT;
         private bool isTDPBoostExpanded = false;
         private bool isLoadingTDPBoostSettings = false;
+        private bool isLoadingStickyTDPSettings = false;
 
         // OS Power Mode
         private readonly OSPowerModeProperty osPowerMode;
@@ -367,7 +460,7 @@ namespace XboxGamingBar
         private PerformanceProfile gameProfile = new PerformanceProfile();
         private PerformanceProfile gameACProfile = new PerformanceProfile();
         private PerformanceProfile gameDCProfile = new PerformanceProfile();
-        private string currentProfileName = "Global";
+        private string currentProfileName = ""; // Empty so first SwitchProfile() loads settings
         private string currentGameName = "";
         private string currentGameExePath = "";
         private bool isLoadingProfile = false;
@@ -572,10 +665,11 @@ namespace XboxGamingBar
             legionPowerLight = new LegionPowerLightProperty(LegionPowerLightToggle, this);
             legionChargeLimit = new LegionChargeLimitProperty(LegionChargeLimitToggle, this);
 
-            // Controller remapping properties
+            // Controller remapping properties (not auto-bound, use SendMapping())
             legionButtonY1 = new LegionButtonY1Property(LegionButtonY1ComboBox, this);
             legionButtonY2 = new LegionButtonY2Property(LegionButtonY2ComboBox, this);
             legionButtonY3 = new LegionButtonY3Property(LegionButtonY3ComboBox, this);
+            legionButtonM1 = new LegionButtonM1Property(LegionButtonM1ComboBox, this);
             legionButtonM2 = new LegionButtonM2Property(LegionButtonM2ComboBox, this);
             legionButtonM3 = new LegionButtonM3Property(LegionButtonM3ComboBox, this);
             legionNintendoLayout = new LegionNintendoLayoutProperty(LegionNintendoLayoutToggle, this);
@@ -591,6 +685,9 @@ namespace XboxGamingBar
             legionGyroMappingType = new LegionGyroMappingTypeProperty(LegionGyroMappingTypeComboBox, this);
             legionGyroActivationMode = new LegionGyroActivationModeProperty(LegionGyroActivationModeComboBox, this);
             legionGyroActivationButton = new LegionGyroActivationButtonProperty(LegionGyroActivationButtonComboBox, this);
+
+            // Advanced gyro properties
+            legionGyroDeadzone = new LegionGyroDeadzoneProperty(LegionGyroDeadzoneSlider, this);
 
             // Stick deadzone properties
             legionLeftStickDeadzone = new LegionLeftStickDeadzoneProperty(LegionLeftStickDeadzoneSlider, this);
@@ -1148,6 +1245,9 @@ namespace XboxGamingBar
             // Load TDP Boost settings (SPPT/FPPT from LocalSettings)
             LoadTDPBoostSettings();
 
+            // Load Sticky TDP settings (defaults to enabled on new installs)
+            LoadStickyTDPSettings();
+
             // Subscribe to TDP Boost property changes from helper (profile sync)
             if (tdpBoostEnabled != null)
                 tdpBoostEnabled.PropertyChanged += TDPBoostEnabled_PropertyChanged;
@@ -1202,7 +1302,10 @@ namespace XboxGamingBar
             if (osPowerMode != null)
                 osPowerMode.PropertyChanged += OSPowerMode_PropertyChanged;
             if (resolution != null)
+            {
                 resolution.PropertyChanged += QuickSettingsProperty_Changed;
+                resolution.PropertyChanged += Resolution_PropertyChanged_OSD;
+            }
             if (hdrEnabled != null)
                 hdrEnabled.PropertyChanged += QuickSettingsProperty_Changed;
             if (hdrSupported != null)
@@ -1254,6 +1357,17 @@ namespace XboxGamingBar
             _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 UpdateQuickSettingsTileStates();
+            });
+        }
+
+        private void Resolution_PropertyChanged_OSD(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            // When resolution changes, reload OSD config for the new resolution and send to helper
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                Logger.Info($"Resolution changed to {resolution?.Value}, reloading OSD config");
+                LoadOSDConfigFromStorage();
+                SendOSDConfigToHelper();
             });
         }
 
@@ -1362,6 +1476,13 @@ namespace XboxGamingBar
                     isInternalToggleDisable = true; // Flag this as internal disable
                     PerGameProfileToggle.IsOn = false;  // This triggers UpdateActiveProfileIndicator which switches to Global
                     isInternalToggleDisable = false;
+                }
+
+                // When game closes (going from valid game to no game), refresh display settings
+                // This ensures the resolution tile updates after a game that changed resolution exits
+                if (HasValidGame(currentGameName) && !HasValidGame(newGameName))
+                {
+                    _ = RequestDisplaySettingsRefreshAsync();
                 }
 
                 // Now safe to update currentGameName
@@ -1589,17 +1710,14 @@ namespace XboxGamingBar
             AMDRadeonChillMinFPSSlider.ValueChanged += SettingChanged;
             AMDRadeonChillMaxFPSSlider.ValueChanged += SettingChanged;
 
-            // Legion controller settings
-            if (LegionButtonY1ComboBox != null)
-                LegionButtonY1ComboBox.SelectionChanged += ControllerSettingChanged;
-            if (LegionButtonY2ComboBox != null)
-                LegionButtonY2ComboBox.SelectionChanged += ControllerSettingChanged;
-            if (LegionButtonY3ComboBox != null)
-                LegionButtonY3ComboBox.SelectionChanged += ControllerSettingChanged;
-            if (LegionButtonM2ComboBox != null)
-                LegionButtonM2ComboBox.SelectionChanged += ControllerSettingChanged;
-            if (LegionButtonM3ComboBox != null)
-                LegionButtonM3ComboBox.SelectionChanged += ControllerSettingChanged;
+            // Legion controller button mapping settings
+            InitializeButtonMappingEvents("Y1");
+            InitializeButtonMappingEvents("Y2");
+            InitializeButtonMappingEvents("Y3");
+            InitializeButtonMappingEvents("M1");
+            InitializeButtonMappingEvents("M2");
+            InitializeButtonMappingEvents("M3");
+
             if (LegionNintendoLayoutToggle != null)
                 LegionNintendoLayoutToggle.Toggled += ControllerSettingChanged;
             if (LegionVibrationComboBox != null)
@@ -1624,6 +1742,10 @@ namespace XboxGamingBar
                 LegionGyroActivationModeComboBox.SelectionChanged += ControllerSettingChanged;
             if (LegionGyroActivationButtonComboBox != null)
                 LegionGyroActivationButtonComboBox.SelectionChanged += ControllerSettingChanged;
+
+            // Advanced gyro settings (per-game profile)
+            if (LegionGyroDeadzoneSlider != null)
+                LegionGyroDeadzoneSlider.ValueChanged += ControllerSettingChanged;
 
             // Stick deadzones (per-game profile)
             if (LegionLeftStickDeadzoneSlider != null)
@@ -1812,7 +1934,14 @@ namespace XboxGamingBar
 
         private void StickyTDPToggle_Toggled(object sender, RoutedEventArgs e)
         {
+            // Skip during initialization - don't capture TDP or start timer until profile loads
+            if (isLoadingStickyTDPSettings) return;
+
             Logger.Info($"StickyTDPToggle toggled to: {StickyTDPToggle.IsOn}");
+
+            // Save setting to LocalSettings
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["StickyTDPEnabled"] = StickyTDPToggle.IsOn;
 
             if (StickyTDPToggle.IsOn)
             {
@@ -1834,9 +1963,14 @@ namespace XboxGamingBar
         private void StickyTDPIntervalSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
             if (StickyTDPIntervalSlider == null) return;
+            if (isLoadingStickyTDPSettings) return;
 
             stickyTDPCheckIntervalSeconds = (int)Math.Round(e.NewValue);
             Logger.Info($"Sticky TDP check interval changed to: {stickyTDPCheckIntervalSeconds}s");
+
+            // Save setting to LocalSettings
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["StickyTDPInterval"] = stickyTDPCheckIntervalSeconds;
 
             // Update the value display
             if (StickyTDPIntervalValue != null)
@@ -2177,6 +2311,44 @@ namespace XboxGamingBar
             }
         }
 
+        private void LoadStickyTDPSettings()
+        {
+            isLoadingStickyTDPSettings = true;
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                // Default to TRUE for new installs (key won't exist)
+                bool enabled = true;
+                if (settings.Values.TryGetValue("StickyTDPEnabled", out object enabledVal) && enabledVal is bool val)
+                {
+                    enabled = val;
+                }
+                StickyTDPToggle.IsOn = enabled;
+
+                // Load interval setting (default 5 seconds)
+                if (settings.Values.TryGetValue("StickyTDPInterval", out object intervalVal) && intervalVal is int interval)
+                {
+                    stickyTDPCheckIntervalSeconds = interval;
+                    StickyTDPIntervalSlider.Value = interval;
+                    if (StickyTDPIntervalValue != null)
+                    {
+                        StickyTDPIntervalValue.Text = $"{interval}s";
+                    }
+                }
+
+                Logger.Info($"Loaded Sticky TDP settings: Enabled={enabled}, Interval={stickyTDPCheckIntervalSeconds}s");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error loading Sticky TDP settings: {ex.Message}");
+            }
+            finally
+            {
+                isLoadingStickyTDPSettings = false;
+            }
+        }
+
         #endregion
 
         #region OSD Customization
@@ -2482,11 +2654,12 @@ namespace XboxGamingBar
                     settings.Values[$"OSD_L{level}_Columns"] = osdLevelColumns.GetValueOrDefault(level, 3);
                 }
 
-                // Save global layout settings
-                settings.Values["OSD_TextSize"] = osdTextSize;
+                // Save global layout settings (text size is per-resolution)
+                string currentRes = resolution?.Value ?? "default";
+                settings.Values[$"OSD_TextSize_{currentRes}"] = osdTextSize;
                 settings.Values["OSD_TextColor"] = osdTextColor;
 
-                Logger.Info("OSD configuration saved to storage");
+                Logger.Info($"OSD configuration saved to storage (resolution: {currentRes}, text size: {osdTextSize})");
             }
             catch (Exception ex)
             {
@@ -2531,10 +2704,19 @@ namespace XboxGamingBar
                     }
                 }
 
-                // Load global layout settings
-                if (settings.Values.TryGetValue("OSD_TextSize", out object sizeVal) && sizeVal is int size)
+                // Load global layout settings (text size is per-resolution)
+                string currentRes = resolution?.Value ?? "default";
+                string textSizeKey = $"OSD_TextSize_{currentRes}";
+                if (settings.Values.TryGetValue(textSizeKey, out object sizeVal) && sizeVal is int size)
                 {
                     osdTextSize = size;
+                    Logger.Info($"Loaded OSD text size {osdTextSize} for resolution {currentRes}");
+                }
+                else
+                {
+                    // Default to 100 if no per-resolution setting exists
+                    osdTextSize = 100;
+                    Logger.Info($"No OSD text size saved for resolution {currentRes}, using default 100");
                 }
                 if (settings.Values.TryGetValue("OSD_TextColor", out object textColorVal) && textColorVal is string textColor)
                 {
@@ -3136,6 +3318,25 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Error sending keyboard shortcut via helper: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Request the helper to refresh display settings (resolution, refresh rate, HDR).
+        /// Called when a game closes to ensure the resolution tile shows the correct value.
+        /// </summary>
+        private async Task RequestDisplaySettingsRefreshAsync()
+        {
+            try
+            {
+                Logger.Info("Requesting display settings refresh from helper");
+                var message = new Windows.Foundation.Collections.ValueSet();
+                message.Add("RefreshDisplaySettings", true);
+                await SendHelperMessageAsync(message);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error requesting display settings refresh: {ex.Message}");
             }
         }
 
@@ -4905,11 +5106,13 @@ namespace XboxGamingBar
             var settings = ApplicationData.Current.LocalSettings;
             var container = settings.CreateContainer($"ControllerProfile_{profileName}", ApplicationDataCreateDisposition.Always);
 
-            container.Values["ButtonY1"] = profile.ButtonY1;
-            container.Values["ButtonY2"] = profile.ButtonY2;
-            container.Values["ButtonY3"] = profile.ButtonY3;
-            container.Values["ButtonM2"] = profile.ButtonM2;
-            container.Values["ButtonM3"] = profile.ButtonM3;
+            // Button mappings (serialized as JSON)
+            container.Values["ButtonY1"] = profile.ButtonY1.ToJson();
+            container.Values["ButtonY2"] = profile.ButtonY2.ToJson();
+            container.Values["ButtonY3"] = profile.ButtonY3.ToJson();
+            container.Values["ButtonM1"] = profile.ButtonM1.ToJson();
+            container.Values["ButtonM2"] = profile.ButtonM2.ToJson();
+            container.Values["ButtonM3"] = profile.ButtonM3.ToJson();
             container.Values["NintendoLayout"] = profile.NintendoLayout;
             container.Values["VibrationLevel"] = profile.VibrationLevel;
             container.Values["VibrationMode"] = profile.VibrationMode;
@@ -4924,11 +5127,35 @@ namespace XboxGamingBar
             container.Values["GyroActivationMode"] = profile.GyroActivationMode;
             container.Values["GyroActivationButton"] = profile.GyroActivationButton;
 
+            // Advanced gyro settings
+            container.Values["GyroDeadzone"] = profile.GyroDeadzone;
+
             // Stick deadzones
             container.Values["LeftStickDeadzone"] = profile.LeftStickDeadzone;
             container.Values["RightStickDeadzone"] = profile.RightStickDeadzone;
 
             Logger.Info($"Saved controller profile: {profileName}");
+        }
+
+        private ButtonMapping LoadButtonMapping(ApplicationDataContainer container, string key)
+        {
+            if (!container.Values.ContainsKey(key))
+                return new ButtonMapping();
+
+            var value = container.Values[key];
+
+            // Handle backwards compatibility: old format stored int, new format stores JSON string
+            if (value is int intValue)
+            {
+                // Old format: convert simple int to ButtonMapping with gamepad type
+                return new ButtonMapping { Type = 0, GamepadAction = intValue };
+            }
+            else if (value is string jsonValue)
+            {
+                return ButtonMapping.FromJson(jsonValue);
+            }
+
+            return new ButtonMapping();
         }
 
         private void LoadControllerProfileFromStorage(string profileName, ControllerProfile profile)
@@ -4938,11 +5165,13 @@ namespace XboxGamingBar
             {
                 var container = settings.Containers[$"ControllerProfile_{profileName}"];
 
-                profile.ButtonY1 = container.Values.ContainsKey("ButtonY1") ? (int)container.Values["ButtonY1"] : 0;
-                profile.ButtonY2 = container.Values.ContainsKey("ButtonY2") ? (int)container.Values["ButtonY2"] : 0;
-                profile.ButtonY3 = container.Values.ContainsKey("ButtonY3") ? (int)container.Values["ButtonY3"] : 0;
-                profile.ButtonM2 = container.Values.ContainsKey("ButtonM2") ? (int)container.Values["ButtonM2"] : 0;
-                profile.ButtonM3 = container.Values.ContainsKey("ButtonM3") ? (int)container.Values["ButtonM3"] : 0;
+                // Button mappings (with backwards compatibility for old int format)
+                profile.ButtonY1 = LoadButtonMapping(container, "ButtonY1");
+                profile.ButtonY2 = LoadButtonMapping(container, "ButtonY2");
+                profile.ButtonY3 = LoadButtonMapping(container, "ButtonY3");
+                profile.ButtonM1 = LoadButtonMapping(container, "ButtonM1");
+                profile.ButtonM2 = LoadButtonMapping(container, "ButtonM2");
+                profile.ButtonM3 = LoadButtonMapping(container, "ButtonM3");
                 profile.NintendoLayout = container.Values.ContainsKey("NintendoLayout") ? (bool)container.Values["NintendoLayout"] : false;
                 profile.VibrationLevel = container.Values.ContainsKey("VibrationLevel") ? (int)container.Values["VibrationLevel"] : 2;
                 profile.VibrationMode = container.Values.ContainsKey("VibrationMode") ? (int)container.Values["VibrationMode"] : 1;
@@ -4957,6 +5186,9 @@ namespace XboxGamingBar
                 profile.GyroActivationMode = container.Values.ContainsKey("GyroActivationMode") ? (int)container.Values["GyroActivationMode"] : 0;
                 profile.GyroActivationButton = container.Values.ContainsKey("GyroActivationButton") ? (int)container.Values["GyroActivationButton"] : 0;
 
+                // Advanced gyro settings
+                profile.GyroDeadzone = container.Values.ContainsKey("GyroDeadzone") ? (int)container.Values["GyroDeadzone"] : 10;
+
                 // Stick deadzones
                 profile.LeftStickDeadzone = container.Values.ContainsKey("LeftStickDeadzone") ? (int)container.Values["LeftStickDeadzone"] : 4;
                 profile.RightStickDeadzone = container.Values.ContainsKey("RightStickDeadzone") ? (int)container.Values["RightStickDeadzone"] : 4;
@@ -4965,23 +5197,312 @@ namespace XboxGamingBar
             }
         }
 
+        private void InitializeButtonMappingEvents(string buttonName)
+        {
+            var typeCombo = FindName($"LegionButton{buttonName}TypeComboBox") as ComboBox;
+            var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
+            var mouseCombo = FindName($"LegionButton{buttonName}MouseComboBox") as ComboBox;
+            var keyCombo = FindName($"LegionButton{buttonName}KeyComboBox") as ComboBox;
+
+            if (typeCombo != null)
+            {
+                typeCombo.SelectionChanged += (s, e) => OnButtonTypeChanged(buttonName);
+            }
+            if (gamepadCombo != null)
+            {
+                gamepadCombo.SelectionChanged += ControllerSettingChanged;
+            }
+            if (mouseCombo != null)
+            {
+                mouseCombo.SelectionChanged += ControllerSettingChanged;
+            }
+            if (keyCombo != null)
+            {
+                keyCombo.SelectionChanged += (s, e) => OnKeyboardKeySelected(buttonName);
+            }
+        }
+
+        private void OnButtonTypeChanged(string buttonName)
+        {
+            var typeCombo = FindName($"LegionButton{buttonName}TypeComboBox") as ComboBox;
+            var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
+            var mouseCombo = FindName($"LegionButton{buttonName}MouseComboBox") as ComboBox;
+            var keyboardPanel = FindName($"LegionButton{buttonName}KeyboardPanel") as StackPanel;
+
+            if (typeCombo == null) return;
+            int type = typeCombo.SelectedIndex;
+
+            // Show/hide appropriate controls
+            if (gamepadCombo != null)
+                gamepadCombo.Visibility = type == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (mouseCombo != null)
+                mouseCombo.Visibility = type == 2 ? Visibility.Visible : Visibility.Collapsed;
+            if (keyboardPanel != null)
+                keyboardPanel.Visibility = type == 1 ? Visibility.Visible : Visibility.Collapsed;
+
+            // Update the profile and send command
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(typeCombo, null);
+            }
+        }
+
+        private void OnKeyboardKeySelected(string buttonName)
+        {
+            var keyCombo = FindName($"LegionButton{buttonName}KeyComboBox") as ComboBox;
+            if (keyCombo == null || keyCombo.SelectedIndex <= 0) return;  // 0 is "+ Key"
+
+            // Get the key code from the dropdown index
+            int keyCode = GetKeyCodeFromDropdownIndex(keyCombo.SelectedIndex);
+            if (keyCode == 0) return;
+
+            // Get current keys and add the new one (max 5)
+            var keys = GetStoredKeyboardKeys(buttonName);
+            if (keys.Count >= 5)
+            {
+                keyCombo.SelectedIndex = 0;
+                return;  // Max 5 keys
+            }
+
+            if (!keys.Contains(keyCode))
+            {
+                keys.Add(keyCode);
+                SetStoredKeyboardKeys(buttonName, keys);
+                UpdateKeyboardKeyTags(buttonName, keys);
+
+                // Trigger profile save and command send
+                if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+                {
+                    ControllerSettingChanged(keyCombo, null);
+                }
+            }
+
+            // Reset dropdown
+            keyCombo.SelectedIndex = 0;
+        }
+
+        private int GetKeyCodeFromDropdownIndex(int index)
+        {
+            // Map dropdown index to HID key code
+            // Index 0 is "+ Key" placeholder
+            // Index 1-26 are A-Z (0x04-0x1D)
+            // Index 27-36 are 1-0 (0x1E-0x27)
+            // Index 37-48 are F1-F12 (0x3A-0x45)
+            // Index 49-53 are Enter, Esc, Space, Tab, Backspace (0x28-0x2C)
+            // Index 54-57 are Up, Down, Left, Right (0x52, 0x51, 0x50, 0x4F)
+
+            if (index <= 0) return 0;
+            if (index <= 26) return 0x03 + index;  // A-Z: 0x04-0x1D
+            if (index <= 36) return 0x17 + index;  // 1-0: 0x1E-0x27
+            if (index <= 48) return 0x27 + index;  // F1-F12: 0x3A-0x45
+            if (index == 49) return 0x28;  // Enter
+            if (index == 50) return 0x29;  // Esc
+            if (index == 51) return 0x2C;  // Space
+            if (index == 52) return 0x2B;  // Tab
+            if (index == 53) return 0x2A;  // Backspace
+            if (index == 54) return 0x52;  // Up
+            if (index == 55) return 0x51;  // Down
+            if (index == 56) return 0x50;  // Left
+            if (index == 57) return 0x4F;  // Right
+
+            return 0;
+        }
+
+        private void RemoveKeyFromButton(string buttonName, int keyCode)
+        {
+            var keys = GetStoredKeyboardKeys(buttonName);
+            keys.Remove(keyCode);
+            SetStoredKeyboardKeys(buttonName, keys);
+            UpdateKeyboardKeyTags(buttonName, keys);
+
+            // Trigger profile save and command send
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(null, null);
+            }
+        }
+
+        private string FormatButtonMapping(ButtonMapping mapping)
+        {
+            if (mapping == null) return "none";
+            switch (mapping.Type)
+            {
+                case 0: return $"GP:{mapping.GamepadAction}";
+                case 1: return $"KB:[{string.Join(",", mapping.KeyboardKeys)}]";
+                case 2: return $"MS:{mapping.MouseButton}";
+                default: return "?";
+            }
+        }
+
+        private void ApplyButtonMappingToUI(string buttonName, ButtonMapping mapping)
+        {
+            // Find the controls by name using reflection-like approach
+            var typeCombo = FindName($"LegionButton{buttonName}TypeComboBox") as ComboBox;
+            var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
+            var mouseCombo = FindName($"LegionButton{buttonName}MouseComboBox") as ComboBox;
+            var keyboardPanel = FindName($"LegionButton{buttonName}KeyboardPanel") as StackPanel;
+
+            if (mapping == null) mapping = new ButtonMapping();
+
+            // Set type dropdown
+            if (typeCombo != null)
+                typeCombo.SelectedIndex = mapping.Type;
+
+            // Show/hide appropriate controls
+            if (gamepadCombo != null)
+            {
+                gamepadCombo.Visibility = mapping.Type == 0 ? Visibility.Visible : Visibility.Collapsed;
+                if (mapping.Type == 0)
+                    gamepadCombo.SelectedIndex = mapping.GamepadAction;
+            }
+            if (mouseCombo != null)
+            {
+                mouseCombo.Visibility = mapping.Type == 2 ? Visibility.Visible : Visibility.Collapsed;
+                if (mapping.Type == 2)
+                    mouseCombo.SelectedIndex = mapping.MouseButton;
+            }
+            if (keyboardPanel != null)
+            {
+                keyboardPanel.Visibility = mapping.Type == 1 ? Visibility.Visible : Visibility.Collapsed;
+                if (mapping.Type == 1)
+                    UpdateKeyboardKeyTags(buttonName, mapping.KeyboardKeys);
+            }
+        }
+
+        private void UpdateKeyboardKeyTags(string buttonName, List<int> keys)
+        {
+            var keyTags = FindName($"LegionButton{buttonName}KeyTags") as StackPanel;
+            if (keyTags == null) return;
+
+            keyTags.Children.Clear();
+            if (keys == null) return;
+
+            foreach (var key in keys)
+            {
+                // Create a tag with the key name and X button to remove
+                var tagBorder = new Border
+                {
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 60, 60)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(6, 2, 6, 2),
+                    Margin = new Thickness(0, 0, 4, 0)
+                };
+
+                var tagPanel = new StackPanel { Orientation = Orientation.Horizontal };
+
+                var keyText = new TextBlock
+                {
+                    Text = GetKeyDisplayName(key),
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+
+                var removeButton = new Button
+                {
+                    Content = "×",
+                    FontSize = 10,
+                    Padding = new Thickness(4, 0, 0, 0),
+                    Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    BorderThickness = new Thickness(0),
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    MinWidth = 0,
+                    MinHeight = 0
+                };
+
+                // Capture the key code for the click handler
+                int keyCode = key;
+                string btnName = buttonName;
+                removeButton.Click += (s, e) => RemoveKeyFromButton(btnName, keyCode);
+
+                tagPanel.Children.Add(keyText);
+                tagPanel.Children.Add(removeButton);
+                tagBorder.Child = tagPanel;
+                keyTags.Children.Add(tagBorder);
+            }
+        }
+
+        private string GetKeyDisplayName(int keyCode)
+        {
+            // Map key codes to display names
+            var keyNames = new Dictionary<int, string>
+            {
+                { 0x04, "A" }, { 0x05, "B" }, { 0x06, "C" }, { 0x07, "D" }, { 0x08, "E" },
+                { 0x09, "F" }, { 0x0A, "G" }, { 0x0B, "H" }, { 0x0C, "I" }, { 0x0D, "J" },
+                { 0x0E, "K" }, { 0x0F, "L" }, { 0x10, "M" }, { 0x11, "N" }, { 0x12, "O" },
+                { 0x13, "P" }, { 0x14, "Q" }, { 0x15, "R" }, { 0x16, "S" }, { 0x17, "T" },
+                { 0x18, "U" }, { 0x19, "V" }, { 0x1A, "W" }, { 0x1B, "X" }, { 0x1C, "Y" },
+                { 0x1D, "Z" }, { 0x1E, "1" }, { 0x1F, "2" }, { 0x20, "3" }, { 0x21, "4" },
+                { 0x22, "5" }, { 0x23, "6" }, { 0x24, "7" }, { 0x25, "8" }, { 0x26, "9" },
+                { 0x27, "0" }, { 0x28, "Enter" }, { 0x29, "Esc" }, { 0x2A, "Backspace" },
+                { 0x2B, "Tab" }, { 0x2C, "Space" }, { 0x2D, "-" }, { 0x2E, "=" },
+                { 0x2F, "[" }, { 0x30, "]" }, { 0x31, "\\" }, { 0x33, ";" }, { 0x34, "'" },
+                { 0x35, "`" }, { 0x36, "," }, { 0x37, "." }, { 0x38, "/" }, { 0x39, "CapsLock" },
+                { 0x3A, "F1" }, { 0x3B, "F2" }, { 0x3C, "F3" }, { 0x3D, "F4" }, { 0x3E, "F5" },
+                { 0x3F, "F6" }, { 0x40, "F7" }, { 0x41, "F8" }, { 0x42, "F9" }, { 0x43, "F10" },
+                { 0x44, "F11" }, { 0x45, "F12" }, { 0x46, "PrtSc" }, { 0x47, "ScrLk" },
+                { 0x48, "Pause" }, { 0x49, "Ins" }, { 0x4A, "Home" }, { 0x4B, "PgUp" },
+                { 0x4C, "Del" }, { 0x4D, "End" }, { 0x4E, "PgDn" }, { 0x4F, "Right" },
+                { 0x50, "Left" }, { 0x51, "Down" }, { 0x52, "Up" }
+            };
+            return keyNames.TryGetValue(keyCode, out var name) ? name : $"0x{keyCode:X2}";
+        }
+
+        private ButtonMapping GetButtonMappingFromUI(string buttonName)
+        {
+            var mapping = new ButtonMapping();
+
+            var typeCombo = FindName($"LegionButton{buttonName}TypeComboBox") as ComboBox;
+            var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
+            var mouseCombo = FindName($"LegionButton{buttonName}MouseComboBox") as ComboBox;
+
+            mapping.Type = typeCombo?.SelectedIndex ?? 0;
+            mapping.GamepadAction = gamepadCombo?.SelectedIndex ?? 0;
+            mapping.MouseButton = mouseCombo?.SelectedIndex ?? 0;
+
+            // Get keyboard keys from the stored list (maintained separately)
+            var keyList = GetStoredKeyboardKeys(buttonName);
+            mapping.KeyboardKeys = keyList;
+
+            return mapping;
+        }
+
+        private Dictionary<string, List<int>> _buttonKeyboardKeys = new Dictionary<string, List<int>>();
+
+        private List<int> GetStoredKeyboardKeys(string buttonName)
+        {
+            if (_buttonKeyboardKeys.TryGetValue(buttonName, out var keys))
+                return new List<int>(keys);
+            return new List<int>();
+        }
+
+        private void SetStoredKeyboardKeys(string buttonName, List<int> keys)
+        {
+            _buttonKeyboardKeys[buttonName] = new List<int>(keys ?? new List<int>());
+        }
+
         private void ApplyControllerProfile(ControllerProfile profile)
         {
             isLoadingControllerProfile = true;
 
             try
             {
-                // Apply button mappings
-                if (LegionButtonY1ComboBox != null)
-                    LegionButtonY1ComboBox.SelectedIndex = profile.ButtonY1;
-                if (LegionButtonY2ComboBox != null)
-                    LegionButtonY2ComboBox.SelectedIndex = profile.ButtonY2;
-                if (LegionButtonY3ComboBox != null)
-                    LegionButtonY3ComboBox.SelectedIndex = profile.ButtonY3;
-                if (LegionButtonM2ComboBox != null)
-                    LegionButtonM2ComboBox.SelectedIndex = profile.ButtonM2;
-                if (LegionButtonM3ComboBox != null)
-                    LegionButtonM3ComboBox.SelectedIndex = profile.ButtonM3;
+                // Store keyboard keys before applying UI
+                SetStoredKeyboardKeys("Y1", profile.ButtonY1?.KeyboardKeys ?? new List<int>());
+                SetStoredKeyboardKeys("Y2", profile.ButtonY2?.KeyboardKeys ?? new List<int>());
+                SetStoredKeyboardKeys("Y3", profile.ButtonY3?.KeyboardKeys ?? new List<int>());
+                SetStoredKeyboardKeys("M1", profile.ButtonM1?.KeyboardKeys ?? new List<int>());
+                SetStoredKeyboardKeys("M2", profile.ButtonM2?.KeyboardKeys ?? new List<int>());
+                SetStoredKeyboardKeys("M3", profile.ButtonM3?.KeyboardKeys ?? new List<int>());
+
+                // Apply button mappings (with full type support)
+                ApplyButtonMappingToUI("Y1", profile.ButtonY1);
+                ApplyButtonMappingToUI("Y2", profile.ButtonY2);
+                ApplyButtonMappingToUI("Y3", profile.ButtonY3);
+                ApplyButtonMappingToUI("M1", profile.ButtonM1);
+                ApplyButtonMappingToUI("M2", profile.ButtonM2);
+                ApplyButtonMappingToUI("M3", profile.ButtonM3);
 
                 // Apply Nintendo layout
                 if (LegionNintendoLayoutToggle != null)
@@ -5019,6 +5540,14 @@ namespace XboxGamingBar
                 if (LegionGyroActivationButtonComboBox != null)
                     LegionGyroActivationButtonComboBox.SelectedIndex = profile.GyroActivationButton;
 
+                // Apply advanced gyro settings
+                if (LegionGyroDeadzoneSlider != null)
+                {
+                    LegionGyroDeadzoneSlider.Value = profile.GyroDeadzone;
+                    if (LegionGyroDeadzoneValue != null)
+                        LegionGyroDeadzoneValue.Text = profile.GyroDeadzone.ToString();
+                }
+
                 // Apply stick deadzones
                 if (LegionLeftStickDeadzoneSlider != null)
                 {
@@ -5033,7 +5562,10 @@ namespace XboxGamingBar
                         LegionRightStickDeadzoneValue.Text = $"{profile.RightStickDeadzone}%";
                 }
 
-                Logger.Info($"Applied controller profile: Y1={profile.ButtonY1}, Y2={profile.ButtonY2}, Y3={profile.ButtonY3}, M2={profile.ButtonM2}, M3={profile.ButtonM3}, Nintendo={profile.NintendoLayout}, Vib={profile.VibrationLevel}, VibMode={profile.VibrationMode}, GyroTarget={profile.GyroTarget}, LDZ={profile.LeftStickDeadzone}, RDZ={profile.RightStickDeadzone}");
+                Logger.Info($"Applied controller profile: Y1={FormatButtonMapping(profile.ButtonY1)}, Y2={FormatButtonMapping(profile.ButtonY2)}, Y3={FormatButtonMapping(profile.ButtonY3)}, M1={FormatButtonMapping(profile.ButtonM1)}, M2={FormatButtonMapping(profile.ButtonM2)}, M3={FormatButtonMapping(profile.ButtonM3)}, Nintendo={profile.NintendoLayout}, Vib={profile.VibrationLevel}, VibMode={profile.VibrationMode}, GyroTarget={profile.GyroTarget}, LDZ={profile.LeftStickDeadzone}, RDZ={profile.RightStickDeadzone}");
+
+                // Send button mappings to helper
+                SendButtonMappingsToHelper(profile);
             }
             finally
             {
@@ -5045,11 +5577,12 @@ namespace XboxGamingBar
         {
             return new ControllerProfile
             {
-                ButtonY1 = LegionButtonY1ComboBox?.SelectedIndex ?? 0,
-                ButtonY2 = LegionButtonY2ComboBox?.SelectedIndex ?? 0,
-                ButtonY3 = LegionButtonY3ComboBox?.SelectedIndex ?? 0,
-                ButtonM2 = LegionButtonM2ComboBox?.SelectedIndex ?? 0,
-                ButtonM3 = LegionButtonM3ComboBox?.SelectedIndex ?? 0,
+                ButtonY1 = GetButtonMappingFromUI("Y1"),
+                ButtonY2 = GetButtonMappingFromUI("Y2"),
+                ButtonY3 = GetButtonMappingFromUI("Y3"),
+                ButtonM1 = GetButtonMappingFromUI("M1"),
+                ButtonM2 = GetButtonMappingFromUI("M2"),
+                ButtonM3 = GetButtonMappingFromUI("M3"),
                 NintendoLayout = LegionNintendoLayoutToggle?.IsOn ?? false,
                 VibrationLevel = LegionVibrationComboBox?.SelectedIndex ?? 2,
                 VibrationMode = (LegionVibrationModeComboBox?.SelectedIndex ?? 0) + 1, // Index is 0-based, mode is 1-based
@@ -5062,6 +5595,8 @@ namespace XboxGamingBar
                 GyroMappingType = LegionGyroMappingTypeComboBox?.SelectedIndex ?? 0,
                 GyroActivationMode = LegionGyroActivationModeComboBox?.SelectedIndex ?? 0,
                 GyroActivationButton = LegionGyroActivationButtonComboBox?.SelectedIndex ?? 0,
+                // Advanced gyro settings
+                GyroDeadzone = (int)(LegionGyroDeadzoneSlider?.Value ?? 10),
                 // Stick deadzones
                 LeftStickDeadzone = (int)(LegionLeftStickDeadzoneSlider?.Value ?? 4),
                 RightStickDeadzone = (int)(LegionRightStickDeadzoneSlider?.Value ?? 4)
@@ -5147,18 +5682,44 @@ namespace XboxGamingBar
             if (isLoadingControllerProfile || isSwitchingControllerProfile)
                 return;
 
-            // Determine which profile to save to
+            // Get current profile from UI
+            ControllerProfile profile;
             if (LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName))
             {
                 // Save to game controller profile
                 gameControllerProfile = GetCurrentControllerProfileFromUI();
                 SaveControllerProfileToStorage($"Game_{currentGameName}", gameControllerProfile);
+                profile = gameControllerProfile;
             }
             else
             {
                 // Save to global controller profile
                 globalControllerProfile = GetCurrentControllerProfileFromUI();
                 SaveControllerProfileToStorage("Global", globalControllerProfile);
+                profile = globalControllerProfile;
+            }
+
+            // Send button mappings to helper
+            SendButtonMappingsToHelper(profile);
+        }
+
+        /// <summary>
+        /// Sends all button mappings to the helper via IPC
+        /// </summary>
+        private void SendButtonMappingsToHelper(ControllerProfile profile)
+        {
+            try
+            {
+                legionButtonY1?.SendMapping(profile.ButtonY1?.ToJson() ?? "");
+                legionButtonY2?.SendMapping(profile.ButtonY2?.ToJson() ?? "");
+                legionButtonY3?.SendMapping(profile.ButtonY3?.ToJson() ?? "");
+                legionButtonM1?.SendMapping(profile.ButtonM1?.ToJson() ?? "");
+                legionButtonM2?.SendMapping(profile.ButtonM2?.ToJson() ?? "");
+                legionButtonM3?.SendMapping(profile.ButtonM3?.ToJson() ?? "");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending button mappings: {ex.Message}");
             }
         }
 
@@ -5174,6 +5735,9 @@ namespace XboxGamingBar
                     LegionGyroSensitivityXValue.Text = ((int)LegionGyroSensitivityXSlider.Value).ToString();
                 else if (sender == LegionGyroSensitivityYSlider && LegionGyroSensitivityYValue != null)
                     LegionGyroSensitivityYValue.Text = ((int)LegionGyroSensitivityYSlider.Value).ToString();
+                // Advanced gyro sliders
+                else if (sender == LegionGyroDeadzoneSlider && LegionGyroDeadzoneValue != null)
+                    LegionGyroDeadzoneValue.Text = ((int)LegionGyroDeadzoneSlider.Value).ToString();
                 // Stick deadzone sliders
                 else if (sender == LegionLeftStickDeadzoneSlider && LegionLeftStickDeadzoneValue != null)
                     LegionLeftStickDeadzoneValue.Text = $"{(int)LegionLeftStickDeadzoneSlider.Value}%";
@@ -5380,6 +5944,11 @@ namespace XboxGamingBar
                     GameProfileTDPLabel.Visibility = tdpVisibility;
                     GameProfileTDPText.Visibility = tdpVisibility;
                     GameProfileTDPText.Text = $"{gameProfile.TDP}W";
+
+                    // TDP Boost (saved with TDP)
+                    GameProfileTDPBoostLabel.Visibility = tdpVisibility;
+                    GameProfileTDPBoostText.Visibility = tdpVisibility;
+                    GameProfileTDPBoostText.Text = gameProfile.TDPBoostEnabled ? "On" : "Off";
 
                     // CPU Boost
                     GameProfileCPUBoostLabel.Visibility = cpuBoostVisibility;
@@ -5818,6 +6387,12 @@ namespace XboxGamingBar
                         AddTextBlock(acDcGrid, rowIndex, 1, $"{gameAC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         AddTextBlock(acDcGrid, rowIndex, 2, $"{gameDC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
+
+                        // TDP Boost (saved with TDP)
+                        AddTextBlock(acDcGrid, rowIndex, 0, "TDP Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.TDPBoostEnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.TDPBoostEnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
                     }
 
                     // Boost
@@ -5920,6 +6495,11 @@ namespace XboxGamingBar
                     {
                         AddTextBlock(singleGrid, rowIndex, 0, "TDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
                         AddTextBlock(singleGrid, rowIndex, 1, $"{game.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        rowIndex++;
+
+                        // TDP Boost (saved with TDP)
+                        AddTextBlock(singleGrid, rowIndex, 0, "TDP Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, game.TDPBoostEnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
                         rowIndex++;
                     }
 
@@ -6246,6 +6826,43 @@ namespace XboxGamingBar
                 NavigateToNextTab();
                 e.Handled = true;
             }
+            // Handle D-pad down from nav items to focus content area (for overflow menu items)
+            else if (e.Key == VirtualKey.GamepadDPadDown)
+            {
+                var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
+                // Check if focus is on a NavigationViewItem or within the nav area
+                if (focusedElement != null && IsInNavigationArea(focusedElement))
+                {
+                    // Mark as handled immediately to prevent default XY navigation
+                    e.Handled = true;
+
+                    // Use TryMoveFocus to move to the first focusable element downward
+                    FocusManager.TryMoveFocus(FocusNavigationDirection.Down);
+                }
+            }
+        }
+
+        private bool IsInNavigationArea(FrameworkElement element)
+        {
+            // Check if any of our nav items has focus
+            // This works regardless of whether the item is in the main bar or overflow menu
+            if (QuickNavItem.FocusState != FocusState.Unfocused) return true;
+            if (PerformanceNavItem.FocusState != FocusState.Unfocused) return true;
+            if (ProfilesNavItem.FocusState != FocusState.Unfocused) return true;
+            if (GraphicsNavItem.FocusState != FocusState.Unfocused) return true;
+            if (ScalingNavItem.FocusState != FocusState.Unfocused) return true;
+            if (LegionNavItem.FocusState != FocusState.Unfocused) return true;
+            if (SystemNavItem.FocusState != FocusState.Unfocused) return true;
+
+            // Fallback: walk visual tree for other nav-related elements
+            var current = element;
+            while (current != null)
+            {
+                if (current is NavigationViewItem)
+                    return true;
+                current = VisualTreeHelper.GetParent(current) as FrameworkElement;
+            }
+            return false;
         }
 
         private void NavigateToPreviousTab()
@@ -8180,31 +8797,38 @@ namespace XboxGamingBar
                 if (AutoTDPTargetFPSSlider != null) AutoTDPTargetFPSSlider.IsEnabled = false;
                 if (AutoTDPMinSlider != null) AutoTDPMinSlider.IsEnabled = false;
                 if (AutoTDPMaxSlider != null) AutoTDPMaxSlider.IsEnabled = false;
-
-                Logger.Debug("TDP slider, TDP Boost, and AutoTDP disabled - not in Custom mode");
-
-                // Update XY focus to skip disabled TDP slider
-                // TDPModeComboBox -> AutoTDPToggle (skip TDPSlider)
-                if (TDPModeComboBox != null && AutoTDPToggle != null)
+                if (StickyTDPToggle != null)
                 {
-                    TDPModeComboBox.XYFocusDown = AutoTDPToggle;
-                    AutoTDPToggle.XYFocusUp = TDPModeComboBox;
-                    Logger.Debug("XY focus updated to skip disabled TDP slider");
+                    StickyTDPToggle.IsEnabled = false;
+                    StickyTDPToggle.IsOn = false; // Turn off when switching to preset mode
                 }
+                if (StickyTDPIntervalSlider != null) StickyTDPIntervalSlider.IsEnabled = false;
+
+                // Update XY focus to skip disabled controls
+                // TDPModeComboBox -> OSPowerModeComboBox (skip all TDP controls)
+                if (TDPModeComboBox != null && OSPowerModeComboBox != null)
+                {
+                    TDPModeComboBox.XYFocusDown = OSPowerModeComboBox;
+                    OSPowerModeComboBox.XYFocusUp = TDPModeComboBox;
+                }
+
+                Logger.Debug("TDP slider, TDP Boost, AutoTDP, and Sticky TDP disabled - not in Custom mode");
             }
             else
             {
                 // In Custom mode, enable if tdp property is ready
                 TDPSlider.IsEnabled = tdp != null;
 
-                // Re-enable TDP Boost and AutoTDP controls in Custom mode
+                // Re-enable TDP Boost, AutoTDP, and Sticky TDP controls in Custom mode
                 if (TDPBoostToggle != null) TDPBoostToggle.IsEnabled = true;
                 if (AutoTDPToggle != null) AutoTDPToggle.IsEnabled = true;
                 if (AutoTDPTargetFPSSlider != null) AutoTDPTargetFPSSlider.IsEnabled = true;
                 if (AutoTDPMinSlider != null) AutoTDPMinSlider.IsEnabled = true;
                 if (AutoTDPMaxSlider != null) AutoTDPMaxSlider.IsEnabled = true;
+                if (StickyTDPToggle != null) StickyTDPToggle.IsEnabled = true;
+                if (StickyTDPIntervalSlider != null) StickyTDPIntervalSlider.IsEnabled = true;
 
-                Logger.Debug($"TDP slider, TDP Boost, and AutoTDP enabled in Custom mode: {TDPSlider.IsEnabled}");
+                Logger.Debug($"TDP slider, TDP Boost, AutoTDP, and Sticky TDP enabled in Custom mode: {TDPSlider.IsEnabled}");
 
                 // CRITICAL FIX: Sync TDPProperty.Value with the slider's current visual value
                 // When TDP sync is skipped (preset modes), TDPProperty.Value stays at initial value (4).
@@ -8222,15 +8846,21 @@ namespace XboxGamingBar
                     Logger.Info($"Custom mode enabled - synced TDP property to slider value: {currentSliderValue}W");
                 }
 
-                // Restore normal XY focus chain
-                // TDPModeComboBox -> TDPSlider -> AutoTDPToggle
-                if (TDPModeComboBox != null && AutoTDPToggle != null)
+                // Restore normal XY focus chain in Custom mode
+                // TDPModeComboBox -> TDPSlider -> TDPBoostToggle -> AutoTDPToggle -> StickyTDPToggle -> OSPowerModeComboBox
+                if (TDPModeComboBox != null && OSPowerModeComboBox != null)
                 {
                     TDPModeComboBox.XYFocusDown = TDPSlider;
                     TDPSlider.XYFocusUp = TDPModeComboBox;
-                    TDPSlider.XYFocusDown = AutoTDPToggle;
-                    AutoTDPToggle.XYFocusUp = TDPSlider;
-                    Logger.Debug("XY focus restored to include TDP slider");
+                    TDPSlider.XYFocusDown = TDPBoostToggle;
+                    TDPBoostToggle.XYFocusUp = TDPSlider;
+                    TDPBoostToggle.XYFocusDown = AutoTDPToggle;
+                    AutoTDPToggle.XYFocusUp = TDPBoostToggle;
+                    AutoTDPToggle.XYFocusDown = StickyTDPToggle;
+                    StickyTDPToggle.XYFocusUp = AutoTDPToggle;
+                    StickyTDPToggle.XYFocusDown = OSPowerModeComboBox;
+                    OSPowerModeComboBox.XYFocusUp = StickyTDPToggle;
+                    Logger.Debug("XY focus restored for Custom mode");
                 }
             }
         }
