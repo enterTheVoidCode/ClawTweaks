@@ -5473,9 +5473,9 @@ namespace XboxGamingBar
             // Index 58-65 are modifier keys (0xE0-0xE7)
 
             if (index <= 0) return 0;
-            if (index <= 26) return 0x03 + index;  // A-Z: 0x04-0x1D
-            if (index <= 36) return 0x17 + index;  // 1-0: 0x1E-0x27
-            if (index <= 48) return 0x27 + index;  // F1-F12: 0x3A-0x45
+            if (index <= 26) return 0x04 + (index - 1);   // A-Z: indices 1-26 → 0x04-0x1D
+            if (index <= 36) return 0x1E + (index - 27);  // 1-0: indices 27-36 → 0x1E-0x27
+            if (index <= 48) return 0x3A + (index - 37);  // F1-F12: indices 37-48 → 0x3A-0x45
             if (index == 49) return 0x28;  // Enter
             if (index == 50) return 0x29;  // Esc
             if (index == 51) return 0x2C;  // Space
