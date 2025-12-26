@@ -69,6 +69,12 @@ namespace XboxGamingBar
         public int LegionPerformanceMode { get; set; } = 2;
         // TDP Boost toggle state (per-profile)
         public bool TDPBoostEnabled { get; set; } = false;
+        // HDR and Resolution settings (per-profile)
+        public bool HDREnabled { get; set; } = false;
+        public string Resolution { get; set; } = "";
+        // Sticky TDP settings (per-profile)
+        public bool StickyTDPEnabled { get; set; } = true;
+        public int StickyTDPInterval { get; set; } = 5;
 
         public PerformanceProfile Clone()
         {
@@ -98,7 +104,11 @@ namespace XboxGamingBar
                 AutoTDPMaxTDP = this.AutoTDPMaxTDP,
                 OSPowerMode = this.OSPowerMode,
                 LegionPerformanceMode = this.LegionPerformanceMode,
-                TDPBoostEnabled = this.TDPBoostEnabled
+                TDPBoostEnabled = this.TDPBoostEnabled,
+                HDREnabled = this.HDREnabled,
+                Resolution = this.Resolution,
+                StickyTDPEnabled = this.StickyTDPEnabled,
+                StickyTDPInterval = this.StickyTDPInterval
             };
         }
     }
@@ -216,6 +226,13 @@ namespace XboxGamingBar
         public int LeftStickDeadzone { get; set; } = 4;    // Default 4%
         public int RightStickDeadzone { get; set; } = 4;
 
+        // Joystick as mouse (per-game profile)
+        public int JoystickAsMouseMode { get; set; } = 0;  // 0=Disabled, 1=Left Stick, 2=Right Stick
+        public int JoystickMouseSens { get; set; } = 50;   // 10-100
+
+        // Gamepad button remapping (per-game profile)
+        public Dictionary<string, ButtonMapping> GamepadButtonMappings { get; set; } = new Dictionary<string, ButtonMapping>();
+
         public ControllerProfile Clone()
         {
             return new ControllerProfile
@@ -242,7 +259,14 @@ namespace XboxGamingBar
                 GyroDeadzone = this.GyroDeadzone,
                 // Stick deadzones
                 LeftStickDeadzone = this.LeftStickDeadzone,
-                RightStickDeadzone = this.RightStickDeadzone
+                RightStickDeadzone = this.RightStickDeadzone,
+                // Joystick as mouse
+                JoystickAsMouseMode = this.JoystickAsMouseMode,
+                JoystickMouseSens = this.JoystickMouseSens,
+                // Gamepad button mappings
+                GamepadButtonMappings = this.GamepadButtonMappings.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value.Clone())
             };
         }
     }
@@ -420,6 +444,14 @@ namespace XboxGamingBar
         // Touchpad vibration property (GLOBAL setting)
         private readonly LegionTouchpadVibrationProperty legionTouchpadVibration;
 
+        // Joystick as mouse properties
+        private readonly LegionJoystickAsMouseModeProperty legionJoystickAsMouseMode;
+        private readonly LegionJoystickMouseSensProperty legionJoystickMouseSens;
+
+        // Gamepad button mapping property
+        private readonly LegionGamepadMappingProperty legionGamepadMapping;
+        private Dictionary<string, ButtonMapping> gamepadButtonMappings = new Dictionary<string, ButtonMapping>();
+
         // Settings properties
         private readonly UseManufacturerWMIProperty useManufacturerWMI;
 
@@ -510,6 +542,8 @@ namespace XboxGamingBar
         private bool _saveFPSLimit = true;
         private bool _saveAutoTDP = true;
         private bool _saveOSPowerMode = true;
+        private bool _saveHDRResolution = false;
+        private bool _saveStickyTDP = false;
 
         private bool SaveTDP => _saveTDP;
         private bool SaveCPUBoost => _saveCPUBoost;
@@ -519,6 +553,8 @@ namespace XboxGamingBar
         private bool SaveFPSLimit => _saveFPSLimit;
         private bool SaveAutoTDP => _saveAutoTDP;
         private bool SaveOSPowerMode => _saveOSPowerMode;
+        private bool SaveHDRResolution => _saveHDRResolution;
+        private bool SaveStickyTDP => _saveStickyTDP;
 
         private bool isLoadingProfileSettings = false;
 
@@ -695,6 +731,13 @@ namespace XboxGamingBar
 
             // Touchpad vibration property (GLOBAL setting)
             legionTouchpadVibration = new LegionTouchpadVibrationProperty(LegionTouchpadVibrationToggle, this);
+
+            // Joystick as mouse properties
+            legionJoystickAsMouseMode = new LegionJoystickAsMouseModeProperty(LegionJoystickAsMouseComboBox, LegionJoystickMouseSensGrid, this);
+            legionJoystickMouseSens = new LegionJoystickMouseSensProperty(LegionJoystickMouseSensSlider, this);
+
+            // Gamepad button mapping property
+            legionGamepadMapping = new LegionGamepadMappingProperty();
 
             // Settings properties
             useManufacturerWMI = new UseManufacturerWMIProperty(UseManufacturerWMIToggle, this);
@@ -1719,7 +1762,9 @@ namespace XboxGamingBar
             InitializeButtonMappingEvents("M3");
 
             if (LegionNintendoLayoutToggle != null)
-                LegionNintendoLayoutToggle.Toggled += ControllerSettingChanged;
+                LegionNintendoLayoutToggle.Toggled += LegionNintendoLayout_Toggled;
+            if (LegionDesktopControlsToggle != null)
+                LegionDesktopControlsToggle.Toggled += LegionDesktopControls_Toggled;
             if (LegionVibrationComboBox != null)
                 LegionVibrationComboBox.SelectionChanged += ControllerSettingChanged;
             if (LegionVibrationModeComboBox != null)
@@ -1752,6 +1797,26 @@ namespace XboxGamingBar
                 LegionLeftStickDeadzoneSlider.ValueChanged += ControllerSettingChanged;
             if (LegionRightStickDeadzoneSlider != null)
                 LegionRightStickDeadzoneSlider.ValueChanged += ControllerSettingChanged;
+
+            // Joystick as mouse (per-game profile)
+            if (LegionJoystickAsMouseComboBox != null)
+                LegionJoystickAsMouseComboBox.SelectionChanged += ControllerSettingChanged;
+            if (LegionJoystickMouseSensSlider != null)
+                LegionJoystickMouseSensSlider.ValueChanged += ControllerSettingChanged;
+
+            // Gamepad button remapping (per-game profile)
+            if (LegionGamepadButtonSelectorComboBox != null)
+                LegionGamepadButtonSelectorComboBox.SelectionChanged += LegionGamepadButtonSelector_SelectionChanged;
+            if (LegionGamepadTypeComboBox != null)
+                LegionGamepadTypeComboBox.SelectionChanged += LegionGamepadMapping_Changed;
+            if (LegionGamepadActionComboBox != null)
+                LegionGamepadActionComboBox.SelectionChanged += LegionGamepadMapping_Changed;
+            if (LegionGamepadMouseComboBox != null)
+                LegionGamepadMouseComboBox.SelectionChanged += LegionGamepadMapping_Changed;
+            if (LegionGamepadKeyComboBox != null)
+                LegionGamepadKeyComboBox.SelectionChanged += LegionGamepadKey_SelectionChanged;
+            if (LegionGamepadResetAllButton != null)
+                LegionGamepadResetAllButton.Click += LegionGamepadResetAll_Click;
         }
 
         private void SettingChanged(object sender, object e)
@@ -4637,6 +4702,18 @@ namespace XboxGamingBar
             {
                 profile.TDPBoostEnabled = TDPBoostToggle.IsOn;
             }
+            // HDR and Resolution
+            if (SaveHDRResolution)
+            {
+                profile.HDREnabled = HDRToggle?.IsOn ?? false;
+                profile.Resolution = ResolutionComboBox?.SelectedItem?.ToString() ?? "";
+            }
+            // Sticky TDP
+            if (SaveStickyTDP && StickyTDPToggle != null)
+            {
+                profile.StickyTDPEnabled = StickyTDPToggle.IsOn;
+                profile.StickyTDPInterval = (int)(StickyTDPIntervalSlider?.Value ?? 5);
+            }
 
             // Persist to storage
             Logger.Info($"Saving profile {profileName}: TDP={profile.TDP}W");
@@ -4973,6 +5050,64 @@ namespace XboxGamingBar
                     UpdateTDPSliderEnabledState();
                 }
 
+                // HDR and Resolution
+                if (SaveHDRResolution)
+                {
+                    // Apply HDR setting
+                    if (HDRToggle != null && hdrSupported?.Value == true)
+                    {
+                        HDRToggle.IsOn = profile.HDREnabled;
+                        hdrEnabled?.SetValue(profile.HDREnabled);
+                    }
+                    // Apply Resolution setting
+                    if (ResolutionComboBox != null && !string.IsNullOrEmpty(profile.Resolution))
+                    {
+                        // Find and select matching resolution
+                        for (int i = 0; i < ResolutionComboBox.Items.Count; i++)
+                        {
+                            if (ResolutionComboBox.Items[i]?.ToString() == profile.Resolution)
+                            {
+                                ResolutionComboBox.SelectedIndex = i;
+                                resolution?.SetValue(profile.Resolution);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Sticky TDP
+                if (SaveStickyTDP && StickyTDPToggle != null)
+                {
+                    isLoadingStickyTDPSettings = true;
+                    try
+                    {
+                        StickyTDPToggle.IsOn = profile.StickyTDPEnabled;
+                        if (StickyTDPIntervalSlider != null)
+                        {
+                            StickyTDPIntervalSlider.Value = profile.StickyTDPInterval;
+                            stickyTDPCheckIntervalSeconds = profile.StickyTDPInterval;
+                        }
+                        if (StickyTDPIntervalValue != null)
+                        {
+                            StickyTDPIntervalValue.Text = $"{profile.StickyTDPInterval}s";
+                        }
+                        // Update timer state based on profile
+                        if (profile.StickyTDPEnabled)
+                        {
+                            targetTDPLimit = profile.TDP;
+                            StartStickyTDPTimer();
+                        }
+                        else
+                        {
+                            StopStickyTDPTimer();
+                        }
+                    }
+                    finally
+                    {
+                        isLoadingStickyTDPSettings = false;
+                    }
+                }
+
                 // Update profile display to show correct TDP mode in Profiles tab
                 UpdateProfileDisplay();
             }
@@ -5048,6 +5183,10 @@ namespace XboxGamingBar
             container.Values["OSPowerMode"] = profile.OSPowerMode;
             container.Values["LegionPerformanceMode"] = profile.LegionPerformanceMode;
             container.Values["TDPBoostEnabled"] = profile.TDPBoostEnabled;
+            container.Values["HDREnabled"] = profile.HDREnabled;
+            container.Values["Resolution"] = profile.Resolution;
+            container.Values["StickyTDPEnabled"] = profile.StickyTDPEnabled;
+            container.Values["StickyTDPInterval"] = profile.StickyTDPInterval;
         }
 
         private void LoadProfileFromStorage(string profileName, PerformanceProfile profile)
@@ -5087,6 +5226,10 @@ namespace XboxGamingBar
                     profile.LegionPerformanceMode = (int)container.Values["LegionPerformanceMode"];
                 }
                 profile.TDPBoostEnabled = container.Values.ContainsKey("TDPBoostEnabled") ? (bool)container.Values["TDPBoostEnabled"] : false;
+                profile.HDREnabled = container.Values.ContainsKey("HDREnabled") ? (bool)container.Values["HDREnabled"] : false;
+                profile.Resolution = container.Values.ContainsKey("Resolution") ? (string)container.Values["Resolution"] : "";
+                profile.StickyTDPEnabled = container.Values.ContainsKey("StickyTDPEnabled") ? (bool)container.Values["StickyTDPEnabled"] : true;
+                profile.StickyTDPInterval = container.Values.ContainsKey("StickyTDPInterval") ? (int)container.Values["StickyTDPInterval"] : 5;
 
                 Logger.Info($"Loaded {profileName} profile from storage");
             }
@@ -5133,6 +5276,21 @@ namespace XboxGamingBar
             // Stick deadzones
             container.Values["LeftStickDeadzone"] = profile.LeftStickDeadzone;
             container.Values["RightStickDeadzone"] = profile.RightStickDeadzone;
+
+            // Joystick as mouse
+            container.Values["JoystickAsMouseMode"] = profile.JoystickAsMouseMode;
+            container.Values["JoystickMouseSens"] = profile.JoystickMouseSens;
+
+            // Gamepad button mappings (serialize dictionary as JSON)
+            if (profile.GamepadButtonMappings != null && profile.GamepadButtonMappings.Count > 0)
+            {
+                var gamepadMappingsJson = SerializeGamepadButtonMappings(profile.GamepadButtonMappings);
+                container.Values["GamepadButtonMappings"] = gamepadMappingsJson;
+            }
+            else
+            {
+                container.Values["GamepadButtonMappings"] = "";
+            }
 
             Logger.Info($"Saved controller profile: {profileName}");
         }
@@ -5192,6 +5350,28 @@ namespace XboxGamingBar
                 // Stick deadzones
                 profile.LeftStickDeadzone = container.Values.ContainsKey("LeftStickDeadzone") ? (int)container.Values["LeftStickDeadzone"] : 4;
                 profile.RightStickDeadzone = container.Values.ContainsKey("RightStickDeadzone") ? (int)container.Values["RightStickDeadzone"] : 4;
+
+                // Joystick as mouse
+                profile.JoystickAsMouseMode = container.Values.ContainsKey("JoystickAsMouseMode") ? (int)container.Values["JoystickAsMouseMode"] : 0;
+                profile.JoystickMouseSens = container.Values.ContainsKey("JoystickMouseSens") ? (int)container.Values["JoystickMouseSens"] : 50;
+
+                // Gamepad button mappings (deserialize from JSON)
+                profile.GamepadButtonMappings = new Dictionary<string, ButtonMapping>();
+                if (container.Values.ContainsKey("GamepadButtonMappings"))
+                {
+                    var gamepadMappingsJson = container.Values["GamepadButtonMappings"] as string;
+                    if (!string.IsNullOrEmpty(gamepadMappingsJson))
+                    {
+                        try
+                        {
+                            profile.GamepadButtonMappings = DeserializeGamepadButtonMappings(gamepadMappingsJson);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"Error loading gamepad button mappings: {ex.Message}");
+                        }
+                    }
+                }
 
                 Logger.Info($"Loaded controller profile: {profileName}");
             }
@@ -5290,6 +5470,7 @@ namespace XboxGamingBar
             // Index 37-48 are F1-F12 (0x3A-0x45)
             // Index 49-53 are Enter, Esc, Space, Tab, Backspace (0x28-0x2C)
             // Index 54-57 are Up, Down, Left, Right (0x52, 0x51, 0x50, 0x4F)
+            // Index 58-65 are modifier keys (0xE0-0xE7)
 
             if (index <= 0) return 0;
             if (index <= 26) return 0x03 + index;  // A-Z: 0x04-0x1D
@@ -5304,6 +5485,15 @@ namespace XboxGamingBar
             if (index == 55) return 0x51;  // Down
             if (index == 56) return 0x50;  // Left
             if (index == 57) return 0x4F;  // Right
+            // Modifier keys
+            if (index == 58) return 0xE0;  // LCtrl
+            if (index == 59) return 0xE1;  // LShift
+            if (index == 60) return 0xE2;  // LAlt
+            if (index == 61) return 0xE3;  // LMeta
+            if (index == 62) return 0xE4;  // RCtrl
+            if (index == 63) return 0xE5;  // RShift
+            if (index == 64) return 0xE6;  // RAlt
+            if (index == 65) return 0xE7;  // RMeta
 
             return 0;
         }
@@ -5444,7 +5634,10 @@ namespace XboxGamingBar
                 { 0x44, "F11" }, { 0x45, "F12" }, { 0x46, "PrtSc" }, { 0x47, "ScrLk" },
                 { 0x48, "Pause" }, { 0x49, "Ins" }, { 0x4A, "Home" }, { 0x4B, "PgUp" },
                 { 0x4C, "Del" }, { 0x4D, "End" }, { 0x4E, "PgDn" }, { 0x4F, "Right" },
-                { 0x50, "Left" }, { 0x51, "Down" }, { 0x52, "Up" }
+                { 0x50, "Left" }, { 0x51, "Down" }, { 0x52, "Up" },
+                // Modifier keys
+                { 0xE0, "LCtrl" }, { 0xE1, "LShift" }, { 0xE2, "LAlt" }, { 0xE3, "LMeta" },
+                { 0xE4, "RCtrl" }, { 0xE5, "RShift" }, { 0xE6, "RAlt" }, { 0xE7, "RMeta" }
             };
             return keyNames.TryGetValue(keyCode, out var name) ? name : $"0x{keyCode:X2}";
         }
@@ -5562,7 +5755,38 @@ namespace XboxGamingBar
                         LegionRightStickDeadzoneValue.Text = $"{profile.RightStickDeadzone}%";
                 }
 
-                Logger.Info($"Applied controller profile: Y1={FormatButtonMapping(profile.ButtonY1)}, Y2={FormatButtonMapping(profile.ButtonY2)}, Y3={FormatButtonMapping(profile.ButtonY3)}, M1={FormatButtonMapping(profile.ButtonM1)}, M2={FormatButtonMapping(profile.ButtonM2)}, M3={FormatButtonMapping(profile.ButtonM3)}, Nintendo={profile.NintendoLayout}, Vib={profile.VibrationLevel}, VibMode={profile.VibrationMode}, GyroTarget={profile.GyroTarget}, LDZ={profile.LeftStickDeadzone}, RDZ={profile.RightStickDeadzone}");
+                // Apply joystick as mouse settings
+                if (LegionJoystickAsMouseComboBox != null)
+                {
+                    LegionJoystickAsMouseComboBox.SelectedIndex = profile.JoystickAsMouseMode;
+                    // Show/hide sensitivity grid based on mode
+                    if (LegionJoystickMouseSensGrid != null)
+                        LegionJoystickMouseSensGrid.Visibility = profile.JoystickAsMouseMode > 0
+                            ? Windows.UI.Xaml.Visibility.Visible
+                            : Windows.UI.Xaml.Visibility.Collapsed;
+                }
+                if (LegionJoystickMouseSensSlider != null)
+                {
+                    LegionJoystickMouseSensSlider.Value = profile.JoystickMouseSens;
+                    if (LegionJoystickMouseSensValue != null)
+                        LegionJoystickMouseSensValue.Text = profile.JoystickMouseSens.ToString();
+                }
+
+                // Apply gamepad button mappings
+                gamepadButtonMappings = profile.GamepadButtonMappings?.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value.Clone()) ?? new Dictionary<string, ButtonMapping>();
+
+                // Update UI to show current selected button's mapping
+                if (LegionGamepadButtonSelectorComboBox != null && LegionGamepadButtonSelectorComboBox.SelectedIndex >= 0)
+                {
+                    LoadGamepadMappingToUI(GetGamepadButtonNameFromIndex(LegionGamepadButtonSelectorComboBox.SelectedIndex));
+                }
+
+                // Update the remapped buttons summary display
+                UpdateGamepadMappingSummary();
+
+                Logger.Info($"Applied controller profile: Y1={FormatButtonMapping(profile.ButtonY1)}, Y2={FormatButtonMapping(profile.ButtonY2)}, Y3={FormatButtonMapping(profile.ButtonY3)}, M1={FormatButtonMapping(profile.ButtonM1)}, M2={FormatButtonMapping(profile.ButtonM2)}, M3={FormatButtonMapping(profile.ButtonM3)}, Nintendo={profile.NintendoLayout}, Vib={profile.VibrationLevel}, VibMode={profile.VibrationMode}, GyroTarget={profile.GyroTarget}, LDZ={profile.LeftStickDeadzone}, RDZ={profile.RightStickDeadzone}, GamepadMappings={profile.GamepadButtonMappings?.Count ?? 0}");
 
                 // Send button mappings to helper
                 SendButtonMappingsToHelper(profile);
@@ -5599,7 +5823,14 @@ namespace XboxGamingBar
                 GyroDeadzone = (int)(LegionGyroDeadzoneSlider?.Value ?? 10),
                 // Stick deadzones
                 LeftStickDeadzone = (int)(LegionLeftStickDeadzoneSlider?.Value ?? 4),
-                RightStickDeadzone = (int)(LegionRightStickDeadzoneSlider?.Value ?? 4)
+                RightStickDeadzone = (int)(LegionRightStickDeadzoneSlider?.Value ?? 4),
+                // Joystick as mouse
+                JoystickAsMouseMode = LegionJoystickAsMouseComboBox?.SelectedIndex ?? 0,
+                JoystickMouseSens = (int)(LegionJoystickMouseSensSlider?.Value ?? 50),
+                // Gamepad button mappings
+                GamepadButtonMappings = gamepadButtonMappings.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value.Clone())
             };
         }
 
@@ -5716,6 +5947,17 @@ namespace XboxGamingBar
                 legionButtonM1?.SendMapping(profile.ButtonM1?.ToJson() ?? "");
                 legionButtonM2?.SendMapping(profile.ButtonM2?.ToJson() ?? "");
                 legionButtonM3?.SendMapping(profile.ButtonM3?.ToJson() ?? "");
+
+                // Send gamepad button mappings as JSON dictionary
+                if (profile.GamepadButtonMappings != null && profile.GamepadButtonMappings.Count > 0)
+                {
+                    var gamepadMappingsJson = SerializeGamepadButtonMappings(profile.GamepadButtonMappings);
+                    legionGamepadMapping?.SetValue(gamepadMappingsJson);
+                }
+                else
+                {
+                    legionGamepadMapping?.SetValue("");
+                }
             }
             catch (Exception ex)
             {
@@ -5743,12 +5985,661 @@ namespace XboxGamingBar
                     LegionLeftStickDeadzoneValue.Text = $"{(int)LegionLeftStickDeadzoneSlider.Value}%";
                 else if (sender == LegionRightStickDeadzoneSlider && LegionRightStickDeadzoneValue != null)
                     LegionRightStickDeadzoneValue.Text = $"{(int)LegionRightStickDeadzoneSlider.Value}%";
+                // Joystick as mouse sensitivity slider
+                else if (sender == LegionJoystickMouseSensSlider && LegionJoystickMouseSensValue != null)
+                    LegionJoystickMouseSensValue.Text = ((int)LegionJoystickMouseSensSlider.Value).ToString();
             }
             catch (Exception ex)
             {
                 Logger.Debug($"Error updating controller slider display: {ex.Message}");
             }
         }
+
+        #region Gamepad Button Remapping
+
+        // Map of button index to button name (matches dropdown order in XAML)
+        private static readonly string[] GamepadButtonNames = new[]
+        {
+            "LSClick", "LSUp", "LSDown", "LSLeft", "LSRight",
+            "RSClick", "RSUp", "RSDown", "RSLeft", "RSRight",
+            "DPadUp", "DPadDown", "DPadLeft", "DPadRight",
+            "A", "B", "X", "Y",
+            "LB", "LT", "RB", "RT",
+            "Start", "Select"
+        };
+
+        /// <summary>
+        /// Serializes gamepad button mappings dictionary to JSON string.
+        /// Format: {"ButtonName":{Type:0,GamepadAction:5,...},...}
+        /// </summary>
+        private string SerializeGamepadButtonMappings(Dictionary<string, ButtonMapping> mappings)
+        {
+            if (mappings == null || mappings.Count == 0)
+                return "{}";
+
+            // Output nested JSON objects (not escaped strings)
+            var entries = mappings.Select(kvp =>
+                $"\"{kvp.Key}\":{kvp.Value.ToJson()}");
+            return "{" + string.Join(",", entries) + "}";
+        }
+
+        /// <summary>
+        /// Deserializes JSON string to gamepad button mappings dictionary.
+        /// Format: {"ButtonName":{Type:0,...},...}
+        /// </summary>
+        private Dictionary<string, ButtonMapping> DeserializeGamepadButtonMappings(string json)
+        {
+            var result = new Dictionary<string, ButtonMapping>();
+            if (string.IsNullOrEmpty(json) || json == "{}")
+                return result;
+
+            // Match patterns like "ButtonName":{...}
+            var regex = new System.Text.RegularExpressions.Regex("\"(\\w+)\"\\s*:\\s*(\\{[^}]+\\})");
+            var matches = regex.Matches(json);
+
+            foreach (System.Text.RegularExpressions.Match match in matches)
+            {
+                if (match.Groups.Count >= 3)
+                {
+                    var buttonName = match.Groups[1].Value;
+                    var mappingJson = match.Groups[2].Value;
+                    result[buttonName] = ButtonMapping.FromJson(mappingJson);
+                }
+            }
+
+            return result;
+        }
+
+        private string GetGamepadButtonNameFromIndex(int index)
+        {
+            if (index >= 0 && index < GamepadButtonNames.Length)
+                return GamepadButtonNames[index];
+            return "LSClick"; // Default
+        }
+
+        private void LoadGamepadMappingToUI(string buttonName)
+        {
+            if (LegionGamepadTypeComboBox == null || LegionGamepadActionComboBox == null)
+                return;
+
+            ButtonMapping mapping;
+            if (gamepadButtonMappings.TryGetValue(buttonName, out mapping))
+            {
+                // Set type dropdown
+                LegionGamepadTypeComboBox.SelectedIndex = mapping.Type;
+
+                // Show appropriate action dropdown based on type
+                UpdateGamepadMappingUI(mapping.Type);
+
+                // Set action value
+                if (mapping.Type == 0 && LegionGamepadActionComboBox != null)
+                    LegionGamepadActionComboBox.SelectedIndex = mapping.GamepadAction;
+                else if (mapping.Type == 2 && LegionGamepadMouseComboBox != null)
+                    LegionGamepadMouseComboBox.SelectedIndex = mapping.MouseButton;
+                else if (mapping.Type == 1)
+                    UpdateGamepadKeyboardKeyTags(mapping.KeyboardKeys);
+            }
+            else
+            {
+                // No mapping exists - set to default (Gamepad, Disabled)
+                LegionGamepadTypeComboBox.SelectedIndex = 0;
+                UpdateGamepadMappingUI(0);
+                if (LegionGamepadActionComboBox != null)
+                    LegionGamepadActionComboBox.SelectedIndex = 0;
+            }
+        }
+
+        private void UpdateGamepadMappingUI(int type)
+        {
+            // Type: 0=Gamepad, 1=Keyboard, 2=Mouse
+            if (LegionGamepadActionComboBox != null)
+                LegionGamepadActionComboBox.Visibility = type == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (LegionGamepadMouseComboBox != null)
+                LegionGamepadMouseComboBox.Visibility = type == 2 ? Visibility.Visible : Visibility.Collapsed;
+            if (LegionGamepadKeyboardPanel != null)
+                LegionGamepadKeyboardPanel.Visibility = type == 1 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void UpdateGamepadKeyboardKeyTags(List<int> keys)
+        {
+            if (LegionGamepadKeyTags == null) return;
+
+            LegionGamepadKeyTags.Children.Clear();
+            if (keys == null) return;
+
+            foreach (var key in keys)
+            {
+                var tagBorder = new Border
+                {
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 60, 60)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(6, 2, 6, 2),
+                    Margin = new Thickness(0, 0, 4, 0)
+                };
+
+                var tagPanel = new StackPanel { Orientation = Orientation.Horizontal };
+
+                var keyText = new TextBlock
+                {
+                    Text = GetKeyDisplayName(key),
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+
+                var removeButton = new Button
+                {
+                    Content = "×",
+                    FontSize = 10,
+                    Padding = new Thickness(4, 0, 0, 0),
+                    Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    BorderThickness = new Thickness(0),
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.Gray),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    MinWidth = 0,
+                    MinHeight = 0
+                };
+                removeButton.Click += (s, e) => RemoveGamepadKeyboardKey(key);
+
+                tagPanel.Children.Add(keyText);
+                tagPanel.Children.Add(removeButton);
+                tagBorder.Child = tagPanel;
+                LegionGamepadKeyTags.Children.Add(tagBorder);
+            }
+        }
+
+        private void RemoveGamepadKeyboardKey(int key)
+        {
+            if (LegionGamepadButtonSelectorComboBox == null || LegionGamepadButtonSelectorComboBox.SelectedIndex < 0)
+                return;
+
+            var buttonName = GetGamepadButtonNameFromIndex(LegionGamepadButtonSelectorComboBox.SelectedIndex);
+            if (gamepadButtonMappings.TryGetValue(buttonName, out var mapping))
+            {
+                mapping.KeyboardKeys.Remove(key);
+                UpdateGamepadKeyboardKeyTags(mapping.KeyboardKeys);
+                SaveAndSendGamepadMappings();
+            }
+        }
+
+        private void LegionGamepadButtonSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingControllerProfile || isSwitchingControllerProfile)
+                return;
+
+            if (LegionGamepadButtonSelectorComboBox == null || LegionGamepadButtonSelectorComboBox.SelectedIndex < 0)
+                return;
+
+            var buttonName = GetGamepadButtonNameFromIndex(LegionGamepadButtonSelectorComboBox.SelectedIndex);
+            LoadGamepadMappingToUI(buttonName);
+        }
+
+        private void LegionGamepadMapping_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingControllerProfile || isSwitchingControllerProfile)
+                return;
+
+            if (LegionGamepadButtonSelectorComboBox == null || LegionGamepadButtonSelectorComboBox.SelectedIndex < 0)
+                return;
+
+            var buttonName = GetGamepadButtonNameFromIndex(LegionGamepadButtonSelectorComboBox.SelectedIndex);
+            var type = LegionGamepadTypeComboBox?.SelectedIndex ?? 0;
+
+            // Update UI visibility if type changed
+            if (sender == LegionGamepadTypeComboBox)
+            {
+                UpdateGamepadMappingUI(type);
+            }
+
+            // Build new mapping from UI
+            var mapping = new ButtonMapping { Type = type };
+            if (type == 0 && LegionGamepadActionComboBox != null)
+                mapping.GamepadAction = LegionGamepadActionComboBox.SelectedIndex;
+            else if (type == 2 && LegionGamepadMouseComboBox != null)
+                mapping.MouseButton = LegionGamepadMouseComboBox.SelectedIndex;
+            else if (type == 1)
+            {
+                // Keep existing keyboard keys if we have them
+                if (gamepadButtonMappings.TryGetValue(buttonName, out var existingMapping))
+                    mapping.KeyboardKeys = new List<int>(existingMapping.KeyboardKeys ?? new List<int>());
+            }
+
+            gamepadButtonMappings[buttonName] = mapping;
+            SaveAndSendGamepadMappings();
+        }
+
+        private void LegionGamepadKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingControllerProfile || isSwitchingControllerProfile)
+                return;
+
+            if (LegionGamepadKeyComboBox == null || LegionGamepadKeyComboBox.SelectedIndex <= 0)
+                return; // Index 0 is "+ Key" placeholder
+
+            if (LegionGamepadButtonSelectorComboBox == null || LegionGamepadButtonSelectorComboBox.SelectedIndex < 0)
+                return;
+
+            var buttonName = GetGamepadButtonNameFromIndex(LegionGamepadButtonSelectorComboBox.SelectedIndex);
+
+            // Get or create mapping
+            if (!gamepadButtonMappings.TryGetValue(buttonName, out var mapping))
+            {
+                mapping = new ButtonMapping { Type = 1, KeyboardKeys = new List<int>() };
+                gamepadButtonMappings[buttonName] = mapping;
+            }
+
+            // Add the key (LegionGamepadKeyComboBox is 1-indexed since 0 is "+ Key")
+            // The key code is based on the combo box item order
+            var keyCode = GetKeyCodeFromDropdownIndex(LegionGamepadKeyComboBox.SelectedIndex);
+            if (!mapping.KeyboardKeys.Contains(keyCode))
+            {
+                mapping.KeyboardKeys.Add(keyCode);
+                UpdateGamepadKeyboardKeyTags(mapping.KeyboardKeys);
+            }
+
+            // Reset dropdown to "+ Key"
+            LegionGamepadKeyComboBox.SelectedIndex = 0;
+
+            SaveAndSendGamepadMappings();
+        }
+
+        private void SaveAndSendGamepadMappings()
+        {
+            // Get current profile
+            ControllerProfile profile;
+            if (LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName))
+            {
+                gameControllerProfile = GetCurrentControllerProfileFromUI();
+                SaveControllerProfileToStorage($"Game_{currentGameName}", gameControllerProfile);
+                profile = gameControllerProfile;
+            }
+            else
+            {
+                globalControllerProfile = GetCurrentControllerProfileFromUI();
+                SaveControllerProfileToStorage("Global", globalControllerProfile);
+                profile = globalControllerProfile;
+            }
+
+            // Send to helper
+            SendButtonMappingsToHelper(profile);
+
+            // Update the summary display
+            UpdateGamepadMappingSummary();
+        }
+
+        #region Desktop Controls Preset
+
+        private void LegionDesktopControls_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (isLoadingControllerProfile || isSwitchingControllerProfile)
+                return;
+
+            bool enabled = LegionDesktopControlsToggle?.IsOn ?? false;
+
+            if (enabled)
+            {
+                // Apply desktop controls preset
+                // 1. Set Right Stick as Mouse (for cursor movement)
+                if (LegionJoystickAsMouseComboBox != null)
+                    LegionJoystickAsMouseComboBox.SelectedIndex = 2; // Right Stick
+
+                // 2. Apply button mappings (DPAD, LS scroll, LB/LT clicks)
+                ApplyDesktopControlMappings();
+            }
+            else
+            {
+                // Reset to defaults
+                if (LegionJoystickAsMouseComboBox != null)
+                    LegionJoystickAsMouseComboBox.SelectedIndex = 0; // Disabled
+
+                // Clear the desktop control button mappings
+                ClearDesktopControlMappings();
+            }
+
+            Logger.Info($"Desktop Controls toggled: {enabled}");
+        }
+
+        private void ApplyDesktopControlMappings()
+        {
+            // Desktop Controls preset - uses LB/LT for clicks to avoid firmware drag-drop bug with triggers
+            // HID key codes: Up=0x52, Down=0x51, Left=0x50, Right=0x4F, Enter=0x28, Escape=0x29, LeftGUI(Win)=0xE3
+            // MouseButton dropdown index: 0=Left, 1=Right, 2=Middle, 3=ScrollUp, 4=ScrollDown
+
+            // DPAD → Arrow keys (Type=1 Keyboard)
+            gamepadButtonMappings["DPadUp"] = new ButtonMapping { Type = 1, KeyboardKeys = new List<int> { 0x52 } };
+            gamepadButtonMappings["DPadDown"] = new ButtonMapping { Type = 1, KeyboardKeys = new List<int> { 0x51 } };
+            gamepadButtonMappings["DPadLeft"] = new ButtonMapping { Type = 1, KeyboardKeys = new List<int> { 0x50 } };
+            gamepadButtonMappings["DPadRight"] = new ButtonMapping { Type = 1, KeyboardKeys = new List<int> { 0x4F } };
+
+            // Left Stick Up/Down → Scroll Up/Down (Type=2 Mouse)
+            gamepadButtonMappings["LSUp"] = new ButtonMapping { Type = 2, MouseButton = 3 };    // ScrollUp
+            gamepadButtonMappings["LSDown"] = new ButtonMapping { Type = 2, MouseButton = 4 }; // ScrollDown
+
+            // LSClick → Windows Key (Type=1 Keyboard)
+            gamepadButtonMappings["LSClick"] = new ButtonMapping { Type = 1, KeyboardKeys = new List<int> { 0xE3 } }; // Left GUI (Win)
+
+            // A → Enter, B → Escape (Type=1 Keyboard)
+            gamepadButtonMappings["A"] = new ButtonMapping { Type = 1, KeyboardKeys = new List<int> { 0x28 } };  // Enter
+            gamepadButtonMappings["B"] = new ButtonMapping { Type = 1, KeyboardKeys = new List<int> { 0x29 } };  // Escape
+
+            // LB → Left Click, LT → Right Click (Type=2 Mouse)
+            gamepadButtonMappings["LB"] = new ButtonMapping { Type = 2, MouseButton = 0 };     // Left Click
+            gamepadButtonMappings["LT"] = new ButtonMapping { Type = 2, MouseButton = 1 };     // Right Click
+
+            SaveAndSendGamepadMappings();
+            UpdateGamepadMappingSummary();
+
+            Logger.Info("Applied desktop control mappings: DPAD→Arrows, LSUp/Down→Scroll, LSClick→Win, A→Enter, B→Esc, LB→LClick, LT→RClick");
+        }
+
+        private void ClearDesktopControlMappings()
+        {
+            var desktopButtons = new[] { "DPadUp", "DPadDown", "DPadLeft", "DPadRight", "LSUp", "LSDown", "LSClick", "A", "B", "LB", "LT" };
+
+            // Set each button to reset state (Type=0, GamepadAction=0) to trigger HID reset
+            foreach (var button in desktopButtons)
+            {
+                gamepadButtonMappings[button] = new ButtonMapping { Type = 0, GamepadAction = 0 };
+            }
+            SaveAndSendGamepadMappings();
+
+            // Remove from dictionary after sending reset
+            foreach (var button in desktopButtons)
+            {
+                gamepadButtonMappings.Remove(button);
+            }
+
+            UpdateGamepadMappingSummary();
+
+            Logger.Info("Cleared desktop control mappings for DPAD, LS, A, B, LB, LT");
+        }
+
+        #endregion
+
+        #region Nintendo Layout Preset
+
+        private void LegionNintendoLayout_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (isLoadingControllerProfile || isSwitchingControllerProfile)
+                return;
+
+            bool enabled = LegionNintendoLayoutToggle?.IsOn ?? false;
+
+            if (enabled)
+            {
+                // Apply Nintendo layout: swap A↔B and X↔Y
+                ApplyNintendoLayoutMappings();
+            }
+            else
+            {
+                // Reset face buttons to default
+                ClearNintendoLayoutMappings();
+            }
+
+            Logger.Info($"Nintendo Layout toggled: {enabled}");
+        }
+
+        private void ApplyNintendoLayoutMappings()
+        {
+            // GamepadAction uses dropdown index (from RemapActionHelper):
+            // Index 15 = A (0x12), Index 16 = B (0x13), Index 17 = X (0x14), Index 18 = Y (0x15)
+            // A → B: Type=0 (Gamepad), GamepadAction=16 (B)
+            gamepadButtonMappings["A"] = new ButtonMapping { Type = 0, GamepadAction = 16 };
+            // B → A: Type=0 (Gamepad), GamepadAction=15 (A)
+            gamepadButtonMappings["B"] = new ButtonMapping { Type = 0, GamepadAction = 15 };
+            // X → Y: Type=0 (Gamepad), GamepadAction=18 (Y)
+            gamepadButtonMappings["X"] = new ButtonMapping { Type = 0, GamepadAction = 18 };
+            // Y → X: Type=0 (Gamepad), GamepadAction=17 (X)
+            gamepadButtonMappings["Y"] = new ButtonMapping { Type = 0, GamepadAction = 17 };
+
+            SaveAndSendGamepadMappings();
+            UpdateGamepadMappingSummary();
+
+            Logger.Info("Applied Nintendo layout mappings: A→B, B→A, X→Y, Y→X");
+        }
+
+        private void ClearNintendoLayoutMappings()
+        {
+            var nintendoButtons = new[] { "A", "B", "X", "Y" };
+
+            // Set each button to reset state (Type=0, GamepadAction=0) to trigger HID reset
+            foreach (var button in nintendoButtons)
+            {
+                gamepadButtonMappings[button] = new ButtonMapping { Type = 0, GamepadAction = 0 };
+            }
+            SaveAndSendGamepadMappings();
+
+            // Remove from dictionary after sending reset
+            foreach (var button in nintendoButtons)
+            {
+                gamepadButtonMappings.Remove(button);
+            }
+
+            UpdateGamepadMappingSummary();
+
+            Logger.Info("Cleared Nintendo layout mappings for A, B, X, Y");
+        }
+
+        #endregion
+
+        private void LegionGamepadResetAll_Click(object sender, RoutedEventArgs e)
+        {
+            // Reset ALL gamepad buttons (including LS and RS stick directions) to their defaults
+            // This ensures any button that might have been remapped is reset, not just those in the dictionary
+            foreach (var buttonName in GamepadButtonNames)
+            {
+                gamepadButtonMappings[buttonName] = new ButtonMapping { Type = 0, GamepadAction = 0 };
+            }
+
+            // Send reset commands for all buttons - helper will clear then remap to self
+            SaveAndSendGamepadMappings();
+
+            Logger.Info($"Sent reset HID commands for all {GamepadButtonNames.Length} gamepad buttons");
+
+            // Now clear the dictionary (buttons are now at default, no need to track them)
+            gamepadButtonMappings.Clear();
+
+            // Reset UI to defaults
+            if (LegionGamepadTypeComboBox != null)
+                LegionGamepadTypeComboBox.SelectedIndex = 0;
+            if (LegionGamepadActionComboBox != null)
+                LegionGamepadActionComboBox.SelectedIndex = 0;
+            UpdateGamepadMappingUI(0);
+            if (LegionGamepadKeyTags != null)
+                LegionGamepadKeyTags.Children.Clear();
+
+            // Update summary display (now empty)
+            UpdateGamepadMappingSummary();
+
+            Logger.Info("Reset all gamepad button mappings");
+        }
+
+        /// <summary>
+        /// Updates the summary display showing which gamepad buttons are remapped.
+        /// </summary>
+        private void UpdateGamepadMappingSummary()
+        {
+            if (LegionGamepadRemappedTags == null || LegionGamepadRemappedLabel == null || LegionGamepadNoRemapsLabel == null)
+                return;
+
+            // Get list of remapped buttons (those with non-default mappings)
+            var remappedButtons = gamepadButtonMappings
+                .Where(kvp => IsButtonRemapped(kvp.Value))
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            // Clear existing tags
+            LegionGamepadRemappedTags.Items.Clear();
+
+            if (remappedButtons.Count > 0)
+            {
+                LegionGamepadRemappedLabel.Visibility = Visibility.Visible;
+                LegionGamepadNoRemapsLabel.Visibility = Visibility.Collapsed;
+
+                foreach (var buttonName in remappedButtons)
+                {
+                    var mapping = gamepadButtonMappings[buttonName];
+                    var tag = CreateRemappedButtonTag(buttonName, mapping);
+                    LegionGamepadRemappedTags.Items.Add(tag);
+                }
+            }
+            else
+            {
+                LegionGamepadRemappedLabel.Visibility = Visibility.Collapsed;
+                LegionGamepadNoRemapsLabel.Visibility = Visibility.Visible;
+            }
+        }
+
+        private bool IsButtonRemapped(ButtonMapping mapping)
+        {
+            if (mapping == null) return false;
+            // Type 0 (Gamepad) with action 0 (Disabled) means default/cleared
+            // Keyboard or Mouse type means remapped
+            // Gamepad type with action > 0 means remapped
+            return mapping.Type != 0 || mapping.GamepadAction > 0 ||
+                   (mapping.KeyboardKeys != null && mapping.KeyboardKeys.Count > 0);
+        }
+
+        private Border CreateRemappedButtonTag(string buttonName, ButtonMapping mapping)
+        {
+            var displayName = GetGamepadButtonDisplayName(buttonName);
+            var mappingDesc = GetMappingDescription(mapping);
+
+            var tagBorder = new Border
+            {
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 70, 90)),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(6, 2, 6, 2),
+                Margin = new Thickness(0, 0, 4, 0)
+            };
+
+            var tagPanel = new StackPanel { Orientation = Orientation.Horizontal };
+
+            var buttonText = new TextBlock
+            {
+                Text = $"{displayName} → {mappingDesc}",
+                Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                FontSize = 11,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var clearButton = new Button
+            {
+                Content = "×",
+                FontSize = 10,
+                Padding = new Thickness(4, 0, 0, 0),
+                Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                BorderThickness = new Thickness(0),
+                Foreground = new SolidColorBrush(Windows.UI.Colors.Gray),
+                VerticalAlignment = VerticalAlignment.Center,
+                MinWidth = 0,
+                MinHeight = 0,
+                Tag = buttonName
+            };
+            clearButton.Click += (s, e) => ClearSingleGamepadMapping((string)((Button)s).Tag);
+
+            tagPanel.Children.Add(buttonText);
+            tagPanel.Children.Add(clearButton);
+            tagBorder.Child = tagPanel;
+
+            // Click on tag to select that button
+            tagBorder.Tapped += (s, e) =>
+            {
+                var index = Array.IndexOf(GamepadButtonNames, buttonName);
+                if (index >= 0 && LegionGamepadButtonSelectorComboBox != null)
+                    LegionGamepadButtonSelectorComboBox.SelectedIndex = index;
+            };
+
+            return tagBorder;
+        }
+
+        private void ClearSingleGamepadMapping(string buttonName)
+        {
+            if (gamepadButtonMappings.ContainsKey(buttonName))
+            {
+                // Set to reset state (Type=0, GamepadAction=0) to trigger HID command
+                // This maps the button back to itself (default behavior)
+                gamepadButtonMappings[buttonName] = new ButtonMapping { Type = 0, GamepadAction = 0 };
+                SaveAndSendGamepadMappings();
+
+                // Now remove from dictionary (button is at default, no need to track)
+                gamepadButtonMappings.Remove(buttonName);
+
+                // Update the summary display
+                UpdateGamepadMappingSummary();
+
+                // If this was the currently selected button, reload UI
+                if (LegionGamepadButtonSelectorComboBox != null)
+                {
+                    var currentButtonName = GetGamepadButtonNameFromIndex(LegionGamepadButtonSelectorComboBox.SelectedIndex);
+                    if (currentButtonName == buttonName)
+                        LoadGamepadMappingToUI(buttonName);
+                }
+
+                Logger.Info($"Cleared gamepad button mapping for {buttonName} (sent HID reset command)");
+            }
+        }
+
+        private string GetGamepadButtonDisplayName(string buttonName)
+        {
+            // Convert internal names to display names
+            switch (buttonName)
+            {
+                case "LSClick": return "LS Click";
+                case "LSUp": return "LS Up";
+                case "LSDown": return "LS Down";
+                case "LSLeft": return "LS Left";
+                case "LSRight": return "LS Right";
+                case "RSClick": return "RS Click";
+                case "RSUp": return "RS Up";
+                case "RSDown": return "RS Down";
+                case "RSLeft": return "RS Left";
+                case "RSRight": return "RS Right";
+                case "DPadUp": return "D-Up";
+                case "DPadDown": return "D-Down";
+                case "DPadLeft": return "D-Left";
+                case "DPadRight": return "D-Right";
+                default: return buttonName;
+            }
+        }
+
+        private string GetMappingDescription(ButtonMapping mapping)
+        {
+            if (mapping == null) return "Default";
+
+            switch (mapping.Type)
+            {
+                case 0: // Gamepad
+                    if (mapping.GamepadAction == 0) return "Disabled";
+                    return GetGamepadActionName(mapping.GamepadAction);
+                case 1: // Keyboard
+                    if (mapping.KeyboardKeys == null || mapping.KeyboardKeys.Count == 0)
+                        return "Keys";
+                    return string.Join("+", mapping.KeyboardKeys.Select(k => GetKeyDisplayName(k)));
+                case 2: // Mouse
+                    return GetMouseActionName(mapping.MouseButton);
+                default:
+                    return "Unknown";
+            }
+        }
+
+        private string GetGamepadActionName(int action)
+        {
+            string[] names = { "Disabled", "LS Click", "LS Up", "LS Down", "LS Left", "LS Right",
+                              "RS Click", "RS Up", "RS Down", "RS Left", "RS Right",
+                              "D-Up", "D-Down", "D-Left", "D-Right",
+                              "A", "B", "X", "Y", "LB", "LT", "RB", "RT", "View", "Menu" };
+            return action >= 0 && action < names.Length ? names[action] : $"Action{action}";
+        }
+
+        private string GetMouseActionName(int action)
+        {
+            string[] names = { "Left Click", "Right Click", "Middle Click",
+                              "Scroll Up", "Scroll Down", "Scroll Left", "Scroll Right" };
+            return action >= 0 && action < names.Length ? names[action] : $"Mouse{action}";
+        }
+
+        #endregion
 
         #endregion
 
@@ -6461,7 +7352,34 @@ namespace XboxGamingBar
                             AddTextBlock(acDcGrid, rowIndex, 0, "AMD", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
                             AddTextBlock(acDcGrid, rowIndex, 1, string.IsNullOrEmpty(acAmdFeatures) ? "Off" : acAmdFeatures, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                             AddTextBlock(acDcGrid, rowIndex, 2, string.IsNullOrEmpty(dcAmdFeatures) ? "Off" : dcAmdFeatures, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            rowIndex++;
                         }
+                    }
+
+                    // HDR + Resolution (if enabled)
+                    if (SaveHDRResolution)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "HDR", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.HDREnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.HDREnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+
+                        if (!string.IsNullOrEmpty(gameAC.Resolution) || !string.IsNullOrEmpty(gameDC.Resolution))
+                        {
+                            AddTextBlock(acDcGrid, rowIndex, 0, "Res", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                            AddTextBlock(acDcGrid, rowIndex, 1, string.IsNullOrEmpty(gameAC.Resolution) ? "-" : gameAC.Resolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 2, string.IsNullOrEmpty(gameDC.Resolution) ? "-" : gameDC.Resolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            rowIndex++;
+                        }
+                    }
+
+                    // Sticky TDP (if enabled)
+                    if (SaveStickyTDP)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Sticky", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.StickyTDPEnabled ? $"{gameAC.StickyTDPInterval}s" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.StickyTDPEnabled ? $"{gameDC.StickyTDPInterval}s" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
                     }
 
                     stackPanel.Children.Add(acDcGrid);
@@ -6557,6 +7475,30 @@ namespace XboxGamingBar
                         var amdFeatures = GetAMDFeaturesShortString(game);
                         AddTextBlock(singleGrid, rowIndex, 0, "AMD", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
                         AddTextBlock(singleGrid, rowIndex, 1, string.IsNullOrEmpty(amdFeatures) ? "Off" : amdFeatures, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        rowIndex++;
+                    }
+
+                    // HDR + Resolution (if enabled)
+                    if (SaveHDRResolution)
+                    {
+                        AddTextBlock(singleGrid, rowIndex, 0, "HDR", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, game.HDREnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        rowIndex++;
+
+                        if (!string.IsNullOrEmpty(game.Resolution))
+                        {
+                            AddTextBlock(singleGrid, rowIndex, 0, "Resolution", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                            AddTextBlock(singleGrid, rowIndex, 1, game.Resolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                            rowIndex++;
+                        }
+                    }
+
+                    // Sticky TDP (if enabled)
+                    if (SaveStickyTDP)
+                    {
+                        AddTextBlock(singleGrid, rowIndex, 0, "Sticky TDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, game.StickyTDPEnabled ? $"{game.StickyTDPInterval}s" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        rowIndex++;
                     }
 
                     stackPanel.Children.Add(singleGrid);
@@ -6697,16 +7639,20 @@ namespace XboxGamingBar
                 _saveFPSLimit = settings.Values.ContainsKey("ProfileSaveFPSLimit") ? (bool)settings.Values["ProfileSaveFPSLimit"] : true;
                 _saveAutoTDP = settings.Values.ContainsKey("ProfileSaveAutoTDP") ? (bool)settings.Values["ProfileSaveAutoTDP"] : true;
                 _saveOSPowerMode = settings.Values.ContainsKey("ProfileSaveOSPowerMode") ? (bool)settings.Values["ProfileSaveOSPowerMode"] : true;
+                _saveHDRResolution = settings.Values.ContainsKey("ProfileSaveHDRResolution") ? (bool)settings.Values["ProfileSaveHDRResolution"] : false;
+                _saveStickyTDP = settings.Values.ContainsKey("ProfileSaveStickyTDP") ? (bool)settings.Values["ProfileSaveStickyTDP"] : false;
 
                 // Update UI checkboxes
-                ProfileSaveTDPCheckBox.IsChecked = _saveTDP;
-                ProfileSaveCPUBoostCheckBox.IsChecked = _saveCPUBoost;
-                ProfileSaveCPUEPPCheckBox.IsChecked = _saveCPUEPP;
-                ProfileSaveCPUStateCheckBox.IsChecked = _saveCPUState;
-                ProfileSaveAMDFeaturesCheckBox.IsChecked = _saveAMDFeatures;
-                ProfileSaveFPSLimitCheckBox.IsChecked = _saveFPSLimit;
-                ProfileSaveAutoTDPCheckBox.IsChecked = _saveAutoTDP;
-                ProfileSaveOSPowerModeCheckBox.IsChecked = _saveOSPowerMode;
+                if (ProfileSaveTDPCheckBox != null) ProfileSaveTDPCheckBox.IsChecked = _saveTDP;
+                if (ProfileSaveCPUBoostCheckBox != null) ProfileSaveCPUBoostCheckBox.IsChecked = _saveCPUBoost;
+                if (ProfileSaveCPUEPPCheckBox != null) ProfileSaveCPUEPPCheckBox.IsChecked = _saveCPUEPP;
+                if (ProfileSaveCPUStateCheckBox != null) ProfileSaveCPUStateCheckBox.IsChecked = _saveCPUState;
+                if (ProfileSaveAMDFeaturesCheckBox != null) ProfileSaveAMDFeaturesCheckBox.IsChecked = _saveAMDFeatures;
+                if (ProfileSaveFPSLimitCheckBox != null) ProfileSaveFPSLimitCheckBox.IsChecked = _saveFPSLimit;
+                if (ProfileSaveAutoTDPCheckBox != null) ProfileSaveAutoTDPCheckBox.IsChecked = _saveAutoTDP;
+                if (ProfileSaveOSPowerModeCheckBox != null) ProfileSaveOSPowerModeCheckBox.IsChecked = _saveOSPowerMode;
+                if (ProfileSaveHDRResolutionCheckBox != null) ProfileSaveHDRResolutionCheckBox.IsChecked = _saveHDRResolution;
+                if (ProfileSaveStickyTDPCheckBox != null) ProfileSaveStickyTDPCheckBox.IsChecked = _saveStickyTDP;
             }
             finally
             {
@@ -6719,14 +7665,16 @@ namespace XboxGamingBar
             if (isLoadingProfileSettings) return;
 
             var settings = ApplicationData.Current.LocalSettings;
-            settings.Values["ProfileSaveTDP"] = ProfileSaveTDPCheckBox.IsChecked;
-            settings.Values["ProfileSaveCPUBoost"] = ProfileSaveCPUBoostCheckBox.IsChecked;
-            settings.Values["ProfileSaveCPUEPP"] = ProfileSaveCPUEPPCheckBox.IsChecked;
-            settings.Values["ProfileSaveCPUState"] = ProfileSaveCPUStateCheckBox.IsChecked;
-            settings.Values["ProfileSaveAMDFeatures"] = ProfileSaveAMDFeaturesCheckBox.IsChecked;
-            settings.Values["ProfileSaveFPSLimit"] = ProfileSaveFPSLimitCheckBox.IsChecked;
-            settings.Values["ProfileSaveAutoTDP"] = ProfileSaveAutoTDPCheckBox.IsChecked;
-            settings.Values["ProfileSaveOSPowerMode"] = ProfileSaveOSPowerModeCheckBox.IsChecked;
+            settings.Values["ProfileSaveTDP"] = ProfileSaveTDPCheckBox?.IsChecked ?? true;
+            settings.Values["ProfileSaveCPUBoost"] = ProfileSaveCPUBoostCheckBox?.IsChecked ?? true;
+            settings.Values["ProfileSaveCPUEPP"] = ProfileSaveCPUEPPCheckBox?.IsChecked ?? true;
+            settings.Values["ProfileSaveCPUState"] = ProfileSaveCPUStateCheckBox?.IsChecked ?? true;
+            settings.Values["ProfileSaveAMDFeatures"] = ProfileSaveAMDFeaturesCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveFPSLimit"] = ProfileSaveFPSLimitCheckBox?.IsChecked ?? true;
+            settings.Values["ProfileSaveAutoTDP"] = ProfileSaveAutoTDPCheckBox?.IsChecked ?? true;
+            settings.Values["ProfileSaveOSPowerMode"] = ProfileSaveOSPowerModeCheckBox?.IsChecked ?? true;
+            settings.Values["ProfileSaveHDRResolution"] = ProfileSaveHDRResolutionCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveStickyTDP"] = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
         }
 
         private void ProfileSettingCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -6759,6 +7707,8 @@ namespace XboxGamingBar
             _saveFPSLimit = ProfileSaveFPSLimitCheckBox?.IsChecked ?? true;
             _saveAutoTDP = ProfileSaveAutoTDPCheckBox?.IsChecked ?? true;
             _saveOSPowerMode = ProfileSaveOSPowerModeCheckBox?.IsChecked ?? true;
+            _saveHDRResolution = ProfileSaveHDRResolutionCheckBox?.IsChecked ?? false;
+            _saveStickyTDP = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
         }
 
         private void MainNavigationView_SelectionChanged(object sender, object args)
@@ -9038,6 +9988,8 @@ namespace XboxGamingBar
             // Legion-specific tiles (will be hidden if Legion not detected)
             AddTileDefinition("LegionTouchpad", "Touchpad", "\uE962", order: order++);
             AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);
+            AddTileDefinition("LegionDesktopControls", "Desktop", "\uE7F4", order: order++);
+            AddTileDefinition("LegionRemapControls", "Remap", "\uE7FC", order: order++);
 
             // Load custom shortcut tiles from storage
             LoadCustomShortcutTiles();
@@ -9678,7 +10630,8 @@ namespace XboxGamingBar
         private bool ShouldSkipTile(TileDefinition tile)
         {
             // Skip Legion tiles if not detected
-            if ((tile.Id == "LegionTouchpad" || tile.Id == "LegionLightMode") &&
+            if ((tile.Id == "LegionTouchpad" || tile.Id == "LegionLightMode" ||
+                 tile.Id == "LegionDesktopControls" || tile.Id == "LegionRemapControls") &&
                 (legionGoDetected?.Value != true))
             {
                 return true;
@@ -10078,6 +11031,34 @@ namespace XboxGamingBar
                     }
                 }
 
+                // Legion Desktop Controls tile
+                if (qsTileMap.TryGetValue("LegionDesktopControls", out var desktopTile) && desktopTile.TileButton != null)
+                {
+                    if (legionGoDetected?.Value == true)
+                    {
+                        bool enabled = LegionDesktopControlsToggle?.IsOn ?? false;
+                        desktopTile.StateText.Text = enabled ? "On" : "Off";
+                        desktopTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                        desktopTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                    }
+                }
+
+                // Legion Remap Controls tile
+                if (qsTileMap.TryGetValue("LegionRemapControls", out var remapTile) && remapTile.TileButton != null)
+                {
+                    if (legionGoDetected?.Value == true)
+                    {
+                        bool isGameProfile = LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName);
+                        string profileName = isGameProfile ? currentGameName : "Global";
+                        // Truncate long names
+                        if (profileName.Length > 10)
+                            profileName = profileName.Substring(0, 9) + "…";
+                        remapTile.StateText.Text = profileName;
+                        remapTile.StateText.Foreground = isGameProfile ? accentForeground : offForeground;
+                        remapTile.TileButton.Background = isGameProfile ? tileOnBrush : tileOffBrush;
+                    }
+                }
+
                 Logger.Debug("Quick Settings tile states updated");
             }
             catch (Exception ex)
@@ -10167,6 +11148,12 @@ namespace XboxGamingBar
                                 break;
                             case "LegionLightMode":
                                 CycleLegionLightMode();
+                                break;
+                            case "LegionDesktopControls":
+                                ToggleLegionDesktopControls();
+                                break;
+                            case "LegionRemapControls":
+                                NavigateToRemapControls();
                                 break;
                             // Action tiles
                             case "ActionTaskManager":
@@ -11049,6 +12036,30 @@ namespace XboxGamingBar
                 int nextMode = (currentMode + 1) % 5; // 0-4: Off, Static, Breathing, Rainbow, Spiral
                 legionLightMode.SetValue(nextMode);
                 Logger.Info($"Legion Light Mode cycled from {currentMode} to {nextMode}");
+            }
+        }
+
+        private void ToggleLegionDesktopControls()
+        {
+            if (legionGoDetected?.Value == true && LegionDesktopControlsToggle != null)
+            {
+                bool newValue = !LegionDesktopControlsToggle.IsOn;
+                LegionDesktopControlsToggle.IsOn = newValue;
+                // The Toggled event handler will apply the mappings
+                Logger.Info($"Legion Desktop Controls toggled to {newValue}");
+            }
+        }
+
+        private void NavigateToRemapControls()
+        {
+            if (legionGoDetected?.Value == true)
+            {
+                // Navigate to Legion tab and scroll to controller settings
+                if (MainNavigationView != null)
+                {
+                    MainNavigationView.SelectedItem = LegionNavItem;
+                }
+                Logger.Info("Navigated to Legion tab for controller remapping");
             }
         }
 
