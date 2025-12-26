@@ -7679,6 +7679,8 @@ namespace XboxGamingBar
 
         private void ProfileSettingCheckBox_Changed(object sender, RoutedEventArgs e)
         {
+            if (isLoadingProfileSettings) return;
+
             // Update backing fields from UI checkboxes
             SyncProfileSettingsBackingFields();
             SaveProfileCustomizationSettings();
@@ -7687,6 +7689,8 @@ namespace XboxGamingBar
 
         private void ProfileSettingsCheckBox_Changed(object sender, RoutedEventArgs e)
         {
+            if (isLoadingProfileSettings) return;
+
             // Update backing fields from UI checkboxes
             SyncProfileSettingsBackingFields();
             SaveProfileCustomizationSettings();
@@ -11153,7 +11157,7 @@ namespace XboxGamingBar
                                 ToggleLegionDesktopControls();
                                 break;
                             case "LegionRemapControls":
-                                NavigateToRemapControls();
+                                ToggleRemapControlsProfile();
                                 break;
                             // Action tiles
                             case "ActionTaskManager":
@@ -12050,17 +12054,20 @@ namespace XboxGamingBar
             }
         }
 
-        private void NavigateToRemapControls()
+        private void ToggleRemapControlsProfile()
         {
-            if (legionGoDetected?.Value == true)
-            {
-                // Navigate to Legion tab and scroll to controller settings
-                if (MainNavigationView != null)
-                {
-                    MainNavigationView.SelectedItem = LegionNavItem;
-                }
-                Logger.Info("Navigated to Legion tab for controller remapping");
-            }
+            if (legionGoDetected?.Value != true)
+                return;
+
+            if (LegionControllerProfileToggle == null)
+                return;
+
+            // Toggle the per-game controller profile
+            LegionControllerProfileToggle.IsOn = !LegionControllerProfileToggle.IsOn;
+            Logger.Info($"Toggled per-game controller profile to: {LegionControllerProfileToggle.IsOn}");
+
+            // Update Quick Settings tiles
+            UpdateQuickSettingsTileStates();
         }
 
         /// <summary>
