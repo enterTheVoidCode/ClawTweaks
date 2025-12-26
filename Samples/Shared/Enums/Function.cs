@@ -125,6 +125,16 @@
         LegionLeftStickDeadzone,        // int - 0-50 (percent)
         LegionRightStickDeadzone,       // int - 0-50 (percent)
 
+        // Legion Go Joystick as Mouse (per-game profile)
+        LegionJoystickAsMouseMode,      // int - 0=Disabled, 1=Left Stick, 2=Right Stick
+        LegionJoystickMouseSens,        // int - Mouse sensitivity (10-100)
+
+        // Legion Go Gamepad Button Remapping (per-game profile)
+        LegionGamepadButtonMapping,     // string - JSON mapping of gamepad buttons to actions
+
+        // Legion Go Desktop Controls (preset: RS→Mouse, RT→LClick, LT→RClick, A→Enter, B→Esc)
+        LegionDesktopControls,          // bool - desktop controls preset enabled
+
         // Legion Go Touchpad Vibration (GLOBAL setting)
         LegionTouchpadVibration,        // bool - on/off toggle for touchpad haptics
 
