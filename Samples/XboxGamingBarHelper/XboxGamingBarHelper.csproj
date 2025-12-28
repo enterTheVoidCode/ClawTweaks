@@ -443,6 +443,9 @@
     <Compile Include="Legion\LegionGoLibrary.cs" />
     <Compile Include="Legion\LegionManager.cs" />
     <Compile Include="Legion\LegionProperties.cs" />
+    <Compile Include="..\..\LegionGoController.cs">
+      <Link>Legion\LegionGoController.cs</Link>
+    </Compile>
     <Compile Include="PawnIO\PawnIOWrapper.cs" />
     <Compile Include="PawnIO\RyzenSmuService.cs" />
     <Compile Include="AutoTDP\AutoTDPManager.cs" />
