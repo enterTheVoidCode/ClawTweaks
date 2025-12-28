@@ -233,6 +233,9 @@ namespace XboxGamingBar
         // Gamepad button remapping (per-game profile)
         public Dictionary<string, ButtonMapping> GamepadButtonMappings { get; set; } = new Dictionary<string, ButtonMapping>();
 
+        // Desktop Controls preset (per-game profile)
+        public bool DesktopControlsEnabled { get; set; } = false;
+
         public ControllerProfile Clone()
         {
             return new ControllerProfile
@@ -266,7 +269,9 @@ namespace XboxGamingBar
                 // Gamepad button mappings
                 GamepadButtonMappings = this.GamepadButtonMappings.ToDictionary(
                     kvp => kvp.Key,
-                    kvp => kvp.Value.Clone())
+                    kvp => kvp.Value.Clone()),
+                // Desktop Controls preset
+                DesktopControlsEnabled = this.DesktopControlsEnabled
             };
         }
     }
@@ -1740,6 +1745,10 @@ namespace XboxGamingBar
             FPSLimitToggle.Toggled += FPSLimitToggle_Toggled;
             FPSLimitSlider.ValueChanged += FPSLimitSlider_ValueChanged;
 
+            // Graphics settings (HDR and Resolution for profile feature)
+            HDRToggle.Toggled += SettingChanged;
+            ResolutionComboBox.SelectionChanged += SettingChanged;
+
             // AMD settings
             AMDFluidMotionFrameToggle.Toggled += SettingChanged;
             AMDRadeonSuperResolutionToggle.Toggled += AMDRadeonSuperResolutionToggle_Toggled;
@@ -2454,6 +2463,13 @@ namespace XboxGamingBar
         private bool isTDPLimitsExpanded = false;
         private bool isPowerPlanExpanded = false;
         private bool isColorSettingsExpanded = false;
+        private bool isButtonRemappingExpanded = false;
+        private bool isGyroSettingsExpanded = false;
+        private bool isStickDeadzonesExpanded = false;
+        private bool isTouchpadVibrationExpanded = false;
+        private bool isLightingExpanded = false;
+        private bool isTDPExtrasExpanded = false;
+        private bool isCPUExtrasExpanded = false;
         private bool isLoadingTDPLimits = false;
         private bool isLoadingPowerPlans = false;
         private List<PowerPlanItem> availablePowerPlans = new List<PowerPlanItem>();
@@ -2873,11 +2889,11 @@ namespace XboxGamingBar
             if (OSDCustomizeExpandIcon != null)
             {
                 // E70D = ChevronDown, E70E = ChevronUp
-                OSDCustomizeExpandIcon.Text = isOSDCustomizeExpanded ? "\uE70E" : "\uE70D";
+                OSDCustomizeExpandIcon.Glyph = isOSDCustomizeExpanded ? "\uE70E" : "\uE70D";
             }
         }
 
-        private void ProfileSettingsExpandButton_Click(object sender, RoutedEventArgs e)
+        private void ProfileSettingsExpandToggle_Click(object sender, RoutedEventArgs e)
         {
             isProfileSettingsExpanded = !isProfileSettingsExpanded;
 
@@ -2889,7 +2905,119 @@ namespace XboxGamingBar
             if (ProfileSettingsExpandIcon != null)
             {
                 // E70D = ChevronDown, E70E = ChevronUp
-                ProfileSettingsExpandIcon.Text = isProfileSettingsExpanded ? "\uE70E" : "\uE70D";
+                ProfileSettingsExpandIcon.Glyph = isProfileSettingsExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void ButtonRemappingExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isButtonRemappingExpanded = !isButtonRemappingExpanded;
+
+            if (ButtonRemappingContent != null)
+            {
+                ButtonRemappingContent.Visibility = isButtonRemappingExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (ButtonRemappingExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                ButtonRemappingExpandIcon.Glyph = isButtonRemappingExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void GyroSettingsExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isGyroSettingsExpanded = !isGyroSettingsExpanded;
+
+            if (GyroSettingsContent != null)
+            {
+                GyroSettingsContent.Visibility = isGyroSettingsExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (GyroSettingsExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                GyroSettingsExpandIcon.Glyph = isGyroSettingsExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void StickDeadzonesExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isStickDeadzonesExpanded = !isStickDeadzonesExpanded;
+
+            if (StickDeadzonesContent != null)
+            {
+                StickDeadzonesContent.Visibility = isStickDeadzonesExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (StickDeadzonesExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                StickDeadzonesExpandIcon.Glyph = isStickDeadzonesExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void TouchpadVibrationExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isTouchpadVibrationExpanded = !isTouchpadVibrationExpanded;
+
+            if (TouchpadVibrationContent != null)
+            {
+                TouchpadVibrationContent.Visibility = isTouchpadVibrationExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (TouchpadVibrationExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                TouchpadVibrationExpandIcon.Glyph = isTouchpadVibrationExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void LightingExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isLightingExpanded = !isLightingExpanded;
+
+            if (LightingContent != null)
+            {
+                LightingContent.Visibility = isLightingExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (LightingExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                LightingExpandIcon.Glyph = isLightingExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void TDPExtrasExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isTDPExtrasExpanded = !isTDPExtrasExpanded;
+
+            if (TDPExtrasContent != null)
+            {
+                TDPExtrasContent.Visibility = isTDPExtrasExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (TDPExtrasExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                TDPExtrasExpandIcon.Glyph = isTDPExtrasExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void CPUExtrasExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isCPUExtrasExpanded = !isCPUExtrasExpanded;
+
+            if (CPUExtrasContent != null)
+            {
+                CPUExtrasContent.Visibility = isCPUExtrasExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (CPUExtrasExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                CPUExtrasExpandIcon.Glyph = isCPUExtrasExpanded ? "\uE70E" : "\uE70D";
             }
         }
 
@@ -2904,7 +3032,8 @@ namespace XboxGamingBar
 
             if (TDPLimitsExpandIcon != null)
             {
-                TDPLimitsExpandIcon.Text = isTDPLimitsExpanded ? "\uE70E" : "\uE70D";
+                // E70D = ChevronDown, E70E = ChevronUp
+                TDPLimitsExpandIcon.Glyph = isTDPLimitsExpanded ? "\uE70E" : "\uE70D";
             }
         }
 
@@ -2921,7 +3050,8 @@ namespace XboxGamingBar
 
             if (TDPBoostExpandIcon != null)
             {
-                TDPBoostExpandIcon.Text = isTDPBoostExpanded ? "\uE70E" : "\uE70D";
+                // E70D = ChevronDown, E70E = ChevronUp
+                TDPBoostExpandIcon.Glyph = isTDPBoostExpanded ? "\uE70E" : "\uE70D";
             }
         }
 
@@ -3117,7 +3247,8 @@ namespace XboxGamingBar
 
             if (PowerPlanExpandIcon != null)
             {
-                PowerPlanExpandIcon.Glyph = isPowerPlanExpanded ? "\uE70E" : "\uE76C";
+                // E70D = ChevronDown, E70E = ChevronUp
+                PowerPlanExpandIcon.Glyph = isPowerPlanExpanded ? "\uE70E" : "\uE70D";
             }
 
             // Load power plans when expanding for the first time
@@ -3772,7 +3903,8 @@ namespace XboxGamingBar
 
             if (AdvancedExpandIcon != null)
             {
-                AdvancedExpandIcon.Text = isAdvancedExpanded ? "\uE70E" : "\uE70D";
+                // E70D = ChevronDown, E70E = ChevronUp
+                AdvancedExpandIcon.Glyph = isAdvancedExpanded ? "\uE70E" : "\uE70D";
             }
         }
 
@@ -4547,8 +4679,8 @@ namespace XboxGamingBar
                     // Switch to new profile
                     currentProfileName = targetProfile;
 
-                    // Load settings from new profile
-                    LoadProfileSettings(currentProfileName);
+                    // Load settings from new profile (explicit switch - apply HDR/Resolution)
+                    LoadProfileSettings(currentProfileName, isExplicitSwitch: true);
                 }
                 finally
                 {
@@ -4723,7 +4855,7 @@ namespace XboxGamingBar
             UpdateProfileDisplay();
         }
 
-        private void LoadProfileSettings(string profileName)
+        private void LoadProfileSettings(string profileName, bool isExplicitSwitch = false)
         {
             if (isLoadingProfile) return;
             isLoadingProfile = true;
@@ -5053,25 +5185,38 @@ namespace XboxGamingBar
                 // HDR and Resolution
                 if (SaveHDRResolution)
                 {
-                    // Apply HDR setting
-                    if (HDRToggle != null && hdrSupported?.Value == true)
+                    // Only apply HDR/Resolution if:
+                    // 1. This is an explicit profile switch (game detected/closed), OR
+                    // 2. No game is currently running (returning to desktop)
+                    // This prevents overriding the game's preferred resolution when just reopening the widget
+                    bool shouldApplyHDRResolution = isExplicitSwitch || !HasValidGame(currentGameName);
+
+                    if (shouldApplyHDRResolution)
                     {
-                        HDRToggle.IsOn = profile.HDREnabled;
-                        hdrEnabled?.SetValue(profile.HDREnabled);
-                    }
-                    // Apply Resolution setting
-                    if (ResolutionComboBox != null && !string.IsNullOrEmpty(profile.Resolution))
-                    {
-                        // Find and select matching resolution
-                        for (int i = 0; i < ResolutionComboBox.Items.Count; i++)
+                        // Apply HDR setting
+                        if (HDRToggle != null && hdrSupported?.Value == true)
                         {
-                            if (ResolutionComboBox.Items[i]?.ToString() == profile.Resolution)
+                            HDRToggle.IsOn = profile.HDREnabled;
+                            hdrEnabled?.SetValue(profile.HDREnabled);
+                        }
+                        // Apply Resolution setting
+                        if (ResolutionComboBox != null && !string.IsNullOrEmpty(profile.Resolution))
+                        {
+                            // Find and select matching resolution
+                            for (int i = 0; i < ResolutionComboBox.Items.Count; i++)
                             {
-                                ResolutionComboBox.SelectedIndex = i;
-                                resolution?.SetValue(profile.Resolution);
-                                break;
+                                if (ResolutionComboBox.Items[i]?.ToString() == profile.Resolution)
+                                {
+                                    ResolutionComboBox.SelectedIndex = i;
+                                    resolution?.SetValue(profile.Resolution);
+                                    break;
+                                }
                             }
                         }
+                    }
+                    else
+                    {
+                        Logger.Info($"Skipping HDR/Resolution application - game is running and not an explicit switch");
                     }
                 }
 
@@ -5292,6 +5437,9 @@ namespace XboxGamingBar
                 container.Values["GamepadButtonMappings"] = "";
             }
 
+            // Desktop Controls preset
+            container.Values["DesktopControlsEnabled"] = profile.DesktopControlsEnabled;
+
             Logger.Info($"Saved controller profile: {profileName}");
         }
 
@@ -5372,6 +5520,11 @@ namespace XboxGamingBar
                         }
                     }
                 }
+
+                // Desktop Controls preset
+                profile.DesktopControlsEnabled = container.Values.ContainsKey("DesktopControlsEnabled")
+                    ? (bool)container.Values["DesktopControlsEnabled"]
+                    : false;
 
                 Logger.Info($"Loaded controller profile: {profileName}");
             }
@@ -5786,7 +5939,29 @@ namespace XboxGamingBar
                 // Update the remapped buttons summary display
                 UpdateGamepadMappingSummary();
 
-                Logger.Info($"Applied controller profile: Y1={FormatButtonMapping(profile.ButtonY1)}, Y2={FormatButtonMapping(profile.ButtonY2)}, Y3={FormatButtonMapping(profile.ButtonY3)}, M1={FormatButtonMapping(profile.ButtonM1)}, M2={FormatButtonMapping(profile.ButtonM2)}, M3={FormatButtonMapping(profile.ButtonM3)}, Nintendo={profile.NintendoLayout}, Vib={profile.VibrationLevel}, VibMode={profile.VibrationMode}, GyroTarget={profile.GyroTarget}, LDZ={profile.LeftStickDeadzone}, RDZ={profile.RightStickDeadzone}, GamepadMappings={profile.GamepadButtonMappings?.Count ?? 0}");
+                // Apply Desktop Controls toggle state (with event unsubscription to prevent handler firing)
+                if (LegionDesktopControlsToggle != null)
+                {
+                    LegionDesktopControlsToggle.Toggled -= LegionDesktopControls_Toggled;
+                    try
+                    {
+                        LegionDesktopControlsToggle.IsOn = profile.DesktopControlsEnabled;
+                        // Update Joystick as Mouse UI to match Desktop Controls state
+                        if (profile.DesktopControlsEnabled)
+                        {
+                            if (LegionJoystickAsMouseComboBox != null)
+                                LegionJoystickAsMouseComboBox.SelectedIndex = 2; // Right Stick
+                            if (LegionJoystickMouseSensGrid != null)
+                                LegionJoystickMouseSensGrid.Visibility = Windows.UI.Xaml.Visibility.Visible;
+                        }
+                    }
+                    finally
+                    {
+                        LegionDesktopControlsToggle.Toggled += LegionDesktopControls_Toggled;
+                    }
+                }
+
+                Logger.Info($"Applied controller profile: Y1={FormatButtonMapping(profile.ButtonY1)}, Y2={FormatButtonMapping(profile.ButtonY2)}, Y3={FormatButtonMapping(profile.ButtonY3)}, M1={FormatButtonMapping(profile.ButtonM1)}, M2={FormatButtonMapping(profile.ButtonM2)}, M3={FormatButtonMapping(profile.ButtonM3)}, Nintendo={profile.NintendoLayout}, Vib={profile.VibrationLevel}, VibMode={profile.VibrationMode}, GyroTarget={profile.GyroTarget}, LDZ={profile.LeftStickDeadzone}, RDZ={profile.RightStickDeadzone}, GamepadMappings={profile.GamepadButtonMappings?.Count ?? 0}, DesktopControls={profile.DesktopControlsEnabled}");
 
                 // Send button mappings to helper
                 SendButtonMappingsToHelper(profile);
@@ -5830,7 +6005,9 @@ namespace XboxGamingBar
                 // Gamepad button mappings
                 GamepadButtonMappings = gamepadButtonMappings.ToDictionary(
                     kvp => kvp.Key,
-                    kvp => kvp.Value.Clone())
+                    kvp => kvp.Value.Clone()),
+                // Desktop Controls preset
+                DesktopControlsEnabled = LegionDesktopControlsToggle?.IsOn ?? false
             };
         }
 
@@ -6297,6 +6474,23 @@ namespace XboxGamingBar
             }
 
             Logger.Info($"Desktop Controls toggled: {enabled}");
+
+            // Save the updated profile
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                if (LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName))
+                {
+                    gameControllerProfile = GetCurrentControllerProfileFromUI();
+                    SaveControllerProfileToStorage($"Game_{currentGameName}", gameControllerProfile);
+                    Logger.Info($"Saved Desktop Controls state to game profile: {currentGameName}");
+                }
+                else
+                {
+                    globalControllerProfile = GetCurrentControllerProfileFromUI();
+                    SaveControllerProfileToStorage("Global", globalControllerProfile);
+                    Logger.Info("Saved Desktop Controls state to global profile");
+                }
+            }
         }
 
         private void ApplyDesktopControlMappings()
@@ -6658,6 +6852,8 @@ namespace XboxGamingBar
             var autoTDPVisibility = SaveAutoTDP ? Visibility.Visible : Visibility.Collapsed;
             var powerModeVisibility = SaveOSPowerMode ? Visibility.Visible : Visibility.Collapsed;
             var amdVisibility = SaveAMDFeatures ? Visibility.Visible : Visibility.Collapsed;
+            var hdrResolutionVisibility = SaveHDRResolution ? Visibility.Visible : Visibility.Collapsed;
+            var stickyTDPVisibility = SaveStickyTDP ? Visibility.Visible : Visibility.Collapsed;
 
             // Update Global profile display (simple mode)
             GlobalProfileTDPModeLabel.Visibility = tdpModeVisibility;
@@ -6696,6 +6892,18 @@ namespace XboxGamingBar
             GlobalProfileAMDText.Visibility = amdVisibility;
             var globalAmdFeatures = GetAMDFeaturesShortString(globalProfile);
             GlobalProfileAMDText.Text = string.IsNullOrEmpty(globalAmdFeatures) ? "Off" : globalAmdFeatures;
+
+            GlobalProfileHDRLabel.Visibility = hdrResolutionVisibility;
+            GlobalProfileHDRText.Visibility = hdrResolutionVisibility;
+            GlobalProfileHDRText.Text = globalProfile.HDREnabled ? "On" : "Off";
+
+            GlobalProfileResolutionLabel.Visibility = hdrResolutionVisibility;
+            GlobalProfileResolutionText.Visibility = hdrResolutionVisibility;
+            GlobalProfileResolutionText.Text = string.IsNullOrEmpty(globalProfile.Resolution) ? "Native" : globalProfile.Resolution;
+
+            GlobalProfileStickyTDPLabel.Visibility = stickyTDPVisibility;
+            GlobalProfileStickyTDPText.Visibility = stickyTDPVisibility;
+            GlobalProfileStickyTDPText.Text = globalProfile.StickyTDPEnabled ? "On" : "Off";
 
             // Update AC/DC profile display
             ACDCProfileTDPModeLabel.Visibility = tdpModeVisibility;
@@ -6753,6 +6961,24 @@ namespace XboxGamingBar
             var dcAmdFeatures = GetAMDFeaturesShortString(dcProfile);
             ACProfileAMDText.Text = string.IsNullOrEmpty(acAmdFeatures) ? "Off" : acAmdFeatures;
             DCProfileAMDText.Text = string.IsNullOrEmpty(dcAmdFeatures) ? "Off" : dcAmdFeatures;
+
+            ACDCProfileHDRLabel.Visibility = hdrResolutionVisibility;
+            ACProfileHDRText.Visibility = hdrResolutionVisibility;
+            DCProfileHDRText.Visibility = hdrResolutionVisibility;
+            ACProfileHDRText.Text = acProfile.HDREnabled ? "On" : "Off";
+            DCProfileHDRText.Text = dcProfile.HDREnabled ? "On" : "Off";
+
+            ACDCProfileResolutionLabel.Visibility = hdrResolutionVisibility;
+            ACProfileResolutionText.Visibility = hdrResolutionVisibility;
+            DCProfileResolutionText.Visibility = hdrResolutionVisibility;
+            ACProfileResolutionText.Text = string.IsNullOrEmpty(acProfile.Resolution) ? "Native" : acProfile.Resolution;
+            DCProfileResolutionText.Text = string.IsNullOrEmpty(dcProfile.Resolution) ? "Native" : dcProfile.Resolution;
+
+            ACDCProfileStickyTDPLabel.Visibility = stickyTDPVisibility;
+            ACProfileStickyTDPText.Visibility = stickyTDPVisibility;
+            DCProfileStickyTDPText.Visibility = stickyTDPVisibility;
+            ACProfileStickyTDPText.Text = acProfile.StickyTDPEnabled ? "On" : "Off";
+            DCProfileStickyTDPText.Text = dcProfile.StickyTDPEnabled ? "On" : "Off";
 
             // Update game profile display (if game is running)
             if (HasValidGame(currentGameName))
@@ -6823,6 +7049,27 @@ namespace XboxGamingBar
                     var gameDCAmdFeatures = GetAMDFeaturesShortString(gameDCProfile);
                     GameACProfileAMDText.Text = string.IsNullOrEmpty(gameACAmdFeatures) ? "Off" : gameACAmdFeatures;
                     GameDCProfileAMDText.Text = string.IsNullOrEmpty(gameDCAmdFeatures) ? "Off" : gameDCAmdFeatures;
+
+                    // HDR
+                    GameACDCProfileHDRLabel.Visibility = hdrResolutionVisibility;
+                    GameACProfileHDRText.Visibility = hdrResolutionVisibility;
+                    GameDCProfileHDRText.Visibility = hdrResolutionVisibility;
+                    GameACProfileHDRText.Text = gameACProfile.HDREnabled ? "On" : "Off";
+                    GameDCProfileHDRText.Text = gameDCProfile.HDREnabled ? "On" : "Off";
+
+                    // Resolution
+                    GameACDCProfileResolutionLabel.Visibility = hdrResolutionVisibility;
+                    GameACProfileResolutionText.Visibility = hdrResolutionVisibility;
+                    GameDCProfileResolutionText.Visibility = hdrResolutionVisibility;
+                    GameACProfileResolutionText.Text = string.IsNullOrEmpty(gameACProfile.Resolution) ? "Native" : gameACProfile.Resolution;
+                    GameDCProfileResolutionText.Text = string.IsNullOrEmpty(gameDCProfile.Resolution) ? "Native" : gameDCProfile.Resolution;
+
+                    // Sticky TDP
+                    GameACDCProfileStickyTDPLabel.Visibility = stickyTDPVisibility;
+                    GameACProfileStickyTDPText.Visibility = stickyTDPVisibility;
+                    GameDCProfileStickyTDPText.Visibility = stickyTDPVisibility;
+                    GameACProfileStickyTDPText.Text = gameACProfile.StickyTDPEnabled ? "On" : "Off";
+                    GameDCProfileStickyTDPText.Text = gameDCProfile.StickyTDPEnabled ? "On" : "Off";
                 }
                 else
                 {
@@ -6876,6 +7123,21 @@ namespace XboxGamingBar
                     GameProfileAMDText.Visibility = amdVisibility;
                     var gameAmdFeatures = GetAMDFeaturesShortString(gameProfile);
                     GameProfileAMDText.Text = string.IsNullOrEmpty(gameAmdFeatures) ? "Off" : gameAmdFeatures;
+
+                    // HDR
+                    GameProfileHDRLabel.Visibility = hdrResolutionVisibility;
+                    GameProfileHDRText.Visibility = hdrResolutionVisibility;
+                    GameProfileHDRText.Text = gameProfile.HDREnabled ? "On" : "Off";
+
+                    // Resolution
+                    GameProfileResolutionLabel.Visibility = hdrResolutionVisibility;
+                    GameProfileResolutionText.Visibility = hdrResolutionVisibility;
+                    GameProfileResolutionText.Text = string.IsNullOrEmpty(gameProfile.Resolution) ? "Native" : gameProfile.Resolution;
+
+                    // Sticky TDP
+                    GameProfileStickyTDPLabel.Visibility = stickyTDPVisibility;
+                    GameProfileStickyTDPText.Visibility = stickyTDPVisibility;
+                    GameProfileStickyTDPText.Text = gameProfile.StickyTDPEnabled ? "On" : "Off";
                 }
             }
 
@@ -8222,7 +8484,17 @@ namespace XboxGamingBar
             if (App.Connection != null)
             {
                 Logger.Info("GamingWidget LeavingBackground, syncing UI properties with helper.");
-                await properties.Sync();
+
+                // Set flag to prevent auto-save during sync (same pattern as OnNavigatedTo)
+                isApplyingHelperUpdate = true;
+                try
+                {
+                    await properties.Sync();
+                }
+                finally
+                {
+                    isApplyingHelperUpdate = false;
+                }
 
                 // Update FPS Limit controls based on RTSS installed status
                 UpdateFPSLimitControls();
@@ -8241,13 +8513,14 @@ namespace XboxGamingBar
                         string expectedProfile = GetTargetProfileName();
                         if (expectedProfile != currentProfileName)
                         {
+                            // Profile changed (game started/closed) - explicit switch, apply HDR/Resolution
                             Logger.Info($"Profile changed while in background: '{currentProfileName}' -> '{expectedProfile}'");
                             currentProfileName = expectedProfile;
-                            LoadProfileSettings(currentProfileName);
+                            LoadProfileSettings(currentProfileName, isExplicitSwitch: true);
                         }
                         else
                         {
-                            // Even if profile name is same, reload settings to ensure UI matches profile
+                            // Same profile, just reloading UI - don't override game's resolution
                             // (e.g., TDP slider may show game value instead of global profile value)
                             Logger.Info($"Reloading profile settings after returning from background: {currentProfileName}");
                             LoadProfileSettings(currentProfileName);
