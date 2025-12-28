@@ -599,7 +599,7 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- TDP Boost Card -->
+                        <!-- TDP Extras Card (Collapsible) -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <Grid>
@@ -607,156 +607,109 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="TDP Boost" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Apply boost values to SPPT and FPPT for burst performance"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="TDP Extras" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="TDP Boost, AutoTDP, and Sticky TDP"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
-                                    <ToggleSwitch x:Name="TDPBoostToggle"
+                                    <ToggleButton x:Name="TDPExtrasExpandToggle"
                                                   Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  Toggled="TDPBoostToggle_Toggled"/>
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="TDPExtrasExpandToggle_Click">
+                                        <FontIcon x:Name="TDPExtrasExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
                                 </Grid>
-                                <!-- TDP Boost Active Indicator -->
-                                <TextBlock Text="TDP Boost: Active"
-                                           FontSize="13"
-                                           Foreground="#4CAF50"
-                                           FontWeight="SemiBold"
-                                           Margin="0,4,0,0"
-                                           Visibility="{Binding ElementName=TDPBoostToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                            </StackPanel>
-                        </Border>
+                                <StackPanel x:Name="TDPExtrasContent" Spacing="12" Margin="0,12,0,0" Visibility="Collapsed">
+                                    <!-- TDP Boost -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="TDP Boost" FontSize="14" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Apply boost values to SPPT and FPPT"
+                                                       FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="TDPBoostToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="TDPBoostToggle_Toggled"/>
+                                    </Grid>
+                                    <TextBlock Text="TDP Boost: Active"
+                                               FontSize="13"
+                                               Foreground="#4CAF50"
+                                               FontWeight="SemiBold"
+                                               Margin="0,-8,0,0"
+                                               Visibility="{Binding ElementName=TDPBoostToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                        <!-- AutoTDP Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="AutoTDP" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Automatically adjust TDP to maintain target FPS"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
+                                    <!-- AutoTDP -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="AutoTDP" FontSize="14" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Automatically adjust TDP to maintain target FPS"
+                                                       FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="AutoTDPToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="AutoTDPToggle_Toggled"/>
+                                    </Grid>
+                                    <StackPanel Visibility="{Binding ElementName=AutoTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                Margin="0,-8,0,0">
+                                        <Grid>
+                                            <TextBlock Text="Target FPS" FontSize="14" Foreground="#A0A0A0"/>
+                                            <TextBlock x:Name="AutoTDPTargetFPSValue" Text="60 FPS" FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Slider x:Name="AutoTDPTargetFPSSlider" Style="{StaticResource ModernSliderStyle}" Minimum="30" Maximum="144" StepFrequency="1" Value="60" ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"/>
+                                        <Grid Margin="0,8,0,0">
+                                            <TextBlock Text="Current FPS" FontSize="14" Foreground="#A0A0A0"/>
+                                            <TextBlock x:Name="AutoTDPCurrentFPSValue" Text="-- FPS" FontSize="14" Foreground="#FFCC00" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Grid Margin="0,12,0,0">
+                                            <TextBlock Text="Min TDP" FontSize="14" Foreground="#A0A0A0"/>
+                                            <TextBlock x:Name="AutoTDPMinValue" Text="8W" FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Slider x:Name="AutoTDPMinSlider" Style="{StaticResource ModernSliderStyle}" Minimum="4" Maximum="85" StepFrequency="1" Value="8" ValueChanged="AutoTDPMinSlider_ValueChanged"/>
+                                        <Grid Margin="0,8,0,0">
+                                            <TextBlock Text="Max TDP" FontSize="14" Foreground="#A0A0A0"/>
+                                            <TextBlock x:Name="AutoTDPMaxValue" Text="30W" FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Slider x:Name="AutoTDPMaxSlider" Style="{StaticResource ModernSliderStyle}" Minimum="4" Maximum="85" StepFrequency="1" Value="30" ValueChanged="AutoTDPMaxSlider_ValueChanged"/>
                                     </StackPanel>
-                                    <ToggleSwitch x:Name="AutoTDPToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  Toggled="AutoTDPToggle_Toggled"/>
-                                </Grid>
-                                <StackPanel Visibility="{Binding ElementName=AutoTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Grid Margin="0,12,0,0">
-                                        <TextBlock Text="Target FPS"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"/>
-                                        <TextBlock x:Name="AutoTDPTargetFPSValue"
-                                                   Text="60 FPS"
-                                                   FontSize="14"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-                                    <Slider x:Name="AutoTDPTargetFPSSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="30" Maximum="144"
-                                            StepFrequency="1"
-                                            Value="60"
-                                            ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"/>
-                                    <Grid Margin="0,8,0,0">
-                                        <TextBlock Text="Current FPS"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"/>
-                                        <TextBlock x:Name="AutoTDPCurrentFPSValue"
-                                                   Text="-- FPS"
-                                                   FontSize="14"
-                                                   Foreground="#FFCC00"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-                                    <!-- Min TDP Range -->
-                                    <Grid Margin="0,12,0,0">
-                                        <TextBlock Text="Min TDP"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"/>
-                                        <TextBlock x:Name="AutoTDPMinValue"
-                                                   Text="8W"
-                                                   FontSize="14"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-                                    <Slider x:Name="AutoTDPMinSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="4" Maximum="85"
-                                            StepFrequency="1"
-                                            Value="8"
-                                            ValueChanged="AutoTDPMinSlider_ValueChanged"/>
-                                    <!-- Max TDP Range -->
-                                    <Grid Margin="0,8,0,0">
-                                        <TextBlock Text="Max TDP"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"/>
-                                        <TextBlock x:Name="AutoTDPMaxValue"
-                                                   Text="30W"
-                                                   FontSize="14"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-                                    <Slider x:Name="AutoTDPMaxSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="4" Maximum="85"
-                                            StepFrequency="1"
-                                            Value="30"
-                                            ValueChanged="AutoTDPMaxSlider_ValueChanged"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
 
-                        <!-- Sticky TDP Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Sticky TDP" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Automatically restore TDP limits if changed by other apps"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="StickyTDPToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  Toggled="StickyTDPToggle_Toggled"/>
-                                </Grid>
-                                <StackPanel Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Grid Margin="0,2,0,0">
-                                        <TextBlock Text="How often to reapply TDP settings"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"
-                                                   TextWrapping="Wrap"/>
-                                        <TextBlock x:Name="StickyTDPIntervalValue"
-                                                   Text="5s"
-                                                   FontSize="14"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right"/>
+                                    <!-- Sticky TDP -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Sticky TDP" FontSize="14" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Restore TDP limits if changed by other apps"
+                                                       FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="StickyTDPToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="StickyTDPToggle_Toggled"/>
                                     </Grid>
-                                    <Slider x:Name="StickyTDPIntervalSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="3" Maximum="15"
-                                            TickFrequency="2"
-                                            SnapsTo="Ticks"
-                                            TickPlacement="BottomRight"
-                                            Header="Check Interval"
-                                            Value="5"
-                                            ValueChanged="StickyTDPIntervalSlider_ValueChanged"/>
+                                    <StackPanel Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                Margin="0,-8,0,0">
+                                        <Grid>
+                                            <TextBlock Text="Reapply interval" FontSize="14" Foreground="#A0A0A0"/>
+                                            <TextBlock x:Name="StickyTDPIntervalValue" Text="5s" FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Slider x:Name="StickyTDPIntervalSlider" Style="{StaticResource ModernSliderStyle}" Minimum="3" Maximum="15" TickFrequency="2" SnapsTo="Ticks" Value="5" ValueChanged="StickyTDPIntervalSlider_ValueChanged"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -796,77 +749,94 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- CPU Boost Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="CPU Boost" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Higher boost clocks" Style="{StaticResource CardCaptionStyle}"/>
-                                </StackPanel>
-                                <ToggleSwitch x:Name="CPUBoostToggle"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              Grid.Column="1"
-                                              IsEnabled="False"/>
-                            </Grid>
-                        </Border>
-
-                        <!-- CPU EPP Card -->
+                        <!-- CPU Extras Card (Collapsible) -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <Grid>
-                                    <TextBlock Text="CPU EPP" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock x:Name="CPUEPPValueText"
-                                               Text="{Binding ElementName=CPUEPPSlider, Path=Value}"
-                                               Style="{StaticResource CardValueStyle}"/>
-                                </Grid>
-                                <Slider x:Name="CPUEPPSlider"
-                                        Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="0" Maximum="100"
-                                        TickFrequency="10"
-                                        SnapsTo="Ticks"
-                                        TickPlacement="BottomRight"
-                                        IsEnabled="False"/>
-                                <Grid Margin="0,4,0,0">
-                                    <TextBlock Text="0 = Prioritize CPU"
-                                               FontSize="12"
-                                               Foreground="#A0A0A0"/>
-                                    <TextBlock Text="100 = Prioritize GPU"
-                                               FontSize="12"
-                                               Foreground="#A0A0A0"
-                                               HorizontalAlignment="Right"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- CPU State Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="CPU State" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Processor performance limits" Style="{StaticResource CardCaptionStyle}"/>
-                                <Grid Margin="0,12,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                                        <TextBlock Text="Min %" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
-                                        <ComboBox x:Name="MinCPUStateComboBox"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  SelectionChanged="MinCPUStateComboBox_SelectionChanged"
-                                                  IsEnabled="False"/>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="CPU Extras" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="CPU Boost, EPP, and State limits"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="1" Margin="6,0,0,0">
-                                        <TextBlock Text="Max %" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
-                                        <ComboBox x:Name="MaxCPUStateComboBox"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  SelectionChanged="MaxCPUStateComboBox_SelectionChanged"
-                                                  IsEnabled="False"/>
-                                    </StackPanel>
+                                    <ToggleButton x:Name="CPUExtrasExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="CPUExtrasExpandToggle_Click">
+                                        <FontIcon x:Name="CPUExtrasExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
                                 </Grid>
+                                <StackPanel x:Name="CPUExtrasContent" Spacing="12" Margin="0,12,0,0" Visibility="Collapsed">
+                                    <!-- CPU Boost -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="CPU Boost" FontSize="14" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Higher boost clocks" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="CPUBoostToggle"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Grid.Column="1"
+                                                      IsEnabled="False"/>
+                                    </Grid>
+
+                                    <!-- CPU EPP -->
+                                    <StackPanel>
+                                        <Grid>
+                                            <TextBlock Text="CPU EPP" FontSize="14" Foreground="#FFFFFF"/>
+                                            <TextBlock x:Name="CPUEPPValueText"
+                                                       Text="{Binding ElementName=CPUEPPSlider, Path=Value}"
+                                                       Style="{StaticResource CardValueStyle}"/>
+                                        </Grid>
+                                        <Slider x:Name="CPUEPPSlider"
+                                                Style="{StaticResource ModernSliderStyle}"
+                                                Minimum="0" Maximum="100"
+                                                TickFrequency="10"
+                                                SnapsTo="Ticks"
+                                                TickPlacement="BottomRight"
+                                                IsEnabled="False"/>
+                                        <Grid Margin="0,4,0,0">
+                                            <TextBlock Text="0 = Prioritize CPU" FontSize="12" Foreground="#A0A0A0"/>
+                                            <TextBlock Text="100 = Prioritize GPU" FontSize="12" Foreground="#A0A0A0" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <!-- CPU State -->
+                                    <StackPanel>
+                                        <TextBlock Text="CPU State" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Processor performance limits" FontSize="11" Foreground="#888888"/>
+                                        <Grid Margin="0,8,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                                <TextBlock Text="Min %" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
+                                                <ComboBox x:Name="MinCPUStateComboBox"
+                                                          Style="{StaticResource ModernComboBoxStyle}"
+                                                          SelectionChanged="MinCPUStateComboBox_SelectionChanged"
+                                                          IsEnabled="False"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                                <TextBlock Text="Max %" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
+                                                <ComboBox x:Name="MaxCPUStateComboBox"
+                                                          Style="{StaticResource ModernComboBoxStyle}"
+                                                          SelectionChanged="MaxCPUStateComboBox_SelectionChanged"
+                                                          IsEnabled="False"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
@@ -936,7 +906,7 @@
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}" Width="47"
                                               XYFocusUp="{x:Bind ProfilesNavItem}"
-                                              XYFocusDown="{x:Bind ProfileSettingsExpandButton}"/>
+                                              XYFocusDown="{x:Bind ProfileSettingsExpandToggle}"/>
                             </Grid>
                         </Border>
 
@@ -944,36 +914,28 @@
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <!-- Header with Expand/Collapse -->
-                                <Button x:Name="ProfileSettingsExpandButton"
-                                        Click="ProfileSettingsExpandButton_Click"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Stretch"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Padding="0"
-                                        UseSystemFocusVisuals="True"
-                                        FocusVisualPrimaryBrush="White"
-                                        XYFocusUp="{x:Bind PowerSourceProfileToggle}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Profile Settings" Style="{StaticResource CardTitleStyle}"/>
-                                            <TextBlock Text="Choose which settings are saved in profiles"
-                                                       Style="{StaticResource CardCaptionStyle}"
-                                                       TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <TextBlock x:Name="ProfileSettingsExpandIcon"
-                                                   Text="&#xE70D;"
-                                                   FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"
-                                                   Grid.Column="1"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-                                </Button>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Profile Settings" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Choose which settings are saved in profiles"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="ProfileSettingsExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="ProfileSettingsExpandToggle_Click">
+                                        <FontIcon x:Name="ProfileSettingsExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
 
                                 <!-- Collapsible Content -->
                                 <StackPanel x:Name="ProfileSettingsContent" Visibility="Collapsed" Margin="0,12,0,0">
@@ -1101,6 +1063,9 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -1133,11 +1098,23 @@
 
                                     <TextBlock Grid.Row="8" Grid.Column="0" x:Name="GlobalProfileAMDLabel" Text="AMD" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="8" Grid.Column="1" x:Name="GlobalProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                    <TextBlock Grid.Row="9" Grid.Column="0" x:Name="GlobalProfileHDRLabel" Text="HDR" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="9" Grid.Column="1" x:Name="GlobalProfileHDRText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                    <TextBlock Grid.Row="10" Grid.Column="0" x:Name="GlobalProfileResolutionLabel" Text="Resolution" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="10" Grid.Column="1" x:Name="GlobalProfileResolutionText" Text="Native" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                    <TextBlock Grid.Row="11" Grid.Column="0" x:Name="GlobalProfileStickyTDPLabel" Text="Sticky TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="11" Grid.Column="1" x:Name="GlobalProfileStickyTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
                                 </Grid>
 
                                 <!-- AC/DC Mode (Power Source Toggle ON) -->
                                 <Grid x:Name="GlobalProfileACDC" Margin="0,8,0,0" Visibility="Collapsed">
                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
@@ -1204,6 +1181,21 @@
                                     <TextBlock Grid.Row="9" Grid.Column="0" x:Name="ACDCProfileAMDLabel" Text="AMD" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="9" Grid.Column="1" x:Name="ACProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="9" Grid.Column="2" x:Name="DCProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                    <!-- HDR Row -->
+                                    <TextBlock Grid.Row="10" Grid.Column="0" x:Name="ACDCProfileHDRLabel" Text="HDR" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="10" Grid.Column="1" x:Name="ACProfileHDRText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="10" Grid.Column="2" x:Name="DCProfileHDRText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                    <!-- Resolution Row -->
+                                    <TextBlock Grid.Row="11" Grid.Column="0" x:Name="ACDCProfileResolutionLabel" Text="Res" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="11" Grid.Column="1" x:Name="ACProfileResolutionText" Text="Native" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="11" Grid.Column="2" x:Name="DCProfileResolutionText" Text="Native" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                    <!-- Sticky TDP Row -->
+                                    <TextBlock Grid.Row="12" Grid.Column="0" x:Name="ACDCProfileStickyTDPLabel" Text="Sticky" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="12" Grid.Column="1" x:Name="ACProfileStickyTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="12" Grid.Column="2" x:Name="DCProfileStickyTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -1220,6 +1212,9 @@
                                                FontSize="14"/>
                                     <Grid Margin="0,8,0,0">
                                         <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
@@ -1287,6 +1282,21 @@
                                         <TextBlock Grid.Row="9" Grid.Column="1" x:Name="GameACProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="9" Grid.Column="2" x:Name="GameDCProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
 
+                                        <!-- HDR Row -->
+                                        <TextBlock Grid.Row="10" Grid.Column="0" x:Name="GameACDCProfileHDRLabel" Text="HDR" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="10" Grid.Column="1" x:Name="GameACProfileHDRText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="10" Grid.Column="2" x:Name="GameDCProfileHDRText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                        <!-- Resolution Row -->
+                                        <TextBlock Grid.Row="11" Grid.Column="0" x:Name="GameACDCProfileResolutionLabel" Text="Res" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="11" Grid.Column="1" x:Name="GameACProfileResolutionText" Text="Native" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="11" Grid.Column="2" x:Name="GameDCProfileResolutionText" Text="Native" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
+                                        <!-- Sticky TDP Row -->
+                                        <TextBlock Grid.Row="12" Grid.Column="0" x:Name="GameACDCProfileStickyTDPLabel" Text="Sticky" FontSize="11" Foreground="#AAAAAA" Margin="0,3,8,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="12" Grid.Column="1" x:Name="GameACProfileStickyTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="12" Grid.Column="2" x:Name="GameDCProfileStickyTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" HorizontalAlignment="Center" Visibility="Collapsed"/>
+
                                     </Grid>
                                 </StackPanel>
 
@@ -1299,6 +1309,9 @@
                                                FontSize="14"/>
                                     <Grid Margin="0,8,0,0">
                                         <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
@@ -1344,6 +1357,15 @@
 
                                         <TextBlock Grid.Row="9" Grid.Column="0" x:Name="GameProfileAMDLabel" Text="AMD" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="9" Grid.Column="1" x:Name="GameProfileAMDText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                        <TextBlock Grid.Row="10" Grid.Column="0" x:Name="GameProfileHDRLabel" Text="HDR" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="10" Grid.Column="1" x:Name="GameProfileHDRText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                        <TextBlock Grid.Row="11" Grid.Column="0" x:Name="GameProfileResolutionLabel" Text="Resolution" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="11" Grid.Column="1" x:Name="GameProfileResolutionText" Text="Native" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                        <TextBlock Grid.Row="12" Grid.Column="0" x:Name="GameProfileStickyTDPLabel" Text="Sticky TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="12" Grid.Column="1" x:Name="GameProfileStickyTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
@@ -1684,36 +1706,28 @@
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <!-- Header with Expand/Collapse -->
-                                <Button x:Name="TDPLimitsExpandButton"
-                                        Click="TDPLimitsExpandButton_Click"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Stretch"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Padding="0"
-                                        UseSystemFocusVisuals="True"
-                                        FocusVisualPrimaryBrush="White"
-                                        XYFocusUp="{x:Bind UseManufacturerWMIToggle}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Device TDP Limits" Style="{StaticResource CardTitleStyle}"/>
-                                            <TextBlock Text="Configure minimum and maximum TDP for your device"
-                                                       Style="{StaticResource CardCaptionStyle}"
-                                                       TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <TextBlock x:Name="TDPLimitsExpandIcon"
-                                                   Text="&#xE70D;"
-                                                   FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"
-                                                   Grid.Column="1"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-                                </Button>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Device TDP Limits" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Configure minimum and maximum TDP for your device"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="TDPLimitsExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="TDPLimitsExpandButton_Click">
+                                        <FontIcon x:Name="TDPLimitsExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
 
                                 <!-- Collapsible Content -->
                                 <StackPanel x:Name="TDPLimitsContent" Visibility="Collapsed" Margin="0,12,0,0">
@@ -1792,36 +1806,28 @@
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <!-- Header with Expand/Collapse -->
-                                <Button x:Name="TDPBoostExpandButton"
-                                        Click="TDPBoostExpandButton_Click"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Stretch"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Padding="0"
-                                        UseSystemFocusVisuals="True"
-                                        FocusVisualPrimaryBrush="White"
-                                        XYFocusUp="{x:Bind TDPLimitsExpandButton}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="TDP Boost Settings" Style="{StaticResource CardTitleStyle}"/>
-                                            <TextBlock Text="Configure SPPT and FPPT boost values above base TDP"
-                                                       Style="{StaticResource CardCaptionStyle}"
-                                                       TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <TextBlock x:Name="TDPBoostExpandIcon"
-                                                   Text="&#xE70D;"
-                                                   FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"
-                                                   Grid.Column="1"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-                                </Button>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="TDP Boost Settings" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Configure SPPT and FPPT boost values above base TDP"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="TDPBoostExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="TDPBoostExpandButton_Click">
+                                        <FontIcon x:Name="TDPBoostExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
 
                                 <!-- Collapsible Content -->
                                 <StackPanel x:Name="TDPBoostContent" Visibility="Collapsed" Margin="0,12,0,0">
@@ -1898,35 +1904,28 @@
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <!-- Header with Expand/Collapse -->
-                                <Button x:Name="PowerPlanExpandButton"
-                                        Click="PowerPlanExpandButton_Click"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Stretch"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Padding="0"
-                                        UseSystemFocusVisuals="True"
-                                        FocusVisualPrimaryBrush="White"
-                                        XYFocusUp="{x:Bind TDPBoostExpandButton}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Power Plan Settings" Style="{StaticResource CardTitleStyle}"/>
-                                            <TextBlock Text="Configure power plans for AC and battery"
-                                                       Style="{StaticResource CardCaptionStyle}"
-                                                       TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <FontIcon x:Name="PowerPlanExpandIcon"
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Power Plan Settings" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Configure power plans for AC and battery"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="PowerPlanExpandButton"
                                                   Grid.Column="1"
-                                                  Glyph="&#xE76C;"
-                                                  FontSize="12"
-                                                  Foreground="#A0A0A0"
-                                                  VerticalAlignment="Center"/>
-                                    </Grid>
-                                </Button>
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="PowerPlanExpandButton_Click">
+                                        <FontIcon x:Name="PowerPlanExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
 
                                 <!-- Collapsible Content -->
                                 <StackPanel x:Name="PowerPlanOptionsPanel" Visibility="Collapsed" Margin="0,12,0,0">
@@ -1980,37 +1979,28 @@
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <!-- Header with Expand/Collapse -->
-                                <Button x:Name="OSDCustomizeExpandButton"
-                                        Click="OSDCustomizeExpandButton_Click"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Stretch"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Padding="0"
-                                        UseSystemFocusVisuals="True"
-                                        FocusVisualPrimaryBrush="White"
-                                        XYFocusUp="{x:Bind PowerPlanExpandButton}"
-                                        XYFocusDown="{x:Bind AdvancedExpandButton}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="OSD Customization" Style="{StaticResource CardTitleStyle}"/>
-                                            <TextBlock Text="Customize overlay appearance and content"
-                                                       Style="{StaticResource CardCaptionStyle}"
-                                                       TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <TextBlock x:Name="OSDCustomizeExpandIcon"
-                                                   Text="&#xE70D;"
-                                                   FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"
-                                                   Grid.Column="1"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-                                </Button>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="OSD Customization" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Customize overlay appearance and content"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="OSDCustomizeExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="OSDCustomizeExpandButton_Click">
+                                        <FontIcon x:Name="OSDCustomizeExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
 
                                 <!-- Collapsible Content -->
                                 <StackPanel x:Name="OSDCustomizeContent" Visibility="Collapsed" Margin="0,12,0,0">
@@ -2351,37 +2341,29 @@
                         <Border x:Name="AdvancedCard" Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <!-- Header with Expand/Collapse -->
-                                <Button x:Name="AdvancedExpandButton"
-                                        Click="AdvancedExpandButton_Click"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Stretch"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Padding="0"
-                                        UseSystemFocusVisuals="True"
-                                        FocusVisualPrimaryBrush="White"
-                                        XYFocusUp="{x:Bind OSDCustomizeExpandButton}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Advanced" Style="{StaticResource CardTitleStyle}"/>
-                                            <TextBlock x:Name="AdvancedSummary"
-                                                       Text="Core parking and affinity settings"
-                                                       Style="{StaticResource CardCaptionStyle}"
-                                                       TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <TextBlock x:Name="AdvancedExpandIcon"
-                                                   Text="&#xE70D;"
-                                                   FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"
-                                                   Grid.Column="1"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-                                </Button>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Advanced" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock x:Name="AdvancedSummary"
+                                                   Text="Core parking and affinity settings"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="AdvancedExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="AdvancedExpandButton_Click">
+                                        <FontIcon x:Name="AdvancedExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
 
                                 <!-- Collapsible Content -->
                                 <StackPanel x:Name="AdvancedContent" Visibility="Collapsed" Margin="0,12,0,0">
@@ -2965,95 +2947,99 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Touchpad Control Card -->
+                        <!-- Touchpad & Vibration Card -->
                         <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Touchpad" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Enable or disable the controller touchpad"
-                                               Style="{StaticResource CardCaptionStyle}"/>
-                                </StackPanel>
-                                <ToggleSwitch x:Name="LegionTouchpadToggle"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              IsOn="True"
-                                              XYFocusUp="{x:Bind LegionNavItem}"
-                                              XYFocusDown="{x:Bind LegionVibrationComboBox}"/>
-                            </Grid>
-                        </Border>
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Touchpad &amp; Vibration" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Touchpad and haptic feedback settings"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="TouchpadVibrationExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="TouchpadVibrationExpandToggle_Click">
+                                        <FontIcon x:Name="TouchpadVibrationExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+                                <StackPanel x:Name="TouchpadVibrationContent" Spacing="12" Margin="0,12,0,0" Visibility="Collapsed">
+                                    <!-- Touchpad Toggle -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Touchpad Enabled" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                        <ToggleSwitch x:Name="LegionTouchpadToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      IsOn="True"
+                                                      XYFocusUp="{x:Bind LegionNavItem}"
+                                                      XYFocusDown="{x:Bind LegionVibrationComboBox}"/>
+                                    </Grid>
 
-                        <!-- Vibration Control Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Vibration" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Touchpad haptic feedback intensity"
-                                               Style="{StaticResource CardCaptionStyle}"/>
-                                </StackPanel>
-                                <ComboBox x:Name="LegionVibrationComboBox"
-                                          Grid.Column="1"
-                                          Width="100"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          SelectedIndex="2">
-                                    <x:String>Off</x:String>
-                                    <x:String>Weak</x:String>
-                                    <x:String>Medium</x:String>
-                                    <x:String>Strong</x:String>
-                                </ComboBox>
-                            </Grid>
-                        </Border>
+                                    <!-- Vibration Intensity -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Vibration Intensity" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                        <ComboBox x:Name="LegionVibrationComboBox"
+                                                  Grid.Column="1"
+                                                  Width="100"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  SelectedIndex="2">
+                                            <x:String>Off</x:String>
+                                            <x:String>Weak</x:String>
+                                            <x:String>Medium</x:String>
+                                            <x:String>Strong</x:String>
+                                        </ComboBox>
+                                    </Grid>
 
-                        <!-- Vibration Mode Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Vibration Mode" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Game-optimized vibration patterns"
-                                               Style="{StaticResource CardCaptionStyle}"/>
-                                </StackPanel>
-                                <ComboBox x:Name="LegionVibrationModeComboBox"
-                                          Grid.Column="1"
-                                          Width="100"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          SelectedIndex="0">
-                                    <x:String>FPS</x:String>
-                                    <x:String>Racing</x:String>
-                                    <x:String>AVG</x:String>
-                                    <x:String>SPG</x:String>
-                                    <x:String>RPG</x:String>
-                                </ComboBox>
-                            </Grid>
-                        </Border>
+                                    <!-- Vibration Mode -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Vibration Mode" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                        <ComboBox x:Name="LegionVibrationModeComboBox"
+                                                  Grid.Column="1"
+                                                  Width="100"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  SelectedIndex="0">
+                                            <x:String>FPS</x:String>
+                                            <x:String>Racing</x:String>
+                                            <x:String>AVG</x:String>
+                                            <x:String>SPG</x:String>
+                                            <x:String>RPG</x:String>
+                                        </ComboBox>
+                                    </Grid>
 
-                        <!-- Touchpad Vibration Card (GLOBAL setting) -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Touchpad Haptics" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Enable or disable touchpad haptic feedback"
-                                               Style="{StaticResource CardCaptionStyle}"/>
+                                    <!-- Touchpad Haptics Toggle -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Touchpad Haptics" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                        <ToggleSwitch x:Name="LegionTouchpadVibrationToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      IsOn="True"/>
+                                    </Grid>
                                 </StackPanel>
-                                <ToggleSwitch x:Name="LegionTouchpadVibrationToggle"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              IsOn="True"/>
-                            </Grid>
+                            </StackPanel>
                         </Border>
 
                         <!-- Controller Remapping Section Header -->
@@ -3084,12 +3070,29 @@
                         <!-- Button Remapping Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <TextBlock Text="Button Remapping" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Map buttons to gamepad, keyboard, or mouse"
-                                           Style="{StaticResource CardCaptionStyle}"
-                                           Margin="0,0,0,12"/>
-
-                                <!-- Y1 Button -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Button Remapping" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Map buttons to gamepad, keyboard, or mouse"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="ButtonRemappingExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="ButtonRemappingExpandToggle_Click">
+                                        <FontIcon x:Name="ButtonRemappingExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+                                <StackPanel x:Name="ButtonRemappingContent" Margin="0,12,0,0" Visibility="Collapsed">
+                                    <!-- Y1 Button -->
                                 <StackPanel Margin="0,0,0,12">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -3396,6 +3399,7 @@
                                         </ComboBox>
                                     </StackPanel>
                                 </StackPanel>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
@@ -3481,47 +3485,80 @@
 
                         <!-- Stick Deadzones Card -->
                         <Border Style="{StaticResource CardStyle}">
-                            <StackPanel Spacing="12">
-                                <TextBlock Text="Stick Deadzones" Style="{StaticResource CardTitleStyle}"/>
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Stick Deadzones" Style="{StaticResource CardTitleStyle}" Grid.Column="0"/>
+                                    <ToggleButton x:Name="StickDeadzonesExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="StickDeadzonesExpandToggle_Click">
+                                        <FontIcon x:Name="StickDeadzonesExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+                                <StackPanel x:Name="StickDeadzonesContent" Spacing="12" Margin="0,12,0,0" Visibility="Collapsed">
+                                    <!-- Left Stick Deadzone -->
+                                    <StackPanel>
+                                        <Grid>
+                                            <TextBlock Text="Left Stick" FontSize="13" Foreground="#AAAAAA"/>
+                                            <TextBlock x:Name="LegionLeftStickDeadzoneValue"
+                                                       Text="4%"
+                                                       Style="{StaticResource CardValueStyle}"/>
+                                        </Grid>
+                                        <Slider x:Name="LegionLeftStickDeadzoneSlider"
+                                                Style="{StaticResource ModernSliderStyle}"
+                                                Minimum="0" Maximum="50"
+                                                Value="4"
+                                                StepFrequency="1"/>
+                                    </StackPanel>
 
-                                <!-- Left Stick Deadzone -->
-                                <StackPanel>
-                                    <Grid>
-                                        <TextBlock Text="Left Stick" FontSize="13" Foreground="#AAAAAA"/>
-                                        <TextBlock x:Name="LegionLeftStickDeadzoneValue"
-                                                   Text="4%"
-                                                   Style="{StaticResource CardValueStyle}"/>
-                                    </Grid>
-                                    <Slider x:Name="LegionLeftStickDeadzoneSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="50"
-                                            Value="4"
-                                            StepFrequency="1"/>
-                                </StackPanel>
-
-                                <!-- Right Stick Deadzone -->
-                                <StackPanel>
-                                    <Grid>
-                                        <TextBlock Text="Right Stick" FontSize="13" Foreground="#AAAAAA"/>
-                                        <TextBlock x:Name="LegionRightStickDeadzoneValue"
-                                                   Text="4%"
-                                                   Style="{StaticResource CardValueStyle}"/>
-                                    </Grid>
-                                    <Slider x:Name="LegionRightStickDeadzoneSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="50"
-                                            Value="4"
-                                            StepFrequency="1"/>
+                                    <!-- Right Stick Deadzone -->
+                                    <StackPanel>
+                                        <Grid>
+                                            <TextBlock Text="Right Stick" FontSize="13" Foreground="#AAAAAA"/>
+                                            <TextBlock x:Name="LegionRightStickDeadzoneValue"
+                                                       Text="4%"
+                                                       Style="{StaticResource CardValueStyle}"/>
+                                        </Grid>
+                                        <Slider x:Name="LegionRightStickDeadzoneSlider"
+                                                Style="{StaticResource ModernSliderStyle}"
+                                                Minimum="0" Maximum="50"
+                                                Value="4"
+                                                StepFrequency="1"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
                         <!-- Gyro Settings Card -->
                         <Border Style="{StaticResource CardStyle}">
-                            <StackPanel Spacing="12">
-                                <TextBlock Text="Gyro Settings" Style="{StaticResource CardTitleStyle}"/>
-
-                                <!-- Gyro Target -->
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Gyro Settings" Style="{StaticResource CardTitleStyle}" Grid.Column="0"/>
+                                    <ToggleButton x:Name="GyroSettingsExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="GyroSettingsExpandToggle_Click">
+                                        <FontIcon x:Name="GyroSettingsExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+                                <StackPanel x:Name="GyroSettingsContent" Spacing="12" Margin="0,12,0,0" Visibility="Collapsed">
+                                    <!-- Gyro Target -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="100"/>
@@ -3662,131 +3699,140 @@
                                         <x:String>M3</x:String>
                                     </ComboBox>
                                 </Grid>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <!-- RGB Lighting Section Header -->
-                        <TextBlock Text="RGB LIGHTING" Style="{StaticResource SectionHeaderStyle}"/>
+                        <!-- Lighting Section Header -->
+                        <TextBlock Text="LIGHTING" Style="{StaticResource SectionHeaderStyle}"/>
 
-                        <!-- Light Mode Card -->
+                        <!-- Lighting Card -->
                         <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Light Mode" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Controller stick ring lighting effect"
-                                           Style="{StaticResource CardCaptionStyle}"
-                                           Margin="0,0,0,8"/>
-                                <ComboBox x:Name="LegionLightModeComboBox"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          SelectedIndex="1"
-                                          SelectionChanged="LegionLightModeComboBox_SelectionChanged">
-                                    <x:String>Off</x:String>
-                                    <x:String>Solid</x:String>
-                                    <x:String>Pulse</x:String>
-                                    <x:String>Dynamic</x:String>
-                                    <x:String>Spiral</x:String>
-                                </ComboBox>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Light Color Card (Solid, Pulse only) -->
-                        <Border x:Name="LegionColorCard" Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Light Color" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="RGB color for stick ring lighting"
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Lighting" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Controller RGB and power button lighting"
                                                    Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Border x:Name="LegionColorPreview"
-                                                Width="24" Height="24"
-                                                CornerRadius="4"
-                                                Background="White"
-                                                BorderBrush="#50555C"
-                                                BorderThickness="1"
-                                                Margin="0,0,8,0"/>
-                                        <Button x:Name="LegionColorExpandButton"
-                                                Content="&#xE70D;"
-                                                FontFamily="Segoe MDL2 Assets"
-                                                FontSize="12"
-                                                Padding="8,4"
-                                                Background="Transparent"
-                                                Click="LegionColorExpandButton_Click"
-                                                UseSystemFocusVisuals="True"
-                                                FocusVisualPrimaryBrush="White"/>
+                                    <ToggleButton x:Name="LightingExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="LightingExpandToggle_Click">
+                                        <FontIcon x:Name="LightingExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+                                <StackPanel x:Name="LightingContent" Spacing="12" Margin="0,12,0,0" Visibility="Collapsed">
+                                    <!-- Light Mode -->
+                                    <StackPanel>
+                                        <TextBlock Text="Light Mode" FontSize="13" Foreground="#AAAAAA" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="LegionLightModeComboBox"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  HorizontalAlignment="Stretch"
+                                                  SelectedIndex="1"
+                                                  SelectionChanged="LegionLightModeComboBox_SelectionChanged">
+                                            <x:String>Off</x:String>
+                                            <x:String>Solid</x:String>
+                                            <x:String>Pulse</x:String>
+                                            <x:String>Dynamic</x:String>
+                                            <x:String>Spiral</x:String>
+                                        </ComboBox>
                                     </StackPanel>
-                                </Grid>
-                                <muxc:ColorPicker x:Name="LegionColorPicker"
-                                             Visibility="Collapsed"
-                                             Margin="0,12,0,0"
-                                             Color="White"
-                                             ColorSpectrumShape="Box"
-                                             IsMoreButtonVisible="False"
-                                             IsColorSliderVisible="False"
-                                             IsColorChannelTextInputVisible="False"
-                                             IsHexInputVisible="False"
-                                             IsAlphaEnabled="False"
-                                             IsAlphaSliderVisible="False"
-                                             IsAlphaTextInputVisible="False"
-                                             ColorChanged="LegionColorPicker_ColorChanged"/>
-                            </StackPanel>
-                        </Border>
 
-                        <!-- Light Brightness Card (all modes except Off) -->
-                        <Border x:Name="LegionBrightnessCard" Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <TextBlock Text="Brightness" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock x:Name="LegionBrightnessValue"
-                                               Text="100%"
-                                               Style="{StaticResource CardValueStyle}"/>
-                                </Grid>
-                                <Slider x:Name="LegionBrightnessSlider"
-                                        Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="0" Maximum="100"
-                                        Value="100"
-                                        ValueChanged="LegionBrightnessSlider_ValueChanged"/>
-                            </StackPanel>
-                        </Border>
+                                    <!-- Light Color (Solid, Pulse only) -->
+                                    <StackPanel x:Name="LegionColorCard">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Light Color" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="13"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border x:Name="LegionColorPreview"
+                                                        Width="24" Height="24"
+                                                        CornerRadius="4"
+                                                        Background="White"
+                                                        BorderBrush="#50555C"
+                                                        BorderThickness="1"
+                                                        Margin="0,0,8,0"/>
+                                                <Button x:Name="LegionColorExpandButton"
+                                                        Content="&#xE70D;"
+                                                        FontFamily="Segoe MDL2 Assets"
+                                                        FontSize="12"
+                                                        Padding="8,4"
+                                                        Background="Transparent"
+                                                        Click="LegionColorExpandButton_Click"
+                                                        UseSystemFocusVisuals="True"
+                                                        FocusVisualPrimaryBrush="White"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <muxc:ColorPicker x:Name="LegionColorPicker"
+                                                     Visibility="Collapsed"
+                                                     Margin="0,12,0,0"
+                                                     Color="White"
+                                                     ColorSpectrumShape="Box"
+                                                     IsMoreButtonVisible="False"
+                                                     IsColorSliderVisible="False"
+                                                     IsColorChannelTextInputVisible="False"
+                                                     IsHexInputVisible="False"
+                                                     IsAlphaEnabled="False"
+                                                     IsAlphaSliderVisible="False"
+                                                     IsAlphaTextInputVisible="False"
+                                                     ColorChanged="LegionColorPicker_ColorChanged"/>
+                                    </StackPanel>
 
-                        <!-- Light Speed Card (Pulse, Dynamic, Spiral only) -->
-                        <Border x:Name="LegionSpeedCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
-                            <StackPanel>
-                                <Grid>
-                                    <TextBlock Text="Speed" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock x:Name="LegionSpeedValue"
-                                               Text="50%"
-                                               Style="{StaticResource CardValueStyle}"/>
-                                </Grid>
-                                <Slider x:Name="LegionSpeedSlider"
-                                        Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="0" Maximum="100"
-                                        Value="50"
-                                        ValueChanged="LegionSpeedSlider_ValueChanged"/>
-                            </StackPanel>
-                        </Border>
+                                    <!-- Brightness (all modes except Off) -->
+                                    <StackPanel x:Name="LegionBrightnessCard">
+                                        <Grid>
+                                            <TextBlock Text="Brightness" FontSize="13" Foreground="#AAAAAA"/>
+                                            <TextBlock x:Name="LegionBrightnessValue"
+                                                       Text="100%"
+                                                       Style="{StaticResource CardValueStyle}"/>
+                                        </Grid>
+                                        <Slider x:Name="LegionBrightnessSlider"
+                                                Style="{StaticResource ModernSliderStyle}"
+                                                Minimum="0" Maximum="100"
+                                                Value="100"
+                                                ValueChanged="LegionBrightnessSlider_ValueChanged"/>
+                                    </StackPanel>
 
-                        <!-- Power Light Toggle Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Power Light" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Power button LED on/off"
-                                               Style="{StaticResource CardCaptionStyle}"/>
+                                    <!-- Speed (Pulse, Dynamic, Spiral only) -->
+                                    <StackPanel x:Name="LegionSpeedCard" Visibility="Collapsed">
+                                        <Grid>
+                                            <TextBlock Text="Speed" FontSize="13" Foreground="#AAAAAA"/>
+                                            <TextBlock x:Name="LegionSpeedValue"
+                                                       Text="50%"
+                                                       Style="{StaticResource CardValueStyle}"/>
+                                        </Grid>
+                                        <Slider x:Name="LegionSpeedSlider"
+                                                Style="{StaticResource ModernSliderStyle}"
+                                                Minimum="0" Maximum="100"
+                                                Value="50"
+                                                ValueChanged="LegionSpeedSlider_ValueChanged"/>
+                                    </StackPanel>
+
+                                    <!-- Power Light Toggle -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Power Light" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                        <ToggleSwitch x:Name="LegionPowerLightToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      IsOn="True"/>
+                                    </Grid>
                                 </StackPanel>
-                                <ToggleSwitch x:Name="LegionPowerLightToggle"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              IsOn="True"/>
-                            </Grid>
+                            </StackPanel>
                         </Border>
 
                         <!-- Performance Mode Section Header -->
