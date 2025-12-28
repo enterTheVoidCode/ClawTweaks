@@ -2190,6 +2190,7 @@
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="Auto"/>
                                                             <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="Auto"/>
                                                         </Grid.ColumnDefinitions>
 
                                                         <CheckBox Grid.Column="0"
@@ -2203,7 +2204,31 @@
                                                                   Checked="OSDItemCheckBox_Changed"
                                                                   Unchecked="OSDItemCheckBox_Changed"/>
 
-                                                        <Button Grid.Column="1"
+                                                        <!-- Label Color Picker -->
+                                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
+                                                            <Border Width="16" Height="16"
+                                                                    Background="{Binding LabelColorBrush}"
+                                                                    CornerRadius="3"
+                                                                    BorderBrush="#505050"
+                                                                    BorderThickness="1"
+                                                                    Margin="0,0,4,0"/>
+                                                            <ComboBox Width="70"
+                                                                      Tag="{Binding Id}"
+                                                                      SelectedIndex="0"
+                                                                      SelectionChanged="OSDItemLabelColor_SelectionChanged"
+                                                                      Padding="4,2"
+                                                                      FontSize="11">
+                                                                <ComboBoxItem Content="Default" Tag="DEFAULT"/>
+                                                                <ComboBoxItem Content="White" Tag="FFFFFF"/>
+                                                                <ComboBoxItem Content="Yellow" Tag="FFFF00"/>
+                                                                <ComboBoxItem Content="Green" Tag="00FF00"/>
+                                                                <ComboBoxItem Content="Cyan" Tag="00FFFF"/>
+                                                                <ComboBoxItem Content="Red" Tag="FF0000"/>
+                                                                <ComboBoxItem Content="Orange" Tag="FF8000"/>
+                                                            </ComboBox>
+                                                        </StackPanel>
+
+                                                        <Button Grid.Column="2"
                                                                 Content="&#xE70E;"
                                                                 FontFamily="Segoe MDL2 Assets"
                                                                 FontSize="10"
@@ -2215,7 +2240,7 @@
                                                                 IsEnabled="{Binding CanMoveUp}"
                                                                 Click="OSDItemMoveUp_Click"/>
 
-                                                        <Button Grid.Column="2"
+                                                        <Button Grid.Column="3"
                                                                 Content="&#xE70D;"
                                                                 FontFamily="Segoe MDL2 Assets"
                                                                 FontSize="10"

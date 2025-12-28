@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Custom installer for Xbox Gaming Bar Widget that handles Debug-to-Release upgrades seamlessly.
+    Custom installer for GoTweaks that handles Debug-to-Release upgrades seamlessly.
 
 .DESCRIPTION
     This script replaces the default Microsoft Add-AppDevPackage.ps1 wrapper with a robust
@@ -276,7 +276,7 @@ function Get-DependencyPackages {
 # Banner
 Write-Host ""
 Write-Host "=============================================" -ForegroundColor Cyan
-Write-Host "  Xbox Gaming Bar Widget Installer" -ForegroundColor White
+Write-Host "  GoTweaks Installer" -ForegroundColor White
 Write-Host "=============================================" -ForegroundColor Cyan
 
 # Get script directory
