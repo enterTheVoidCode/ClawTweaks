@@ -4,6 +4,7 @@ using Shared.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.AutoTDP;
@@ -104,6 +105,14 @@ namespace XboxGamingBarHelper.RTSS
             { 1, 3 },  // Basic: 3 columns
             { 2, 1 },  // Detailed: 1 column (vertical list)
             { 3, 1 }   // Full: 1 column (vertical list)
+        };
+
+        // Per-level item order
+        private Dictionary<int, List<string>> osdLevelOrder = new Dictionary<int, List<string>>
+        {
+            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 2, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 3, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
         };
 
         public RTSSManager(PerformanceManager performanceManager, AppServiceConnection connection) : base(connection)
@@ -364,6 +373,20 @@ namespace XboxGamingBarHelper.RTSS
                             Logger.Debug($"OSD Level {level} custom tags: {value}");
                         }
                     }
+                    else if (key.StartsWith("L") && key.EndsWith("_Order"))
+                    {
+                        // Order: L1_Order, L2_Order, L3_Order
+                        var levelStr = key.Substring(1, key.Length - 7); // "L1_Order" -> "1"
+                        if (int.TryParse(levelStr, out int level))
+                        {
+                            var orderList = value.Split(',').Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+                            if (orderList.Count > 0)
+                            {
+                                osdLevelOrder[level] = orderList;
+                                Logger.Debug($"OSD Level {level} order: {string.Join(", ", orderList)}");
+                            }
+                        }
+                    }
                     else if (key.StartsWith("L"))
                     {
                         // Level config: L1, L2, L3
@@ -512,6 +535,55 @@ namespace XboxGamingBarHelper.RTSS
                 item.SetTextColor(osdTextColor);
             }
 
+            // Pre-build frametime graph string if enabled (so it can be placed in order)
+            string frametimeGraphString = null;
+            if (IsItemEnabled("FrametimeGraph") && cachedForegroundPid != 0)
+            {
+                try
+                {
+                    uint graphOffset = 0;
+                    var flags = (EMBEDDED_OBJECT_GRAPH)0;
+
+                    float minFt, avgFt, maxFt;
+                    lastEmbeddedGraphSize = rtssOSD.EmbedGraphDirect(
+                        graphOffset,
+                        (uint)cachedForegroundPid,
+                        (uint)FrametimeHistorySize,
+                        GraphWidth,
+                        GraphHeight,
+                        GraphMargin,
+                        GraphMinMs,
+                        GraphMaxMs,
+                        flags,
+                        out minFt,
+                        out avgFt,
+                        out maxFt);
+
+                    if (lastEmbeddedGraphSize > 0)
+                    {
+                        currentMinFt = minFt;
+                        currentAvgFt = avgFt;
+                        currentMaxFt = maxFt;
+
+                        string graphColor = (osdTextColor == "DYNAMIC" || string.IsNullOrEmpty(osdTextColor)) ? "00FFFF" : osdTextColor;
+                        string yAxisMax = $"<S=50><C=808080>{GraphMaxMs:F0}ms<C><S>";
+                        string yAxisMin = $"<S=50><C=808080>{GraphMinMs:F0}ms<C><S>";
+
+                        string statsLabel = "";
+                        if (currentMinFt > 0 && currentMaxFt > 0)
+                        {
+                            statsLabel = $"<S=50><C=808080>min:<C=00FF00>{currentMinFt:F1}ms <C=808080>avg:<C=FFFF00>{currentAvgFt:F1}ms <C=808080>max:<C=FF6600>{currentMaxFt:F1}ms<C><S>";
+                        }
+
+                        frametimeGraphString = $"{yAxisMax}\n<C={graphColor}><OBJ={graphOffset:X8}><C>\n{yAxisMin}\n{statsLabel}";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"Failed to embed frametime graph: {ex.Message}");
+                }
+            }
+
             // Build OSD header
             string osdString = BuildOSDHeader();
 
@@ -525,14 +597,31 @@ namespace XboxGamingBarHelper.RTSS
             var baseTextColor = osdTextColor == "DYNAMIC" ? "FFFFFF" : osdTextColor;
             osdString += $"<C={baseTextColor}>";
 
-            // Collect all enabled items
+            // Collect all enabled items in custom order
             var enabledItems = new List<string>();
-            for (int i = 0; i < osdItems.Length; i++)
-            {
-                var item = osdItems[i];
 
+            // Get the order for current level (fall back to level 1 if not found)
+            var order = osdLevelOrder.TryGetValue(onScreenDisplayLevel, out var levelOrder) ? levelOrder : osdLevelOrder[1];
+
+            foreach (var itemId in order)
+            {
                 // Check if this item is enabled for the current level
-                if (!IsItemEnabled(item.Id))
+                if (!IsItemEnabled(itemId))
+                    continue;
+
+                // Handle FrametimeGraph specially (it's not in osdItems array)
+                if (itemId == "FrametimeGraph")
+                {
+                    if (!string.IsNullOrEmpty(frametimeGraphString))
+                    {
+                        enabledItems.Add(frametimeGraphString);
+                    }
+                    continue;
+                }
+
+                // Find the OSD item by ID
+                var item = osdItems.FirstOrDefault(i => i.Id == itemId);
+                if (item == null)
                     continue;
 
                 var osdItemString = item.GetOSDString(onScreenDisplayLevel);
@@ -575,67 +664,6 @@ namespace XboxGamingBarHelper.RTSS
             if (osdTextSize != 100)
             {
                 osdString += "<S>";
-            }
-
-            // Embed frametime graph if enabled and add reference tag
-            if (IsItemEnabled("FrametimeGraph") && cachedForegroundPid != 0)
-            {
-                try
-                {
-                    uint graphOffset = 0;
-                    // No flags = transparent line graph (no fill, no background)
-                    var flags = (EMBEDDED_OBJECT_GRAPH)0;
-
-                    // Use EmbedGraphDirect for optimal performance - reads directly from RTSS shared memory
-                    float minFt, avgFt, maxFt;
-                    lastEmbeddedGraphSize = rtssOSD.EmbedGraphDirect(
-                        graphOffset,
-                        (uint)cachedForegroundPid,
-                        (uint)FrametimeHistorySize,
-                        GraphWidth,
-                        GraphHeight,
-                        GraphMargin,
-                        GraphMinMs,
-                        GraphMaxMs,
-                        flags,
-                        out minFt,
-                        out avgFt,
-                        out maxFt);
-
-                    if (lastEmbeddedGraphSize > 0)
-                    {
-                        // Update cached statistics from direct API
-                        currentMinFt = minFt;
-                        currentAvgFt = avgFt;
-                        currentMaxFt = maxFt;
-
-                        // Get the graph color from OSD text color setting (or default to cyan for graphs)
-                        string graphColor = (osdTextColor == "DYNAMIC" || string.IsNullOrEmpty(osdTextColor)) ? "00FFFF" : osdTextColor;
-
-                        // Layout: graph on top, stats below
-                        //   50ms  <- max at top (Y-axis)
-                        //   [graph] <- colored based on OSD settings
-                        //   0ms   <- min at bottom (Y-axis)
-                        //   min/avg/max stats
-                        string yAxisMax = $"<S=50><C=808080>{GraphMaxMs:F0}ms<C><S>";
-                        string yAxisMin = $"<S=50><C=808080>{GraphMinMs:F0}ms<C><S>";
-
-                        // Stats label below graph
-                        string statsLabel = "";
-                        if (currentMinFt > 0 && currentMaxFt > 0)
-                        {
-                            // Smaller text (50%) for stats: "min: X.Xms  avg: X.Xms  max: X.Xms"
-                            statsLabel = $"<S=50><C=808080>min:<C=00FF00>{currentMinFt:F1}ms <C=808080>avg:<C=FFFF00>{currentAvgFt:F1}ms <C=808080>max:<C=FF6600>{currentMaxFt:F1}ms<C><S>";
-                        }
-
-                        // Build layout: Y-axis max, graph (colored), Y-axis min, stats
-                        osdString += $"\n{yAxisMax}\n<C={graphColor}><OBJ={graphOffset:X8}><C>\n{yAxisMin}\n{statsLabel}";
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Debug($"Failed to embed frametime graph: {ex.Message}");
-                }
             }
 
             // Cache the OSD string for fast timer updates
