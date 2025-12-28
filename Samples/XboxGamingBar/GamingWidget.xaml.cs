@@ -150,6 +150,18 @@ namespace XboxGamingBar
     }
 
     /// <summary>
+    /// View model for saved controller profile display
+    /// </summary>
+    public class SavedProfileInfo
+    {
+        public string ProfileKey { get; set; }
+        public string GameName { get; set; }
+        public string SettingsSummary { get; set; }
+        public bool IsGlobal { get; set; }
+        public Windows.UI.Xaml.Visibility CanDelete => IsGlobal ? Windows.UI.Xaml.Visibility.Collapsed : Windows.UI.Xaml.Visibility.Visible;
+    }
+
+    /// <summary>
     /// Button mapping with type support (Gamepad, Keyboard, Mouse)
     /// </summary>
     public class ButtonMapping
@@ -643,8 +655,8 @@ namespace XboxGamingBar
             this.Unloaded += GamingWidget_Unloaded;
             Logger.Info("Registered Loaded and Unloaded event handlers.");
 
-            // Register for LT/RT tab navigation
-            this.KeyDown += GamingWidget_KeyDown;
+            // Register for LT/RT tab navigation (PreviewKeyDown to intercept before scrolling)
+            this.PreviewKeyDown += GamingWidget_PreviewKeyDown;
 
             tdp = new TDPProperty(4, TDPSlider, this);
             currentTdp = new CurrentTDPProperty(CurrentTDPValueText, this);
@@ -2534,6 +2546,7 @@ namespace XboxGamingBar
         private bool isColorSettingsExpanded = false;
         private bool isButtonRemappingExpanded = false;
         private bool isGyroSettingsExpanded = false;
+        private bool isSavedProfilesExpanded = false;
         private bool isStickDeadzonesExpanded = false;
         private bool isTouchpadVibrationExpanded = false;
         private bool isLightingExpanded = false;
@@ -3085,6 +3098,187 @@ namespace XboxGamingBar
             {
                 // E70D = ChevronDown, E70E = ChevronUp
                 GyroSettingsExpandIcon.Glyph = isGyroSettingsExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void SavedProfilesExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isSavedProfilesExpanded = !isSavedProfilesExpanded;
+
+            if (SavedProfilesContent != null)
+            {
+                SavedProfilesContent.Visibility = isSavedProfilesExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (SavedProfilesExpandIcon != null)
+            {
+                SavedProfilesExpandIcon.Glyph = isSavedProfilesExpanded ? "\uE70E" : "\uE70D";
+            }
+
+            // Refresh the list when expanding
+            if (isSavedProfilesExpanded)
+            {
+                RefreshSavedProfilesList();
+            }
+        }
+
+        // Gamepad action names for profile summary display
+        private static readonly string[] GamepadActionShortNames = new[]
+        {
+            "-", "LSC", "LSU", "LSD", "LSL", "LSR", "RSC", "RSU", "RSD", "RSL", "RSR",
+            "DU", "DD", "DL", "DR", "A", "B", "X", "Y", "LB", "LT", "RB", "RT", "View", "Menu"
+        };
+
+        private void RefreshSavedProfilesList()
+        {
+            try
+            {
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                var savedProfiles = new List<SavedProfileInfo>();
+
+                // Look for all controller profile containers
+                foreach (var containerName in settings.Containers.Keys)
+                {
+                    if (!containerName.StartsWith("ControllerProfile_"))
+                        continue;
+
+                    var container = settings.Containers[containerName];
+                    string displayName;
+                    bool isGlobal = false;
+
+                    if (containerName == "ControllerProfile_Global")
+                    {
+                        displayName = "Global (Default)";
+                        isGlobal = true;
+                    }
+                    else if (containerName.StartsWith("ControllerProfile_Game_"))
+                    {
+                        // Extract game name: "ControllerProfile_Game_{gameName}"
+                        displayName = containerName.Substring("ControllerProfile_Game_".Length).Replace("_", " ");
+                    }
+                    else
+                    {
+                        continue; // Unknown format
+                    }
+
+                    // Build settings summary
+                    var summaryParts = new List<string>();
+
+                    // Check for custom button mappings and show which buttons are remapped
+                    var remapParts = new List<string>();
+                    foreach (var btnName in new[] { "Y1", "Y2", "Y3", "M1", "M2", "M3" })
+                    {
+                        if (container.Values.TryGetValue($"Button{btnName}", out var mappingVal) && mappingVal is string mappingJson)
+                        {
+                            var mapping = ButtonMapping.FromJson(mappingJson);
+                            if (mapping != null)
+                            {
+                                if (mapping.Type == 0 && mapping.GamepadAction > 0 && mapping.GamepadAction < GamepadActionShortNames.Length)
+                                {
+                                    // Gamepad remap
+                                    remapParts.Add($"{btnName}:{GamepadActionShortNames[mapping.GamepadAction]}");
+                                }
+                                else if (mapping.Type == 1 && mapping.KeyboardKeys != null && mapping.KeyboardKeys.Count > 0)
+                                {
+                                    // Keyboard remap
+                                    remapParts.Add($"{btnName}:Key");
+                                }
+                                else if (mapping.Type == 2 && mapping.MouseButton > 0)
+                                {
+                                    // Mouse remap
+                                    remapParts.Add($"{btnName}:Mouse");
+                                }
+                            }
+                        }
+                    }
+                    if (remapParts.Count > 0)
+                    {
+                        summaryParts.Add(string.Join(" ", remapParts));
+                    }
+
+                    // Check gyro settings
+                    if (container.Values.TryGetValue("GyroTarget", out var gyroTarget) && (int)gyroTarget > 0)
+                    {
+                        var gyroTargets = new[] { "", "LStick", "RStick", "Mouse" };
+                        var targetIdx = (int)gyroTarget;
+                        if (targetIdx > 0 && targetIdx < gyroTargets.Length)
+                            summaryParts.Add($"Gyro:{gyroTargets[targetIdx]}");
+                    }
+
+                    // Check deadzones
+                    if (container.Values.TryGetValue("LeftStickDeadzone", out var lsDz) && (int)lsDz != 4)
+                    {
+                        summaryParts.Add($"LDZ:{lsDz}%");
+                    }
+                    if (container.Values.TryGetValue("RightStickDeadzone", out var rsDz) && (int)rsDz != 4)
+                    {
+                        summaryParts.Add($"RDZ:{rsDz}%");
+                    }
+
+                    // Check joystick as mouse
+                    if (container.Values.TryGetValue("JoystickAsMouseMode", out var jamMode) && (int)jamMode > 0)
+                    {
+                        summaryParts.Add("JoyMouse");
+                    }
+
+                    var summary = summaryParts.Count > 0 ? string.Join(" | ", summaryParts) : "Default settings";
+
+                    savedProfiles.Add(new SavedProfileInfo
+                    {
+                        ProfileKey = containerName,
+                        GameName = displayName,
+                        SettingsSummary = summary,
+                        IsGlobal = isGlobal
+                    });
+                }
+
+                // Sort: Global first, then alphabetically by game name
+                savedProfiles.Sort((a, b) =>
+                {
+                    if (a.IsGlobal && !b.IsGlobal) return -1;
+                    if (!a.IsGlobal && b.IsGlobal) return 1;
+                    return string.Compare(a.GameName, b.GameName, StringComparison.OrdinalIgnoreCase);
+                });
+
+                // Update UI
+                SavedProfilesList.ItemsSource = savedProfiles;
+                NoSavedProfilesText.Visibility = savedProfiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to refresh saved profiles list: {ex.Message}");
+            }
+        }
+
+        private void DeleteSavedProfile_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string profileKey)
+            {
+                try
+                {
+                    // Don't allow deleting Global profile
+                    if (profileKey == "ControllerProfile_Global")
+                    {
+                        Logger.Warn("Cannot delete Global controller profile");
+                        return;
+                    }
+
+                    var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+
+                    // Delete the controller profile container
+                    if (settings.Containers.ContainsKey(profileKey))
+                    {
+                        settings.DeleteContainer(profileKey);
+                        Logger.Info($"Deleted controller profile: {profileKey}");
+                    }
+
+                    // Refresh the list
+                    RefreshSavedProfilesList();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Failed to delete profile {profileKey}: {ex.Message}");
+                }
             }
         }
 
@@ -8176,18 +8370,21 @@ namespace XboxGamingBar
             }
         }
 
-        private void GamingWidget_KeyDown(object sender, KeyRoutedEventArgs e)
+        private void GamingWidget_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
         {
             // Handle LT (Left Trigger) and RT (Right Trigger) for tab navigation
+            // Using PreviewKeyDown to intercept before ScrollViewer handles it
             if (e.Key == VirtualKey.GamepadLeftTrigger)
             {
                 NavigateToPreviousTab();
                 e.Handled = true;
+                return;
             }
             else if (e.Key == VirtualKey.GamepadRightTrigger)
             {
                 NavigateToNextTab();
                 e.Handled = true;
+                return;
             }
             // Handle D-pad down from nav items to focus content area (for overflow menu items)
             else if (e.Key == VirtualKey.GamepadDPadDown)
