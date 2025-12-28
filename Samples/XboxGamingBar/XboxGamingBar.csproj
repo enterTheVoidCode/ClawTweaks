@@ -175,6 +175,9 @@
     <Compile Include="Data\LegionLeftStickDeadzoneProperty.cs" />
     <Compile Include="Data\LegionRightStickDeadzoneProperty.cs" />
     <Compile Include="Data\LegionTouchpadVibrationProperty.cs" />
+    <Compile Include="Data\LegionJoystickAsMouseModeProperty.cs" />
+    <Compile Include="Data\LegionJoystickMouseSensProperty.cs" />
+    <Compile Include="Data\LegionGamepadMappingProperty.cs" />
     <Compile Include="Data\AutoTDPProperties.cs" />
     <Compile Include="Data\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />
