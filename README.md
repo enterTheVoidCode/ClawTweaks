@@ -209,6 +209,17 @@ Required for per-game profiles and AutoTDP:
 2. Find **Gaming** widget
 3. Enable **"Know which game or app is in focus"**
 
+
+
+### Removing Legion Space OEM Widget
+Legion Space widget if undesired can be removed using the following command from a Powershell admin shell, 
+
+```reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\GamingConfiguration" /v OEMGameBarwidget /f```
+Now you can remove the widget by goings to Settings->Apps->Uninstall LegionGoWidget
+To ReAdd: 
+```reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\GamingConfiguration" /v OEMGameBarwidget /t REG_SZ /d "LegionGoGameBarWidget_ra2g5j82mn5h8" /f```
+
+
 ---
 
 ## Requirements
@@ -247,4 +258,5 @@ Original project by [namquang93](https://github.com/namquang93).
 ## License
 
 This project is open source. See LICENSE file for details.
+
 
