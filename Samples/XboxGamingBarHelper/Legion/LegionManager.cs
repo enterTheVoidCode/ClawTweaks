@@ -1132,6 +1132,9 @@ namespace XboxGamingBarHelper.Legion
                 {
                     Logger.Error($"Failed to set button mapping for {remapButton}");
                 }
+
+                // Delay to allow controller firmware to process command before next one
+                System.Threading.Thread.Sleep(50);
             }
             catch (Exception ex)
             {

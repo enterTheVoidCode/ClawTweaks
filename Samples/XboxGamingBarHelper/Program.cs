@@ -353,6 +353,11 @@ namespace XboxGamingBarHelper
                 legionManager.LegionRightStickDeadzone,
                 // Touchpad vibration (GLOBAL setting)
                 legionManager.LegionTouchpadVibration,
+                // Joystick as mouse properties
+                legionManager.LegionJoystickAsMouseMode,
+                legionManager.LegionJoystickMouseSens,
+                // Gamepad button mapping
+                legionManager.LegionGamepadMapping,
                 autoTDPManager.Enabled,
                 autoTDPManager.TargetFPS,
                 autoTDPManager.CurrentFPS,
