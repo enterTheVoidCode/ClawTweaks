@@ -2167,135 +2167,55 @@
                                                    Style="{StaticResource CardTitleStyle}"
                                                    Margin="0,12,0,8"/>
 
-                                        <!-- OSD Options Panel -->
-                                        <StackPanel x:Name="OSDOptionsPanel">
-                                        <CheckBox x:Name="OSDShowAppNameCheckBox"
-                                                  Content="App Name (D3D11, Vulkan, etc.)"
-                                                  IsChecked="False"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowTimeCheckBox"
-                                                  Content="Time (12-hour)"
-                                                  IsChecked="False"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowFPSCheckBox"
-                                                  Content="FPS &amp; Frametime"
-                                                  IsChecked="True"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowBatteryCheckBox"
-                                                  Content="Battery"
-                                                  IsChecked="True"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowMemoryCheckBox"
-                                                  Content="Memory (RAM)"
-                                                  IsChecked="True"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowVRAMCheckBox"
-                                                  Content="VRAM (GPU Memory)"
-                                                  IsChecked="False"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowCPUCheckBox"
-                                                  Content="CPU (Usage, Wattage, Temp)"
-                                                  IsChecked="True"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowCPUClockCheckBox"
-                                                  Content="CPU Clock Speed"
-                                                  IsChecked="False"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowGPUCheckBox"
-                                                  Content="GPU (Usage, Wattage, Temp)"
-                                                  IsChecked="True"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowGPUClockCheckBox"
-                                                  Content="GPU Clock Speed"
-                                                  IsChecked="False"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowFanCheckBox"
-                                                  Content="Fan Speed"
-                                                  IsChecked="False"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowAutoTDPCheckBox"
-                                                  Content="AutoTDP Status"
-                                                  IsChecked="False"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowTDPLimitsCheckBox"
-                                                  Content="TDP Limits (SPL/SPPT/FPPT)"
-                                                  IsChecked="False"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                        <CheckBox x:Name="OSDShowFrametimeGraphCheckBox"
-                                                  Content="Frametime Graph"
-                                                  IsChecked="False"
-                                                  Foreground="#FFFFFF"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent"
-                                                  Checked="OSDOption_Changed"
-                                                  Unchecked="OSDOption_Changed"/>
-                                    </StackPanel>
+                                        <!-- OSD Items with reordering -->
+                                        <ItemsControl x:Name="OSDItemsControl">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <CheckBox Grid.Column="0"
+                                                                  Content="{Binding DisplayName}"
+                                                                  IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                                  Foreground="#FFFFFF"
+                                                                  Tag="{Binding Id}"
+                                                                  UseSystemFocusVisuals="True"
+                                                                  FocusVisualPrimaryBrush="White"
+                                                                  FocusVisualSecondaryBrush="Transparent"
+                                                                  Checked="OSDItemCheckBox_Changed"
+                                                                  Unchecked="OSDItemCheckBox_Changed"/>
+
+                                                        <Button Grid.Column="1"
+                                                                Content="&#xE70E;"
+                                                                FontFamily="Segoe MDL2 Assets"
+                                                                FontSize="10"
+                                                                Width="28" Height="24"
+                                                                Padding="0"
+                                                                Margin="4,0,0,0"
+                                                                Background="Transparent"
+                                                                Tag="{Binding Id}"
+                                                                IsEnabled="{Binding CanMoveUp}"
+                                                                Click="OSDItemMoveUp_Click"/>
+
+                                                        <Button Grid.Column="2"
+                                                                Content="&#xE70D;"
+                                                                FontFamily="Segoe MDL2 Assets"
+                                                                FontSize="10"
+                                                                Width="28" Height="24"
+                                                                Padding="0"
+                                                                Margin="4,0,0,0"
+                                                                Background="Transparent"
+                                                                Tag="{Binding Id}"
+                                                                IsEnabled="{Binding CanMoveDown}"
+                                                                Click="OSDItemMoveDown_Click"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
 
                                         <!-- Custom RTSS Tags Section -->
                                         <TextBlock Text="Custom RTSS Tags"
