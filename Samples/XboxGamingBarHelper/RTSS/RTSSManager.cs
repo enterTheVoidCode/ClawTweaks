@@ -21,7 +21,7 @@ namespace XboxGamingBarHelper.RTSS
     {
         private const string OSDSeparator = " <C=6E006A>|<C> ";
         private const string OSDBackground = "<P=0,0><L0><C=80000000><B=0,0>\b<C>";
-        private const string OSDAppName = "Xbox Gaming Bar OSD";
+        private const string OSDAppName = "GoTweaks OSD";
 
         private OSD rtssOSD;
         private readonly OSDItem[] osdItems;
