@@ -1,4 +1,4 @@
-# Xbox Gaming Bar
+# GoTweaks
 
 A powerful Xbox Game Bar widget for controlling gaming settings with your controller. Designed for handheld gaming PCs with deep integration for Legion Go, AMD Radeon GPUs, and performance tuning.
 
