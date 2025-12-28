@@ -144,6 +144,30 @@ namespace XboxGamingBar
             set { _canMoveDown = value; OnPropertyChanged(); }
         }
 
+        private string _labelColor = "DEFAULT";
+        public string LabelColor
+        {
+            get => _labelColor;
+            set { _labelColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(LabelColorBrush)); }
+        }
+
+        public Windows.UI.Xaml.Media.SolidColorBrush LabelColorBrush
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(_labelColor) || _labelColor == "DEFAULT")
+                    return new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.Gray);
+                try
+                {
+                    byte r = Convert.ToByte(_labelColor.Substring(0, 2), 16);
+                    byte g = Convert.ToByte(_labelColor.Substring(2, 2), 16);
+                    byte b = Convert.ToByte(_labelColor.Substring(4, 2), 16);
+                    return new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, r, g, b));
+                }
+                catch { return new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.Gray); }
+            }
+        }
+
         public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string name = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
@@ -2512,6 +2536,14 @@ namespace XboxGamingBar
             { 3, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
         };
 
+        // Per-level item label colors (DEFAULT = use global text color)
+        private Dictionary<int, Dictionary<string, string>> osdItemLabelColors = new Dictionary<int, Dictionary<string, string>>
+        {
+            { 1, new Dictionary<string, string>() },
+            { 2, new Dictionary<string, string>() },
+            { 3, new Dictionary<string, string>() }
+        };
+
         // Item display names for UI
         private static readonly Dictionary<string, string> osdItemDisplayNames = new Dictionary<string, string>
         {
@@ -2756,6 +2788,7 @@ namespace XboxGamingBar
             var config = osdLevelConfig[currentLevel];
 
             osdItemViewModels.Clear();
+            var labelColors = osdItemLabelColors.ContainsKey(currentLevel) ? osdItemLabelColors[currentLevel] : new Dictionary<string, string>();
             for (int i = 0; i < order.Count; i++)
             {
                 var id = order[i];
@@ -2765,7 +2798,8 @@ namespace XboxGamingBar
                     DisplayName = osdItemDisplayNames.ContainsKey(id) ? osdItemDisplayNames[id] : id,
                     IsEnabled = config.ContainsKey(id) && config[id],
                     CanMoveUp = i > 0,
-                    CanMoveDown = i < order.Count - 1
+                    CanMoveDown = i < order.Count - 1,
+                    LabelColor = labelColors.ContainsKey(id) ? labelColors[id] : "DEFAULT"
                 });
             }
 
@@ -2826,6 +2860,28 @@ namespace XboxGamingBar
             }
         }
 
+        private void OSDItemLabelColor_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingOSDConfig) return;
+
+            if (sender is ComboBox cb && cb.Tag is string itemId && cb.SelectedItem is ComboBoxItem selected && selected.Tag is string colorTag)
+            {
+                int currentLevel = osdCustomizeLevel;
+                if (!osdItemLabelColors.ContainsKey(currentLevel))
+                {
+                    osdItemLabelColors[currentLevel] = new Dictionary<string, string>();
+                }
+                osdItemLabelColors[currentLevel][itemId] = colorTag;
+
+                // Update the view model to refresh the preview
+                var vm = osdItemViewModels.FirstOrDefault(v => v.Id == itemId);
+                if (vm != null) vm.LabelColor = colorTag;
+
+                SaveOSDConfigToStorage();
+                SendOSDConfigToHelper();
+            }
+        }
+
         private void OSDCustomTagsTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (isLoadingOSDConfig) return;
@@ -2875,6 +2931,15 @@ namespace XboxGamingBar
                     if (osdLevelOrder.ContainsKey(level))
                     {
                         settings.Values[$"OSD_L{level}_Order"] = string.Join(",", osdLevelOrder[level]);
+                    }
+
+                    // Save item label colors
+                    if (osdItemLabelColors.ContainsKey(level))
+                    {
+                        foreach (var colorItem in osdItemLabelColors[level])
+                        {
+                            settings.Values[$"OSD_L{level}_{colorItem.Key}_Color"] = colorItem.Value;
+                        }
                     }
                 }
 
@@ -2935,6 +3000,20 @@ namespace XboxGamingBar
                         if (orderList.Count == itemKeys.Length)
                         {
                             osdLevelOrder[level] = orderList;
+                        }
+                    }
+
+                    // Load per-level item label colors
+                    if (!osdItemLabelColors.ContainsKey(level))
+                    {
+                        osdItemLabelColors[level] = new Dictionary<string, string>();
+                    }
+                    foreach (var key in itemKeys)
+                    {
+                        string colorKey = $"OSD_L{level}_{key}_Color";
+                        if (settings.Values.TryGetValue(colorKey, out object colorVal) && colorVal is string color)
+                        {
+                            osdItemLabelColors[level][key] = color;
                         }
                     }
                 }
@@ -3016,6 +3095,19 @@ namespace XboxGamingBar
                     if (osdLevelOrder.ContainsKey(level))
                     {
                         configParts.Add($"L{level}_Order:{string.Join(",", osdLevelOrder[level])}");
+                    }
+
+                    // Add per-level item label colors
+                    if (osdItemLabelColors.ContainsKey(level))
+                    {
+                        var colors = osdItemLabelColors[level];
+                        foreach (var colorItem in colors)
+                        {
+                            if (!string.IsNullOrEmpty(colorItem.Value) && colorItem.Value != "DEFAULT")
+                            {
+                                configParts.Add($"L{level}_{colorItem.Key}_Color:{colorItem.Value}");
+                            }
+                        }
                     }
                 }
 
