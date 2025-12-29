@@ -115,6 +115,14 @@ namespace XboxGamingBarHelper.RTSS
             { 3, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
         };
 
+        // Per-level, per-item label colors (e.g., osdItemLabelColors[1]["CPU"] = "FF0000")
+        private Dictionary<int, Dictionary<string, string>> osdItemLabelColors = new Dictionary<int, Dictionary<string, string>>
+        {
+            { 1, new Dictionary<string, string>() },
+            { 2, new Dictionary<string, string>() },
+            { 3, new Dictionary<string, string>() }
+        };
+
         public RTSSManager(PerformanceManager performanceManager, AppServiceConnection connection) : base(connection)
         {
             rtssInstalled = new RTSSInstalledProperty(this);
@@ -387,6 +395,27 @@ namespace XboxGamingBarHelper.RTSS
                             }
                         }
                     }
+                    else if (key.StartsWith("L") && key.Contains("_") && key.EndsWith("_Color"))
+                    {
+                        // Item label color: L1_CPU_Color, L2_FPS_Color, etc.
+                        // Format: L{level}_{itemId}_Color
+                        var underscoreIdx = key.IndexOf('_');
+                        var lastUnderscoreIdx = key.LastIndexOf('_');
+                        if (underscoreIdx > 1 && lastUnderscoreIdx > underscoreIdx)
+                        {
+                            var levelStr = key.Substring(1, underscoreIdx - 1);
+                            var itemId = key.Substring(underscoreIdx + 1, lastUnderscoreIdx - underscoreIdx - 1);
+                            if (int.TryParse(levelStr, out int level) && !string.IsNullOrEmpty(itemId))
+                            {
+                                if (!osdItemLabelColors.ContainsKey(level))
+                                {
+                                    osdItemLabelColors[level] = new Dictionary<string, string>();
+                                }
+                                osdItemLabelColors[level][itemId] = value;
+                                Logger.Debug($"OSD Level {level} item '{itemId}' label color: {value}");
+                            }
+                        }
+                    }
                     else if (key.StartsWith("L"))
                     {
                         // Level config: L1, L2, L3
@@ -623,6 +652,14 @@ namespace XboxGamingBarHelper.RTSS
                 var item = osdItems.FirstOrDefault(i => i.Id == itemId);
                 if (item == null)
                     continue;
+
+                // Apply custom label color if configured for this level and item
+                if (osdItemLabelColors.TryGetValue(onScreenDisplayLevel, out var levelColors) &&
+                    levelColors.TryGetValue(itemId, out var labelColor) &&
+                    !string.IsNullOrEmpty(labelColor) && labelColor != "DEFAULT")
+                {
+                    item.SetLabelColor(labelColor);
+                }
 
                 var osdItemString = item.GetOSDString(onScreenDisplayLevel);
                 if (string.IsNullOrEmpty(osdItemString))
