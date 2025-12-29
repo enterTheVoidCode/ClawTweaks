@@ -14,6 +14,14 @@ namespace XboxGamingBarHelper.RTSS
 
         public string Id => id;
 
+        public void SetLabelColor(string color)
+        {
+            if (!string.IsNullOrEmpty(color) && color != "DEFAULT")
+            {
+                colorCode = color;
+            }
+        }
+
         public void SetTextColor(string color)
         {
             if (color == "DYNAMIC")
