@@ -2225,6 +2225,7 @@
                                                                 <ComboBoxItem Content="Cyan" Tag="00FFFF"/>
                                                                 <ComboBoxItem Content="Red" Tag="FF0000"/>
                                                                 <ComboBoxItem Content="Orange" Tag="FF8000"/>
+                                                                <ComboBoxItem Content="Purple" Tag="A020F0"/>
                                                             </ComboBox>
                                                         </StackPanel>
 
