@@ -530,6 +530,12 @@ namespace XboxGamingBar
         private readonly LegionGamepadMappingProperty legionGamepadMapping;
         private Dictionary<string, ButtonMapping> gamepadButtonMappings = new Dictionary<string, ButtonMapping>();
 
+        // Controller battery properties (from HID input reports)
+        private readonly ControllerBatteryLeftProperty controllerBatteryLeft;
+        private readonly ControllerBatteryRightProperty controllerBatteryRight;
+        private readonly ControllerChargingLeftProperty controllerChargingLeft;
+        private readonly ControllerChargingRightProperty controllerChargingRight;
+
         // Settings properties
         private readonly TdpMethodProperty tdpMethod;
         private readonly WinRing0AvailableProperty winRing0Available;
@@ -820,6 +826,12 @@ namespace XboxGamingBar
             // Gamepad button mapping property
             legionGamepadMapping = new LegionGamepadMappingProperty();
 
+            // Controller battery properties (read-only)
+            controllerBatteryLeft = new ControllerBatteryLeftProperty();
+            controllerBatteryRight = new ControllerBatteryRightProperty();
+            controllerChargingLeft = new ControllerChargingLeftProperty();
+            controllerChargingRight = new ControllerChargingRightProperty();
+
             // Settings properties
             tdpMethod = new TdpMethodProperty(TdpMethodComboBox, this);
             winRing0Available = new WinRing0AvailableProperty(this);
@@ -966,7 +978,11 @@ namespace XboxGamingBar
                 forceParkMode,
                 tdpBoostEnabled,
                 tdpBoostSPPT,
-                tdpBoostFPPT
+                tdpBoostFPPT,
+                controllerBatteryLeft,
+                controllerBatteryRight,
+                controllerChargingLeft,
+                controllerChargingRight
             );
 
             // Register card focus handlers for all interactive controls
@@ -1458,6 +1474,16 @@ namespace XboxGamingBar
                 amdRadeonBoostEnabled.PropertyChanged += QuickSettingsProperty_Changed;
             if (autoTDPEnabled != null)
                 autoTDPEnabled.PropertyChanged += QuickSettingsProperty_Changed;
+
+            // Controller battery properties - update tile when battery status changes
+            if (controllerBatteryLeft != null)
+                controllerBatteryLeft.PropertyChanged += QuickSettingsProperty_Changed;
+            if (controllerBatteryRight != null)
+                controllerBatteryRight.PropertyChanged += QuickSettingsProperty_Changed;
+            if (controllerChargingLeft != null)
+                controllerChargingLeft.PropertyChanged += QuickSettingsProperty_Changed;
+            if (controllerChargingRight != null)
+                controllerChargingRight.PropertyChanged += QuickSettingsProperty_Changed;
 
             // Subscribe to CPU core config changes
             if (cpuCoreConfig != null)
@@ -10901,6 +10927,7 @@ namespace XboxGamingBar
             AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);
             AddTileDefinition("LegionDesktopControls", "Desktop", "\uE7F4", order: order++);
             AddTileDefinition("LegionRemapControls", "Remap", "\uE7FC", order: order++);
+            AddTileDefinition("Battery", "Battery", "\uE83F", order: order++);
 
             // Load custom shortcut tiles from storage
             LoadCustomShortcutTiles();
@@ -11542,7 +11569,8 @@ namespace XboxGamingBar
         {
             // Skip Legion tiles if not detected
             if ((tile.Id == "LegionTouchpad" || tile.Id == "LegionLightMode" ||
-                 tile.Id == "LegionDesktopControls" || tile.Id == "LegionRemapControls") &&
+                 tile.Id == "LegionDesktopControls" || tile.Id == "LegionRemapControls" ||
+                 tile.Id == "Battery") &&
                 (legionGoDetected?.Value != true))
             {
                 return true;
@@ -11968,6 +11996,60 @@ namespace XboxGamingBar
                         remapTile.StateText.Foreground = isGameProfile ? accentForeground : offForeground;
                         remapTile.TileButton.Background = isGameProfile ? tileOnBrush : tileOffBrush;
                     }
+                }
+
+                // Battery tile - shows device + controller battery status
+                if (qsTileMap.TryGetValue("Battery", out var batteryTile) && batteryTile.TileButton != null)
+                {
+                    // Get device battery info
+                    int deviceBat = PowerManager.RemainingChargePercent;
+                    bool deviceCharging = PowerManager.PowerSupplyStatus == PowerSupplyStatus.Adequate;
+                    string deviceIndicator = deviceCharging ? "⚡" : "";
+
+                    string stateText;
+                    SolidColorBrush bgBrush;
+                    int minBat = deviceBat; // Start with device battery
+
+                    if (legionGoDetected?.Value == true)
+                    {
+                        int leftBat = controllerBatteryLeft?.Value ?? -1;
+                        int rightBat = controllerBatteryRight?.Value ?? -1;
+                        bool leftCharging = controllerChargingLeft?.Value ?? false;
+                        bool rightCharging = controllerChargingRight?.Value ?? false;
+
+                        if (leftBat > 0 && rightBat > 0)
+                        {
+                            // Both controllers connected - show device + controllers
+                            string leftIndicator = leftCharging ? "⚡" : "";
+                            string rightIndicator = rightCharging ? "⚡" : "";
+                            stateText = $"{deviceBat}%{deviceIndicator} | L:{leftBat}%{leftIndicator} R:{rightBat}%{rightIndicator}";
+
+                            // Color based on lowest of all batteries
+                            minBat = Math.Min(deviceBat, Math.Min(leftBat, rightBat));
+                        }
+                        else
+                        {
+                            // Controllers not connected - show only device
+                            stateText = $"{deviceBat}%{deviceIndicator}";
+                        }
+                    }
+                    else
+                    {
+                        // Not Legion Go - show only device battery
+                        stateText = $"{deviceBat}%{deviceIndicator}";
+                    }
+
+                    // Color based on minimum battery level
+                    if (minBat < 20)
+                        bgBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 35, 35)); // Red
+                    else if (minBat < 50)
+                        bgBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 55, 35)); // Yellow
+                    else
+                        bgBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 35, 55, 40)); // Green
+
+                    batteryTile.StateText.Text = stateText;
+                    batteryTile.StateText.Foreground = accentForeground;
+                    batteryTile.TileButton.Background = bgBrush;
                 }
 
                 Logger.Debug("Quick Settings tile states updated");

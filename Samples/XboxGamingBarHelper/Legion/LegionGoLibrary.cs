@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Management;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace LegionGoLibrary
 {
@@ -1074,6 +1075,41 @@ namespace LegionGoLibrary
         private bool _isConnected = false;
         private DeviceType _deviceType = DeviceType.Unknown;
         private int _connectedPid = 0;
+        private string _devicePath = null;  // Stored for opening separate read handle
+
+        // Battery monitoring
+        private IntPtr _batteryReadHandle = IntPtr.Zero;  // Separate handle for reading input reports
+        private Thread _batteryMonitorThread;
+        private volatile bool _monitoringBattery;
+        private int _leftControllerBattery = -1;
+        private int _rightControllerBattery = -1;
+        private bool _leftControllerCharging = false;
+        private bool _rightControllerCharging = false;
+
+        /// <summary>
+        /// Event raised when controller battery status is updated.
+        /// </summary>
+        public event EventHandler<ControllerServiceBatteryEventArgs> BatteryUpdated;
+
+        /// <summary>
+        /// Gets the left controller battery percentage (1-100), or -1 if unavailable.
+        /// </summary>
+        public int LeftControllerBattery => _leftControllerBattery;
+
+        /// <summary>
+        /// Gets the right controller battery percentage (1-100), or -1 if unavailable.
+        /// </summary>
+        public int RightControllerBattery => _rightControllerBattery;
+
+        /// <summary>
+        /// Gets whether the left controller is charging.
+        /// </summary>
+        public bool LeftControllerCharging => _leftControllerCharging;
+
+        /// <summary>
+        /// Gets whether the right controller is charging.
+        /// </summary>
+        public bool RightControllerCharging => _rightControllerCharging;
 
         #region Native HID API
 
@@ -1100,6 +1136,9 @@ namespace LegionGoLibrary
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool WriteFile(IntPtr hFile, byte[] lpBuffer, uint nNumberOfBytesToWrite, out uint lpNumberOfBytesWritten, IntPtr lpOverlapped);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool ReadFile(IntPtr hFile, byte[] lpBuffer, uint nNumberOfBytesToRead, out uint lpNumberOfBytesRead, IntPtr lpOverlapped);
 
         [DllImport("hid.dll", SetLastError = true)]
         private static extern bool HidD_GetAttributes(IntPtr hidDeviceObject, ref HIDD_ATTRIBUTES attributes);
@@ -1335,6 +1374,7 @@ namespace LegionGoLibrary
                 IntPtr bestHandle = IntPtr.Zero;
                 string bestInfo = "";
                 int bestScore = 0;
+                string bestPath = null;
 
                 try
                 {
@@ -1438,6 +1478,7 @@ namespace LegionGoLibrary
                                                 if (bestHandle != IntPtr.Zero)
                                                     CloseHandle(bestHandle);
                                                 bestHandle = handle;
+                                                bestPath = devicePath;
                                                 bestInfo = info;
                                                 bestScore = score;
                                                 _connectedPid = attributes.ProductID;
@@ -1460,6 +1501,7 @@ namespace LegionGoLibrary
                     if (bestHandle != IntPtr.Zero)
                     {
                         _deviceHandle = bestHandle;
+                        _devicePath = bestPath;
                         _isConnected = true;
 
                         // Determine device type based on PID
@@ -1488,15 +1530,19 @@ namespace LegionGoLibrary
         }
 
         /// <summary>
-        /// Disconnects from the controller and releases the HID handle.
+        /// Disconnects from the controller and releases the HID handles.
         /// </summary>
         public void Disconnect()
         {
+            // Stop battery monitoring first (this also closes the battery read handle)
+            StopBatteryMonitoring();
+
             if (_deviceHandle != IntPtr.Zero && _deviceHandle != INVALID_HANDLE_VALUE)
             {
                 CloseHandle(_deviceHandle);
                 _deviceHandle = IntPtr.Zero;
             }
+            _devicePath = null;
             _isConnected = false;
         }
 
@@ -1848,12 +1894,194 @@ namespace LegionGoLibrary
 
         #endregion
 
+        #region Battery Monitoring
+
+        /// <summary>
+        /// Starts monitoring battery status from controller input reports.
+        /// Battery reports are pushed by the controllers continuously.
+        /// Report format: 04 00 a1 [leftBat] [leftStatus] [rightBat] [rightStatus]
+        /// Uses a separate device handle to avoid blocking the main command handle.
+        /// </summary>
+        public void StartBatteryMonitoring()
+        {
+            if (_monitoringBattery)
+                return;
+
+            if (string.IsNullOrEmpty(_devicePath))
+                return;
+
+            // Open a separate handle for reading input reports
+            // This avoids blocking the main handle used for sending commands
+            _batteryReadHandle = CreateFile(_devicePath, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero);
+            if (_batteryReadHandle == INVALID_HANDLE_VALUE)
+            {
+                _batteryReadHandle = IntPtr.Zero;
+                return;
+            }
+
+            _monitoringBattery = true;
+            _batteryMonitorThread = new Thread(ReadBatteryReports)
+            {
+                IsBackground = true,
+                Name = "LegionControllerService-BatteryMonitor"
+            };
+            _batteryMonitorThread.Start();
+        }
+
+        /// <summary>
+        /// Stops the battery monitoring thread and closes the read handle.
+        /// </summary>
+        public void StopBatteryMonitoring()
+        {
+            _monitoringBattery = false;
+
+            // Close the battery read handle to unblock any pending ReadFile call
+            if (_batteryReadHandle != IntPtr.Zero && _batteryReadHandle != INVALID_HANDLE_VALUE)
+            {
+                CloseHandle(_batteryReadHandle);
+                _batteryReadHandle = IntPtr.Zero;
+            }
+
+            if (_batteryMonitorThread != null && _batteryMonitorThread.IsAlive)
+            {
+                _batteryMonitorThread.Join(500);
+                _batteryMonitorThread = null;
+            }
+        }
+
+        /// <summary>
+        /// Background thread that reads battery status from input reports.
+        /// Uses a separate handle (_batteryReadHandle) to avoid blocking main command handle.
+        /// </summary>
+        private void ReadBatteryReports()
+        {
+            byte[] buffer = new byte[64];
+            int consecutiveFailures = 0;
+            const int MAX_CONSECUTIVE_FAILURES = 5;
+
+            while (_monitoringBattery && _isConnected && _batteryReadHandle != IntPtr.Zero)
+            {
+                try
+                {
+                    uint bytesRead;
+                    if (ReadFile(_batteryReadHandle, buffer, (uint)buffer.Length, out bytesRead, IntPtr.Zero))
+                    {
+                        consecutiveFailures = 0; // Reset on successful read
+
+                        // Check for battery report format: 04 00 a1 ...
+                        // Bytes: [0-1]=ReportID, [2]=Status, [3]=LeftBat, [4]=LeftCharge, [5]=RightBat, [6]=RightCharge
+                        //        [7-9]=UNK, [10]=LeftConnType, [11]=RightConnType
+                        // Connection type: 0x01=Not connected, 0x02=Bluetooth, 0x03=USB
+                        if (bytesRead >= 12 && buffer[0] == 0x04 && buffer[1] == 0x00 && buffer[2] == 0xa1)
+                        {
+                            // Check connection type: 0x01 = not connected, 0x02 = BT, 0x03 = USB
+                            bool leftConnected = buffer[10] != 0x01;
+                            bool rightConnected = buffer[11] != 0x01;
+
+                            // Battery value (1-100), or -1 if not connected
+                            int leftBattery = leftConnected ? buffer[3] : -1;
+                            int rightBattery = rightConnected ? buffer[5] : -1;
+
+                            // Charging status: 0x04 = charging, 0x01 = discharging
+                            bool leftCharging = leftConnected && buffer[4] == 0x04;
+                            bool rightCharging = rightConnected && buffer[6] == 0x04;
+
+                            bool changed = _leftControllerBattery != leftBattery ||
+                                           _rightControllerBattery != rightBattery ||
+                                           _leftControllerCharging != leftCharging ||
+                                           _rightControllerCharging != rightCharging;
+
+                            _leftControllerBattery = leftBattery;
+                            _leftControllerCharging = leftCharging;
+                            _rightControllerBattery = rightBattery;
+                            _rightControllerCharging = rightCharging;
+
+                            if (changed)
+                            {
+                                BatteryUpdated?.Invoke(this, new ControllerServiceBatteryEventArgs(
+                                    leftBattery, leftCharging, rightBattery, rightCharging));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Read failed - check if device disconnected
+                        int error = Marshal.GetLastWin32Error();
+                        consecutiveFailures++;
+
+                        // ERROR_DEVICE_NOT_CONNECTED (1167) or ERROR_INVALID_HANDLE (6) = device disconnected or handle closed
+                        if (error == 1167 || error == 6 || consecutiveFailures >= MAX_CONSECUTIVE_FAILURES)
+                        {
+                            // Device disconnected - mark as disconnected (main handle will be closed by Disconnect())
+                            _isConnected = false;
+                            break;
+                        }
+
+                        Thread.Sleep(100);
+                    }
+                }
+                catch
+                {
+                    consecutiveFailures++;
+                    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES)
+                    {
+                        _isConnected = false;
+                        break;
+                    }
+                    Thread.Sleep(100);
+                }
+            }
+
+            // Cleanup when monitoring stops (device disconnected or StopBatteryMonitoring called)
+            _monitoringBattery = false;
+
+            // Close handle if still valid (may already be closed by StopBatteryMonitoring)
+            var handleToClose = _batteryReadHandle;
+            _batteryReadHandle = IntPtr.Zero;
+            if (handleToClose != IntPtr.Zero && handleToClose != INVALID_HANDLE_VALUE)
+            {
+                try { CloseHandle(handleToClose); } catch { }
+            }
+
+            // Reset values when monitoring stops
+            _leftControllerBattery = -1;
+            _rightControllerBattery = -1;
+            _leftControllerCharging = false;
+            _rightControllerCharging = false;
+        }
+
+        #endregion
+
         /// <summary>
         /// Disposes the service and disconnects from the controller.
         /// </summary>
         public void Dispose()
         {
+            StopBatteryMonitoring();
             Disconnect();
+        }
+    }
+
+    #endregion
+
+    #region ControllerServiceBatteryEventArgs
+
+    /// <summary>
+    /// Event arguments for controller battery status updates from LegionControllerService.
+    /// </summary>
+    public class ControllerServiceBatteryEventArgs : EventArgs
+    {
+        public int LeftBattery { get; private set; }
+        public bool LeftCharging { get; private set; }
+        public int RightBattery { get; private set; }
+        public bool RightCharging { get; private set; }
+
+        public ControllerServiceBatteryEventArgs(int leftBattery, bool leftCharging, int rightBattery, bool rightCharging)
+        {
+            LeftBattery = leftBattery;
+            LeftCharging = leftCharging;
+            RightBattery = rightBattery;
+            RightCharging = rightCharging;
         }
     }
 
