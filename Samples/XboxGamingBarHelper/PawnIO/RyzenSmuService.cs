@@ -22,37 +22,51 @@ namespace XboxGamingBarHelper.PawnIO
     }
 
     /// <summary>
-    /// AMD CPU codenames supported by RyzenSMU module.
+    /// AMD CPU codenames - values must match RyzenSMU module's CodeName enum order.
     /// </summary>
     public enum CpuCodeName : uint
     {
-        Unknown = 0,
-        SummitRidge = 1,
-        Threadripper = 2,
-        RavenRidge = 3,
-        PinnacleRidge = 4,
-        RavenRidge2 = 5,
-        Picasso = 5,
-        Dali = 5,
-        Matisse = 6,
-        Renoir = 7,
-        VanGogh = 8,
-        Vermeer = 9,
-        Cezanne = 10,
-        Lucienne = 10,
-        Milan = 11,
-        Chagall = 12,
-        Rembrandt = 13,
-        Mendocino = 14,
-        Raphael = 15,
-        DragonRange = 16,
-        PhoenixPoint = 17,
-        PhoenixPoint2 = 18,
-        HawkPoint = 19,
-        GraniteRidge = 20,
-        StrixPoint = 21,
-        StrixPoint2 = 22,
-        Krackan = 23
+        Undefined = 0xFFFFFFFF, // -1 in module
+        Colfax = 0,
+        Renoir = 1,
+        Picasso = 2,
+        Matisse = 3,
+        Threadripper = 4,
+        CastlePeak = 5,
+        RavenRidge = 6,
+        RavenRidge2 = 7,
+        SummitRidge = 8,
+        PinnacleRidge = 9,
+        Rembrandt = 10,
+        Vermeer = 11,
+        Vangogh = 12,
+        Cezanne = 13,
+        Milan = 14,
+        Dali = 15,
+        Raphael = 16,
+        GraniteRidge = 17,
+        Naples = 18,
+        FireFlight = 19,
+        Rome = 20,
+        Chagall = 21,
+        Lucienne = 22,
+        Phoenix = 23,
+        Phoenix2 = 24,
+        Mendocino = 25,
+        Genoa = 26,
+        StormPeak = 27,
+        DragonRange = 28,
+        Mero = 29,
+        HawkPoint = 30,
+        StrixPoint = 31,
+        StrixHalo = 32,        // Ryzen AI Max 385/395
+        KrackanPoint = 33,
+        KrackanPoint2 = 34,
+        Z2Extreme = 35,        // Legion Go S (confirmed working)
+        Turin = 36,
+        TurinD = 37,
+        Bergamo = 38,
+        ShimadaPeak = 39,
     }
 
     /// <summary>
@@ -249,7 +263,7 @@ namespace XboxGamingBarHelper.PawnIO
         /// </summary>
         public bool GetCodeName(out CpuCodeName codeName)
         {
-            codeName = CpuCodeName.Unknown;
+            codeName = CpuCodeName.Undefined;
 
             ulong[] output = new ulong[1];
             if (_pawnIO.ExecuteFunction("ioctl_get_code_name", null, output))
@@ -274,6 +288,26 @@ namespace XboxGamingBarHelper.PawnIO
                 return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// CPUs that require MP1 mailbox for TDP commands (Strix Point family and newer).
+        /// These use MP1 addresses: CMD=0x3B10928, RSP=0x3B10978, ARGS=0x3B10998
+        /// </summary>
+        private bool RequiresMp1Mailbox()
+        {
+            switch (_cpuCodeName)
+            {
+                case CpuCodeName.HawkPoint:
+                case CpuCodeName.StrixPoint:
+                case CpuCodeName.StrixHalo:      // Ryzen AI Max 385/395
+                case CpuCodeName.KrackanPoint:
+                case CpuCodeName.KrackanPoint2:
+                case CpuCodeName.Z2Extreme:      // Legion Go S
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         /// <summary>
@@ -306,17 +340,20 @@ namespace XboxGamingBarHelper.PawnIO
                 // Output: status + 6 response args = 7 values (we get 6 back per the module)
                 ulong[] output = new ulong[6];
 
+                Logger.Info($"Sending SMU command 0x{command:X2} with arg: {(args != null && args.Length > 0 ? args[0].ToString() : "none")}");
+
                 if (_pawnIO.ExecuteFunction("ioctl_send_smu_command", input, output))
                 {
-                    // First output is status, rest are response args
-                    // Actually looking at the module, output is the 6 response args
-                    // Status is returned differently - let's check by trying
+                    // Copy response data
                     for (int i = 0; i < 6; i++)
                     {
                         response[i] = (uint)output[i];
                     }
 
-                    Logger.Debug($"SMU command 0x{command:X2} executed. Response: [{string.Join(", ", response)}]");
+                    Logger.Info($"SMU command 0x{command:X2} response: [{response[0]}, {response[1]}, {response[2]}, {response[3]}, {response[4]}, {response[5]}]");
+
+                    // ExecuteFunction returning true means the SMU accepted the command
+                    // Response values are data, not status codes (e.g., current limits in mW)
                     return SmuStatus.OK;
                 }
                 else
@@ -329,6 +366,138 @@ namespace XboxGamingBarHelper.PawnIO
             {
                 Logger.Error($"Exception sending SMU command: {ex.Message}");
                 return SmuStatus.Failed;
+            }
+        }
+
+        // MP1 mailbox addresses for Strix Point / Z2 Extreme (from RyzenAdj)
+        private const uint MP1_ADDR_CMD = 0x3B10928;
+        private const uint MP1_ADDR_RSP = 0x3B10978;
+        private const uint MP1_ADDR_ARG_BASE = 0x3B10998;
+        private const int SMU_RETRIES_MAX = 8096;
+
+        /// <summary>
+        /// Sends a raw SMU command via MP1 mailbox (for TDP commands on Strix/Z2E).
+        /// Implements the SMU protocol directly using register read/write.
+        /// </summary>
+        /// <param name="command">SMU command ID.</param>
+        /// <param name="args">Up to 6 command arguments.</param>
+        /// <param name="response">Response arguments (6 values).</param>
+        /// <returns>SMU status code.</returns>
+        public SmuStatus SendCommandMp1(uint command, uint[] args, out uint[] response)
+        {
+            response = new uint[6];
+
+            if (!_initialized)
+            {
+                Logger.Error("RyzenSMU service not initialized");
+                return SmuStatus.Failed;
+            }
+
+            try
+            {
+                Logger.Info($"Sending SMU command 0x{command:X2} via MP1 with arg: {(args != null && args.Length > 0 ? args[0].ToString() : "none")}");
+
+                // Step 1: Wait until the RSP register is non-zero
+                uint rspValue = 0;
+                for (int i = 0; i < SMU_RETRIES_MAX; i++)
+                {
+                    if (!ReadSmuRegister(MP1_ADDR_RSP, out rspValue))
+                    {
+                        Logger.Error("Failed to read MP1 RSP register");
+                        return SmuStatus.Failed;
+                    }
+                    if (rspValue != 0)
+                        break;
+                }
+                if (rspValue == 0)
+                {
+                    Logger.Error("MP1 SMU busy (RSP stayed 0)");
+                    return SmuStatus.CmdRejectedBusy;
+                }
+
+                // Step 2: Write zero to the RSP register
+                if (!WriteSmuRegister(MP1_ADDR_RSP, 0))
+                {
+                    Logger.Error("Failed to clear MP1 RSP register");
+                    return SmuStatus.Failed;
+                }
+
+                // Step 3: Write the arguments into the argument registers
+                for (int i = 0; i < 6; i++)
+                {
+                    uint argValue = (args != null && i < args.Length) ? args[i] : 0;
+                    if (!WriteSmuRegister(MP1_ADDR_ARG_BASE + (uint)(i * 4), argValue))
+                    {
+                        Logger.Error($"Failed to write MP1 arg[{i}]");
+                        return SmuStatus.Failed;
+                    }
+                }
+
+                // Step 4: Write the command to the CMD register
+                if (!WriteSmuRegister(MP1_ADDR_CMD, command))
+                {
+                    Logger.Error("Failed to write MP1 CMD register");
+                    return SmuStatus.Failed;
+                }
+
+                // Step 5: Wait until the RSP register is non-zero
+                rspValue = 0;
+                for (int i = 0; i < SMU_RETRIES_MAX; i++)
+                {
+                    if (!ReadSmuRegister(MP1_ADDR_RSP, out rspValue))
+                    {
+                        Logger.Error("Failed to read MP1 RSP register (waiting for response)");
+                        return SmuStatus.Failed;
+                    }
+                    if (rspValue != 0)
+                        break;
+                }
+                if (rspValue == 0)
+                {
+                    Logger.Error("MP1 SMU timeout (RSP stayed 0 after command)");
+                    return SmuStatus.Failed;
+                }
+
+                // Step 6: Check response status
+                if (rspValue != 0x01) // SMU_OK
+                {
+                    Logger.Warn($"MP1 SMU returned status 0x{rspValue:X2}");
+                    return (SmuStatus)rspValue;
+                }
+
+                // Step 7: Read back the argument registers
+                for (int i = 0; i < 6; i++)
+                {
+                    if (!ReadSmuRegister(MP1_ADDR_ARG_BASE + (uint)(i * 4), out response[i]))
+                    {
+                        Logger.Error($"Failed to read MP1 response arg[{i}]");
+                        return SmuStatus.Failed;
+                    }
+                }
+
+                Logger.Info($"SMU MP1 command 0x{command:X2} response: [{response[0]}, {response[1]}, {response[2]}, {response[3]}, {response[4]}, {response[5]}]");
+
+                return SmuStatus.OK;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception sending SMU MP1 command: {ex.Message}");
+                return SmuStatus.Failed;
+            }
+        }
+
+        /// <summary>
+        /// Sends a TDP-related SMU command, automatically using MP1 mailbox for CPUs that require it.
+        /// </summary>
+        private SmuStatus SendTdpCommand(uint command, uint[] args, out uint[] response)
+        {
+            if (RequiresMp1Mailbox())
+            {
+                return SendCommandMp1(command, args, out response);
+            }
+            else
+            {
+                return SendCommand(command, args, out response);
             }
         }
 
@@ -345,7 +514,7 @@ namespace XboxGamingBarHelper.PawnIO
                 return false;
             }
 
-            var status = SendCommand(cmdId, new uint[] { limitMw }, out _);
+            var status = SendTdpCommand(cmdId, new uint[] { limitMw }, out _);
             return status == SmuStatus.OK;
         }
 
@@ -362,7 +531,7 @@ namespace XboxGamingBarHelper.PawnIO
                 return false;
             }
 
-            var status = SendCommand(cmdId, new uint[] { limitMw }, out _);
+            var status = SendTdpCommand(cmdId, new uint[] { limitMw }, out _);
             return status == SmuStatus.OK;
         }
 
@@ -379,7 +548,7 @@ namespace XboxGamingBarHelper.PawnIO
                 return false;
             }
 
-            var status = SendCommand(cmdId, new uint[] { limitMw }, out _);
+            var status = SendTdpCommand(cmdId, new uint[] { limitMw }, out _);
             return status == SmuStatus.OK;
         }
 
@@ -406,7 +575,9 @@ namespace XboxGamingBarHelper.PawnIO
             }
             else
             {
-                Logger.Error("Failed to set one or more TDP limits");
+                // Z2E: SMU returns current values instead of status codes
+                // This indicates the RyzenSMU module may need updated Z2E support
+                Logger.Warn("PawnIO: SMU commands may not be working for this CPU - check RyzenSMU module Z2E support");
             }
 
             return success;
@@ -447,16 +618,20 @@ namespace XboxGamingBarHelper.PawnIO
             switch (_cpuCodeName)
             {
                 case CpuCodeName.Renoir:
-                case CpuCodeName.Cezanne: // Also covers Lucienne (same value = 10)
+                case CpuCodeName.Lucienne:
+                case CpuCodeName.Cezanne:
                     return SmuCommands.RENOIR_SET_STAPM_LIMIT;
-                case CpuCodeName.PhoenixPoint:
-                case CpuCodeName.PhoenixPoint2:
+                case CpuCodeName.Phoenix:
+                case CpuCodeName.Phoenix2:
                 case CpuCodeName.HawkPoint:
                     return SmuCommands.PHOENIX_SET_STAPM_LIMIT;
                 case CpuCodeName.StrixPoint:
-                case CpuCodeName.StrixPoint2:
+                case CpuCodeName.StrixHalo:
+                case CpuCodeName.KrackanPoint:
+                case CpuCodeName.KrackanPoint2:
+                case CpuCodeName.Z2Extreme:
                     return SmuCommands.STRIX_SET_STAPM_LIMIT;
-                case CpuCodeName.VanGogh: // Steam Deck
+                case CpuCodeName.Vangogh: // Steam Deck
                 case CpuCodeName.Rembrandt:
                 case CpuCodeName.Mendocino:
                     return SmuCommands.RENOIR_SET_STAPM_LIMIT;
@@ -470,16 +645,20 @@ namespace XboxGamingBarHelper.PawnIO
             switch (_cpuCodeName)
             {
                 case CpuCodeName.Renoir:
-                case CpuCodeName.Cezanne: // Also covers Lucienne (same value = 10)
+                case CpuCodeName.Lucienne:
+                case CpuCodeName.Cezanne:
                     return SmuCommands.RENOIR_SET_FAST_LIMIT;
-                case CpuCodeName.PhoenixPoint:
-                case CpuCodeName.PhoenixPoint2:
+                case CpuCodeName.Phoenix:
+                case CpuCodeName.Phoenix2:
                 case CpuCodeName.HawkPoint:
                     return SmuCommands.PHOENIX_SET_FAST_LIMIT;
                 case CpuCodeName.StrixPoint:
-                case CpuCodeName.StrixPoint2:
+                case CpuCodeName.StrixHalo:
+                case CpuCodeName.KrackanPoint:
+                case CpuCodeName.KrackanPoint2:
+                case CpuCodeName.Z2Extreme:
                     return SmuCommands.STRIX_SET_FAST_LIMIT;
-                case CpuCodeName.VanGogh:
+                case CpuCodeName.Vangogh:
                 case CpuCodeName.Rembrandt:
                 case CpuCodeName.Mendocino:
                     return SmuCommands.RENOIR_SET_FAST_LIMIT;
@@ -493,16 +672,20 @@ namespace XboxGamingBarHelper.PawnIO
             switch (_cpuCodeName)
             {
                 case CpuCodeName.Renoir:
-                case CpuCodeName.Cezanne: // Also covers Lucienne (same value = 10)
+                case CpuCodeName.Lucienne:
+                case CpuCodeName.Cezanne:
                     return SmuCommands.RENOIR_SET_SLOW_LIMIT;
-                case CpuCodeName.PhoenixPoint:
-                case CpuCodeName.PhoenixPoint2:
+                case CpuCodeName.Phoenix:
+                case CpuCodeName.Phoenix2:
                 case CpuCodeName.HawkPoint:
                     return SmuCommands.PHOENIX_SET_SLOW_LIMIT;
                 case CpuCodeName.StrixPoint:
-                case CpuCodeName.StrixPoint2:
+                case CpuCodeName.StrixHalo:
+                case CpuCodeName.KrackanPoint:
+                case CpuCodeName.KrackanPoint2:
+                case CpuCodeName.Z2Extreme:
                     return SmuCommands.STRIX_SET_SLOW_LIMIT;
-                case CpuCodeName.VanGogh:
+                case CpuCodeName.Vangogh:
                 case CpuCodeName.Rembrandt:
                 case CpuCodeName.Mendocino:
                     return SmuCommands.RENOIR_SET_SLOW_LIMIT;

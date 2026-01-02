@@ -4,6 +4,7 @@ using Shared.Data;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -207,10 +208,11 @@ namespace XboxGamingBarHelper
             // Set LegionManager reference in PerformanceManager for WMI TDP support
             performanceManager.SetLegionManager(legionManager);
 
-            // PawnIO/RyzenSMU initialization disabled - waiting for CPU support
-            // See: https://github.com/namazso/PawnIO.Modules/issues/XX (Ryzen Z2 Extreme model 0x24 not recognized)
-            // Legion WMI is used for TDP control on Legion Go/Go S devices
-            // performanceManager.InitializePawnIO();
+            // PawnIO/RyzenSMU initialization for anti-cheat compatible TDP control
+            // Priority: Legion WMI > PawnIO/RyzenSMU > RyzenAdj (deprecated, WinRing0 not bundled)
+            // Uses official signed module from release 0.2.1
+            // Supported CPUs: StrixHalo (Ryzen AI Max 385/395), etc.
+            performanceManager.InitializePawnIO();
 
             // Set LegionManager reference in RTSSManager for fan speed OSD support
             rtssManager.SetLegionManager(legionManager);
@@ -313,6 +315,7 @@ namespace XboxGamingBarHelper
                 settingsManager.AutoStartRTSS,
                 settingsManager.OnScreenDisplayProvider,
                 settingsManager.UseManufacturerWMI,
+                settingsManager.TdpMethod,
                 legionManager.LegionGoDetected,
                 legionManager.LegionTouchpadEnabled,
                 legionManager.LegionLightMode,
@@ -367,7 +370,11 @@ namespace XboxGamingBarHelper
                 systemManager.ForceParkMode,
                 performanceManager.TDPBoostEnabled,
                 performanceManager.TDPBoostSPPT,
-                performanceManager.TDPBoostFPPT);
+                performanceManager.TDPBoostFPPT,
+                performanceManager.WinRing0AvailableProperty,
+                performanceManager.PawnIOAvailableProperty,
+                performanceManager.PawnIOInstalledProperty,
+                performanceManager.InstallPawnIOProperty);
 
             Logger.Info("Initialize callbacks.");
             systemManager.RunningGame.PropertyChanged += RunningGame_PropertyChanged;
