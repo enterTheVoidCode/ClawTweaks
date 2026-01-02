@@ -352,6 +352,16 @@ namespace XboxGamingBarHelper.Performance
                     }
                 }
                 Logger.Info($"Found hardware {hardware.HardwareType}: Name={hardware.Name}, Type={hardware.HardwareType}, Id={hardware.Identifier}, Properties={properties}");
+
+                // Log all sensors for CPU to diagnose sensor name matching
+                if (hardware.HardwareType == HardwareType.Cpu)
+                {
+                    hardware.Update();
+                    foreach (ISensor sensor in hardware.Sensors)
+                    {
+                        Logger.Info($"  CPU Sensor: Name='{sensor.Name}', Type={sensor.SensorType}, Value={sensor.Value}");
+                    }
+                }
             }
 
             // Initialize hardware sensors
@@ -581,7 +591,9 @@ namespace XboxGamingBarHelper.Performance
                     HardwareSensor hardwareSensorFound = null;
                     foreach (var hardwareSensor in hardwareSensors)
                     {
-                        if (hardwareSensor.HardwareType == hardware.HardwareType && hardwareSensor.SensorType == sensor.SensorType && hardwareSensor.SensorName == sensor.Name)
+                        if (hardwareSensor.HardwareType == hardware.HardwareType &&
+                            hardwareSensor.SensorType == sensor.SensorType &&
+                            hardwareSensor.MatchesSensorName(sensor.Name))
                         {
                             hardwareSensorFound = hardwareSensor;
                             break;
