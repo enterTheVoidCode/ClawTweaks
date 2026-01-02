@@ -28,6 +28,7 @@ using Windows.UI.Xaml.Input;
 using XboxGamingBar.Data;
 using XboxGamingBar.Event;
 using XboxGamingBar.QuickSettings;
+using Shared.Enums;
 using NavigationView = Microsoft.UI.Xaml.Controls.NavigationView;
 using NavigationViewItem = Microsoft.UI.Xaml.Controls.NavigationViewItem;
 using NavigationViewSelectionChangedEventArgs = Microsoft.UI.Xaml.Controls.NavigationViewSelectionChangedEventArgs;
@@ -530,7 +531,10 @@ namespace XboxGamingBar
         private Dictionary<string, ButtonMapping> gamepadButtonMappings = new Dictionary<string, ButtonMapping>();
 
         // Settings properties
-        private readonly UseManufacturerWMIProperty useManufacturerWMI;
+        private readonly TdpMethodProperty tdpMethod;
+        private readonly WinRing0AvailableProperty winRing0Available;
+        private readonly PawnIOInstalledProperty pawnIOInstalled;
+        private readonly InstallPawnIOProperty installPawnIO;
 
         // AutoTDP properties
         private readonly AutoTDPEnabledProperty autoTDPEnabled;
@@ -817,7 +821,14 @@ namespace XboxGamingBar
             legionGamepadMapping = new LegionGamepadMappingProperty();
 
             // Settings properties
-            useManufacturerWMI = new UseManufacturerWMIProperty(UseManufacturerWMIToggle, this);
+            tdpMethod = new TdpMethodProperty(TdpMethodComboBox, this);
+            winRing0Available = new WinRing0AvailableProperty(this);
+            pawnIOInstalled = new PawnIOInstalledProperty(this);
+            installPawnIO = new InstallPawnIOProperty(this);
+
+            // Set up callbacks for TDP method availability
+            winRing0Available.SetAvailabilityCallback(UpdateWinRing0Visibility);
+            pawnIOInstalled.SetInstalledCallback(UpdatePawnIOInstalledUI);
 
             // AutoTDP properties
             autoTDPEnabled = new AutoTDPEnabledProperty(false);
@@ -937,7 +948,10 @@ namespace XboxGamingBar
                 legionVibration,
                 legionPowerLight,
                 legionChargeLimit,
-                useManufacturerWMI,
+                tdpMethod,
+                winRing0Available,
+                pawnIOInstalled,
+                installPawnIO,
                 autoTDPEnabled,
                 autoTDPTargetFPS,
                 autoTDPCurrentFPS,
@@ -1094,9 +1108,9 @@ namespace XboxGamingBar
             StickyTDPIntervalSlider.GotFocus += Control_GotFocus;
             StickyTDPIntervalSlider.LostFocus += Control_LostFocus;
 
-            // System tab - Manufacturer WMI TDP card
-            UseManufacturerWMIToggle.GotFocus += Control_GotFocus;
-            UseManufacturerWMIToggle.LostFocus += Control_LostFocus;
+            // System tab - TDP Method card
+            TdpMethodComboBox.GotFocus += Control_GotFocus;
+            TdpMethodComboBox.LostFocus += Control_LostFocus;
 
             // System tab - Device TDP Limits card
             TDPLimitsExpandButton.GotFocus += Control_GotFocus;
@@ -2289,14 +2303,14 @@ namespace XboxGamingBar
             if (AutoTDPToggle == null) return;
 
             // When AutoTDP is on, focus down goes to the slider
-            // When AutoTDP is off, focus down goes to UseManufacturerWMIToggle
+            // When AutoTDP is off, focus down goes to TdpMethodComboBox
             if (AutoTDPToggle.IsOn && AutoTDPTargetFPSSlider != null)
             {
                 AutoTDPToggle.XYFocusDown = AutoTDPTargetFPSSlider;
             }
-            else if (UseManufacturerWMIToggle != null)
+            else if (TdpMethodComboBox != null)
             {
-                AutoTDPToggle.XYFocusDown = UseManufacturerWMIToggle;
+                AutoTDPToggle.XYFocusDown = TdpMethodComboBox;
             }
         }
 
@@ -10164,17 +10178,46 @@ namespace XboxGamingBar
                 }
             }
 
-            // Manufacturer WMI TDP card is always visible (device-agnostic)
-            // Update the description based on Legion detection
-            if (ManufacturerWMIDescription != null)
+            // Show/hide Manufacturer WMI option in TDP Method dropdown based on Legion detection
+            if (TdpMethodWmiItem != null)
+            {
+                TdpMethodWmiItem.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"TDP Method WMI option visibility set to: {visible}");
+
+                // If Legion detected and WMI option now visible, select it if not already selected
+                if (visible && TdpMethodComboBox != null && TdpMethodComboBox.SelectedIndex < 0)
+                {
+                    TdpMethodComboBox.SelectedIndex = 0; // ManufacturerWMI
+                }
+                // If Legion not detected and WMI was selected, switch to PawnIO
+                else if (!visible && TdpMethodComboBox != null)
+                {
+                    var selectedItem = TdpMethodComboBox.SelectedItem as ComboBoxItem;
+                    if (selectedItem?.Tag is string tag && tag == "ManufacturerWMI")
+                    {
+                        // Find and select PawnIO
+                        for (int i = 0; i < TdpMethodComboBox.Items.Count; i++)
+                        {
+                            if (TdpMethodComboBox.Items[i] is ComboBoxItem item && item.Tag is string t && t == "PawnIO")
+                            {
+                                TdpMethodComboBox.SelectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Update the TDP Method description based on Legion detection
+            if (TdpMethodDescription != null)
             {
                 if (visible)
                 {
-                    ManufacturerWMIDescription.Text = "Use device manufacturer's WMI method for TDP control. Supported: Legion Go / Go 2. Disable to use RyzenAdj (may trigger anti-cheat).";
+                    TdpMethodDescription.Text = "Select TDP control method. Manufacturer WMI (Legion) and PawnIO are anti-cheat safe.";
                 }
                 else
                 {
-                    ManufacturerWMIDescription.Text = "Use device manufacturer's WMI method for TDP control. No supported device detected. RyzenAdj will be used (may trigger anti-cheat).";
+                    TdpMethodDescription.Text = "Select TDP control method. PawnIO is anti-cheat safe. WinRing0 may trigger anti-cheat.";
                 }
             }
 
@@ -10200,6 +10243,161 @@ namespace XboxGamingBar
                     // Non-Legion: PerformanceOverlay -> TDPSlider
                     PerformanceOverlayComboBox.XYFocusDown = TDPSlider;
                     TDPSlider.XYFocusUp = PerformanceOverlayComboBox;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Updates WinRing0 option visibility in TDP Method dropdown based on file availability.
+        /// </summary>
+        private void UpdateWinRing0Visibility(bool available)
+        {
+            if (TdpMethodWinRing0Item != null)
+            {
+                TdpMethodWinRing0Item.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"WinRing0 TDP option visibility set to: {available}");
+
+                // If WinRing0 was selected but is no longer available, switch to WMI or PawnIO
+                if (!available && TdpMethodComboBox != null)
+                {
+                    var selectedItem = TdpMethodComboBox.SelectedItem as ComboBoxItem;
+                    if (selectedItem?.Tag is string tag && tag == "WinRing0")
+                    {
+                        // Try to select ManufacturerWMI first, then PawnIO
+                        if (TdpMethodWmiItem?.Visibility == Visibility.Visible)
+                        {
+                            TdpMethodComboBox.SelectedItem = TdpMethodWmiItem;
+                        }
+                        else if (TdpMethodPawnIOItem?.Visibility == Visibility.Visible)
+                        {
+                            TdpMethodComboBox.SelectedItem = TdpMethodPawnIOItem;
+                        }
+                    }
+                }
+            }
+
+            // Ensure a valid option is selected after visibility changes
+            EnsureValidTdpMethodSelected();
+        }
+
+        /// <summary>
+        /// Ensures a valid (visible) TDP method is selected in the dropdown.
+        /// </summary>
+        private void EnsureValidTdpMethodSelected()
+        {
+            if (TdpMethodComboBox == null) return;
+
+            var selectedItem = TdpMethodComboBox.SelectedItem as ComboBoxItem;
+
+            // If current selection is valid and visible, do nothing
+            if (selectedItem != null && selectedItem.Visibility == Visibility.Visible)
+            {
+                return;
+            }
+
+            // Find the first visible option and select it
+            // Priority: ManufacturerWMI > PawnIO > WinRing0
+            if (TdpMethodWmiItem?.Visibility == Visibility.Visible)
+            {
+                TdpMethodComboBox.SelectedItem = TdpMethodWmiItem;
+                Logger.Info("TDP Method auto-selected: ManufacturerWMI");
+            }
+            else if (TdpMethodPawnIOItem?.Visibility == Visibility.Visible)
+            {
+                TdpMethodComboBox.SelectedItem = TdpMethodPawnIOItem;
+                Logger.Info("TDP Method auto-selected: PawnIO");
+            }
+            else if (TdpMethodWinRing0Item?.Visibility == Visibility.Visible)
+            {
+                TdpMethodComboBox.SelectedItem = TdpMethodWinRing0Item;
+                Logger.Info("TDP Method auto-selected: WinRing0");
+            }
+            else
+            {
+                Logger.Warn("No TDP method options are available!");
+            }
+        }
+
+        /// <summary>
+        /// Updates the PawnIO install button state and dropdown option visibility based on driver installation status.
+        /// </summary>
+        private void UpdatePawnIOInstalledUI(bool installed)
+        {
+            // Show/hide PawnIO option in dropdown based on installation status
+            if (TdpMethodPawnIOItem != null)
+            {
+                TdpMethodPawnIOItem.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"PawnIO TDP option visibility set to: {installed}");
+
+                // If PawnIO was selected but is no longer installed, switch to WMI or WinRing0
+                if (!installed && TdpMethodComboBox != null)
+                {
+                    var selectedItem = TdpMethodComboBox.SelectedItem as ComboBoxItem;
+                    if (selectedItem?.Tag is string tag && tag == "PawnIO")
+                    {
+                        // Try to select ManufacturerWMI first, then WinRing0
+                        if (TdpMethodWmiItem?.Visibility == Visibility.Visible)
+                        {
+                            TdpMethodComboBox.SelectedItem = TdpMethodWmiItem;
+                        }
+                        else if (TdpMethodWinRing0Item?.Visibility == Visibility.Visible)
+                        {
+                            TdpMethodComboBox.SelectedItem = TdpMethodWinRing0Item;
+                        }
+                    }
+                }
+            }
+
+            if (InstallPawnIOButton != null)
+            {
+                InstallPawnIOButton.Content = installed ? "Installed" : "Install";
+                InstallPawnIOButton.IsEnabled = !installed;
+                Logger.Info($"PawnIO install button updated: installed={installed}");
+            }
+
+            if (PawnIOStatusText != null)
+            {
+                if (installed)
+                {
+                    PawnIOStatusText.Text = "PawnIO driver is installed. Signed kernel driver for anti-cheat safe hardware access.";
+                }
+                else
+                {
+                    PawnIOStatusText.Text = "Signed kernel driver for hardware access. Replaces WinRing0.";
+                }
+            }
+
+            // Ensure a valid option is selected after visibility changes
+            EnsureValidTdpMethodSelected();
+        }
+
+        /// <summary>
+        /// Handles the PawnIO install button click.
+        /// </summary>
+        private void InstallPawnIOButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Logger.Info("InstallPawnIOButton clicked - triggering PawnIO installation");
+
+                // Update button to show installing state
+                if (InstallPawnIOButton != null)
+                {
+                    InstallPawnIOButton.Content = "Installing...";
+                    InstallPawnIOButton.IsEnabled = false;
+                }
+
+                // Trigger the installation via the property
+                installPawnIO?.TriggerInstall();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error triggering PawnIO installation: {ex.Message}");
+                // Reset button state on error
+                if (InstallPawnIOButton != null)
+                {
+                    InstallPawnIOButton.Content = "Install";
+                    InstallPawnIOButton.IsEnabled = true;
                 }
             }
         }

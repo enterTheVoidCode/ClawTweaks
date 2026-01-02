@@ -107,6 +107,10 @@
     <Compile Include="Data\AMDDisplayColorProperties.cs" />
     <Compile Include="Data\AutoStartRTSSProperty.cs" />
     <Compile Include="Data\UseManufacturerWMIProperty.cs" />
+    <Compile Include="Data\TdpMethodProperty.cs" />
+    <Compile Include="Data\WinRing0AvailableProperty.cs" />
+    <Compile Include="Data\PawnIOInstalledProperty.cs" />
+    <Compile Include="Data\InstallPawnIOProperty.cs" />
     <Compile Include="Data\CPUBoostProperty.cs" />
     <Compile Include="Data\IsForegroundProperty.cs" />
     <Compile Include="Data\MaxCPUStateProperty.cs" />

@@ -39,9 +39,18 @@ namespace XboxGamingBarHelper.Settings
         }
 
         private readonly UseManufacturerWMIProperty useManufacturerWMI;
+        /// <summary>
+        /// DEPRECATED: Use TdpMethod instead
+        /// </summary>
         public UseManufacturerWMIProperty UseManufacturerWMI
         {
             get { return useManufacturerWMI; }
+        }
+
+        private readonly TdpMethodProperty tdpMethod;
+        public TdpMethodProperty TdpMethod
+        {
+            get { return tdpMethod; }
         }
 
         protected SettingsManager(AppServiceConnection connection) : base(connection)
@@ -50,6 +59,7 @@ namespace XboxGamingBarHelper.Settings
             onScreenDisplayProvider = new OnScreenDisplayProviderProperty(this);
             isForeground = new IsForegroundProperty(this);
             useManufacturerWMI = new UseManufacturerWMIProperty(this);
+            tdpMethod = new TdpMethodProperty(this);
         }
     }
 }
