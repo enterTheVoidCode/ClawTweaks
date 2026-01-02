@@ -1693,27 +1693,54 @@
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
 
-                        <!-- Manufacturer WMI TDP Card -->
-                        <Border x:Name="ManufacturerWMICard" Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Manufacturer WMI TDP" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock x:Name="ManufacturerWMIDescription"
-                                               Text="Use device manufacturer's WMI method for TDP control. Supported: Legion Go / Go 2. Disable to use RyzenAdj (may trigger anti-cheat)."
-                                               Style="{StaticResource CardCaptionStyle}"
-                                               TextWrapping="Wrap"/>
-                                </StackPanel>
-                                <ToggleSwitch x:Name="UseManufacturerWMIToggle"
+                        <!-- TDP Control Method Card -->
+                        <Border x:Name="TdpMethodCard" Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="TDP Control Method" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock x:Name="TdpMethodDescription"
+                                                   Text="Select TDP control method. PawnIO is anti-cheat safe and enables full OSD sensor support."
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ComboBox x:Name="TdpMethodComboBox"
+                                              Width="160"
                                               Grid.Column="1"
-                                              IsOn="True"
-                                              Style="{StaticResource ModernToggleStyle}"
+                                              Style="{StaticResource ModernComboBoxStyle}"
                                               XYFocusUp="{x:Bind StickyTDPToggle}"
-                                              XYFocusDown="{x:Bind TDPLimitsExpandButton}"/>
-                            </Grid>
+                                              XYFocusDown="{x:Bind InstallPawnIOButton}">
+                                        <ComboBoxItem x:Name="TdpMethodWmiItem" Content="Manufacturer WMI" Tag="ManufacturerWMI" Visibility="Collapsed"/>
+                                        <ComboBoxItem x:Name="TdpMethodPawnIOItem" Content="PawnIO" Tag="PawnIO"/>
+                                        <ComboBoxItem x:Name="TdpMethodWinRing0Item" Content="WinRing0 (Legacy)" Tag="WinRing0"/>
+                                    </ComboBox>
+                                </Grid>
+                                <!-- PawnIO Install Section -->
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="PawnIO Driver" FontSize="15" FontWeight="SemiBold" Foreground="White"/>
+                                        <TextBlock x:Name="PawnIOStatusText"
+                                                   Text="Signed kernel driver for hardware access. Replaces WinRing0."
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <Button x:Name="InstallPawnIOButton"
+                                            Grid.Column="1"
+                                            Content="Install"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Click="InstallPawnIOButton_Click"
+                                            XYFocusUp="{x:Bind TdpMethodComboBox}"
+                                            XYFocusDown="{x:Bind TDPLimitsExpandButton}"/>
+                                </Grid>
+                            </StackPanel>
                         </Border>
 
                         <!-- Device TDP Limits Card (Collapsible) -->

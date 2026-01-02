@@ -3,9 +3,13 @@ using NLog;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Windows.ApplicationModel.AppService;
+using Shared.Enums;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Legion;
 using XboxGamingBarHelper.PawnIO;
@@ -170,6 +174,13 @@ namespace XboxGamingBarHelper.Performance
         private RyzenSmuService ryzenSmuService;
         private bool pawnIOAvailable;
 
+        // WinRing0 availability (bundled with helper)
+        private bool winRing0Available;
+        private const string WinRing0BackupFolder = @"C:\GoTweaks";
+
+        // PawnIO driver installation status
+        private bool pawnIOInstalled;
+
         // RyzenAdj lazy loading - only load when user disables Manufacturer WMI
         private bool ryzenAdjInitialized = false;
         private bool ryzenAdjInitAttempted = false;
@@ -178,10 +189,46 @@ namespace XboxGamingBarHelper.Performance
         private readonly object tdpLock = new object();
         private readonly object ryzenAdjInitLock = new object();
 
+        // Properties for TDP method availability
+        private TdpMethodAvailableProperty winRing0AvailableProperty;
+        private TdpMethodAvailableProperty pawnIOAvailableProperty;
+        private TdpMethodAvailableProperty pawnIOInstalledProperty;
+        private InstallPawnIOProperty installPawnIOProperty;
+
         /// <summary>
         /// Gets whether PawnIO is available for TDP control.
         /// </summary>
         public bool IsPawnIOAvailable => pawnIOAvailable;
+
+        /// <summary>
+        /// Gets whether WinRing0 files are available in C:\GoTweaks.
+        /// </summary>
+        public bool IsWinRing0Available => winRing0Available;
+
+        /// <summary>
+        /// Property for WinRing0 availability (exposed to widget).
+        /// </summary>
+        public TdpMethodAvailableProperty WinRing0AvailableProperty => winRing0AvailableProperty;
+
+        /// <summary>
+        /// Property for PawnIO availability (exposed to widget).
+        /// </summary>
+        public TdpMethodAvailableProperty PawnIOAvailableProperty => pawnIOAvailableProperty;
+
+        /// <summary>
+        /// Gets whether PawnIO driver is installed (may not work for TDP yet).
+        /// </summary>
+        public bool IsPawnIOInstalled => pawnIOInstalled;
+
+        /// <summary>
+        /// Property for PawnIO driver installed status (exposed to widget).
+        /// </summary>
+        public TdpMethodAvailableProperty PawnIOInstalledProperty => pawnIOInstalledProperty;
+
+        /// <summary>
+        /// Property to trigger PawnIO installation (exposed to widget).
+        /// </summary>
+        public InstallPawnIOProperty InstallPawnIOProperty => installPawnIOProperty;
 
         /// <summary>
         /// Sets the Legion Manager reference for WMI TDP support.
@@ -224,6 +271,10 @@ namespace XboxGamingBarHelper.Performance
                 ryzenSmuService?.Dispose();
                 ryzenSmuService = null;
             }
+
+            // Update the availability property if already initialized
+            pawnIOAvailableProperty?.SetAvailable(pawnIOAvailable);
+            Logger.Info($"PawnIO availability updated: {pawnIOAvailable}");
         }
         private const int MaxConsecutiveFailuresBeforeReinit = 5;
         private const double NormalTimerInterval = 2000; // 2 seconds
@@ -239,6 +290,7 @@ namespace XboxGamingBarHelper.Performance
         internal PerformanceManager(AppServiceConnection connection) : base(connection)
         {
             // Initialize the computer sensors
+            Logger.Info("PerformanceManager: Creating Computer object...");
             computer = new Computer
             {
                 IsCpuEnabled = true,
@@ -250,9 +302,44 @@ namespace XboxGamingBarHelper.Performance
                 IsStorageEnabled = true,
                 IsBatteryEnabled = true,
             };
+            Logger.Info("PerformanceManager: Creating UpdateVisitor...");
             updateVisitor = new UpdateVisitor();
-            computer.Open();
-            computer.Accept(updateVisitor);
+            Logger.Info("PerformanceManager: Calling computer.Open()...");
+
+            // Call computer.Open() with proper exception handling
+            try
+            {
+                computer.Open();
+                Logger.Info("PerformanceManager: computer.Open() completed successfully.");
+            }
+            catch (AggregateException ae)
+            {
+                Logger.Warn($"PerformanceManager: computer.Open() had {ae.InnerExceptions.Count} errors (some hardware may not be available):");
+                foreach (var innerEx in ae.InnerExceptions)
+                {
+                    Logger.Warn($"  - {innerEx.GetType().Name}: {innerEx.Message}");
+                }
+                // Continue anyway - use whatever hardware was initialized
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"PerformanceManager: computer.Open() failed: {ex.GetType().Name}: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Logger.Error($"  Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+                }
+            }
+
+            // Always try to accept the visitor for whatever hardware was found
+            try
+            {
+                computer.Accept(updateVisitor);
+                Logger.Info("PerformanceManager: computer.Accept() completed.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"PerformanceManager: computer.Accept() failed: {ex.Message}");
+            }
 
             foreach (IHardware hardware in computer.Hardware)
             {
@@ -314,10 +401,9 @@ namespace XboxGamingBarHelper.Performance
                 NetworkUpload,
             };
 
-            // RyzenAdj is NOT initialized at startup to avoid loading WinRing0 driver
-            // WinRing0 may trigger anti-cheat systems like EAC
-            // RyzenAdj will be lazy-loaded only when user disables Manufacturer WMI TDP
-            Logger.Info("RyzenAdj initialization deferred (will load on demand if Manufacturer WMI is disabled)");
+            // RyzenAdj initialization deferred - WinRing0 no longer bundled
+            // Use PawnIO for TDP control instead (anti-cheat compatible)
+            Logger.Info("RyzenAdj initialization deferred (deprecated - PawnIO preferred for TDP control)");
             var initialTDP = 25;
             var initialCurrentTDP = "-- W";
 
@@ -338,6 +424,128 @@ namespace XboxGamingBarHelper.Performance
             currentTdpTimer.AutoReset = true;
             currentTdpTimer.Start();
             Logger.Info("CurrentTDP timer started, updating every 3 seconds");
+
+            // Check WinRing0 availability (files in C:\GoTweaks)
+            CheckWinRing0Availability();
+
+            // Check PawnIO driver installation status
+            CheckPawnIODriverInstalled();
+
+            // Initialize TDP method availability properties
+            winRing0AvailableProperty = new TdpMethodAvailableProperty(winRing0Available, Function.TdpMethod_WinRing0Available, this);
+            pawnIOAvailableProperty = new TdpMethodAvailableProperty(pawnIOAvailable, Function.TdpMethod_PawnIOAvailable, this);
+            pawnIOInstalledProperty = new TdpMethodAvailableProperty(pawnIOInstalled, Function.TdpMethod_PawnIOInstalled, this);
+            installPawnIOProperty = new InstallPawnIOProperty(this);
+            Logger.Info($"TDP method availability: WinRing0={winRing0Available}, PawnIO={pawnIOAvailable}, PawnIOInstalled={pawnIOInstalled}");
+        }
+
+        /// <summary>
+        /// Checks if WinRing0 files exist in C:\GoTweaks folder.
+        /// </summary>
+        private void CheckWinRing0Availability()
+        {
+            try
+            {
+                // Check for bundled WinRing0 files in helper's directory
+                string helperDir = AppDomain.CurrentDomain.BaseDirectory;
+                string dllPath = Path.Combine(helperDir, "WinRing0x64.dll");
+                string sysPath = Path.Combine(helperDir, "WinRing0x64.sys");
+                string libRyzenAdjPath = Path.Combine(helperDir, "libryzenadj.dll");
+
+                winRing0Available = File.Exists(dllPath) && File.Exists(sysPath) && File.Exists(libRyzenAdjPath);
+
+                if (winRing0Available)
+                {
+                    Logger.Info($"WinRing0 files found (bundled) in {helperDir}");
+
+                    // Also copy to backup folder for external access if needed
+                    try
+                    {
+                        if (!Directory.Exists(WinRing0BackupFolder))
+                            Directory.CreateDirectory(WinRing0BackupFolder);
+
+                        CopyFileIfNewer(dllPath, Path.Combine(WinRing0BackupFolder, "WinRing0x64.dll"));
+                        CopyFileIfNewer(sysPath, Path.Combine(WinRing0BackupFolder, "WinRing0x64.sys"));
+                        CopyFileIfNewer(libRyzenAdjPath, Path.Combine(WinRing0BackupFolder, "libryzenadj.dll"));
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Could not copy WinRing0 files to backup folder: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Logger.Info($"WinRing0 files not bundled in {helperDir} (WinRing0 TDP method will be hidden)");
+                }
+            }
+            catch (Exception ex)
+            {
+                winRing0Available = false;
+                Logger.Warn($"Error checking WinRing0 availability: {ex.Message}");
+            }
+        }
+
+        private void CopyFileIfNewer(string source, string dest)
+        {
+            if (!File.Exists(source)) return;
+
+            bool needsCopy = !File.Exists(dest);
+            if (!needsCopy)
+            {
+                var sourceInfo = new FileInfo(source);
+                var destInfo = new FileInfo(dest);
+                needsCopy = sourceInfo.Length != destInfo.Length || sourceInfo.LastWriteTimeUtc > destInfo.LastWriteTimeUtc;
+            }
+
+            if (needsCopy)
+            {
+                File.Copy(source, dest, true);
+            }
+        }
+
+        /// <summary>
+        /// Checks if PawnIO driver is installed on the system.
+        /// This checks if the driver service exists in Windows services.
+        /// </summary>
+        private void CheckPawnIODriverInstalled()
+        {
+            try
+            {
+                // Check if PawnIO driver service exists
+                using (var searcher = new System.Management.ManagementObjectSearcher(
+                    "SELECT * FROM Win32_SystemDriver WHERE Name = 'PawnIO'"))
+                {
+                    using (var collection = searcher.Get())
+                    {
+                        pawnIOInstalled = collection.Count > 0;
+                    }
+                }
+
+                if (pawnIOInstalled)
+                {
+                    Logger.Info("PawnIO driver is installed");
+                }
+                else
+                {
+                    Logger.Info("PawnIO driver is not installed");
+                }
+            }
+            catch (Exception ex)
+            {
+                pawnIOInstalled = false;
+                Logger.Warn($"Error checking PawnIO driver installation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Refreshes the PawnIO driver installation status.
+        /// Called after installation attempt to update the UI.
+        /// </summary>
+        public void RefreshPawnIOInstalledStatus()
+        {
+            CheckPawnIODriverInstalled();
+            pawnIOInstalledProperty?.SetAvailable(pawnIOInstalled);
+            Logger.Info($"PawnIO driver installation status refreshed: {pawnIOInstalled}");
         }
 
         public override void Update()
@@ -450,7 +658,7 @@ namespace XboxGamingBarHelper.Performance
             lock (tdpLock)
             {
                 var settingsManager = SettingsManager.GetInstance();
-                bool useManufacturerWMI = settingsManager?.UseManufacturerWMI?.Value ?? true;
+                TdpMethod tdpMethod = settingsManager?.TdpMethod?.Method ?? TdpMethod.PawnIO;
                 bool legionDetected = legionManager?.LegionGoDetected?.Value ?? false;
 
                 // Calculate actual TDP values based on TDP Boost settings
@@ -472,50 +680,60 @@ namespace XboxGamingBarHelper.Performance
                 // Note: CurrentSPL/SPPT/FPPT are now updated from actual hardware values
                 // in UpdateCurrentTDP, which is called via ScheduleVerificationRead after SetTDP
 
-                // Priority 1: Legion WMI (anti-cheat compatible, works on Legion Go/Go S)
-                // Only use if the setting is enabled
-                if (useManufacturerWMI && legionDetected && legionManager != null)
+                Logger.Info($"SetTDP: method={tdpMethod}, legionDetected={legionDetected}, pawnIOAvailable={pawnIOAvailable}");
+
+                // Use the selected TDP method
+                switch (tdpMethod)
                 {
-                    // Note: SetCustomTDP will automatically switch to Custom mode (255) if needed
-                    // The widget handles skipping TDP sync during preset modes via tdp.SkipSync flag
-                    Logger.Info($"Using Legion WMI to set TDP (SPL={spl}W, SPPL={sppt}W, FPPT={fppt}W)");
-                    legionManager.SetCustomTDP(spl, sppt, fppt);
-                    ScheduleVerificationRead();
-                    return;
-                }
+                    case TdpMethod.ManufacturerWMI:
+                        if (legionDetected && legionManager != null)
+                        {
+                            // Note: SetCustomTDP will automatically switch to Custom mode (255) if needed
+                            Logger.Info($"Using Legion WMI to set TDP (SPL={spl}W, SPPL={sppt}W, FPPT={fppt}W)");
+                            legionManager.SetCustomTDP(spl, sppt, fppt);
+                            ScheduleVerificationRead();
+                            return;
+                        }
+                        // Legion not detected - fall through to PawnIO
+                        Logger.Warn("ManufacturerWMI selected but Legion not detected, trying PawnIO");
+                        goto case TdpMethod.PawnIO;
 
-                // Priority 2: PawnIO/RyzenSMU (anti-cheat compatible, for non-Legion devices)
-                // Note: Currently disabled - waiting for CPU support in RyzenSMU module
-                // if (pawnIOAvailable && ryzenSmuService != null && ryzenSmuService.IsInitialized)
-                // {
-                //     Logger.Info($"Using PawnIO/RyzenSMU to set TDP (SPL={spl}W, SPPT={sppt}W, FPPT={fppt}W)");
-                //     if (ryzenSmuService.SetAllLimits(spl, sppt, fppt))
-                //     {
-                //         Logger.Info($"PawnIO: TDP set successfully");
-                //         return;
-                //     }
-                //     else
-                //     {
-                //         Logger.Warn("PawnIO: Failed to set TDP, falling back to RyzenAdj");
-                //     }
-                // }
+                    case TdpMethod.PawnIO:
+                        if (pawnIOAvailable && ryzenSmuService != null && ryzenSmuService.IsInitialized)
+                        {
+                            Logger.Info($"Using PawnIO/RyzenSMU to set TDP (SPL={spl}W, SPPT={sppt}W, FPPT={fppt}W)");
+                            if (ryzenSmuService.SetAllLimits(spl, sppt, fppt))
+                            {
+                                Logger.Info($"PawnIO: TDP set successfully");
+                                ScheduleVerificationRead();
+                                return;
+                            }
+                            Logger.Warn("PawnIO: Failed to set TDP");
+                        }
+                        else
+                        {
+                            Logger.Warn("PawnIO not available");
+                        }
+                        Logger.Warn("SetTDP: No TDP control method available");
+                        return;
 
-                // Priority 3: RyzenAdj (fallback - loads WinRing0 which may trigger anti-cheat)
-                // Lazy-load RyzenAdj only when actually needed
-                if (!EnsureRyzenAdjInitialized())
-                {
-                    Logger.Warn("SetTDP: No TDP control method available (Legion WMI disabled, RyzenAdj failed to initialize)");
-                    return;
-                }
-
-                Logger.Info($"Using RyzenAdj to set TDP (STAPM={spl}W, SLOW={sppt}W, FAST={fppt}W) (WinRing0 loaded - may trigger anti-cheat)");
-                RyzenAdj.set_fast_limit(ryzenAdjHandle, (uint)(fppt * 1000));
-                RyzenAdj.set_slow_limit(ryzenAdjHandle, (uint)(sppt * 1000));
-                RyzenAdj.set_stapm_limit(ryzenAdjHandle, (uint)(spl * 1000));
+                    case TdpMethod.WinRing0:
+                        // RyzenAdj (deprecated - WinRing0 no longer bundled)
+                        if (!EnsureRyzenAdjInitialized())
+                        {
+                            Logger.Warn("SetTDP: WinRing0/RyzenAdj unavailable");
+                            return;
+                        }
+                        Logger.Info($"Using RyzenAdj to set TDP (STAPM={spl}W, SLOW={sppt}W, FAST={fppt}W) (deprecated)");
+                        RyzenAdj.set_fast_limit(ryzenAdjHandle, (uint)(fppt * 1000));
+                        RyzenAdj.set_slow_limit(ryzenAdjHandle, (uint)(sppt * 1000));
+                        RyzenAdj.set_stapm_limit(ryzenAdjHandle, (uint)(spl * 1000));
 #if DEBUG
-                RyzenAdj.refresh_table(ryzenAdjHandle);
-                Logger.Info($"Set TDP, current fast limit is {RyzenAdj.get_fast_limit(ryzenAdjHandle)}");
+                        RyzenAdj.refresh_table(ryzenAdjHandle);
+                        Logger.Info($"Set TDP, current fast limit is {RyzenAdj.get_fast_limit(ryzenAdjHandle)}");
 #endif
+                        break;
+                }
             }
 
             // Schedule a verification read after a short delay to confirm the TDP was applied
@@ -544,8 +762,9 @@ namespace XboxGamingBarHelper.Performance
         }
 
         /// <summary>
-        /// Lazy-loads RyzenAdj when needed. This loads WinRing0 driver which may trigger anti-cheat.
-        /// Only call this when user explicitly disables Manufacturer WMI TDP.
+        /// Lazy-loads RyzenAdj when needed. RyzenAdj is deprecated as WinRing0 is no longer bundled.
+        /// This will only succeed if the user has WinRing0 files in C:\GoTweaks.
+        /// Copies libryzenadj.dll from app bundle to C:\GoTweaks so all files are together.
         /// </summary>
         /// <returns>True if RyzenAdj is available</returns>
         private bool EnsureRyzenAdjInitialized()
@@ -561,14 +780,27 @@ namespace XboxGamingBarHelper.Performance
                     return false; // Already tried and failed
 
                 ryzenAdjInitAttempted = true;
-                Logger.Info("EnsureRyzenAdjInitialized: Loading RyzenAdj (WinRing0 driver will be loaded - may trigger anti-cheat)");
+
+                // Check if WinRing0 files are bundled
+                if (!winRing0Available)
+                {
+                    Logger.Warn("EnsureRyzenAdjInitialized: WinRing0 files not bundled");
+                    return false;
+                }
 
                 try
                 {
+                    // Load from helper's bundled directory (all files are together)
+                    string helperDir = AppDomain.CurrentDomain.BaseDirectory;
+                    RyzenAdj.LoadFromFolder(helperDir);
                     ryzenAdjHandle = RyzenAdj.init_ryzenadj();
+
                     if (ryzenAdjHandle == IntPtr.Zero)
                     {
-                        Logger.Warn("RyzenAdj initialization failed");
+                        // Get WinRing0 status for diagnostics
+                        uint finalStatus = RyzenAdj.GetLastWinRing0Status();
+                        string statusDesc = RyzenAdj.GetWinRing0StatusDescription(finalStatus);
+                        Logger.Warn($"RyzenAdj initialization failed - WinRing0 status: {finalStatus} ({statusDesc})");
                         return false;
                     }
 
@@ -651,13 +883,13 @@ namespace XboxGamingBarHelper.Performance
         {
             try
             {
-                // Check if manufacturer WMI is enabled
+                // Check selected TDP method
                 var settingsManager = SettingsManager.GetInstance();
-                bool useManufacturerWMI = settingsManager?.UseManufacturerWMI?.Value ?? true;
+                TdpMethod tdpMethod = settingsManager?.TdpMethod?.Method ?? TdpMethod.PawnIO;
                 bool legionDetected = legionManager?.LegionGoDetected?.Value ?? false;
 
-                // Priority 1: Legion WMI (when enabled and Legion is detected)
-                if (useManufacturerWMI && legionDetected && legionManager != null)
+                // Priority 1: Legion WMI (when ManufacturerWMI selected and Legion is detected)
+                if (tdpMethod == TdpMethod.ManufacturerWMI && legionDetected && legionManager != null)
                 {
                     // Check current performance mode - if not Custom, show mode name instead of TDP values
                     int performanceMode = legionManager.CurrentPerformanceMode;
@@ -700,7 +932,14 @@ namespace XboxGamingBarHelper.Performance
                     return;
                 }
 
-                // Fall back to RyzenAdj (lazy-load if not initialized)
+                // Only use RyzenAdj when WinRing0 method is explicitly selected
+                if (tdpMethod != TdpMethod.WinRing0)
+                {
+                    Logger.Debug("UpdateCurrentTDP: TDP method is not WinRing0, skipping RyzenAdj");
+                    return;
+                }
+
+                // Initialize RyzenAdj (lazy-load, copies WinRing0 files from C:\GoTweaks)
                 if (!EnsureRyzenAdjInitialized())
                 {
                     Logger.Debug("UpdateCurrentTDP: RyzenAdj not available");
