@@ -138,17 +138,18 @@ namespace LegionGoLibrary
 
     /// <summary>
     /// Touchpad haptic vibration intensity levels.
+    /// Command: 05 00 06 06 00 [mode]
     /// </summary>
     public enum TouchpadVibrationLevel : byte
     {
         /// <summary>Vibration disabled</summary>
-        Off = 0x00,
-        /// <summary>Light vibration</summary>
-        Weak = 0x01,
+        Off = 0x01,
+        /// <summary>Low vibration</summary>
+        Low = 0x02,
         /// <summary>Medium vibration</summary>
-        Medium = 0x02,
-        /// <summary>Strong vibration</summary>
-        Strong = 0x03
+        Medium = 0x03,
+        /// <summary>High vibration</summary>
+        High = 0x04
     }
 
     /// <summary>
@@ -1725,21 +1726,21 @@ namespace LegionGoLibrary
         /// <returns>Tuple containing success status and message</returns>
         public (bool Success, string Message) SetTouchpadVibration(TouchpadVibrationLevel level)
         {
-            // Legion Go / Legion Go 2: 05 06 6C 02 04 [level] 01
+            // Touchpad vibration mode: 05 00 06 06 00 [mode]
+            // Off=0x01, Low=0x02, Medium=0x03, High=0x04
             byte[] command = {
-                0x05, 0x06, 0x6C, 0x02,
-                0x04,  // Right controller
-                (byte)level,
-                0x01
+                0x05, 0x00, 0x06, 0x06,
+                0x00,
+                (byte)level
             };
 
             var result = SendCommand(command);
             string levelName = level switch
             {
                 TouchpadVibrationLevel.Off => "Off",
-                TouchpadVibrationLevel.Weak => "Weak",
+                TouchpadVibrationLevel.Low => "Low",
                 TouchpadVibrationLevel.Medium => "Medium",
-                TouchpadVibrationLevel.Strong => "Strong",
+                TouchpadVibrationLevel.High => "High",
                 _ => "Unknown"
             };
 

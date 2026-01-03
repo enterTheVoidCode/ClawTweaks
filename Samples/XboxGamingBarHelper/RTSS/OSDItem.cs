@@ -9,6 +9,7 @@ namespace XboxGamingBarHelper.RTSS
         protected string name;
         protected string id;
         protected string colorCode;
+        protected string defaultColorCode;  // Store the original color
         protected string textColor = "FFFFFF";
         protected bool useDynamicColor = false;
 
@@ -19,6 +20,11 @@ namespace XboxGamingBarHelper.RTSS
             if (!string.IsNullOrEmpty(color) && color != "DEFAULT")
             {
                 colorCode = color;
+            }
+            else
+            {
+                // Reset to default color
+                colorCode = defaultColorCode;
             }
         }
 
@@ -41,6 +47,7 @@ namespace XboxGamingBarHelper.RTSS
             name = "OSD Item";
             id = "Unknown";
             colorCode = "FFFFFF";
+            defaultColorCode = "FFFFFF";
         }
 
         protected OSDItem(string name, Color color) : this(name, name, color)
@@ -52,6 +59,7 @@ namespace XboxGamingBarHelper.RTSS
             this.name = name;
             this.id = id;
             this.colorCode = $"{color.R:X2}{color.G:X2}{color.B:X2}";
+            this.defaultColorCode = this.colorCode;  // Store the default
         }
 
         public virtual string GetOSDString(int osdLevel)

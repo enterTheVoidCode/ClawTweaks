@@ -64,6 +64,12 @@ namespace XboxGamingBarHelper.Legion
         private bool nintendoLayoutEnabled = false;
         private int vibrationMode = 1; // FPS
 
+        // Controller battery monitoring (uses controllerService, not a separate connection)
+        private int leftControllerBattery = -1;
+        private int rightControllerBattery = -1;
+        private bool leftControllerCharging = false;
+        private bool rightControllerCharging = false;
+
         // Fan speed (RPM)
         private int cpuFanSpeed = 0;
 
@@ -151,6 +157,12 @@ namespace XboxGamingBarHelper.Legion
         // Desktop controls preset (per-game profile state tracking)
         public readonly LegionDesktopControlsProperty LegionDesktopControls;
 
+        // Controller battery properties
+        public readonly ControllerBatteryLeftProperty ControllerBatteryLeft;
+        public readonly ControllerBatteryRightProperty ControllerBatteryRight;
+        public readonly ControllerChargingLeftProperty ControllerChargingLeft;
+        public readonly ControllerChargingRightProperty ControllerChargingRight;
+
         public LegionManager(AppServiceConnection connection) : base(connection)
         {
             Logger.Info("Initializing Legion Manager...");
@@ -207,7 +219,7 @@ namespace XboxGamingBarHelper.Legion
             LegionRightStickDeadzone = new LegionRightStickDeadzoneProperty(rightStickDeadzone, this);
 
             // Initialize touchpad vibration property (GLOBAL setting)
-            LegionTouchpadVibration = new LegionTouchpadVibrationProperty(touchpadVibration, this);
+            LegionTouchpadVibration = new LegionTouchpadVibrationProperty(touchpadVibrationLevel, this);
 
             // Initialize joystick as mouse properties (per-game profile)
             LegionJoystickAsMouseMode = new LegionJoystickAsMouseModeProperty(joystickAsMouseMode, this);
@@ -218,6 +230,15 @@ namespace XboxGamingBarHelper.Legion
 
             // Initialize desktop controls property (per-game profile state tracking)
             LegionDesktopControls = new LegionDesktopControlsProperty(false, this);
+
+            // Initialize controller battery properties
+            ControllerBatteryLeft = new ControllerBatteryLeftProperty(-1, this);
+            ControllerBatteryRight = new ControllerBatteryRightProperty(-1, this);
+            ControllerChargingLeft = new ControllerChargingLeftProperty(false, this);
+            ControllerChargingRight = new ControllerChargingRightProperty(false, this);
+
+            // NOTE: Battery monitoring is started from Program.cs AFTER widget connection
+            // is established. Starting it here blocks the AppService connection.
 
             if (isLegionGoDetected)
             {
@@ -1541,16 +1562,23 @@ namespace XboxGamingBarHelper.Legion
 
         #region Touchpad Vibration
 
-        private bool touchpadVibration = true;
+        private int touchpadVibrationLevel = 3;  // 1=Off, 2=Low, 3=Medium, 4=High
 
         /// <summary>
-        /// Sets the touchpad vibration (haptic feedback) on/off.
+        /// Sets the touchpad vibration (haptic feedback) level.
         /// This is a GLOBAL setting, not per-game.
         /// </summary>
-        public void SetTouchpadVibration(bool enabled)
+        /// <param name="level">1=Off, 2=Low, 3=Medium, 4=High</param>
+        public void SetTouchpadVibration(int level)
         {
             try
             {
+                if (level < 1 || level > 4)
+                {
+                    Logger.Warn($"Invalid touchpad vibration level: {level}");
+                    return;
+                }
+
                 using var controller = new LegionGo.LegionGoController();
                 if (!controller.Connect())
                 {
@@ -1558,15 +1586,24 @@ namespace XboxGamingBarHelper.Legion
                     return;
                 }
 
-                bool success = controller.SetTouchpadVibration(enabled);
+                var vibLevel = (LegionGo.TouchpadVibrationLevel)level;
+                bool success = controller.SetTouchpadVibration(vibLevel);
                 if (success)
                 {
-                    touchpadVibration = enabled;
-                    Logger.Info($"Touchpad vibration {(enabled ? "enabled" : "disabled")}");
+                    touchpadVibrationLevel = level;
+                    string levelName = level switch
+                    {
+                        1 => "Off",
+                        2 => "Low",
+                        3 => "Medium",
+                        4 => "High",
+                        _ => "Unknown"
+                    };
+                    Logger.Info($"Touchpad vibration set to {levelName}");
                 }
                 else
                 {
-                    Logger.Error($"Failed to set touchpad vibration to {enabled}");
+                    Logger.Error($"Failed to set touchpad vibration to level {level}");
                 }
             }
             catch (Exception ex)
@@ -1754,8 +1791,113 @@ namespace XboxGamingBarHelper.Legion
 
         #endregion
 
+        #region Controller Battery Monitoring
+
+        /// <summary>
+        /// Starts battery monitoring for the controllers using the existing controllerService connection.
+        /// </summary>
+        private void StartBatteryMonitoring()
+        {
+            try
+            {
+                if (controllerService != null && isControllerConnected)
+                {
+                    controllerService.BatteryUpdated += OnControllerBatteryUpdated;
+                    controllerService.StartBatteryMonitoring();
+                    Logger.Info("Controller battery monitoring started");
+                }
+                else
+                {
+                    Logger.Info("Controller not connected, battery monitoring not started");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error starting battery monitoring: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Stops battery monitoring.
+        /// </summary>
+        private void StopBatteryMonitoring()
+        {
+            if (controllerService != null)
+            {
+                try
+                {
+                    controllerService.BatteryUpdated -= OnControllerBatteryUpdated;
+                    controllerService.StopBatteryMonitoring();
+                }
+                catch { }
+                Logger.Info("Controller battery monitoring stopped");
+            }
+        }
+
+        /// <summary>
+        /// Public method to start battery monitoring if controller is connected.
+        /// Called from Program.cs after widget connection is established.
+        /// </summary>
+        public void StartBatteryMonitoringIfConnected()
+        {
+            if (isControllerConnected)
+            {
+                StartBatteryMonitoring();
+            }
+        }
+
+        /// <summary>
+        /// Handler for battery updates from the controller.
+        /// </summary>
+        private void OnControllerBatteryUpdated(object sender, LegionGoLibrary.ControllerServiceBatteryEventArgs e)
+        {
+            Logger.Debug($"Battery update received: L={e.LeftBattery}% ({(e.LeftCharging ? "charging" : "discharging")}), R={e.RightBattery}% ({(e.RightCharging ? "charging" : "discharging")})");
+
+            // Update cached values
+            leftControllerBattery = e.LeftBattery;
+            rightControllerBattery = e.RightBattery;
+            leftControllerCharging = e.LeftCharging;
+            rightControllerCharging = e.RightCharging;
+
+            // Update properties and sync to widget
+            ControllerBatteryLeft.SetValueAndSync(e.LeftBattery);
+            ControllerBatteryRight.SetValueAndSync(e.RightBattery);
+            ControllerChargingLeft.SetValueAndSync(e.LeftCharging);
+            ControllerChargingRight.SetValueAndSync(e.RightCharging);
+        }
+
+        /// <summary>
+        /// Gets the left controller battery percentage (1-100), or -1 if unavailable.
+        /// </summary>
+        public int GetLeftControllerBattery() => leftControllerBattery;
+
+        /// <summary>
+        /// Gets the right controller battery percentage (1-100), or -1 if unavailable.
+        /// </summary>
+        public int GetRightControllerBattery() => rightControllerBattery;
+
+        /// <summary>
+        /// Gets whether the left controller is charging.
+        /// </summary>
+        public bool IsLeftControllerCharging() => leftControllerCharging;
+
+        /// <summary>
+        /// Gets whether the right controller is charging.
+        /// </summary>
+        public bool IsRightControllerCharging() => rightControllerCharging;
+
+        #endregion
+
         public override void Update()
         {
+            // Detect if controller service has disconnected (e.g., controller removed)
+            if (isControllerConnected && controllerService != null && !controllerService.IsConnected)
+            {
+                isControllerConnected = false;
+                Logger.Info("Controller disconnected - will attempt reconnection");
+                // Battery monitoring will stop automatically when connection is lost
+            }
+
             // Periodically check for controller connection if not connected
             if (!isControllerConnected && controllerService != null)
             {
@@ -1768,6 +1910,9 @@ namespace XboxGamingBarHelper.Legion
                         isLegionGoDetected = true;
                         LegionGoDetected.SetDetected(true);
                         Logger.Info($"Legion Go controller reconnected: {connectResult.Message}");
+
+                        // Restart battery monitoring on reconnection
+                        StartBatteryMonitoring();
                     }
                 }
                 catch (Exception ex)
@@ -1868,6 +2013,16 @@ namespace XboxGamingBarHelper.Legion
             if (disposing)
             {
                 Logger.Info("Disposing Legion Manager...");
+
+                try
+                {
+                    // Stop battery monitoring
+                    StopBatteryMonitoring();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error stopping battery monitoring: {ex.Message}");
+                }
 
                 try
                 {

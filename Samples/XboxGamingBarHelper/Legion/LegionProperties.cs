@@ -675,19 +675,27 @@ namespace XboxGamingBarHelper.Legion
         }
     }
 
-    // Touchpad Vibration (on/off - GLOBAL setting)
-    internal class LegionTouchpadVibrationProperty : HelperProperty<bool, LegionManager>
+    // Touchpad Vibration level (1=Off, 2=Low, 3=Medium, 4=High - GLOBAL setting)
+    internal class LegionTouchpadVibrationProperty : HelperProperty<int, LegionManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        public LegionTouchpadVibrationProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionTouchpadVibration, inManager)
+        public LegionTouchpadVibrationProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionTouchpadVibration, inManager)
         {
         }
 
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
-            Logger.Info($"LegionTouchpadVibration changed to {Value}");
+            string levelName = Value switch
+            {
+                1 => "Off",
+                2 => "Low",
+                3 => "Medium",
+                4 => "High",
+                _ => "Unknown"
+            };
+            Logger.Info($"LegionTouchpadVibration changed to {levelName} ({Value})");
             Manager?.SetTouchpadVibration(Value);
         }
     }
@@ -758,6 +766,70 @@ namespace XboxGamingBarHelper.Legion
             Logger.Info($"LegionDesktopControls changed to {Value}");
             // Note: Actual application happens through JoystickAsMouseMode and GamepadButtonMapping
             // properties, so this property mainly serves as state tracking for the UI toggle
+        }
+    }
+
+    // Controller Battery Left (read-only, 1-100 or -1 if unavailable)
+    internal class ControllerBatteryLeftProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerBatteryLeftProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.ControllerBatteryLeft, inManager)
+        {
+        }
+
+        public void SetValueAndSync(int value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Controller Battery Right (read-only, 1-100 or -1 if unavailable)
+    internal class ControllerBatteryRightProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerBatteryRightProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.ControllerBatteryRight, inManager)
+        {
+        }
+
+        public void SetValueAndSync(int value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Controller Charging Left (read-only, true if charging)
+    internal class ControllerChargingLeftProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerChargingLeftProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.ControllerChargingLeft, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Controller Charging Right (read-only, true if charging)
+    internal class ControllerChargingRightProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerChargingRightProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.ControllerChargingRight, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
         }
     }
 }
