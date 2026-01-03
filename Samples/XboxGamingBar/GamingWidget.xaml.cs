@@ -530,6 +530,9 @@ namespace XboxGamingBar
         private readonly LegionGamepadMappingProperty legionGamepadMapping;
         private Dictionary<string, ButtonMapping> gamepadButtonMappings = new Dictionary<string, ButtonMapping>();
 
+        // Desktop controls preset (synced from helper for hotkey support)
+        private readonly LegionDesktopControlsProperty legionDesktopControls;
+
         // Controller battery properties (from HID input reports)
         private readonly ControllerBatteryLeftProperty controllerBatteryLeft;
         private readonly ControllerBatteryRightProperty controllerBatteryRight;
@@ -629,7 +632,8 @@ namespace XboxGamingBar
         private bool _saveFPSLimit = true;
         private bool _saveAutoTDP = true;
         private bool _saveOSPowerMode = true;
-        private bool _saveHDRResolution = false;
+        private bool _saveHDR = false;
+        private bool _saveResolution = false;
         private bool _saveStickyTDP = false;
 
         private bool SaveTDP => _saveTDP;
@@ -640,7 +644,8 @@ namespace XboxGamingBar
         private bool SaveFPSLimit => _saveFPSLimit;
         private bool SaveAutoTDP => _saveAutoTDP;
         private bool SaveOSPowerMode => _saveOSPowerMode;
-        private bool SaveHDRResolution => _saveHDRResolution;
+        private bool SaveHDR => _saveHDR;
+        private bool SaveResolution => _saveResolution;
         private bool SaveStickyTDP => _saveStickyTDP;
 
         private bool isLoadingProfileSettings = false;
@@ -817,7 +822,7 @@ namespace XboxGamingBar
             legionRightStickDeadzone = new LegionRightStickDeadzoneProperty(LegionRightStickDeadzoneSlider, this);
 
             // Touchpad vibration property (GLOBAL setting)
-            legionTouchpadVibration = new LegionTouchpadVibrationProperty(LegionTouchpadVibrationToggle, this);
+            legionTouchpadVibration = new LegionTouchpadVibrationProperty(LegionTouchpadVibrationComboBox, this);
 
             // Joystick as mouse properties
             legionJoystickAsMouseMode = new LegionJoystickAsMouseModeProperty(LegionJoystickAsMouseComboBox, LegionJoystickMouseSensGrid, this);
@@ -825,6 +830,9 @@ namespace XboxGamingBar
 
             // Gamepad button mapping property
             legionGamepadMapping = new LegionGamepadMappingProperty();
+
+            // Desktop controls preset (synced from helper for hotkey)
+            legionDesktopControls = new LegionDesktopControlsProperty(LegionDesktopControlsToggle, this);
 
             // Controller battery properties (read-only)
             controllerBatteryLeft = new ControllerBatteryLeftProperty();
@@ -979,6 +987,7 @@ namespace XboxGamingBar
                 tdpBoostEnabled,
                 tdpBoostSPPT,
                 tdpBoostFPPT,
+                legionDesktopControls,
                 controllerBatteryLeft,
                 controllerBatteryRight,
                 controllerChargingLeft,
@@ -2545,9 +2554,9 @@ namespace XboxGamingBar
         // Level 3 (Full): All options - 1 column
         private Dictionary<int, Dictionary<string, bool>> osdLevelConfig = new Dictionary<int, Dictionary<string, bool>>
         {
-            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
-            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "Memory", false }, { "VRAM", false }, { "CPU", true }, { "CPUClock", false }, { "GPU", true }, { "GPUClock", false }, { "Fan", true }, { "AutoTDP", false }, { "FrametimeGraph", true } } },
-            { 3, new Dictionary<string, bool> { { "AppName", true }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "Memory", true }, { "VRAM", true }, { "CPU", true }, { "CPUClock", true }, { "GPU", true }, { "GPUClock", true }, { "Fan", true }, { "AutoTDP", true }, { "FrametimeGraph", true } } }
+            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "ControllerBattery", false }, { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
+            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "ControllerBattery", false }, { "Memory", false }, { "VRAM", false }, { "CPU", true }, { "CPUClock", false }, { "GPU", true }, { "GPUClock", false }, { "Fan", true }, { "AutoTDP", false }, { "FrametimeGraph", true } } },
+            { 3, new Dictionary<string, bool> { { "AppName", true }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "ControllerBattery", true }, { "Memory", true }, { "VRAM", true }, { "CPU", true }, { "CPUClock", true }, { "GPU", true }, { "GPUClock", true }, { "Fan", true }, { "AutoTDP", true }, { "FrametimeGraph", true } } }
         };
 
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
@@ -2571,9 +2580,9 @@ namespace XboxGamingBar
         // Per-level item order (list of item IDs in display order)
         private Dictionary<int, List<string>> osdLevelOrder = new Dictionary<int, List<string>>
         {
-            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 2, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 3, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
+            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 2, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 3, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
         };
 
         // Per-level item label colors (DEFAULT = use global text color)
@@ -2591,6 +2600,7 @@ namespace XboxGamingBar
             { "Time", "Time (12-hour)" },
             { "FPS", "FPS & Frametime" },
             { "Battery", "Battery" },
+            { "ControllerBattery", "Controller Battery (L/R)" },
             { "Memory", "Memory (RAM)" },
             { "VRAM", "VRAM (GPU Memory)" },
             { "CPU", "CPU (Usage, Wattage, Temp)" },
@@ -2607,8 +2617,9 @@ namespace XboxGamingBar
         private ObservableCollection<OSDItemViewModel> osdItemViewModels = new ObservableCollection<OSDItemViewModel>();
 
         // Global OSD layout settings
-        private int osdTextSize = 100;    // Percentage: 50=Small, 100=Medium, 150=Large, 200=X-Large
+        private int osdTextSize = 100;    // Percentage: 50=Small, 100=Medium, 150=Large, 200=X-Large, 250=XX-Large, 300=XXX-Large
         private string osdTextColor = "DYNAMIC";  // DYNAMIC = value-based colors, or hex color code
+        private string osdLabelColor = "DEFAULT";  // DEFAULT = use item-specific colors, or hex color code
         private int osdProvider = 0;  // 0=RTSS, 1=AMD
         private int amdOverlayLevel = 0;  // Track AMD overlay level: 0=Off, 1-4=Level 1-4 (can't query from AMD)
         private bool isOSDCustomizeExpanded = false;
@@ -2987,6 +2998,7 @@ namespace XboxGamingBar
                 string currentRes = resolution?.Value ?? "default";
                 settings.Values[$"OSD_TextSize_{currentRes}"] = osdTextSize;
                 settings.Values["OSD_TextColor"] = osdTextColor;
+                settings.Values["OSD_LabelColor"] = osdLabelColor;
 
                 Logger.Info($"OSD configuration saved to storage (resolution: {currentRes}, text size: {osdTextSize})");
             }
@@ -3001,7 +3013,7 @@ namespace XboxGamingBar
             try
             {
                 var settings = ApplicationData.Current.LocalSettings;
-                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" };
+                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" };
 
                 foreach (var level in new[] { 1, 2, 3 })
                 {
@@ -3076,6 +3088,10 @@ namespace XboxGamingBar
                 {
                     osdTextColor = textColor;
                 }
+                if (settings.Values.TryGetValue("OSD_LabelColor", out object labelColorVal) && labelColorVal is string labelColor)
+                {
+                    osdLabelColor = labelColor;
+                }
                 if (settings.Values.TryGetValue("OSD_Provider", out object providerVal) && providerVal is int provider)
                 {
                     osdProvider = provider;
@@ -3108,6 +3124,7 @@ namespace XboxGamingBar
                 // Add global layout settings
                 configParts.Add($"TextSize:{osdTextSize}");
                 configParts.Add($"TextColor:{osdTextColor}");
+                configParts.Add($"LabelColor:{osdLabelColor}");
 
                 // Add per-level item configuration
                 foreach (var level in osdLevelConfig.Keys)
@@ -4827,47 +4844,215 @@ namespace XboxGamingBar
             SaveCurrentOSDConfig();
         }
 
-        private void OSDColorOption_Changed(object sender, SelectionChangedEventArgs e)
+        private void OSDTextColorDynamic_Changed(object sender, RoutedEventArgs e)
         {
             if (isLoadingOSDConfig) return;
 
-            // Get text color
-            if (OSDTextColorComboBox?.SelectedItem is ComboBoxItem textItem && textItem.Tag is string textTag)
+            bool isDynamic = OSDTextColorDynamicCheckBox?.IsChecked == true;
+            if (isDynamic)
             {
-                osdTextColor = textTag;
-
-                // Update preview
-                if (OSDTextColorPreview != null)
+                osdTextColor = "DYNAMIC";
+                UpdateOSDTextColorPreview();
+            }
+            else
+            {
+                // Use current color picker color
+                if (OSDTextColorPicker != null)
                 {
-                    try
-                    {
-                        if (textTag == "DYNAMIC")
-                        {
-                            // Show gradient for dynamic color preview (blue to green to yellow to red)
-                            var gradient = new LinearGradientBrush();
-                            gradient.StartPoint = new Windows.Foundation.Point(0, 0);
-                            gradient.EndPoint = new Windows.Foundation.Point(1, 0);
-                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0, 128, 255), Offset = 0 });    // Blue (cold)
-                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0, 255, 0), Offset = 0.33 });   // Green (good)
-                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 255, 255, 0), Offset = 0.66 }); // Yellow (warm)
-                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 255, 0, 0), Offset = 1 });      // Red (hot)
-                            OSDTextColorPreview.Background = gradient;
-                        }
-                        else
-                        {
-                            var color = Windows.UI.Color.FromArgb(255,
-                                Convert.ToByte(textTag.Substring(0, 2), 16),
-                                Convert.ToByte(textTag.Substring(2, 2), 16),
-                                Convert.ToByte(textTag.Substring(4, 2), 16));
-                            OSDTextColorPreview.Background = new SolidColorBrush(color);
-                        }
-                    }
-                    catch { }
+                    var color = OSDTextColorPicker.Color;
+                    osdTextColor = $"{color.R:X2}{color.G:X2}{color.B:X2}";
                 }
+                else
+                {
+                    osdTextColor = "FFFFFF";
+                }
+                UpdateOSDTextColorPreview();
             }
 
             SaveOSDConfigToStorage();
             SendOSDConfigToHelper();
+        }
+
+        private void OSDTextColorExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (OSDTextColorPicker != null)
+                {
+                    bool isExpanded = OSDTextColorPicker.Visibility == Visibility.Visible;
+                    OSDTextColorPicker.Visibility = isExpanded ? Visibility.Collapsed : Visibility.Visible;
+
+                    if (OSDTextColorExpandButton != null)
+                    {
+                        OSDTextColorExpandButton.Content = isExpanded ? "\uE70D" : "\uE70E";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in OSDTextColorExpandButton_Click: {ex.Message}");
+            }
+        }
+
+        private void OSDTextColorPicker_ColorChanged(Microsoft.UI.Xaml.Controls.ColorPicker sender, Microsoft.UI.Xaml.Controls.ColorChangedEventArgs args)
+        {
+            if (isLoadingOSDConfig) return;
+
+            try
+            {
+                // Update preview
+                if (OSDTextColorPreview != null)
+                {
+                    OSDTextColorPreview.Background = new SolidColorBrush(args.NewColor);
+                }
+
+                // Only update color if not in Dynamic mode
+                if (OSDTextColorDynamicCheckBox?.IsChecked != true)
+                {
+                    osdTextColor = $"{args.NewColor.R:X2}{args.NewColor.G:X2}{args.NewColor.B:X2}";
+                    SaveOSDConfigToStorage();
+                    SendOSDConfigToHelper();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in OSDTextColorPicker_ColorChanged: {ex.Message}");
+            }
+        }
+
+        private void OSDLabelColorDefault_Changed(object sender, RoutedEventArgs e)
+        {
+            if (isLoadingOSDConfig) return;
+
+            bool isDefault = OSDLabelColorDefaultCheckBox?.IsChecked == true;
+            if (isDefault)
+            {
+                osdLabelColor = "DEFAULT";
+                UpdateOSDLabelColorPreview();
+            }
+            else
+            {
+                // Use current color picker color
+                if (OSDLabelColorPicker != null)
+                {
+                    var color = OSDLabelColorPicker.Color;
+                    osdLabelColor = $"{color.R:X2}{color.G:X2}{color.B:X2}";
+                }
+                else
+                {
+                    osdLabelColor = "00FFFF";  // Cyan default
+                }
+                UpdateOSDLabelColorPreview();
+            }
+
+            SaveOSDConfigToStorage();
+            SendOSDConfigToHelper();
+        }
+
+        private void OSDLabelColorExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (OSDLabelColorPicker != null)
+                {
+                    bool isExpanded = OSDLabelColorPicker.Visibility == Visibility.Visible;
+                    OSDLabelColorPicker.Visibility = isExpanded ? Visibility.Collapsed : Visibility.Visible;
+
+                    if (OSDLabelColorExpandButton != null)
+                    {
+                        OSDLabelColorExpandButton.Content = isExpanded ? "\uE70D" : "\uE70E";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in OSDLabelColorExpandButton_Click: {ex.Message}");
+            }
+        }
+
+        private void OSDLabelColorPicker_ColorChanged(Microsoft.UI.Xaml.Controls.ColorPicker sender, Microsoft.UI.Xaml.Controls.ColorChangedEventArgs args)
+        {
+            if (isLoadingOSDConfig) return;
+
+            try
+            {
+                // Update preview
+                if (OSDLabelColorPreview != null)
+                {
+                    OSDLabelColorPreview.Background = new SolidColorBrush(args.NewColor);
+                }
+
+                // Only update color if not in Default mode
+                if (OSDLabelColorDefaultCheckBox?.IsChecked != true)
+                {
+                    osdLabelColor = $"{args.NewColor.R:X2}{args.NewColor.G:X2}{args.NewColor.B:X2}";
+                    SaveOSDConfigToStorage();
+                    SendOSDConfigToHelper();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in OSDLabelColorPicker_ColorChanged: {ex.Message}");
+            }
+        }
+
+        private void UpdateOSDTextColorPreview()
+        {
+            if (OSDTextColorPreview == null) return;
+
+            try
+            {
+                if (osdTextColor == "DYNAMIC")
+                {
+                    // Show gradient for dynamic color preview (blue to green to yellow to red)
+                    var gradient = new LinearGradientBrush();
+                    gradient.StartPoint = new Windows.Foundation.Point(0, 0);
+                    gradient.EndPoint = new Windows.Foundation.Point(1, 0);
+                    gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0, 128, 255), Offset = 0 });    // Blue (cold)
+                    gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0, 255, 0), Offset = 0.33 });   // Green (good)
+                    gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 255, 255, 0), Offset = 0.66 }); // Yellow (warm)
+                    gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 255, 0, 0), Offset = 1 });      // Red (hot)
+                    OSDTextColorPreview.Background = gradient;
+                }
+                else if (osdTextColor.Length == 6)
+                {
+                    var color = Windows.UI.Color.FromArgb(255,
+                        Convert.ToByte(osdTextColor.Substring(0, 2), 16),
+                        Convert.ToByte(osdTextColor.Substring(2, 2), 16),
+                        Convert.ToByte(osdTextColor.Substring(4, 2), 16));
+                    OSDTextColorPreview.Background = new SolidColorBrush(color);
+                }
+            }
+            catch { }
+        }
+
+        private void UpdateOSDLabelColorPreview()
+        {
+            if (OSDLabelColorPreview == null) return;
+
+            try
+            {
+                if (osdLabelColor == "DEFAULT")
+                {
+                    // Show gradient to indicate default (each item has its own color)
+                    var gradient = new LinearGradientBrush();
+                    gradient.StartPoint = new Windows.Foundation.Point(0, 0);
+                    gradient.EndPoint = new Windows.Foundation.Point(1, 0);
+                    gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0, 255, 255), Offset = 0 });    // Cyan
+                    gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 255, 165, 0), Offset = 0.5 });  // Orange
+                    gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0, 255, 0), Offset = 1 });      // Green
+                    OSDLabelColorPreview.Background = gradient;
+                }
+                else if (osdLabelColor.Length == 6)
+                {
+                    var color = Windows.UI.Color.FromArgb(255,
+                        Convert.ToByte(osdLabelColor.Substring(0, 2), 16),
+                        Convert.ToByte(osdLabelColor.Substring(2, 2), 16),
+                        Convert.ToByte(osdLabelColor.Substring(4, 2), 16));
+                    OSDLabelColorPreview.Background = new SolidColorBrush(color);
+                }
+            }
+            catch { }
         }
 
         private void UpdateOSDLayoutUI()
@@ -4906,45 +5091,43 @@ namespace XboxGamingBar
                     }
                 }
 
-                // Set text color combobox and preview
-                if (OSDTextColorComboBox != null)
+                // Set text color checkbox and color picker
+                if (OSDTextColorDynamicCheckBox != null)
                 {
-                    foreach (ComboBoxItem item in OSDTextColorComboBox.Items)
-                    {
-                        if (item.Tag is string tag && tag == osdTextColor)
-                        {
-                            OSDTextColorComboBox.SelectedItem = item;
-                            break;
-                        }
-                    }
+                    OSDTextColorDynamicCheckBox.IsChecked = (osdTextColor == "DYNAMIC");
                 }
-                if (OSDTextColorPreview != null)
+                if (OSDTextColorPicker != null && osdTextColor != "DYNAMIC" && osdTextColor.Length == 6)
                 {
                     try
                     {
-                        if (osdTextColor == "DYNAMIC")
-                        {
-                            // Show gradient for dynamic color preview
-                            var gradient = new LinearGradientBrush();
-                            gradient.StartPoint = new Windows.Foundation.Point(0, 0);
-                            gradient.EndPoint = new Windows.Foundation.Point(1, 0);
-                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0, 128, 255), Offset = 0 });
-                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0, 255, 0), Offset = 0.33 });
-                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 255, 255, 0), Offset = 0.66 });
-                            gradient.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 255, 0, 0), Offset = 1 });
-                            OSDTextColorPreview.Background = gradient;
-                        }
-                        else
-                        {
-                            var color = Windows.UI.Color.FromArgb(255,
-                                Convert.ToByte(osdTextColor.Substring(0, 2), 16),
-                                Convert.ToByte(osdTextColor.Substring(2, 2), 16),
-                                Convert.ToByte(osdTextColor.Substring(4, 2), 16));
-                            OSDTextColorPreview.Background = new SolidColorBrush(color);
-                        }
+                        var color = Windows.UI.Color.FromArgb(255,
+                            Convert.ToByte(osdTextColor.Substring(0, 2), 16),
+                            Convert.ToByte(osdTextColor.Substring(2, 2), 16),
+                            Convert.ToByte(osdTextColor.Substring(4, 2), 16));
+                        OSDTextColorPicker.Color = color;
                     }
                     catch { }
                 }
+                UpdateOSDTextColorPreview();
+
+                // Set label color checkbox and color picker
+                if (OSDLabelColorDefaultCheckBox != null)
+                {
+                    OSDLabelColorDefaultCheckBox.IsChecked = (osdLabelColor == "DEFAULT");
+                }
+                if (OSDLabelColorPicker != null && osdLabelColor != "DEFAULT" && osdLabelColor.Length == 6)
+                {
+                    try
+                    {
+                        var color = Windows.UI.Color.FromArgb(255,
+                            Convert.ToByte(osdLabelColor.Substring(0, 2), 16),
+                            Convert.ToByte(osdLabelColor.Substring(2, 2), 16),
+                            Convert.ToByte(osdLabelColor.Substring(4, 2), 16));
+                        OSDLabelColorPicker.Color = color;
+                    }
+                    catch { }
+                }
+                UpdateOSDLabelColorPreview();
 
             }
             finally
@@ -5307,10 +5490,14 @@ namespace XboxGamingBar
             {
                 profile.TDPBoostEnabled = TDPBoostToggle.IsOn;
             }
-            // HDR and Resolution
-            if (SaveHDRResolution)
+            // HDR
+            if (SaveHDR)
             {
                 profile.HDREnabled = HDRToggle?.IsOn ?? false;
+            }
+            // Resolution
+            if (SaveResolution)
+            {
                 profile.Resolution = ResolutionComboBox?.SelectedItem?.ToString() ?? "";
             }
             // Sticky TDP
@@ -5655,24 +5842,38 @@ namespace XboxGamingBar
                     UpdateTDPSliderEnabledState();
                 }
 
-                // HDR and Resolution
-                if (SaveHDRResolution)
+                // HDR
+                if (SaveHDR)
                 {
-                    // Only apply HDR/Resolution if:
+                    // Only apply HDR if:
                     // 1. This is an explicit profile switch (game detected/closed), OR
                     // 2. No game is currently running (returning to desktop)
-                    // This prevents overriding the game's preferred resolution when just reopening the widget
-                    bool shouldApplyHDRResolution = isExplicitSwitch || !HasValidGame(currentGameName);
+                    bool shouldApplyHDR = isExplicitSwitch || !HasValidGame(currentGameName);
 
-                    if (shouldApplyHDRResolution)
+                    if (shouldApplyHDR)
                     {
-                        // Apply HDR setting
                         if (HDRToggle != null && hdrSupported?.Value == true)
                         {
                             HDRToggle.IsOn = profile.HDREnabled;
                             hdrEnabled?.SetValue(profile.HDREnabled);
                         }
-                        // Apply Resolution setting
+                    }
+                    else
+                    {
+                        Logger.Info($"Skipping HDR application - game is running and not an explicit switch");
+                    }
+                }
+
+                // Resolution
+                if (SaveResolution)
+                {
+                    // Only apply Resolution if:
+                    // 1. This is an explicit profile switch (game detected/closed), OR
+                    // 2. No game is currently running (returning to desktop)
+                    bool shouldApplyResolution = isExplicitSwitch || !HasValidGame(currentGameName);
+
+                    if (shouldApplyResolution)
+                    {
                         if (ResolutionComboBox != null && !string.IsNullOrEmpty(profile.Resolution))
                         {
                             // Find and select matching resolution
@@ -5689,7 +5890,7 @@ namespace XboxGamingBar
                     }
                     else
                     {
-                        Logger.Info($"Skipping HDR/Resolution application - game is running and not an explicit switch");
+                        Logger.Info($"Skipping Resolution application - game is running and not an explicit switch");
                     }
                 }
 
@@ -6978,9 +7179,9 @@ namespace XboxGamingBar
             gamepadButtonMappings["DPadLeft"] = new ButtonMapping { Type = 1, KeyboardKeys = new List<int> { 0x50 } };
             gamepadButtonMappings["DPadRight"] = new ButtonMapping { Type = 1, KeyboardKeys = new List<int> { 0x4F } };
 
-            // Left Stick Up/Down → Scroll Up/Down (Type=2 Mouse)
-            gamepadButtonMappings["LSUp"] = new ButtonMapping { Type = 2, MouseButton = 3 };    // ScrollUp
-            gamepadButtonMappings["LSDown"] = new ButtonMapping { Type = 2, MouseButton = 4 }; // ScrollDown
+            // Left Stick Up/Down → Arrow Up/Down (Type=1 Keyboard)
+            gamepadButtonMappings["LSUp"] = new ButtonMapping { Type = 1, KeyboardKeys = new List<int> { 0x52 } };    // Up Arrow
+            gamepadButtonMappings["LSDown"] = new ButtonMapping { Type = 1, KeyboardKeys = new List<int> { 0x51 } }; // Down Arrow
 
             // LSClick → Windows Key (Type=1 Keyboard)
             gamepadButtonMappings["LSClick"] = new ButtonMapping { Type = 1, KeyboardKeys = new List<int> { 0xE3 } }; // Left GUI (Win)
@@ -6996,7 +7197,7 @@ namespace XboxGamingBar
             SaveAndSendGamepadMappings();
             UpdateGamepadMappingSummary();
 
-            Logger.Info("Applied desktop control mappings: DPAD→Arrows, LSUp/Down→Scroll, LSClick→Win, A→Enter, B→Esc, LB→LClick, LT→RClick");
+            Logger.Info("Applied desktop control mappings: DPAD/LS→Arrows, LSClick→Win, A→Enter, B→Esc, LB→LClick, LT→RClick");
         }
 
         private void ClearDesktopControlMappings()
@@ -7325,7 +7526,8 @@ namespace XboxGamingBar
             var autoTDPVisibility = SaveAutoTDP ? Visibility.Visible : Visibility.Collapsed;
             var powerModeVisibility = SaveOSPowerMode ? Visibility.Visible : Visibility.Collapsed;
             var amdVisibility = SaveAMDFeatures ? Visibility.Visible : Visibility.Collapsed;
-            var hdrResolutionVisibility = SaveHDRResolution ? Visibility.Visible : Visibility.Collapsed;
+            var hdrVisibility = SaveHDR ? Visibility.Visible : Visibility.Collapsed;
+            var resolutionVisibility = SaveResolution ? Visibility.Visible : Visibility.Collapsed;
             var stickyTDPVisibility = SaveStickyTDP ? Visibility.Visible : Visibility.Collapsed;
 
             // Update Global profile display (simple mode)
@@ -7366,12 +7568,12 @@ namespace XboxGamingBar
             var globalAmdFeatures = GetAMDFeaturesShortString(globalProfile);
             GlobalProfileAMDText.Text = string.IsNullOrEmpty(globalAmdFeatures) ? "Off" : globalAmdFeatures;
 
-            GlobalProfileHDRLabel.Visibility = hdrResolutionVisibility;
-            GlobalProfileHDRText.Visibility = hdrResolutionVisibility;
+            GlobalProfileHDRLabel.Visibility = hdrVisibility;
+            GlobalProfileHDRText.Visibility = hdrVisibility;
             GlobalProfileHDRText.Text = globalProfile.HDREnabled ? "On" : "Off";
 
-            GlobalProfileResolutionLabel.Visibility = hdrResolutionVisibility;
-            GlobalProfileResolutionText.Visibility = hdrResolutionVisibility;
+            GlobalProfileResolutionLabel.Visibility = resolutionVisibility;
+            GlobalProfileResolutionText.Visibility = resolutionVisibility;
             GlobalProfileResolutionText.Text = string.IsNullOrEmpty(globalProfile.Resolution) ? "Native" : globalProfile.Resolution;
 
             GlobalProfileStickyTDPLabel.Visibility = stickyTDPVisibility;
@@ -7435,15 +7637,15 @@ namespace XboxGamingBar
             ACProfileAMDText.Text = string.IsNullOrEmpty(acAmdFeatures) ? "Off" : acAmdFeatures;
             DCProfileAMDText.Text = string.IsNullOrEmpty(dcAmdFeatures) ? "Off" : dcAmdFeatures;
 
-            ACDCProfileHDRLabel.Visibility = hdrResolutionVisibility;
-            ACProfileHDRText.Visibility = hdrResolutionVisibility;
-            DCProfileHDRText.Visibility = hdrResolutionVisibility;
+            ACDCProfileHDRLabel.Visibility = hdrVisibility;
+            ACProfileHDRText.Visibility = hdrVisibility;
+            DCProfileHDRText.Visibility = hdrVisibility;
             ACProfileHDRText.Text = acProfile.HDREnabled ? "On" : "Off";
             DCProfileHDRText.Text = dcProfile.HDREnabled ? "On" : "Off";
 
-            ACDCProfileResolutionLabel.Visibility = hdrResolutionVisibility;
-            ACProfileResolutionText.Visibility = hdrResolutionVisibility;
-            DCProfileResolutionText.Visibility = hdrResolutionVisibility;
+            ACDCProfileResolutionLabel.Visibility = resolutionVisibility;
+            ACProfileResolutionText.Visibility = resolutionVisibility;
+            DCProfileResolutionText.Visibility = resolutionVisibility;
             ACProfileResolutionText.Text = string.IsNullOrEmpty(acProfile.Resolution) ? "Native" : acProfile.Resolution;
             DCProfileResolutionText.Text = string.IsNullOrEmpty(dcProfile.Resolution) ? "Native" : dcProfile.Resolution;
 
@@ -7524,16 +7726,16 @@ namespace XboxGamingBar
                     GameDCProfileAMDText.Text = string.IsNullOrEmpty(gameDCAmdFeatures) ? "Off" : gameDCAmdFeatures;
 
                     // HDR
-                    GameACDCProfileHDRLabel.Visibility = hdrResolutionVisibility;
-                    GameACProfileHDRText.Visibility = hdrResolutionVisibility;
-                    GameDCProfileHDRText.Visibility = hdrResolutionVisibility;
+                    GameACDCProfileHDRLabel.Visibility = hdrVisibility;
+                    GameACProfileHDRText.Visibility = hdrVisibility;
+                    GameDCProfileHDRText.Visibility = hdrVisibility;
                     GameACProfileHDRText.Text = gameACProfile.HDREnabled ? "On" : "Off";
                     GameDCProfileHDRText.Text = gameDCProfile.HDREnabled ? "On" : "Off";
 
                     // Resolution
-                    GameACDCProfileResolutionLabel.Visibility = hdrResolutionVisibility;
-                    GameACProfileResolutionText.Visibility = hdrResolutionVisibility;
-                    GameDCProfileResolutionText.Visibility = hdrResolutionVisibility;
+                    GameACDCProfileResolutionLabel.Visibility = resolutionVisibility;
+                    GameACProfileResolutionText.Visibility = resolutionVisibility;
+                    GameDCProfileResolutionText.Visibility = resolutionVisibility;
                     GameACProfileResolutionText.Text = string.IsNullOrEmpty(gameACProfile.Resolution) ? "Native" : gameACProfile.Resolution;
                     GameDCProfileResolutionText.Text = string.IsNullOrEmpty(gameDCProfile.Resolution) ? "Native" : gameDCProfile.Resolution;
 
@@ -7598,13 +7800,13 @@ namespace XboxGamingBar
                     GameProfileAMDText.Text = string.IsNullOrEmpty(gameAmdFeatures) ? "Off" : gameAmdFeatures;
 
                     // HDR
-                    GameProfileHDRLabel.Visibility = hdrResolutionVisibility;
-                    GameProfileHDRText.Visibility = hdrResolutionVisibility;
+                    GameProfileHDRLabel.Visibility = hdrVisibility;
+                    GameProfileHDRText.Visibility = hdrVisibility;
                     GameProfileHDRText.Text = gameProfile.HDREnabled ? "On" : "Off";
 
                     // Resolution
-                    GameProfileResolutionLabel.Visibility = hdrResolutionVisibility;
-                    GameProfileResolutionText.Visibility = hdrResolutionVisibility;
+                    GameProfileResolutionLabel.Visibility = resolutionVisibility;
+                    GameProfileResolutionText.Visibility = resolutionVisibility;
                     GameProfileResolutionText.Text = string.IsNullOrEmpty(gameProfile.Resolution) ? "Native" : gameProfile.Resolution;
 
                     // Sticky TDP
@@ -8091,21 +8293,22 @@ namespace XboxGamingBar
                         }
                     }
 
-                    // HDR + Resolution (if enabled)
-                    if (SaveHDRResolution)
+                    // HDR (if enabled)
+                    if (SaveHDR)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "HDR", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
                         AddTextBlock(acDcGrid, rowIndex, 1, gameAC.HDREnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         AddTextBlock(acDcGrid, rowIndex, 2, gameDC.HDREnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
+                    }
 
-                        if (!string.IsNullOrEmpty(gameAC.Resolution) || !string.IsNullOrEmpty(gameDC.Resolution))
-                        {
-                            AddTextBlock(acDcGrid, rowIndex, 0, "Res", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                            AddTextBlock(acDcGrid, rowIndex, 1, string.IsNullOrEmpty(gameAC.Resolution) ? "-" : gameAC.Resolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                            AddTextBlock(acDcGrid, rowIndex, 2, string.IsNullOrEmpty(gameDC.Resolution) ? "-" : gameDC.Resolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                            rowIndex++;
-                        }
+                    // Resolution (if enabled)
+                    if (SaveResolution && (!string.IsNullOrEmpty(gameAC.Resolution) || !string.IsNullOrEmpty(gameDC.Resolution)))
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Res", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, string.IsNullOrEmpty(gameAC.Resolution) ? "-" : gameAC.Resolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, string.IsNullOrEmpty(gameDC.Resolution) ? "-" : gameDC.Resolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
                     }
 
                     // Sticky TDP (if enabled)
@@ -8213,19 +8416,20 @@ namespace XboxGamingBar
                         rowIndex++;
                     }
 
-                    // HDR + Resolution (if enabled)
-                    if (SaveHDRResolution)
+                    // HDR (if enabled)
+                    if (SaveHDR)
                     {
                         AddTextBlock(singleGrid, rowIndex, 0, "HDR", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
                         AddTextBlock(singleGrid, rowIndex, 1, game.HDREnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
                         rowIndex++;
+                    }
 
-                        if (!string.IsNullOrEmpty(game.Resolution))
-                        {
-                            AddTextBlock(singleGrid, rowIndex, 0, "Resolution", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                            AddTextBlock(singleGrid, rowIndex, 1, game.Resolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                            rowIndex++;
-                        }
+                    // Resolution (if enabled)
+                    if (SaveResolution && !string.IsNullOrEmpty(game.Resolution))
+                    {
+                        AddTextBlock(singleGrid, rowIndex, 0, "Resolution", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, game.Resolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        rowIndex++;
                     }
 
                     // Sticky TDP (if enabled)
@@ -8374,7 +8578,33 @@ namespace XboxGamingBar
                 _saveFPSLimit = settings.Values.ContainsKey("ProfileSaveFPSLimit") ? (bool)settings.Values["ProfileSaveFPSLimit"] : true;
                 _saveAutoTDP = settings.Values.ContainsKey("ProfileSaveAutoTDP") ? (bool)settings.Values["ProfileSaveAutoTDP"] : true;
                 _saveOSPowerMode = settings.Values.ContainsKey("ProfileSaveOSPowerMode") ? (bool)settings.Values["ProfileSaveOSPowerMode"] : true;
-                _saveHDRResolution = settings.Values.ContainsKey("ProfileSaveHDRResolution") ? (bool)settings.Values["ProfileSaveHDRResolution"] : false;
+                // HDR and Resolution - check for new separate settings first, fall back to combined setting for migration
+                if (settings.Values.ContainsKey("ProfileSaveHDR"))
+                {
+                    _saveHDR = (bool)settings.Values["ProfileSaveHDR"];
+                }
+                else if (settings.Values.ContainsKey("ProfileSaveHDRResolution"))
+                {
+                    _saveHDR = (bool)settings.Values["ProfileSaveHDRResolution"]; // Migrate from combined setting
+                }
+                else
+                {
+                    _saveHDR = false;
+                }
+
+                if (settings.Values.ContainsKey("ProfileSaveResolution"))
+                {
+                    _saveResolution = (bool)settings.Values["ProfileSaveResolution"];
+                }
+                else if (settings.Values.ContainsKey("ProfileSaveHDRResolution"))
+                {
+                    _saveResolution = (bool)settings.Values["ProfileSaveHDRResolution"]; // Migrate from combined setting
+                }
+                else
+                {
+                    _saveResolution = false;
+                }
+
                 _saveStickyTDP = settings.Values.ContainsKey("ProfileSaveStickyTDP") ? (bool)settings.Values["ProfileSaveStickyTDP"] : false;
 
                 // Update UI checkboxes
@@ -8386,7 +8616,8 @@ namespace XboxGamingBar
                 if (ProfileSaveFPSLimitCheckBox != null) ProfileSaveFPSLimitCheckBox.IsChecked = _saveFPSLimit;
                 if (ProfileSaveAutoTDPCheckBox != null) ProfileSaveAutoTDPCheckBox.IsChecked = _saveAutoTDP;
                 if (ProfileSaveOSPowerModeCheckBox != null) ProfileSaveOSPowerModeCheckBox.IsChecked = _saveOSPowerMode;
-                if (ProfileSaveHDRResolutionCheckBox != null) ProfileSaveHDRResolutionCheckBox.IsChecked = _saveHDRResolution;
+                if (ProfileSaveHDRCheckBox != null) ProfileSaveHDRCheckBox.IsChecked = _saveHDR;
+                if (ProfileSaveResolutionCheckBox != null) ProfileSaveResolutionCheckBox.IsChecked = _saveResolution;
                 if (ProfileSaveStickyTDPCheckBox != null) ProfileSaveStickyTDPCheckBox.IsChecked = _saveStickyTDP;
             }
             finally
@@ -8408,7 +8639,8 @@ namespace XboxGamingBar
             settings.Values["ProfileSaveFPSLimit"] = ProfileSaveFPSLimitCheckBox?.IsChecked ?? true;
             settings.Values["ProfileSaveAutoTDP"] = ProfileSaveAutoTDPCheckBox?.IsChecked ?? true;
             settings.Values["ProfileSaveOSPowerMode"] = ProfileSaveOSPowerModeCheckBox?.IsChecked ?? true;
-            settings.Values["ProfileSaveHDRResolution"] = ProfileSaveHDRResolutionCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveHDR"] = ProfileSaveHDRCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveResolution"] = ProfileSaveResolutionCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveStickyTDP"] = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
         }
 
@@ -8446,7 +8678,8 @@ namespace XboxGamingBar
             _saveFPSLimit = ProfileSaveFPSLimitCheckBox?.IsChecked ?? true;
             _saveAutoTDP = ProfileSaveAutoTDPCheckBox?.IsChecked ?? true;
             _saveOSPowerMode = ProfileSaveOSPowerModeCheckBox?.IsChecked ?? true;
-            _saveHDRResolution = ProfileSaveHDRResolutionCheckBox?.IsChecked ?? false;
+            _saveHDR = ProfileSaveHDRCheckBox?.IsChecked ?? false;
+            _saveResolution = ProfileSaveResolutionCheckBox?.IsChecked ?? false;
             _saveStickyTDP = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
         }
 
@@ -11998,17 +12231,55 @@ namespace XboxGamingBar
                     }
                 }
 
-                // Battery tile - shows device + controller battery status
+                // Battery tile - device battery in title, controllers in state text
                 if (qsTileMap.TryGetValue("Battery", out var batteryTile) && batteryTile.TileButton != null)
                 {
-                    // Get device battery info
+                    // Get device battery info (hide bolt at 100%)
                     int deviceBat = PowerManager.RemainingChargePercent;
                     bool deviceCharging = PowerManager.PowerSupplyStatus == PowerSupplyStatus.Adequate;
-                    string deviceIndicator = deviceCharging ? "⚡" : "";
+                    string deviceIndicator = (deviceCharging && deviceBat < 100) ? "⚡" : "";
+
+                    // Get the tile content elements
+                    var content = batteryTile.TileButton.Content as StackPanel;
+                    var iconElement = content?.Children.Count >= 1 ? content.Children[0] as FontIcon : null;
+                    var labelText = content?.Children.Count >= 2 ? content.Children[1] as TextBlock : null;
+
+                    // Update battery icon based on level and charging state
+                    // Battery icons: \uE850-\uE859 (0-9), \uE83F (full)
+                    // Charging icons: \uE85A-\uE863 (0-9), \uEBB5 (charging full)
+                    if (iconElement != null)
+                    {
+                        string glyph;
+                        if (deviceCharging)
+                        {
+                            // Charging icons
+                            if (deviceBat >= 90) glyph = "\uEBB5";      // Full charging
+                            else if (deviceBat >= 70) glyph = "\uE862"; // Charging 8
+                            else if (deviceBat >= 50) glyph = "\uE85F"; // Charging 5
+                            else if (deviceBat >= 30) glyph = "\uE85C"; // Charging 2
+                            else glyph = "\uE85A";                       // Charging 0
+                        }
+                        else
+                        {
+                            // Normal battery icons
+                            if (deviceBat >= 90) glyph = "\uE83F";      // Full
+                            else if (deviceBat >= 70) glyph = "\uE858"; // Battery 8
+                            else if (deviceBat >= 50) glyph = "\uE855"; // Battery 5
+                            else if (deviceBat >= 30) glyph = "\uE852"; // Battery 2
+                            else glyph = "\uE850";                       // Battery 0 (low)
+                        }
+                        iconElement.Glyph = glyph;
+                    }
 
                     string stateText;
                     SolidColorBrush bgBrush;
                     int minBat = deviceBat; // Start with device battery
+
+                    // Update title with device battery
+                    if (labelText != null)
+                    {
+                        labelText.Text = $"{deviceBat}%{deviceIndicator}";
+                    }
 
                     if (legionGoDetected?.Value == true)
                     {
@@ -12019,24 +12290,24 @@ namespace XboxGamingBar
 
                         if (leftBat > 0 && rightBat > 0)
                         {
-                            // Both controllers connected - show device + controllers
-                            string leftIndicator = leftCharging ? "⚡" : "";
-                            string rightIndicator = rightCharging ? "⚡" : "";
-                            stateText = $"{deviceBat}%{deviceIndicator} | L:{leftBat}%{leftIndicator} R:{rightBat}%{rightIndicator}";
+                            // Controllers connected - show L/R with % (hide bolt at 100%)
+                            string leftIndicator = (leftCharging && leftBat < 100) ? "⚡" : "";
+                            string rightIndicator = (rightCharging && rightBat < 100) ? "⚡" : "";
+                            stateText = $"L:{leftBat}%{leftIndicator} R:{rightBat}%{rightIndicator}";
 
                             // Color based on lowest of all batteries
                             minBat = Math.Min(deviceBat, Math.Min(leftBat, rightBat));
                         }
                         else
                         {
-                            // Controllers not connected - show only device
-                            stateText = $"{deviceBat}%{deviceIndicator}";
+                            // Controllers not connected
+                            stateText = "No Ctrl";
                         }
                     }
                     else
                     {
-                        // Not Legion Go - show only device battery
-                        stateText = $"{deviceBat}%{deviceIndicator}";
+                        // Not Legion Go - just show "Device" in state
+                        stateText = "Device";
                     }
 
                     // Color based on minimum battery level

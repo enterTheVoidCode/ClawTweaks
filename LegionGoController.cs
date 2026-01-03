@@ -72,6 +72,14 @@ public class LegionGoController : IDisposable
     private HidStream? _stream;
     private bool _disposed;
 
+    // Battery monitoring
+    private Thread? _batteryMonitorThread;
+    private volatile bool _monitoringBattery;
+    private int _leftControllerBattery = -1;
+    private int _rightControllerBattery = -1;
+    private bool _leftControllerCharging;
+    private bool _rightControllerCharging;
+
     #endregion
 
     #region Events
@@ -80,6 +88,11 @@ public class LegionGoController : IDisposable
     /// Raised when connection status changes.
     /// </summary>
     public event EventHandler<bool>? ConnectionChanged;
+
+    /// <summary>
+    /// Raised when controller battery status is updated.
+    /// </summary>
+    public event EventHandler<ControllerBatteryEventArgs>? BatteryUpdated;
 
     /// <summary>
     /// Raised when a HID command is sent or received (for debugging).
@@ -99,6 +112,26 @@ public class LegionGoController : IDisposable
     /// Gets information about the connected device.
     /// </summary>
     public string? DeviceInfo => _device?.ToString();
+
+    /// <summary>
+    /// Gets the left controller battery percentage (1-100), or -1 if unavailable.
+    /// </summary>
+    public int LeftControllerBattery => _leftControllerBattery;
+
+    /// <summary>
+    /// Gets the right controller battery percentage (1-100), or -1 if unavailable.
+    /// </summary>
+    public int RightControllerBattery => _rightControllerBattery;
+
+    /// <summary>
+    /// Gets whether the left controller is charging.
+    /// </summary>
+    public bool LeftControllerCharging => _leftControllerCharging;
+
+    /// <summary>
+    /// Gets whether the right controller is charging.
+    /// </summary>
+    public bool RightControllerCharging => _rightControllerCharging;
 
     #endregion
 
@@ -163,6 +196,8 @@ public class LegionGoController : IDisposable
     /// </summary>
     public void Disconnect()
     {
+        StopBatteryMonitoring();
+
         if (_stream != null)
         {
             try
@@ -275,6 +310,61 @@ public class LegionGoController : IDisposable
         return SendCommand(CreateCommand(0x00, 0x12, 0x0A, (byte)controller, 0x01, 0x11, 0x01, (byte)button, 0x01));
     }
 
+    /// <summary>
+    /// Gets the controller (Left/Right) that owns a specific gamepad button.
+    /// </summary>
+    public static Controller GetControllerForGamepadButton(GamepadButton button)
+    {
+        switch (button)
+        {
+            case GamepadButton.LSClick:
+            case GamepadButton.LSUp:
+            case GamepadButton.LSDown:
+            case GamepadButton.LSLeft:
+            case GamepadButton.LSRight:
+            case GamepadButton.DPadUp:
+            case GamepadButton.DPadDown:
+            case GamepadButton.DPadLeft:
+            case GamepadButton.DPadRight:
+            case GamepadButton.LB:
+            case GamepadButton.LT:
+            case GamepadButton.Select:
+                return Controller.Left;
+            default:
+                return Controller.Right;
+        }
+    }
+
+    /// <summary>
+    /// Sets mapping for a standard gamepad button (same format as SetButtonMappingAdvanced).
+    ///
+    /// HID Command: 05 00 12 0A [ctrl] 01 11 01 [btn] [type] [mappings]
+    /// </summary>
+    /// <param name="button">The gamepad button to remap.</param>
+    /// <param name="type">Mapping type (Gamepad, Keyboard, or Mouse).</param>
+    /// <param name="mappings">The mapping value(s). For keyboard, can be up to 5 key codes.</param>
+    /// <returns>True if command sent successfully.</returns>
+    public bool SetGamepadButtonMappingAdvanced(GamepadButton button, MappingType type, params byte[] mappings)
+    {
+        var controller = GetControllerForGamepadButton(button);
+        var bytes = new List<byte> { 0x00, 0x12, 0x0A, (byte)controller, 0x01, 0x11, 0x01, (byte)button, (byte)type };
+        bytes.AddRange(mappings);
+        return SendCommand(CreateCommand(bytes.ToArray()));
+    }
+
+    /// <summary>
+    /// Clears a gamepad button mapping (restores default behavior).
+    ///
+    /// HID Command: 05 00 12 0A [ctrl] 01 11 01 [btn] 01
+    /// </summary>
+    /// <param name="button">The gamepad button to clear.</param>
+    /// <returns>True if command sent successfully.</returns>
+    public bool ClearGamepadButtonMapping(GamepadButton button)
+    {
+        var controller = GetControllerForGamepadButton(button);
+        return SendCommand(CreateCommand(0x00, 0x12, 0x0A, (byte)controller, 0x01, 0x11, 0x01, (byte)button, 0x01));
+    }
+
     #endregion
 
     #region Touchpad Control
@@ -297,20 +387,30 @@ public class LegionGoController : IDisposable
     }
 
     /// <summary>
-    /// Enables or disables touchpad haptic feedback (vibration).
+    /// Sets the touchpad haptic feedback vibration level.
     ///
-    /// HID Command: 05 06 6B 04 04 [02/01] 01
+    /// HID Command: 05 00 06 06 00 [level]
     /// </summary>
-    /// <param name="enabled">True to enable haptics, false to disable.</param>
+    /// <param name="level">Vibration level (Off=0x01, Low=0x02, Medium=0x03, High=0x04).</param>
+    /// <returns>True if command sent successfully.</returns>
+    public bool SetTouchpadVibration(TouchpadVibrationLevel level)
+    {
+        var command = CreateCommand(
+            0x00, 0x06, 0x06, 0x00,
+            (byte)level
+        );
+        return SendCommand(command);
+    }
+
+    /// <summary>
+    /// Enables or disables touchpad haptic feedback (vibration).
+    /// Convenience overload - enables at Medium level, or disables.
+    /// </summary>
+    /// <param name="enabled">True to enable haptics (Medium), false to disable.</param>
     /// <returns>True if command sent successfully.</returns>
     public bool SetTouchpadVibration(bool enabled)
     {
-        var command = CreateCommand(
-            0x06, 0x6B, 0x04, 0x04,
-            (byte)(enabled ? 0x02 : 0x01),
-            0x01
-        );
-        return SendCommand(command);
+        return SetTouchpadVibration(enabled ? TouchpadVibrationLevel.Medium : TouchpadVibrationLevel.Off);
     }
 
     #endregion
@@ -573,6 +673,32 @@ public class LegionGoController : IDisposable
     }
 
     /// <summary>
+    /// Sets joystick as mouse mode for a controller.
+    /// When enabled, the joystick controls the mouse cursor instead of gamepad input.
+    ///
+    /// HID Command: 05 00 0C 07 [ctrl] [enable] 00 00 [sensitivity] [enable]
+    /// </summary>
+    /// <param name="controller">Left or Right controller.</param>
+    /// <param name="enabled">True to enable joystick as mouse, false to disable.</param>
+    /// <param name="sensitivity">Mouse sensitivity (1-100, default 50).</param>
+    /// <returns>True if command sent successfully.</returns>
+    public bool SetJoystickAsMouse(Controller controller, bool enabled, int sensitivity)
+    {
+        sensitivity = Clamp(sensitivity, 1, 100);
+        byte enableByte = enabled ? (byte)0x02 : (byte)0x01;
+
+        var command = CreateCommand(
+            0x00, 0x0C, 0x07,
+            (byte)controller,
+            enableByte,
+            0x00, 0x00,
+            (byte)sensitivity,
+            enableByte
+        );
+        return SendCommand(command);
+    }
+
+    /// <summary>
     /// Sets the gyro deadzone which suppresses small motions near center.
     ///
     /// HID Command: 05 05 6A 13 04 [value] 01
@@ -809,6 +935,122 @@ public class LegionGoController : IDisposable
 
     #endregion
 
+    #region Battery Monitoring
+
+    /// <summary>
+    /// Starts continuous battery monitoring in a background thread.
+    /// Battery status is read from input reports pushed by the controllers.
+    /// </summary>
+    public void StartBatteryMonitoring()
+    {
+        if (_monitoringBattery)
+            return;
+
+        _monitoringBattery = true;
+        _batteryMonitorThread = new Thread(ReadBatteryReports)
+        {
+            IsBackground = true,
+            Name = "LegionGo-BatteryMonitor"
+        };
+        _batteryMonitorThread.Start();
+    }
+
+    /// <summary>
+    /// Stops the battery monitoring thread.
+    /// </summary>
+    public void StopBatteryMonitoring()
+    {
+        _monitoringBattery = false;
+        if (_batteryMonitorThread != null && _batteryMonitorThread.IsAlive)
+        {
+            _batteryMonitorThread.Join(500);
+            _batteryMonitorThread = null;
+        }
+    }
+
+    /// <summary>
+    /// Background thread that reads battery status from input reports.
+    /// Report format: 04 00 a1 [leftBat] [leftStatus] [rightBat] [rightStatus]
+    /// Battery values: 0x01-0x64 (1-100%)
+    /// Status: 0x01=discharging, 0x04=charging
+    /// </summary>
+    private void ReadBatteryReports()
+    {
+        byte[] buffer = new byte[64];
+        int readCount = 0;
+        int batteryReportCount = 0;
+
+        while (_monitoringBattery && IsConnected && _stream != null)
+        {
+            try
+            {
+                _stream.ReadTimeout = 500;
+                int bytesRead = _stream.Read(buffer, 0, buffer.Length);
+                readCount++;
+
+                // Log first few reads to debug what we're receiving
+                if (readCount <= 5)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[BatteryMonitor] Read #{readCount}: {bytesRead} bytes - {FormatHex(buffer, Math.Min(bytesRead, 10))}");
+                }
+
+                // Check for battery report format: 04 00 a1 ...
+                if (bytesRead >= 7 && buffer[0] == 0x04 && buffer[1] == 0x00 && buffer[2] == 0xa1)
+                {
+                    int leftBattery = buffer[3];
+                    bool leftCharging = buffer[4] == 0x04;
+                    int rightBattery = buffer[5];
+                    bool rightCharging = buffer[6] == 0x04;
+
+                    batteryReportCount++;
+                    if (batteryReportCount <= 3)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[BatteryMonitor] Battery report #{batteryReportCount}: L={leftBattery}% ({(leftCharging ? "charging" : "discharging")}), R={rightBattery}% ({(rightCharging ? "charging" : "discharging")})");
+                    }
+
+                    // Validate battery values (1-100)
+                    if (leftBattery >= 1 && leftBattery <= 100 && rightBattery >= 1 && rightBattery <= 100)
+                    {
+                        bool changed = _leftControllerBattery != leftBattery ||
+                                       _rightControllerBattery != rightBattery ||
+                                       _leftControllerCharging != leftCharging ||
+                                       _rightControllerCharging != rightCharging;
+
+                        _leftControllerBattery = leftBattery;
+                        _leftControllerCharging = leftCharging;
+                        _rightControllerBattery = rightBattery;
+                        _rightControllerCharging = rightCharging;
+
+                        if (changed)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[BatteryMonitor] Raising BatteryUpdated event: L={leftBattery}%, R={rightBattery}%");
+                            BatteryUpdated?.Invoke(this, new ControllerBatteryEventArgs(
+                                leftBattery, leftCharging, rightBattery, rightCharging));
+                        }
+                    }
+                }
+            }
+            catch (TimeoutException)
+            {
+                // Normal timeout, continue reading
+            }
+            catch (Exception ex)
+            {
+                // Connection lost or other error
+                System.Diagnostics.Debug.WriteLine($"[BatteryMonitor] Error reading: {ex.Message}");
+                Thread.Sleep(100);
+            }
+        }
+
+        // Reset values when monitoring stops
+        _leftControllerBattery = -1;
+        _rightControllerBattery = -1;
+        _leftControllerCharging = false;
+        _rightControllerCharging = false;
+    }
+
+    #endregion
+
     #region Utility Methods
 
     /// <summary>
@@ -942,6 +1184,38 @@ public enum RemappableButton : byte
 }
 
 /// <summary>
+/// Standard gamepad buttons that can be remapped.
+/// These buttons can be mapped to keyboard, mouse, or other gamepad buttons.
+/// </summary>
+public enum GamepadButton : byte
+{
+    LSClick = 0x03,
+    LSUp = 0x04,
+    LSDown = 0x05,
+    LSLeft = 0x06,
+    LSRight = 0x07,
+    RSClick = 0x08,
+    RSUp = 0x09,
+    RSDown = 0x0A,
+    RSLeft = 0x0B,
+    RSRight = 0x0C,
+    DPadUp = 0x0D,
+    DPadDown = 0x0E,
+    DPadLeft = 0x0F,
+    DPadRight = 0x10,
+    A = 0x12,
+    B = 0x13,
+    X = 0x14,
+    Y = 0x15,
+    LB = 0x16,
+    LT = 0x17,
+    RB = 0x18,
+    RT = 0x19,
+    Start = 0x23,
+    Select = 0x24
+}
+
+/// <summary>
 /// Mapping type for button remapping.
 /// </summary>
 public enum MappingType : byte
@@ -979,7 +1253,10 @@ public enum KeyboardKey : byte
     NumLock = 0x53, NumDivide = 0x54, NumMultiply = 0x55, NumMinus = 0x56,
     NumPlus = 0x57, NumEnter = 0x58, Num1Pad = 0x59, Num2Pad = 0x5A,
     Num3Pad = 0x5B, Num4Pad = 0x5C, Num5Pad = 0x5D, Num6Pad = 0x5E,
-    Num7Pad = 0x5F, Num8Pad = 0x60, Num9Pad = 0x61, Num0Pad = 0x62, NumDecimal = 0x63
+    Num7Pad = 0x5F, Num8Pad = 0x60, Num9Pad = 0x61, Num0Pad = 0x62, NumDecimal = 0x63,
+    // Modifier keys
+    LCtrl = 0xE0, LShift = 0xE1, LAlt = 0xE2, LMeta = 0xE3,
+    RCtrl = 0xE4, RShift = 0xE5, RAlt = 0xE6, RMeta = 0xE7
 }
 
 /// <summary>
@@ -1097,6 +1374,18 @@ public enum VibrationMode : byte
     AVG = 0x03,
     SPG = 0x04,
     RPG = 0x05
+}
+
+/// <summary>
+/// Touchpad haptic vibration levels.
+/// Command: 05 00 06 06 00 [level]
+/// </summary>
+public enum TouchpadVibrationLevel : byte
+{
+    Off = 0x01,
+    Low = 0x02,
+    Medium = 0x03,
+    High = 0x04
 }
 
 /// <summary>
@@ -1218,6 +1507,36 @@ public class HidCommandEventArgs : EventArgs
     {
         Data = data;
         IsSent = isSent;
+        Timestamp = DateTime.Now;
+    }
+}
+
+/// <summary>
+/// Event args for controller battery status updates.
+/// </summary>
+public class ControllerBatteryEventArgs : EventArgs
+{
+    /// <summary>Left controller battery percentage (1-100).</summary>
+    public int LeftBattery { get; }
+
+    /// <summary>Whether the left controller is charging.</summary>
+    public bool LeftCharging { get; }
+
+    /// <summary>Right controller battery percentage (1-100).</summary>
+    public int RightBattery { get; }
+
+    /// <summary>Whether the right controller is charging.</summary>
+    public bool RightCharging { get; }
+
+    /// <summary>Timestamp when the battery status was read.</summary>
+    public DateTime Timestamp { get; }
+
+    public ControllerBatteryEventArgs(int leftBattery, bool leftCharging, int rightBattery, bool rightCharging)
+    {
+        LeftBattery = leftBattery;
+        LeftCharging = leftCharging;
+        RightBattery = rightBattery;
+        RightCharging = rightCharging;
         Timestamp = DateTime.Now;
     }
 }

@@ -1017,8 +1017,16 @@
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveHDRResolutionCheckBox"
-                                              Content="HDR + Resolution"
+                                    <CheckBox x:Name="ProfileSaveHDRCheckBox"
+                                              Content="HDR"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveResolutionCheckBox"
+                                              Content="Resolution"
                                               IsChecked="False"
                                               Foreground="#FFFFFF"
                                               Margin="0,4,0,0"
@@ -2160,6 +2168,8 @@
                                             <ComboBoxItem Content="Medium" Tag="100" IsSelected="True"/>
                                             <ComboBoxItem Content="Large" Tag="150"/>
                                             <ComboBoxItem Content="X-Large" Tag="200"/>
+                                            <ComboBoxItem Content="XX-Large" Tag="250"/>
+                                            <ComboBoxItem Content="XXX-Large" Tag="300"/>
                                         </ComboBox>
                                     </Grid>
 
@@ -2169,39 +2179,104 @@
                                                Margin="0,12,0,8"/>
 
                                     <!-- Text Color -->
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Text Color"
-                                                   Foreground="#B0B0B0"
-                                                   VerticalAlignment="Center"
-                                                   FontSize="13"/>
-                                        <StackPanel Orientation="Horizontal" Grid.Column="1">
-                                            <Border x:Name="OSDTextColorPreview"
-                                                    Width="24" Height="24"
-                                                    Background="#FFFFFF"
-                                                    CornerRadius="4"
-                                                    BorderBrush="#505050"
-                                                    BorderThickness="1"
-                                                    Margin="0,0,8,0"/>
-                                            <ComboBox x:Name="OSDTextColorComboBox"
-                                                      Style="{StaticResource ModernComboBoxStyle}"
-                                                      Width="100"
-                                                      SelectionChanged="OSDColorOption_Changed"
-                                                      UseSystemFocusVisuals="True"
-                                                      FocusVisualPrimaryBrush="White">
-                                                <ComboBoxItem Content="Dynamic" Tag="DYNAMIC" IsSelected="True"/>
-                                                <ComboBoxItem Content="White" Tag="FFFFFF"/>
-                                                <ComboBoxItem Content="Yellow" Tag="FFFF00"/>
-                                                <ComboBoxItem Content="Green" Tag="00FF00"/>
-                                                <ComboBoxItem Content="Cyan" Tag="00FFFF"/>
-                                                <ComboBoxItem Content="Red" Tag="FF0000"/>
-                                                <ComboBoxItem Content="Orange" Tag="FF8000"/>
-                                            </ComboBox>
-                                        </StackPanel>
-                                    </Grid>
+                                    <StackPanel x:Name="OSDTextColorCard" Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Text Color" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="13"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <CheckBox x:Name="OSDTextColorDynamicCheckBox"
+                                                          Content="Dynamic"
+                                                          IsChecked="True"
+                                                          Foreground="#AAAAAA"
+                                                          FontSize="11"
+                                                          Margin="0,0,8,0"
+                                                          Checked="OSDTextColorDynamic_Changed"
+                                                          Unchecked="OSDTextColorDynamic_Changed"/>
+                                                <Border x:Name="OSDTextColorPreview"
+                                                        Width="24" Height="24"
+                                                        CornerRadius="4"
+                                                        Background="White"
+                                                        BorderBrush="#50555C"
+                                                        BorderThickness="1"
+                                                        Margin="0,0,8,0"/>
+                                                <Button x:Name="OSDTextColorExpandButton"
+                                                        Content="&#xE70D;"
+                                                        FontFamily="Segoe MDL2 Assets"
+                                                        FontSize="12"
+                                                        Padding="8,4"
+                                                        Background="Transparent"
+                                                        Click="OSDTextColorExpandButton_Click"
+                                                        UseSystemFocusVisuals="True"
+                                                        FocusVisualPrimaryBrush="White"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <muxc:ColorPicker x:Name="OSDTextColorPicker"
+                                                     Visibility="Collapsed"
+                                                     Margin="0,12,0,0"
+                                                     Color="White"
+                                                     ColorSpectrumShape="Box"
+                                                     IsMoreButtonVisible="False"
+                                                     IsColorSliderVisible="False"
+                                                     IsColorChannelTextInputVisible="False"
+                                                     IsHexInputVisible="False"
+                                                     IsAlphaEnabled="False"
+                                                     IsAlphaSliderVisible="False"
+                                                     IsAlphaTextInputVisible="False"
+                                                     ColorChanged="OSDTextColorPicker_ColorChanged"/>
+                                    </StackPanel>
+
+                                    <!-- Label Color (Global) -->
+                                    <StackPanel x:Name="OSDLabelColorCard" Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Label Color" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="13"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <CheckBox x:Name="OSDLabelColorDefaultCheckBox"
+                                                          Content="Default"
+                                                          IsChecked="True"
+                                                          Foreground="#AAAAAA"
+                                                          FontSize="11"
+                                                          Margin="0,0,8,0"
+                                                          Checked="OSDLabelColorDefault_Changed"
+                                                          Unchecked="OSDLabelColorDefault_Changed"/>
+                                                <Border x:Name="OSDLabelColorPreview"
+                                                        Width="24" Height="24"
+                                                        CornerRadius="4"
+                                                        Background="#00FFFF"
+                                                        BorderBrush="#50555C"
+                                                        BorderThickness="1"
+                                                        Margin="0,0,8,0"/>
+                                                <Button x:Name="OSDLabelColorExpandButton"
+                                                        Content="&#xE70D;"
+                                                        FontFamily="Segoe MDL2 Assets"
+                                                        FontSize="12"
+                                                        Padding="8,4"
+                                                        Background="Transparent"
+                                                        Click="OSDLabelColorExpandButton_Click"
+                                                        UseSystemFocusVisuals="True"
+                                                        FocusVisualPrimaryBrush="White"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <muxc:ColorPicker x:Name="OSDLabelColorPicker"
+                                                     Visibility="Collapsed"
+                                                     Margin="0,12,0,0"
+                                                     Color="#00FFFF"
+                                                     ColorSpectrumShape="Box"
+                                                     IsMoreButtonVisible="False"
+                                                     IsColorSliderVisible="False"
+                                                     IsColorChannelTextInputVisible="False"
+                                                     IsHexInputVisible="False"
+                                                     IsAlphaEnabled="False"
+                                                     IsAlphaSliderVisible="False"
+                                                     IsAlphaTextInputVisible="False"
+                                                     ColorChanged="OSDLabelColorPicker_ColorChanged"/>
+                                    </StackPanel>
 
                                         <!-- Items Section -->
                                         <TextBlock Text="Items to Display"
@@ -2217,7 +2292,6 @@
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="Auto"/>
                                                             <ColumnDefinition Width="Auto"/>
-                                                            <ColumnDefinition Width="Auto"/>
                                                         </Grid.ColumnDefinitions>
 
                                                         <CheckBox Grid.Column="0"
@@ -2231,32 +2305,7 @@
                                                                   Checked="OSDItemCheckBox_Changed"
                                                                   Unchecked="OSDItemCheckBox_Changed"/>
 
-                                                        <!-- Label Color Picker -->
-                                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
-                                                            <Border Width="16" Height="16"
-                                                                    Background="{Binding LabelColorBrush}"
-                                                                    CornerRadius="3"
-                                                                    BorderBrush="#505050"
-                                                                    BorderThickness="1"
-                                                                    Margin="0,0,4,0"/>
-                                                            <ComboBox Width="82"
-                                                                      Tag="{Binding Id}"
-                                                                      SelectedIndex="0"
-                                                                      SelectionChanged="OSDItemLabelColor_SelectionChanged"
-                                                                      Padding="4,2"
-                                                                      FontSize="11">
-                                                                <ComboBoxItem Content="Default" Tag="DEFAULT"/>
-                                                                <ComboBoxItem Content="White" Tag="FFFFFF"/>
-                                                                <ComboBoxItem Content="Yellow" Tag="FFFF00"/>
-                                                                <ComboBoxItem Content="Green" Tag="00FF00"/>
-                                                                <ComboBoxItem Content="Cyan" Tag="00FFFF"/>
-                                                                <ComboBoxItem Content="Red" Tag="FF0000"/>
-                                                                <ComboBoxItem Content="Orange" Tag="FF8000"/>
-                                                                <ComboBoxItem Content="Purple" Tag="A020F0"/>
-                                                            </ComboBox>
-                                                        </StackPanel>
-
-                                                        <Button Grid.Column="2"
+                                                        <Button Grid.Column="1"
                                                                 Content="&#xE70E;"
                                                                 FontFamily="Segoe MDL2 Assets"
                                                                 FontSize="10"
@@ -2268,7 +2317,7 @@
                                                                 IsEnabled="{Binding CanMoveUp}"
                                                                 Click="OSDItemMoveUp_Click"/>
 
-                                                        <Button Grid.Column="3"
+                                                        <Button Grid.Column="2"
                                                                 Content="&#xE70D;"
                                                                 FontFamily="Segoe MDL2 Assets"
                                                                 FontSize="10"
@@ -3013,17 +3062,23 @@
                                         </ComboBox>
                                     </Grid>
 
-                                    <!-- Touchpad Haptics Toggle -->
+                                    <!-- Touchpad Haptics Dropdown -->
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Touchpad Haptics" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
-                                        <ToggleSwitch x:Name="LegionTouchpadVibrationToggle"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      IsOn="True"/>
+                                        <ComboBox x:Name="LegionTouchpadVibrationComboBox"
+                                                  Grid.Column="1"
+                                                  SelectedIndex="2"
+                                                  Width="100"
+                                                  Style="{StaticResource ModernComboBoxStyle}">
+                                            <x:String>Off</x:String>
+                                            <x:String>Low</x:String>
+                                            <x:String>Medium</x:String>
+                                            <x:String>High</x:String>
+                                        </ComboBox>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
@@ -3418,7 +3473,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="Desktop Controls" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="RS=Mouse, DPAD=Arrows, A=Enter, B=Esc, LS=Scroll/Win"
+                                    <TextBlock Text="RS→Mouse, DPAD/LS→Arrows, A→Enter, B→Esc (Ctrl+Shift+D)"
                                                Style="{StaticResource CardCaptionStyle}"/>
                                 </StackPanel>
                                 <ToggleSwitch x:Name="LegionDesktopControlsToggle"
