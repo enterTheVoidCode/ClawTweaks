@@ -51,7 +51,10 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
                 {
                     var hours = Math.Floor(timeToFull / MathConstants.SECONDS_PER_HOUR);
                     var minutes = (timeToFull - hours * MathConstants.SECONDS_PER_HOUR) / MathConstants.SECONDS_PER_MINUTE;
-                    osdItems.Add(new OSDItemValue((float)hours, "H", OSDValueType.None));
+                    if (hours > 0)
+                    {
+                        osdItems.Add(new OSDItemValue((float)hours, "H", OSDValueType.None));
+                    }
                     osdItems.Add(new OSDItemValue((float)minutes, "M", "~", OSDValueType.None)); // ~ indicates estimate to full
                 }
                 else if (timeToFull == 0)

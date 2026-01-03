@@ -489,6 +489,7 @@ namespace XboxGamingBar
         private readonly LegionFanCurveGraphProperty legionFanCurveGraph;
         private readonly LegionCPUTempProperty legionCPUTemp;
         private readonly LegionCPUFanRPMProperty legionCPUFanRPM;
+        private readonly LegionFanCurveVisibleProperty legionFanCurveVisible;
         private readonly LegionGyroEnabledProperty legionGyroEnabled;
         private readonly LegionVibrationProperty legionVibration;
         private readonly LegionPowerLightProperty legionPowerLight;
@@ -799,6 +800,7 @@ namespace XboxGamingBar
             legionCPUTemp.SetTempUpdateCallback(OnCPUTempUpdated);
             legionCPUFanRPM = new LegionCPUFanRPMProperty(this);
             legionCPUFanRPM.SetRPMUpdateCallback(OnFanRPMUpdated);
+            legionFanCurveVisible = new LegionFanCurveVisibleProperty();
 
             legionGyroEnabled = new LegionGyroEnabledProperty(null, this); // Gyro removed from UI, kept for backwards compatibility
             legionVibration = new LegionVibrationProperty(LegionVibrationComboBox, this);
@@ -979,6 +981,7 @@ namespace XboxGamingBar
                 legionFanCurveGraph,
                 legionCPUTemp,
                 legionCPUFanRPM,
+                legionFanCurveVisible,
                 legionGyroEnabled,
                 legionVibration,
                 legionPowerLight,
@@ -2654,6 +2657,12 @@ namespace XboxGamingBar
         private int[] currentFanCurveValues = new int[10];
         private int draggedPointIndex = -1;
         private bool isDraggingPoint = false;
+
+        // Legion Go fan curve temperature thresholds (°C) - actual values from device
+        private static readonly int[] FanCurveTemperatures = { 46, 49, 52, 55, 60, 63, 66, 69, 72, 75 };
+        // Minimum fan speeds (%) for each temperature threshold - 10% below Legion Space minimums to test lower limits
+        // Legion Space minimums (RPM): 2000, 2200, 2200, 2400, 2700, 3000, 3900, 4100, 4400, 4700
+        private static readonly int[] FanCurveMinSpeeds = { 38, 41, 41, 45, 50, 57, 73, 77, 83, 88 };
         private bool isTDPExtrasExpanded = false;
         private bool isCPUExtrasExpanded = false;
         private bool isLoadingTDPLimits = false;
@@ -3520,6 +3529,9 @@ namespace XboxGamingBar
             {
                 InitializeFanCurveGraph();
             }
+
+            // Tell helper whether to push CPU temp/RPM updates
+            legionFanCurveVisible?.SetVisible(isFanCurveExpanded);
         }
 
         #region Fan Curve Graph
@@ -3612,12 +3624,12 @@ namespace XboxGamingBar
             var points = new Windows.UI.Xaml.Media.PointCollection();
             var fillPoints = new Windows.UI.Xaml.Media.PointCollection();
 
-            // Temperature thresholds: 10, 20, 30, 40, 50, 60, 70, 80, 90, 100°C
-            // Map to 0-100% of width (10-100°C range = 90°C)
+            // Legion Go temperature thresholds: 46, 49, 52, 55, 60, 63, 66, 69, 72, 75°C
+            // Map to 0-100% of width (46-75°C range = 29°C)
             for (int i = 0; i < 10; i++)
             {
-                int temp = (i + 1) * 10; // 10, 20, 30...100°C
-                double x = (temp - 10.0) / 90.0 * width; // Normalize 10-100 to 0-width
+                int temp = FanCurveTemperatures[i];
+                double x = (temp - 46.0) / 29.0 * width; // Normalize 46-75 to 0-width
                 double y = height - (currentFanCurveValues[i] / 100.0 * height);
 
                 points.Add(new Windows.Foundation.Point(x, y));
@@ -3649,11 +3661,11 @@ namespace XboxGamingBar
 
             if (width <= 0 || height <= 0) return;
 
-            // Clamp temp to 10-100 range
-            tempC = Math.Max(10, Math.Min(100, tempC));
+            // Clamp temp to 46-75 range (Legion Go fan curve range)
+            tempC = Math.Max(46, Math.Min(75, tempC));
 
             // Calculate X position
-            double x = (tempC - 10.0) / 90.0 * width;
+            double x = (tempC - 46.0) / 29.0 * width;
 
             TempIndicatorLine.X1 = x;
             TempIndicatorLine.X2 = x;
@@ -3685,6 +3697,33 @@ namespace XboxGamingBar
             {
                 FanRPMLabel.Text = $"{rpm} RPM";
             }
+
+            // Update RPM indicator line on graph
+            UpdateRPMIndicator(rpm);
+        }
+
+        private void UpdateRPMIndicator(int rpm)
+        {
+            if (RPMIndicatorLine == null || FanCurveCanvas == null)
+                return;
+
+            double width = FanCurveCanvas.ActualWidth;
+            double height = FanCurveCanvas.ActualHeight;
+
+            if (width <= 0 || height <= 0) return;
+
+            // Convert RPM to percentage (max 4800 RPM)
+            const int MAX_RPM = 4800;
+            double percent = Math.Max(0, Math.Min(100, (double)rpm / MAX_RPM * 100));
+
+            // Calculate Y position (inverted - 0% at bottom, 100% at top)
+            double y = height - (percent / 100.0 * height);
+
+            RPMIndicatorLine.X1 = 0;
+            RPMIndicatorLine.X2 = width;
+            RPMIndicatorLine.Y1 = y;
+            RPMIndicatorLine.Y2 = y;
+            RPMIndicatorLine.Visibility = Windows.UI.Xaml.Visibility.Visible;
         }
 
         private void FanCurveCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -3695,7 +3734,7 @@ namespace XboxGamingBar
                 var toRemove = new System.Collections.Generic.List<Windows.UI.Xaml.UIElement>();
                 foreach (var child in FanCurveCanvas.Children)
                 {
-                    if (child is Windows.UI.Xaml.Shapes.Line line && line != TempIndicatorLine)
+                    if (child is Windows.UI.Xaml.Shapes.Line line && line != TempIndicatorLine && line != RPMIndicatorLine)
                     {
                         toRemove.Add(child);
                     }
@@ -3760,7 +3799,10 @@ namespace XboxGamingBar
 
             // Calculate new fan speed (invert Y since 0 is at top)
             double fanSpeed = (1.0 - point.Y / height) * 100.0;
-            fanSpeed = Math.Max(0, Math.Min(100, fanSpeed));
+
+            // Enforce minimum fan speed for this temperature threshold
+            int minSpeed = FanCurveMinSpeeds[draggedPointIndex];
+            fanSpeed = Math.Max(minSpeed, Math.Min(100, fanSpeed));
 
             // Update the value
             currentFanCurveValues[draggedPointIndex] = (int)Math.Round(fanSpeed);
@@ -8999,6 +9041,9 @@ namespace XboxGamingBar
                 LegionScrollViewer.Visibility = Visibility.Collapsed;
                 SystemScrollViewer.Visibility = Visibility.Collapsed;
 
+                // Stop fan curve updates when leaving Legion tab (will be re-enabled if Legion is selected)
+                legionFanCurveVisible?.SetVisible(false);
+
                 // Show selected section and scroll to top
                 switch (tag)
                 {
@@ -9027,6 +9072,8 @@ namespace XboxGamingBar
                     case "Legion":
                         LegionScrollViewer.Visibility = Visibility.Visible;
                         LegionScrollViewer.ChangeView(null, 0, null, true);
+                        // Update fan curve visibility when switching to Legion tab
+                        legionFanCurveVisible?.SetVisible(isFanCurveExpanded);
                         break;
                     case "System":
                         SystemScrollViewer.Visibility = Visibility.Visible;

@@ -23,6 +23,10 @@ namespace XboxGamingBar.Data
         // Default fan curve values (Legion Go defaults)
         public static readonly int[] DefaultCurve = { 44, 48, 55, 60, 71, 79, 87, 87, 100, 100 };
 
+        // Minimum fan speeds (%) for each temperature threshold (46°C to 75°C)
+        // 10% below Legion Space constraints to test lower limits
+        private static readonly int[] MinSpeeds = { 38, 41, 41, 45, 50, 57, 73, 77, 83, 88 };
+
         public LegionFanCurveGraphProperty(Page owner)
             : base(FormatCurveData(DefaultCurve), null, Function.LegionFanCurveData)
         {
@@ -131,7 +135,8 @@ namespace XboxGamingBar.Data
         }
 
         /// <summary>
-        /// Parses a comma-separated string into an array of fan speeds
+        /// Parses a comma-separated string into an array of fan speeds.
+        /// Enforces minimum fan speed constraints for each temperature threshold.
         /// </summary>
         public static int[] ParseCurveData(string data)
         {
@@ -144,7 +149,13 @@ namespace XboxGamingBar.Data
                 if (parts.Length != 10)
                     return (int[])DefaultCurve.Clone();
 
-                var values = parts.Select(p => Math.Max(0, Math.Min(100, int.Parse(p.Trim())))).ToArray();
+                var values = new int[10];
+                for (int i = 0; i < 10; i++)
+                {
+                    int parsed = int.Parse(parts[i].Trim());
+                    // Enforce minimum and maximum for each point
+                    values[i] = Math.Max(MinSpeeds[i], Math.Min(100, parsed));
+                }
                 return values;
             }
             catch
@@ -236,6 +247,23 @@ namespace XboxGamingBar.Data
                     _rpmUpdateCallback(rpm);
                 });
             }
+        }
+    }
+
+    /// <summary>
+    /// Property to tell the helper when the fan curve graph is visible.
+    /// The helper only pushes CPU temp and fan RPM updates when this is true.
+    /// </summary>
+    internal class LegionFanCurveVisibleProperty : WidgetProperty<bool>
+    {
+        public LegionFanCurveVisibleProperty()
+            : base(false, null, Function.LegionFanCurveVisible)
+        {
+        }
+
+        public void SetVisible(bool visible)
+        {
+            SetValue(visible);
         }
     }
 }

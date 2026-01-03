@@ -75,6 +75,9 @@ namespace XboxGamingBarHelper.Legion
         // Fan speed (RPM)
         private int cpuFanSpeed = 0;
 
+        // Fan curve visibility (widget tells us when to push temp/RPM updates)
+        private bool fanCurveVisible = false;
+
         // TDP reapply timer (used when switching to Custom mode)
         private System.Timers.Timer tdpReapplyTimer;
         private int pendingTdpSlow;
@@ -116,6 +119,7 @@ namespace XboxGamingBarHelper.Legion
         public readonly LegionFanCurveDataProperty LegionFanCurveData;
         public readonly LegionCPUCurrentTempProperty LegionCPUCurrentTemp;
         public readonly LegionCPUFanRPMProperty LegionCPUFanRPM;
+        public readonly LegionFanCurveVisibleProperty LegionFanCurveVisible;
         public readonly LegionGyroEnabledProperty LegionGyroEnabled;
         public readonly LegionVibrationProperty LegionVibration;
         public readonly LegionPowerLightProperty LegionPowerLight;
@@ -219,6 +223,7 @@ namespace XboxGamingBarHelper.Legion
             LegionFanCurveData = new LegionFanCurveDataProperty(fanCurveString, this);
             LegionCPUCurrentTemp = new LegionCPUCurrentTempProperty(0, this);
             LegionCPUFanRPM = new LegionCPUFanRPMProperty(0, this);
+            LegionFanCurveVisible = new LegionFanCurveVisibleProperty(false, this);
 
             LegionGyroEnabled = new LegionGyroEnabledProperty(gyroEnabled, this);
             LegionVibration = new LegionVibrationProperty(vibrationLevel, this);
@@ -2059,40 +2064,56 @@ namespace XboxGamingBarHelper.Legion
         }
 
         /// <summary>
-        /// Reads current CPU fan speed and temperature from device, syncs to widget properties
+        /// Reads current CPU fan speed from device for internal use (OSD display).
+        /// Also pushes temp/RPM updates to widget when fan curve is visible.
         /// </summary>
         private void RefreshFanSpeed()
         {
             try
             {
-                // Read fan RPM
+                // Read fan RPM for internal use (OSD)
                 var fanResult = wmiService.GetCpuFanSpeed();
                 if (fanResult.Success && fanResult.Result.HasValue)
                 {
                     cpuFanSpeed = fanResult.Result.Value;
-                    Logger.Info($"Fan RPM read: {cpuFanSpeed}, property exists: {LegionCPUFanRPM != null}");
-                    LegionCPUFanRPM?.UpdateRPM(cpuFanSpeed);
-                }
-                else
-                {
-                    Logger.Info($"GetCpuFanSpeed failed: {fanResult.Message}");
                 }
 
-                // Read CPU temperature from LibreHardwareMonitor sensor (more reliable than WMI)
-                if (performanceManager?.CPUTemperature != null)
+                // Only push temp/RPM to widget when fan curve is visible
+                if (fanCurveVisible)
                 {
-                    int cpuTemp = (int)performanceManager.CPUTemperature.Value;
-                    Logger.Info($"CPU Temp from LHM: {cpuTemp}°C, property exists: {LegionCPUCurrentTemp != null}");
-                    LegionCPUCurrentTemp?.UpdateTemp(cpuTemp);
-                }
-                else
-                {
-                    Logger.Info("CPUTemperature sensor not available from PerformanceManager");
+                    LegionCPUFanRPM.UpdateRPM(cpuFanSpeed);
+
+                    // Get CPU temperature from LibreHardwareMonitor
+                    if (performanceManager?.CPUTemperature != null)
+                    {
+                        int cpuTemp = (int)performanceManager.CPUTemperature.Value;
+                        LegionCPUCurrentTemp.UpdateTemp(cpuTemp);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Debug($"Error reading fan/temp sensors: {ex.Message}");
+                Logger.Debug($"Error reading fan speed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Called by LegionFanCurveVisibleProperty when widget sets visibility.
+        /// </summary>
+        public void SetFanCurveVisible(bool visible)
+        {
+            fanCurveVisible = visible;
+            Logger.Debug($"Fan curve visibility set to: {visible}");
+
+            // Immediately push current values when fan curve becomes visible
+            if (visible)
+            {
+                LegionCPUFanRPM.UpdateRPM(cpuFanSpeed);
+                if (performanceManager?.CPUTemperature != null)
+                {
+                    int cpuTemp = (int)performanceManager.CPUTemperature.Value;
+                    LegionCPUCurrentTemp.UpdateTemp(cpuTemp);
+                }
             }
         }
 
