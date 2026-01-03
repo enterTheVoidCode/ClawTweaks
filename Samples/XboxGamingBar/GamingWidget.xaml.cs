@@ -486,6 +486,9 @@ namespace XboxGamingBar
         private readonly LegionCustomTDPFastProperty legionCustomTDPFast;
         private readonly LegionCustomTDPPeakProperty legionCustomTDPPeak;
         private readonly LegionFanFullSpeedProperty legionFanFullSpeed;
+        private readonly LegionFanCurveGraphProperty legionFanCurveGraph;
+        private readonly LegionCPUTempProperty legionCPUTemp;
+        private readonly LegionCPUFanRPMProperty legionCPUFanRPM;
         private readonly LegionGyroEnabledProperty legionGyroEnabled;
         private readonly LegionVibrationProperty legionVibration;
         private readonly LegionPowerLightProperty legionPowerLight;
@@ -788,6 +791,15 @@ namespace XboxGamingBar
             legionCustomTDPFast = new LegionCustomTDPFastProperty(LegionCustomTDPFastSlider, this);
             legionCustomTDPPeak = new LegionCustomTDPPeakProperty(LegionCustomTDPPeakSlider, this);
             legionFanFullSpeed = new LegionFanFullSpeedProperty(LegionFanFullSpeedToggle, this);
+
+            // Fan curve graph properties
+            legionFanCurveGraph = new LegionFanCurveGraphProperty(this);
+            legionFanCurveGraph.SetGraphUpdateCallback(OnFanCurveUpdated);
+            legionCPUTemp = new LegionCPUTempProperty(this);
+            legionCPUTemp.SetTempUpdateCallback(OnCPUTempUpdated);
+            legionCPUFanRPM = new LegionCPUFanRPMProperty(this);
+            legionCPUFanRPM.SetRPMUpdateCallback(OnFanRPMUpdated);
+
             legionGyroEnabled = new LegionGyroEnabledProperty(null, this); // Gyro removed from UI, kept for backwards compatibility
             legionVibration = new LegionVibrationProperty(LegionVibrationComboBox, this);
             legionPowerLight = new LegionPowerLightProperty(LegionPowerLightToggle, this);
@@ -964,6 +976,9 @@ namespace XboxGamingBar
                 legionCustomTDPFast,
                 legionCustomTDPPeak,
                 legionFanFullSpeed,
+                legionFanCurveGraph,
+                legionCPUTemp,
+                legionCPUFanRPM,
                 legionGyroEnabled,
                 legionVibration,
                 legionPowerLight,
@@ -2633,6 +2648,12 @@ namespace XboxGamingBar
         private bool isStickDeadzonesExpanded = false;
         private bool isTouchpadVibrationExpanded = false;
         private bool isLightingExpanded = false;
+        private bool isFanCurveExpanded = false;
+        private bool fanCurveGraphInitialized = false;
+        private readonly Windows.UI.Xaml.Shapes.Ellipse[] fanCurvePoints = new Windows.UI.Xaml.Shapes.Ellipse[10];
+        private int[] currentFanCurveValues = new int[10];
+        private int draggedPointIndex = -1;
+        private bool isDraggingPoint = false;
         private bool isTDPExtrasExpanded = false;
         private bool isCPUExtrasExpanded = false;
         private bool isLoadingTDPLimits = false;
@@ -3479,6 +3500,294 @@ namespace XboxGamingBar
             }
         }
 
+        private void FanCurveExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isFanCurveExpanded = !isFanCurveExpanded;
+
+            if (FanCurveContent != null)
+            {
+                FanCurveContent.Visibility = isFanCurveExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (FanCurveExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                FanCurveExpandIcon.Glyph = isFanCurveExpanded ? "\uE70E" : "\uE70D";
+            }
+
+            // Initialize graph on first expand
+            if (isFanCurveExpanded && !fanCurveGraphInitialized)
+            {
+                InitializeFanCurveGraph();
+            }
+        }
+
+        #region Fan Curve Graph
+
+        private void InitializeFanCurveGraph()
+        {
+            if (FanCurveCanvas == null || fanCurveGraphInitialized)
+                return;
+
+            // Initialize with current values from property
+            currentFanCurveValues = legionFanCurveGraph.GetCurveValues();
+
+            // Create 10 control point ellipses
+            for (int i = 0; i < 10; i++)
+            {
+                var ellipse = new Windows.UI.Xaml.Shapes.Ellipse
+                {
+                    Width = 16,
+                    Height = 16,
+                    Fill = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 0, 170, 255)),
+                    Stroke = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.White),
+                    StrokeThickness = 2,
+                    Tag = i
+                };
+                fanCurvePoints[i] = ellipse;
+                FanCurveCanvas.Children.Add(ellipse);
+            }
+
+            fanCurveGraphInitialized = true;
+
+            // Draw the graph
+            DrawGridLines();
+            UpdateFanCurveGraph();
+        }
+
+        private void DrawGridLines()
+        {
+            if (FanCurveCanvas == null) return;
+
+            double width = FanCurveCanvas.ActualWidth;
+            double height = FanCurveCanvas.ActualHeight;
+
+            if (width <= 0 || height <= 0) return;
+
+            // Draw horizontal grid lines (at 25%, 50%, 75%)
+            for (int i = 1; i <= 3; i++)
+            {
+                double y = height - (height * i * 0.25);
+                var line = new Windows.UI.Xaml.Shapes.Line
+                {
+                    X1 = 0,
+                    Y1 = y,
+                    X2 = width,
+                    Y2 = y,
+                    Stroke = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.ColorHelper.FromArgb(50, 255, 255, 255)),
+                    StrokeThickness = 1
+                };
+                Canvas.SetZIndex(line, -1);
+                FanCurveCanvas.Children.Add(line);
+            }
+
+            // Draw vertical grid lines (at 20%, 40%, 60%, 80%)
+            for (int i = 1; i <= 4; i++)
+            {
+                double x = width * i * 0.2;
+                var line = new Windows.UI.Xaml.Shapes.Line
+                {
+                    X1 = x,
+                    Y1 = 0,
+                    X2 = x,
+                    Y2 = height,
+                    Stroke = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.ColorHelper.FromArgb(50, 255, 255, 255)),
+                    StrokeThickness = 1
+                };
+                Canvas.SetZIndex(line, -1);
+                FanCurveCanvas.Children.Add(line);
+            }
+        }
+
+        private void UpdateFanCurveGraph()
+        {
+            if (FanCurveCanvas == null || FanCurvePolyline == null || FanCurveFill == null)
+                return;
+
+            double width = FanCurveCanvas.ActualWidth;
+            double height = FanCurveCanvas.ActualHeight;
+
+            if (width <= 0 || height <= 0) return;
+
+            var points = new Windows.UI.Xaml.Media.PointCollection();
+            var fillPoints = new Windows.UI.Xaml.Media.PointCollection();
+
+            // Temperature thresholds: 10, 20, 30, 40, 50, 60, 70, 80, 90, 100°C
+            // Map to 0-100% of width (10-100°C range = 90°C)
+            for (int i = 0; i < 10; i++)
+            {
+                int temp = (i + 1) * 10; // 10, 20, 30...100°C
+                double x = (temp - 10.0) / 90.0 * width; // Normalize 10-100 to 0-width
+                double y = height - (currentFanCurveValues[i] / 100.0 * height);
+
+                points.Add(new Windows.Foundation.Point(x, y));
+                fillPoints.Add(new Windows.Foundation.Point(x, y));
+
+                // Position control point
+                if (fanCurvePoints[i] != null)
+                {
+                    Canvas.SetLeft(fanCurvePoints[i], x - 8); // Center the 16px ellipse
+                    Canvas.SetTop(fanCurvePoints[i], y - 8);
+                }
+            }
+
+            FanCurvePolyline.Points = points;
+
+            // Add bottom corners for fill polygon
+            fillPoints.Add(new Windows.Foundation.Point(width, height));
+            fillPoints.Add(new Windows.Foundation.Point(0, height));
+            FanCurveFill.Points = fillPoints;
+        }
+
+        private void UpdateTemperatureIndicator(int tempC)
+        {
+            if (TempIndicatorLine == null || FanCurveCanvas == null)
+                return;
+
+            double width = FanCurveCanvas.ActualWidth;
+            double height = FanCurveCanvas.ActualHeight;
+
+            if (width <= 0 || height <= 0) return;
+
+            // Clamp temp to 10-100 range
+            tempC = Math.Max(10, Math.Min(100, tempC));
+
+            // Calculate X position
+            double x = (tempC - 10.0) / 90.0 * width;
+
+            TempIndicatorLine.X1 = x;
+            TempIndicatorLine.X2 = x;
+            TempIndicatorLine.Y1 = 0;
+            TempIndicatorLine.Y2 = height;
+            TempIndicatorLine.Visibility = Visibility.Visible;
+        }
+
+        private void OnFanCurveUpdated(int[] values)
+        {
+            if (values == null || values.Length != 10) return;
+
+            currentFanCurveValues = values;
+            UpdateFanCurveGraph();
+        }
+
+        private void OnCPUTempUpdated(int tempC)
+        {
+            if (CurrentTempLabel != null)
+            {
+                CurrentTempLabel.Text = $"{tempC}°C";
+            }
+            UpdateTemperatureIndicator(tempC);
+        }
+
+        private void OnFanRPMUpdated(int rpm)
+        {
+            if (FanRPMLabel != null)
+            {
+                FanRPMLabel.Text = $"{rpm} RPM";
+            }
+        }
+
+        private void FanCurveCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (fanCurveGraphInitialized)
+            {
+                // Clear old grid lines
+                var toRemove = new System.Collections.Generic.List<Windows.UI.Xaml.UIElement>();
+                foreach (var child in FanCurveCanvas.Children)
+                {
+                    if (child is Windows.UI.Xaml.Shapes.Line line && line != TempIndicatorLine)
+                    {
+                        toRemove.Add(child);
+                    }
+                }
+                foreach (var item in toRemove)
+                {
+                    FanCurveCanvas.Children.Remove(item);
+                }
+
+                DrawGridLines();
+                UpdateFanCurveGraph();
+
+                // Re-update temp indicator if we have a value
+                if (legionCPUTemp != null && legionCPUTemp.Value > 0)
+                {
+                    UpdateTemperatureIndicator(legionCPUTemp.Value);
+                }
+            }
+        }
+
+        private void FanCurveCanvas_PointerPressed(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            if (FanCurveCanvas == null) return;
+
+            var point = e.GetCurrentPoint(FanCurveCanvas).Position;
+
+            // Find the closest control point
+            double minDist = double.MaxValue;
+            int closestIndex = -1;
+
+            for (int i = 0; i < 10; i++)
+            {
+                if (fanCurvePoints[i] == null) continue;
+
+                double px = Canvas.GetLeft(fanCurvePoints[i]) + 8;
+                double py = Canvas.GetTop(fanCurvePoints[i]) + 8;
+
+                double dist = Math.Sqrt(Math.Pow(point.X - px, 2) + Math.Pow(point.Y - py, 2));
+                if (dist < minDist && dist < 30) // 30px hit area
+                {
+                    minDist = dist;
+                    closestIndex = i;
+                }
+            }
+
+            if (closestIndex >= 0)
+            {
+                draggedPointIndex = closestIndex;
+                isDraggingPoint = true;
+                FanCurveCanvas.CapturePointer(e.Pointer);
+                e.Handled = true;
+            }
+        }
+
+        private void FanCurveCanvas_PointerMoved(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            if (!isDraggingPoint || draggedPointIndex < 0 || FanCurveCanvas == null)
+                return;
+
+            var point = e.GetCurrentPoint(FanCurveCanvas).Position;
+            double height = FanCurveCanvas.ActualHeight;
+
+            // Calculate new fan speed (invert Y since 0 is at top)
+            double fanSpeed = (1.0 - point.Y / height) * 100.0;
+            fanSpeed = Math.Max(0, Math.Min(100, fanSpeed));
+
+            // Update the value
+            currentFanCurveValues[draggedPointIndex] = (int)Math.Round(fanSpeed);
+
+            // Redraw the graph
+            UpdateFanCurveGraph();
+
+            e.Handled = true;
+        }
+
+        private void FanCurveCanvas_PointerReleased(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            if (isDraggingPoint && FanCurveCanvas != null)
+            {
+                FanCurveCanvas.ReleasePointerCapture(e.Pointer);
+
+                // Send the updated values to the helper (debounced)
+                legionFanCurveGraph.SetCurveValuesDebounced(currentFanCurveValues);
+            }
+
+            draggedPointIndex = -1;
+            isDraggingPoint = false;
+            e.Handled = true;
+        }
+
+        #endregion
+
         private void TDPExtrasExpandToggle_Click(object sender, RoutedEventArgs e)
         {
             isTDPExtrasExpanded = !isTDPExtrasExpanded;
@@ -4027,9 +4336,8 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Send a custom shortcut by first closing Game Bar, then focusing the previous app, then sending the shortcut.
-        /// Game Bar holds focus, so shortcuts won't work unless we close Game Bar and focus another window first.
-        /// Sequence: Win+G (close Game Bar) → Alt+Tab (focus previous app) → Custom shortcut
+        /// Send a custom shortcut by first closing Game Bar, then sending the shortcut.
+        /// Sequence: Win+G (close Game Bar) → Custom shortcut
         /// </summary>
         private async Task SendCustomShortcutAsync(string shortcut, string tileName)
         {
@@ -4042,13 +4350,6 @@ namespace XboxGamingBar
                 Logger.Debug("Win+G sent to close Game Bar");
 
                 // Wait for Game Bar to close
-                await Task.Delay(150);
-
-                // Alt+Tab to focus the most recent app (nothing is focused after Win+G)
-                await SendKeyboardShortcutViaHelper("Alt+Tab");
-                Logger.Debug("Alt+Tab sent to focus previous app");
-
-                // Wait for focus switch
                 await Task.Delay(150);
 
                 // Now send the actual shortcut

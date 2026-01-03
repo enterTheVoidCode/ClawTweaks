@@ -154,6 +154,7 @@
     <Compile Include="Data\LegionPerformanceModeProperty.cs" />
     <Compile Include="Data\LegionCustomTDPProperty.cs" />
     <Compile Include="Data\LegionFanFullSpeedProperty.cs" />
+    <Compile Include="Data\LegionFanCurveProperty.cs" />
     <Compile Include="Data\LegionGyroEnabledProperty.cs" />
     <Compile Include="Data\LegionVibrationProperty.cs" />
     <Compile Include="Data\LegionPowerLightProperty.cs" />
@@ -165,6 +166,7 @@
     <Compile Include="Data\LegionButtonM2Property.cs" />
     <Compile Include="Data\LegionButtonM3Property.cs" />
     <Compile Include="Data\LegionNintendoLayoutProperty.cs" />
+    <Compile Include="Data\LegionDesktopControlsProperty.cs" />
     <Compile Include="Data\LegionVibrationModeProperty.cs" />
     <Compile Include="Data\LegionControllerProfileProperty.cs" />
     <Compile Include="Data\LegionGyroTargetProperty.cs" />
@@ -182,6 +184,10 @@
     <Compile Include="Data\LegionJoystickAsMouseModeProperty.cs" />
     <Compile Include="Data\LegionJoystickMouseSensProperty.cs" />
     <Compile Include="Data\LegionGamepadMappingProperty.cs" />
+    <Compile Include="Data\ControllerBatteryLeftProperty.cs" />
+    <Compile Include="Data\ControllerBatteryRightProperty.cs" />
+    <Compile Include="Data\ControllerChargingLeftProperty.cs" />
+    <Compile Include="Data\ControllerChargingRightProperty.cs" />
     <Compile Include="Data\AutoTDPProperties.cs" />
     <Compile Include="Data\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />

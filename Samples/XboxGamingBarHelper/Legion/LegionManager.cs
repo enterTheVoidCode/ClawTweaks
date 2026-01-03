@@ -6,6 +6,7 @@ using System;
 using System.Linq;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.Core;
+using XboxGamingBarHelper.Performance;
 
 namespace XboxGamingBarHelper.Legion
 {
@@ -55,6 +56,7 @@ namespace XboxGamingBarHelper.Legion
         private int customTDPFast = 25;
         private int customTDPPeak = 35;
         private bool fanFullSpeed = false;
+        private ushort[] fanCurve = new ushort[10] { 44, 48, 55, 60, 71, 79, 87, 87, 100, 100 }; // Legion Go default curve
         private bool gyroEnabled = true;
         private int vibrationLevel = 2; // Medium
         private bool powerLightEnabled = true;
@@ -111,6 +113,9 @@ namespace XboxGamingBarHelper.Legion
         public readonly LegionCustomTDPFastProperty LegionCustomTDPFast;
         public readonly LegionCustomTDPPeakProperty LegionCustomTDPPeak;
         public readonly LegionFanFullSpeedProperty LegionFanFullSpeed;
+        public readonly LegionFanCurveDataProperty LegionFanCurveData;
+        public readonly LegionCPUCurrentTempProperty LegionCPUCurrentTemp;
+        public readonly LegionCPUFanRPMProperty LegionCPUFanRPM;
         public readonly LegionGyroEnabledProperty LegionGyroEnabled;
         public readonly LegionVibrationProperty LegionVibration;
         public readonly LegionPowerLightProperty LegionPowerLight;
@@ -163,6 +168,19 @@ namespace XboxGamingBarHelper.Legion
         public readonly ControllerChargingLeftProperty ControllerChargingLeft;
         public readonly ControllerChargingRightProperty ControllerChargingRight;
 
+        // Reference to PerformanceManager for LibreHardwareMonitor sensor access
+        private PerformanceManager performanceManager;
+
+        /// <summary>
+        /// Sets the PerformanceManager reference for CPU temperature sensor access.
+        /// Called from Program.cs after both managers are initialized.
+        /// </summary>
+        public void SetPerformanceManager(PerformanceManager manager)
+        {
+            performanceManager = manager;
+            Logger.Info($"PerformanceManager reference set, CPUTemperature sensor available: {manager?.CPUTemperature != null}");
+        }
+
         public LegionManager(AppServiceConnection connection) : base(connection)
         {
             Logger.Info("Initializing Legion Manager...");
@@ -185,6 +203,23 @@ namespace XboxGamingBarHelper.Legion
             LegionCustomTDPFast = new LegionCustomTDPFastProperty(customTDPFast, this);
             LegionCustomTDPPeak = new LegionCustomTDPPeakProperty(customTDPPeak, this);
             LegionFanFullSpeed = new LegionFanFullSpeedProperty(fanFullSpeed, this);
+
+            // Initialize fan curve from device, format as comma-separated string
+            var curveResult = wmiService?.GetFanCurve();
+            if (curveResult.HasValue && curveResult.Value.Success && curveResult.Value.FanSpeeds?.Length == 10)
+            {
+                fanCurve = curveResult.Value.FanSpeeds;
+                Logger.Info($"Fan curve loaded from device: {string.Join(",", fanCurve)}");
+            }
+            else
+            {
+                Logger.Warn($"Failed to load fan curve from device (wmiService={wmiService != null}, hasValue={curveResult.HasValue}, success={curveResult?.Success}, message={curveResult?.Message}), using defaults: {string.Join(",", fanCurve)}");
+            }
+            string fanCurveString = string.Join(",", fanCurve.Select(v => (int)v));
+            LegionFanCurveData = new LegionFanCurveDataProperty(fanCurveString, this);
+            LegionCPUCurrentTemp = new LegionCPUCurrentTempProperty(0, this);
+            LegionCPUFanRPM = new LegionCPUFanRPMProperty(0, this);
+
             LegionGyroEnabled = new LegionGyroEnabledProperty(gyroEnabled, this);
             LegionVibration = new LegionVibrationProperty(vibrationLevel, this);
             LegionPowerLight = new LegionPowerLightProperty(powerLightEnabled, this);
@@ -254,6 +289,18 @@ namespace XboxGamingBarHelper.Legion
                 LegionCustomTDPPeak.SetValueSilent(customTDPPeak);
                 LegionFanFullSpeed.SetValueSilent(fanFullSpeed);
             }
+
+            // Enable fan curve device writes after startup grace period
+            // This prevents the widget's sync from overwriting the device's fan curve on startup
+            var fanCurveEnableTimer = new System.Timers.Timer(STARTUP_GRACE_PERIOD_MS);
+            fanCurveEnableTimer.Elapsed += (s, e) =>
+            {
+                fanCurveEnableTimer.Stop();
+                fanCurveEnableTimer.Dispose();
+                LegionFanCurveData?.EnableDeviceWrites();
+            };
+            fanCurveEnableTimer.AutoReset = false;
+            fanCurveEnableTimer.Start();
 
             Logger.Info($"Legion Manager initialized. Legion Go detected: {isLegionGoDetected}");
         }
@@ -983,6 +1030,83 @@ namespace XboxGamingBarHelper.Legion
             catch (Exception ex)
             {
                 Logger.Error($"Error setting fan full speed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sets the fan curve from a comma-separated string of 10 values.
+        /// Only applies when in Custom TDP mode (255).
+        /// </summary>
+        public void SetFanCurveFromString(string curveData)
+        {
+            if (wmiService == null)
+            {
+                Logger.Warn("Cannot set fan curve: WMI service not available");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(curveData))
+            {
+                Logger.Warn("Empty fan curve data received");
+                return;
+            }
+
+            try
+            {
+                var parts = curveData.Split(',');
+                if (parts.Length != 10)
+                {
+                    Logger.Warn($"Invalid fan curve data: expected 10 values, got {parts.Length}");
+                    return;
+                }
+
+                for (int i = 0; i < 10; i++)
+                {
+                    if (int.TryParse(parts[i].Trim(), out int value))
+                    {
+                        fanCurve[i] = (ushort)Math.Max(0, Math.Min(100, value));
+                    }
+                    else
+                    {
+                        Logger.Warn($"Invalid fan curve value at index {i}: {parts[i]}");
+                        return;
+                    }
+                }
+
+                Logger.Info($"Fan curve parsed: [{string.Join(", ", fanCurve)}]%");
+
+                // Apply the fan curve (it's saved on the controller)
+                ApplyFanCurve();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error parsing fan curve data: {ex.Message}");
+            }
+        }
+
+        private void ApplyFanCurve()
+        {
+            if (wmiService == null)
+            {
+                Logger.Warn("Cannot apply fan curve: WMI service not available");
+                return;
+            }
+
+            try
+            {
+                var result = wmiService.SetFanCurve(fanCurve);
+                if (result.Success)
+                {
+                    Logger.Info($"Fan curve applied: [{string.Join(", ", fanCurve)}]%");
+                }
+                else
+                {
+                    Logger.Error($"Failed to apply fan curve: {result.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error applying fan curve: {ex.Message}");
             }
         }
 
@@ -1935,21 +2059,40 @@ namespace XboxGamingBarHelper.Legion
         }
 
         /// <summary>
-        /// Reads current CPU fan speed from device
+        /// Reads current CPU fan speed and temperature from device, syncs to widget properties
         /// </summary>
         private void RefreshFanSpeed()
         {
             try
             {
+                // Read fan RPM
                 var fanResult = wmiService.GetCpuFanSpeed();
                 if (fanResult.Success && fanResult.Result.HasValue)
                 {
                     cpuFanSpeed = fanResult.Result.Value;
+                    Logger.Info($"Fan RPM read: {cpuFanSpeed}, property exists: {LegionCPUFanRPM != null}");
+                    LegionCPUFanRPM?.UpdateRPM(cpuFanSpeed);
+                }
+                else
+                {
+                    Logger.Info($"GetCpuFanSpeed failed: {fanResult.Message}");
+                }
+
+                // Read CPU temperature from LibreHardwareMonitor sensor (more reliable than WMI)
+                if (performanceManager?.CPUTemperature != null)
+                {
+                    int cpuTemp = (int)performanceManager.CPUTemperature.Value;
+                    Logger.Info($"CPU Temp from LHM: {cpuTemp}°C, property exists: {LegionCPUCurrentTemp != null}");
+                    LegionCPUCurrentTemp?.UpdateTemp(cpuTemp);
+                }
+                else
+                {
+                    Logger.Info("CPUTemperature sensor not available from PerformanceManager");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Debug($"Error reading fan speed: {ex.Message}");
+                Logger.Debug($"Error reading fan/temp sensors: {ex.Message}");
             }
         }
 

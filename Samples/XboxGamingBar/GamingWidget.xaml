@@ -4079,6 +4079,117 @@
                             </Grid>
                         </Border>
 
+                        <!-- Fan Curve Graph Card -->
+                        <Border x:Name="LegionFanCurveCard" Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with expand toggle -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Fan Curve" Style="{StaticResource CardTitleStyle}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Fan: " Style="{StaticResource CardCaptionStyle}"/>
+                                            <TextBlock x:Name="FanRPMLabel" Text="-- RPM" Style="{StaticResource CardCaptionStyle}"/>
+                                        </StackPanel>
+                                        <TextBlock Text="Only applies when using Custom TDP mode"
+                                                   FontSize="10" Foreground="#888888" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="FanCurveExpandToggle"
+                                                  Grid.Column="2"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="FanCurveExpandToggle_Click">
+                                        <FontIcon x:Name="FanCurveExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <!-- Expandable graph content -->
+                                <StackPanel x:Name="FanCurveContent" Margin="0,12,0,0" Visibility="Collapsed">
+                                    <!-- Y-axis label -->
+                                    <TextBlock Text="Fan %" FontSize="11" Foreground="#999999" Margin="0,0,0,4"/>
+
+                                    <!-- Graph area -->
+                                    <Grid Height="150">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="30"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Y-axis labels -->
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Stretch">
+                                            <TextBlock Text="100" FontSize="10" Foreground="#666666" VerticalAlignment="Top"/>
+                                            <TextBlock Text="75" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>
+                                            <TextBlock Text="50" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>
+                                            <TextBlock Text="25" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>
+                                            <TextBlock Text="0" FontSize="10" Foreground="#666666" VerticalAlignment="Bottom"/>
+                                        </StackPanel>
+
+                                        <!-- Canvas for drawing the graph -->
+                                        <Canvas x:Name="FanCurveCanvas"
+                                                Grid.Column="1"
+                                                Background="#1A1A1A"
+                                                PointerPressed="FanCurveCanvas_PointerPressed"
+                                                PointerMoved="FanCurveCanvas_PointerMoved"
+                                                PointerReleased="FanCurveCanvas_PointerReleased"
+                                                PointerCaptureLost="FanCurveCanvas_PointerReleased"
+                                                SizeChanged="FanCurveCanvas_SizeChanged">
+                                            <!-- Grid lines drawn in code-behind -->
+
+                                            <!-- Temperature indicator line (vertical dashed line) -->
+                                            <Line x:Name="TempIndicatorLine"
+                                                  Y1="0" Y2="150"
+                                                  Stroke="#FF8800"
+                                                  StrokeThickness="2"
+                                                  StrokeDashArray="4,2"
+                                                  Visibility="Collapsed"/>
+
+                                            <!-- Fill under the curve -->
+                                            <Polygon x:Name="FanCurveFill"
+                                                     Fill="#3300AAFF"
+                                                     Stroke="Transparent"/>
+
+                                            <!-- The curve line -->
+                                            <Polyline x:Name="FanCurvePolyline"
+                                                      Stroke="#00AAFF"
+                                                      StrokeThickness="2"
+                                                      StrokeLineJoin="Round"/>
+
+                                            <!-- Control points are created in code-behind -->
+                                        </Canvas>
+                                    </Grid>
+
+                                    <!-- X-axis labels -->
+                                    <Grid Margin="30,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="10°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="1" Text="30°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="2" Text="55°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="80°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="4" Text="100°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Right"/>
+                                    </Grid>
+
+                                    <!-- Current temperature display -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" HorizontalAlignment="Center">
+                                        <TextBlock Text="CPU: " FontSize="12" Foreground="#999999"/>
+                                        <TextBlock x:Name="CurrentTempLabel" Text="--°C" FontSize="12" Foreground="#FF8800" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Battery Section Header -->
                         <TextBlock Text="BATTERY" Style="{StaticResource SectionHeaderStyle}"/>
 

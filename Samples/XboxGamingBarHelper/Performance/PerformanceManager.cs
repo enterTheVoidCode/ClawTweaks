@@ -118,6 +118,36 @@ namespace XboxGamingBarHelper.Performance
         public BatteryRemainingTimeSensor BatteryRemainingTime { get; }
         public BatteryDischargeRateSensor BatteryDischargeRate { get; }
         public BatteryChargeRateSensor BatteryChargeRate { get; }
+        public BatteryRemainingCapacitySensor BatteryRemainingCapacity { get; }
+        public BatteryFullChargeCapacitySensor BatteryFullChargeCapacity { get; }
+
+        /// <summary>
+        /// Calculated time to full charge in seconds. Returns -1 if not charging or cannot calculate.
+        /// </summary>
+        public float BatteryTimeToFull
+        {
+            get
+            {
+                // Only calculate when charging (charge rate > 0)
+                if (BatteryChargeRate.Value <= 0)
+                    return -1;
+
+                // Need remaining and full capacity to calculate
+                if (BatteryRemainingCapacity.Value <= 0 || BatteryFullChargeCapacity.Value <= 0)
+                    return -1;
+
+                // Already full
+                if (BatteryRemainingCapacity.Value >= BatteryFullChargeCapacity.Value)
+                    return 0;
+
+                // Time to Full (hours) = (Full Capacity - Remaining Capacity) Wh / Charge Rate W
+                float remainingToCharge = BatteryFullChargeCapacity.Value - BatteryRemainingCapacity.Value;
+                float timeHours = remainingToCharge / BatteryChargeRate.Value;
+
+                // Return in seconds for consistency with BatteryRemainingTime
+                return timeHours * 3600;
+            }
+        }
 
         public NetworkDownloadSensor NetworkDownload { get; }
         public NetworkUploadSensor NetworkUpload { get; }
@@ -384,6 +414,8 @@ namespace XboxGamingBarHelper.Performance
             BatteryRemainingTime = new BatteryRemainingTimeSensor();
             BatteryDischargeRate = new BatteryDischargeRateSensor();
             BatteryChargeRate = new BatteryChargeRateSensor();
+            BatteryRemainingCapacity = new BatteryRemainingCapacitySensor();
+            BatteryFullChargeCapacity = new BatteryFullChargeCapacitySensor();
             NetworkDownload = new NetworkDownloadSensor();
             NetworkUpload = new NetworkUploadSensor();
 
@@ -407,6 +439,8 @@ namespace XboxGamingBarHelper.Performance
                 BatteryRemainingTime,
                 BatteryDischargeRate,
                 BatteryChargeRate,
+                BatteryRemainingCapacity,
+                BatteryFullChargeCapacity,
                 NetworkDownload,
                 NetworkUpload,
             };
@@ -558,6 +592,51 @@ namespace XboxGamingBarHelper.Performance
             Logger.Info($"PawnIO driver installation status refreshed: {pawnIOInstalled}");
         }
 
+        /// <summary>
+        /// Forces a refresh of all hardware sensors, particularly useful after resume from hibernation.
+        /// LibreHardwareMonitor caches values that can become stale after hibernation.
+        /// </summary>
+        public void ForceRefreshHardware()
+        {
+            if (computer == null)
+                return;
+
+            Logger.Info("ForceRefreshHardware: Forcing refresh of all hardware sensors after resume");
+
+            try
+            {
+                // Force update all hardware
+                foreach (IHardware hardware in computer.Hardware)
+                {
+                    hardware.Update();
+
+                    // Also update sub-hardware (some sensors are nested)
+                    foreach (IHardware subHardware in hardware.SubHardware)
+                    {
+                        subHardware.Update();
+                    }
+
+                    // Log battery values for debugging
+                    if (hardware.HardwareType == HardwareType.Battery)
+                    {
+                        foreach (ISensor sensor in hardware.Sensors)
+                        {
+                            Logger.Info($"ForceRefreshHardware: Battery sensor '{sensor.Name}' = {sensor.Value}");
+                        }
+                    }
+                }
+
+                // Accept visitor to ensure all values are propagated
+                computer.Accept(updateVisitor);
+
+                Logger.Info("ForceRefreshHardware: Hardware refresh complete");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ForceRefreshHardware: Error refreshing hardware: {ex.Message}");
+            }
+        }
+
         public override void Update()
         {
             base.Update();
@@ -569,7 +648,7 @@ namespace XboxGamingBarHelper.Performance
                 var setMinResult = RyzenAdj.set_min_gfxclk_freq(ryzenAdjHandle, 1000);
                 //var nan2 = float.NaN;
                 //var setResult = RyzenAdj.set_gfx_clk(ryzenAdjHandle, (uint)nan2);
-                
+
                 Logger.Info($"set_max={setMaxResult} set_min={setMinResult} set={"123"}");
             }*/
 
