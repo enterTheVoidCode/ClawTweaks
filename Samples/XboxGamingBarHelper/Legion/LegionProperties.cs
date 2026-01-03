@@ -274,13 +274,32 @@ namespace XboxGamingBarHelper.Legion
             _lastSentValue = initialValue; // Track initial value to avoid re-sending same curve
         }
 
+        // Default fan curve string for comparison
+        private const string DEFAULT_FAN_CURVE = "44,48,55,60,71,79,87,87,100,100";
+
         /// <summary>
-        /// Call this after initial sync is complete to enable device writes
+        /// Call this after initial sync is complete to enable device writes.
+        /// Only pushes the device-read value to widget if it's NOT the default curve.
+        /// The WMI Fan_Get_Table typically returns defaults; actual custom curves may be stored elsewhere.
         /// </summary>
         public void EnableDeviceWrites()
         {
+            // Only push to widget if we got a NON-default curve from the device
+            // If WMI returned defaults, let the widget keep its own state
+            bool isDefaultCurve = _lastSentValue == DEFAULT_FAN_CURVE;
+
+            if (!isDefaultCurve && !string.IsNullOrEmpty(_lastSentValue))
+            {
+                Logger.Info($"Fan curve device writes enabled, pushing non-default curve to widget: {_lastSentValue}");
+                SetValue(_lastSentValue);
+            }
+            else
+            {
+                Logger.Info($"Fan curve device writes enabled, NOT pushing default curve to widget (device returned defaults)");
+            }
+
+            // Now enable device writes for future changes
             _initialized = true;
-            Logger.Info("Fan curve device writes enabled");
         }
 
         protected override void NotifyPropertyChanged(string propertyName = "")
@@ -314,15 +333,9 @@ namespace XboxGamingBarHelper.Legion
         /// </summary>
         public void UpdateTemp(int tempC)
         {
-            Logger.Info($"UpdateTemp called with {tempC}°C (current: {Value}°C)");
             if (tempC != Value)
             {
-                Logger.Info($"Sending CPU temp {tempC}°C to widget via SetValue");
                 SetValue(tempC);
-            }
-            else
-            {
-                Logger.Info($"CPU temp unchanged at {tempC}°C, skipping SetValue");
             }
         }
     }
@@ -346,6 +359,24 @@ namespace XboxGamingBarHelper.Legion
             {
                 SetValue(rpm);
             }
+        }
+    }
+
+    /// <summary>
+    /// Widget sets this property to indicate when the fan curve graph is visible.
+    /// The helper uses this to know when to push CPU temp and fan RPM updates.
+    /// </summary>
+    internal class LegionFanCurveVisibleProperty : HelperProperty<bool, LegionManager>
+    {
+        public LegionFanCurveVisibleProperty(bool initialValue, LegionManager inManager)
+            : base(initialValue, null, Function.LegionFanCurveVisible, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Manager?.SetFanCurveVisible(Value);
         }
     }
 

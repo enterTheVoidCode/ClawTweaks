@@ -134,15 +134,19 @@ namespace XboxGamingBarHelper.Performance
 
                 // Need remaining and full capacity to calculate
                 if (BatteryRemainingCapacity.Value <= 0 || BatteryFullChargeCapacity.Value <= 0)
+                {
+                    Logger.Debug($"BatteryTimeToFull: Missing capacity values - Remaining={BatteryRemainingCapacity.Value}, Full={BatteryFullChargeCapacity.Value}");
                     return -1;
+                }
 
                 // Already full
                 if (BatteryRemainingCapacity.Value >= BatteryFullChargeCapacity.Value)
                     return 0;
 
-                // Time to Full (hours) = (Full Capacity - Remaining Capacity) Wh / Charge Rate W
-                float remainingToCharge = BatteryFullChargeCapacity.Value - BatteryRemainingCapacity.Value;
-                float timeHours = remainingToCharge / BatteryChargeRate.Value;
+                // Time to Full (hours) = (Full Capacity - Remaining Capacity) mWh / 1000 / Charge Rate W
+                // Capacity sensors report in mWh, charge rate is in W
+                float remainingToChargeWh = (BatteryFullChargeCapacity.Value - BatteryRemainingCapacity.Value) / 1000f;
+                float timeHours = remainingToChargeWh / BatteryChargeRate.Value;
 
                 // Return in seconds for consistency with BatteryRemainingTime
                 return timeHours * 3600;
@@ -390,6 +394,16 @@ namespace XboxGamingBarHelper.Performance
                     foreach (ISensor sensor in hardware.Sensors)
                     {
                         Logger.Info($"  CPU Sensor: Name='{sensor.Name}', Type={sensor.SensorType}, Value={sensor.Value}");
+                    }
+                }
+
+                // Log all sensors for Battery to diagnose time-to-full calculation
+                if (hardware.HardwareType == HardwareType.Battery)
+                {
+                    hardware.Update();
+                    foreach (ISensor sensor in hardware.Sensors)
+                    {
+                        Logger.Info($"  Battery Sensor: Name='{sensor.Name}', Type={sensor.SensorType}, Value={sensor.Value}");
                     }
                 }
             }

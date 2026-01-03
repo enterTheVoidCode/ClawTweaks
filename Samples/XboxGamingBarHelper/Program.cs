@@ -349,6 +349,7 @@ namespace XboxGamingBarHelper
                 legionManager.LegionFanCurveData,
                 legionManager.LegionCPUCurrentTemp,
                 legionManager.LegionCPUFanRPM,
+                legionManager.LegionFanCurveVisible,
                 legionManager.LegionGyroEnabled,
                 legionManager.LegionVibration,
                 legionManager.LegionPowerLight,

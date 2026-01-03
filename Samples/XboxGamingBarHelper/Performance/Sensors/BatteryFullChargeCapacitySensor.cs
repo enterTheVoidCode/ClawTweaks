@@ -4,7 +4,7 @@ namespace XboxGamingBarHelper.Performance.Sensors
 {
     internal class BatteryFullChargeCapacitySensor : HardwareSensor
     {
-        public BatteryFullChargeCapacitySensor() : base("Full Charged Capacity", HardwareType.Battery, SensorType.Energy)
+        public BatteryFullChargeCapacitySensor() : base("Fully-Charged Capacity", HardwareType.Battery, SensorType.Energy)
         {
         }
     }

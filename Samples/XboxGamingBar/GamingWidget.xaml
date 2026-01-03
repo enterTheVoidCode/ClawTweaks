@@ -4142,14 +4142,6 @@
                                                 SizeChanged="FanCurveCanvas_SizeChanged">
                                             <!-- Grid lines drawn in code-behind -->
 
-                                            <!-- Temperature indicator line (vertical dashed line) -->
-                                            <Line x:Name="TempIndicatorLine"
-                                                  Y1="0" Y2="150"
-                                                  Stroke="#FF8800"
-                                                  StrokeThickness="2"
-                                                  StrokeDashArray="4,2"
-                                                  Visibility="Collapsed"/>
-
                                             <!-- Fill under the curve -->
                                             <Polygon x:Name="FanCurveFill"
                                                      Fill="#3300AAFF"
@@ -4160,6 +4152,22 @@
                                                       Stroke="#00AAFF"
                                                       StrokeThickness="2"
                                                       StrokeLineJoin="Round"/>
+
+                                            <!-- Temperature indicator line (vertical dashed line) - on top of curve -->
+                                            <Line x:Name="TempIndicatorLine"
+                                                  Y1="0" Y2="150"
+                                                  Stroke="#FF8800"
+                                                  StrokeThickness="2"
+                                                  StrokeDashArray="4,2"
+                                                  Visibility="Collapsed"/>
+
+                                            <!-- RPM indicator line (horizontal dashed line) - on top of curve -->
+                                            <Line x:Name="RPMIndicatorLine"
+                                                  X1="0" X2="300"
+                                                  Stroke="#00FF88"
+                                                  StrokeThickness="2"
+                                                  StrokeDashArray="4,2"
+                                                  Visibility="Collapsed"/>
 
                                             <!-- Control points are created in code-behind -->
                                         </Canvas>
@@ -4174,11 +4182,11 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="10°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="1" Text="30°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="2" Text="55°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="3" Text="80°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Right"/>
-                                        <TextBlock Grid.Column="4" Text="100°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="0" Text="46°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="1" Text="52°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="2" Text="60°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="69°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="4" Text="75°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Right"/>
                                     </Grid>
 
                                     <!-- Current temperature display -->

@@ -97,6 +97,10 @@
         LegionCustomTDPFast,        // int - Fast TDP (SPPL) in watts
         LegionCustomTDPPeak,        // int - Peak TDP (FPPT) in watts
         LegionFanFullSpeed,         // bool - fan full speed mode
+        LegionFanCurveData,         // string - fan curve data "v0,v1,v2,...,v9" (10 values 0-100)
+        LegionCPUCurrentTemp,       // int - current CPU temperature in Celsius (read-only from helper)
+        LegionCPUFanRPM,            // int - current CPU fan speed in RPM (read-only from helper)
+        LegionFanCurveVisible,      // bool - widget sets this when fan curve is expanded and visible
         LegionGyroEnabled,          // bool - gyroscope on/off (WIP)
         LegionVibration,            // int - vibration level (0=Off, 1=Weak, 2=Medium, 3=Strong)
         LegionPowerLight,           // bool - power button LED on/off
@@ -142,6 +146,12 @@
 
         // Legion Go Touchpad Vibration (GLOBAL setting)
         LegionTouchpadVibration,        // bool - on/off toggle for touchpad haptics
+
+        // Controller Battery (read-only, from HID input reports)
+        ControllerBatteryLeft,          // int - left controller battery (1-100, or -1 if unavailable)
+        ControllerBatteryRight,         // int - right controller battery (1-100, or -1 if unavailable)
+        ControllerChargingLeft,         // bool - whether left controller is charging
+        ControllerChargingRight,        // bool - whether right controller is charging
 
         // AutoTDP functions
         AutoTDPEnabled,             // bool - enable/disable AutoTDP
