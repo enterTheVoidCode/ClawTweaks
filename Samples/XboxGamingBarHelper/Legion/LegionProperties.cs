@@ -261,6 +261,94 @@ namespace XboxGamingBarHelper.Legion
         }
     }
 
+    // Fan curve data property - manages all 10 fan speed values as a comma-separated string
+    internal class LegionFanCurveDataProperty : HelperProperty<string, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private bool _initialized = false;
+        private string _lastSentValue = null;
+
+        public LegionFanCurveDataProperty(string initialValue, LegionManager inManager)
+            : base(initialValue, null, Function.LegionFanCurveData, inManager)
+        {
+            _lastSentValue = initialValue; // Track initial value to avoid re-sending same curve
+        }
+
+        /// <summary>
+        /// Call this after initial sync is complete to enable device writes
+        /// </summary>
+        public void EnableDeviceWrites()
+        {
+            _initialized = true;
+            Logger.Info("Fan curve device writes enabled");
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionFanCurveData changed to {Value}, initialized={_initialized}, lastSent={_lastSentValue}");
+
+            // Only write to device if:
+            // 1. Initialized (not during startup sync)
+            // 2. Value is different from last sent (avoid redundant WMI calls)
+            if (_initialized && Value != _lastSentValue)
+            {
+                _lastSentValue = Value;
+                Manager?.SetFanCurveFromString(Value);
+            }
+        }
+    }
+
+    // CPU temperature property - read-only, updated by LegionManager periodically
+    internal class LegionCPUCurrentTempProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionCPUCurrentTempProperty(int initialValue, LegionManager inManager)
+            : base(initialValue, null, Function.LegionCPUCurrentTemp, inManager)
+        {
+        }
+
+        /// <summary>
+        /// Called by LegionManager to update the temperature and sync to widget
+        /// </summary>
+        public void UpdateTemp(int tempC)
+        {
+            Logger.Info($"UpdateTemp called with {tempC}°C (current: {Value}°C)");
+            if (tempC != Value)
+            {
+                Logger.Info($"Sending CPU temp {tempC}°C to widget via SetValue");
+                SetValue(tempC);
+            }
+            else
+            {
+                Logger.Info($"CPU temp unchanged at {tempC}°C, skipping SetValue");
+            }
+        }
+    }
+
+    // CPU fan RPM property - read-only, updated by LegionManager periodically
+    internal class LegionCPUFanRPMProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionCPUFanRPMProperty(int initialValue, LegionManager inManager)
+            : base(initialValue, null, Function.LegionCPUFanRPM, inManager)
+        {
+        }
+
+        /// <summary>
+        /// Called by LegionManager to update the RPM and sync to widget
+        /// </summary>
+        public void UpdateRPM(int rpm)
+        {
+            if (rpm != Value)
+            {
+                SetValue(rpm);
+            }
+        }
+    }
+
     // Gyro control (WIP)
     internal class LegionGyroEnabledProperty : HelperProperty<bool, LegionManager>
     {

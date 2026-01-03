@@ -367,6 +367,7 @@
     <Compile Include="AMD\Settings\AMDDisplayCustomColorSetting.cs" />
     <Compile Include="Core\HelperProperties.cs" />
     <Compile Include="Core\HelperProperty.cs" />
+    <Compile Include="Core\HotkeyManager.cs" />
     <Compile Include="Core\IManager.cs" />
     <Compile Include="Core\Manager.cs" />
     <Compile Include="OnScreenDisplay\IOnScreenDisplayProvider.cs" />
@@ -380,7 +381,9 @@
     <Compile Include="Performance\RyzenAdj.cs" />
     <Compile Include="Performance\Sensors\BatteryChargeRateSensor.cs" />
     <Compile Include="Performance\Sensors\BatteryDischargeRateSensor.cs" />
+    <Compile Include="Performance\Sensors\BatteryFullChargeCapacitySensor.cs" />
     <Compile Include="Performance\Sensors\BatteryLevelSensor.cs" />
+    <Compile Include="Performance\Sensors\BatteryRemainingCapacitySensor.cs" />
     <Compile Include="Performance\Sensors\BatteryRemainingTimeSensor.cs" />
     <Compile Include="Performance\Sensors\CPUClockSensor.cs" />
     <Compile Include="Performance\Sensors\CPUTemperatureSensor.cs" />
@@ -424,6 +427,7 @@
     </Compile>
     <Compile Include="RTSS\OSDItem.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemBattery.cs" />
+    <Compile Include="RTSS\OSDItems\OSDItemControllerBattery.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemCPU.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemAutoTDP.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemFan.cs" />

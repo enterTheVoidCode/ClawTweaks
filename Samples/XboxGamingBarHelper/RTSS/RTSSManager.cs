@@ -31,6 +31,7 @@ namespace XboxGamingBarHelper.RTSS
         private readonly OSDItemCPU osdItemCPU;
         private readonly OSDItemGPU osdItemGPU;
         private readonly OSDItemVRAM osdItemVRAM;
+        private readonly OSDItemControllerBattery osdItemControllerBattery;
 
         private readonly RTSSInstalledProperty rtssInstalled;
         public RTSSInstalledProperty RTSSInstalled
@@ -85,7 +86,7 @@ namespace XboxGamingBarHelper.RTSS
         {
             { 1, new HashSet<string> { "Time", "FPS", "Battery" } },
             { 2, new HashSet<string> { "Time", "FPS", "Battery", "CPU", "GPU", "Fan", "FrametimeGraph" } },
-            { 3, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "FrametimeGraph" } }
+            { 3, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "FrametimeGraph" } }
         };
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
         {
@@ -97,6 +98,7 @@ namespace XboxGamingBarHelper.RTSS
         // Layout settings
         private int osdTextSize = 100;        // Percentage: 50=Small, 100=Medium, 150=Large, 200=X-Large
         private string osdTextColor = "FFFFFF";
+        private string osdLabelColor = "DEFAULT";  // DEFAULT = use item-specific colors, or hex color code
         private string osdBackgroundColor = "80000000";
 
         // Per-level columns (Basic=3, Detailed=1, Full=1)
@@ -110,9 +112,9 @@ namespace XboxGamingBarHelper.RTSS
         // Per-level item order
         private Dictionary<int, List<string>> osdLevelOrder = new Dictionary<int, List<string>>
         {
-            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 2, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 3, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
+            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 2, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 3, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
         };
 
         // Per-level, per-item label colors (e.g., osdItemLabelColors[1]["CPU"] = "FF0000")
@@ -137,12 +139,14 @@ namespace XboxGamingBarHelper.RTSS
             osdItemCPU = new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature);
             osdItemGPU = new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature);
             osdItemVRAM = new OSDItemVRAM(performanceManager.GPUMemoryUsed, performanceManager.GPUMemoryFree, performanceManager.GPUMemoryClock);
+            osdItemControllerBattery = new OSDItemControllerBattery(null, null, null, null);
             osdItems = new OSDItem[]
             {
                 new OSDItemTime(),
                 new OSDItemAppName(),
                 new OSDItemFPS(),
-                new OSDItemBattery(performanceManager.BatteryLevel, performanceManager.BatteryDischargeRate, performanceManager.BatteryChargeRate, performanceManager.BatteryRemainingTime),
+                new OSDItemBattery(performanceManager.BatteryLevel, performanceManager.BatteryDischargeRate, performanceManager.BatteryChargeRate, performanceManager.BatteryRemainingTime, () => performanceManager.BatteryTimeToFull),
+                osdItemControllerBattery,
                 osdItemCPU,
                 osdItemGPU,
                 osdItemVRAM,
@@ -356,6 +360,11 @@ namespace XboxGamingBarHelper.RTSS
                         osdTextColor = value;
                         Logger.Debug($"OSD TextColor: {value}");
                     }
+                    else if (key == "LabelColor")
+                    {
+                        osdLabelColor = value;
+                        Logger.Debug($"OSD LabelColor: {value}");
+                    }
                     else if (key == "BackgroundColor")
                     {
                         osdBackgroundColor = value;
@@ -478,6 +487,17 @@ namespace XboxGamingBarHelper.RTSS
         {
             osdItemAutoTDP.SetAutoTDPManager(autoTDPManager);
             Logger.Info("AutoTDPManager reference set for RTSS OSD AutoTDP status");
+        }
+
+        /// <summary>
+        /// Sets the controller battery callbacks for the Controller Battery OSD item.
+        /// Must be called after LegionManager is initialized.
+        /// </summary>
+        public void SetControllerBatteryCallbacks(Func<int> getLeftBattery, Func<int> getRightBattery,
+            Func<bool> getLeftCharging, Func<bool> getRightCharging)
+        {
+            osdItemControllerBattery.SetCallbacks(getLeftBattery, getRightBattery, getLeftCharging, getRightCharging);
+            Logger.Info("Controller battery callbacks set for RTSS OSD");
         }
 
         public override void Update()
@@ -653,12 +673,14 @@ namespace XboxGamingBarHelper.RTSS
                 if (item == null)
                     continue;
 
-                // Apply custom label color if configured for this level and item
-                if (osdItemLabelColors.TryGetValue(onScreenDisplayLevel, out var levelColors) &&
-                    levelColors.TryGetValue(itemId, out var labelColor) &&
-                    !string.IsNullOrEmpty(labelColor) && labelColor != "DEFAULT")
+                // Apply global label color if set (not DEFAULT)
+                if (!string.IsNullOrEmpty(osdLabelColor) && osdLabelColor != "DEFAULT")
                 {
-                    item.SetLabelColor(labelColor);
+                    item.SetLabelColor(osdLabelColor);
+                }
+                else
+                {
+                    item.SetLabelColor(null);  // Reset to item's default color
                 }
 
                 var osdItemString = item.GetOSDString(onScreenDisplayLevel);

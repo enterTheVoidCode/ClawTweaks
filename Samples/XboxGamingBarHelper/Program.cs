@@ -71,6 +71,11 @@ namespace XboxGamingBarHelper
         /// </summary>
         private static InputInjector inputInjector;
 
+        /// <summary>
+        /// Hotkey manager for global keyboard shortcuts (Ctrl+Shift+D for Desktop Controls)
+        /// </summary>
+        private static HotkeyManager hotkeyManager;
+
         static async Task Main(string[] args)
         {
             // Ensure only one instance of the helper runs at a time
@@ -208,6 +213,9 @@ namespace XboxGamingBarHelper
             // Set LegionManager reference in PerformanceManager for WMI TDP support
             performanceManager.SetLegionManager(legionManager);
 
+            // Set PerformanceManager reference in LegionManager for CPU temperature sensor access
+            legionManager.SetPerformanceManager(performanceManager);
+
             // PawnIO/RyzenSMU initialization for anti-cheat compatible TDP control
             // Priority: Legion WMI > PawnIO/RyzenSMU > RyzenAdj (deprecated, WinRing0 not bundled)
             // Uses official signed module from release 0.2.1
@@ -217,8 +225,19 @@ namespace XboxGamingBarHelper
             // Set LegionManager reference in RTSSManager for fan speed OSD support
             rtssManager.SetLegionManager(legionManager);
 
+            // Set controller battery callbacks in RTSSManager for Controller Battery OSD item
+            rtssManager.SetControllerBatteryCallbacks(
+                () => legionManager.GetLeftControllerBattery(),
+                () => legionManager.GetRightControllerBattery(),
+                () => legionManager.IsLeftControllerCharging(),
+                () => legionManager.IsRightControllerCharging()
+            );
+
             // Set AutoTDPManager reference in RTSSManager for AutoTDP OSD support
             rtssManager.SetAutoTDPManager(autoTDPManager);
+
+            // Initialize global hotkey manager (Ctrl+Shift+D to toggle Desktop Controls)
+            InitializeHotkeyManager();
 
             Managers = new List<IManager>
             {
@@ -327,6 +346,9 @@ namespace XboxGamingBarHelper
                 legionManager.LegionCustomTDPFast,
                 legionManager.LegionCustomTDPPeak,
                 legionManager.LegionFanFullSpeed,
+                legionManager.LegionFanCurveData,
+                legionManager.LegionCPUCurrentTemp,
+                legionManager.LegionCPUFanRPM,
                 legionManager.LegionGyroEnabled,
                 legionManager.LegionVibration,
                 legionManager.LegionPowerLight,
@@ -361,6 +383,13 @@ namespace XboxGamingBarHelper
                 legionManager.LegionJoystickMouseSens,
                 // Gamepad button mapping
                 legionManager.LegionGamepadMapping,
+                // Desktop controls preset (state tracking for UI sync)
+                legionManager.LegionDesktopControls,
+                // Controller battery properties (read-only, from HID)
+                legionManager.ControllerBatteryLeft,
+                legionManager.ControllerBatteryRight,
+                legionManager.ControllerChargingLeft,
+                legionManager.ControllerChargingRight,
                 autoTDPManager.Enabled,
                 autoTDPManager.TargetFPS,
                 autoTDPManager.CurrentFPS,
@@ -397,6 +426,13 @@ namespace XboxGamingBarHelper
 
             Logger.Info($"Widget connection status: {appServiceConnectionStatus}");
 
+            // Start battery monitoring after widget connection is established
+            // (Starting before connection can cause issues with the AppService)
+            if (legionManager != null)
+            {
+                legionManager.StartBatteryMonitoringIfConnected();
+            }
+
             // Infinite loop - helper runs forever and auto-reconnects if needed
             while (true)
             {
@@ -431,7 +467,11 @@ namespace XboxGamingBarHelper
 
         private static void SystemManager_ResumeFromSleep(object sender)
         {
-            Logger.Info("System resumed from sleep, re-apply current profile settings.");
+            Logger.Info("System resumed from sleep/hibernation, refreshing hardware sensors and re-applying profile.");
+
+            // Force refresh hardware sensors (battery values can be stale after hibernation)
+            performanceManager?.ForceRefreshHardware();
+
             // Re-apply current profile settings (TDP, CPU boost, EPP, CPU state)
             CurrentProfile_PropertyChanged(sender, null);
         }
@@ -922,6 +962,17 @@ namespace XboxGamingBarHelper
                 }
             }
 
+            // Dispose hotkey manager
+            try
+            {
+                hotkeyManager?.Dispose();
+                hotkeyManager = null;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error disposing hotkey manager: {ex.Message}");
+            }
+
             // Clear references
             performanceManager = null;
             rtssManager = null;
@@ -934,6 +985,112 @@ namespace XboxGamingBarHelper
             legionManager = null;
 
             Logger.Info("All managers disposed.");
+        }
+
+        /// <summary>
+        /// Initializes the hotkey manager and registers global hotkeys
+        /// </summary>
+        private static void InitializeHotkeyManager()
+        {
+            try
+            {
+                hotkeyManager = new HotkeyManager();
+
+                // Register Ctrl+Shift+D for Desktop Controls toggle
+                int hotkeyId = hotkeyManager.RegisterHotkey(
+                    HotkeyManager.MOD_CONTROL | HotkeyManager.MOD_SHIFT,
+                    HotkeyManager.VK_D,
+                    ToggleDesktopControls);
+
+                if (hotkeyId > 0)
+                {
+                    Logger.Info("Registered global hotkey Ctrl+Shift+D for Desktop Controls toggle");
+                }
+                else
+                {
+                    Logger.Warn("Failed to register Ctrl+Shift+D hotkey - may be in use by another application");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to initialize hotkey manager: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Toggles Desktop Controls preset via global hotkey (Ctrl+Shift+D)
+        /// Applies Joystick-as-Mouse and button mappings for desktop navigation
+        /// </summary>
+        private static void ToggleDesktopControls()
+        {
+            try
+            {
+                if (legionManager == null || !legionManager.LegionGoDetected.Value)
+                {
+                    Logger.Warn("ToggleDesktopControls: Legion Go not detected, skipping");
+                    return;
+                }
+
+                // Toggle the state
+                bool newState = !legionManager.LegionDesktopControls.Value;
+                Logger.Info($"ToggleDesktopControls: Hotkey pressed, toggling from {!newState} to {newState}");
+
+                if (newState)
+                {
+                    // Enable Desktop Controls:
+                    // 1. Set Right Stick as Mouse (mode 2)
+                    legionManager.LegionJoystickAsMouseMode.ForceSetValue(2);
+
+                    // 2. Apply desktop button mappings JSON
+                    // Format: {"ButtonName":{"Type":X,"GamepadAction":Y,"KeyboardKeys":[...],"MouseButton":Z},...}
+                    // Desktop Controls preset: DPAD/LS→Arrows, LSClick→Win, A→Enter, B→Esc, LB→LClick, LT→RClick
+                    string desktopMappingsJson = @"{
+                        ""DPadUp"":{""Type"":1,""GamepadAction"":0,""KeyboardKeys"":[82],""MouseButton"":0},
+                        ""DPadDown"":{""Type"":1,""GamepadAction"":0,""KeyboardKeys"":[81],""MouseButton"":0},
+                        ""DPadLeft"":{""Type"":1,""GamepadAction"":0,""KeyboardKeys"":[80],""MouseButton"":0},
+                        ""DPadRight"":{""Type"":1,""GamepadAction"":0,""KeyboardKeys"":[79],""MouseButton"":0},
+                        ""LSUp"":{""Type"":1,""GamepadAction"":0,""KeyboardKeys"":[82],""MouseButton"":0},
+                        ""LSDown"":{""Type"":1,""GamepadAction"":0,""KeyboardKeys"":[81],""MouseButton"":0},
+                        ""LSClick"":{""Type"":1,""GamepadAction"":0,""KeyboardKeys"":[227],""MouseButton"":0},
+                        ""A"":{""Type"":1,""GamepadAction"":0,""KeyboardKeys"":[40],""MouseButton"":0},
+                        ""B"":{""Type"":1,""GamepadAction"":0,""KeyboardKeys"":[41],""MouseButton"":0},
+                        ""LB"":{""Type"":2,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":0},
+                        ""LT"":{""Type"":2,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":1}
+                    }";
+                    legionManager.LegionGamepadMapping.ForceSetValue(desktopMappingsJson);
+                }
+                else
+                {
+                    // Disable Desktop Controls:
+                    // 1. Disable Joystick as Mouse (mode 0)
+                    legionManager.LegionJoystickAsMouseMode.ForceSetValue(0);
+
+                    // 2. Clear button mappings (empty JSON resets to defaults)
+                    string resetMappingsJson = @"{
+                        ""DPadUp"":{""Type"":0,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":0},
+                        ""DPadDown"":{""Type"":0,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":0},
+                        ""DPadLeft"":{""Type"":0,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":0},
+                        ""DPadRight"":{""Type"":0,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":0},
+                        ""LSUp"":{""Type"":0,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":0},
+                        ""LSDown"":{""Type"":0,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":0},
+                        ""LSClick"":{""Type"":0,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":0},
+                        ""A"":{""Type"":0,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":0},
+                        ""B"":{""Type"":0,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":0},
+                        ""LB"":{""Type"":0,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":0},
+                        ""LT"":{""Type"":0,""GamepadAction"":0,""KeyboardKeys"":[],""MouseButton"":0}
+                    }";
+                    legionManager.LegionGamepadMapping.ForceSetValue(resetMappingsJson);
+                }
+
+                // Update the Desktop Controls property (syncs to widget UI)
+                legionManager.LegionDesktopControls.ForceSetValue(newState);
+
+                Logger.Info($"ToggleDesktopControls: Desktop Controls now {(newState ? "ENABLED" : "DISABLED")}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ToggleDesktopControls: Error toggling desktop controls: {ex.Message}");
+            }
         }
     }
 }

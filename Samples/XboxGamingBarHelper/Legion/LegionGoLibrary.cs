@@ -631,47 +631,139 @@ namespace LegionGoLibrary
 
         #endregion
 
-        #region LENOVO_FAN_METHOD
+        #region LENOVO_FAN_METHOD - Custom Fan Curve
 
         /// <summary>
-        /// Sets a custom fan curve table via LENOVO_FAN_METHOD.
-        /// The fan table consists of 10 values (percentage 0-100) corresponding to temperature thresholds.
+        /// Stored fan curve values (percentages 0-100) for retrieval.
         /// </summary>
-        /// <param name="fanSpeeds">Array of exactly 10 fan speed percentages</param>
+        private static ushort[] _lastSetFanCurve = null;
+
+        /// <summary>
+        /// Default fan curve values (percentages) matching Legion Go defaults.
+        /// </summary>
+        public static readonly ushort[] DefaultFanCurve = { 44, 48, 55, 60, 71, 79, 87, 87, 100, 100 };
+
+        /// <summary>
+        /// Sets a custom fan curve via LENOVO_FAN_METHOD.Fan_Set_Table.
+        /// Uses 64-byte FanTable format with header and 10 fan speed values.
+        /// </summary>
+        /// <param name="fanSpeeds">Array of exactly 10 fan speed percentages (0-100)</param>
         /// <returns>Tuple containing success status and message</returns>
-        public (bool Success, string Message) SetFanTable(ushort[] fanSpeeds)
+        public (bool Success, string Message) SetFanCurve(ushort[] fanSpeeds)
         {
-            if (fanSpeeds.Length != 10)
-                return (false, "Fan table must have exactly 10 values");
+            if (fanSpeeds == null || fanSpeeds.Length != 10)
+                return (false, "Fan curve must have exactly 10 values");
+
+            // Validate values are 0-100
+            for (int i = 0; i < 10; i++)
+            {
+                if (fanSpeeds[i] > 100)
+                    return (false, $"Fan speed at index {i} ({fanSpeeds[i]}) exceeds 100%");
+            }
 
             try
             {
-                // Build fan table bytes - matching HandheldCompanion FanTable format
-                var fanTableBytes = new byte[40]; // 10 * 4 bytes
-                for (int i = 0; i < 10; i++)
+                // FanTable format: 64 bytes
+                // Structure: FSTM (1 byte) + FSID (1 byte) + FSTL (4 bytes) + 10 speeds (20 bytes) + padding
+                using (var ms = new System.IO.MemoryStream())
+                using (var writer = new System.IO.BinaryWriter(ms))
                 {
-                    var bytes = BitConverter.GetBytes(fanSpeeds[i]);
-                    fanTableBytes[i * 4] = bytes[0];
-                    fanTableBytes[i * 4 + 1] = bytes[1];
-                    fanTableBytes[i * 4 + 2] = 0;
-                    fanTableBytes[i * 4 + 3] = 0;
-                }
+                    // Header
+                    writer.Write((byte)1);    // FSTM = 1
+                    writer.Write((byte)0);    // FSID = 0
+                    writer.Write((uint)0);    // FSTL = 0 (4 bytes)
 
-                using var searcher = new ManagementObjectSearcher(WMI_NAMESPACE, "SELECT * FROM LENOVO_FAN_METHOD");
-                foreach (ManagementObject obj in searcher.Get())
-                {
-                    var inParams = obj.GetMethodParameters("Fan_Set_Table");
-                    inParams["FanTable"] = fanTableBytes;
-                    obj.InvokeMethod("Fan_Set_Table", inParams, null);
-                    return (true, $"Fan table set: [{string.Join(", ", fanSpeeds)}]");
+                    // 10 fan speeds as ushort
+                    for (int i = 0; i < 10; i++)
+                    {
+                        writer.Write(fanSpeeds[i]);
+                    }
+
+                    // Pad to 64 bytes
+                    var data = ms.ToArray();
+                    var fanTableBytes = new byte[64];
+                    Array.Copy(data, fanTableBytes, data.Length);
+
+                    using (var searcher = new ManagementObjectSearcher(WMI_NAMESPACE, "SELECT * FROM LENOVO_FAN_METHOD"))
+                    {
+                        foreach (ManagementObject obj in searcher.Get())
+                        {
+                            var inParams = obj.GetMethodParameters("Fan_Set_Table");
+                            inParams["FanTable"] = fanTableBytes;
+                            obj.InvokeMethod("Fan_Set_Table", inParams, null);
+
+                            // Store the curve for later retrieval
+                            _lastSetFanCurve = (ushort[])fanSpeeds.Clone();
+
+                            return (true, $"Fan curve set: [{string.Join(", ", fanSpeeds)}]%");
+                        }
+                    }
                 }
                 return (false, "No LENOVO_FAN_METHOD instance found");
             }
             catch (Exception ex)
             {
-                return (false, $"Error in SetFanTable: {ex.Message}");
+                return (false, $"Error in SetFanCurve: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// Gets the current custom fan curve values via LENOVO_FAN_METHOD.Fan_Get_Table.
+        /// </summary>
+        /// <returns>Tuple containing success status, message, and array of 10 fan speeds (0-100%)</returns>
+        public (bool Success, string Message, ushort[] FanSpeeds) GetFanCurve()
+        {
+            try
+            {
+                using (var searcher = new ManagementObjectSearcher(WMI_NAMESPACE, "SELECT * FROM LENOVO_FAN_METHOD"))
+                {
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        try
+                        {
+                            var outParams = obj.InvokeMethod("Fan_Get_Table", null, null);
+                            if (outParams != null)
+                            {
+                                var tableBytes = (byte[])outParams["FanTable"];
+                                if (tableBytes != null && tableBytes.Length >= 26) // 6 byte header + 20 bytes for 10 ushorts
+                                {
+                                    // Parse 64-byte format: skip 6-byte header (FSTM + FSID + FSTL)
+                                    var fanSpeeds = new ushort[10];
+                                    for (int i = 0; i < 10; i++)
+                                    {
+                                        fanSpeeds[i] = BitConverter.ToUInt16(tableBytes, 6 + (i * 2));
+                                    }
+                                    _lastSetFanCurve = fanSpeeds;
+                                    return (true, $"Fan curve: [{string.Join(", ", fanSpeeds)}]%", fanSpeeds);
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Fan_Get_Table may not exist on all devices
+                        }
+                    }
+                }
+
+                // Fall back to last set values or default
+                if (_lastSetFanCurve != null)
+                {
+                    return (true, $"Fan curve (cached): [{string.Join(", ", _lastSetFanCurve)}]%", (ushort[])_lastSetFanCurve.Clone());
+                }
+
+                return (true, $"Fan curve (default): [{string.Join(", ", DefaultFanCurve)}]%", (ushort[])DefaultFanCurve.Clone());
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Error in GetFanCurve: {ex.Message}", null);
+            }
+        }
+
+        /// <summary>
+        /// Checks if a custom fan curve has been set during this session.
+        /// </summary>
+        /// <returns>True if a custom fan curve has been set</returns>
+        public bool HasCustomFanCurve() => _lastSetFanCurve != null;
 
         #endregion
 
