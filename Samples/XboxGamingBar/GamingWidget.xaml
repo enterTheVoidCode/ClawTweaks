@@ -331,20 +331,6 @@
 
             <!-- QUICK SETTINGS TAB -->
             <Grid>
-                <!-- Connection Status Banner -->
-                <Border x:Name="ConnectionStatusBanner"
-                        Background="#CC3333"
-                        Padding="8,4"
-                        VerticalAlignment="Top"
-                        Visibility="Collapsed"
-                        CornerRadius="0"
-                        Margin="0,0,0,0">
-                    <TextBlock x:Name="ConnectionStatusText"
-                               Text="Not connected to helper"
-                               Foreground="White"
-                               FontSize="12"
-                               HorizontalAlignment="Center"/>
-                </Border>
                 <ScrollViewer x:Name="QuickSettingsScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Visible"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
@@ -4222,6 +4208,21 @@
 
                     </StackPanel>
                 </ScrollViewer>
+
+                <!-- Connection Status Banner - placed last for z-order (renders on top) -->
+                <Border x:Name="ConnectionStatusBanner"
+                        Background="#CC3333"
+                        Padding="8,4"
+                        VerticalAlignment="Top"
+                        Visibility="Collapsed"
+                        CornerRadius="0"
+                        Margin="0,0,0,0">
+                    <TextBlock x:Name="ConnectionStatusText"
+                               Text="Not connected to helper"
+                               Foreground="White"
+                               FontSize="12"
+                               HorizontalAlignment="Center"/>
+                </Border>
 
             </Grid>
 

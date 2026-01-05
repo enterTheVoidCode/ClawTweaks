@@ -1989,10 +1989,19 @@ namespace XboxGamingBarHelper.Legion
             rightControllerCharging = e.RightCharging;
 
             // Update properties and sync to widget
-            ControllerBatteryLeft.SetValueAndSync(e.LeftBattery);
-            ControllerBatteryRight.SetValueAndSync(e.RightBattery);
-            ControllerChargingLeft.SetValueAndSync(e.LeftCharging);
-            ControllerChargingRight.SetValueAndSync(e.RightCharging);
+            // Wrap in try/catch because SyncToRemote is async void and can crash the process
+            // if the AppService connection is broken (e.g., widget closed or stale connection)
+            try
+            {
+                ControllerBatteryLeft.SetValueAndSync(e.LeftBattery);
+                ControllerBatteryRight.SetValueAndSync(e.RightBattery);
+                ControllerChargingLeft.SetValueAndSync(e.LeftCharging);
+                ControllerChargingRight.SetValueAndSync(e.RightCharging);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to sync battery status to widget: {ex.Message}");
+            }
         }
 
         /// <summary>
