@@ -2334,6 +2334,20 @@ namespace XboxGamingBar
 
             Logger.Info($"AutoTDP toggled to: {AutoTDPToggle.IsOn}");
 
+            // If enabling AutoTDP on Legion Go and not in Custom mode, switch to Custom mode
+            // AutoTDP requires Custom mode to control TDP values directly
+            if (AutoTDPToggle.IsOn && legionGoDetected?.Value == true && legionPerformanceMode?.Value != 255)
+            {
+                Logger.Info($"AutoTDP enabled but Legion Go is in mode {legionPerformanceMode?.Value} (not Custom). Switching to Custom mode.");
+                legionPerformanceMode?.SetValue(255);
+                // Update the UI dropdown if available
+                if (LegionPerformanceModeComboBox != null)
+                {
+                    // Custom mode is index 3 (Quiet=0, Balanced=1, Performance=2, Custom=3)
+                    LegionPerformanceModeComboBox.SelectedIndex = 3;
+                }
+            }
+
             // Update XY focus navigation based on toggle state
             UpdateAutoTDPFocusNavigation();
 
@@ -11105,6 +11119,35 @@ namespace XboxGamingBar
                 LegionCustomTDPCard.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
                 Logger.Info($"Custom TDP card visibility set to: {visible}");
             }
+
+            // Update XY focus navigation for controller navigation
+            // When Custom TDP card is hidden, focus should skip directly to fan controls
+            if (LegionPerformanceModeComboBox != null)
+            {
+                if (visible && LegionCustomTDPSlowSlider != null)
+                {
+                    LegionPerformanceModeComboBox.XYFocusDown = LegionCustomTDPSlowSlider;
+                }
+                else if (LegionFanFullSpeedToggle != null)
+                {
+                    LegionPerformanceModeComboBox.XYFocusDown = LegionFanFullSpeedToggle;
+                }
+            }
+
+            // Also update XYFocusUp on fan controls for navigation back up
+            if (LegionFanFullSpeedToggle != null)
+            {
+                if (visible && LegionCustomTDPPeakSlider != null)
+                {
+                    // When Custom TDP visible, navigate up to the last slider (Peak/Sustained)
+                    LegionFanFullSpeedToggle.XYFocusUp = LegionCustomTDPPeakSlider;
+                }
+                else if (LegionPerformanceModeComboBox != null)
+                {
+                    // When Custom TDP hidden, navigate up directly to performance mode dropdown
+                    LegionFanFullSpeedToggle.XYFocusUp = LegionPerformanceModeComboBox;
+                }
+            }
         }
 
         /// <summary>
@@ -13145,6 +13188,9 @@ namespace XboxGamingBar
             {
                 bool newValue = !hdrEnabled.Value;
                 hdrEnabled.SetValue(newValue);
+                // Update the toggle so SettingChanged fires and saves to profile
+                if (HDRToggle != null)
+                    HDRToggle.IsOn = newValue;
                 Logger.Info($"HDR toggled to {newValue}");
             }
         }
@@ -13165,6 +13211,9 @@ namespace XboxGamingBar
             {
                 bool newValue = !amdFluidMotionFrameEnabled.Value;
                 amdFluidMotionFrameEnabled.SetValue(newValue);
+                // Update the toggle so SettingChanged fires and saves to profile
+                if (AMDFluidMotionFrameToggle != null)
+                    AMDFluidMotionFrameToggle.IsOn = newValue;
                 Logger.Info($"AFMF toggled to {newValue}");
             }
         }
@@ -13175,6 +13224,9 @@ namespace XboxGamingBar
             {
                 bool newValue = !amdRadeonSuperResolutionEnabled.Value;
                 amdRadeonSuperResolutionEnabled.SetValue(newValue);
+                // Update the toggle so SettingChanged fires and saves to profile
+                if (AMDRadeonSuperResolutionToggle != null)
+                    AMDRadeonSuperResolutionToggle.IsOn = newValue;
                 Logger.Info($"RSR toggled to {newValue}");
             }
         }
@@ -13196,6 +13248,9 @@ namespace XboxGamingBar
             {
                 bool newValue = !amdRadeonAntiLagEnabled.Value;
                 amdRadeonAntiLagEnabled.SetValue(newValue);
+                // Update the toggle so SettingChanged fires and saves to profile
+                if (AMDRadeonAntiLagToggle != null)
+                    AMDRadeonAntiLagToggle.IsOn = newValue;
                 Logger.Info($"Anti-Lag toggled to {newValue}");
             }
         }
@@ -13206,6 +13261,9 @@ namespace XboxGamingBar
             {
                 bool newValue = !amdRadeonChillEnabled.Value;
                 amdRadeonChillEnabled.SetValue(newValue);
+                // Update the toggle so SettingChanged fires and saves to profile
+                if (AMDRadeonChillToggle != null)
+                    AMDRadeonChillToggle.IsOn = newValue;
                 Logger.Info($"Radeon Chill toggled to {newValue}");
             }
         }
@@ -13404,6 +13462,12 @@ namespace XboxGamingBar
             finally
             {
                 isApplyingHelperUpdate = false;
+            }
+
+            // Save to profile if FPS Limit saving is enabled
+            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
+            {
+                SaveCurrentSettingsToProfile(currentProfileName);
             }
         }
 
