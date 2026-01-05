@@ -505,8 +505,10 @@ namespace XboxGamingBarHelper.PawnIO
         /// Sets the STAPM (Skin Temperature Aware Power Management) limit in milliwatts.
         /// </summary>
         /// <param name="limitMw">Power limit in milliwatts (e.g., 25000 for 25W).</param>
-        public bool SetStapmLimit(uint limitMw)
+        /// <param name="responseValue">Optional: receives the SMU response value (may contain actual applied limit).</param>
+        public bool SetStapmLimit(uint limitMw, out uint responseValue)
         {
+            responseValue = 0;
             uint cmdId = GetSetStapmCommand();
             if (cmdId == 0)
             {
@@ -514,16 +516,28 @@ namespace XboxGamingBarHelper.PawnIO
                 return false;
             }
 
-            var status = SendTdpCommand(cmdId, new uint[] { limitMw }, out _);
+            var status = SendTdpCommand(cmdId, new uint[] { limitMw }, out uint[] response);
+            if (response != null && response.Length > 0)
+            {
+                responseValue = response[0];
+                Logger.Info($"STAPM set command response: [{response[0]}, {response[1]}, {response[2]}, {response[3]}, {response[4]}, {response[5]}]");
+            }
             return status == SmuStatus.OK;
         }
+
+        /// <summary>
+        /// Sets the STAPM limit (overload without response).
+        /// </summary>
+        public bool SetStapmLimit(uint limitMw) => SetStapmLimit(limitMw, out _);
 
         /// <summary>
         /// Sets the Fast (PPT Fast) limit in milliwatts.
         /// </summary>
         /// <param name="limitMw">Power limit in milliwatts.</param>
-        public bool SetFastLimit(uint limitMw)
+        /// <param name="responseValue">Optional: receives the SMU response value (may contain actual applied limit).</param>
+        public bool SetFastLimit(uint limitMw, out uint responseValue)
         {
+            responseValue = 0;
             uint cmdId = GetSetFastCommand();
             if (cmdId == 0)
             {
@@ -531,16 +545,28 @@ namespace XboxGamingBarHelper.PawnIO
                 return false;
             }
 
-            var status = SendTdpCommand(cmdId, new uint[] { limitMw }, out _);
+            var status = SendTdpCommand(cmdId, new uint[] { limitMw }, out uint[] response);
+            if (response != null && response.Length > 0)
+            {
+                responseValue = response[0];
+                Logger.Info($"Fast set command response: [{response[0]}, {response[1]}, {response[2]}, {response[3]}, {response[4]}, {response[5]}]");
+            }
             return status == SmuStatus.OK;
         }
+
+        /// <summary>
+        /// Sets the Fast limit (overload without response).
+        /// </summary>
+        public bool SetFastLimit(uint limitMw) => SetFastLimit(limitMw, out _);
 
         /// <summary>
         /// Sets the Slow (PPT Slow) limit in milliwatts.
         /// </summary>
         /// <param name="limitMw">Power limit in milliwatts.</param>
-        public bool SetSlowLimit(uint limitMw)
+        /// <param name="responseValue">Optional: receives the SMU response value (may contain actual applied limit).</param>
+        public bool SetSlowLimit(uint limitMw, out uint responseValue)
         {
+            responseValue = 0;
             uint cmdId = GetSetSlowCommand();
             if (cmdId == 0)
             {
@@ -548,39 +574,64 @@ namespace XboxGamingBarHelper.PawnIO
                 return false;
             }
 
-            var status = SendTdpCommand(cmdId, new uint[] { limitMw }, out _);
+            var status = SendTdpCommand(cmdId, new uint[] { limitMw }, out uint[] response);
+            if (response != null && response.Length > 0)
+            {
+                responseValue = response[0];
+                Logger.Info($"Slow set command response: [{response[0]}, {response[1]}, {response[2]}, {response[3]}, {response[4]}, {response[5]}]");
+            }
             return status == SmuStatus.OK;
         }
 
         /// <summary>
+        /// Sets the Slow limit (overload without response).
+        /// </summary>
+        public bool SetSlowLimit(uint limitMw) => SetSlowLimit(limitMw, out _);
+
+        /// <summary>
         /// Sets all TDP limits at once (STAPM, Fast, Slow) in watts.
+        /// Returns the SMU response values which may contain actual applied limits.
         /// </summary>
         /// <param name="stapmWatts">STAPM limit in watts.</param>
         /// <param name="fastWatts">Fast/SPPL limit in watts.</param>
         /// <param name="slowWatts">Slow/SPL limit in watts.</param>
-        public bool SetAllLimits(int stapmWatts, int fastWatts, int slowWatts)
+        /// <param name="stapmResponse">SMU response for STAPM command (may be in mW).</param>
+        /// <param name="fastResponse">SMU response for Fast command (may be in mW).</param>
+        /// <param name="slowResponse">SMU response for Slow command (may be in mW).</param>
+        public bool SetAllLimits(int stapmWatts, int fastWatts, int slowWatts,
+            out uint stapmResponse, out uint fastResponse, out uint slowResponse)
         {
             Logger.Info($"Setting TDP limits via PawnIO: STAPM={stapmWatts}W, Fast={fastWatts}W, Slow={slowWatts}W");
 
             bool success = true;
+            stapmResponse = 0;
+            fastResponse = 0;
+            slowResponse = 0;
 
-            // Convert to milliwatts
-            success &= SetStapmLimit((uint)(stapmWatts * 1000));
-            success &= SetFastLimit((uint)(fastWatts * 1000));
-            success &= SetSlowLimit((uint)(slowWatts * 1000));
+            // Convert to milliwatts and capture responses
+            success &= SetStapmLimit((uint)(stapmWatts * 1000), out stapmResponse);
+            success &= SetFastLimit((uint)(fastWatts * 1000), out fastResponse);
+            success &= SetSlowLimit((uint)(slowWatts * 1000), out slowResponse);
 
             if (success)
             {
-                Logger.Info("TDP limits set successfully");
+                Logger.Info($"TDP limits set successfully. Responses: STAPM={stapmResponse}, Fast={fastResponse}, Slow={slowResponse}");
             }
             else
             {
                 // Z2E: SMU returns current values instead of status codes
-                // This indicates the RyzenSMU module may need updated Z2E support
                 Logger.Warn("PawnIO: SMU commands may not be working for this CPU - check RyzenSMU module Z2E support");
             }
 
             return success;
+        }
+
+        /// <summary>
+        /// Sets all TDP limits (overload without responses).
+        /// </summary>
+        public bool SetAllLimits(int stapmWatts, int fastWatts, int slowWatts)
+        {
+            return SetAllLimits(stapmWatts, fastWatts, slowWatts, out _, out _, out _);
         }
 
         /// <summary>
