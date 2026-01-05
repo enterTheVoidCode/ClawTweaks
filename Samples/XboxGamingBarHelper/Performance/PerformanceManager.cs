@@ -684,7 +684,7 @@ namespace XboxGamingBarHelper.Performance
                     HardwareSensor hardwareSensorFound = null;
                     foreach (var hardwareSensor in hardwareSensors)
                     {
-                        if (hardwareSensor.HardwareType == hardware.HardwareType &&
+                        if (hardwareSensor.MatchesHardwareType(hardware.HardwareType) &&
                             hardwareSensor.SensorType == sensor.SensorType &&
                             hardwareSensor.MatchesSensorName(sensor.Name))
                         {

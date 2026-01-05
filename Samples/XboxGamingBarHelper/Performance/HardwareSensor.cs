@@ -12,10 +12,10 @@ namespace XboxGamingBarHelper.Performance
             get { return sensorNames?.FirstOrDefault() ?? string.Empty; }
         }
 
-        protected HardwareType hardwareType;
+        protected HardwareType[] hardwareTypes;
         public HardwareType HardwareType
         {
-            get { return hardwareType; }
+            get { return hardwareTypes?.FirstOrDefault() ?? HardwareType.Cpu; }
         }
 
         protected SensorType sensorType;
@@ -27,14 +27,24 @@ namespace XboxGamingBarHelper.Performance
         public float Value { get; set; }
 
         protected HardwareSensor(string inSensorName, HardwareType inHardwareType, SensorType inSensorType)
-            : this(new[] { inSensorName }, inHardwareType, inSensorType)
+            : this(new[] { inSensorName }, new[] { inHardwareType }, inSensorType)
         {
         }
 
         protected HardwareSensor(string[] inSensorNames, HardwareType inHardwareType, SensorType inSensorType)
+            : this(inSensorNames, new[] { inHardwareType }, inSensorType)
+        {
+        }
+
+        protected HardwareSensor(string inSensorName, HardwareType[] inHardwareTypes, SensorType inSensorType)
+            : this(new[] { inSensorName }, inHardwareTypes, inSensorType)
+        {
+        }
+
+        protected HardwareSensor(string[] inSensorNames, HardwareType[] inHardwareTypes, SensorType inSensorType)
         {
             sensorNames = inSensorNames;
-            hardwareType = inHardwareType;
+            hardwareTypes = inHardwareTypes;
             sensorType = inSensorType;
         }
 
@@ -49,6 +59,22 @@ namespace XboxGamingBarHelper.Performance
             foreach (var sensorName in sensorNames)
             {
                 if (sensorName == name)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Checks if the given hardware type matches any of the supported types.
+        /// </summary>
+        public bool MatchesHardwareType(HardwareType type)
+        {
+            if (hardwareTypes == null)
+                return false;
+
+            foreach (var hwType in hardwareTypes)
+            {
+                if (hwType == type)
                     return true;
             }
             return false;

@@ -208,16 +208,19 @@ namespace XboxGamingBarHelper.Legion
             LegionCustomTDPPeak = new LegionCustomTDPPeakProperty(customTDPPeak, this);
             LegionFanFullSpeed = new LegionFanFullSpeedProperty(fanFullSpeed, this);
 
-            // Initialize fan curve from device, format as comma-separated string
-            var curveResult = wmiService?.GetFanCurve();
-            if (curveResult.HasValue && curveResult.Value.Success && curveResult.Value.FanSpeeds?.Length == 10)
+            // Initialize fan curve from device only if Legion Go is detected
+            if (isLegionGoDetected)
             {
-                fanCurve = curveResult.Value.FanSpeeds;
-                Logger.Info($"Fan curve loaded from device: {string.Join(",", fanCurve)}");
-            }
-            else
-            {
-                Logger.Warn($"Failed to load fan curve from device (wmiService={wmiService != null}, hasValue={curveResult.HasValue}, success={curveResult?.Success}, message={curveResult?.Message}), using defaults: {string.Join(",", fanCurve)}");
+                var curveResult = wmiService?.GetFanCurve();
+                if (curveResult.HasValue && curveResult.Value.Success && curveResult.Value.FanSpeeds?.Length == 10)
+                {
+                    fanCurve = curveResult.Value.FanSpeeds;
+                    Logger.Info($"Fan curve loaded from device: {string.Join(",", fanCurve)}");
+                }
+                else
+                {
+                    Logger.Warn($"Failed to load fan curve from device (wmiService={wmiService != null}, hasValue={curveResult.HasValue}, success={curveResult?.Success}, message={curveResult?.Message}), using defaults: {string.Join(",", fanCurve)}");
+                }
             }
             string fanCurveString = string.Join(",", fanCurve.Select(v => (int)v));
             LegionFanCurveData = new LegionFanCurveDataProperty(fanCurveString, this);
@@ -295,17 +298,20 @@ namespace XboxGamingBarHelper.Legion
                 LegionFanFullSpeed.SetValueSilent(fanFullSpeed);
             }
 
-            // Enable fan curve device writes after startup grace period
+            // Enable fan curve device writes after startup grace period (only for Legion Go)
             // This prevents the widget's sync from overwriting the device's fan curve on startup
-            var fanCurveEnableTimer = new System.Timers.Timer(STARTUP_GRACE_PERIOD_MS);
-            fanCurveEnableTimer.Elapsed += (s, e) =>
+            if (isLegionGoDetected)
             {
-                fanCurveEnableTimer.Stop();
-                fanCurveEnableTimer.Dispose();
-                LegionFanCurveData?.EnableDeviceWrites();
-            };
-            fanCurveEnableTimer.AutoReset = false;
-            fanCurveEnableTimer.Start();
+                var fanCurveEnableTimer = new System.Timers.Timer(STARTUP_GRACE_PERIOD_MS);
+                fanCurveEnableTimer.Elapsed += (s, e) =>
+                {
+                    fanCurveEnableTimer.Stop();
+                    fanCurveEnableTimer.Dispose();
+                    LegionFanCurveData?.EnableDeviceWrites();
+                };
+                fanCurveEnableTimer.AutoReset = false;
+                fanCurveEnableTimer.Start();
+            }
 
             Logger.Info($"Legion Manager initialized. Legion Go detected: {isLegionGoDetected}");
         }
