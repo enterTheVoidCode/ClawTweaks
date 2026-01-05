@@ -4,7 +4,11 @@ namespace XboxGamingBarHelper.Performance.Sensors
 {
     internal class GPUMemoryClockSensor : HardwareSensor
     {
-        public GPUMemoryClockSensor() : base("GPU Memory", HardwareType.GpuAmd, SensorType.Clock)
+        // Sensor names: AMD/Nvidia/Intel="GPU Memory"
+        private static readonly string[] SensorNames = new[] { "GPU Memory" };
+        private static readonly HardwareType[] GpuTypes = new[] { HardwareType.GpuAmd, HardwareType.GpuNvidia, HardwareType.GpuIntel };
+
+        public GPUMemoryClockSensor() : base(SensorNames, GpuTypes, SensorType.Clock)
         {
         }
     }

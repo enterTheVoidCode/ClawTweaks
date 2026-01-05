@@ -754,7 +754,7 @@ namespace XboxGamingBar
             amdDisplayTemperature = new AMDDisplayTemperatureProperty(AMDDisplayTemperatureSlider, this);
 
             // Lossless Scaling properties
-            losslessScalingInstalled = new LosslessScalingInstalledProperty();
+            losslessScalingInstalled = new LosslessScalingInstalledProperty(this);
             losslessScalingRunning = new LosslessScalingRunningProperty();
             losslessScalingEnabled = new LosslessScalingEnabledProperty(LosslessScalingEnabledToggle, this);
             losslessScalingCurrentProfile = new LosslessScalingCurrentProfileProperty();
@@ -889,6 +889,9 @@ namespace XboxGamingBar
 
             // Set up Legion tab visibility callback
             legionGoDetected.SetVisibilityCallback(SetLegionTabVisibility);
+
+            // Set up Scale tab visibility callback (hide when Lossless Scaling not installed)
+            losslessScalingInstalled.SetVisibilityCallback(SetScaleTabVisibility);
 
             // Set up custom TDP visibility callback
             legionPerformanceMode.SetCustomTDPVisibilityCallback(SetCustomTDPVisibility);
@@ -10854,6 +10857,22 @@ namespace XboxGamingBar
                 Logger.Error($"Error in LosslessScalingSaveSettingsButton_Click: {ex.Message}");
             }
         }
+
+        #region Scale Tab Visibility
+
+        /// <summary>
+        /// Shows or hides the Scale tab based on Lossless Scaling installation
+        /// </summary>
+        private void SetScaleTabVisibility(bool installed)
+        {
+            if (ScalingNavItem != null)
+            {
+                ScalingNavItem.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Scale tab visibility set to: {installed} (Lossless Scaling installed: {installed})");
+            }
+        }
+
+        #endregion
 
         #region Legion Go Handlers
 
