@@ -13216,6 +13216,9 @@ namespace XboxGamingBar
             {
                 bool newValue = !cpuBoost.Value;
                 cpuBoost.SetValue(newValue);
+                // Update the toggle so SettingChanged fires and saves to profile
+                if (CPUBoostToggle != null)
+                    CPUBoostToggle.IsOn = newValue;
                 Logger.Info($"CPU Boost toggled to {newValue}");
             }
         }

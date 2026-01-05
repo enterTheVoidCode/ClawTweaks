@@ -810,7 +810,17 @@ namespace XboxGamingBarHelper.Performance
                             if (ryzenSmuService.SetAllLimits(spl, sppt, fppt))
                             {
                                 Logger.Info($"PawnIO: TDP set successfully");
-                                ScheduleVerificationRead();
+                                // Update current limits for OSD display (PawnIO can't read back values)
+                                CurrentSPL = spl;
+                                CurrentSPPT = sppt;
+                                CurrentFPPT = fppt;
+                                // Update the currentTdp property for widget display
+                                var newTdpString = $"SPL:{spl}W SPPT:{sppt}W FPPT:{fppt}W";
+                                if (newTdpString != lastTdpString)
+                                {
+                                    currentTdp.SetValue(newTdpString);
+                                    lastTdpString = newTdpString;
+                                }
                                 return;
                             }
                             Logger.Warn("PawnIO: Failed to set TDP");
