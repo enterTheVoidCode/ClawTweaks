@@ -9394,12 +9394,9 @@ namespace XboxGamingBar
                 App.AppServiceConnected += GamingWidget_AppServiceConnected;
                 App.AppServiceDisconnected += GamingWidget_AppServiceDisconnected;
 
-                // Show connection status banner while waiting for helper to connect
-                if (ConnectionStatusBanner != null)
-                {
-                    ConnectionStatusBanner.Visibility = Visibility.Visible;
-                    Logger.Info("Connection status banner shown - waiting for helper connection.");
-                }
+                // Show launching banner while waiting for helper to connect
+                ShowConnectionBanner(BannerState.Launching);
+                Logger.Info("Connection status banner shown - launching helper.");
 
                 Logger.Info("Launching full trust process via FullTrustProcessLauncher.");
                 await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
@@ -9415,11 +9412,8 @@ namespace XboxGamingBar
                     Logger.Info("AppService connection already exists. Ensuring event handlers are registered.");
 
                     // Hide connection status banner since we're connected
-                    if (ConnectionStatusBanner != null)
-                    {
-                        ConnectionStatusBanner.Visibility = Visibility.Collapsed;
-                        Logger.Info("Connection status banner hidden - already connected.");
-                    }
+                    HideConnectionBanner();
+                    Logger.Info("Connection status banner hidden - already connected.");
 
                     // Use -= before += to ensure we don't register duplicate handlers
                     Logger.Info("Unregistering existing event handlers (if any)...");
@@ -9542,16 +9536,57 @@ namespace XboxGamingBar
             {
                 Logger.Info("GamingWidget LeavingBackground, syncing UI properties with helper.");
 
+                // Show syncing banner while attempting sync (handles stale connections after sleep)
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    ShowConnectionBanner(BannerState.Syncing);
+                });
+
                 // Set flag to prevent auto-save during sync (same pattern as OnNavigatedTo)
+                bool syncSucceeded = false;
                 isApplyingHelperUpdate = true;
                 try
                 {
-                    await properties.Sync();
+                    // Use timeout to detect stale connections after sleep/hibernate
+                    var syncTask = properties.Sync();
+                    if (await Task.WhenAny(syncTask, Task.Delay(3000)) == syncTask)
+                    {
+                        await syncTask; // Ensure completion and propagate any exceptions
+                        syncSucceeded = true;
+                        Logger.Info("Property sync completed successfully.");
+                    }
+                    else
+                    {
+                        Logger.Warn("Property sync timed out - connection may be stale after sleep/hibernate.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Property sync failed - connection may be stale: {ex.Message}");
                 }
                 finally
                 {
                     isApplyingHelperUpdate = false;
                 }
+
+                // Handle sync failure - trigger reconnection
+                if (!syncSucceeded)
+                {
+                    Logger.Info("Sync failed, triggering helper reconnection...");
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        ShowConnectionBanner(BannerState.Reconnecting);
+                    });
+                    // Relaunch helper - AppServiceConnected event will handle re-sync
+                    await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+                    return; // Exit early, let AppServiceConnected handle the rest
+                }
+
+                // Sync succeeded - hide banner and continue
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    HideConnectionBanner();
+                });
 
                 // Update FPS Limit controls based on RTSS installed status
                 UpdateFPSLimitControls();
@@ -9883,11 +9918,8 @@ namespace XboxGamingBar
                         return;
                     }
 
-                    if (ConnectionStatusBanner != null)
-                    {
-                        ConnectionStatusBanner.Visibility = Visibility.Collapsed;
-                        Logger.Info("Connection status banner hidden - connected to helper.");
-                    }
+                    HideConnectionBanner();
+                    Logger.Info("Connection status banner hidden - connected to helper.");
 
                     // Update profile display now that legionGoDetected has been synced from helper
                     // This ensures TDP Mode shows in Profiles tab on fresh start
@@ -9903,6 +9935,63 @@ namespace XboxGamingBar
             }
 
             Logger.Info("=== GamingWidget_AppServiceConnected END ===");
+        }
+
+        /// <summary>
+        /// Banner state types for different connection status messages.
+        /// </summary>
+        private enum BannerState
+        {
+            /// <summary>Red banner - Not connected to helper (error state)</summary>
+            Disconnected,
+            /// <summary>Blue banner - Syncing properties (info state)</summary>
+            Syncing,
+            /// <summary>Orange banner - Reconnecting to helper (warning state)</summary>
+            Reconnecting,
+            /// <summary>Blue banner - Launching helper process (info state)</summary>
+            Launching
+        }
+
+        /// <summary>
+        /// Shows the connection status banner with appropriate color and message based on state.
+        /// </summary>
+        /// <param name="state">The banner state to display</param>
+        private void ShowConnectionBanner(BannerState state)
+        {
+            if (ConnectionStatusBanner == null || ConnectionStatusText == null)
+                return;
+
+            switch (state)
+            {
+                case BannerState.Disconnected:
+                    ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 204, 51, 51)); // #CC3333
+                    ConnectionStatusText.Text = "Not connected to helper";
+                    break;
+                case BannerState.Syncing:
+                    ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 102, 204)); // #3366CC
+                    ConnectionStatusText.Text = "Syncing...";
+                    break;
+                case BannerState.Reconnecting:
+                    ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 204, 102, 51)); // #CC6633
+                    ConnectionStatusText.Text = "Reconnecting...";
+                    break;
+                case BannerState.Launching:
+                    ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 102, 204)); // #3366CC
+                    ConnectionStatusText.Text = "Launching helper...";
+                    break;
+            }
+            ConnectionStatusBanner.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>
+        /// Hides the connection status banner.
+        /// </summary>
+        private void HideConnectionBanner()
+        {
+            if (ConnectionStatusBanner != null)
+            {
+                ConnectionStatusBanner.Visibility = Visibility.Collapsed;
+            }
         }
 
         /// <summary>
@@ -10040,11 +10129,8 @@ namespace XboxGamingBar
                         Logger.Info("Properties cleaned up.");
 
                         // Show connection status banner since we're disconnected
-                        if (ConnectionStatusBanner != null)
-                        {
-                            ConnectionStatusBanner.Visibility = Visibility.Visible;
-                            Logger.Info("Connection status banner shown - disconnected from helper.");
-                        }
+                        ShowConnectionBanner(BannerState.Disconnected);
+                        Logger.Info("Connection status banner shown - disconnected from helper.");
                     }
                     catch (Exception cleanupEx)
                     {
@@ -11508,6 +11594,7 @@ namespace XboxGamingBar
             AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);
             AddTileDefinition("LegionDesktopControls", "Desktop", "\uE7F4", order: order++);
             AddTileDefinition("LegionRemapControls", "Remap", "\uE7FC", order: order++);
+            AddTileDefinition("LegionChargeLimit", "Charge Limit", "\uE83F", order: order++);
             AddTileDefinition("Battery", "Battery", "\uE83F", order: order++);
 
             // Load custom shortcut tiles from storage
@@ -12579,6 +12666,18 @@ namespace XboxGamingBar
                     }
                 }
 
+                // Legion Charge Limit tile (80% battery limit)
+                if (qsTileMap.TryGetValue("LegionChargeLimit", out var chargeLimitTile) && chargeLimitTile.TileButton != null)
+                {
+                    if (legionGoDetected?.Value == true)
+                    {
+                        bool enabled = legionChargeLimit?.Value ?? false;
+                        chargeLimitTile.StateText.Text = enabled ? "80%" : "Off";
+                        chargeLimitTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                        chargeLimitTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                    }
+                }
+
                 // Battery tile - device battery in title, controllers in state text
                 if (qsTileMap.TryGetValue("Battery", out var batteryTile) && batteryTile.TileButton != null)
                 {
@@ -12766,6 +12865,9 @@ namespace XboxGamingBar
                                 break;
                             case "LegionRemapControls":
                                 ToggleRemapControlsProfile();
+                                break;
+                            case "LegionChargeLimit":
+                                ToggleLegionChargeLimit();
                                 break;
                             // Action tiles
                             case "ActionTaskManager":
@@ -13659,6 +13761,21 @@ namespace XboxGamingBar
                 LegionDesktopControlsToggle.IsOn = newValue;
                 // The Toggled event handler will apply the mappings
                 Logger.Info($"Legion Desktop Controls toggled to {newValue}");
+            }
+        }
+
+        private void ToggleLegionChargeLimit()
+        {
+            if (legionGoDetected?.Value == true && legionChargeLimit != null)
+            {
+                bool newValue = !legionChargeLimit.Value;
+                legionChargeLimit.SetValue(newValue);
+                // Also update the toggle in Legion tab if it exists
+                if (LegionChargeLimitToggle != null)
+                {
+                    LegionChargeLimitToggle.IsOn = newValue;
+                }
+                Logger.Info($"Legion Charge Limit toggled to {(newValue ? "80%" : "Off")}");
             }
         }
 

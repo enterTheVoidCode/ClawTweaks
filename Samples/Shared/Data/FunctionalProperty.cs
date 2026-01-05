@@ -1,5 +1,6 @@
 ﻿using NLog;
 using Shared.Enums;
+using System;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
@@ -37,38 +38,47 @@ namespace Shared.Data
         {
             base.NotifyPropertyChanged(propertyName);
 
-            var request = new ValueSet
+            try
             {
-                { nameof(Command), (int)Command.Set },
-                { nameof(Function),(int)function },
-            };
-            request = AddValueSetContent(request);
-
-            var sentMessage = SendMessageAsync(request);
-            if (sentMessage == null)
-            {
-                Logger.Error($"Can't send {function} value changed message.");
-                return;
-            }
-
-            var response = await sentMessage;
-            if (response != null && response.Message != null)
-            {
-                if (response.Message.TryGetValue(nameof(Content), out object responseValue))
+                var request = new ValueSet
                 {
-                    Logger.Debug($"Notify property {function} changed {responseValue}.");
+                    { nameof(Command), (int)Command.Set },
+                    { nameof(Function),(int)function },
+                };
+                request = AddValueSetContent(request);
+
+                var sentMessage = SendMessageAsync(request);
+                if (sentMessage == null)
+                {
+                    Logger.Error($"Can't send {function} value changed message.");
+                    return;
+                }
+
+                var response = await sentMessage;
+                if (response != null && response.Message != null)
+                {
+                    if (response.Message.TryGetValue(nameof(Content), out object responseValue))
+                    {
+                        Logger.Debug($"Notify property {function} changed {responseValue}.");
+                    }
+                    else
+                    {
+                        if (function != Function.None)
+                        {
+                            Logger.Warn($"Got empty response when notifying property {function}.");
+                        }
+                    }
                 }
                 else
                 {
-                    if (function != Function.None)
-                    {
-                        Logger.Warn($"Got empty response when notifying property {function}.");
-                    }
+                    Logger.Warn($"Got no response when notifying property {function}.");
                 }
             }
-            else
+            catch (Exception ex)
             {
-                Logger.Warn($"Got no response when notifying property {function}.");
+                // Catch exceptions to prevent async void from crashing the process
+                // This can happen when the AppService connection is broken
+                Logger.Debug($"NotifyPropertyChanged failed for {function}: {ex.Message}");
             }
         }
 
@@ -134,27 +144,36 @@ namespace Shared.Data
         /// </summary>
         public async void SyncToRemote()
         {
-            var request = new ValueSet
+            try
             {
-                { nameof(Command), (int)Command.Set },
-                { nameof(Function),(int)function },
-            };
-            request = AddValueSetContent(request);
-
-            var sentMessage = SendMessageAsync(request);
-            if (sentMessage == null)
-            {
-                Logger.Debug($"Can't send {function} sync to remote message.");
-                return;
-            }
-
-            var response = await sentMessage;
-            if (response != null && response.Message != null)
-            {
-                if (response.Message.TryGetValue(nameof(Content), out object responseValue))
+                var request = new ValueSet
                 {
-                    Logger.Debug($"Synced property {function} to remote: {responseValue}.");
+                    { nameof(Command), (int)Command.Set },
+                    { nameof(Function),(int)function },
+                };
+                request = AddValueSetContent(request);
+
+                var sentMessage = SendMessageAsync(request);
+                if (sentMessage == null)
+                {
+                    Logger.Debug($"Can't send {function} sync to remote message.");
+                    return;
                 }
+
+                var response = await sentMessage;
+                if (response != null && response.Message != null)
+                {
+                    if (response.Message.TryGetValue(nameof(Content), out object responseValue))
+                    {
+                        Logger.Debug($"Synced property {function} to remote: {responseValue}.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Catch exceptions to prevent async void from crashing the process
+                // This can happen when the AppService connection is broken (e.g., widget closed)
+                Logger.Debug($"SyncToRemote failed for {function}: {ex.Message}");
             }
         }
     }
