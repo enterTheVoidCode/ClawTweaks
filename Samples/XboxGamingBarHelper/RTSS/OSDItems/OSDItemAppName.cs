@@ -14,7 +14,8 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         public override string GetOSDString(int osdLevel)
         {
             // Show application/API name (e.g., D3D11, D3D12, Vulkan) in red, then back to text color
-            return $"<C=FF0000><APP><C={textColor}>";
+            // Apply opacity for OLED protection
+            return $"<C={ApplyOpacity("FF0000")}><APP><C={GetTextColorWithOpacity()}>";
         }
     }
 }

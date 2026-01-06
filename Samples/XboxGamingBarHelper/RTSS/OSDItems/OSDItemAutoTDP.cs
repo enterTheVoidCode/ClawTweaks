@@ -44,24 +44,27 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             // Check if we're locked on sweet spot
             bool isLocked = displayStatus.StartsWith("Locked");
 
-            // Color code based on status
+            // Get text color with opacity for OLED protection
+            var tc = GetTextColorWithOpacity();
+
+            // Color code based on status - apply opacity for OLED protection
             string statusColor;
             if (isLocked)
-                statusColor = "00FF00"; // Green for locked
+                statusColor = ApplyOpacity("00FF00"); // Green for locked
             else if (displayStatus == "On target")
-                statusColor = "00FF00"; // Green
+                statusColor = ApplyOpacity("00FF00"); // Green
             else if (displayStatus == "Below target" || displayStatus.StartsWith("Increasing"))
-                statusColor = "FFFF00"; // Yellow
+                statusColor = ApplyOpacity("FFFF00"); // Yellow
             else if (displayStatus == "Above target" || displayStatus.StartsWith("Decreasing"))
-                statusColor = "00BFFF"; // Cyan
+                statusColor = ApplyOpacity("00BFFF"); // Cyan
             else if (displayStatus == "Probing")
-                statusColor = "FF00FF"; // Magenta for probing
+                statusColor = ApplyOpacity("FF00FF"); // Magenta for probing
             else
-                statusColor = "FFFFFF"; // White
+                statusColor = tc; // Use text color with opacity
 
             // Build OSD string
             // Format: AutoTDP 58/60 FPS 14W Locked 13W
-            var osdString = $"<C={colorCode}>{name}<C={textColor}> {currentFPS}/{targetFPS} FPS";
+            var osdString = $"<C={ApplyOpacity(colorCode)}>{name}<C={tc}> {currentFPS}/{targetFPS} FPS";
 
             // Show TDP change when increasing, decreasing, or probing
             if (displayStatus.StartsWith("Increasing") || displayStatus.StartsWith("Decreasing") || displayStatus == "Probing")
@@ -74,12 +77,12 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
                 osdString += $" {currentTDP}W";
             }
 
-            osdString += $" <C={statusColor}>{displayStatus}<C={textColor}>";
+            osdString += $" <C={statusColor}>{displayStatus}<C={tc}>";
 
             // Show sweet spot if detected but not yet locked
             if (sweetSpotConfidence >= 60 && !isLocked)
             {
-                osdString += $" <C=888888>(sweet:{sweetSpotTDP}W)<C={textColor}>";
+                osdString += $" <C={ApplyOpacity("888888")}>(sweet:{sweetSpotTDP}W)<C={tc}>";
             }
 
             return osdString;

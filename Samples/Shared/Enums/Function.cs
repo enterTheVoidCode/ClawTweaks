@@ -163,6 +163,9 @@
         // OSD Customization
         OSDConfig,                  // string - OSD configuration per level (L1:items;L2:items;L3:items)
 
+        // OLED Protection
+        OLEDConfig,                 // string - OLED protection settings config
+
         // FPS Limiter (RTSS)
         FPSLimit,                   // int - FPS limit (0 = unlimited)
 

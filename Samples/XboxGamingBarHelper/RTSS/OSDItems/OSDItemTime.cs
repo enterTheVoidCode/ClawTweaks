@@ -16,7 +16,7 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         {
             var now = DateTime.Now;
             var timeString = now.ToString("h:mm tt"); // e.g., "2:30 PM"
-            return $"<C={textColor}>{timeString}";
+            return $"<C={GetTextColorWithOpacity()}>{timeString}";
         }
     }
 }

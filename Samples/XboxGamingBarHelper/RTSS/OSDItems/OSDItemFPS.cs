@@ -11,7 +11,9 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         public override string GetOSDString(int osdLevel)
         {
             // FPS and frametime - uses text color, yellow for frametime then back to text color
-            return $"<C={textColor}><FR> FPS <C=FFFF00><FT> ms<C={textColor}>";
+            // Apply opacity to all colors for OLED protection
+            var tc = GetTextColorWithOpacity();
+            return $"<C={tc}><FR> FPS <C={ApplyOpacity("FFFF00")}><FT> ms<C={tc}>";
         }
     }
 }

@@ -1459,6 +1459,24 @@
                             </Grid>
                         </Border>
 
+                        <!-- Adaptive Brightness Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Adaptive Brightness" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Auto-adjust based on ambient light (requires sensor)" Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="AdaptiveBrightnessToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              Toggled="AdaptiveBrightnessToggle_Toggled"/>
+                            </Grid>
+                        </Border>
+
                         <!-- Display Color Settings Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -1689,7 +1707,7 @@
 
                         <!-- TDP Control Method Card -->
                         <Border x:Name="TdpMethodCard" Style="{StaticResource CardStyle}">
-                            <StackPanel>
+                            <StackPanel XYFocusKeyboardNavigation="Enabled">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -1706,7 +1724,6 @@
                                               Width="160"
                                               Grid.Column="1"
                                               Style="{StaticResource ModernComboBoxStyle}"
-                                              XYFocusUp="{x:Bind StickyTDPToggle}"
                                               XYFocusDown="{x:Bind InstallPawnIOButton}">
                                         <ComboBoxItem x:Name="TdpMethodWmiItem" Content="Manufacturer WMI" Tag="ManufacturerWMI" Visibility="Collapsed"/>
                                         <ComboBoxItem x:Name="TdpMethodPawnIOItem" Content="PawnIO" Tag="PawnIO"/>
@@ -1739,7 +1756,7 @@
 
                         <!-- Device TDP Limits Card (Collapsible) -->
                         <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
+                            <StackPanel XYFocusKeyboardNavigation="Enabled">
                                 <!-- Header with Expand/Collapse -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -1759,7 +1776,8 @@
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
-                                                  Click="TDPLimitsExpandButton_Click">
+                                                  Click="TDPLimitsExpandButton_Click"
+                                                  XYFocusUp="{x:Bind InstallPawnIOButton}">
                                         <FontIcon x:Name="TDPLimitsExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
@@ -2263,6 +2281,45 @@
                                                      IsAlphaTextInputVisible="False"
                                                      ColorChanged="OSDLabelColorPicker_ColorChanged"/>
                                     </StackPanel>
+
+                                    <!-- OSD Opacity Slider (for OLED protection) -->
+                                    <StackPanel Margin="0,8,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="OSD Opacity" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="13"/>
+                                            <TextBlock x:Name="OSDOpacityValue"
+                                                       Grid.Column="1"
+                                                       Text="100%" FontSize="13" Foreground="#4CAF50"
+                                                       FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <TextBlock Text="Reduce OSD brightness to protect OLED pixels" Foreground="#707070" FontSize="11" Margin="0,2,0,4"/>
+                                        <Slider x:Name="OSDOpacitySlider"
+                                                Style="{StaticResource ModernSliderStyle}"
+                                                Minimum="10" Maximum="100"
+                                                TickFrequency="5"
+                                                SnapsTo="Ticks"
+                                                Value="100"
+                                                ValueChanged="OSDOpacitySlider_ValueChanged"/>
+                                    </StackPanel>
+
+                                    <!-- Position Shift Toggle (OLED burn-in protection) -->
+                                    <Grid Margin="0,4,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Position Shift" Foreground="#AAAAAA" FontSize="13"/>
+                                            <TextBlock Text="Shifts OSD every minute to prevent burn-in" Foreground="#707070" FontSize="11"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="OSDPositionShiftToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="OSDPositionShiftToggle_Toggled"/>
+                                    </Grid>
 
                                         <!-- Items Section -->
                                         <TextBlock Text="Items to Display"

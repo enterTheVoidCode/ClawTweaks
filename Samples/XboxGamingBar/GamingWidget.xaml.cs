@@ -1442,6 +1442,9 @@ namespace XboxGamingBar
             LoadOSDConfigFromStorage();
             LoadOSDOptionsForLevel(1); // Load Basic level options by default
 
+            // Load Display and OSD settings
+            LoadDisplayOSDSettingsFromStorage();
+
             // Load Performance Overlay setting
             LoadPerformanceOverlaySetting();
 
@@ -1450,6 +1453,7 @@ namespace XboxGamingBar
 
             // Send OSD config to helper on startup
             SendOSDConfigToHelper();
+            _ = SendDisplayOSDConfigToHelper();
         }
 
         private void AutoTDPCurrentFPS_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -2670,6 +2674,12 @@ namespace XboxGamingBar
         private bool isLightingExpanded = false;
         private bool isFanCurveExpanded = false;
         private bool fanCurveGraphInitialized = false;
+
+        // Display and OSD settings
+        private bool adaptiveBrightnessEnabled = false;
+        private bool osdPositionShiftEnabled = false;
+        private int osdOpacity = 100; // percentage 10-100
+        private bool isLoadingOLEDSettings = false;
         private readonly Windows.UI.Xaml.Shapes.Ellipse[] fanCurvePoints = new Windows.UI.Xaml.Shapes.Ellipse[10];
         private int[] currentFanCurveValues = new int[10];
         private int draggedPointIndex = -1;
@@ -3046,8 +3056,9 @@ namespace XboxGamingBar
                 settings.Values[$"OSD_TextSize_{currentRes}"] = osdTextSize;
                 settings.Values["OSD_TextColor"] = osdTextColor;
                 settings.Values["OSD_LabelColor"] = osdLabelColor;
+                settings.Values["OSD_Opacity"] = osdOpacity;
 
-                Logger.Info($"OSD configuration saved to storage (resolution: {currentRes}, text size: {osdTextSize})");
+                Logger.Info($"OSD configuration saved to storage (resolution: {currentRes}, text size: {osdTextSize}, opacity: {osdOpacity})");
             }
             catch (Exception ex)
             {
@@ -3139,6 +3150,10 @@ namespace XboxGamingBar
                 {
                     osdLabelColor = labelColor;
                 }
+                if (settings.Values.TryGetValue("OSD_Opacity", out object opacityVal) && opacityVal is int opacity)
+                {
+                    osdOpacity = opacity;
+                }
                 if (settings.Values.TryGetValue("OSD_Provider", out object providerVal) && providerVal is int provider)
                 {
                     osdProvider = provider;
@@ -3172,6 +3187,7 @@ namespace XboxGamingBar
                 configParts.Add($"TextSize:{osdTextSize}");
                 configParts.Add($"TextColor:{osdTextColor}");
                 configParts.Add($"LabelColor:{osdLabelColor}");
+                configParts.Add($"Opacity:{osdOpacity}");
 
                 // Add per-level item configuration
                 foreach (var level in osdLevelConfig.Keys)
@@ -3248,6 +3264,106 @@ namespace XboxGamingBar
                 OSDCustomizeExpandIcon.Glyph = isOSDCustomizeExpanded ? "\uE70E" : "\uE70D";
             }
         }
+
+        private void OSDOpacitySlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        {
+            if (isLoadingOSDConfig) return;
+            osdOpacity = (int)Math.Round(e.NewValue);
+            if (OSDOpacityValue != null)
+                OSDOpacityValue.Text = $"{osdOpacity}%";
+            SaveOSDConfigToStorage();
+            SendOSDConfigToHelper();
+        }
+
+        #region Display and OSD Settings Handlers
+
+        private async void AdaptiveBrightnessToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (isLoadingOLEDSettings) return;
+            adaptiveBrightnessEnabled = AdaptiveBrightnessToggle.IsOn;
+            SaveDisplayOSDSettingsToStorage();
+            await SendDisplayOSDConfigToHelper();
+        }
+
+        private async void OSDPositionShiftToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (isLoadingOLEDSettings) return;
+            osdPositionShiftEnabled = OSDPositionShiftToggle.IsOn;
+            SaveDisplayOSDSettingsToStorage();
+            await SendDisplayOSDConfigToHelper();
+        }
+
+        private void SaveDisplayOSDSettingsToStorage()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                settings.Values["OLED_AdaptiveBrightness"] = adaptiveBrightnessEnabled;
+                settings.Values["OLED_PositionShift"] = osdPositionShiftEnabled;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error saving display/OSD settings: {ex.Message}");
+            }
+        }
+
+        private void LoadDisplayOSDSettingsFromStorage()
+        {
+            isLoadingOLEDSettings = true;
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                if (settings.Values.TryGetValue("OLED_AdaptiveBrightness", out object adaptiveBrightness) && adaptiveBrightness is bool ab)
+                    adaptiveBrightnessEnabled = ab;
+                if (settings.Values.TryGetValue("OLED_PositionShift", out object posShift) && posShift is bool ps)
+                    osdPositionShiftEnabled = ps;
+                if (settings.Values.TryGetValue("OSD_Opacity", out object opacity) && opacity is int op)
+                    osdOpacity = op;
+
+                // Update UI
+                if (AdaptiveBrightnessToggle != null) AdaptiveBrightnessToggle.IsOn = adaptiveBrightnessEnabled;
+                if (OSDPositionShiftToggle != null) OSDPositionShiftToggle.IsOn = osdPositionShiftEnabled;
+                if (OSDOpacitySlider != null) OSDOpacitySlider.Value = osdOpacity;
+                if (OSDOpacityValue != null) OSDOpacityValue.Text = $"{osdOpacity}%";
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error loading display/OSD settings: {ex.Message}");
+            }
+            finally
+            {
+                isLoadingOLEDSettings = false;
+            }
+        }
+
+        private async Task SendDisplayOSDConfigToHelper()
+        {
+            try
+            {
+                if (App.Connection == null) return;
+
+                var configString = $"AdaptiveBrightness:{(adaptiveBrightnessEnabled ? 1 : 0)};" +
+                                   $"PositionShift:{(osdPositionShiftEnabled ? 1 : 0)}";
+
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "Command", (int)Shared.Enums.Command.Set },
+                    { "Function", (int)Shared.Enums.Function.OLEDConfig },
+                    { "Content", configString },
+                    { "UpdatedTime", DateTimeOffset.Now.Ticks }
+                };
+                await App.Connection.SendMessageAsync(request);
+
+                Logger.Info($"Display/OSD config sent to helper: {configString}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending display/OSD config to helper: {ex.Message}");
+            }
+        }
+
+        #endregion
 
         private void ProfileSettingsExpandToggle_Click(object sender, RoutedEventArgs e)
         {
@@ -11079,6 +11195,21 @@ namespace XboxGamingBar
                 InstallPawnIOButton.Content = installed ? "Installed" : "Install";
                 InstallPawnIOButton.IsEnabled = !installed;
                 Logger.Info($"PawnIO install button updated: installed={installed}");
+
+                // Update XY navigation to skip disabled button
+                if (TdpMethodComboBox != null && TDPLimitsExpandButton != null)
+                {
+                    if (installed)
+                    {
+                        TdpMethodComboBox.XYFocusDown = TDPLimitsExpandButton;
+                        TDPLimitsExpandButton.XYFocusUp = TdpMethodComboBox;
+                    }
+                    else
+                    {
+                        TdpMethodComboBox.XYFocusDown = InstallPawnIOButton;
+                        TDPLimitsExpandButton.XYFocusUp = InstallPawnIOButton;
+                    }
+                }
             }
 
             if (PawnIOStatusText != null)

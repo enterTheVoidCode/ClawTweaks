@@ -42,6 +42,10 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
                 return string.Empty;
             }
 
+            // Apply opacity to label and text colors for OLED protection
+            var labelColor = ApplyOpacity(colorCode);
+            var tc = GetTextColorWithOpacity();
+
             // If Legion Go is detected and not in Custom mode, show mode name instead of limits
             if (legionManager != null && legionManager.LegionGoDetected?.Value == true)
             {
@@ -49,7 +53,7 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
                 if (mode != 255) // Not Custom mode
                 {
                     string modeName = LegionManager.GetPerformanceModeName(mode);
-                    return $"<C={colorCode}>Mode<C={textColor}> <C={textColor}>{modeName}<C={textColor}>";
+                    return $"<C={labelColor}>Mode<C={tc}> <C={tc}>{modeName}<C={tc}>";
                 }
             }
 
@@ -64,7 +68,7 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             }
 
             // Format: "Limits: SPL/SPPT/FPPT" e.g. "Limits: 25/26/28"
-            return $"<C={colorCode}>Limits<C={textColor}> <C={textColor}>{spl}/{sppt}/{fppt}W<C={textColor}>";
+            return $"<C={labelColor}>Limits<C={tc}> <C={tc}>{spl}/{sppt}/{fppt}W<C={tc}>";
         }
     }
 }
