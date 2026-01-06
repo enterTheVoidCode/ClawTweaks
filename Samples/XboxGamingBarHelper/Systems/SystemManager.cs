@@ -914,6 +914,29 @@ namespace XboxGamingBarHelper.Systems
         }
 
         /// <summary>
+        /// Sets Windows adaptive brightness (auto-adjust based on ambient light sensor).
+        /// Note: This setting only has effect if the device has an ambient light sensor.
+        /// </summary>
+        public void SetAdaptiveBrightness(bool enabled)
+        {
+            try
+            {
+                Logger.Info($"Setting adaptive brightness: {enabled}");
+
+                // ADAPTBRIGHT controls "Change brightness automatically when lighting changes"
+                RunPowerCfgCommand($"/setacvalueindex scheme_current sub_video ADAPTBRIGHT {(enabled ? 1 : 0)}");
+                RunPowerCfgCommand($"/setdcvalueindex scheme_current sub_video ADAPTBRIGHT {(enabled ? 1 : 0)}");
+                RunPowerCfgCommand("/setactive scheme_current");
+
+                Logger.Info($"Adaptive brightness set to {enabled}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting adaptive brightness: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Enables or disables Force Park Mode, which applies affinity to ALL running processes.
         /// This is aggressive and may cause system instability.
         /// </summary>

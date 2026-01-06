@@ -29,7 +29,9 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             string uploadStr = FormatSpeed(uploadSpeed);
 
             // Show download with down arrow and upload with up arrow
-            return $"<C=FFA500>NET<C> <C=FFFFFF>↓{downloadStr} ↑{uploadStr}<C>";
+            // Apply opacity for OLED protection
+            var tc = GetTextColorWithOpacity();
+            return $"<C={ApplyOpacity("FFA500")}>NET<C> <C={tc}>↓{downloadStr} ↑{uploadStr}<C>";
         }
 
         private string FormatSpeed(float bytesPerSecond)

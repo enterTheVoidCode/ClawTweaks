@@ -236,6 +236,10 @@ namespace XboxGamingBarHelper
             // Set AutoTDPManager reference in RTSSManager for AutoTDP OSD support
             rtssManager.SetAutoTDPManager(autoTDPManager);
 
+            // Initialize Display/OSD config (position shift handled by RTSSManager, adaptive brightness by SystemManager)
+            Logger.Info("Initialize DisplayOSD Config.");
+            rtssManager.InitializeDisplayOSDConfig(systemManager.SetAdaptiveBrightness);
+
             // Initialize global hotkey manager (Ctrl+Shift+D to toggle Desktop Controls)
             InitializeHotkeyManager();
 
@@ -287,6 +291,7 @@ namespace XboxGamingBarHelper
                 rtssManager.RTSSInstalled,
                 rtssManager.OSDConfig,
                 rtssManager.FPSLimit,
+                rtssManager.DisplayOSDConfig,
                 settingsManager.IsForeground,
                 amdManager.AMDRadeonSuperResolutionEnabled,
                 amdManager.AMDRadeonSuperResolutionSupported,

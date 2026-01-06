@@ -8,7 +8,7 @@ namespace XboxGamingBarHelper.Performance.Sensors
         private static readonly string[] SensorNames = new[]
         {
             "Package",           // AMD Ryzen (common)
-            "CPU Package",       // Intel (common)
+            "CPU Package",       // Intel (package power)
             "CPU Cores",         // Some Intel CPUs
             "Cores",             // Alternative
             "CPU Package Power", // Alternative

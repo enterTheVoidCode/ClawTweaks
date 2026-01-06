@@ -51,6 +51,12 @@ namespace XboxGamingBarHelper.RTSS
             get { return fpsLimit; }
         }
 
+        private DisplayOSDConfigProperty displayOSDConfig;
+        public DisplayOSDConfigProperty DisplayOSDConfig
+        {
+            get { return displayOSDConfig; }
+        }
+
         private RivatunerStatisticsServerState rtssState;
 
         // Frametime graph settings - now using native RTSS buffer (1024 per-frame samples)
@@ -100,6 +106,19 @@ namespace XboxGamingBarHelper.RTSS
         private string osdTextColor = "FFFFFF";
         private string osdLabelColor = "DEFAULT";  // DEFAULT = use item-specific colors, or hex color code
         private string osdBackgroundColor = "80000000";
+        private int osdOpacity = 100;         // Percentage: 10-100, darkens OSD colors for OLED protection
+
+        // OSD position offset for OLED burn-in protection
+        private int osdPositionOffsetX = 0;
+        private int osdPositionOffsetY = 0;
+
+        // OSD Position Shift (OLED burn-in protection)
+        // Note: In RTSS, 1 vertical pixel = 2 horizontal pixels visually
+        private Timer positionShiftTimer;
+        private bool positionShiftEnabled = false;
+        private const int MAX_OFFSET_X = 3;  // Horizontal pixels (±3)
+        private const int MAX_OFFSET_Y = 2;  // Vertical pixels (±2) - appears similar to ±3 horizontal
+        private readonly Random positionShiftRandom = new Random();
 
         // Per-level columns (Basic=3, Detailed=1, Full=1)
         private Dictionary<int, int> osdLevelColumns = new Dictionary<int, int>
@@ -370,6 +389,14 @@ namespace XboxGamingBarHelper.RTSS
                         osdBackgroundColor = value;
                         Logger.Debug($"OSD BackgroundColor: {value}");
                     }
+                    else if (key == "Opacity")
+                    {
+                        if (int.TryParse(value, out int opacity))
+                        {
+                            osdOpacity = Math.Max(10, Math.Min(100, opacity));
+                            Logger.Debug($"OSD Opacity: {osdOpacity}");
+                        }
+                    }
                     else if (key.StartsWith("L") && key.EndsWith("_Columns"))
                     {
                         // Per-level columns: L1_Columns, L2_Columns, L3_Columns
@@ -457,6 +484,80 @@ namespace XboxGamingBarHelper.RTSS
         }
 
         /// <summary>
+        /// Parses display/OSD config from the widget.
+        /// Format: "PositionShift:1;PositionShiftInterval:5;AdaptiveBrightness:1"
+        /// AdaptiveBrightness is handled by SystemManager via callback.
+        /// </summary>
+        public void ParseDisplayOSDConfig(string configString, Action<bool> setAdaptiveBrightness)
+        {
+            if (string.IsNullOrEmpty(configString))
+                return;
+
+            Logger.Info($"Parsing Display/OSD config: {configString}");
+
+            try
+            {
+                var parts = configString.Split(';');
+                foreach (var part in parts)
+                {
+                    var kv = part.Split(':');
+                    if (kv.Length != 2) continue;
+
+                    var key = kv[0];
+                    var value = kv[1];
+
+                    switch (key)
+                    {
+                        case "PositionShift":
+                            bool newPosShiftEnabled = value == "1";
+                            if (newPosShiftEnabled != positionShiftEnabled)
+                            {
+                                positionShiftEnabled = newPosShiftEnabled;
+                                UpdatePositionShiftTimer();
+                            }
+                            break;
+                        case "AdaptiveBrightness":
+                            setAdaptiveBrightness?.Invoke(value == "1");
+                            break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error parsing Display/OSD config: {ex.Message}");
+            }
+        }
+
+        private void UpdatePositionShiftTimer()
+        {
+            positionShiftTimer?.Dispose();
+            positionShiftTimer = null;
+
+            if (positionShiftEnabled)
+            {
+                // Fixed 1-minute interval for OLED burn-in prevention
+                const int intervalMs = 60 * 1000;
+                positionShiftTimer = new Timer(PositionShiftTick, null, intervalMs, intervalMs);
+                Logger.Info("OSD Position shift enabled, interval: 1 minute");
+            }
+            else
+            {
+                // Reset to origin
+                osdPositionOffsetX = 0;
+                osdPositionOffsetY = 0;
+                Logger.Info("OSD Position shift disabled");
+            }
+        }
+
+        private void PositionShiftTick(object state)
+        {
+            // Generate random offset within bounds (X and Y scaled for visual uniformity)
+            osdPositionOffsetX = positionShiftRandom.Next(-MAX_OFFSET_X, MAX_OFFSET_X + 1);
+            osdPositionOffsetY = positionShiftRandom.Next(-MAX_OFFSET_Y, MAX_OFFSET_Y + 1);
+            Logger.Debug($"OSD Position shifted to ({osdPositionOffsetX}, {osdPositionOffsetY})");
+        }
+
+        /// <summary>
         /// Checks if the given OSD item should be shown for the current level.
         /// </summary>
         private bool IsItemEnabled(string itemId)
@@ -498,6 +599,16 @@ namespace XboxGamingBarHelper.RTSS
         {
             osdItemControllerBattery.SetCallbacks(getLeftBattery, getRightBattery, getLeftCharging, getRightCharging);
             Logger.Info("Controller battery callbacks set for RTSS OSD");
+        }
+
+        /// <summary>
+        /// Initializes the DisplayOSDConfig property with the adaptive brightness callback.
+        /// Must be called after SystemManager is initialized.
+        /// </summary>
+        public void InitializeDisplayOSDConfig(Action<bool> setAdaptiveBrightness)
+        {
+            displayOSDConfig = new DisplayOSDConfigProperty(this, setAdaptiveBrightness);
+            Logger.Info("DisplayOSDConfig property initialized");
         }
 
         public override void Update()
@@ -578,10 +689,13 @@ namespace XboxGamingBarHelper.RTSS
             osdItemCPU.SetShowClock(IsItemEnabled("CPUClock"));
             osdItemGPU.SetShowClock(IsItemEnabled("GPUClock"));
 
-            // Set text color on all items so they can reset to it after colored names
+            // Set text color and opacity on all items
+            // Apply opacity for OLED protection
+            var textColorWithOpacity = osdTextColor == "DYNAMIC" ? "DYNAMIC" : ApplyOpacityToColor(osdTextColor);
             foreach (var item in osdItems)
             {
-                item.SetTextColor(osdTextColor);
+                item.SetTextColor(textColorWithOpacity);
+                item.SetOpacity(osdOpacity);
             }
 
             // Pre-build frametime graph string if enabled (so it can be placed in order)
@@ -615,13 +729,19 @@ namespace XboxGamingBarHelper.RTSS
                         currentMaxFt = maxFt;
 
                         string graphColor = (osdTextColor == "DYNAMIC" || string.IsNullOrEmpty(osdTextColor)) ? "00FFFF" : osdTextColor;
-                        string yAxisMax = $"<S=50><C=808080>{GraphMaxMs:F0}ms<C><S>";
-                        string yAxisMin = $"<S=50><C=808080>{GraphMinMs:F0}ms<C><S>";
+                        graphColor = ApplyOpacityToColor(graphColor);
+                        string axisColor = ApplyOpacityToColor("808080");
+                        string yAxisMax = $"<S=50><C={axisColor}>{GraphMaxMs:F0}ms<C><S>";
+                        string yAxisMin = $"<S=50><C={axisColor}>{GraphMinMs:F0}ms<C><S>";
 
                         string statsLabel = "";
                         if (currentMinFt > 0 && currentMaxFt > 0)
                         {
-                            statsLabel = $"<S=50><C=808080>min:<C=00FF00>{currentMinFt:F1}ms <C=808080>avg:<C=FFFF00>{currentAvgFt:F1}ms <C=808080>max:<C=FF6600>{currentMaxFt:F1}ms<C><S>";
+                            string labelColor = ApplyOpacityToColor("808080");
+                            string minColor = ApplyOpacityToColor("00FF00");
+                            string avgColor = ApplyOpacityToColor("FFFF00");
+                            string maxColor = ApplyOpacityToColor("FF6600");
+                            statsLabel = $"<S=50><C={labelColor}>min:<C={minColor}>{currentMinFt:F1}ms <C={labelColor}>avg:<C={avgColor}>{currentAvgFt:F1}ms <C={labelColor}>max:<C={maxColor}>{currentMaxFt:F1}ms<C><S>";
                         }
 
                         frametimeGraphString = $"{yAxisMax}\n<C={graphColor}><OBJ={graphOffset:X8}><C>\n{yAxisMin}\n{statsLabel}";
@@ -644,6 +764,8 @@ namespace XboxGamingBarHelper.RTSS
 
             // Apply default text color (use white as base for dynamic mode)
             var baseTextColor = osdTextColor == "DYNAMIC" ? "FFFFFF" : osdTextColor;
+            // Apply opacity for OLED protection
+            baseTextColor = ApplyOpacityToColor(baseTextColor);
             osdString += $"<C={baseTextColor}>";
 
             // Collect all enabled items in custom order
@@ -749,8 +871,47 @@ namespace XboxGamingBarHelper.RTSS
         /// </summary>
         private string BuildOSDHeader()
         {
+            // Apply position offset for OLED burn-in protection
+            if (osdPositionOffsetX != 0 || osdPositionOffsetY != 0)
+            {
+                return $"<P={osdPositionOffsetX},{osdPositionOffsetY}>";
+            }
             // Background not supported via simple tags - must be configured in RTSS app
             return "";
+        }
+
+        /// <summary>
+        /// Sets the OSD position offset for OLED burn-in protection.
+        /// Called by OLEDProtectionManager when the position shift timer fires.
+        /// </summary>
+        public void SetPositionOffset(int x, int y)
+        {
+            osdPositionOffsetX = x;
+            osdPositionOffsetY = y;
+            Logger.Debug($"OSD position offset set to ({x}, {y})");
+        }
+
+        /// <summary>
+        /// Applies opacity to a hex color by reducing RGB values proportionally.
+        /// Used for OLED protection to darken OSD colors.
+        /// </summary>
+        private string ApplyOpacityToColor(string hexColor)
+        {
+            if (osdOpacity >= 100 || string.IsNullOrEmpty(hexColor) || hexColor.Length < 6)
+                return hexColor;
+
+            try
+            {
+                float factor = osdOpacity / 100f;
+                byte r = (byte)(Convert.ToByte(hexColor.Substring(0, 2), 16) * factor);
+                byte g = (byte)(Convert.ToByte(hexColor.Substring(2, 2), 16) * factor);
+                byte b = (byte)(Convert.ToByte(hexColor.Substring(4, 2), 16) * factor);
+                return $"{r:X2}{g:X2}{b:X2}";
+            }
+            catch
+            {
+                return hexColor;
+            }
         }
 
         /// <summary>
@@ -863,6 +1024,14 @@ namespace XboxGamingBarHelper.RTSS
                     osdUpdateTimer.Dispose();
                     osdUpdateTimer = null;
                     Logger.Info("RTSSManager: OSD update timer disposed");
+                }
+
+                // Stop position shift timer
+                if (positionShiftTimer != null)
+                {
+                    positionShiftTimer.Dispose();
+                    positionShiftTimer = null;
+                    Logger.Info("RTSSManager: Position shift timer disposed");
                 }
 
                 // Shutdown FPS limiter

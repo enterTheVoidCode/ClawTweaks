@@ -406,6 +406,18 @@ namespace XboxGamingBarHelper.Performance
                         Logger.Info($"  Battery Sensor: Name='{sensor.Name}', Type={sensor.SensorType}, Value={sensor.Value}");
                     }
                 }
+
+                // Log all sensors for GPUs to diagnose Intel/Nvidia sensor name matching
+                if (hardware.HardwareType == HardwareType.GpuNvidia ||
+                    hardware.HardwareType == HardwareType.GpuIntel ||
+                    hardware.HardwareType == HardwareType.GpuAmd)
+                {
+                    hardware.Update();
+                    foreach (ISensor sensor in hardware.Sensors)
+                    {
+                        Logger.Info($"  GPU Sensor: Name='{sensor.Name}', Type={sensor.SensorType}, Value={sensor.Value}");
+                    }
+                }
             }
 
             // Initialize hardware sensors
@@ -666,6 +678,10 @@ namespace XboxGamingBarHelper.Performance
                 Logger.Info($"set_max={setMaxResult} set_min={setMinResult} set={"123"}");
             }*/
 
+            // Track which sensors have received valid values this update cycle
+            // This allows us to prefer valid values over N/A when multiple GPUs exist (MUX switch scenarios)
+            var sensorsWithValidValues = new HashSet<HardwareSensor>();
+
             foreach (var hardwareSensor in hardwareSensors)
             {
                 hardwareSensor.Value = -1.0f;
@@ -694,7 +710,24 @@ namespace XboxGamingBarHelper.Performance
                     }
                     if (hardwareSensorFound != null)
                     {
-                        hardwareSensorFound.Value = sensor.Value ?? -1;
+                        float newValue = sensor.Value ?? -1;
+
+                        // Prefer non-zero valid values over zero or invalid values
+                        // This handles dual-GPU scenarios (iGPU + dGPU) where iGPU may report 0W
+                        // while dGPU has the actual power reading
+                        bool currentIsValid = hardwareSensorFound.Value >= 0;
+                        bool currentIsNonZero = hardwareSensorFound.Value > 0;
+                        bool newIsValid = newValue >= 0;
+                        bool newIsNonZero = newValue > 0;
+
+                        // Update if:
+                        // 1. Current value is invalid (-1), OR
+                        // 2. New value is non-zero (prefer actual readings over 0)
+                        // Don't overwrite a non-zero valid value with zero
+                        if (!currentIsValid || newIsNonZero || (!currentIsNonZero && newIsValid))
+                        {
+                            hardwareSensorFound.Value = newValue;
+                        }
                     }
                 }
             }

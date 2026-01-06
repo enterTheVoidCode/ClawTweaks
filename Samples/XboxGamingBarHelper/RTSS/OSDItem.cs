@@ -12,6 +12,7 @@ namespace XboxGamingBarHelper.RTSS
         protected string defaultColorCode;  // Store the original color
         protected string textColor = "FFFFFF";
         protected bool useDynamicColor = false;
+        protected int opacity = 100;  // OLED protection opacity (10-100)
 
         public string Id => id;
 
@@ -39,6 +40,44 @@ namespace XboxGamingBarHelper.RTSS
             {
                 useDynamicColor = false;
                 textColor = color;
+            }
+        }
+
+        public void SetOpacity(int opacityValue)
+        {
+            opacity = Math.Max(10, Math.Min(100, opacityValue));
+        }
+
+        /// <summary>
+        /// Gets the text color with opacity applied.
+        /// Use this in custom GetOSDString implementations instead of textColor directly.
+        /// </summary>
+        protected string GetTextColorWithOpacity()
+        {
+            // When using dynamic color, textColor is just "FFFFFF" without opacity
+            // When not using dynamic color, textColor already has opacity from RTSSManager
+            return useDynamicColor ? ApplyOpacity(textColor) : textColor;
+        }
+
+        /// <summary>
+        /// Applies opacity to a hex color for OLED protection.
+        /// </summary>
+        protected string ApplyOpacity(string hexColor)
+        {
+            if (opacity >= 100 || string.IsNullOrEmpty(hexColor) || hexColor.Length < 6)
+                return hexColor;
+
+            try
+            {
+                float factor = opacity / 100f;
+                byte r = (byte)(Convert.ToByte(hexColor.Substring(0, 2), 16) * factor);
+                byte g = (byte)(Convert.ToByte(hexColor.Substring(2, 2), 16) * factor);
+                byte b = (byte)(Convert.ToByte(hexColor.Substring(4, 2), 16) * factor);
+                return $"{r:X2}{g:X2}{b:X2}";
+            }
+            catch
+            {
+                return hexColor;
             }
         }
 
@@ -71,6 +110,7 @@ namespace XboxGamingBarHelper.RTSS
                 return string.Empty;
             }
 
+            var tc = GetTextColorWithOpacity();
             var osdString = $"{GetNameString()} ";
 
             if (osdValues == null || osdValues.Count == 0)
@@ -83,7 +123,7 @@ namespace XboxGamingBarHelper.RTSS
                 var osdValue = osdValues[i];
                 if (osdValue.Value < 0)
                 {
-                    osdString += $"<C={textColor}>N/A";
+                    osdString += $"<C={tc}>N/A";
                 }
                 else
                 {
@@ -97,14 +137,14 @@ namespace XboxGamingBarHelper.RTSS
             }
 
             // Reset to text color at end
-            osdString += $"<C={textColor}>";
+            osdString += $"<C={tc}>";
 
             return osdString;
         }
 
         protected virtual string GetNameString()
         {
-            return $"<C={colorCode}>{name}<C={textColor}>";
+            return $"<C={ApplyOpacity(colorCode)}>{name}<C={GetTextColorWithOpacity()}>";
         }
 
         protected virtual List<OSDItemValue> GetValues(int osdLevel)
@@ -114,15 +154,18 @@ namespace XboxGamingBarHelper.RTSS
 
         /// <summary>
         /// Gets the color for a value based on its type and the dynamic color setting.
+        /// Applies opacity for OLED protection.
         /// </summary>
         protected string GetValueColor(OSDItemValue value)
         {
             if (!useDynamicColor || value.ValueType == OSDValueType.None)
             {
-                return textColor;
+                // When not using dynamic color, textColor already has opacity from RTSSManager
+                // When using dynamic color but value type is None, apply opacity to default white
+                return useDynamicColor ? ApplyOpacity(textColor) : textColor;
             }
 
-            return value.ValueType switch
+            var dynamicColor = value.ValueType switch
             {
                 OSDValueType.Temperature => GetTemperatureColor(value.Value),
                 OSDValueType.Percentage => GetPercentageColor(value.Value),
@@ -131,6 +174,8 @@ namespace XboxGamingBarHelper.RTSS
                 OSDValueType.Speed => textColor, // Speed doesn't change color
                 _ => textColor
             };
+
+            return ApplyOpacity(dynamicColor);
         }
 
         /// <summary>
