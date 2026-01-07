@@ -323,10 +323,17 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
                                 var profile = DecodeSettings(settingsBase64, entry.GameName, provider, steamAppId);
 
                                 // Add profile for each hardware model
+                                // Only overwrite if new profile has TDP or existing profile doesn't have TDP
+                                // This prevents GamingServices (resolution-only) from overwriting ArmouryCrate (TDP+FPS)
                                 foreach (var hwModel in hardwareModels)
                                 {
                                     profile.HardwareModel = hwModel;
-                                    entry.Profiles[hwModel] = profile;
+                                    if (profile.IsValid() ||
+                                        !entry.Profiles.TryGetValue(hwModel, out var existing) ||
+                                        !existing.IsValid())
+                                    {
+                                        entry.Profiles[hwModel] = profile;
+                                    }
                                 }
 
                                 // If no hardware models specified, use provider as key
