@@ -459,21 +459,97 @@
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
 
+                        <!-- Default Game Profile Card (Preview) - Hidden when no profile available -->
+                        <Border x:Name="DefaultGameProfileCard"
+                                Style="{StaticResource CardStyle}"
+                                Visibility="Collapsed">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#40C04040" Offset="0.0"/>
+                                    <GradientStop Color="#40408050" Offset="0.35"/>
+                                    <GradientStop Color="#40405080" Offset="0.65"/>
+                                    <GradientStop Color="#40804060" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <!-- Game Icon -->
+                                <Image x:Name="DefaultProfileGameIcon"
+                                       Grid.Column="0"
+                                       Width="36" Height="36"
+                                       Margin="0,0,10,0"
+                                       Stretch="UniformToFill"
+                                       VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <!-- Game Name + Title -->
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="DefaultProfileGameName"
+                                                   Text=""
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text=" - "
+                                                   FontSize="14"
+                                                   Foreground="#888888"
+                                                   VerticalAlignment="Center"
+                                                   x:Name="DefaultProfileSeparator"
+                                                   Visibility="Collapsed"/>
+                                        <TextBlock x:Name="DefaultProfileOptimizingText"
+                                                   Text="Optimizing for Z2 Extreme"
+                                                   FontSize="11"
+                                                   Foreground="#80FFFFFF"
+                                                   VerticalAlignment="Center"
+                                                   Visibility="Collapsed"/>
+                                    </StackPanel>
+                                    <TextBlock Text="Default Game Profile (Preview)"
+                                               FontSize="13"
+                                               Foreground="#AAAAAA"/>
+                                    <TextBlock Text="Automatically applies optimized settings"
+                                               FontSize="10"
+                                               Foreground="#666666"/>
+                                    <TextBlock x:Name="DefaultProfileSettingsText"
+                                               Text="17W - 60fps"
+                                               FontSize="12"
+                                               Foreground="#00C8FF"
+                                               Margin="0,2,0,0"/>
+                                </StackPanel>
+                                <ToggleSwitch x:Name="DefaultProfileToggle"
+                                              Grid.Column="2"
+                                              Style="{StaticResource ModernToggleStyle}"/>
+                            </Grid>
+                        </Border>
+
                         <!-- Active Profile Indicator -->
-                        <Border Style="{StaticResource CardStyle}">
+                        <Border x:Name="ActiveProfileCard" Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <Grid>
                                     <TextBlock Text="Using profile:"
                                                FontSize="12"
                                                Foreground="#AAAAAA"
                                                VerticalAlignment="Top" Margin="4,1,-5,0"/>
-                                    <TextBlock x:Name="ActiveProfileText"
-                                               Text="Global Settings"
-                                               FontSize="14"
-                                               FontWeight="SemiBold"
-                                               Foreground="#00C8FF"
-                                               HorizontalAlignment="Left"
-                                               VerticalAlignment="Top" Margin="0,26,0,0"/>
+                                    <!-- Scrolling container for long profile names -->
+                                    <Canvas x:Name="ActiveProfileScrollCanvas"
+                                            Height="20"
+                                            Margin="0,26,0,0"
+                                            VerticalAlignment="Top">
+                                        <Canvas.Clip>
+                                            <RectangleGeometry x:Name="ActiveProfileClipRect" Rect="0,0,280,20"/>
+                                        </Canvas.Clip>
+                                        <TextBlock x:Name="ActiveProfileText"
+                                                   Text="Global Settings"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#00C8FF">
+                                            <TextBlock.RenderTransform>
+                                                <TranslateTransform x:Name="ActiveProfileTextTransform" X="0"/>
+                                            </TextBlock.RenderTransform>
+                                        </TextBlock>
+                                    </Canvas>
                                 </Grid>
 
                                 <!-- Per-Game Profile Toggle -->
@@ -1035,12 +1111,27 @@
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <TextBlock Text="Current Game" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock x:Name="RunningGameText"
-                                           Text="No game detected"
-                                           FontSize="16"
-                                           Foreground="White"
-                                           TextWrapping="Wrap"
-                                           Margin="0,4,0,0"/>
+                                <Grid Margin="0,4,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <!-- Game Icon -->
+                                    <Image x:Name="CurrentGameIcon"
+                                           Grid.Column="0"
+                                           Width="32" Height="32"
+                                           Margin="0,0,10,0"
+                                           Stretch="UniformToFill"
+                                           VerticalAlignment="Center"
+                                           Visibility="Collapsed"/>
+                                    <TextBlock x:Name="RunningGameText"
+                                               Grid.Column="1"
+                                               Text="No game detected"
+                                               FontSize="16"
+                                               Foreground="White"
+                                               TextWrapping="Wrap"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
                             </StackPanel>
                         </Border>
 
@@ -3824,10 +3915,19 @@
                                                 <Border Background="#2A2A2A" CornerRadius="6" Padding="12,8" Margin="0,4">
                                                     <Grid>
                                                         <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="Auto"/>
                                                         </Grid.ColumnDefinitions>
-                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <!-- Game Icon -->
+                                                        <Image Grid.Column="0"
+                                                               Source="{Binding IconSource}"
+                                                               Width="28" Height="28"
+                                                               Margin="0,0,10,0"
+                                                               Stretch="UniformToFill"
+                                                               VerticalAlignment="Center"
+                                                               Visibility="{Binding IconVisibility}"/>
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding GameName}"
                                                                        Foreground="White"
                                                                        FontSize="14"
@@ -3838,7 +3938,7 @@
                                                                        TextWrapping="NoWrap"
                                                                        TextTrimming="CharacterEllipsis"/>
                                                         </StackPanel>
-                                                        <Button Grid.Column="1"
+                                                        <Button Grid.Column="2"
                                                                 Content="&#xE711;"
                                                                 FontFamily="Segoe MDL2 Assets"
                                                                 FontSize="12"

@@ -188,6 +188,9 @@
     <Compile Include="Data\ControllerBatteryRightProperty.cs" />
     <Compile Include="Data\ControllerChargingLeftProperty.cs" />
     <Compile Include="Data\ControllerChargingRightProperty.cs" />
+    <Compile Include="Data\DefaultGameProfileAvailableProperty.cs" />
+    <Compile Include="Data\DefaultGameProfileDataProperty.cs" />
+    <Compile Include="Data\DefaultGameProfileEnabledProperty.cs" />
     <Compile Include="Data\AutoTDPProperties.cs" />
     <Compile Include="Data\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />
