@@ -2034,10 +2034,11 @@ namespace XboxGamingBar
                 Logger.Info($"Sticky TDP target updated to: {targetTDPLimit}W (user change)");
             }
 
-            // Don't save during profile loading, switching, initial sync, or when helper is updating values
-            if (isLoadingProfile || isSwitchingProfile || isApplyingHelperUpdate || isInitialSync)
+            // Don't save during profile loading, switching, initial sync, when helper is updating values,
+            // or when Default Game Profile is active (to avoid contaminating user's profile with DGP values)
+            if (isLoadingProfile || isSwitchingProfile || isApplyingHelperUpdate || isInitialSync || defaultGameProfileEnabled?.Value == true)
             {
-                Logger.Debug($"Skipping auto-save during profile operation (loading={isLoadingProfile}, switching={isSwitchingProfile}, helperUpdate={isApplyingHelperUpdate}, initialSync={isInitialSync})");
+                Logger.Debug($"Skipping auto-save during profile operation (loading={isLoadingProfile}, switching={isSwitchingProfile}, helperUpdate={isApplyingHelperUpdate}, initialSync={isInitialSync}, defaultGameProfile={defaultGameProfileEnabled?.Value})");
                 return;
             }
 
@@ -6056,6 +6057,13 @@ namespace XboxGamingBar
                 return;
             }
 
+            // Don't save during DGP restoration - toggle handlers would save wrong values during state restore
+            if (isRestoringFromDefaultProfile)
+            {
+                Logger.Debug($"Skipping profile save for {profileName} - restoring from Default Game Profile");
+                return;
+            }
+
             // Never save to "No game detected" profile (case-insensitive check)
             if (profileName.IndexOf("No game detected", StringComparison.OrdinalIgnoreCase) >= 0)
             {
@@ -9915,6 +9923,14 @@ namespace XboxGamingBar
                 {
                     try
                     {
+                        // Skip reloading profile settings if Default Game Profile is active
+                        // The Default Game Profile settings are already applied and should not be overwritten
+                        if (defaultGameProfileEnabled?.Value == true)
+                        {
+                            Logger.Info("Skipping profile reload - Default Game Profile is active");
+                            return;
+                        }
+
                         string expectedProfile = GetTargetProfileName();
                         if (expectedProfile != currentProfileName)
                         {
@@ -11421,7 +11437,46 @@ namespace XboxGamingBar
         {
             Logger.Info($"Default Game Profile enabled changed to: {enabled}");
 
-            // Update TDP controls enabled state
+            // IMPORTANT: When DISABLING, restore original values BEFORE re-enabling controls!
+            // This ensures UpdateTDPSliderEnabledState() sends the correct TDP value (original, not DGP value)
+            // Set flag to suppress profile saves during restoration (toggle handlers would otherwise save wrong values)
+            if (!enabled)
+            {
+                isRestoringFromDefaultProfile = true;
+                try
+                {
+                    // Restore original FPS limit state when disabling default profile
+                    if (originalFpsLimitToggleState.HasValue && FPSLimitToggle != null)
+                    {
+                        FPSLimitToggle.IsOn = originalFpsLimitToggleState.Value;
+                        if (FPSLimitSlider != null && originalFpsLimitSliderValue.HasValue)
+                        {
+                            FPSLimitSlider.Value = originalFpsLimitSliderValue.Value;
+                        }
+                        Logger.Info($"Restored original FPS limit state: toggle={originalFpsLimitToggleState}, value={originalFpsLimitSliderValue}");
+
+                        // Clear saved state
+                        originalFpsLimitToggleState = null;
+                        originalFpsLimitSliderValue = null;
+                    }
+
+                    // Restore original TDP slider value when disabling default profile
+                    if (originalTdpSliderValue.HasValue && TDPSlider != null)
+                    {
+                        TDPSlider.Value = originalTdpSliderValue.Value;
+                        Logger.Info($"Restored original TDP slider value: {originalTdpSliderValue}W");
+
+                        // Clear saved state
+                        originalTdpSliderValue = null;
+                    }
+                }
+                finally
+                {
+                    isRestoringFromDefaultProfile = false;
+                }
+            }
+
+            // Update TDP controls enabled state (now with correct values if disabling)
             UpdateTDPControlsForDefaultProfile(enabled);
 
             // Update per-game profile toggle state
@@ -11467,33 +11522,6 @@ namespace XboxGamingBar
                     Logger.Info($"TDP slider synced to default profile: {profile.TDP}W");
                 }
             }
-            else if (!enabled)
-            {
-                // Restore original FPS limit state when disabling default profile
-                if (originalFpsLimitToggleState.HasValue && FPSLimitToggle != null)
-                {
-                    FPSLimitToggle.IsOn = originalFpsLimitToggleState.Value;
-                    if (FPSLimitSlider != null && originalFpsLimitSliderValue.HasValue)
-                    {
-                        FPSLimitSlider.Value = originalFpsLimitSliderValue.Value;
-                    }
-                    Logger.Info($"Restored original FPS limit state: toggle={originalFpsLimitToggleState}, value={originalFpsLimitSliderValue}");
-
-                    // Clear saved state
-                    originalFpsLimitToggleState = null;
-                    originalFpsLimitSliderValue = null;
-                }
-
-                // Restore original TDP slider value when disabling default profile
-                if (originalTdpSliderValue.HasValue && TDPSlider != null)
-                {
-                    TDPSlider.Value = originalTdpSliderValue.Value;
-                    Logger.Info($"Restored original TDP slider value: {originalTdpSliderValue}W");
-
-                    // Clear saved state
-                    originalTdpSliderValue = null;
-                }
-            }
 
             // Update Quick tab tile styling
             UpdateQuickSettingsTileStates();
@@ -11503,6 +11531,7 @@ namespace XboxGamingBar
         private bool? originalFpsLimitToggleState;
         private double? originalFpsLimitSliderValue;
         private double? originalTdpSliderValue;
+        private bool isRestoringFromDefaultProfile; // Flag to suppress profile saves during DGP restoration
 
         /// <summary>
         /// Updates per-game profile toggle state based on Default Game Profile.
@@ -11566,7 +11595,17 @@ namespace XboxGamingBar
                     StickyTDPToggle.IsEnabled = false;
                 }
 
-                Logger.Debug("TDP controls disabled - Default Game Profile is active");
+                // Also disable FPS limit controls (controlled by Default Game Profile)
+                if (FPSLimitToggle != null)
+                {
+                    FPSLimitToggle.IsEnabled = false;
+                }
+                if (FPSLimitSlider != null)
+                {
+                    FPSLimitSlider.IsEnabled = false;
+                }
+
+                Logger.Debug("TDP and FPS controls disabled - Default Game Profile is active");
             }
             else
             {
@@ -11576,10 +11615,20 @@ namespace XboxGamingBar
                     TDPModeComboBox.IsEnabled = true;
                 }
 
+                // Re-enable FPS limit controls
+                if (FPSLimitToggle != null)
+                {
+                    FPSLimitToggle.IsEnabled = true;
+                }
+                if (FPSLimitSlider != null)
+                {
+                    FPSLimitSlider.IsEnabled = true;
+                }
+
                 // Re-evaluate other controls based on current TDP mode
                 UpdateTDPSliderEnabledState();
 
-                Logger.Debug("TDP controls re-enabled - Default Game Profile is inactive");
+                Logger.Debug("TDP and FPS controls re-enabled - Default Game Profile is inactive");
             }
         }
 
@@ -11617,7 +11666,8 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Ensures a valid (visible) TDP method is selected in the dropdown.
+        /// Ensures a valid (visible and enabled) TDP method is selected in the dropdown.
+        /// IMPORTANT: Never auto-select WinRing0 - user must explicitly choose it.
         /// </summary>
         private void EnsureValidTdpMethodSelected()
         {
@@ -11625,61 +11675,62 @@ namespace XboxGamingBar
 
             var selectedItem = TdpMethodComboBox.SelectedItem as ComboBoxItem;
 
-            // If current selection is valid and visible, do nothing
-            if (selectedItem != null && selectedItem.Visibility == Visibility.Visible)
+            // If current selection is valid (visible and enabled), do nothing
+            if (selectedItem != null && selectedItem.Visibility == Visibility.Visible && selectedItem.IsEnabled)
             {
                 return;
             }
 
-            // Find the first visible option and select it
-            // Priority: ManufacturerWMI > PawnIO > WinRing0
-            if (TdpMethodWmiItem?.Visibility == Visibility.Visible)
+            // Find the first visible and enabled option and select it
+            // Priority: ManufacturerWMI > PawnIO (if installed)
+            // NEVER auto-select WinRing0 - it's a legacy option that may trigger anti-cheat
+            if (TdpMethodWmiItem?.Visibility == Visibility.Visible && TdpMethodWmiItem.IsEnabled)
             {
                 TdpMethodComboBox.SelectedItem = TdpMethodWmiItem;
                 Logger.Info("TDP Method auto-selected: ManufacturerWMI");
             }
-            else if (TdpMethodPawnIOItem?.Visibility == Visibility.Visible)
+            else if (TdpMethodPawnIOItem?.Visibility == Visibility.Visible && TdpMethodPawnIOItem.IsEnabled)
             {
                 TdpMethodComboBox.SelectedItem = TdpMethodPawnIOItem;
                 Logger.Info("TDP Method auto-selected: PawnIO");
             }
-            else if (TdpMethodWinRing0Item?.Visibility == Visibility.Visible)
-            {
-                TdpMethodComboBox.SelectedItem = TdpMethodWinRing0Item;
-                Logger.Info("TDP Method auto-selected: WinRing0");
-            }
             else
             {
-                Logger.Warn("No TDP method options are available!");
+                // Don't auto-select WinRing0 - user must explicitly choose it
+                Logger.Warn("No safe TDP method available - user must select WinRing0 manually if desired");
             }
         }
 
         /// <summary>
-        /// Updates the PawnIO install button state and dropdown option visibility based on driver installation status.
+        /// Updates the PawnIO install button state and dropdown option based on driver installation status.
+        /// PawnIO option is always visible but disabled if not installed.
         /// </summary>
         private void UpdatePawnIOInstalledUI(bool installed)
         {
-            // Show/hide PawnIO option in dropdown based on installation status
+            // PawnIO option is always visible, but enable/disable based on installation status
+            // This prevents WinRing0 from being auto-selected when PawnIO detection is delayed
             if (TdpMethodPawnIOItem != null)
             {
-                TdpMethodPawnIOItem.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
-                Logger.Info($"PawnIO TDP option visibility set to: {installed}");
+                // Keep PawnIO visible always - just update text to show status
+                TdpMethodPawnIOItem.Visibility = Visibility.Visible;
+                TdpMethodPawnIOItem.IsEnabled = installed;
+                TdpMethodPawnIOItem.Content = installed ? "PawnIO" : "PawnIO (Not Installed)";
+                Logger.Info($"PawnIO TDP option enabled: {installed}");
 
-                // If PawnIO was selected but is no longer installed, switch to WMI or WinRing0
+                // If PawnIO was selected but is no longer installed, switch to WMI only
+                // NEVER auto-switch to WinRing0 - user must explicitly choose it
                 if (!installed && TdpMethodComboBox != null)
                 {
                     var selectedItem = TdpMethodComboBox.SelectedItem as ComboBoxItem;
                     if (selectedItem?.Tag is string tag && tag == "PawnIO")
                     {
-                        // Try to select ManufacturerWMI first, then WinRing0
+                        // Try to select ManufacturerWMI, don't fall back to WinRing0
                         if (TdpMethodWmiItem?.Visibility == Visibility.Visible)
                         {
                             TdpMethodComboBox.SelectedItem = TdpMethodWmiItem;
                         }
-                        else if (TdpMethodWinRing0Item?.Visibility == Visibility.Visible)
-                        {
-                            TdpMethodComboBox.SelectedItem = TdpMethodWinRing0Item;
-                        }
+                        // If WMI not available, leave selection as-is or clear it
+                        // User will need to reinstall PawnIO or manually select WinRing0
                     }
                 }
             }
@@ -11989,14 +12040,15 @@ namespace XboxGamingBar
 
             // Save profile when TDP Mode changes (if not during initialization or helper update)
             // Allow save if user-initiated from Quick Tab tile (bypasses isApplyingHelperUpdate)
-            if (!isInitialSync && !isLoadingProfile && SaveTDP && (!isApplyingHelperUpdate || isUserInitiatedTDPModeChange))
+            // Don't save when Default Game Profile is active (to avoid contaminating user's profile)
+            if (!isInitialSync && !isLoadingProfile && SaveTDP && (!isApplyingHelperUpdate || isUserInitiatedTDPModeChange) && defaultGameProfileEnabled?.Value != true)
             {
                 Logger.Info($"Saving TDP Mode change to profile: {currentProfileName}");
                 SaveCurrentSettingsToProfile(currentProfileName);
             }
             else
             {
-                Logger.Warn($"TDP Mode save skipped: isInitialSync={isInitialSync}, isApplyingHelperUpdate={isApplyingHelperUpdate}, isLoadingProfile={isLoadingProfile}, SaveTDP={SaveTDP}, isUserInitiatedTDPModeChange={isUserInitiatedTDPModeChange}");
+                Logger.Warn($"TDP Mode save skipped: isInitialSync={isInitialSync}, isApplyingHelperUpdate={isApplyingHelperUpdate}, isLoadingProfile={isLoadingProfile}, SaveTDP={SaveTDP}, isUserInitiatedTDPModeChange={isUserInitiatedTDPModeChange}, defaultGameProfile={defaultGameProfileEnabled?.Value}");
             }
         }
 
@@ -12010,6 +12062,13 @@ namespace XboxGamingBar
 
             // Only apply this logic for Legion devices
             if (legionGoDetected?.Value != true) return;
+
+            // If Default Game Profile is active, keep TDP controls disabled
+            if (defaultGameProfileEnabled?.Value == true)
+            {
+                Logger.Debug("TDP slider state update skipped - Default Game Profile is active");
+                return;
+            }
 
             // Check if in Custom mode (index 3 = Custom = 255)
             bool isCustomMode = TDPModeComboBox?.SelectedIndex == 3;
@@ -14337,7 +14396,8 @@ namespace XboxGamingBar
             }
 
             // Save to profile if FPS Limit saving is enabled
-            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
+            // Don't save during DGP restoration - values being restored to original state
+            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
             {
                 SaveCurrentSettingsToProfile(currentProfileName);
             }
