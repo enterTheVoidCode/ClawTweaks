@@ -7,8 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
@@ -20,6 +22,8 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Media;
+using Windows.UI.Xaml.Media.Animation;
+using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Navigation;
 using Windows.System.Power;
 using Windows.Storage;
@@ -177,13 +181,32 @@ namespace XboxGamingBar
     /// <summary>
     /// View model for saved controller profile display
     /// </summary>
-    public class SavedProfileInfo
+    public class SavedProfileInfo : System.ComponentModel.INotifyPropertyChanged
     {
         public string ProfileKey { get; set; }
         public string GameName { get; set; }
         public string SettingsSummary { get; set; }
         public bool IsGlobal { get; set; }
         public Windows.UI.Xaml.Visibility CanDelete => IsGlobal ? Windows.UI.Xaml.Visibility.Collapsed : Windows.UI.Xaml.Visibility.Visible;
+
+        // Game exe path for icon loading
+        public string GameExePath { get; set; }
+
+        // Game icon support
+        private Windows.UI.Xaml.Media.ImageSource _iconSource;
+        public Windows.UI.Xaml.Media.ImageSource IconSource
+        {
+            get => _iconSource;
+            set
+            {
+                _iconSource = value;
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IconSource)));
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IconVisibility)));
+            }
+        }
+        public Windows.UI.Xaml.Visibility IconVisibility => IconSource != null ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
     }
 
     /// <summary>
@@ -543,6 +566,11 @@ namespace XboxGamingBar
         private readonly ControllerChargingLeftProperty controllerChargingLeft;
         private readonly ControllerChargingRightProperty controllerChargingRight;
 
+        // Default Game Profile properties (Microsoft Gaming Services profiles)
+        private readonly DefaultGameProfileAvailableProperty defaultGameProfileAvailable;
+        private readonly DefaultGameProfileDataProperty defaultGameProfileData;
+        private readonly DefaultGameProfileEnabledProperty defaultGameProfileEnabled;
+
         // Settings properties
         private readonly TdpMethodProperty tdpMethod;
         private readonly WinRing0AvailableProperty winRing0Available;
@@ -578,6 +606,10 @@ namespace XboxGamingBar
         private DispatcherTimer fpsLimitDebounceTimer;
         private int fpsLimitPendingValue;
         private const int FPS_LIMIT_DEBOUNCE_MS = 300;
+
+        // Active profile name scrolling animation
+        private Storyboard activeProfileScrollStoryboard;
+        private const double PROFILE_SCROLL_CONTAINER_WIDTH = 280;
 
         // Profile management
         private PerformanceProfile globalProfile = new PerformanceProfile();
@@ -854,6 +886,17 @@ namespace XboxGamingBar
             controllerChargingLeft = new ControllerChargingLeftProperty();
             controllerChargingRight = new ControllerChargingRightProperty();
 
+            // Default Game Profile properties
+            defaultGameProfileAvailable = new DefaultGameProfileAvailableProperty(this);
+            defaultGameProfileData = new DefaultGameProfileDataProperty(this);
+            defaultGameProfileEnabled = new DefaultGameProfileEnabledProperty(this);
+
+            // Set up Default Game Profile callbacks
+            defaultGameProfileAvailable.SetVisibilityCallback(SetDefaultProfileCardVisibility);
+            defaultGameProfileData.SetDataCallback(UpdateDefaultProfileDisplay);
+            defaultGameProfileEnabled.BindToggle(DefaultProfileToggle);
+            defaultGameProfileEnabled.SetEnabledCallback(OnDefaultProfileEnabledChanged);
+
             // Settings properties
             tdpMethod = new TdpMethodProperty(TdpMethodComboBox, this);
             winRing0Available = new WinRing0AvailableProperty(this);
@@ -1012,7 +1055,10 @@ namespace XboxGamingBar
                 controllerBatteryLeft,
                 controllerBatteryRight,
                 controllerChargingLeft,
-                controllerChargingRight
+                controllerChargingRight,
+                defaultGameProfileAvailable,
+                defaultGameProfileData,
+                defaultGameProfileEnabled
             );
 
             // Register card focus handlers for all interactive controls
@@ -1043,6 +1089,10 @@ namespace XboxGamingBar
             // Performance tab - Active Profile card
             PerGameProfileToggle.GotFocus += Control_GotFocus;
             PerGameProfileToggle.LostFocus += Control_LostFocus;
+
+            // Performance tab - Default Game Profile card
+            DefaultProfileToggle.GotFocus += Control_GotFocus;
+            DefaultProfileToggle.LostFocus += Control_LostFocus;
 
             // Performance tab - Performance Overlay card
             PerformanceOverlayComboBox.GotFocus += Control_GotFocus;
@@ -3535,12 +3585,20 @@ namespace XboxGamingBar
 
                     var summary = summaryParts.Count > 0 ? string.Join(" | ", summaryParts) : "Default settings";
 
+                    // Get stored game exe path for icon loading
+                    string gameExePath = null;
+                    if (!isGlobal && container.Values.TryGetValue("GameExePath", out var exePathObj) && exePathObj is string exePath)
+                    {
+                        gameExePath = exePath;
+                    }
+
                     savedProfiles.Add(new SavedProfileInfo
                     {
                         ProfileKey = containerName,
                         GameName = displayName,
                         SettingsSummary = summary,
-                        IsGlobal = isGlobal
+                        IsGlobal = isGlobal,
+                        GameExePath = gameExePath
                     });
                 }
 
@@ -3555,10 +3613,58 @@ namespace XboxGamingBar
                 // Update UI
                 SavedProfilesList.ItemsSource = savedProfiles;
                 NoSavedProfilesText.Visibility = savedProfiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+                // Load icons asynchronously for saved profiles
+                _ = LoadSavedProfileIconsAsync(savedProfiles);
             }
             catch (Exception ex)
             {
                 Logger.Error($"Failed to refresh saved profiles list: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Loads icons for saved profiles asynchronously.
+        /// </summary>
+        private async Task LoadSavedProfileIconsAsync(List<SavedProfileInfo> profiles)
+        {
+            Logger.Info($"LoadSavedProfileIconsAsync: Loading icons for {profiles.Count} profiles");
+
+            foreach (var profile in profiles)
+            {
+                if (profile.IsGlobal)
+                {
+                    Logger.Debug($"LoadSavedProfileIconsAsync: Skipping global profile");
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(profile.GameExePath))
+                {
+                    Logger.Info($"LoadSavedProfileIconsAsync: No exe path for {profile.GameName}");
+                    continue;
+                }
+
+                try
+                {
+                    Logger.Info($"LoadSavedProfileIconsAsync: Loading icon for {profile.GameName} from {profile.GameExePath}");
+                    var icon = await LoadSavedProfileIconAsync(profile.GameExePath);
+                    if (icon != null)
+                    {
+                        await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                        {
+                            profile.IconSource = icon;
+                        });
+                        Logger.Info($"LoadSavedProfileIconsAsync: Icon loaded for {profile.GameName}");
+                    }
+                    else
+                    {
+                        Logger.Info($"LoadSavedProfileIconsAsync: No icon found for {profile.GameName}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Info($"LoadSavedProfileIconsAsync: Error loading icon for {profile.GameName}: {ex.Message}");
+                }
             }
         }
 
@@ -5787,8 +5893,69 @@ namespace XboxGamingBar
 
             Logger.Info($"Active profile updated to: {ActiveProfileText.Text}");
 
+            // Start scrolling animation if text is too long
+            UpdateActiveProfileScrollAnimation();
+
             // Switch profile if needed
             SwitchProfile();
+        }
+
+        /// <summary>
+        /// Updates the scrolling animation for the active profile text.
+        /// If the text is wider than the container, starts a marquee-style scroll animation.
+        /// </summary>
+        private void UpdateActiveProfileScrollAnimation()
+        {
+            // Stop any existing animation
+            if (activeProfileScrollStoryboard != null)
+            {
+                activeProfileScrollStoryboard.Stop();
+                activeProfileScrollStoryboard = null;
+            }
+
+            // Reset transform
+            if (ActiveProfileTextTransform != null)
+            {
+                ActiveProfileTextTransform.X = 0;
+            }
+
+            // Measure text width
+            ActiveProfileText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            double textWidth = ActiveProfileText.DesiredSize.Width;
+
+            // Only animate if text is wider than container
+            if (textWidth <= PROFILE_SCROLL_CONTAINER_WIDTH)
+            {
+                return;
+            }
+
+            // Calculate scroll distance (text width + gap for seamless loop effect)
+            double scrollDistance = textWidth + 50; // 50px gap before restart
+
+            // Create animation
+            var animation = new DoubleAnimation
+            {
+                From = 0,
+                To = -scrollDistance,
+                Duration = new Duration(TimeSpan.FromSeconds(scrollDistance / 40)), // ~40px per second
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+
+            // Set up storyboard
+            activeProfileScrollStoryboard = new Storyboard();
+            activeProfileScrollStoryboard.Children.Add(animation);
+
+            Storyboard.SetTarget(animation, ActiveProfileTextTransform);
+            Storyboard.SetTargetProperty(animation, "X");
+
+            // Start with a delay so text is visible initially
+            var delayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            delayTimer.Tick += (s, e) =>
+            {
+                delayTimer.Stop();
+                activeProfileScrollStoryboard?.Begin();
+            };
+            delayTimer.Start();
         }
 
         private void SwitchProfile()
@@ -5879,6 +6046,13 @@ namespace XboxGamingBar
             if (isApplyingHelperUpdate)
             {
                 Logger.Debug($"Skipping profile save for {profileName} - isApplyingHelperUpdate is true");
+                return;
+            }
+
+            // Don't save when Default Game Profile is active - prevents overwriting user's profile
+            if (defaultGameProfileEnabled?.Value == true)
+            {
+                Logger.Debug($"Skipping profile save for {profileName} - Default Game Profile is active");
                 return;
             }
 
@@ -6589,6 +6763,12 @@ namespace XboxGamingBar
 
             // Desktop Controls preset
             container.Values["DesktopControlsEnabled"] = profile.DesktopControlsEnabled;
+
+            // Store the game exe path for game profiles (used for loading icons)
+            if (profileName.StartsWith("Game_") && !string.IsNullOrEmpty(currentGameExePath))
+            {
+                container.Values["GameExePath"] = currentGameExePath;
+            }
 
             Logger.Info($"Saved controller profile: {profileName}");
         }
@@ -10652,17 +10832,26 @@ namespace XboxGamingBar
                     {
                         currentGameExePath = exePath;
                         Logger.Info($"Updated currentGameExePath: {currentGameExePath}");
+
+                        // Load the game icon for the Profiles tab
+                        LoadCurrentGameIcon(exePath);
                     }
                     else
                     {
                         currentGameExePath = "";
                         Logger.Info("Cleared currentGameExePath (no path in RunningGame)");
+
+                        // Clear the game icon
+                        LoadCurrentGameIcon(null);
                     }
                 }
                 else
                 {
                     currentGameExePath = "";
                     Logger.Info("Cleared currentGameExePath (no running game)");
+
+                    // Clear the game icon
+                    LoadCurrentGameIcon(null);
                 }
             }
             catch (Exception ex)
@@ -11086,6 +11275,311 @@ namespace XboxGamingBar
                     PerformanceOverlayComboBox.XYFocusDown = TDPSlider;
                     TDPSlider.XYFocusUp = PerformanceOverlayComboBox;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Shows or hides the Default Game Profile card based on profile availability.
+        /// </summary>
+        private void SetDefaultProfileCardVisibility(bool isVisible)
+        {
+            if (DefaultGameProfileCard != null)
+            {
+                DefaultGameProfileCard.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Default Game Profile card visibility set to: {isVisible}");
+            }
+        }
+
+        /// <summary>
+        /// Updates the Default Game Profile card display with profile settings.
+        /// </summary>
+        private void UpdateDefaultProfileDisplay(Shared.Data.DefaultGameProfile? profile)
+        {
+            if (profile.HasValue)
+            {
+                var p = profile.Value;
+
+                // Store current profile first (needed by UpdateDefaultProfileGameIcon)
+                currentDefaultGameProfile = p;
+
+                // Update game name
+                if (DefaultProfileGameName != null)
+                {
+                    DefaultProfileGameName.Text = p.GameName ?? "";
+                }
+
+                // Update game icon from Steam CDN if available
+                UpdateDefaultProfileGameIcon();
+
+                // Update settings text
+                if (DefaultProfileSettingsText != null)
+                {
+                    var settings = new System.Collections.Generic.List<string>();
+
+                    settings.Add($"{p.TDP}W");
+
+                    if (p.FrameCap.HasValue && p.FrameCap.Value > 0)
+                    {
+                        settings.Add($"{p.FrameCap.Value}fps");
+                    }
+
+                    if (!string.IsNullOrEmpty(p.ResolutionCap))
+                    {
+                        settings.Add(p.ResolutionCap);
+                    }
+
+                    DefaultProfileSettingsText.Text = string.Join(" - ", settings);
+                    Logger.Info($"Default Game Profile display updated: {DefaultProfileSettingsText.Text}");
+                }
+
+                // Update "Optimizing for Z2/Z1 Extreme" text based on hardware model
+                if (DefaultProfileOptimizingText != null && DefaultProfileSeparator != null)
+                {
+                    string optimizingText = "Optimizing for your device";
+                    if (!string.IsNullOrEmpty(p.HardwareModel))
+                    {
+                        if (p.HardwareModel == "HORSEM4N")
+                        {
+                            optimizingText = "Optimizing for Z2 Extreme";
+                        }
+                        else if (p.HardwareModel == "OMNI")
+                        {
+                            optimizingText = "Optimizing for Z1 Extreme";
+                        }
+                    }
+                    DefaultProfileOptimizingText.Text = optimizingText;
+                    DefaultProfileOptimizingText.Visibility = Visibility.Visible;
+                    DefaultProfileSeparator.Visibility = Visibility.Visible;
+                }
+            }
+            else
+            {
+                // Hide elements when no profile
+                if (DefaultProfileOptimizingText != null)
+                {
+                    DefaultProfileOptimizingText.Visibility = Visibility.Collapsed;
+                }
+                if (DefaultProfileSeparator != null)
+                {
+                    DefaultProfileSeparator.Visibility = Visibility.Collapsed;
+                }
+                if (DefaultProfileGameName != null)
+                {
+                    DefaultProfileGameName.Text = "";
+                }
+                currentDefaultGameProfile = null;
+            }
+        }
+
+        /// <summary>
+        /// Updates the game icon in the Default Game Profile card.
+        /// Loads icon from Steam's local cache for Steam games.
+        /// </summary>
+        private async void UpdateDefaultProfileGameIcon()
+        {
+            if (DefaultProfileGameIcon == null)
+                return;
+
+            // Try to load Steam icon if we have a Steam App ID
+            if (currentDefaultGameProfile.HasValue)
+            {
+                var iconPath = currentDefaultGameProfile.Value.GetSteamIconPath();
+                if (!string.IsNullOrEmpty(iconPath))
+                {
+                    try
+                    {
+                        // Load from local file using StorageFile for UWP compatibility
+                        var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(iconPath);
+                        using (var stream = await file.OpenReadAsync())
+                        {
+                            var bitmap = new Windows.UI.Xaml.Media.Imaging.BitmapImage();
+                            await bitmap.SetSourceAsync(stream);
+                            DefaultProfileGameIcon.Source = bitmap;
+                            DefaultProfileGameIcon.Visibility = Visibility.Visible;
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"Failed to load Steam icon from {iconPath}: {ex.Message}");
+                    }
+                }
+            }
+
+            // Hide the icon if no Steam icon available
+            DefaultProfileGameIcon.Visibility = Visibility.Collapsed;
+        }
+
+        // Cached default game profile for UI state management
+        private Shared.Data.DefaultGameProfile? currentDefaultGameProfile;
+
+        /// <summary>
+        /// Called when the Default Game Profile enabled state changes.
+        /// Greys out TDP controls and syncs FPS limit when enabled.
+        /// </summary>
+        private void OnDefaultProfileEnabledChanged(bool enabled)
+        {
+            Logger.Info($"Default Game Profile enabled changed to: {enabled}");
+
+            // Update TDP controls enabled state
+            UpdateTDPControlsForDefaultProfile(enabled);
+
+            // Update per-game profile toggle state
+            UpdatePerGameProfileForDefaultProfile(enabled);
+
+            if (enabled && currentDefaultGameProfile.HasValue)
+            {
+                var profile = currentDefaultGameProfile.Value;
+
+                // Save original FPS limit state before changing
+                if (FPSLimitToggle != null && !originalFpsLimitToggleState.HasValue)
+                {
+                    originalFpsLimitToggleState = FPSLimitToggle.IsOn;
+                    originalFpsLimitSliderValue = FPSLimitSlider?.Value ?? 60;
+                    Logger.Info($"Saved original FPS limit state: toggle={originalFpsLimitToggleState}, value={originalFpsLimitSliderValue}");
+                }
+
+                // Save original TDP slider value before changing
+                if (TDPSlider != null && !originalTdpSliderValue.HasValue)
+                {
+                    originalTdpSliderValue = TDPSlider.Value;
+                    Logger.Info($"Saved original TDP slider value: {originalTdpSliderValue}W");
+                }
+
+                // Sync FPS limit toggle and slider to match profile
+                if (profile.FrameCap.HasValue && profile.FrameCap.Value > 0)
+                {
+                    if (FPSLimitToggle != null)
+                    {
+                        FPSLimitToggle.IsOn = true;
+                    }
+                    if (FPSLimitSlider != null)
+                    {
+                        FPSLimitSlider.Value = profile.FrameCap.Value;
+                    }
+                    Logger.Info($"FPS limit synced to default profile: {profile.FrameCap.Value}fps");
+                }
+
+                // Sync TDP slider to match profile
+                if (profile.TDP > 0 && TDPSlider != null)
+                {
+                    TDPSlider.Value = profile.TDP;
+                    Logger.Info($"TDP slider synced to default profile: {profile.TDP}W");
+                }
+            }
+            else if (!enabled)
+            {
+                // Restore original FPS limit state when disabling default profile
+                if (originalFpsLimitToggleState.HasValue && FPSLimitToggle != null)
+                {
+                    FPSLimitToggle.IsOn = originalFpsLimitToggleState.Value;
+                    if (FPSLimitSlider != null && originalFpsLimitSliderValue.HasValue)
+                    {
+                        FPSLimitSlider.Value = originalFpsLimitSliderValue.Value;
+                    }
+                    Logger.Info($"Restored original FPS limit state: toggle={originalFpsLimitToggleState}, value={originalFpsLimitSliderValue}");
+
+                    // Clear saved state
+                    originalFpsLimitToggleState = null;
+                    originalFpsLimitSliderValue = null;
+                }
+
+                // Restore original TDP slider value when disabling default profile
+                if (originalTdpSliderValue.HasValue && TDPSlider != null)
+                {
+                    TDPSlider.Value = originalTdpSliderValue.Value;
+                    Logger.Info($"Restored original TDP slider value: {originalTdpSliderValue}W");
+
+                    // Clear saved state
+                    originalTdpSliderValue = null;
+                }
+            }
+
+            // Update Quick tab tile styling
+            UpdateQuickSettingsTileStates();
+        }
+
+        // Store original state for restoration when default profile is disabled
+        private bool? originalFpsLimitToggleState;
+        private double? originalFpsLimitSliderValue;
+        private double? originalTdpSliderValue;
+
+        /// <summary>
+        /// Updates per-game profile toggle state based on Default Game Profile.
+        /// </summary>
+        private void UpdatePerGameProfileForDefaultProfile(bool defaultProfileEnabled)
+        {
+            if (defaultProfileEnabled)
+            {
+                // Hide the Active Profile card when default game profile is enabled
+                if (ActiveProfileCard != null)
+                {
+                    ActiveProfileCard.Visibility = Visibility.Collapsed;
+                }
+
+                Logger.Debug("Active Profile card hidden - Default Game Profile is active");
+            }
+            else
+            {
+                // Show the Active Profile card when default game profile is disabled
+                if (ActiveProfileCard != null)
+                {
+                    ActiveProfileCard.Visibility = Visibility.Visible;
+                }
+
+                // Re-enable the per-game profile toggle
+                if (PerGameProfileToggle != null)
+                {
+                    PerGameProfileToggle.IsEnabled = runningGame?.Value.IsValid() == true;
+                }
+
+                Logger.Debug("Active Profile card shown - Default Game Profile is inactive");
+            }
+        }
+
+        /// <summary>
+        /// Updates TDP control enabled states based on Default Game Profile.
+        /// </summary>
+        private void UpdateTDPControlsForDefaultProfile(bool defaultProfileEnabled)
+        {
+            if (defaultProfileEnabled)
+            {
+                // Disable TDP controls when default profile is active
+                if (TDPModeComboBox != null)
+                {
+                    TDPModeComboBox.IsEnabled = false;
+                }
+                if (TDPSlider != null)
+                {
+                    TDPSlider.IsEnabled = false;
+                }
+                if (TDPBoostToggle != null)
+                {
+                    TDPBoostToggle.IsEnabled = false;
+                }
+                if (AutoTDPToggle != null)
+                {
+                    AutoTDPToggle.IsEnabled = false;
+                }
+                if (StickyTDPToggle != null)
+                {
+                    StickyTDPToggle.IsEnabled = false;
+                }
+
+                Logger.Debug("TDP controls disabled - Default Game Profile is active");
+            }
+            else
+            {
+                // Re-enable TDP controls based on current mode
+                if (TDPModeComboBox != null)
+                {
+                    TDPModeComboBox.IsEnabled = true;
+                }
+
+                // Re-evaluate other controls based on current TDP mode
+                UpdateTDPSliderEnabledState();
+
+                Logger.Debug("TDP controls re-enabled - Default Game Profile is inactive");
             }
         }
 
@@ -11650,6 +12144,7 @@ namespace XboxGamingBar
         private SolidColorBrush tileOnBrush;
         private SolidColorBrush tileActiveBrush;
         private SolidColorBrush tileTriggerBrush;
+        private LinearGradientBrush tileDefaultProfileBrush;
         private bool quickSettingsInitialized = false;
 
         // Tile definitions with visibility tracking
@@ -11666,6 +12161,11 @@ namespace XboxGamingBar
             public Button TileButton { get; set; }
             public TextBlock StateText { get; set; }
             public CheckBox VisibilityCheckBox { get; set; }
+
+            // For scrolling text animation (Profile tile)
+            public Canvas StateTextCanvas { get; set; }
+            public TranslateTransform StateTextTransform { get; set; }
+            public Storyboard ScrollStoryboard { get; set; }
         }
 
         // List of custom shortcut tiles
@@ -11709,6 +12209,20 @@ namespace XboxGamingBar
                 tileOffBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 26, 28, 30));   // #1A1C1E
                 tileActiveBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 26, 37, 48)); // #1A2530 - dark blue
                 tileTriggerBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 37, 32, 48)); // #252030 - dark purple
+
+                // Default Game Profile gradient brush (matches Performance tab card)
+                tileDefaultProfileBrush = new LinearGradientBrush
+                {
+                    StartPoint = new Windows.Foundation.Point(0, 0),
+                    EndPoint = new Windows.Foundation.Point(1, 1),
+                    GradientStops = new GradientStopCollection
+                    {
+                        new GradientStop { Color = Windows.UI.Color.FromArgb(0x40, 0xC0, 0x40, 0x40), Offset = 0.0 },
+                        new GradientStop { Color = Windows.UI.Color.FromArgb(0x40, 0x40, 0x80, 0x50), Offset = 0.35 },
+                        new GradientStop { Color = Windows.UI.Color.FromArgb(0x40, 0x40, 0x50, 0x80), Offset = 0.65 },
+                        new GradientStop { Color = Windows.UI.Color.FromArgb(0x40, 0x80, 0x40, 0x60), Offset = 1.0 }
+                    }
+                };
 
                 // Define all tiles
                 DefineQuickSettingsTiles();
@@ -12541,7 +13055,33 @@ namespace XboxGamingBar
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 2, 0, 0)
             };
-            content.Children.Add(stateText);
+
+            // For Profile tile, wrap in Canvas for scrolling long names
+            if (tile.Id == "Profile")
+            {
+                var transform = new TranslateTransform { X = 0 };
+                stateText.RenderTransform = transform;
+                stateText.Margin = new Thickness(0); // Remove margin, Canvas handles positioning
+
+                var canvas = new Canvas
+                {
+                    Width = 90, // Tile width for text
+                    Height = 18,
+                    Margin = new Thickness(0, 2, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                canvas.Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, 90, 18) };
+                canvas.Children.Add(stateText);
+
+                content.Children.Add(canvas);
+
+                tile.StateTextCanvas = canvas;
+                tile.StateTextTransform = transform;
+            }
+            else
+            {
+                content.Children.Add(stateText);
+            }
 
             button.Content = content;
             button.Click += QuickSettingsTile_Click;
@@ -12550,6 +13090,100 @@ namespace XboxGamingBar
             tile.StateText = stateText;
 
             return button;
+        }
+
+        /// <summary>
+        /// Updates the scroll animation for the Profile tile's state text.
+        /// If text is wider than the canvas, starts a scrolling animation.
+        /// </summary>
+        private void UpdateProfileTileScrollAnimation(TileDefinition profileTile)
+        {
+            if (profileTile?.StateText == null || profileTile.StateTextCanvas == null || profileTile.StateTextTransform == null)
+                return;
+
+            // Stop any existing animation
+            if (profileTile.ScrollStoryboard != null)
+            {
+                profileTile.ScrollStoryboard.Stop();
+                profileTile.ScrollStoryboard = null;
+            }
+
+            // Reset transform
+            profileTile.StateTextTransform.X = 0;
+
+            // Measure text width
+            profileTile.StateText.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            double textWidth = profileTile.StateText.DesiredSize.Width;
+            double canvasWidth = profileTile.StateTextCanvas.Width;
+
+            // If text fits, no animation needed
+            if (textWidth <= canvasWidth)
+            {
+                // Center the text
+                Canvas.SetLeft(profileTile.StateText, (canvasWidth - textWidth) / 2);
+                return;
+            }
+
+            // Text is too wide - set up scrolling animation
+            Canvas.SetLeft(profileTile.StateText, 0);
+
+            // Calculate scroll distance and duration
+            double scrollDistance = textWidth - canvasWidth + 10; // Extra padding
+            double scrollSpeed = 30; // pixels per second
+            double scrollDuration = scrollDistance / scrollSpeed;
+
+            var storyboard = new Storyboard();
+            var animation = new DoubleAnimationUsingKeyFrames
+            {
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+
+            // Pause at start
+            animation.KeyFrames.Add(new DiscreteDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.Zero),
+                Value = 0
+            });
+            animation.KeyFrames.Add(new DiscreteDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(1.5)),
+                Value = 0
+            });
+
+            // Scroll left
+            animation.KeyFrames.Add(new LinearDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(1.5 + scrollDuration)),
+                Value = -scrollDistance
+            });
+
+            // Pause at end
+            animation.KeyFrames.Add(new DiscreteDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(3 + scrollDuration)),
+                Value = -scrollDistance
+            });
+
+            // Scroll back right
+            animation.KeyFrames.Add(new LinearDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(3 + scrollDuration * 2)),
+                Value = 0
+            });
+
+            // Pause before repeat
+            animation.KeyFrames.Add(new DiscreteDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(4.5 + scrollDuration * 2)),
+                Value = 0
+            });
+
+            Storyboard.SetTarget(animation, profileTile.StateTextTransform);
+            Storyboard.SetTargetProperty(animation, "X");
+            storyboard.Children.Add(animation);
+
+            profileTile.ScrollStoryboard = storyboard;
+            storyboard.Begin();
         }
 
         /// <summary>
@@ -12620,11 +13254,29 @@ namespace XboxGamingBar
                 if (qsTileMap.TryGetValue("Profile", out var profileTile) && profileTile.TileButton != null)
                 {
                     bool perGame = perGameProfile?.Value ?? false;
+                    bool defaultProfileActive = defaultGameProfileEnabled?.Value ?? false;
                     string gameName = (runningGame != null && runningGame.Value.IsValid()) ? runningGame.Value.GameId.Name : "Per-Game";
-                    string profileName = perGame ? gameName : "Global";
-                    profileTile.StateText.Text = profileName;
-                    profileTile.StateText.Foreground = perGame ? accentForeground : offForeground;
-                    profileTile.TileButton.Background = perGame ? tileOnBrush : tileOffBrush;
+
+                    // Show game name with gradient when default game profile is active
+                    string profileName;
+                    if (defaultProfileActive)
+                    {
+                        // Use game name from current profile or running game
+                        profileName = currentDefaultGameProfile?.GameName ?? gameName;
+                        profileTile.StateText.Text = profileName;
+                        profileTile.StateText.Foreground = accentForeground;
+                        profileTile.TileButton.Background = tileDefaultProfileBrush;
+                    }
+                    else
+                    {
+                        profileName = perGame ? gameName : "Global";
+                        profileTile.StateText.Text = profileName;
+                        profileTile.StateText.Foreground = perGame ? accentForeground : offForeground;
+                        profileTile.TileButton.Background = perGame ? tileOnBrush : tileOffBrush;
+                    }
+
+                    // Update scroll animation for long profile names
+                    UpdateProfileTileScrollAnimation(profileTile);
                 }
 
                 // Performance Overlay tile
@@ -13090,6 +13742,14 @@ namespace XboxGamingBar
 
         private void CycleTDPMode()
         {
+            // If default game profile is active, turn it off when user manually changes TDP mode
+            if (defaultGameProfileEnabled?.Value == true && DefaultProfileToggle != null)
+            {
+                Logger.Info("TDP Mode tile clicked - turning off Default Game Profile");
+                DefaultProfileToggle.IsOn = false;
+                // The toggle change will trigger OnDefaultProfileEnabledChanged which re-enables controls
+            }
+
             if (legionGoDetected?.Value == true && legionPerformanceMode != null)
             {
                 int currentMode = legionPerformanceMode.Value;
@@ -13178,6 +13838,14 @@ namespace XboxGamingBar
 
         private void TogglePerGameProfile()
         {
+            // If Default Game Profile is active, toggle it off instead
+            if (defaultGameProfileEnabled?.Value == true && DefaultProfileToggle != null)
+            {
+                Logger.Info("Profile tile clicked - turning off Default Game Profile");
+                DefaultProfileToggle.IsOn = false;
+                return;
+            }
+
             // Only allow toggling when a game is detected
             if (perGameProfile != null && runningGame != null && runningGame.Value.IsValid())
             {
@@ -14157,6 +14825,386 @@ namespace XboxGamingBar
                 {
                     tile.IsVisible = isVisible;
                 }
+            }
+        }
+
+        #endregion
+
+        #region Steam Game Icons
+
+        // Steam library cache: maps install directory paths to Steam App IDs
+        // Cached on first use for performance
+        private static Dictionary<string, string> _steamInstallCache;
+        private static bool _steamCacheInitialized = false;
+
+        /// <summary>
+        /// Builds a cache of Steam game installations by parsing appmanifest files.
+        /// Maps install directory paths to Steam App IDs.
+        /// </summary>
+        private static Dictionary<string, string> BuildSteamInstallCache()
+        {
+            var cache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                // Get all Steam library folders
+                var libraryFolders = GetSteamLibraryFolders();
+
+                foreach (var libraryPath in libraryFolders)
+                {
+                    var steamAppsPath = Path.Combine(libraryPath, "steamapps");
+                    if (!Directory.Exists(steamAppsPath))
+                        continue;
+
+                    // Parse each appmanifest_*.acf file
+                    var manifestFiles = Directory.GetFiles(steamAppsPath, "appmanifest_*.acf");
+                    foreach (var manifestFile in manifestFiles)
+                    {
+                        try
+                        {
+                            var content = File.ReadAllText(manifestFile);
+
+                            // Parse AppID
+                            var appIdMatch = Regex.Match(content, @"""appid""\s+""(\d+)""");
+                            if (!appIdMatch.Success) continue;
+                            var appId = appIdMatch.Groups[1].Value;
+
+                            // Parse install directory name
+                            var installDirMatch = Regex.Match(content, @"""installdir""\s+""([^""]+)""");
+                            if (!installDirMatch.Success) continue;
+                            var installDir = installDirMatch.Groups[1].Value;
+
+                            // Build full path to game install
+                            var fullPath = Path.Combine(steamAppsPath, "common", installDir);
+                            if (Directory.Exists(fullPath))
+                            {
+                                cache[fullPath] = appId;
+                            }
+                        }
+                        catch
+                        {
+                            // Skip manifest files we can't parse
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Failed to build Steam install cache: {ex.Message}");
+            }
+
+            return cache;
+        }
+
+        /// <summary>
+        /// Gets all Steam library folder paths from libraryfolders.vdf.
+        /// </summary>
+        private static List<string> GetSteamLibraryFolders()
+        {
+            var folders = new List<string>();
+
+            // Common Steam install locations
+            var steamPaths = new[]
+            {
+                @"C:\Program Files (x86)\Steam",
+                @"C:\Program Files\Steam"
+            };
+
+            string steamPath = null;
+            foreach (var path in steamPaths)
+            {
+                if (Directory.Exists(path))
+                {
+                    steamPath = path;
+                    break;
+                }
+            }
+
+            if (steamPath == null)
+            {
+                return folders;
+            }
+
+            // Add the main Steam folder
+            folders.Add(steamPath);
+
+            // Parse libraryfolders.vdf for additional library locations
+            var libraryFoldersPath = Path.Combine(steamPath, "steamapps", "libraryfolders.vdf");
+            if (File.Exists(libraryFoldersPath))
+            {
+                try
+                {
+                    var content = File.ReadAllText(libraryFoldersPath);
+
+                    // Match "path" entries in the VDF file
+                    var pathMatches = Regex.Matches(content, @"""path""\s+""([^""]+)""");
+                    foreach (Match match in pathMatches)
+                    {
+                        var libPath = match.Groups[1].Value.Replace(@"\\", @"\");
+                        if (Directory.Exists(libPath) && !folders.Contains(libPath, StringComparer.OrdinalIgnoreCase))
+                        {
+                            folders.Add(libPath);
+                        }
+                    }
+                }
+                catch
+                {
+                    // Ignore errors parsing library folders
+                }
+            }
+
+            return folders;
+        }
+
+        /// <summary>
+        /// Gets the Steam App ID for a game executable by walking up the directory tree.
+        /// </summary>
+        private static string GetSteamAppIdFromPath(string exePath)
+        {
+            if (string.IsNullOrEmpty(exePath))
+                return null;
+
+            // Initialize cache on first use
+            if (!_steamCacheInitialized)
+            {
+                _steamInstallCache = BuildSteamInstallCache();
+                _steamCacheInitialized = true;
+            }
+
+            if (_steamInstallCache == null || _steamInstallCache.Count == 0)
+                return null;
+
+            try
+            {
+                // Walk up the directory tree to find a cached Steam install path
+                var searchDir = Path.GetDirectoryName(exePath);
+                while (!string.IsNullOrEmpty(searchDir))
+                {
+                    if (_steamInstallCache.TryGetValue(searchDir, out var appId))
+                    {
+                        return appId;
+                    }
+
+                    var parent = Directory.GetParent(searchDir);
+                    if (parent == null)
+                        break;
+                    searchDir = parent.FullName;
+                }
+            }
+            catch
+            {
+                // Ignore errors
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Gets the local Steam icon path for a game by its Steam App ID.
+        /// Looks in Steam's library cache folder for the game's icon.
+        /// </summary>
+        private static string GetSteamIconPath(string steamAppId)
+        {
+            if (string.IsNullOrEmpty(steamAppId))
+                return null;
+
+            // Steam caches icons locally - try common Steam install locations
+            var steamPaths = new[]
+            {
+                @"C:\Program Files (x86)\Steam",
+                @"C:\Program Files\Steam"
+            };
+
+            foreach (var steamPath in steamPaths)
+            {
+                // Steam stores assets in folders named by AppID
+                var cacheFolder = Path.Combine(steamPath, "appcache", "librarycache", steamAppId);
+                if (!Directory.Exists(cacheFolder))
+                    continue;
+
+                try
+                {
+                    // The icon is a small hash-named .jpg file (typically ~1KB)
+                    // Look for the smallest jpg that isn't a known named file
+                    var jpgFiles = Directory.GetFiles(cacheFolder, "*.jpg");
+                    string iconPath = null;
+                    long smallestSize = long.MaxValue;
+
+                    foreach (var file in jpgFiles)
+                    {
+                        var fileName = Path.GetFileName(file);
+                        // Skip known large files
+                        if (fileName == "header.jpg" || fileName == "library_600x900.jpg" ||
+                            fileName == "library_hero.jpg" || fileName == "library_hero_blur.jpg")
+                            continue;
+
+                        var fileInfo = new FileInfo(file);
+                        if (fileInfo.Length < smallestSize && fileInfo.Length < 5000) // Icons are typically < 2KB
+                        {
+                            smallestSize = fileInfo.Length;
+                            iconPath = file;
+                        }
+                    }
+
+                    if (iconPath != null)
+                        return iconPath;
+
+                    // Fall back to logo.png (transparent game logo)
+                    var logoPath = Path.Combine(cacheFolder, "logo.png");
+                    if (File.Exists(logoPath))
+                        return logoPath;
+                }
+                catch
+                {
+                    // Ignore errors and try next Steam path
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Loads the Steam game icon for the current game and updates the UI.
+        /// Must be called from background thread - does Steam lookup then dispatches to UI thread.
+        /// </summary>
+        private async void LoadCurrentGameIcon(string exePath)
+        {
+            if (string.IsNullOrEmpty(exePath))
+            {
+                await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    if (CurrentGameIcon != null)
+                    {
+                        CurrentGameIcon.Source = null;
+                        CurrentGameIcon.Visibility = Visibility.Collapsed;
+                    }
+                });
+                return;
+            }
+
+            try
+            {
+                Logger.Info($"LoadCurrentGameIcon: Starting for {exePath}");
+
+                // Get Steam App ID from exe path (can be done on any thread)
+                var steamAppId = GetSteamAppIdFromPath(exePath);
+                if (string.IsNullOrEmpty(steamAppId))
+                {
+                    Logger.Info($"LoadCurrentGameIcon: No Steam App ID found for {exePath}");
+                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        if (CurrentGameIcon != null)
+                        {
+                            CurrentGameIcon.Source = null;
+                            CurrentGameIcon.Visibility = Visibility.Collapsed;
+                        }
+                    });
+                    return;
+                }
+
+                Logger.Info($"LoadCurrentGameIcon: Found Steam App ID {steamAppId}");
+
+                // Get icon path (can be done on any thread)
+                var iconPath = GetSteamIconPath(steamAppId);
+                if (string.IsNullOrEmpty(iconPath))
+                {
+                    Logger.Info($"LoadCurrentGameIcon: No icon path found for Steam App ID {steamAppId}");
+                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        if (CurrentGameIcon != null)
+                        {
+                            CurrentGameIcon.Source = null;
+                            CurrentGameIcon.Visibility = Visibility.Collapsed;
+                        }
+                    });
+                    return;
+                }
+
+                Logger.Info($"LoadCurrentGameIcon: Found icon at {iconPath}");
+
+                // Load icon and update UI - must be done on UI thread
+                await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
+                {
+                    try
+                    {
+                        var file = await StorageFile.GetFileFromPathAsync(iconPath);
+                        using (var stream = await file.OpenAsync(FileAccessMode.Read))
+                        {
+                            var bitmapImage = new BitmapImage();
+                            await bitmapImage.SetSourceAsync(stream);
+
+                            if (CurrentGameIcon != null)
+                            {
+                                CurrentGameIcon.Source = bitmapImage;
+                                CurrentGameIcon.Visibility = Visibility.Visible;
+                                Logger.Info($"LoadCurrentGameIcon: Icon loaded successfully");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Info($"LoadCurrentGameIcon: Failed to load bitmap - {ex.Message}");
+                        if (CurrentGameIcon != null)
+                        {
+                            CurrentGameIcon.Source = null;
+                            CurrentGameIcon.Visibility = Visibility.Collapsed;
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Info($"LoadCurrentGameIcon: Failed - {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Loads the Steam game icon for a saved profile.
+        /// Returns a BitmapImage if found, null otherwise.
+        /// </summary>
+        private async Task<BitmapImage> LoadSavedProfileIconAsync(string exePath)
+        {
+            if (string.IsNullOrEmpty(exePath))
+                return null;
+
+            try
+            {
+                // Get Steam App ID from exe path
+                var steamAppId = GetSteamAppIdFromPath(exePath);
+                if (string.IsNullOrEmpty(steamAppId))
+                    return null;
+
+                // Get icon path
+                var iconPath = GetSteamIconPath(steamAppId);
+                if (string.IsNullOrEmpty(iconPath) || !File.Exists(iconPath))
+                    return null;
+
+                // Load icon on UI thread using TaskCompletionSource
+                var tcs = new TaskCompletionSource<BitmapImage>();
+
+                await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
+                {
+                    try
+                    {
+                        var file = await StorageFile.GetFileFromPathAsync(iconPath);
+                        using (var stream = await file.OpenAsync(FileAccessMode.Read))
+                        {
+                            var bitmapImage = new BitmapImage();
+                            await bitmapImage.SetSourceAsync(stream);
+                            tcs.TrySetResult(bitmapImage);
+                        }
+                    }
+                    catch
+                    {
+                        tcs.TrySetResult(null);
+                    }
+                });
+
+                return await tcs.Task;
+            }
+            catch
+            {
+                return null;
             }
         }
 
