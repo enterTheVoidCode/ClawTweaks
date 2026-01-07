@@ -4,6 +4,7 @@ using NLog;
 using Shared.Enums;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Performance;
@@ -211,15 +212,37 @@ namespace XboxGamingBarHelper.Legion
             // Initialize fan curve from device only if Legion Go is detected
             if (isLegionGoDetected)
             {
-                var curveResult = wmiService?.GetFanCurve();
-                if (curveResult.HasValue && curveResult.Value.Success && curveResult.Value.FanSpeeds?.Length == 10)
+                Logger.Info("Reading fan curve from device...");
+                const int fanCurveTimeoutMs = 5000;
+                var fanCurveTask = Task.Run(() =>
                 {
-                    fanCurve = curveResult.Value.FanSpeeds;
-                    Logger.Info($"Fan curve loaded from device: {string.Join(",", fanCurve)}");
+                    try
+                    {
+                        return wmiService?.GetFanCurve();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"GetFanCurve exception: {ex.Message}");
+                        return null;
+                    }
+                });
+
+                if (fanCurveTask.Wait(fanCurveTimeoutMs))
+                {
+                    var curveResult = fanCurveTask.Result;
+                    if (curveResult.HasValue && curveResult.Value.Success && curveResult.Value.FanSpeeds?.Length == 10)
+                    {
+                        fanCurve = curveResult.Value.FanSpeeds;
+                        Logger.Info($"Fan curve loaded from device: {string.Join(",", fanCurve)}");
+                    }
+                    else
+                    {
+                        Logger.Warn($"Failed to load fan curve from device (wmiService={wmiService != null}, hasValue={curveResult.HasValue}, success={curveResult?.Success}, message={curveResult?.Message}), using defaults: {string.Join(",", fanCurve)}");
+                    }
                 }
                 else
                 {
-                    Logger.Warn($"Failed to load fan curve from device (wmiService={wmiService != null}, hasValue={curveResult.HasValue}, success={curveResult?.Success}, message={curveResult?.Message}), using defaults: {string.Join(",", fanCurve)}");
+                    Logger.Warn($"GetFanCurve timed out after {fanCurveTimeoutMs}ms, using defaults: {string.Join(",", fanCurve)}");
                 }
             }
             string fanCurveString = string.Join(",", fanCurve.Select(v => (int)v));
@@ -285,9 +308,30 @@ namespace XboxGamingBarHelper.Legion
 
             if (isLegionGoDetected)
             {
-                // Read current performance mode and TDP values
-                ReadCurrentPerformanceMode();
-                ReadCurrentTDPValues();
+                // Read current performance mode and TDP values (with timeouts to prevent hangs)
+                const int wmiReadTimeoutMs = 5000;
+
+                Logger.Info("Reading current performance mode...");
+                var perfModeTask = Task.Run(() =>
+                {
+                    try { ReadCurrentPerformanceMode(); }
+                    catch (Exception ex) { Logger.Warn($"ReadCurrentPerformanceMode exception: {ex.Message}"); }
+                });
+                if (!perfModeTask.Wait(wmiReadTimeoutMs))
+                {
+                    Logger.Warn($"ReadCurrentPerformanceMode timed out after {wmiReadTimeoutMs}ms");
+                }
+
+                Logger.Info("Reading current TDP values...");
+                var tdpTask = Task.Run(() =>
+                {
+                    try { ReadCurrentTDPValues(); }
+                    catch (Exception ex) { Logger.Warn($"ReadCurrentTDPValues exception: {ex.Message}"); }
+                });
+                if (!tdpTask.Wait(wmiReadTimeoutMs))
+                {
+                    Logger.Warn($"ReadCurrentTDPValues timed out after {wmiReadTimeoutMs}ms");
+                }
 
                 // Update properties with the values read from device
                 // Use silent update to avoid triggering WMI calls back

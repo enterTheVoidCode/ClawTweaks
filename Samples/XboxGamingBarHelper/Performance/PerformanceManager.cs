@@ -324,44 +324,64 @@ namespace XboxGamingBarHelper.Performance
         internal PerformanceManager(AppServiceConnection connection) : base(connection)
         {
             // Initialize the computer sensors
+            // Only enable hardware types actually used - others can cause hangs:
+            // - IsMotherboardEnabled: SuperIO chip probing can hang
+            // - IsStorageEnabled: SMART queries can timeout on some drives
+            // - IsControllerEnabled: Fan controller probing (Legion has its own)
+            // - IsNetworkEnabled: Not used in OSD
             Logger.Info("PerformanceManager: Creating Computer object...");
             computer = new Computer
             {
-                IsCpuEnabled = true,
-                IsGpuEnabled = true,
-                IsMemoryEnabled = true,
-                IsMotherboardEnabled = true,
-                IsControllerEnabled = true,
-                IsNetworkEnabled = true,
-                IsStorageEnabled = true,
-                IsBatteryEnabled = true,
+                IsCpuEnabled = true,        // CPU usage, clock, temp, wattage
+                IsGpuEnabled = true,        // GPU usage, clock, temp, wattage, VRAM
+                IsMemoryEnabled = true,     // RAM usage
+                IsMotherboardEnabled = false, // DISABLED - not used, can hang on SuperIO
+                IsControllerEnabled = false,  // DISABLED - not used, Legion has own fan control
+                IsNetworkEnabled = false,     // DISABLED - not used in OSD
+                IsStorageEnabled = false,     // DISABLED - not used, SMART can hang
+                IsBatteryEnabled = true,      // Battery level, time, charge/discharge rate
             };
             Logger.Info("PerformanceManager: Creating UpdateVisitor...");
             updateVisitor = new UpdateVisitor();
-            Logger.Info("PerformanceManager: Calling computer.Open()...");
+            Logger.Info("PerformanceManager: Calling computer.Open() with 15s timeout...");
 
-            // Call computer.Open() with proper exception handling
-            try
+            // Call computer.Open() with timeout - can hang indefinitely if another app has sensors locked
+            const int timeoutMs = 15000;
+            var openTask = Task.Run(() =>
             {
-                computer.Open();
+                try
+                {
+                    computer.Open();
+                    return true;
+                }
+                catch (AggregateException ae)
+                {
+                    Logger.Warn($"PerformanceManager: computer.Open() had {ae.InnerExceptions.Count} errors (some hardware may not be available):");
+                    foreach (var innerEx in ae.InnerExceptions)
+                    {
+                        Logger.Warn($"  - {innerEx.GetType().Name}: {innerEx.Message}");
+                    }
+                    return true; // Continue anyway - use whatever hardware was initialized
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"PerformanceManager: computer.Open() failed: {ex.GetType().Name}: {ex.Message}");
+                    if (ex.InnerException != null)
+                    {
+                        Logger.Error($"  Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+                    }
+                    return false;
+                }
+            });
+
+            if (openTask.Wait(timeoutMs))
+            {
                 Logger.Info("PerformanceManager: computer.Open() completed successfully.");
             }
-            catch (AggregateException ae)
+            else
             {
-                Logger.Warn($"PerformanceManager: computer.Open() had {ae.InnerExceptions.Count} errors (some hardware may not be available):");
-                foreach (var innerEx in ae.InnerExceptions)
-                {
-                    Logger.Warn($"  - {innerEx.GetType().Name}: {innerEx.Message}");
-                }
-                // Continue anyway - use whatever hardware was initialized
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"PerformanceManager: computer.Open() failed: {ex.GetType().Name}: {ex.Message}");
-                if (ex.InnerException != null)
-                {
-                    Logger.Error($"  Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
-                }
+                Logger.Warn($"PerformanceManager: computer.Open() timed out after {timeoutMs}ms - hardware sensors may be limited. Check for other monitoring apps (HWiNFO, MSI Afterburner, etc.)");
+                // Continue anyway - some sensors may be available, others may not
             }
 
             // Always try to accept the visitor for whatever hardware was found
@@ -579,18 +599,34 @@ namespace XboxGamingBarHelper.Performance
         /// </summary>
         private void CheckPawnIODriverInstalled()
         {
-            try
+            Logger.Info("Checking PawnIO driver installation status...");
+
+            // WMI queries can hang - use timeout
+            const int timeoutMs = 5000;
+            var checkTask = Task.Run(() =>
             {
-                // Check if PawnIO driver service exists
-                using (var searcher = new System.Management.ManagementObjectSearcher(
-                    "SELECT * FROM Win32_SystemDriver WHERE Name = 'PawnIO'"))
+                try
                 {
-                    using (var collection = searcher.Get())
+                    // Check if PawnIO driver service exists
+                    using (var searcher = new System.Management.ManagementObjectSearcher(
+                        "SELECT * FROM Win32_SystemDriver WHERE Name = 'PawnIO'"))
                     {
-                        pawnIOInstalled = collection.Count > 0;
+                        using (var collection = searcher.Get())
+                        {
+                            return collection.Count > 0;
+                        }
                     }
                 }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Error in PawnIO WMI query: {ex.Message}");
+                    return false;
+                }
+            });
 
+            if (checkTask.Wait(timeoutMs))
+            {
+                pawnIOInstalled = checkTask.Result;
                 if (pawnIOInstalled)
                 {
                     Logger.Info("PawnIO driver is installed");
@@ -600,10 +636,10 @@ namespace XboxGamingBarHelper.Performance
                     Logger.Info("PawnIO driver is not installed");
                 }
             }
-            catch (Exception ex)
+            else
             {
                 pawnIOInstalled = false;
-                Logger.Warn($"Error checking PawnIO driver installation: {ex.Message}");
+                Logger.Warn($"PawnIO driver check timed out after {timeoutMs}ms - assuming not installed");
             }
         }
 

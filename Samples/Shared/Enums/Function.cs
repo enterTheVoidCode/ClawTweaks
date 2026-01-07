@@ -188,5 +188,10 @@
 
         // System Actions
         RefreshDisplaySettings,     // Action: re-query display resolution, refresh rate, HDR status
+
+        // Default Game Profile (Microsoft Gaming Services profiles)
+        DefaultGameProfileAvailable,    // bool - whether current game has a default profile
+        DefaultGameProfileData,         // string - serialized DefaultGameProfile XML
+        DefaultGameProfileEnabled,      // bool - user's toggle state for current game
     }
 }

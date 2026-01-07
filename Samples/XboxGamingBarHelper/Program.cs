@@ -24,6 +24,7 @@ using XboxGamingBarHelper.RTSS;
 using XboxGamingBarHelper.Settings;
 using XboxGamingBarHelper.Systems;
 using XboxGamingBarHelper.AutoTDP;
+using XboxGamingBarHelper.DefaultGameProfiles;
 
 namespace XboxGamingBarHelper
 {
@@ -44,6 +45,7 @@ namespace XboxGamingBarHelper
         private static SettingsManager settingsManager;
         private static LegionManager legionManager;
         private static AutoTDPManager autoTDPManager;
+        private static DefaultGameProfileManager defaultGameProfileManager;
         private static List<IManager> Managers;
         private static AppServiceConnectionStatus appServiceConnectionStatus;
 
@@ -203,6 +205,19 @@ namespace XboxGamingBarHelper
             Logger.Info("Initialize AutoTDP Manager.");
             autoTDPManager = new AutoTDPManager(connection, performanceManager, systemManager);
 
+            Logger.Info("Initialize Default Game Profile Manager.");
+            try
+            {
+                defaultGameProfileManager = new DefaultGameProfileManager(connection, performanceManager, rtssManager, systemManager, profileManager, legionManager);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to initialize DefaultGameProfileManager: {ex.Message}");
+                Logger.Error($"Stack trace: {ex.StackTrace}");
+                // Create a null-safe placeholder that won't crash
+                defaultGameProfileManager = null;
+            }
+
             // Initialize input injector for keyboard shortcuts (works in widget context unlike SendInput)
             inputInjector = InputInjector.TryCreate();
             if (inputInjector == null)
@@ -256,14 +271,19 @@ namespace XboxGamingBarHelper
                 legionManager,
                 autoTDPManager
             };
+            if (defaultGameProfileManager != null)
+            {
+                Managers.Add(defaultGameProfileManager);
+            }
 
             Logger.Info("Initialize properties.");
             onScreenDisplay = new OnScreenDisplayProperty(0, null, rtssManager);
             onScreenDisplayProviders = new List<OnScreenDisplayManager>() { rtssManager, amdManager };
             //onScreenDisplay = new OnScreenDisplayProperty(0, null, amdManager);
 
-            // Initialize properties.
-            properties = new HelperProperties(
+            // Build properties list (conditionally add DefaultGameProfile if available)
+            var propertyList = new List<FunctionalProperty>
+            {
                 systemManager.RunningGame,
                 onScreenDisplay,
                 performanceManager.TDP,
@@ -409,7 +429,19 @@ namespace XboxGamingBarHelper
                 performanceManager.WinRing0AvailableProperty,
                 performanceManager.PawnIOAvailableProperty,
                 performanceManager.PawnIOInstalledProperty,
-                performanceManager.InstallPawnIOProperty);
+                performanceManager.InstallPawnIOProperty
+            };
+
+            // Add Default Game Profile properties if manager initialized successfully
+            if (defaultGameProfileManager != null)
+            {
+                propertyList.Add(defaultGameProfileManager.ProfileAvailable);
+                propertyList.Add(defaultGameProfileManager.ProfileData);
+                propertyList.Add(defaultGameProfileManager.ProfileEnabled);
+            }
+
+            // Initialize properties
+            properties = new HelperProperties(propertyList.ToArray());
 
             Logger.Info("Initialize callbacks.");
             systemManager.RunningGame.PropertyChanged += RunningGame_PropertyChanged;
@@ -605,6 +637,13 @@ namespace XboxGamingBarHelper
                 return;
             }
 
+            // Skip when default game profile is active - don't overwrite user's saved profile
+            if (defaultGameProfileManager != null && defaultGameProfileManager.ProfileEnabled.Value)
+            {
+                Logger.Debug($"Skipping TDP_PropertyChanged - Default Game Profile is active (TDP={performanceManager.TDP})");
+                return;
+            }
+
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s TDP from {profileManager.CurrentProfile.TDP} to {performanceManager.TDP}.");
             profileManager.CurrentProfile.TDP = performanceManager.TDP;
         }
@@ -615,6 +654,13 @@ namespace XboxGamingBarHelper
             if (isApplyingProfile)
             {
                 Logger.Debug($"Skipping TDPBoostEnabled_PropertyChanged - already applying profile");
+                return;
+            }
+
+            // Skip when default game profile is active - don't overwrite user's saved profile
+            if (defaultGameProfileManager != null && defaultGameProfileManager.ProfileEnabled.Value)
+            {
+                Logger.Debug($"Skipping TDPBoostEnabled_PropertyChanged - Default Game Profile is active");
                 return;
             }
 

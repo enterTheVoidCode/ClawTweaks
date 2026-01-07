@@ -141,6 +141,27 @@ namespace Shared.Data
             }
         }
 
+        /// <summary>
+        /// Whether to use Microsoft Default Game Profile for this game.
+        /// null = auto (enable on battery, disable on AC)
+        /// true = always enable
+        /// false = always disable
+        /// </summary>
+        [XmlElement("UseDefaultProfile")]
+        private bool? useDefaultProfile;
+        public bool? UseDefaultProfile
+        {
+            get { return useDefaultProfile; }
+            set
+            {
+                if (useDefaultProfile != value)
+                {
+                    useDefaultProfile = value;
+                    Save();
+                }
+            }
+        }
+
         [XmlIgnore]
         public string Path;
 
@@ -165,6 +186,7 @@ namespace Shared.Data
             maxCPUState = inMaxCPUState;
             minCPUState = inMinCPUState;
             tdpBoostEnabled = inTDPBoostEnabled;
+            useDefaultProfile = null;
             Path = inPath;
             cache = inCache;
         }
