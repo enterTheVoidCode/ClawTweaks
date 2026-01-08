@@ -122,6 +122,24 @@ namespace XboxGamingBar
     }
 
     /// <summary>
+    /// Theme color palette definition
+    /// </summary>
+    public class ThemeColors
+    {
+        public string Name { get; set; }
+        public Windows.UI.Color PageBackground { get; set; }
+        public Windows.UI.Color CardBackground { get; set; }
+        public Windows.UI.Color CardBorder { get; set; }
+        public Windows.UI.Color AccentColor { get; set; }
+        public Windows.UI.Color TextPrimary { get; set; }
+        public Windows.UI.Color TextSecondary { get; set; }
+        public Windows.UI.Color ButtonBackground { get; set; }
+        public Windows.UI.Color ButtonBorder { get; set; }
+        public Windows.UI.Color TileOff { get; set; }
+        public Windows.UI.Color TileOn { get; set; }
+    }
+
+    /// <summary>
     /// View model for OSD item in the reorderable list
     /// </summary>
     public class OSDItemViewModel : INotifyPropertyChanged
@@ -394,6 +412,91 @@ namespace XboxGamingBar
         {
             "App Installer", //Somehow App Installer shows up as a game sometimes
         };
+
+        // Theme definitions
+        private static readonly Dictionary<string, ThemeColors> WidgetThemes = new Dictionary<string, ThemeColors>
+        {
+            { "Default", new ThemeColors {
+                Name = "Default",
+                PageBackground = Windows.UI.Color.FromArgb(255, 37, 40, 44),      // #25282C
+                CardBackground = Windows.UI.Color.FromArgb(255, 48, 52, 58),      // #30343A
+                CardBorder = Windows.UI.Color.FromArgb(255, 80, 85, 92),          // #50555C
+                AccentColor = Windows.UI.Color.FromArgb(255, 0, 200, 255),        // #00C8FF
+                TextPrimary = Windows.UI.Color.FromArgb(255, 255, 255, 255),      // #FFFFFF
+                TextSecondary = Windows.UI.Color.FromArgb(255, 160, 160, 160),    // #A0A0A0
+                ButtonBackground = Windows.UI.Color.FromArgb(255, 62, 67, 75),    // #3E434B
+                ButtonBorder = Windows.UI.Color.FromArgb(255, 107, 117, 132),     // #6B7584
+                TileOff = Windows.UI.Color.FromArgb(255, 26, 28, 30),             // #1A1C1E
+                TileOn = Windows.UI.Color.FromArgb(255, 26, 46, 31)               // #1A2E1F
+            }},
+            { "Dark", new ThemeColors {
+                Name = "Dark",
+                PageBackground = Windows.UI.Color.FromArgb(255, 26, 26, 26),      // #1A1A1A
+                CardBackground = Windows.UI.Color.FromArgb(255, 37, 37, 37),      // #252525
+                CardBorder = Windows.UI.Color.FromArgb(255, 58, 58, 58),          // #3A3A3A
+                AccentColor = Windows.UI.Color.FromArgb(255, 0, 200, 255),        // #00C8FF
+                TextPrimary = Windows.UI.Color.FromArgb(255, 255, 255, 255),      // #FFFFFF
+                TextSecondary = Windows.UI.Color.FromArgb(255, 144, 144, 144),    // #909090
+                ButtonBackground = Windows.UI.Color.FromArgb(255, 50, 50, 50),    // #323232
+                ButtonBorder = Windows.UI.Color.FromArgb(255, 80, 80, 80),        // #505050
+                TileOff = Windows.UI.Color.FromArgb(255, 20, 20, 20),             // #141414
+                TileOn = Windows.UI.Color.FromArgb(255, 20, 40, 25)               // #142819
+            }},
+            { "OLED", new ThemeColors {
+                Name = "OLED",
+                PageBackground = Windows.UI.Color.FromArgb(255, 0, 0, 0),         // #000000
+                CardBackground = Windows.UI.Color.FromArgb(255, 10, 10, 10),      // #0A0A0A
+                CardBorder = Windows.UI.Color.FromArgb(255, 26, 26, 26),          // #1A1A1A
+                AccentColor = Windows.UI.Color.FromArgb(255, 0, 200, 255),        // #00C8FF
+                TextPrimary = Windows.UI.Color.FromArgb(255, 255, 255, 255),      // #FFFFFF
+                TextSecondary = Windows.UI.Color.FromArgb(255, 128, 128, 128),    // #808080
+                ButtonBackground = Windows.UI.Color.FromArgb(255, 20, 20, 20),    // #141414
+                ButtonBorder = Windows.UI.Color.FromArgb(255, 40, 40, 40),        // #282828
+                TileOff = Windows.UI.Color.FromArgb(255, 5, 5, 5),                // #050505
+                TileOn = Windows.UI.Color.FromArgb(255, 10, 30, 15)               // #0A1E0F
+            }},
+            { "Dracula", new ThemeColors {
+                Name = "Dracula",
+                PageBackground = Windows.UI.Color.FromArgb(255, 40, 42, 54),      // #282A36
+                CardBackground = Windows.UI.Color.FromArgb(255, 68, 71, 90),      // #44475A
+                CardBorder = Windows.UI.Color.FromArgb(255, 98, 114, 164),        // #6272A4
+                AccentColor = Windows.UI.Color.FromArgb(255, 189, 147, 249),      // #BD93F9
+                TextPrimary = Windows.UI.Color.FromArgb(255, 248, 248, 242),      // #F8F8F2
+                TextSecondary = Windows.UI.Color.FromArgb(255, 98, 114, 164),     // #6272A4
+                ButtonBackground = Windows.UI.Color.FromArgb(255, 68, 71, 90),    // #44475A
+                ButtonBorder = Windows.UI.Color.FromArgb(255, 98, 114, 164),      // #6272A4
+                TileOff = Windows.UI.Color.FromArgb(255, 33, 34, 44),             // #21222C
+                TileOn = Windows.UI.Color.FromArgb(255, 80, 250, 123)             // #50FA7B (green)
+            }},
+            { "Nord", new ThemeColors {
+                Name = "Nord",
+                PageBackground = Windows.UI.Color.FromArgb(255, 46, 52, 64),      // #2E3440
+                CardBackground = Windows.UI.Color.FromArgb(255, 59, 66, 82),      // #3B4252
+                CardBorder = Windows.UI.Color.FromArgb(255, 76, 86, 106),         // #4C566A
+                AccentColor = Windows.UI.Color.FromArgb(255, 136, 192, 208),      // #88C0D0
+                TextPrimary = Windows.UI.Color.FromArgb(255, 236, 239, 244),      // #ECEFF4
+                TextSecondary = Windows.UI.Color.FromArgb(255, 216, 222, 233),    // #D8DEE9
+                ButtonBackground = Windows.UI.Color.FromArgb(255, 67, 76, 94),    // #434C5E
+                ButtonBorder = Windows.UI.Color.FromArgb(255, 76, 86, 106),       // #4C566A
+                TileOff = Windows.UI.Color.FromArgb(255, 36, 40, 50),             // #242832
+                TileOn = Windows.UI.Color.FromArgb(255, 163, 190, 140)            // #A3BE8C (green)
+            }},
+            { "Catppuccin", new ThemeColors {
+                Name = "Catppuccin",
+                PageBackground = Windows.UI.Color.FromArgb(255, 30, 30, 46),      // #1E1E2E
+                CardBackground = Windows.UI.Color.FromArgb(255, 49, 50, 68),      // #313244
+                CardBorder = Windows.UI.Color.FromArgb(255, 69, 71, 90),          // #45475A
+                AccentColor = Windows.UI.Color.FromArgb(255, 203, 166, 247),      // #CBA6F7
+                TextPrimary = Windows.UI.Color.FromArgb(255, 205, 214, 244),      // #CDD6F4
+                TextSecondary = Windows.UI.Color.FromArgb(255, 166, 173, 200),    // #A6ADC8
+                ButtonBackground = Windows.UI.Color.FromArgb(255, 49, 50, 68),    // #313244
+                ButtonBorder = Windows.UI.Color.FromArgb(255, 88, 91, 112),       // #585B70
+                TileOff = Windows.UI.Color.FromArgb(255, 24, 24, 37),             // #181825
+                TileOn = Windows.UI.Color.FromArgb(255, 166, 227, 161)            // #A6E3A1 (green)
+            }}
+        };
+
+        private string currentThemeName = "Default";
 
         // Xbox Game Bar logic
         private XboxGameBarWidget widget = null;
@@ -5510,6 +5613,180 @@ namespace XboxGamingBar
             }
         }
 
+        private bool isThemeInitialized = false;
+
+        private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!isThemeInitialized) return; // Don't save until initial load completes
+
+            if (ThemeComboBox?.SelectedItem is ComboBoxItem item)
+            {
+                string themeName = item.Content?.ToString() ?? "Default";
+                ApplyTheme(themeName);
+                SaveThemeSetting(themeName);
+            }
+        }
+
+        private void ApplyTheme(string themeName)
+        {
+            if (!WidgetThemes.TryGetValue(themeName, out var theme))
+            {
+                Logger.Warn($"Theme '{themeName}' not found, using Default");
+                theme = WidgetThemes["Default"];
+                themeName = "Default";
+            }
+
+            currentThemeName = themeName;
+            Logger.Info($"Applying theme: {themeName}");
+
+            // Update page background
+            this.Background = new SolidColorBrush(theme.PageBackground);
+            widgetDarkThemeBrush = new SolidColorBrush(theme.PageBackground);
+
+            // Update resource brushes (for new elements)
+            try
+            {
+                Resources["PageBackgroundBrush"] = new SolidColorBrush(theme.PageBackground);
+                Resources["CardBackgroundBrush"] = new SolidColorBrush(theme.CardBackground);
+                Resources["CardBorderBrush"] = new SolidColorBrush(theme.CardBorder);
+                Resources["ButtonBackground"] = new SolidColorBrush(theme.ButtonBackground);
+                Resources["ButtonBorderBrush"] = new SolidColorBrush(theme.ButtonBorder);
+                Resources["TileOffBackground"] = new SolidColorBrush(theme.TileOff);
+                Resources["TileOnBackground"] = new SolidColorBrush(theme.TileOn);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error updating theme resources: {ex.Message}");
+            }
+
+            // Manually update existing elements (StaticResource doesn't update at runtime)
+            try
+            {
+                var cardBgBrush = new SolidColorBrush(theme.CardBackground);
+                var cardBorderBrush = new SolidColorBrush(theme.CardBorder);
+                var accentBrush = new SolidColorBrush(theme.AccentColor);
+                var textSecondaryBrush = new SolidColorBrush(theme.TextSecondary);
+
+                // Update all Border elements (cards)
+                ApplyThemeToVisualTree(this, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
+
+                Logger.Info($"Theme '{themeName}' applied to visual tree");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error applying theme to visual tree: {ex.Message}");
+            }
+        }
+
+        private void ApplyThemeToVisualTree(DependencyObject parent, ThemeColors theme,
+            SolidColorBrush cardBgBrush, SolidColorBrush cardBorderBrush,
+            SolidColorBrush accentBrush, SolidColorBrush textSecondaryBrush)
+        {
+            int childCount = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < childCount; i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+
+                // Update Border elements (cards use CardStyle with specific properties)
+                if (child is Border border)
+                {
+                    // Check if this looks like a card (has corner radius and padding typical of CardStyle)
+                    if (border.CornerRadius.TopLeft == 8 && border.Padding.Left == 12)
+                    {
+                        border.Background = cardBgBrush;
+                        border.BorderBrush = cardBorderBrush;
+                    }
+                }
+
+                // Update accent-colored TextBlocks (section headers, card values)
+                if (child is TextBlock textBlock)
+                {
+                    if (textBlock.Foreground is SolidColorBrush brush)
+                    {
+                        // Check for cyan accent color (#00C8FF) - update to new accent
+                        if (brush.Color.R == 0 && brush.Color.G == 200 && brush.Color.B == 255)
+                        {
+                            textBlock.Foreground = accentBrush;
+                        }
+                        // Check for secondary text color (#A0A0A0)
+                        else if (brush.Color.R == 160 && brush.Color.G == 160 && brush.Color.B == 160)
+                        {
+                            textBlock.Foreground = textSecondaryBrush;
+                        }
+                    }
+                }
+
+                // Recurse into children
+                ApplyThemeToVisualTree(child, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
+            }
+        }
+
+        private void SaveThemeSetting(string themeName)
+        {
+            try
+            {
+                ApplicationData.Current.LocalSettings.Values["WidgetTheme"] = themeName;
+                Logger.Info($"Theme setting saved: {themeName}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to save theme setting: {ex.Message}");
+            }
+        }
+
+        private void LoadThemeSetting()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                if (settings.Values.TryGetValue("WidgetTheme", out var saved) && saved is string themeName)
+                {
+                    currentThemeName = themeName;
+                    Logger.Info($"Theme loaded from settings: {themeName}");
+
+                    // Defer visual updates until UI is ready
+                    _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
+                    {
+                        try
+                        {
+                            // Set ComboBox selection (isThemeInitialized is still false, so this won't trigger save)
+                            if (ThemeComboBox != null)
+                            {
+                                for (int i = 0; i < ThemeComboBox.Items.Count; i++)
+                                {
+                                    if (ThemeComboBox.Items[i] is ComboBoxItem item && item.Content?.ToString() == themeName)
+                                    {
+                                        ThemeComboBox.SelectedIndex = i;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            ApplyTheme(themeName);
+                        }
+                        finally
+                        {
+                            // Now allow saves on future changes
+                            isThemeInitialized = true;
+                        }
+                    });
+                }
+                else
+                {
+                    // No saved theme - mark as initialized so user can save their choice
+                    _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
+                    {
+                        isThemeInitialized = true;
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to load theme setting: {ex.Message}");
+                isThemeInitialized = true; // Allow saves even on error
+            }
+        }
+
         private bool isAboutExpanded = false;
 
         private void AboutExpandButton_Click(object sender, RoutedEventArgs e)
@@ -10102,7 +10379,36 @@ namespace XboxGamingBar
                         SystemScrollViewer.ChangeView(null, 0, null, true);
                         break;
                 }
+
+                // Re-apply theme to newly visible tab (StaticResources don't update dynamically)
+                // Defer to allow visual tree to load
+                if (currentThemeName != "Default")
+                {
+                    _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        ApplyThemeToCurrentTab();
+                    });
+                }
             }
+        }
+
+        private void ApplyThemeToCurrentTab()
+        {
+            if (!WidgetThemes.TryGetValue(currentThemeName, out var theme)) return;
+
+            var cardBgBrush = new SolidColorBrush(theme.CardBackground);
+            var cardBorderBrush = new SolidColorBrush(theme.CardBorder);
+            var accentBrush = new SolidColorBrush(theme.AccentColor);
+            var textSecondaryBrush = new SolidColorBrush(theme.TextSecondary);
+
+            // Apply to all scroll viewers (only visible ones will have loaded content)
+            ApplyThemeToVisualTree(QuickSettingsScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
+            ApplyThemeToVisualTree(PerformanceScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
+            ApplyThemeToVisualTree(GameScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
+            ApplyThemeToVisualTree(AMDScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
+            ApplyThemeToVisualTree(ScalingScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
+            ApplyThemeToVisualTree(LegionScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
+            ApplyThemeToVisualTree(SystemScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
         }
 
         private void GamingWidget_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
@@ -10365,6 +10671,9 @@ namespace XboxGamingBar
             Logger.Info("Creating theme brushes...");
             widgetDarkThemeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 37, 40, 44));
             widgetLightThemeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255));
+
+            // Load saved theme preference
+            LoadThemeSetting();
 
             widget = e.Parameter as XboxGameBarWidget;
             if (widget != null)

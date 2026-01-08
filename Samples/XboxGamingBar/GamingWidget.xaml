@@ -2926,6 +2926,29 @@
 
                                 <!-- Collapsible Content -->
                                 <StackPanel x:Name="DebugContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <!-- Theme Selector -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Theme" FontSize="14" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Change widget appearance" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="ThemeComboBox"
+                                                  Grid.Column="1"
+                                                  Width="130"
+                                                  SelectionChanged="ThemeComboBox_SelectionChanged">
+                                            <ComboBoxItem Content="Default" IsSelected="True"/>
+                                            <ComboBoxItem Content="Dark"/>
+                                            <ComboBoxItem Content="OLED"/>
+                                            <ComboBoxItem Content="Dracula"/>
+                                            <ComboBoxItem Content="Nord"/>
+                                            <ComboBoxItem Content="Catppuccin"/>
+                                        </ComboBox>
+                                    </Grid>
+
                                     <!-- Restart Helper Button -->
                                     <Button x:Name="RestartHelperButton"
                                             Content="Restart Helper"
