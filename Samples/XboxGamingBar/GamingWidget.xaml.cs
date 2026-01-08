@@ -12482,8 +12482,9 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Handles the PawnIO install button click.
+        /// After installation, the helper restarts to reinitialize with PawnIO support.
         /// </summary>
-        private void InstallPawnIOButton_Click(object sender, RoutedEventArgs e)
+        private async void InstallPawnIOButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -12498,10 +12499,24 @@ namespace XboxGamingBar
 
                 // Trigger the installation via the property
                 installPawnIO?.TriggerInstall();
+
+                // Wait for helper to complete installation and exit
+                // The helper exits after successful PawnIO installation
+                Logger.Info("Waiting for PawnIO installation to complete...");
+                await Task.Delay(5000);
+
+                // Check if helper is still connected, if not, relaunch it
+                // The helper will have exited after successful installation
+                Logger.Info("Relaunching helper after PawnIO installation...");
+                await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+
+                // Wait for helper to start and reinitialize
+                await Task.Delay(2000);
+                Logger.Info("Helper relaunched after PawnIO installation");
             }
             catch (Exception ex)
             {
-                Logger.Error($"Error triggering PawnIO installation: {ex.Message}");
+                Logger.Error($"Error during PawnIO installation: {ex.Message}");
                 // Reset button state on error
                 if (InstallPawnIOButton != null)
                 {
