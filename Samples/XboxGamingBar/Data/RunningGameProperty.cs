@@ -3,15 +3,13 @@ using Shared.Enums;
 using System;
 using Windows.UI.Core;
 using Windows.UI.Xaml.Controls;
-using muxc = Microsoft.UI.Xaml.Controls;
 
 namespace XboxGamingBar.Data
 {
     internal class RunningGameProperty : WidgetPropertyWithAdditionalUI<RunningGame, TextBlock, ToggleSwitch>
     {
         private TextBlock detectedGameText;
-        private muxc.NavigationViewItem performanceNavItem;
-        private ComboBox performanceOverlayComboBox;
+        private Action onGameDetectionChanged;
 
         public RunningGameProperty(TextBlock inUI, ToggleSwitch inAdditionalUI, Page inOwner) : base(new RunningGame(), Function.RunningGame, inUI, inAdditionalUI, inOwner)
         {
@@ -24,15 +22,11 @@ namespace XboxGamingBar.Data
         }
 
         /// <summary>
-        /// Set references for XY navigation updates
+        /// Set callback for when game detection changes (for XY navigation updates)
         /// </summary>
-        public void SetNavigationReferences(muxc.NavigationViewItem navItem, ComboBox overlayComboBox)
+        public void SetGameDetectionCallback(Action callback)
         {
-            performanceNavItem = navItem;
-            performanceOverlayComboBox = overlayComboBox;
-
-            // Set initial navigation state (no game detected by default)
-            UpdateXYNavigation(false);
+            onGameDetectionChanged = callback;
         }
 
         protected override async void NotifyPropertyChanged(string propertyName = "")
@@ -56,32 +50,9 @@ namespace XboxGamingBar.Data
                         detectedGameText.Text = Value.IsValid() ? Value.GameId.Name : "No game detected";
                     }
 
-                    // Update XY navigation based on game detection
-                    UpdateXYNavigation(Value.IsValid());
+                    // Notify callback for XY navigation update
+                    onGameDetectionChanged?.Invoke();
                 });
-            }
-        }
-
-        /// <summary>
-        /// Update XY focus navigation based on whether a game is detected
-        /// </summary>
-        private void UpdateXYNavigation(bool gameDetected)
-        {
-            if (performanceNavItem == null || performanceOverlayComboBox == null) return;
-
-            if (gameDetected)
-            {
-                // Game detected: Nav -> PerGameProfileToggle -> PerformanceOverlay
-                performanceNavItem.XYFocusDown = AdditionalUI;
-                AdditionalUI.XYFocusUp = performanceNavItem;
-                AdditionalUI.XYFocusDown = performanceOverlayComboBox;
-                performanceOverlayComboBox.XYFocusUp = AdditionalUI;
-            }
-            else
-            {
-                // No game: Nav -> PerformanceOverlay (skip disabled toggle)
-                performanceNavItem.XYFocusDown = performanceOverlayComboBox;
-                performanceOverlayComboBox.XYFocusUp = performanceNavItem;
             }
         }
     }

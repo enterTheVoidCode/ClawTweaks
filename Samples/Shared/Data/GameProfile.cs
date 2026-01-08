@@ -141,22 +141,650 @@ namespace Shared.Data
             }
         }
 
-        /// <summary>
-        /// Whether to use Microsoft Default Game Profile for this game.
-        /// null = auto (enable on battery, disable on AC)
-        /// true = always enable
-        /// false = always disable
-        /// </summary>
-        [XmlElement("UseDefaultProfile")]
-        private bool? useDefaultProfile;
-        public bool? UseDefaultProfile
+        // ========== DC (Battery) Overrides ==========
+        // When null, the AC value (above) is used. When set, overrides for DC power.
+
+        [XmlElement("TDP_DC")]
+        private int? tdpDC;
+        public int? TDP_DC
         {
-            get { return useDefaultProfile; }
+            get { return tdpDC; }
             set
             {
-                if (useDefaultProfile != value)
+                if (tdpDC != value)
                 {
-                    useDefaultProfile = value;
+                    tdpDC = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("CPUBoost_DC")]
+        private bool? cpuBoostDC;
+        public bool? CPUBoost_DC
+        {
+            get { return cpuBoostDC; }
+            set
+            {
+                if (cpuBoostDC != value)
+                {
+                    cpuBoostDC = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("CPUEPP_DC")]
+        private int? cpuEppDC;
+        public int? CPUEPP_DC
+        {
+            get { return cpuEppDC; }
+            set
+            {
+                if (cpuEppDC != value)
+                {
+                    cpuEppDC = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("MaxCPUState_DC")]
+        private int? maxCpuStateDC;
+        public int? MaxCPUState_DC
+        {
+            get { return maxCpuStateDC; }
+            set
+            {
+                if (maxCpuStateDC != value)
+                {
+                    maxCpuStateDC = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("MinCPUState_DC")]
+        private int? minCpuStateDC;
+        public int? MinCPUState_DC
+        {
+            get { return minCpuStateDC; }
+            set
+            {
+                if (minCpuStateDC != value)
+                {
+                    minCpuStateDC = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Whether DGP is enabled on AC power for this game.
+        /// null = use default auto behavior (disabled on AC)
+        /// true/false = user preference
+        /// </summary>
+        [XmlElement("DgpEnabledOnAC")]
+        private bool? dgpEnabledOnAC;
+        public bool? DgpEnabledOnAC
+        {
+            get { return dgpEnabledOnAC; }
+            set
+            {
+                if (dgpEnabledOnAC != value)
+                {
+                    dgpEnabledOnAC = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Whether DGP is enabled on DC (battery) power for this game.
+        /// null = use default auto behavior (enabled on DC)
+        /// true/false = user preference
+        /// </summary>
+        [XmlElement("DgpEnabledOnDC")]
+        private bool? dgpEnabledOnDC;
+        public bool? DgpEnabledOnDC
+        {
+            get { return dgpEnabledOnDC; }
+            set
+            {
+                if (dgpEnabledOnDC != value)
+                {
+                    dgpEnabledOnDC = value;
+                    Save();
+                }
+            }
+        }
+
+        // ========== Additional Profile Settings ==========
+
+        [XmlElement("FPSLimit")]
+        private int fpsLimit;
+        public int FPSLimit
+        {
+            get { return fpsLimit; }
+            set
+            {
+                if (fpsLimit != value)
+                {
+                    fpsLimit = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("FPSLimit_DC")]
+        private int? fpsLimitDC;
+        public int? FPSLimit_DC
+        {
+            get { return fpsLimitDC; }
+            set
+            {
+                if (fpsLimitDC != value)
+                {
+                    fpsLimitDC = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("AutoTDPEnabled")]
+        private bool autoTDPEnabled;
+        public bool AutoTDPEnabled
+        {
+            get { return autoTDPEnabled; }
+            set
+            {
+                if (autoTDPEnabled != value)
+                {
+                    autoTDPEnabled = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("AutoTDPEnabled_DC")]
+        private bool? autoTDPEnabledDC;
+        public bool? AutoTDPEnabled_DC
+        {
+            get { return autoTDPEnabledDC; }
+            set
+            {
+                if (autoTDPEnabledDC != value)
+                {
+                    autoTDPEnabledDC = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("AutoTDPTargetFPS")]
+        private int autoTDPTargetFPS;
+        public int AutoTDPTargetFPS
+        {
+            get { return autoTDPTargetFPS; }
+            set
+            {
+                if (autoTDPTargetFPS != value)
+                {
+                    autoTDPTargetFPS = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("AutoTDPTargetFPS_DC")]
+        private int? autoTDPTargetFPSDC;
+        public int? AutoTDPTargetFPS_DC
+        {
+            get { return autoTDPTargetFPSDC; }
+            set
+            {
+                if (autoTDPTargetFPSDC != value)
+                {
+                    autoTDPTargetFPSDC = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("OSPowerMode")]
+        private string osPowerMode;
+        public string OSPowerMode
+        {
+            get { return osPowerMode; }
+            set
+            {
+                if (osPowerMode != value)
+                {
+                    osPowerMode = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("OSPowerMode_DC")]
+        private string osPowerModeDC;
+        public string OSPowerMode_DC
+        {
+            get { return osPowerModeDC; }
+            set
+            {
+                if (osPowerModeDC != value)
+                {
+                    osPowerModeDC = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("HDREnabled")]
+        private bool hdrEnabled;
+        public bool HDREnabled
+        {
+            get { return hdrEnabled; }
+            set
+            {
+                if (hdrEnabled != value)
+                {
+                    hdrEnabled = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("Resolution")]
+        private string resolution;
+        public string Resolution
+        {
+            get { return resolution; }
+            set
+            {
+                if (resolution != value)
+                {
+                    resolution = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("StickyTDP")]
+        private bool stickyTDP;
+        public bool StickyTDP
+        {
+            get { return stickyTDP; }
+            set
+            {
+                if (stickyTDP != value)
+                {
+                    stickyTDP = value;
+                    Save();
+                }
+            }
+        }
+
+        // ========== Legion Controller Remapping ==========
+
+        [XmlElement("LegionButtonY1")]
+        private string legionButtonY1;
+        public string LegionButtonY1
+        {
+            get { return legionButtonY1; }
+            set
+            {
+                if (legionButtonY1 != value)
+                {
+                    legionButtonY1 = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionButtonY2")]
+        private string legionButtonY2;
+        public string LegionButtonY2
+        {
+            get { return legionButtonY2; }
+            set
+            {
+                if (legionButtonY2 != value)
+                {
+                    legionButtonY2 = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionButtonY3")]
+        private string legionButtonY3;
+        public string LegionButtonY3
+        {
+            get { return legionButtonY3; }
+            set
+            {
+                if (legionButtonY3 != value)
+                {
+                    legionButtonY3 = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionButtonM2")]
+        private string legionButtonM2;
+        public string LegionButtonM2
+        {
+            get { return legionButtonM2; }
+            set
+            {
+                if (legionButtonM2 != value)
+                {
+                    legionButtonM2 = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionButtonM3")]
+        private string legionButtonM3;
+        public string LegionButtonM3
+        {
+            get { return legionButtonM3; }
+            set
+            {
+                if (legionButtonM3 != value)
+                {
+                    legionButtonM3 = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionGyroButton")]
+        private int? legionGyroButton;
+        public int? LegionGyroButton
+        {
+            get { return legionGyroButton; }
+            set
+            {
+                if (legionGyroButton != value)
+                {
+                    legionGyroButton = value;
+                    Save();
+                }
+            }
+        }
+
+        // ========== Additional Legion Controller Settings ==========
+
+        [XmlElement("LegionControllerProfileEnabled")]
+        private bool? legionControllerProfileEnabled;
+        public bool? LegionControllerProfileEnabled
+        {
+            get { return legionControllerProfileEnabled; }
+            set
+            {
+                if (legionControllerProfileEnabled != value)
+                {
+                    legionControllerProfileEnabled = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionButtonM1")]
+        private string legionButtonM1;
+        public string LegionButtonM1
+        {
+            get { return legionButtonM1; }
+            set
+            {
+                if (legionButtonM1 != value)
+                {
+                    legionButtonM1 = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionGyroTarget")]
+        private int? legionGyroTarget;
+        public int? LegionGyroTarget
+        {
+            get { return legionGyroTarget; }
+            set
+            {
+                if (legionGyroTarget != value)
+                {
+                    legionGyroTarget = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionGyroSensitivityX")]
+        private int? legionGyroSensitivityX;
+        public int? LegionGyroSensitivityX
+        {
+            get { return legionGyroSensitivityX; }
+            set
+            {
+                if (legionGyroSensitivityX != value)
+                {
+                    legionGyroSensitivityX = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionGyroSensitivityY")]
+        private int? legionGyroSensitivityY;
+        public int? LegionGyroSensitivityY
+        {
+            get { return legionGyroSensitivityY; }
+            set
+            {
+                if (legionGyroSensitivityY != value)
+                {
+                    legionGyroSensitivityY = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionGyroInvertX")]
+        private bool? legionGyroInvertX;
+        public bool? LegionGyroInvertX
+        {
+            get { return legionGyroInvertX; }
+            set
+            {
+                if (legionGyroInvertX != value)
+                {
+                    legionGyroInvertX = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionGyroInvertY")]
+        private bool? legionGyroInvertY;
+        public bool? LegionGyroInvertY
+        {
+            get { return legionGyroInvertY; }
+            set
+            {
+                if (legionGyroInvertY != value)
+                {
+                    legionGyroInvertY = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionGyroMappingType")]
+        private int? legionGyroMappingType;
+        public int? LegionGyroMappingType
+        {
+            get { return legionGyroMappingType; }
+            set
+            {
+                if (legionGyroMappingType != value)
+                {
+                    legionGyroMappingType = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionGyroActivationMode")]
+        private int? legionGyroActivationMode;
+        public int? LegionGyroActivationMode
+        {
+            get { return legionGyroActivationMode; }
+            set
+            {
+                if (legionGyroActivationMode != value)
+                {
+                    legionGyroActivationMode = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionGyroDeadzone")]
+        private int? legionGyroDeadzone;
+        public int? LegionGyroDeadzone
+        {
+            get { return legionGyroDeadzone; }
+            set
+            {
+                if (legionGyroDeadzone != value)
+                {
+                    legionGyroDeadzone = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionLeftStickDeadzone")]
+        private int? legionLeftStickDeadzone;
+        public int? LegionLeftStickDeadzone
+        {
+            get { return legionLeftStickDeadzone; }
+            set
+            {
+                if (legionLeftStickDeadzone != value)
+                {
+                    legionLeftStickDeadzone = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionRightStickDeadzone")]
+        private int? legionRightStickDeadzone;
+        public int? LegionRightStickDeadzone
+        {
+            get { return legionRightStickDeadzone; }
+            set
+            {
+                if (legionRightStickDeadzone != value)
+                {
+                    legionRightStickDeadzone = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionJoystickAsMouseMode")]
+        private int? legionJoystickAsMouseMode;
+        public int? LegionJoystickAsMouseMode
+        {
+            get { return legionJoystickAsMouseMode; }
+            set
+            {
+                if (legionJoystickAsMouseMode != value)
+                {
+                    legionJoystickAsMouseMode = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionJoystickMouseSens")]
+        private int? legionJoystickMouseSens;
+        public int? LegionJoystickMouseSens
+        {
+            get { return legionJoystickMouseSens; }
+            set
+            {
+                if (legionJoystickMouseSens != value)
+                {
+                    legionJoystickMouseSens = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionGamepadMapping")]
+        private string legionGamepadMapping;
+        public string LegionGamepadMapping
+        {
+            get { return legionGamepadMapping; }
+            set
+            {
+                if (legionGamepadMapping != value)
+                {
+                    legionGamepadMapping = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionNintendoLayout")]
+        private bool? legionNintendoLayout;
+        public bool? LegionNintendoLayout
+        {
+            get { return legionNintendoLayout; }
+            set
+            {
+                if (legionNintendoLayout != value)
+                {
+                    legionNintendoLayout = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionVibration")]
+        private int? legionVibration;
+        public int? LegionVibration
+        {
+            get { return legionVibration; }
+            set
+            {
+                if (legionVibration != value)
+                {
+                    legionVibration = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionVibrationMode")]
+        private int? legionVibrationMode;
+        public int? LegionVibrationMode
+        {
+            get { return legionVibrationMode; }
+            set
+            {
+                if (legionVibrationMode != value)
+                {
+                    legionVibrationMode = value;
                     Save();
                 }
             }
@@ -180,13 +808,62 @@ namespace Shared.Data
         {
             GameId = new GameId(gameName, gamePath);
             use = inUse;
+            // AC values (main settings)
             tdp = inTDP;
             cpuBoost = inCPUBoost;
             cpuEPP = inCPUEPP;
             maxCPUState = inMaxCPUState;
             minCPUState = inMinCPUState;
             tdpBoostEnabled = inTDPBoostEnabled;
-            useDefaultProfile = null;
+            // DC overrides (null = use AC value)
+            tdpDC = null;
+            cpuBoostDC = null;
+            cpuEppDC = null;
+            maxCpuStateDC = null;
+            minCpuStateDC = null;
+            // DGP preferences
+            dgpEnabledOnAC = null;
+            dgpEnabledOnDC = null;
+            // Additional profile settings (AC)
+            fpsLimit = 0;
+            autoTDPEnabled = false;
+            autoTDPTargetFPS = 60;
+            osPowerMode = null;
+            // Additional profile settings (DC overrides)
+            fpsLimitDC = null;
+            autoTDPEnabledDC = null;
+            autoTDPTargetFPSDC = null;
+            osPowerModeDC = null;
+            // Display settings (shared AC/DC)
+            hdrEnabled = false;
+            resolution = null;
+            stickyTDP = false;
+            // Legion controller remapping (shared AC/DC)
+            legionButtonY1 = null;
+            legionButtonY2 = null;
+            legionButtonY3 = null;
+            legionButtonM2 = null;
+            legionButtonM3 = null;
+            legionGyroButton = null;
+            // Additional Legion controller settings
+            legionControllerProfileEnabled = null;
+            legionButtonM1 = null;
+            legionGyroTarget = null;
+            legionGyroSensitivityX = null;
+            legionGyroSensitivityY = null;
+            legionGyroInvertX = null;
+            legionGyroInvertY = null;
+            legionGyroMappingType = null;
+            legionGyroActivationMode = null;
+            legionGyroDeadzone = null;
+            legionLeftStickDeadzone = null;
+            legionRightStickDeadzone = null;
+            legionJoystickAsMouseMode = null;
+            legionJoystickMouseSens = null;
+            legionGamepadMapping = null;
+            legionNintendoLayout = null;
+            legionVibration = null;
+            legionVibrationMode = null;
             Path = inPath;
             cache = inCache;
         }

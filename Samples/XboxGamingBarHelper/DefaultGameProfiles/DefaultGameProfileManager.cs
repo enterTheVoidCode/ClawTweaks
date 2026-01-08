@@ -136,7 +136,8 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
 
                 Logger.Info($"DefaultGameProfileManager: Auto-enable decision: isOnBattery={isOnBattery}, userPref={userPref}, shouldEnable={shouldEnable}");
 
-                ProfileEnabled.SetValue(shouldEnable);
+                // Use ForceSetValue to ensure the value is always sent to widget, even if unchanged
+                ProfileEnabled.ForceSetValue(shouldEnable);
 
                 if (shouldEnable)
                 {
@@ -202,21 +203,16 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
                 return;
             }
 
+            var isOnBattery = IsOnBattery();
             var userPref = GetUserPreference();
 
-            // Only auto-toggle if user hasn't set explicit preference
-            if (userPref.HasValue)
-            {
-                Logger.Debug($"DefaultGameProfileManager: Power state changed but user has explicit preference ({userPref}), not auto-toggling");
-                return;
-            }
+            // Use saved preference if available, otherwise use default auto-enable logic
+            var shouldEnable = _service.ShouldAutoEnable(userPref, isOnBattery);
 
-            var isOnBattery = IsOnBattery();
-            var shouldEnable = _service.ShouldAutoEnable(null, isOnBattery);
+            Logger.Info($"DefaultGameProfileManager: Power state changed, isOnBattery={isOnBattery}, userPref={userPref}, shouldEnable={shouldEnable}");
 
-            Logger.Info($"DefaultGameProfileManager: Power state changed, isOnBattery={isOnBattery}, auto-toggling to {shouldEnable}");
-
-            ProfileEnabled.SetValue(shouldEnable);
+            // Use ForceSetValue to ensure widget is updated even if value hasn't changed
+            ProfileEnabled.ForceSetValue(shouldEnable);
 
             if (shouldEnable && !_isApplied)
             {
@@ -224,7 +220,8 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
             }
             else if (!shouldEnable && _isApplied)
             {
-                UnapplyProfile();
+                // Skip TDP restoration - widget will handle profile loading for new power state
+                UnapplyProfile(skipTdpRestore: true);
             }
         }
 
@@ -250,7 +247,8 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         }
 
         /// <summary>
-        /// Gets user's preference for current game from GameProfile.
+        /// Gets user's preference for current game and current power state.
+        /// Returns preference for AC or DC based on current power state.
         /// </summary>
         private bool? GetUserPreference()
         {
@@ -261,11 +259,25 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
 
             try
             {
-                var gameId = new GameId(_systemManager.RunningGame.Value.GameId.Name, _currentGamePath);
-                if (_profileManager.GameProfiles.TryGetValue(gameId, out var gameProfile))
+                // Get the game profile from ProfileManager
+                var gameProfile = _profileManager?.GetProfile(_currentGamePath);
+                if (!gameProfile.HasValue || !gameProfile.Value.IsValid())
                 {
-                    return gameProfile.UseDefaultProfile;
+                    Logger.Debug("No game profile found for DGP preference lookup");
+                    return null;
                 }
+
+                var isOnBattery = IsOnBattery();
+                var powerState = isOnBattery ? "DC" : "AC";
+                var preference = isOnBattery ? gameProfile.Value.DgpEnabledOnDC : gameProfile.Value.DgpEnabledOnAC;
+
+                if (preference.HasValue)
+                {
+                    Logger.Debug($"Found DGP preference for {powerState}: {preference.Value}");
+                    return preference.Value;
+                }
+
+                Logger.Debug($"No DGP preference found for {powerState}");
             }
             catch (Exception ex)
             {
@@ -276,7 +288,8 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         }
 
         /// <summary>
-        /// Saves user's preference for current game to GameProfile.
+        /// Saves user's preference for current game and current power state.
+        /// Stores in GameProfile's DgpEnabledOnAC or DgpEnabledOnDC field.
         /// </summary>
         private void SaveUserPreference(bool enabled)
         {
@@ -287,12 +300,14 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
 
             try
             {
-                var gameId = new GameId(_systemManager.RunningGame.Value.GameId.Name, _currentGamePath);
-                if (_profileManager.GameProfiles.TryGetValue(gameId, out var gameProfile))
-                {
-                    gameProfile.UseDefaultProfile = enabled;
-                    Logger.Info($"Saved UseDefaultProfile={enabled} for {gameId.Name}");
-                }
+                var isOnBattery = IsOnBattery();
+                var powerState = isOnBattery ? "DC" : "AC";
+
+                // Update the game profile's DGP preference
+                _profileManager?.UpdateDgpPreference(_currentGamePath, isOnBattery, enabled);
+
+                var gameName = _systemManager.RunningGame?.Value.GameId.Name ?? "Unknown";
+                Logger.Info($"Saved DGP preference={enabled} for {gameName} on {powerState}");
             }
             catch (Exception ex)
             {
@@ -394,7 +409,8 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         /// <summary>
         /// Unapplies the default profile, restoring user's manual settings.
         /// </summary>
-        private void UnapplyProfile()
+        /// <param name="skipTdpRestore">If true, skip TDP mode/value restoration (used when power state changed)</param>
+        private void UnapplyProfile(bool skipTdpRestore = false)
         {
             if (!_isApplied)
             {
@@ -402,29 +418,37 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
                 return;
             }
 
-            Logger.Info("Unapplying default profile, restoring saved settings");
+            Logger.Info($"Unapplying default profile, restoring saved settings (skipTdpRestore={skipTdpRestore})");
 
             try
             {
-                // Restore saved TDP mode first (Legion only)
-                if (_savedTdpMode.HasValue && _legionManager != null && _legionManager.LegionGoDetected.Value)
+                // Skip TDP restoration when power state changed - widget will handle profile loading
+                if (skipTdpRestore)
                 {
-                    Logger.Info($"Restoring TDP mode: {_savedTdpMode.Value}");
-                    _legionManager.LegionPerformanceMode.SetValue(_savedTdpMode.Value);
+                    Logger.Info("Skipping TDP restoration - power state changed, widget will handle profile loading");
                 }
-
-                // Restore saved TDP value (only if we were in Custom mode, otherwise the mode handles TDP)
-                if (_savedTdpValue.HasValue && _performanceManager?.TDP != null)
+                else
                 {
-                    // Only restore TDP if mode is Custom (255), otherwise the mode preset handles it
-                    if (_savedTdpMode.HasValue && _savedTdpMode.Value == 255)
+                    // Restore saved TDP mode first (Legion only)
+                    if (_savedTdpMode.HasValue && _legionManager != null && _legionManager.LegionGoDetected.Value)
                     {
-                        Logger.Info($"Restoring TDP value: {_savedTdpValue.Value}W");
-                        _performanceManager.TDP.SetValue(_savedTdpValue.Value);
+                        Logger.Info($"Restoring TDP mode: {_savedTdpMode.Value}");
+                        _legionManager.LegionPerformanceMode.SetValue(_savedTdpMode.Value);
                     }
-                    else
+
+                    // Restore saved TDP value (only if we were in Custom mode, otherwise the mode handles TDP)
+                    if (_savedTdpValue.HasValue && _performanceManager?.TDP != null)
                     {
-                        Logger.Info($"Skipping TDP value restore - mode {_savedTdpMode} will set its own TDP");
+                        // Only restore TDP if mode is Custom (255), otherwise the mode preset handles it
+                        if (_savedTdpMode.HasValue && _savedTdpMode.Value == 255)
+                        {
+                            Logger.Info($"Restoring TDP value: {_savedTdpValue.Value}W");
+                            _performanceManager.TDP.SetValue(_savedTdpValue.Value);
+                        }
+                        else
+                        {
+                            Logger.Info($"Skipping TDP value restore - mode {_savedTdpMode} will set its own TDP");
+                        }
                     }
                 }
 
