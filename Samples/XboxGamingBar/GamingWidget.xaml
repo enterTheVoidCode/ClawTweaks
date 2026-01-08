@@ -527,30 +527,19 @@
                         <!-- Active Profile Indicator -->
                         <Border x:Name="ActiveProfileCard" Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <Grid>
+                                <StackPanel>
                                     <TextBlock Text="Using profile:"
                                                FontSize="12"
                                                Foreground="#AAAAAA"
-                                               VerticalAlignment="Top" Margin="4,1,-5,0"/>
-                                    <!-- Scrolling container for long profile names -->
-                                    <Canvas x:Name="ActiveProfileScrollCanvas"
-                                            Height="20"
-                                            Margin="0,26,0,0"
-                                            VerticalAlignment="Top">
-                                        <Canvas.Clip>
-                                            <RectangleGeometry x:Name="ActiveProfileClipRect" Rect="0,0,280,20"/>
-                                        </Canvas.Clip>
-                                        <TextBlock x:Name="ActiveProfileText"
-                                                   Text="Global Settings"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#00C8FF">
-                                            <TextBlock.RenderTransform>
-                                                <TranslateTransform x:Name="ActiveProfileTextTransform" X="0"/>
-                                            </TextBlock.RenderTransform>
-                                        </TextBlock>
-                                    </Canvas>
-                                </Grid>
+                                               Margin="4,1,0,0"/>
+                                    <TextBlock x:Name="ActiveProfileText"
+                                               Text="Global Settings"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="#00C8FF"
+                                               TextTrimming="CharacterEllipsis"
+                                               Margin="4,4,0,0"/>
+                                </StackPanel>
 
                                 <!-- Per-Game Profile Toggle -->
                                 <Grid>
@@ -984,6 +973,193 @@
                                               XYFocusUp="{x:Bind ProfilesNavItem}"
                                               XYFocusDown="{x:Bind ProfileSettingsExpandToggle}"/>
                             </Grid>
+                        </Border>
+
+                        <!-- Profile Detection Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Profile Detection"
+                                                   Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Configure how games are detected"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="ProfileDetectionExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="ProfileDetectionExpandToggle_Click">
+                                        <FontIcon x:Name="ProfileDetectionExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <StackPanel x:Name="ProfileDetectionContent" Visibility="Collapsed" Margin="0,12,0,0" Spacing="12">
+
+                                    <!-- Match Exe Toggle -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Match by executable"
+                                                       FontSize="12"
+                                                       Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Match profiles by .exe instead of window title"
+                                                       FontSize="11"
+                                                       Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="ProfileMatchByExeToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"/>
+                                    </Grid>
+
+                                    <!-- Games Only Toggle -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Games only"
+                                                       FontSize="12"
+                                                       Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Only detect apps rendering frames (requires RTSS)"
+                                                       FontSize="11"
+                                                       Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="ProfileGamesOnlyToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      IsOn="True"/>
+                                    </Grid>
+
+                                    <!-- Current Apps (up to 5) -->
+                                    <StackPanel>
+                                        <TextBlock Text="Current apps"
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   Margin="0,0,0,4"/>
+                                        <StackPanel x:Name="ForegroundAppsContainer" Spacing="4">
+                                            <!-- App items are created dynamically in code-behind -->
+                                            <TextBlock x:Name="ForegroundAppsEmptyText"
+                                                       Text="No apps detected"
+                                                       FontSize="11"
+                                                       Foreground="#666666"
+                                                       FontStyle="Italic"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- Custom Games -->
+                                    <StackPanel>
+                                        <TextBlock Text="Custom games"
+                                                   FontSize="12"
+                                                   Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Apps always treated as games"
+                                                   FontSize="11"
+                                                   Foreground="#888888"/>
+
+                                        <!-- Empty state -->
+                                        <TextBlock x:Name="CustomGamesEmptyText"
+                                                   Text="No custom games added"
+                                                   FontSize="11"
+                                                   Foreground="#666666"
+                                                   FontStyle="Italic"
+                                                   Margin="0,8,0,0"/>
+
+                                        <!-- Custom games list -->
+                                        <ItemsControl x:Name="CustomGamesList" Margin="0,4,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,4,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding DisplayName}"
+                                                                   Grid.Column="0"
+                                                                   FontSize="12"
+                                                                   Foreground="#88FF88"
+                                                                   VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   ToolTipService.ToolTip="{Binding FullPath}"/>
+                                                        <Button Grid.Column="1"
+                                                                Content="&#xE711;"
+                                                                FontFamily="Segoe MDL2 Assets"
+                                                                FontSize="10"
+                                                                Padding="6,4"
+                                                                Background="Transparent"
+                                                                Foreground="#888888"
+                                                                BorderThickness="0"
+                                                                Tag="{Binding FullPath}"
+                                                                Click="CustomGameRemoveButton_Click"
+                                                                ToolTipService.ToolTip="Remove"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <!-- Blacklist -->
+                                    <StackPanel>
+                                        <TextBlock Text="Blacklist"
+                                                   FontSize="12"
+                                                   Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Apps never treated as games"
+                                                   FontSize="11"
+                                                   Foreground="#888888"/>
+
+                                        <!-- Empty state -->
+                                        <TextBlock x:Name="BlacklistEmptyText"
+                                                   Text="No apps blacklisted"
+                                                   FontSize="11"
+                                                   Foreground="#666666"
+                                                   FontStyle="Italic"
+                                                   Margin="0,8,0,0"/>
+
+                                        <!-- Blacklist list -->
+                                        <ItemsControl x:Name="BlacklistList" Margin="0,4,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,4,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding DisplayName}"
+                                                                   Grid.Column="0"
+                                                                   FontSize="12"
+                                                                   Foreground="#FF8888"
+                                                                   VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   ToolTipService.ToolTip="{Binding FullPath}"/>
+                                                        <Button Grid.Column="1"
+                                                                Content="&#xE711;"
+                                                                FontFamily="Segoe MDL2 Assets"
+                                                                FontSize="10"
+                                                                Padding="6,4"
+                                                                Background="Transparent"
+                                                                Foreground="#888888"
+                                                                BorderThickness="0"
+                                                                Tag="{Binding FullPath}"
+                                                                Click="BlacklistRemoveButton_Click"
+                                                                ToolTipService.ToolTip="Remove"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                </StackPanel>
+                            </StackPanel>
                         </Border>
 
                         <!-- Profile Settings Card (Collapsible) -->
@@ -2689,6 +2865,96 @@
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Debug Card (Collapsible) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel XYFocusKeyboardNavigation="Enabled">
+                                <!-- Header with Expand/Collapse -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Debug" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Troubleshooting and diagnostic tools"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="DebugExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="DebugExpandButton_Click">
+                                        <FontIcon x:Name="DebugExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="DebugContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <!-- Restart Helper Button -->
+                                    <Button x:Name="RestartHelperButton"
+                                            Content="Restart Helper"
+                                            HorizontalAlignment="Stretch"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Click="RestartHelperButton_Click"/>
+
+                                    <!-- Export Logs Button -->
+                                    <Button x:Name="ExportLogsButton"
+                                            Content="Export Logs"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Click="ExportLogsButton_Click"/>
+
+                                    <!-- Kill GoTweaks Button -->
+                                    <Button x:Name="KillGoTweaksButton"
+                                            Content="Kill GoTweaks"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Click="KillGoTweaksButton_Click"/>
+
+                                    <!-- Check for Update Button -->
+                                    <Button x:Name="CheckForUpdateButton"
+                                            Content="Check for Update"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Click="CheckForUpdateButton_Click"/>
+
+                                    <!-- Check for Update (Debug) Button - checks local AppPackages folder -->
+                                    <Button x:Name="CheckForUpdateDebugButton"
+                                            Content="Check for Update (Debug)"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Click="CheckForUpdateDebugButton_Click"/>
+
+                                    <!-- Update Status Text -->
+                                    <TextBlock x:Name="UpdateStatusText"
+                                               Text=""
+                                               FontSize="12"
+                                               Foreground="#A0A0A0"
+                                               TextWrapping="Wrap"
+                                               Margin="0,8,0,0"
+                                               Visibility="Collapsed"/>
+
+                                    <!-- Update Button (shown when update available) -->
+                                    <Button x:Name="UpdateButton"
+                                            Content="Update"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Background="#107C10"
+                                            Click="UpdateButton_Click"
+                                            Visibility="Collapsed"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>

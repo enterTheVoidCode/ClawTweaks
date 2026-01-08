@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -419,6 +420,10 @@ namespace XboxGamingBar
         // Power source change TDP reapply timer
         private DispatcherTimer powerSourceTdpReapplyTimer = null;
 
+        // Update check
+        private string _pendingUpdateZipUrl = null;
+        private string _pendingUpdateVersion = null;
+
         // Properties
         private readonly OSDProperty osd;
         private readonly TDPProperty tdp;
@@ -601,15 +606,18 @@ namespace XboxGamingBar
         private readonly OSPowerModeProperty osPowerMode;
         private bool isLoadingOSPowerMode = false;
 
+        // Profile Detection Settings
+        private readonly ProfileMatchByExeProperty profileMatchByExe;
+        private readonly ProfileGamesOnlyProperty profileGamesOnly;
+        private readonly ProfileCustomGamePathProperty profileCustomGamePath;
+        private readonly ProfileBlacklistPathsProperty profileBlacklistPaths;
+        private readonly ForegroundAppProperty foregroundApp;
+
         // FPS Limit (RTSS)
         private readonly FPSLimitProperty fpsLimit;
         private DispatcherTimer fpsLimitDebounceTimer;
         private int fpsLimitPendingValue;
         private const int FPS_LIMIT_DEBOUNCE_MS = 300;
-
-        // Active profile name scrolling animation
-        private Storyboard activeProfileScrollStoryboard;
-        private const double PROFILE_SCROLL_CONTAINER_WIDTH = 280;
 
         // Profile management
         private PerformanceProfile globalProfile = new PerformanceProfile();
@@ -737,7 +745,7 @@ namespace XboxGamingBar
             currentTdp = new CurrentTDPProperty(CurrentTDPValueText, this);
             osd = new OSDProperty(0, PerformanceOverlaySlider, this);
             runningGame = new RunningGameProperty(RunningGameText, PerGameProfileToggle, DetectedGameText, this);
-            runningGame.SetNavigationReferences(PerformanceNavItem, PerformanceOverlayComboBox);
+            runningGame.SetGameDetectionCallback(UpdatePerformanceTabXYNavigation);
             perGameProfile = new PerGameProfileProperty(PerGameProfileToggle, this);
             cpuBoost = new CPUBoostProperty(CPUBoostToggle, this);
             cpuEPP = new CPUEPPProperty(80, CPUEPPSlider, this);
@@ -930,6 +938,14 @@ namespace XboxGamingBar
             // FPS Limit property
             fpsLimit = new FPSLimitProperty();
 
+            // Profile Detection Settings
+            profileMatchByExe = new ProfileMatchByExeProperty(ProfileMatchByExeToggle, this);
+            profileGamesOnly = new ProfileGamesOnlyProperty(ProfileGamesOnlyToggle, this);
+            profileCustomGamePath = new ProfileCustomGamePathProperty(CustomGamesList, CustomGamesEmptyText, this);
+            profileBlacklistPaths = new ProfileBlacklistPathsProperty(BlacklistList, BlacklistEmptyText, this);
+            foregroundApp = new ForegroundAppProperty(ForegroundAppsContainer, this);
+            foregroundApp.OnAppsChanged = UpdateForegroundAppsList;
+
             // Set up Legion tab visibility callback
             legionGoDetected.SetVisibilityCallback(SetLegionTabVisibility);
 
@@ -1058,7 +1074,13 @@ namespace XboxGamingBar
                 controllerChargingRight,
                 defaultGameProfileAvailable,
                 defaultGameProfileData,
-                defaultGameProfileEnabled
+                defaultGameProfileEnabled,
+                // Profile Detection Settings
+                profileMatchByExe,
+                profileGamesOnly,
+                profileCustomGamePath,
+                profileBlacklistPaths,
+                foregroundApp
             );
 
             // Register card focus handlers for all interactive controls
@@ -2713,6 +2735,7 @@ namespace XboxGamingBar
         private int osdProvider = 0;  // 0=RTSS, 1=AMD
         private int amdOverlayLevel = 0;  // Track AMD overlay level: 0=Off, 1-4=Level 1-4 (can't query from AMD)
         private bool isOSDCustomizeExpanded = false;
+        private bool isProfileDetectionExpanded = false;
         private bool isProfileSettingsExpanded = false;
         private bool isTDPLimitsExpanded = false;
         private bool isPowerPlanExpanded = false;
@@ -2738,11 +2761,12 @@ namespace XboxGamingBar
 
         // Legion Go fan curve temperature thresholds (°C) - actual values from device
         private static readonly int[] FanCurveTemperatures = { 46, 49, 52, 55, 60, 63, 66, 69, 72, 75 };
-        // Minimum fan speeds (%) for each temperature threshold - 10% below Legion Space minimums to test lower limits
+        // Minimum fan speeds (%) for each temperature threshold - ~30% below Legion Space minimums
         // Legion Space minimums (RPM): 2000, 2200, 2200, 2400, 2700, 3000, 3900, 4100, 4400, 4700
-        private static readonly int[] FanCurveMinSpeeds = { 38, 41, 41, 45, 50, 57, 73, 77, 83, 88 };
+        private static readonly int[] FanCurveMinSpeeds = { 30, 33, 33, 36, 40, 46, 58, 62, 66, 70 };
         private bool isTDPExtrasExpanded = false;
         private bool isCPUExtrasExpanded = false;
+        private bool isDebugExpanded = false;
         private bool isLoadingTDPLimits = false;
         private bool isLoadingPowerPlans = false;
         private List<PowerPlanItem> availablePowerPlans = new List<PowerPlanItem>();
@@ -3432,6 +3456,213 @@ namespace XboxGamingBar
             }
         }
 
+        private void ProfileDetectionExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isProfileDetectionExpanded = !isProfileDetectionExpanded;
+
+            if (ProfileDetectionContent != null)
+            {
+                ProfileDetectionContent.Visibility = isProfileDetectionExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (ProfileDetectionExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                ProfileDetectionExpandIcon.Glyph = isProfileDetectionExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private async void CustomGameAddButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var picker = new Windows.Storage.Pickers.FileOpenPicker();
+                picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.ComputerFolder;
+                picker.FileTypeFilter.Add(".exe");
+                picker.ViewMode = Windows.Storage.Pickers.PickerViewMode.List;
+
+                var file = await picker.PickSingleFileAsync();
+                if (file != null)
+                {
+                    // Add the custom game path to the list
+                    profileCustomGamePath?.AddPath(file.Path);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error adding custom game: {ex.Message}");
+            }
+        }
+
+        private void CustomGameRemoveButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Remove the custom game path from the list
+            if (sender is Button button && button.Tag is string path)
+            {
+                profileCustomGamePath?.RemovePath(path);
+            }
+        }
+
+        private void BlacklistRemoveButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Remove the path from the blacklist
+            if (sender is Button button && button.Tag is string path)
+            {
+                profileBlacklistPaths?.RemovePath(path);
+            }
+        }
+
+        private async void ForegroundAppAddCustom_Click(object sender, RoutedEventArgs e)
+        {
+            // Get path from button's Tag
+            var button = sender as Button;
+            var path = button?.Tag as string;
+            if (!string.IsNullOrEmpty(path))
+            {
+                // Remove from blacklist if present
+                profileBlacklistPaths?.RemovePath(path);
+                // Add to custom games
+                profileCustomGamePath?.AddPath(path);
+
+                // Refresh foreground app detection after a short delay to let helper process the change
+                await System.Threading.Tasks.Task.Delay(200);
+                await foregroundApp?.Sync();
+            }
+        }
+
+        private async void ForegroundAppAddBlacklist_Click(object sender, RoutedEventArgs e)
+        {
+            // Get path from button's Tag
+            var button = sender as Button;
+            var path = button?.Tag as string;
+            if (!string.IsNullOrEmpty(path))
+            {
+                // Remove from custom games if present
+                profileCustomGamePath?.RemovePath(path);
+                // Add to blacklist
+                profileBlacklistPaths?.AddPath(path);
+
+                // Refresh foreground app detection after a short delay to let helper process the change
+                await System.Threading.Tasks.Task.Delay(200);
+                await foregroundApp?.Sync();
+            }
+        }
+
+        private void UpdateForegroundAppsList(List<string> paths)
+        {
+            if (ForegroundAppsContainer == null) return;
+
+            // Clear existing items except the empty text
+            var itemsToRemove = new List<UIElement>();
+            foreach (UIElement child in ForegroundAppsContainer.Children)
+            {
+                if (child != ForegroundAppsEmptyText)
+                {
+                    itemsToRemove.Add(child);
+                }
+            }
+            foreach (var item in itemsToRemove)
+            {
+                ForegroundAppsContainer.Children.Remove(item);
+            }
+
+            // Show/hide empty text
+            if (ForegroundAppsEmptyText != null)
+            {
+                ForegroundAppsEmptyText.Visibility = paths.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            // Create UI for each app
+            foreach (var path in paths)
+            {
+                var appRow = CreateForegroundAppRow(path);
+                ForegroundAppsContainer.Children.Add(appRow);
+            }
+        }
+
+        private Border CreateForegroundAppRow(string path)
+        {
+            var fileName = System.IO.Path.GetFileName(path);
+            bool isInCustomGames = profileCustomGamePath?.GetPaths().Any(p => p.Equals(path, StringComparison.OrdinalIgnoreCase)) ?? false;
+            bool isInBlacklist = profileBlacklistPaths?.GetPaths().Any(p => p.Equals(path, StringComparison.OrdinalIgnoreCase)) ?? false;
+
+            // Create row container
+            var border = new Border
+            {
+                Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0x20, 0xFF, 0xFF, 0xFF)),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(8, 4, 8, 4)
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            // App name
+            var nameText = new TextBlock
+            {
+                Text = fileName,
+                FontSize = 11,
+                Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x00, 0xC8, 0xFF)),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            ToolTipService.SetToolTip(nameText, path);
+            Grid.SetColumn(nameText, 0);
+            grid.Children.Add(nameText);
+
+            // Buttons panel
+            var buttonsPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 4
+            };
+            Grid.SetColumn(buttonsPanel, 1);
+
+            // Add Game button (hidden if already in custom games)
+            if (!isInCustomGames)
+            {
+                var addGameBtn = new Button
+                {
+                    Content = "+ Game",
+                    FontSize = 10,
+                    Padding = new Thickness(6, 2, 6, 2),
+                    Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0x40, 0x00, 0x88, 0x00)),
+                    Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x88, 0xFF, 0x88)),
+                    BorderThickness = new Thickness(0),
+                    CornerRadius = new CornerRadius(3),
+                    Tag = path
+                };
+                addGameBtn.Click += ForegroundAppAddCustom_Click;
+                ToolTipService.SetToolTip(addGameBtn, "Add to custom games");
+                buttonsPanel.Children.Add(addGameBtn);
+            }
+
+            // Add Block button (hidden if already in blacklist)
+            if (!isInBlacklist)
+            {
+                var addBlockBtn = new Button
+                {
+                    Content = "+ Block",
+                    FontSize = 10,
+                    Padding = new Thickness(6, 2, 6, 2),
+                    Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0x40, 0x88, 0x00, 0x00)),
+                    Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0xFF, 0x88, 0x88)),
+                    BorderThickness = new Thickness(0),
+                    CornerRadius = new CornerRadius(3),
+                    Tag = path
+                };
+                addBlockBtn.Click += ForegroundAppAddBlacklist_Click;
+                ToolTipService.SetToolTip(addBlockBtn, "Add to blacklist");
+                buttonsPanel.Children.Add(addBlockBtn);
+            }
+
+            grid.Children.Add(buttonsPanel);
+            border.Child = grid;
+
+            return border;
+        }
+
         private void ButtonRemappingExpandToggle_Click(object sender, RoutedEventArgs e)
         {
             isButtonRemappingExpanded = !isButtonRemappingExpanded;
@@ -3928,7 +4159,8 @@ namespace XboxGamingBar
             {
                 CurrentTempLabel.Text = $"{tempC}°C";
             }
-            UpdateTemperatureIndicator(tempC);
+            // Add +5°C offset to match the fan curve response
+            UpdateTemperatureIndicator(tempC + 5);
         }
 
         private void OnFanRPMUpdated(int rpm)
@@ -3987,10 +4219,10 @@ namespace XboxGamingBar
                 DrawGridLines();
                 UpdateFanCurveGraph();
 
-                // Re-update temp indicator if we have a value
+                // Re-update temp indicator if we have a value (with +5°C offset)
                 if (legionCPUTemp != null && legionCPUTemp.Value > 0)
                 {
-                    UpdateTemperatureIndicator(legionCPUTemp.Value);
+                    UpdateTemperatureIndicator(legionCPUTemp.Value + 5);
                 }
             }
         }
@@ -4618,7 +4850,7 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Send a custom shortcut by first closing Game Bar, then sending the shortcut.
+        /// Send a custom shortcut by first closing Game Bar (if in widget mode), then sending the shortcut.
         /// Sequence: Win+G (close Game Bar) → Custom shortcut
         /// </summary>
         private async Task SendCustomShortcutAsync(string shortcut, string tileName)
@@ -4627,12 +4859,16 @@ namespace XboxGamingBar
             {
                 Logger.Info($"Custom shortcut tile clicked: {tileName} -> {shortcut}");
 
-                // First close Game Bar with Win+G
-                await SendKeyboardShortcutViaHelper("Win+G");
-                Logger.Debug("Win+G sent to close Game Bar");
+                // Only close Game Bar if we're running as a widget
+                if (widget != null)
+                {
+                    // First close Game Bar with Win+G
+                    await SendKeyboardShortcutViaHelper("Win+G");
+                    Logger.Debug("Win+G sent to close Game Bar");
 
-                // Wait for Game Bar to close
-                await Task.Delay(150);
+                    // Wait for Game Bar to close
+                    await Task.Delay(150);
+                }
 
                 // Now send the actual shortcut
                 await SendKeyboardShortcutViaHelper(shortcut);
@@ -5213,6 +5449,428 @@ namespace XboxGamingBar
             settings.Values["ForceParkMode"] = enabled;
         }
 
+        #region Debug Panel Handlers
+
+        private void DebugExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isDebugExpanded = !isDebugExpanded;
+
+            if (DebugContent != null)
+            {
+                DebugContent.Visibility = isDebugExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (DebugExpandIcon != null)
+            {
+                DebugExpandIcon.Glyph = isDebugExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private async void RestartHelperButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                RestartHelperButton.IsEnabled = false;
+                RestartHelperButton.Content = "Restarting...";
+
+                // Send exit command to helper via AppServiceConnection
+                if (App.Connection != null)
+                {
+                    var message = new Windows.Foundation.Collections.ValueSet();
+                    message.Add("ExitHelper", true);
+
+                    Logger.Info("Sending ExitHelper command to helper");
+                    var response = await App.Connection.SendMessageAsync(message);
+
+                    if (response.Status == AppServiceResponseStatus.Success)
+                    {
+                        Logger.Info("Helper acknowledged exit command");
+                    }
+                }
+
+                // Wait for helper to exit and release mutex
+                await Task.Delay(1500);
+
+                // Launch new helper instance
+                Logger.Info("Launching new helper instance");
+                await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+
+                await Task.Delay(2000);
+                RestartHelperButton.Content = "Restart Helper";
+                RestartHelperButton.IsEnabled = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to restart helper: {ex.Message}");
+                RestartHelperButton.Content = "Restart Helper";
+                RestartHelperButton.IsEnabled = true;
+            }
+        }
+
+        private async void ExportLogsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                ExportLogsButton.IsEnabled = false;
+                ExportLogsButton.Content = "Exporting...";
+
+                // Send export logs command to helper via AppServiceConnection
+                if (App.Connection != null)
+                {
+                    var message = new Windows.Foundation.Collections.ValueSet();
+                    message.Add("ExportLogs", true);
+
+                    Logger.Info("Sending ExportLogs command to helper");
+                    var response = await App.Connection.SendMessageAsync(message);
+
+                    if (response.Status == AppServiceResponseStatus.Success)
+                    {
+                        bool success = false;
+                        if (response.Message.TryGetValue("Success", out object successObj) && successObj is bool successVal)
+                            success = successVal;
+
+                        if (success)
+                        {
+                            var path = response.Message.TryGetValue("Path", out object pathObj) ? pathObj as string : "Desktop";
+                            Logger.Info($"Logs exported successfully to: {path}");
+                            ExportLogsButton.Content = "Exported!";
+                        }
+                        else
+                        {
+                            var error = response.Message.TryGetValue("Error", out object errorObj) ? errorObj as string : "Unknown error";
+                            Logger.Error($"Export logs failed: {error}");
+                            ExportLogsButton.Content = "Export Failed";
+                        }
+                    }
+                    else
+                    {
+                        Logger.Error($"Export logs request failed: {response.Status}");
+                        ExportLogsButton.Content = "Export Failed";
+                    }
+                }
+                else
+                {
+                    Logger.Error("Cannot export logs - no connection to helper");
+                    ExportLogsButton.Content = "No Helper";
+                }
+
+                await Task.Delay(2000);
+                ExportLogsButton.Content = "Export Logs";
+                ExportLogsButton.IsEnabled = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to export logs: {ex.Message}");
+                ExportLogsButton.Content = "Export Failed";
+                await Task.Delay(2000);
+                ExportLogsButton.Content = "Export Logs";
+                ExportLogsButton.IsEnabled = true;
+            }
+        }
+
+        private async void KillGoTweaksButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Logger.Info("Kill GoTweaks requested by user");
+
+                // Send exit command to helper first
+                if (App.Connection != null)
+                {
+                    var message = new Windows.Foundation.Collections.ValueSet();
+                    message.Add("ExitHelper", true);
+
+                    Logger.Info("Sending ExitHelper command before killing widget");
+                    await App.Connection.SendMessageAsync(message);
+
+                    // Give helper time to exit
+                    await Task.Delay(500);
+                }
+
+                // Exit the widget application
+                Application.Current.Exit();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to kill GoTweaks: {ex.Message}");
+                // Still try to exit even if helper communication failed
+                Application.Current.Exit();
+            }
+        }
+
+        /// <summary>
+        /// Compares two version strings (e.g., "v0.3.902" vs "v0.3.1001.0").
+        /// Returns true if latestVersion is newer than currentVersion.
+        /// </summary>
+        private bool IsNewerVersion(string latestVersion, string currentVersion)
+        {
+            // Strip 'v' prefix if present
+            var latest = latestVersion.TrimStart('v', 'V');
+            var current = currentVersion.TrimStart('v', 'V');
+
+            // Split into parts
+            var latestParts = latest.Split('.');
+            var currentParts = current.Split('.');
+
+            // Compare each part numerically
+            int maxLength = Math.Max(latestParts.Length, currentParts.Length);
+            for (int i = 0; i < maxLength; i++)
+            {
+                int latestNum = 0;
+                int currentNum = 0;
+
+                if (i < latestParts.Length && int.TryParse(latestParts[i], out int lp))
+                    latestNum = lp;
+                if (i < currentParts.Length && int.TryParse(currentParts[i], out int cp))
+                    currentNum = cp;
+
+                if (latestNum > currentNum)
+                    return true;
+                if (latestNum < currentNum)
+                    return false;
+            }
+
+            return false; // Versions are equal
+        }
+
+        private async void CheckForUpdateButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                CheckForUpdateButton.IsEnabled = false;
+                CheckForUpdateButton.Content = "Checking...";
+                UpdateStatusText.Visibility = Visibility.Visible;
+                UpdateStatusText.Text = "Checking for updates...";
+                UpdateButton.Visibility = Visibility.Collapsed;
+                _pendingUpdateZipUrl = null;
+                _pendingUpdateVersion = null;
+
+                using (var httpClient = new HttpClient())
+                {
+                    httpClient.DefaultRequestHeaders.Add("User-Agent", "GoTweaks-UpdateChecker");
+                    var response = await httpClient.GetStringAsync("https://api.github.com/repos/corando98/GoTweaks/releases/latest");
+
+                    // Parse JSON response using Windows.Data.Json
+                    var jsonObject = Windows.Data.Json.JsonObject.Parse(response);
+                    var latestVersion = jsonObject.GetNamedString("tag_name", "");
+
+                    // Get current version from package
+                    var packageVersion = Package.Current.Id.Version;
+                    var currentVersion = $"v{packageVersion.Major}.{packageVersion.Minor}.{packageVersion.Build}.{packageVersion.Revision}";
+
+                    Logger.Info($"Update check: current={currentVersion}, latest={latestVersion}");
+
+                    if (!string.IsNullOrEmpty(latestVersion) && IsNewerVersion(latestVersion, currentVersion))
+                    {
+                        // Find the .zip asset download URL
+                        string zipUrl = null;
+                        if (jsonObject.ContainsKey("assets"))
+                        {
+                            var assets = jsonObject.GetNamedArray("assets");
+                            foreach (var asset in assets)
+                            {
+                                var assetObj = asset.GetObject();
+                                var name = assetObj.GetNamedString("name", "");
+                                if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    zipUrl = assetObj.GetNamedString("browser_download_url", "");
+                                    break;
+                                }
+                            }
+                        }
+
+                        UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.LimeGreen);
+                        UpdateStatusText.Text = $"New version available: {latestVersion}\nCurrent: {currentVersion}";
+
+                        if (!string.IsNullOrEmpty(zipUrl))
+                        {
+                            _pendingUpdateZipUrl = zipUrl;
+                            _pendingUpdateVersion = latestVersion;
+                            UpdateButton.Visibility = Visibility.Visible;
+                            Logger.Info($"Update zip URL found: {zipUrl}");
+                        }
+                        else
+                        {
+                            UpdateStatusText.Text += "\n(No zip asset found in release)";
+                            Logger.Warn("No zip asset found in latest release");
+                        }
+                    }
+                    else
+                    {
+                        UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 160, 160, 160));
+                        UpdateStatusText.Text = $"You're up to date! ({currentVersion})";
+                    }
+                }
+
+                CheckForUpdateButton.Content = "Check for Update";
+                CheckForUpdateButton.IsEnabled = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to check for update: {ex.Message}");
+                UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
+                UpdateStatusText.Text = $"Failed to check for updates: {ex.Message}";
+                CheckForUpdateButton.Content = "Check for Update";
+                CheckForUpdateButton.IsEnabled = true;
+            }
+        }
+
+        private async void UpdateButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_pendingUpdateZipUrl))
+            {
+                Logger.Warn("Update clicked but no pending update URL");
+                return;
+            }
+
+            try
+            {
+                UpdateButton.IsEnabled = false;
+                UpdateButton.Content = "Downloading...";
+                UpdateStatusText.Text = $"Downloading {_pendingUpdateVersion}...";
+
+                if (App.Connection != null)
+                {
+                    var message = new Windows.Foundation.Collections.ValueSet();
+                    message.Add("DownloadAndInstallUpdate", _pendingUpdateZipUrl);
+                    var result = await App.Connection.SendMessageAsync(message);
+
+                    if (result.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                    {
+                        if (result.Message.TryGetValue("UpdateStatus", out object status))
+                        {
+                            var statusStr = status?.ToString() ?? "";
+                            if (statusStr == "Installing")
+                            {
+                                UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.LimeGreen);
+                                UpdateStatusText.Text = "Installing update... Please follow the installer prompts.";
+                                UpdateButton.Content = "Installing...";
+                            }
+                            else if (statusStr.StartsWith("Error"))
+                            {
+                                UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
+                                UpdateStatusText.Text = statusStr;
+                                UpdateButton.Content = "Update";
+                                UpdateButton.IsEnabled = true;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
+                        UpdateStatusText.Text = "Failed to communicate with helper";
+                        UpdateButton.Content = "Update";
+                        UpdateButton.IsEnabled = true;
+                    }
+                }
+                else
+                {
+                    UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
+                    UpdateStatusText.Text = "Helper not connected";
+                    UpdateButton.Content = "Update";
+                    UpdateButton.IsEnabled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to start update: {ex.Message}");
+                UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
+                UpdateStatusText.Text = $"Update failed: {ex.Message}";
+                UpdateButton.Content = "Update";
+                UpdateButton.IsEnabled = true;
+            }
+        }
+
+        private async void CheckForUpdateDebugButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                CheckForUpdateDebugButton.IsEnabled = false;
+                CheckForUpdateDebugButton.Content = "Checking...";
+                UpdateStatusText.Visibility = Visibility.Visible;
+                UpdateStatusText.Text = "Checking local AppPackages...";
+                UpdateButton.Visibility = Visibility.Collapsed;
+                _pendingUpdateZipUrl = null;
+                _pendingUpdateVersion = null;
+
+                if (App.Connection == null)
+                {
+                    UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
+                    UpdateStatusText.Text = "Helper not connected";
+                    CheckForUpdateDebugButton.Content = "Check for Update (Debug)";
+                    CheckForUpdateDebugButton.IsEnabled = true;
+                    return;
+                }
+
+                // Ask helper to check for local updates (helper has file system access)
+                var message = new Windows.Foundation.Collections.ValueSet();
+                message.Add("CheckLocalUpdate", true);
+                var result = await App.Connection.SendMessageAsync(message);
+
+                if (result.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                {
+                    if (result.Message.TryGetValue("Error", out object errorObj))
+                    {
+                        UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
+                        UpdateStatusText.Text = errorObj?.ToString() ?? "Unknown error";
+                    }
+                    else if (result.Message.TryGetValue("LatestVersion", out object versionObj) &&
+                             result.Message.TryGetValue("MsixbundlePath", out object pathObj))
+                    {
+                        var foundVersionStr = versionObj?.ToString();
+                        var msixbundlePath = pathObj?.ToString();
+                        var folderName = result.Message.TryGetValue("FolderName", out object folderObj) ? folderObj?.ToString() : "";
+
+                        // Get current version
+                        var packageVersion = Package.Current.Id.Version;
+                        var currentVersion = $"v{packageVersion.Major}.{packageVersion.Minor}.{packageVersion.Build}.{packageVersion.Revision}";
+                        var foundVersion = $"v{foundVersionStr}";
+
+                        Logger.Info($"Debug update check: current={currentVersion}, found={foundVersion}, path={msixbundlePath}");
+
+                        // Compare versions
+                        var currentVer = new Version(packageVersion.Major, packageVersion.Minor, packageVersion.Build, packageVersion.Revision);
+                        if (Version.TryParse(foundVersionStr, out var latestVersion) && latestVersion > currentVer)
+                        {
+                            UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.LimeGreen);
+                            UpdateStatusText.Text = $"[DEBUG] New version found: {foundVersion}\nCurrent: {currentVersion}\n{folderName}";
+                            _pendingUpdateZipUrl = msixbundlePath; // Local path to msixbundle
+                            _pendingUpdateVersion = foundVersion;
+                            UpdateButton.Visibility = Visibility.Visible;
+                        }
+                        else
+                        {
+                            UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 160, 160, 160));
+                            UpdateStatusText.Text = $"[DEBUG] You're up to date! ({currentVersion})\nLatest in AppPackages: {foundVersion}";
+                        }
+                    }
+                    else
+                    {
+                        UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
+                        UpdateStatusText.Text = "Invalid response from helper";
+                    }
+                }
+                else
+                {
+                    UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
+                    UpdateStatusText.Text = "Failed to communicate with helper";
+                }
+
+                CheckForUpdateDebugButton.Content = "Check for Update (Debug)";
+                CheckForUpdateDebugButton.IsEnabled = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to check for debug update: {ex.Message}");
+                UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
+                UpdateStatusText.Text = $"Failed: {ex.Message}";
+                CheckForUpdateDebugButton.Content = "Check for Update (Debug)";
+                CheckForUpdateDebugButton.IsEnabled = true;
+            }
+        }
+
+        #endregion
+
         private void UpdateCPUCoreConfigSummary()
         {
             // Update the Advanced card summary with current settings
@@ -5758,12 +6416,18 @@ namespace XboxGamingBar
                 // 1. On Legion Go in Custom mode (255) - system changes TDP, need to restore
                 // 2. Power Source Profile toggle is enabled - user wants different profiles per power state
                 // For Legion preset modes (Quiet=1, Balanced=2, Performance=3), let the system handle TDP
+                // Skip TDP reapply when DGP is active - DGP controls TDP regardless of power source
                 bool isLegionCustomMode = legionGoDetected?.Value == true && legionPerformanceMode?.Value == 255;
                 bool powerSourceProfileEnabled = PowerSourceProfileToggle?.IsOn == true;
+                bool dgpActive = defaultGameProfileEnabled?.Value == true;
 
-                if (isLegionCustomMode || powerSourceProfileEnabled)
+                if ((isLegionCustomMode || powerSourceProfileEnabled) && !dgpActive)
                 {
                     SchedulePowerSourceTdpReapply();
+                }
+                else if (dgpActive)
+                {
+                    Logger.Info("Power source change: Skipping TDP reapply - Default Game Profile is active");
                 }
             });
         }
@@ -5788,6 +6452,13 @@ namespace XboxGamingBar
                 powerSourceTdpReapplyTimer.Tick += async (s, args) =>
                 {
                     powerSourceTdpReapplyTimer.Stop();
+
+                    // Skip TDP reapply if DGP is active - DGP controls TDP regardless of power source
+                    if (defaultGameProfileEnabled?.Value == true)
+                    {
+                        Logger.Info("Power source change: Skipping TDP reapply - Default Game Profile is active");
+                        return;
+                    }
 
                     // Skip TDP reapply if not in Custom mode - preset modes manage TDP automatically
                     if (legionGoDetected?.Value == true && legionPerformanceMode?.Value != 255)
@@ -5902,61 +6573,12 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Updates the scrolling animation for the active profile text.
-        /// If the text is wider than the container, starts a marquee-style scroll animation.
+        /// Previously handled scrolling animation for the active profile text.
+        /// Now a no-op since we use TextTrimming instead.
         /// </summary>
         private void UpdateActiveProfileScrollAnimation()
         {
-            // Stop any existing animation
-            if (activeProfileScrollStoryboard != null)
-            {
-                activeProfileScrollStoryboard.Stop();
-                activeProfileScrollStoryboard = null;
-            }
-
-            // Reset transform
-            if (ActiveProfileTextTransform != null)
-            {
-                ActiveProfileTextTransform.X = 0;
-            }
-
-            // Measure text width
-            ActiveProfileText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            double textWidth = ActiveProfileText.DesiredSize.Width;
-
-            // Only animate if text is wider than container
-            if (textWidth <= PROFILE_SCROLL_CONTAINER_WIDTH)
-            {
-                return;
-            }
-
-            // Calculate scroll distance (text width + gap for seamless loop effect)
-            double scrollDistance = textWidth + 50; // 50px gap before restart
-
-            // Create animation
-            var animation = new DoubleAnimation
-            {
-                From = 0,
-                To = -scrollDistance,
-                Duration = new Duration(TimeSpan.FromSeconds(scrollDistance / 40)), // ~40px per second
-                RepeatBehavior = RepeatBehavior.Forever
-            };
-
-            // Set up storyboard
-            activeProfileScrollStoryboard = new Storyboard();
-            activeProfileScrollStoryboard.Children.Add(animation);
-
-            Storyboard.SetTarget(animation, ActiveProfileTextTransform);
-            Storyboard.SetTargetProperty(animation, "X");
-
-            // Start with a delay so text is visible initially
-            var delayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-            delayTimer.Tick += (s, e) =>
-            {
-                delayTimer.Stop();
-                activeProfileScrollStoryboard?.Begin();
-            };
-            delayTimer.Start();
+            // No longer needed - using TextTrimming instead of scrolling animation
         }
 
         private void SwitchProfile()
@@ -6183,7 +6805,8 @@ namespace XboxGamingBar
                 var profile = GetProfile(profileName);
 
                 // Apply only enabled settings to UI controls
-                if (SaveTDP)
+                // Skip TDP loading when DGP is active - DGP controls TDP
+                if (SaveTDP && defaultGameProfileEnabled?.Value != true)
                 {
                     TDPSlider.Value = profile.TDP;
                     // For Legion devices: TDP value will be sent AFTER TDP mode is applied (see Legion-specific handling below)
@@ -6330,8 +6953,11 @@ namespace XboxGamingBar
                     }
                 }
                 // Legion Performance Mode handling
-                Logger.Info($"LoadProfileSettings Legion check: legionGoDetected={legionGoDetected?.Value}, LegionPerformanceModeComboBox={LegionPerformanceModeComboBox != null}, TDPModeComboBox={TDPModeComboBox != null}");
-                if (legionGoDetected?.Value == true && LegionPerformanceModeComboBox != null && TDPModeComboBox != null)
+                // Skip TDP mode loading when:
+                // - Default Game Profile is active (DGP controls TDP)
+                // - Initial sync is in progress (let helper's value take precedence - DGP state not yet known)
+                Logger.Info($"LoadProfileSettings Legion check: legionGoDetected={legionGoDetected?.Value}, LegionPerformanceModeComboBox={LegionPerformanceModeComboBox != null}, TDPModeComboBox={TDPModeComboBox != null}, defaultGameProfileEnabled={defaultGameProfileEnabled?.Value}, isInitialSync={isInitialSync}");
+                if (legionGoDetected?.Value == true && LegionPerformanceModeComboBox != null && TDPModeComboBox != null && defaultGameProfileEnabled?.Value != true && !isInitialSync)
                 {
                     int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
 
@@ -10331,6 +10957,13 @@ namespace XboxGamingBar
         {
             try
             {
+                // Skip when Default Game Profile is active - DGP controls TDP, not the profile
+                if (defaultGameProfileEnabled?.Value == true)
+                {
+                    Logger.Info("Skipping ApplyProfileTDPToHelper - Default Game Profile is active");
+                    return;
+                }
+
                 var profile = GetProfile(currentProfileName);
                 if (profile == null)
                 {
@@ -10496,20 +11129,18 @@ namespace XboxGamingBar
                 Logger.Info("WidgetActivity was already null during disconnect.");
             }
 
-            // Only relaunch if we're running as a widget (not standalone app)
-            // and the disconnect was due to a crash/termination (not normal suspension)
+            // Relaunch if we're running as a widget (not standalone app)
             // AND we don't already have a connection (prevents duplicate launches)
-            bool shouldRelaunch = widget != null &&
-                                  eventArgs != null &&
-                                  (eventArgs.Reason == BackgroundTaskCancellationReason.Abort ||
-                                   eventArgs.Reason == BackgroundTaskCancellationReason.Terminating) &&
-                                  App.Connection == null;  // Don't relaunch if connection still exists
+            // Accept any disconnection reason since helper may exit gracefully (e.g., PawnIO install, restart)
+            bool shouldRelaunch = widget != null && App.Connection == null;
 
             if (shouldRelaunch)
             {
-                Logger.Info($"Widget disconnected due to {eventArgs.Reason} and no connection exists. Attempting to relaunch full trust process.");
+                Logger.Info($"Widget disconnected (reason: {eventArgs?.Reason.ToString() ?? "Unknown"}) and no connection exists. Attempting to relaunch full trust process.");
                 try
                 {
+                    // Small delay to ensure helper has fully exited before relaunching
+                    await Task.Delay(500);
                     await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
                 }
                 catch (Exception ex)
@@ -11182,7 +11813,7 @@ namespace XboxGamingBar
         #region Scale Tab Visibility
 
         /// <summary>
-        /// Shows or hides the Scale tab based on Lossless Scaling installation
+        /// Shows or hides the Scale tab and Lossless Scaling tile based on Lossless Scaling installation
         /// </summary>
         private void SetScaleTabVisibility(bool installed)
         {
@@ -11190,6 +11821,14 @@ namespace XboxGamingBar
             {
                 ScalingNavItem.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
                 Logger.Info($"Scale tab visibility set to: {installed} (Lossless Scaling installed: {installed})");
+            }
+
+            // Rebuild Quick Settings tiles to show/hide Lossless Scaling tile
+            if (quickSettingsInitialized)
+            {
+                RebuildQuickSettingsTiles();
+                BuildSortableGrid();
+                Logger.Info($"Rebuilt Quick Settings tiles for Lossless Scaling visibility: {installed}");
             }
         }
 
@@ -11303,6 +11942,83 @@ namespace XboxGamingBar
             {
                 DefaultGameProfileCard.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
                 Logger.Info($"Default Game Profile card visibility set to: {isVisible}");
+
+                // Update XY navigation when DGP visibility changes
+                UpdatePerformanceTabXYNavigation();
+            }
+        }
+
+        /// <summary>
+        /// Updates XY focus navigation for the Performance tab based on current state.
+        /// Flow: Nav -> DGP Toggle (if visible) -> PerGameProfile Toggle (if game detected) -> Performance Overlay -> ...
+        /// When DGP is ON: Nav -> DGP Toggle -> TDP Extras (skip disabled TDP/FPS controls)
+        /// </summary>
+        private void UpdatePerformanceTabXYNavigation()
+        {
+            // Early exit if UI elements aren't ready
+            if (PerformanceNavItem == null || PerformanceOverlayComboBox == null) return;
+
+            bool dgpVisible = DefaultGameProfileCard?.Visibility == Visibility.Visible;
+            bool dgpEnabled = defaultGameProfileEnabled?.Value == true;
+            bool gameDetected = runningGame?.Value.IsValid() == true;
+
+            Logger.Debug($"UpdatePerformanceTabXYNavigation: dgpVisible={dgpVisible}, dgpEnabled={dgpEnabled}, gameDetected={gameDetected}");
+
+            // Determine the chain of focusable elements
+            // Start from PerformanceNavItem going down
+
+            if (dgpVisible && DefaultProfileToggle != null)
+            {
+                // DGP is visible: Nav -> DefaultProfileToggle
+                PerformanceNavItem.XYFocusDown = DefaultProfileToggle;
+                DefaultProfileToggle.XYFocusUp = PerformanceNavItem;
+
+                if (dgpEnabled && TDPExtrasExpandToggle != null)
+                {
+                    // DGP is ON: skip disabled TDP/FPS controls, go to TDP Extras dropdown
+                    // (OS Power Mode and CPU Extras are still available)
+                    DefaultProfileToggle.XYFocusDown = TDPExtrasExpandToggle;
+                    TDPExtrasExpandToggle.XYFocusUp = DefaultProfileToggle;
+
+                    // Set navigation from TDP Extras down to OS Power Mode, and OS Power Mode up to TDP Extras
+                    if (OSPowerModeComboBox != null)
+                    {
+                        TDPExtrasExpandToggle.XYFocusDown = OSPowerModeComboBox;
+                        OSPowerModeComboBox.XYFocusUp = TDPExtrasExpandToggle;
+                    }
+                }
+                else if (gameDetected && PerGameProfileToggle != null)
+                {
+                    // DGP visible but OFF, game detected: DGP Toggle -> PerGameProfile Toggle -> Overlay
+                    DefaultProfileToggle.XYFocusDown = PerGameProfileToggle;
+                    PerGameProfileToggle.XYFocusUp = DefaultProfileToggle;
+                    PerGameProfileToggle.XYFocusDown = PerformanceOverlayComboBox;
+                    PerformanceOverlayComboBox.XYFocusUp = PerGameProfileToggle;
+                }
+                else
+                {
+                    // DGP visible but OFF, no game: DGP Toggle -> Overlay (skip disabled PerGameProfile)
+                    DefaultProfileToggle.XYFocusDown = PerformanceOverlayComboBox;
+                    PerformanceOverlayComboBox.XYFocusUp = DefaultProfileToggle;
+                }
+            }
+            else
+            {
+                // DGP not visible
+                if (gameDetected && PerGameProfileToggle != null)
+                {
+                    // No DGP, game detected: Nav -> PerGameProfile Toggle -> Overlay
+                    PerformanceNavItem.XYFocusDown = PerGameProfileToggle;
+                    PerGameProfileToggle.XYFocusUp = PerformanceNavItem;
+                    PerGameProfileToggle.XYFocusDown = PerformanceOverlayComboBox;
+                    PerformanceOverlayComboBox.XYFocusUp = PerGameProfileToggle;
+                }
+                else
+                {
+                    // No DGP, no game: Nav -> Overlay (skip disabled PerGameProfile)
+                    PerformanceNavItem.XYFocusDown = PerformanceOverlayComboBox;
+                    PerformanceOverlayComboBox.XYFocusUp = PerformanceNavItem;
+                }
             }
         }
 
@@ -11437,38 +12153,26 @@ namespace XboxGamingBar
         {
             Logger.Info($"Default Game Profile enabled changed to: {enabled}");
 
-            // IMPORTANT: When DISABLING, restore original values BEFORE re-enabling controls!
-            // This ensures UpdateTDPSliderEnabledState() sends the correct TDP value (original, not DGP value)
+            // IMPORTANT: When DISABLING, load the appropriate profile for current power state!
+            // Don't restore saved values - they may be from a different power state (e.g., DC when now on AC)
             // Set flag to suppress profile saves during restoration (toggle handlers would otherwise save wrong values)
             if (!enabled)
             {
                 isRestoringFromDefaultProfile = true;
                 try
                 {
-                    // Restore original FPS limit state when disabling default profile
-                    if (originalFpsLimitToggleState.HasValue && FPSLimitToggle != null)
-                    {
-                        FPSLimitToggle.IsOn = originalFpsLimitToggleState.Value;
-                        if (FPSLimitSlider != null && originalFpsLimitSliderValue.HasValue)
-                        {
-                            FPSLimitSlider.Value = originalFpsLimitSliderValue.Value;
-                        }
-                        Logger.Info($"Restored original FPS limit state: toggle={originalFpsLimitToggleState}, value={originalFpsLimitSliderValue}");
+                    // Clear saved state - we'll load from profile instead of restoring
+                    // FPS limit and TDP can differ between AC/DC profiles, so restoring pre-DGP state is wrong
+                    originalFpsLimitToggleState = null;
+                    originalFpsLimitSliderValue = null;
+                    originalTdpSliderValue = null;
 
-                        // Clear saved state
-                        originalFpsLimitToggleState = null;
-                        originalFpsLimitSliderValue = null;
-                    }
-
-                    // Restore original TDP slider value when disabling default profile
-                    if (originalTdpSliderValue.HasValue && TDPSlider != null)
-                    {
-                        TDPSlider.Value = originalTdpSliderValue.Value;
-                        Logger.Info($"Restored original TDP slider value: {originalTdpSliderValue}W");
-
-                        // Clear saved state
-                        originalTdpSliderValue = null;
-                    }
+                    // Load the appropriate profile for current power state
+                    // This ensures AC profile is loaded when on AC, DC profile when on DC
+                    // Profile loading handles TDP, FPS limit, and all other settings
+                    string targetProfile = GetTargetProfileName();
+                    Logger.Info($"DGP disabled - loading profile for current power state: {targetProfile}");
+                    LoadProfileSettings(targetProfile, isExplicitSwitch: false);
                 }
                 finally
                 {
@@ -11525,6 +12229,9 @@ namespace XboxGamingBar
 
             // Update Quick tab tile styling
             UpdateQuickSettingsTileStates();
+
+            // Update XY navigation for controller support
+            UpdatePerformanceTabXYNavigation();
         }
 
         // Store original state for restoration when default profile is disabled
@@ -13012,6 +13719,12 @@ namespace XboxGamingBar
 
             // Skip TDP Mode if Legion not detected
             if (tile.Id == "TDPMode" && (legionGoDetected?.Value != true))
+            {
+                return true;
+            }
+
+            // Skip Lossless Scaling tile if not installed
+            if (tile.Id == "LosslessScaling" && (losslessScalingInstalled?.Value != true))
             {
                 return true;
             }
