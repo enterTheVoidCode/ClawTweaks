@@ -193,5 +193,12 @@
         DefaultGameProfileAvailable,    // bool - whether current game has a default profile
         DefaultGameProfileData,         // string - serialized DefaultGameProfile XML
         DefaultGameProfileEnabled,      // bool - user's toggle state for current game
+
+        // Profile Detection Settings
+        ProfileMatchByExe,              // bool - match profiles by exe path instead of window title
+        ProfileCustomGamePath,          // string - pipe-separated paths always treated as games
+        ProfileGamesOnly,               // bool - only detect apps rendering frames (FPS > 0)
+        ProfileBlacklistPaths,          // string - pipe-separated paths never treated as games
+        ForegroundApp,                  // string - current foreground app path (for UI display)
     }
 }

@@ -4,8 +4,11 @@ using Shared.Data;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
@@ -360,6 +363,12 @@ namespace XboxGamingBarHelper
                 settingsManager.OnScreenDisplayProvider,
                 settingsManager.UseManufacturerWMI,
                 settingsManager.TdpMethod,
+                // Profile Detection Settings
+                settingsManager.ProfileMatchByExe,
+                settingsManager.ProfileCustomGamePath,
+                settingsManager.ProfileGamesOnly,
+                settingsManager.ProfileBlacklistPaths,
+                systemManager.ForegroundApp,
                 legionManager.LegionGoDetected,
                 legionManager.LegionTouchpadEnabled,
                 legionManager.LegionLightMode,
@@ -459,6 +468,41 @@ namespace XboxGamingBarHelper
             //powerManager.GPUClockMax.PropertyChanged += GPUClock_PropertyChanged;
             profileManager.CurrentProfile.PropertyChanged += CurrentProfile_PropertyChanged;
 
+            // Subscribe to Legion controller property changes to save to profile
+            if (legionManager != null)
+            {
+                // Button mappings
+                legionManager.LegionButtonY1.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionButtonY2.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionButtonY3.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionButtonM1.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionButtonM2.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionButtonM3.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                // Gyro settings
+                legionManager.LegionGyroActivationButton.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionGyroTarget.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionGyroSensitivityX.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionGyroSensitivityY.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionGyroInvertX.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionGyroInvertY.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionGyroMappingType.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionGyroActivationMode.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionGyroDeadzone.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                // Stick deadzones
+                legionManager.LegionLeftStickDeadzone.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionRightStickDeadzone.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                // Joystick as mouse
+                legionManager.LegionJoystickAsMouseMode.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionJoystickMouseSens.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                // Gamepad mapping (24 buttons JSON)
+                legionManager.LegionGamepadMapping.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                // Other controller settings
+                legionManager.LegionNintendoLayout.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionVibration.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionVibrationMode.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionControllerProfileEnabled.PropertyChanged += LegionControllerSetting_PropertyChanged;
+            }
+
             // Initial blocking connection to widget
             await ConnectToWidget(true);
 
@@ -548,6 +592,281 @@ namespace XboxGamingBarHelper
             profileManager.CurrentProfile.CPUEPP = powerManager.CPUEPP;
         }
 
+        private static void LegionControllerSetting_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            // Skip during profile application to prevent cross-contamination
+            if (isApplyingProfile)
+            {
+                Logger.Debug("Skipping LegionControllerSetting_PropertyChanged - already applying profile");
+                return;
+            }
+
+            var profileName = profileManager.CurrentProfile.GameId.Name;
+
+            // Save the controller setting to the current profile (global or per-game)
+            // Button mappings
+            if (sender == legionManager?.LegionButtonY1)
+            {
+                Logger.Info($"Saving LegionButtonY1 to profile {profileName}");
+                profileManager.CurrentProfile.LegionButtonY1 = legionManager.LegionButtonY1.Value;
+            }
+            else if (sender == legionManager?.LegionButtonY2)
+            {
+                Logger.Info($"Saving LegionButtonY2 to profile {profileName}");
+                profileManager.CurrentProfile.LegionButtonY2 = legionManager.LegionButtonY2.Value;
+            }
+            else if (sender == legionManager?.LegionButtonY3)
+            {
+                Logger.Info($"Saving LegionButtonY3 to profile {profileName}");
+                profileManager.CurrentProfile.LegionButtonY3 = legionManager.LegionButtonY3.Value;
+            }
+            else if (sender == legionManager?.LegionButtonM1)
+            {
+                Logger.Info($"Saving LegionButtonM1 to profile {profileName}");
+                profileManager.CurrentProfile.LegionButtonM1 = legionManager.LegionButtonM1.Value;
+            }
+            else if (sender == legionManager?.LegionButtonM2)
+            {
+                Logger.Info($"Saving LegionButtonM2 to profile {profileName}");
+                profileManager.CurrentProfile.LegionButtonM2 = legionManager.LegionButtonM2.Value;
+            }
+            else if (sender == legionManager?.LegionButtonM3)
+            {
+                Logger.Info($"Saving LegionButtonM3 to profile {profileName}");
+                profileManager.CurrentProfile.LegionButtonM3 = legionManager.LegionButtonM3.Value;
+            }
+            // Gyro settings
+            else if (sender == legionManager?.LegionGyroActivationButton)
+            {
+                Logger.Info($"Saving LegionGyroButton to profile {profileName}");
+                profileManager.CurrentProfile.LegionGyroButton = legionManager.LegionGyroActivationButton.Value;
+            }
+            else if (sender == legionManager?.LegionGyroTarget)
+            {
+                Logger.Info($"Saving LegionGyroTarget to profile {profileName}");
+                profileManager.CurrentProfile.LegionGyroTarget = legionManager.LegionGyroTarget.Value;
+            }
+            else if (sender == legionManager?.LegionGyroSensitivityX)
+            {
+                Logger.Info($"Saving LegionGyroSensitivityX to profile {profileName}");
+                profileManager.CurrentProfile.LegionGyroSensitivityX = legionManager.LegionGyroSensitivityX.Value;
+            }
+            else if (sender == legionManager?.LegionGyroSensitivityY)
+            {
+                Logger.Info($"Saving LegionGyroSensitivityY to profile {profileName}");
+                profileManager.CurrentProfile.LegionGyroSensitivityY = legionManager.LegionGyroSensitivityY.Value;
+            }
+            else if (sender == legionManager?.LegionGyroInvertX)
+            {
+                Logger.Info($"Saving LegionGyroInvertX to profile {profileName}");
+                profileManager.CurrentProfile.LegionGyroInvertX = legionManager.LegionGyroInvertX.Value;
+            }
+            else if (sender == legionManager?.LegionGyroInvertY)
+            {
+                Logger.Info($"Saving LegionGyroInvertY to profile {profileName}");
+                profileManager.CurrentProfile.LegionGyroInvertY = legionManager.LegionGyroInvertY.Value;
+            }
+            else if (sender == legionManager?.LegionGyroMappingType)
+            {
+                Logger.Info($"Saving LegionGyroMappingType to profile {profileName}");
+                profileManager.CurrentProfile.LegionGyroMappingType = legionManager.LegionGyroMappingType.Value;
+            }
+            else if (sender == legionManager?.LegionGyroActivationMode)
+            {
+                Logger.Info($"Saving LegionGyroActivationMode to profile {profileName}");
+                profileManager.CurrentProfile.LegionGyroActivationMode = legionManager.LegionGyroActivationMode.Value;
+            }
+            else if (sender == legionManager?.LegionGyroDeadzone)
+            {
+                Logger.Info($"Saving LegionGyroDeadzone to profile {profileName}");
+                profileManager.CurrentProfile.LegionGyroDeadzone = legionManager.LegionGyroDeadzone.Value;
+            }
+            // Stick deadzones
+            else if (sender == legionManager?.LegionLeftStickDeadzone)
+            {
+                Logger.Info($"Saving LegionLeftStickDeadzone to profile {profileName}");
+                profileManager.CurrentProfile.LegionLeftStickDeadzone = legionManager.LegionLeftStickDeadzone.Value;
+            }
+            else if (sender == legionManager?.LegionRightStickDeadzone)
+            {
+                Logger.Info($"Saving LegionRightStickDeadzone to profile {profileName}");
+                profileManager.CurrentProfile.LegionRightStickDeadzone = legionManager.LegionRightStickDeadzone.Value;
+            }
+            // Joystick as mouse
+            else if (sender == legionManager?.LegionJoystickAsMouseMode)
+            {
+                Logger.Info($"Saving LegionJoystickAsMouseMode to profile {profileName}");
+                profileManager.CurrentProfile.LegionJoystickAsMouseMode = legionManager.LegionJoystickAsMouseMode.Value;
+            }
+            else if (sender == legionManager?.LegionJoystickMouseSens)
+            {
+                Logger.Info($"Saving LegionJoystickMouseSens to profile {profileName}");
+                profileManager.CurrentProfile.LegionJoystickMouseSens = legionManager.LegionJoystickMouseSens.Value;
+            }
+            // Gamepad mapping
+            else if (sender == legionManager?.LegionGamepadMapping)
+            {
+                Logger.Info($"Saving LegionGamepadMapping to profile {profileName}");
+                profileManager.CurrentProfile.LegionGamepadMapping = legionManager.LegionGamepadMapping.Value;
+            }
+            // Other controller settings
+            else if (sender == legionManager?.LegionNintendoLayout)
+            {
+                Logger.Info($"Saving LegionNintendoLayout to profile {profileName}");
+                profileManager.CurrentProfile.LegionNintendoLayout = legionManager.LegionNintendoLayout.Value;
+            }
+            else if (sender == legionManager?.LegionVibration)
+            {
+                Logger.Info($"Saving LegionVibration to profile {profileName}");
+                profileManager.CurrentProfile.LegionVibration = legionManager.LegionVibration.Value;
+            }
+            else if (sender == legionManager?.LegionVibrationMode)
+            {
+                Logger.Info($"Saving LegionVibrationMode to profile {profileName}");
+                profileManager.CurrentProfile.LegionVibrationMode = legionManager.LegionVibrationMode.Value;
+            }
+            else if (sender == legionManager?.LegionControllerProfileEnabled)
+            {
+                Logger.Info($"Saving LegionControllerProfileEnabled to profile {profileName}");
+                profileManager.CurrentProfile.LegionControllerProfileEnabled = legionManager.LegionControllerProfileEnabled.Value;
+            }
+        }
+
+        private static void ApplyLegionControllerSettingsFromProfile()
+        {
+            var profile = profileManager.CurrentProfile;
+            var profileName = profile.GameId.Name;
+
+            Logger.Info($"Applying Legion controller settings from profile: {profileName}");
+
+            // Button mappings
+            if (!string.IsNullOrEmpty(profile.LegionButtonY1))
+            {
+                Logger.Debug($"Applying LegionButtonY1: {profile.LegionButtonY1}");
+                legionManager.LegionButtonY1.SetValue(profile.LegionButtonY1);
+            }
+            if (!string.IsNullOrEmpty(profile.LegionButtonY2))
+            {
+                Logger.Debug($"Applying LegionButtonY2: {profile.LegionButtonY2}");
+                legionManager.LegionButtonY2.SetValue(profile.LegionButtonY2);
+            }
+            if (!string.IsNullOrEmpty(profile.LegionButtonY3))
+            {
+                Logger.Debug($"Applying LegionButtonY3: {profile.LegionButtonY3}");
+                legionManager.LegionButtonY3.SetValue(profile.LegionButtonY3);
+            }
+            if (!string.IsNullOrEmpty(profile.LegionButtonM1))
+            {
+                Logger.Debug($"Applying LegionButtonM1: {profile.LegionButtonM1}");
+                legionManager.LegionButtonM1.SetValue(profile.LegionButtonM1);
+            }
+            if (!string.IsNullOrEmpty(profile.LegionButtonM2))
+            {
+                Logger.Debug($"Applying LegionButtonM2: {profile.LegionButtonM2}");
+                legionManager.LegionButtonM2.SetValue(profile.LegionButtonM2);
+            }
+            if (!string.IsNullOrEmpty(profile.LegionButtonM3))
+            {
+                Logger.Debug($"Applying LegionButtonM3: {profile.LegionButtonM3}");
+                legionManager.LegionButtonM3.SetValue(profile.LegionButtonM3);
+            }
+
+            // Gyro settings
+            if (profile.LegionGyroButton.HasValue)
+            {
+                Logger.Debug($"Applying LegionGyroButton: {profile.LegionGyroButton.Value}");
+                legionManager.LegionGyroActivationButton.SetValue(profile.LegionGyroButton.Value);
+            }
+            if (profile.LegionGyroTarget.HasValue)
+            {
+                Logger.Debug($"Applying LegionGyroTarget: {profile.LegionGyroTarget.Value}");
+                legionManager.LegionGyroTarget.SetValue(profile.LegionGyroTarget.Value);
+            }
+            if (profile.LegionGyroSensitivityX.HasValue)
+            {
+                Logger.Debug($"Applying LegionGyroSensitivityX: {profile.LegionGyroSensitivityX.Value}");
+                legionManager.LegionGyroSensitivityX.SetValue(profile.LegionGyroSensitivityX.Value);
+            }
+            if (profile.LegionGyroSensitivityY.HasValue)
+            {
+                Logger.Debug($"Applying LegionGyroSensitivityY: {profile.LegionGyroSensitivityY.Value}");
+                legionManager.LegionGyroSensitivityY.SetValue(profile.LegionGyroSensitivityY.Value);
+            }
+            if (profile.LegionGyroInvertX.HasValue)
+            {
+                Logger.Debug($"Applying LegionGyroInvertX: {profile.LegionGyroInvertX.Value}");
+                legionManager.LegionGyroInvertX.SetValue(profile.LegionGyroInvertX.Value);
+            }
+            if (profile.LegionGyroInvertY.HasValue)
+            {
+                Logger.Debug($"Applying LegionGyroInvertY: {profile.LegionGyroInvertY.Value}");
+                legionManager.LegionGyroInvertY.SetValue(profile.LegionGyroInvertY.Value);
+            }
+            if (profile.LegionGyroMappingType.HasValue)
+            {
+                Logger.Debug($"Applying LegionGyroMappingType: {profile.LegionGyroMappingType.Value}");
+                legionManager.LegionGyroMappingType.SetValue(profile.LegionGyroMappingType.Value);
+            }
+            if (profile.LegionGyroActivationMode.HasValue)
+            {
+                Logger.Debug($"Applying LegionGyroActivationMode: {profile.LegionGyroActivationMode.Value}");
+                legionManager.LegionGyroActivationMode.SetValue(profile.LegionGyroActivationMode.Value);
+            }
+            if (profile.LegionGyroDeadzone.HasValue)
+            {
+                Logger.Debug($"Applying LegionGyroDeadzone: {profile.LegionGyroDeadzone.Value}");
+                legionManager.LegionGyroDeadzone.SetValue(profile.LegionGyroDeadzone.Value);
+            }
+
+            // Stick deadzones
+            if (profile.LegionLeftStickDeadzone.HasValue)
+            {
+                Logger.Debug($"Applying LegionLeftStickDeadzone: {profile.LegionLeftStickDeadzone.Value}");
+                legionManager.LegionLeftStickDeadzone.SetValue(profile.LegionLeftStickDeadzone.Value);
+            }
+            if (profile.LegionRightStickDeadzone.HasValue)
+            {
+                Logger.Debug($"Applying LegionRightStickDeadzone: {profile.LegionRightStickDeadzone.Value}");
+                legionManager.LegionRightStickDeadzone.SetValue(profile.LegionRightStickDeadzone.Value);
+            }
+
+            // Joystick as mouse
+            if (profile.LegionJoystickAsMouseMode.HasValue)
+            {
+                Logger.Debug($"Applying LegionJoystickAsMouseMode: {profile.LegionJoystickAsMouseMode.Value}");
+                legionManager.LegionJoystickAsMouseMode.SetValue(profile.LegionJoystickAsMouseMode.Value);
+            }
+            if (profile.LegionJoystickMouseSens.HasValue)
+            {
+                Logger.Debug($"Applying LegionJoystickMouseSens: {profile.LegionJoystickMouseSens.Value}");
+                legionManager.LegionJoystickMouseSens.SetValue(profile.LegionJoystickMouseSens.Value);
+            }
+
+            // Gamepad mapping
+            if (!string.IsNullOrEmpty(profile.LegionGamepadMapping))
+            {
+                Logger.Debug($"Applying LegionGamepadMapping from profile");
+                legionManager.LegionGamepadMapping.SetValue(profile.LegionGamepadMapping);
+            }
+
+            // Other controller settings
+            if (profile.LegionNintendoLayout.HasValue)
+            {
+                Logger.Debug($"Applying LegionNintendoLayout: {profile.LegionNintendoLayout.Value}");
+                legionManager.LegionNintendoLayout.SetValue(profile.LegionNintendoLayout.Value);
+            }
+            if (profile.LegionVibration.HasValue)
+            {
+                Logger.Debug($"Applying LegionVibration: {profile.LegionVibration.Value}");
+                legionManager.LegionVibration.SetValue(profile.LegionVibration.Value);
+            }
+            if (profile.LegionVibrationMode.HasValue)
+            {
+                Logger.Debug($"Applying LegionVibrationMode: {profile.LegionVibrationMode.Value}");
+                legionManager.LegionVibrationMode.SetValue(profile.LegionVibrationMode.Value);
+            }
+        }
+
         private static void CurrentProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             // Use lock to ensure atomic profile application and prevent interleaved settings
@@ -576,6 +895,12 @@ namespace XboxGamingBarHelper
                         powerManager.MaxCPUState.SetValue(profileManager.CurrentProfile.MaxCPUState);
                         powerManager.MinCPUState.SetValue(profileManager.CurrentProfile.MinCPUState);
                         profileManager.PerGameProfile.SetValue(profileManager.CurrentProfile.Use);
+
+                        // Apply Legion controller settings from profile (both global and per-game)
+                        if (legionManager != null)
+                        {
+                            ApplyLegionControllerSettingsFromProfile();
+                        }
                     }
                     finally
                     {
@@ -836,6 +1161,275 @@ namespace XboxGamingBarHelper
                     // Use a small delay to allow Windows to fully update display configuration
                     await System.Threading.Tasks.Task.Delay(500);
                     systemManager?.RefreshDisplaySettings();
+                    return;
+                }
+
+                // Handle exit helper request
+                if (args.Request.Message.TryGetValue("ExitHelper", out object _exitHelper))
+                {
+                    Logger.Info("ExitHelper request received - shutting down helper");
+                    var response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Success", true);
+                    await args.Request.SendResponseAsync(response);
+
+                    // Give time for response to be sent, then exit
+                    await System.Threading.Tasks.Task.Delay(500);
+                    Environment.Exit(0);
+                    return;
+                }
+
+                // Handle export logs request
+                if (args.Request.Message.TryGetValue("ExportLogs", out object _exportLogs))
+                {
+                    Logger.Info("ExportLogs request received");
+                    try
+                    {
+                        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                        var exportFolder = Path.Combine(desktopPath, $"GoTweaks_Logs_{timestamp}");
+
+                        // Create export folder
+                        Directory.CreateDirectory(exportFolder);
+                        var helperFolder = Path.Combine(exportFolder, "Helper");
+                        var widgetFolder = Path.Combine(exportFolder, "Widget");
+                        Directory.CreateDirectory(helperFolder);
+                        Directory.CreateDirectory(widgetFolder);
+
+                        // Get log paths from app package location
+                        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                        var packageFolder = Path.Combine(localAppData, "Packages", "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg");
+                        var helperLogPath = Path.Combine(packageFolder, "LocalCache", "Local");
+                        var widgetLogPath = Path.Combine(packageFolder, "LocalState");
+
+                        // Copy helper logs (last 2)
+                        if (Directory.Exists(helperLogPath))
+                        {
+                            var helperLogs = Directory.GetFiles(helperLogPath, "helper_*.log")
+                                .OrderByDescending(f => File.GetLastWriteTime(f))
+                                .Take(2);
+
+                            foreach (var log in helperLogs)
+                            {
+                                var destPath = Path.Combine(helperFolder, Path.GetFileName(log));
+                                File.Copy(log, destPath, true);
+                                Logger.Info($"Copied: {Path.GetFileName(log)}");
+                            }
+                        }
+
+                        // Copy widget logs (last 2)
+                        if (Directory.Exists(widgetLogPath))
+                        {
+                            var widgetLogs = Directory.GetFiles(widgetLogPath, "widget_*.log")
+                                .OrderByDescending(f => File.GetLastWriteTime(f))
+                                .Take(2);
+
+                            foreach (var log in widgetLogs)
+                            {
+                                var destPath = Path.Combine(widgetFolder, Path.GetFileName(log));
+                                File.Copy(log, destPath, true);
+                                Logger.Info($"Copied: {Path.GetFileName(log)}");
+                            }
+                        }
+
+                        Logger.Info($"Logs exported to: {exportFolder}");
+                        var response = new global::Windows.Foundation.Collections.ValueSet();
+                        response.Add("Success", true);
+                        response.Add("Path", exportFolder);
+                        await args.Request.SendResponseAsync(response);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Failed to export logs: {ex.Message}");
+                        var response = new global::Windows.Foundation.Collections.ValueSet();
+                        response.Add("Success", false);
+                        response.Add("Error", ex.Message);
+                        await args.Request.SendResponseAsync(response);
+                    }
+                    return;
+                }
+
+                // Handle check for local update (debug) request
+                if (args.Request.Message.TryGetValue("CheckLocalUpdate", out object _))
+                {
+                    Logger.Info("CheckLocalUpdate request received");
+                    var response = new global::Windows.Foundation.Collections.ValueSet();
+
+                    try
+                    {
+                        const string appPackagesPath = @"C:\Users\diego\OneDrive\Desktop\Diego\projects\XboxGamingBar\Samples\XboxGamingBarPackage\AppPackages";
+
+                        if (!Directory.Exists(appPackagesPath))
+                        {
+                            response.Add("Error", $"AppPackages folder not found:\n{appPackagesPath}");
+                            await args.Request.SendResponseAsync(response);
+                            return;
+                        }
+
+                        // Get all package folders and find the latest version
+                        var packageFolders = Directory.GetDirectories(appPackagesPath)
+                            .Where(d => Path.GetFileName(d).StartsWith("XboxGamingBarPackage_"))
+                            .ToList();
+
+                        if (packageFolders.Count == 0)
+                        {
+                            response.Add("Error", "No package folders found in AppPackages");
+                            await args.Request.SendResponseAsync(response);
+                            return;
+                        }
+
+                        // Parse versions from folder names (e.g., XboxGamingBarPackage_0.3.98.0_Debug_Test)
+                        string latestFolder = null;
+                        string latestVersionStr = null;
+                        Version latestVersion = null;
+
+                        foreach (var folder in packageFolders)
+                        {
+                            var folderName = Path.GetFileName(folder);
+                            var parts = folderName.Split('_');
+                            if (parts.Length >= 2)
+                            {
+                                var versionStr = parts[1];
+                                if (Version.TryParse(versionStr, out var version))
+                                {
+                                    if (latestVersion == null || version > latestVersion)
+                                    {
+                                        latestVersion = version;
+                                        latestVersionStr = versionStr;
+                                        latestFolder = folder;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (latestFolder == null)
+                        {
+                            response.Add("Error", "Could not parse version from folder names");
+                            await args.Request.SendResponseAsync(response);
+                            return;
+                        }
+
+                        // Find .msixbundle in the folder
+                        var msixbundleFiles = Directory.GetFiles(latestFolder, "*.msixbundle", SearchOption.AllDirectories);
+                        if (msixbundleFiles.Length == 0)
+                        {
+                            response.Add("Error", $"No .msixbundle found in:\n{Path.GetFileName(latestFolder)}");
+                            await args.Request.SendResponseAsync(response);
+                            return;
+                        }
+
+                        var msixbundlePath = msixbundleFiles[0];
+                        Logger.Info($"Found local update: version={latestVersionStr}, path={msixbundlePath}");
+
+                        response.Add("LatestVersion", latestVersionStr);
+                        response.Add("MsixbundlePath", msixbundlePath);
+                        response.Add("FolderName", Path.GetFileName(latestFolder));
+                        await args.Request.SendResponseAsync(response);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Failed to check for local update: {ex.Message}");
+                        response.Add("Error", $"Failed: {ex.Message}");
+                        await args.Request.SendResponseAsync(response);
+                    }
+                    return;
+                }
+
+                // Handle download and install update request
+                if (args.Request.Message.TryGetValue("DownloadAndInstallUpdate", out object zipUrlObj))
+                {
+                    var zipUrl = zipUrlObj?.ToString();
+                    Logger.Info($"DownloadAndInstallUpdate request received: {zipUrl}");
+
+                    var response = new global::Windows.Foundation.Collections.ValueSet();
+
+                    if (string.IsNullOrEmpty(zipUrl))
+                    {
+                        response.Add("UpdateStatus", "Error: No URL provided");
+                        await args.Request.SendResponseAsync(response);
+                        return;
+                    }
+
+                    try
+                    {
+                        string msixbundlePath;
+
+                        // Check if this is a local msixbundle path (debug mode)
+                        if (zipUrl.EndsWith(".msixbundle", StringComparison.OrdinalIgnoreCase) && File.Exists(zipUrl))
+                        {
+                            // Direct path to local msixbundle - skip download/extract
+                            Logger.Info($"[DEBUG] Using local msixbundle: {zipUrl}");
+                            msixbundlePath = zipUrl;
+                        }
+                        else
+                        {
+                            // Download and extract from URL
+                            var tempFolder = Path.Combine(Path.GetTempPath(), "GoTweaks_Update");
+                            var zipPath = Path.Combine(tempFolder, "update.zip");
+
+                            // Clean up and create temp folder
+                            if (Directory.Exists(tempFolder))
+                                Directory.Delete(tempFolder, true);
+                            Directory.CreateDirectory(tempFolder);
+
+                            // Download the zip file
+                            Logger.Info($"Downloading update from {zipUrl}...");
+                            using (var client = new WebClient())
+                            {
+                                client.Headers.Add("User-Agent", "GoTweaks/1.0");
+                                client.DownloadFile(zipUrl, zipPath);
+                            }
+                            Logger.Info($"Downloaded to {zipPath}");
+
+                            // Extract the zip
+                            var extractFolder = Path.Combine(tempFolder, "extracted");
+                            Directory.CreateDirectory(extractFolder);
+                            ZipFile.ExtractToDirectory(zipPath, extractFolder);
+                            Logger.Info($"Extracted to {extractFolder}");
+
+                            // Find the .msixbundle file
+                            msixbundlePath = null;
+                            foreach (var file in Directory.GetFiles(extractFolder, "*.msixbundle", SearchOption.AllDirectories))
+                            {
+                                msixbundlePath = file;
+                                break;
+                            }
+
+                            if (string.IsNullOrEmpty(msixbundlePath))
+                            {
+                                Logger.Error("No .msixbundle file found in the update package");
+                                response.Add("UpdateStatus", "Error: No .msixbundle found in update");
+                                await args.Request.SendResponseAsync(response);
+                                return;
+                            }
+                        }
+
+                        Logger.Info($"Found msixbundle: {msixbundlePath}");
+
+                        // Launch the msixbundle installer
+                        var startInfo = new ProcessStartInfo
+                        {
+                            FileName = msixbundlePath,
+                            UseShellExecute = true
+                        };
+
+                        Logger.Info("Launching msixbundle installer...");
+                        Process.Start(startInfo);
+
+                        response.Add("UpdateStatus", "Installing");
+                        await args.Request.SendResponseAsync(response);
+                    }
+                    catch (WebException ex)
+                    {
+                        Logger.Error($"Failed to download update: {ex.Message}");
+                        response.Add("UpdateStatus", $"Error: Download failed - {ex.Message}");
+                        await args.Request.SendResponseAsync(response);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Failed to install update: {ex.Message}");
+                        response.Add("UpdateStatus", $"Error: {ex.Message}");
+                        await args.Request.SendResponseAsync(response);
+                    }
                     return;
                 }
 

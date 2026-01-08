@@ -53,6 +53,31 @@ namespace XboxGamingBarHelper.Settings
             get { return tdpMethod; }
         }
 
+        // Profile Detection Settings
+        private readonly ProfileMatchByExeProperty profileMatchByExe;
+        public ProfileMatchByExeProperty ProfileMatchByExe
+        {
+            get { return profileMatchByExe; }
+        }
+
+        private readonly ProfileCustomGamePathProperty profileCustomGamePath;
+        public ProfileCustomGamePathProperty ProfileCustomGamePath
+        {
+            get { return profileCustomGamePath; }
+        }
+
+        private readonly ProfileGamesOnlyProperty profileGamesOnly;
+        public ProfileGamesOnlyProperty ProfileGamesOnly
+        {
+            get { return profileGamesOnly; }
+        }
+
+        private readonly ProfileBlacklistPathsProperty profileBlacklistPaths;
+        public ProfileBlacklistPathsProperty ProfileBlacklistPaths
+        {
+            get { return profileBlacklistPaths; }
+        }
+
         protected SettingsManager(AppServiceConnection connection) : base(connection)
         {
             autoStartRTSS = new AutoStartRTSSProperty(this);
@@ -60,6 +85,11 @@ namespace XboxGamingBarHelper.Settings
             isForeground = new IsForegroundProperty(this);
             useManufacturerWMI = new UseManufacturerWMIProperty(this);
             tdpMethod = new TdpMethodProperty(this);
+            // Profile Detection Settings
+            profileMatchByExe = new ProfileMatchByExeProperty(this);
+            profileCustomGamePath = new ProfileCustomGamePathProperty(this);
+            profileGamesOnly = new ProfileGamesOnlyProperty(this);
+            profileBlacklistPaths = new ProfileBlacklistPathsProperty(this);
         }
     }
 }

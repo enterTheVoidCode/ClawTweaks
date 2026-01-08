@@ -106,6 +106,8 @@
     </Reference>
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.IO.Pipelines, Version=9.0.0.9, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.IO.Pipelines.9.0.9\lib\net462\System.IO.Pipelines.dll</HintPath>
@@ -452,7 +454,12 @@
     <Compile Include="Settings\AutoStartRTSSProperty.cs" />
     <Compile Include="Settings\UseManufacturerWMIProperty.cs" />
     <Compile Include="Settings\TdpMethodProperty.cs" />
+    <Compile Include="Settings\ProfileMatchByExeProperty.cs" />
+    <Compile Include="Settings\ProfileCustomGamePathProperty.cs" />
+    <Compile Include="Settings\ProfileGamesOnlyProperty.cs" />
+    <Compile Include="Settings\ProfileBlacklistPathsProperty.cs" />
     <Compile Include="Settings\SettingsManager.cs" />
+    <Compile Include="Systems\ForegroundAppProperty.cs" />
     <Compile Include="Legion\LegionGoLibrary.cs" />
     <Compile Include="Legion\LegionManager.cs" />
     <Compile Include="Legion\LegionProperties.cs" />

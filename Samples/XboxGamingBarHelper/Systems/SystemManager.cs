@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using Shared.Data;
 using XboxGamingBarHelper.Windows;
 using XboxGamingBarHelper.Core;
+using XboxGamingBarHelper.Settings;
 using Windows.ApplicationModel.AppService;
 using System.Collections.Generic;
 using Shared.Utilities;
@@ -156,6 +157,15 @@ namespace XboxGamingBarHelper.Systems
             get { return trackedGame; }
         }
 
+        private readonly ForegroundAppProperty foregroundApp;
+        public ForegroundAppProperty ForegroundApp
+        {
+            get { return foregroundApp; }
+        }
+
+        // Track the last focused non-GameBar app for priority when multiple games detected
+        private string lastFocusedAppPath = "";
+
         private IReadOnlyDictionary<GameId, GameProfile> Profiles { get; }
 
         // Keep track to current opening windows to determine currently running game.
@@ -172,6 +182,7 @@ namespace XboxGamingBarHelper.Systems
             Profiles = profiles;
 
             trackedGame = new TrackedGameProperty(this);
+            foregroundApp = new ForegroundAppProperty(this);
             Logger.Info("Check current running game.");
             runningGame = new RunningGameProperty(this);
             Logger.Info("Check supported refresh rates.");
@@ -287,6 +298,12 @@ namespace XboxGamingBarHelper.Systems
 
         private RunningGame GetRunningGame()
         {
+            // Get profile detection settings
+            var settings = SettingsManager.GetInstance();
+            bool matchByExe = settings?.ProfileMatchByExe?.Value ?? false;
+            var customGamePathProperty = settings?.ProfileCustomGamePath;
+            bool gamesOnly = settings?.ProfileGamesOnly?.Value ?? true;
+
             try
             {
                 User32.GetOpenWindows(ProcessWindows);
@@ -300,6 +317,41 @@ namespace XboxGamingBarHelper.Systems
             {
                 Logger.Debug("There is not any opening window, so no game detected");
                 return new RunningGame();
+            }
+
+            // Track last focused non-GameBar app for priority when multiple games detected
+            foreach (var pw in ProcessWindows.Values)
+            {
+                if (string.IsNullOrEmpty(pw.Path)) continue;
+                if (!pw.IsForeground) continue;
+
+                // Skip Game Bar
+                bool isGameBar = (pw.ProcessName ?? "").IndexOf("GameBar", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 pw.Path.IndexOf("GameBar", StringComparison.OrdinalIgnoreCase) >= 0;
+                if (!isGameBar)
+                {
+                    lastFocusedAppPath = pw.Path;
+                    Logger.Debug($"Updated lastFocusedAppPath: {Path.GetFileName(lastFocusedAppPath)}");
+                    break;
+                }
+            }
+
+            // Check for custom game paths override first (blacklist doesn't apply to custom games)
+            if (customGamePathProperty != null)
+            {
+                foreach (var processWindow in ProcessWindows)
+                {
+                    if (customGamePathProperty.ContainsPath(processWindow.Value.Path))
+                    {
+                        var gameName = matchByExe ? Path.GetFileNameWithoutExtension(processWindow.Value.Path) : processWindow.Value.Title;
+                        if (string.IsNullOrEmpty(gameName))
+                        {
+                            gameName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
+                        }
+                        Logger.Debug($"Custom game match: {processWindow.Value.Path}");
+                        return new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, 0, processWindow.Value.IsForeground);
+                    }
+                }
             }
 
             AppEntries.Clear();
@@ -345,6 +397,16 @@ namespace XboxGamingBarHelper.Systems
                         continue;
                     }
 
+                    // Get FPS from RTSS if available
+                    uint fps = 0;
+                    if (AppEntries.TryGetValue(processWindow.Value.ProcessId, out var appEntry))
+                    {
+                        fps = appEntry.InstantaneousFrames;
+                    }
+
+                    // When gamesOnly is ON, skip apps with no FPS (unless they match TrackedGame or have a profile)
+                    bool hasFPS = fps > 0;
+
                     // Check if this window matches the TrackedGame from Xbox Game Bar
                     // Match by: window title equals DisplayName, OR process name contains game name (for games with empty window titles like Forza)
                     if (trackedGame.IsValid())
@@ -355,43 +417,75 @@ namespace XboxGamingBarHelper.Systems
 
                         if (matchesByTitle || matchesByProcessName)
                         {
-                            // Use TrackedGame.DisplayName as the game name (more reliable than window title which may be empty)
-                            var gameName = trackedGame.DisplayName;
-                            Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" matches TrackedGame \"{gameName}\" (byTitle={matchesByTitle}, byProcess={matchesByProcessName}).");
-                            possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, 0, processWindow.Value.IsForeground));
+                            // When gamesOnly is ON, only match TrackedGame if it has FPS
+                            if (!gamesOnly || hasFPS)
+                            {
+                                // Use exe name when matchByExe, otherwise use TrackedGame.DisplayName
+                                var gameName = matchByExe ? Path.GetFileNameWithoutExtension(processWindow.Value.Path) : trackedGame.DisplayName;
+                                if (string.IsNullOrEmpty(gameName))
+                                {
+                                    gameName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
+                                }
+                                Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" matches TrackedGame \"{gameName}\" (byTitle={matchesByTitle}, byProcess={matchesByProcessName}, FPS={fps}).");
+                                possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
+                            }
                         }
                     }
 
-                    if (Profiles.ContainsKey(new GameId(processWindow.Value.Title, processWindow.Value.Path)))
+                    // Check for existing profile - try both exe name and window title based on matchByExe setting
+                    var profileGameName = matchByExe ? Path.GetFileNameWithoutExtension(processWindow.Value.Path) : processWindow.Value.Title;
+                    if (string.IsNullOrEmpty(profileGameName))
                     {
-                        Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has profile, use it.");
-                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, processWindow.Value.Title, processWindow.Value.Path, 0, processWindow.Value.IsForeground));
+                        profileGameName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
+                    }
+                    if (Profiles.ContainsKey(new GameId(profileGameName, processWindow.Value.Path)))
+                    {
+                        // When gamesOnly is ON, only match profile if it has FPS
+                        if (!gamesOnly || hasFPS)
+                        {
+                            Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has profile, use it (FPS={fps}).");
+                            possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, profileGameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
+                            continue;
+                        }
+                    }
+
+                    // Check RTSS entry for FPS-based detection
+                    if (hasFPS)
+                    {
+                        // App has FPS > 0, it's a game
+                        var gameName = matchByExe ? Path.GetFileNameWithoutExtension(processWindow.Value.Path) : processWindow.Value.Title;
+                        if (string.IsNullOrEmpty(gameName))
+                        {
+                            gameName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
+                        }
+                        Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has {fps} FPS, use it.");
+                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
                         continue;
                     }
 
-                    if (AppEntries.TryGetValue(processWindow.Value.ProcessId, out var appEntry))
+                    // When gamesOnly is OFF, any foreground app qualifies as a game
+                    if (!gamesOnly && processWindow.Value.IsForeground)
                     {
-                        if (appEntry.InstantaneousFrames > 0)
+                        var gameName = matchByExe ? Path.GetFileNameWithoutExtension(processWindow.Value.Path) : processWindow.Value.Title;
+                        if (string.IsNullOrEmpty(gameName))
                         {
-                            Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has {appEntry.InstantaneousFrames} FPS, use it.");
-                            possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, processWindow.Value.Title, processWindow.Value.Path, appEntry.InstantaneousFrames, processWindow.Value.IsForeground));
-                            continue;
+                            gameName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
                         }
-                        else
-                        {
-                            Logger.Debug($"Window \"{processWindow.Value.Title}\" ProcessId={processWindow.Value.ProcessId} found in RTSS but has 0 FPS (not rendering?)");
-                        }
-                    }
-                    else if (processWindow.Value.IsForeground && AppEntries.Count > 0)
-                    {
-                        // Log potential ProcessId mismatch - foreground window not found in RTSS entries
-                        Logger.Debug($"Foreground window \"{processWindow.Value.Title}\" ProcessId={processWindow.Value.ProcessId} NOT found in RTSS AppEntries. RTSS ProcessIds: {string.Join(", ", AppEntries.Keys)}");
+                        Logger.Debug($"GamesOnly OFF: Foreground window \"{processWindow.Value.Title}\" at path \"{processWindow.Value.Path}\" treated as game.");
+                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, 0, processWindow.Value.IsForeground));
+                        continue;
                     }
 
-                    if (GameProcesses.Contains(processExecutable))
+                    // GameProcesses list (emulators) - only when gamesOnly is OFF or has FPS
+                    if (GameProcesses.Contains(processExecutable) && !gamesOnly)
                     {
+                        var gameName = matchByExe ? Path.GetFileNameWithoutExtension(processWindow.Value.Path) : processWindow.Value.Title;
+                        if (string.IsNullOrEmpty(gameName))
+                        {
+                            gameName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
+                        }
                         Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processPath}\" named \"{processWindow.Value.ProcessName}\" in pre-defined list.");
-                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, processWindow.Value.Title, processPath, 0, processWindow.Value.IsForeground));
+                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processPath, 0, processWindow.Value.IsForeground));
                         continue;
                     }
 
@@ -411,27 +505,58 @@ namespace XboxGamingBarHelper.Systems
             }
             else
             {
-                RunningGame highestFPSGame = new RunningGame();
-                foreach (var possibleGame in possibleGames)
+                // Log all possible games for debugging
+                Logger.Info($"Multiple possible games detected ({possibleGames.Count}), lastFocused={Path.GetFileName(lastFocusedAppPath)}:");
+                foreach (var pg in possibleGames)
                 {
-                    if (possibleGame.IsForeground)
+                    bool isLastFocused = !string.IsNullOrEmpty(lastFocusedAppPath) &&
+                                         pg.GameId.Path.Equals(lastFocusedAppPath, StringComparison.OrdinalIgnoreCase);
+                    Logger.Info($"  - {pg.GameId.Name} (FPS={pg.FPS}, Foreground={pg.IsForeground}, LastFocused={isLastFocused})");
+                }
+
+                // First priority: games with FPS > 0 (actually rendering frames)
+                var gamesWithFPS = possibleGames.Where(g => g.FPS > 0).ToList();
+
+                if (gamesWithFPS.Count == 1)
+                {
+                    Logger.Info($"Selected only game with FPS: {gamesWithFPS[0].GameId.Name} (FPS={gamesWithFPS[0].FPS})");
+                    return gamesWithFPS[0];
+                }
+                else if (gamesWithFPS.Count > 1)
+                {
+                    // Multiple games with FPS - prefer last focused
+                    if (!string.IsNullOrEmpty(lastFocusedAppPath))
                     {
-                        Logger.Debug($"Found foreground running game {possibleGames[0].GameId.Name} in multiple running game.");
-                        return possibleGame;
+                        foreach (var game in gamesWithFPS)
+                        {
+                            if (game.GameId.Path.Equals(lastFocusedAppPath, StringComparison.OrdinalIgnoreCase))
+                            {
+                                Logger.Info($"Selected last focused game with FPS: {game.GameId.Name} (FPS={game.FPS})");
+                                return game;
+                            }
+                        }
                     }
 
-                    if (!highestFPSGame.IsValid())
+                    // No last focused match, return first game with FPS
+                    Logger.Info($"Selected first game with FPS: {gamesWithFPS[0].GameId.Name} (FPS={gamesWithFPS[0].FPS})");
+                    return gamesWithFPS[0];
+                }
+
+                // No games with FPS - fall back to last focused or first game
+                if (!string.IsNullOrEmpty(lastFocusedAppPath))
+                {
+                    foreach (var possibleGame in possibleGames)
                     {
-                        highestFPSGame = possibleGame;
-                    }
-                    else if (highestFPSGame.FPS <= possibleGame.FPS)
-                    {
-                        highestFPSGame = possibleGame;
+                        if (possibleGame.GameId.Path.Equals(lastFocusedAppPath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Logger.Info($"Selected last focused game (no FPS): {possibleGame.GameId.Name}");
+                            return possibleGame;
+                        }
                     }
                 }
 
-                Logger.Debug($"Found highest FPS ({highestFPSGame.FPS}) game {highestFPSGame.GameId.Name} in multiple games.");
-                return highestFPSGame;
+                Logger.Info($"Selected first game (no FPS match): {possibleGames[0].GameId.Name}");
+                return possibleGames[0];
             }
         }
 
