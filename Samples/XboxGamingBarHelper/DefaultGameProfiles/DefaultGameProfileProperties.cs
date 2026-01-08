@@ -37,4 +37,24 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         {
         }
     }
+
+    /// <summary>
+    /// Property to force Default Game Profile feature on non-Z1/Z2 Extreme devices.
+    /// When enabled, uses Z1 Extreme (OMNI) profiles as fallback.
+    /// </summary>
+    internal class ForceDefaultGameProfileProperty : HelperProperty<bool, DefaultGameProfileManager>
+    {
+        public ForceDefaultGameProfileProperty(DefaultGameProfileManager manager)
+            : base(false, null, Function.ForceDefaultGameProfile, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+
+            // Notify manager when force setting changes
+            Manager?.OnForceSettingChanged(Value);
+        }
+    }
 }

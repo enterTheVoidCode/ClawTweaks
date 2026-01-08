@@ -72,6 +72,13 @@ namespace XboxGamingBar.Data
         }
     }
 
+    internal class ForceDefaultGameProfileProperty : WidgetProperty<bool>
+    {
+        public ForceDefaultGameProfileProperty(bool inValue) : base(inValue, null, Function.ForceDefaultGameProfile)
+        {
+        }
+    }
+
     internal class TDPBoostEnabledProperty : WidgetProperty<bool>
     {
         public TDPBoostEnabledProperty(bool inValue) : base(inValue, null, Function.TDPBoostEnabled)

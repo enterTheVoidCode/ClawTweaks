@@ -193,6 +193,7 @@
         DefaultGameProfileAvailable,    // bool - whether current game has a default profile
         DefaultGameProfileData,         // string - serialized DefaultGameProfile XML
         DefaultGameProfileEnabled,      // bool - user's toggle state for current game
+        ForceDefaultGameProfile,        // bool - force DGP feature on non-Z1/Z2 Extreme devices
 
         // Profile Detection Settings
         ProfileMatchByExe,              // bool - match profiles by exe path instead of window title

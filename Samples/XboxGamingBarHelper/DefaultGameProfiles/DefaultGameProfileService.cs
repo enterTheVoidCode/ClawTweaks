@@ -19,6 +19,7 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         private readonly Dictionary<string, GameProfileEntry> _profiles;
         private readonly LegionGoVariant _hardwareVariant;
         private readonly string _primaryProfileKey;
+        private string _forcedProfileKey;
 
         // Steam library cache: maps install directory paths to Steam App IDs
         private readonly Dictionary<string, string> _steamInstallCache;
@@ -37,6 +38,21 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         /// Primary profile key for this hardware (OMNI or HORSEM4N).
         /// </summary>
         public string PrimaryProfileKey => _primaryProfileKey;
+
+        /// <summary>
+        /// Effective profile key (forced key if set, otherwise primary key).
+        /// </summary>
+        public string EffectiveProfileKey => _forcedProfileKey ?? _primaryProfileKey;
+
+        /// <summary>
+        /// Sets a forced profile key to use instead of the detected hardware key.
+        /// Use null to clear and use detected hardware.
+        /// </summary>
+        public void SetForcedProfileKey(string key)
+        {
+            _forcedProfileKey = key;
+            Logger.Info($"DefaultGameProfileService: Forced profile key set to '{key ?? "null"}'");
+        }
 
         public DefaultGameProfileService()
         {
@@ -383,20 +399,23 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
                 return default;
             }
 
+            // Use effective key (forced or detected)
+            var effectiveKey = EffectiveProfileKey;
+
             // Fallback order:
-            // 1. Exact hardware match (OMNI for Z1, HORSEM4N for Z2)
-            if (!string.IsNullOrEmpty(_primaryProfileKey) &&
-                entry.Profiles.TryGetValue(_primaryProfileKey, out var exactMatch))
+            // 1. Exact hardware match (OMNI for Z1, HORSEM4N for Z2, or forced key)
+            if (!string.IsNullOrEmpty(effectiveKey) &&
+                entry.Profiles.TryGetValue(effectiveKey, out var exactMatch))
             {
-                Logger.Info($"Found exact profile match for {entry.GameName}: {_primaryProfileKey}");
+                Logger.Info($"Found exact profile match for {entry.GameName}: {effectiveKey}");
                 return exactMatch;
             }
 
             // 2. Other hardware model (HORSEM4N if we're OMNI, OMNI if we're HORSEM4N)
-            string fallbackKey = _primaryProfileKey == "OMNI" ? "HORSEM4N" : "OMNI";
+            string fallbackKey = effectiveKey == "OMNI" ? "HORSEM4N" : "OMNI";
             if (entry.Profiles.TryGetValue(fallbackKey, out var otherHwMatch))
             {
-                Logger.Info($"Using other hardware profile for {entry.GameName}: {fallbackKey} (device is {_primaryProfileKey})");
+                Logger.Info($"Using other hardware profile for {entry.GameName}: {fallbackKey} (device is {effectiveKey})");
                 return otherHwMatch;
             }
 

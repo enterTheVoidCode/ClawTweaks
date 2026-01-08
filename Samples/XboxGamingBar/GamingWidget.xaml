@@ -2672,17 +2672,6 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- About Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="About" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Version: 0.3.31"
-                                           FontSize="14"
-                                           Foreground="#A0A0A0"
-                                           Margin="0,8,0,0"/>
-                            </StackPanel>
-                        </Border>
-
                         <!-- Advanced Card (Collapsible) - Core Parking & Affinity -->
                         <Border x:Name="AdvancedCard" Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -2869,6 +2858,45 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Force Default Game Profiles Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Force Default Game Profiles" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Enable Microsoft Default Game Profiles on unsupported devices"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="ForceDefaultGameProfileToggle"
+                                                  Grid.Column="1"
+                                                  IsOn="False"
+                                                  Toggled="ForceDefaultGameProfileToggle_Toggled"
+                                                  Style="{StaticResource ModernToggleStyle}"/>
+                                </Grid>
+                                <!-- Explanation -->
+                                <Border Background="#1A2A3D" CornerRadius="4" Padding="10" Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <TextBlock Foreground="#A0C0D0"
+                                                   FontSize="11"
+                                                   TextWrapping="Wrap">
+                                            Microsoft Default Game Profiles provide optimized TDP and FPS settings for specific games. This feature is officially supported on ASUS ROG Ally devices. Legion Go devices with Z1/Z2 Extreme processors are automatically detected and do not need this toggle. Enable this for other AMD devices to use Z1 Extreme (OMNI) profiles.
+                                        </TextBlock>
+                                        <HyperlinkButton Content="Learn more about Game Profiles"
+                                                         NavigateUri="https://developer.microsoft.com/en-us/games/articles/2025/11/introducing-game-profiles-for-asus-rog-xbox-ally-gaming-handhelds/"
+                                                         Foreground="#6090B0"
+                                                         FontSize="10"
+                                                         Padding="0"
+                                                         Margin="0,8,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Debug Card (Collapsible) -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel XYFocusKeyboardNavigation="Enabled">
@@ -2955,6 +2983,88 @@
                                             Background="#107C10"
                                             Click="UpdateButton_Click"
                                             Visibility="Collapsed"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- About Card (Collapsible) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with Expand/Collapse -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="About" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Version and credits"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="AboutExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="AboutExpandButton_Click">
+                                        <FontIcon x:Name="AboutExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="AboutContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <!-- Version -->
+                                    <Grid Margin="0,0,0,8">
+                                        <TextBlock Text="Version"
+                                                   FontSize="14"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="AboutVersionText"
+                                                   Text="0.3.98.0"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+
+                                    <!-- Author -->
+                                    <Grid Margin="0,0,0,8">
+                                        <TextBlock Text="Author"
+                                                   FontSize="14"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="LtChipotle"
+                                                   FontSize="14"
+                                                   Foreground="#00C8FF"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+
+                                    <!-- Special Thanks -->
+                                    <Grid Margin="0,0,0,12">
+                                        <TextBlock Text="Special Thanks"
+                                                   FontSize="14"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="Mute, GameTechPlanet"
+                                                   FontSize="14"
+                                                   Foreground="#B0B0B0"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+
+                                    <!-- Donate Button -->
+                                    <HyperlinkButton Content="Support Development - Donate"
+                                                     NavigateUri="https://paypal.me/corando98"
+                                                     HorizontalAlignment="Stretch"
+                                                     HorizontalContentAlignment="Center"
+                                                     Padding="12,8"
+                                                     Background="#40107C10"
+                                                     Foreground="#88FF88"
+                                                     FontSize="14"
+                                                     CornerRadius="4"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
