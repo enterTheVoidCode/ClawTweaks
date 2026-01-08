@@ -593,6 +593,7 @@ namespace XboxGamingBar
         private readonly CPUCoreActiveConfigProperty cpuCoreActiveConfig;
         private readonly CoreParkingPercentProperty coreParkingPercent;
         private readonly ForceParkModeProperty forceParkMode;
+        private readonly ForceDefaultGameProfileProperty forceDefaultGameProfile;
 
         // TDP Boost properties
         private readonly TDPBoostEnabledProperty tdpBoostEnabled;
@@ -926,6 +927,7 @@ namespace XboxGamingBar
             cpuCoreActiveConfig = new CPUCoreActiveConfigProperty("");
             coreParkingPercent = new CoreParkingPercentProperty(100); // 100% = all cores active
             forceParkMode = new ForceParkModeProperty(false);
+            forceDefaultGameProfile = new ForceDefaultGameProfileProperty(false);
 
             // TDP Boost properties (defaults: enabled=false, SPPT=1W, FPPT=3W)
             tdpBoostEnabled = new TDPBoostEnabledProperty(false);
@@ -1075,6 +1077,7 @@ namespace XboxGamingBar
                 defaultGameProfileAvailable,
                 defaultGameProfileData,
                 defaultGameProfileEnabled,
+                forceDefaultGameProfile,
                 // Profile Detection Settings
                 profileMatchByExe,
                 profileGamesOnly,
@@ -1522,6 +1525,9 @@ namespace XboxGamingBar
 
             // Load Power Plan settings
             LoadPowerPlanSettings();
+
+            // Load Force Default Game Profile setting
+            LoadForceDefaultGameProfileSetting();
 
             // Send OSD config to helper on startup
             SendOSDConfigToHelper();
@@ -4965,6 +4971,29 @@ namespace XboxGamingBar
             }
         }
 
+        private void LoadForceDefaultGameProfileSetting()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                if (settings.Values.TryGetValue("ForceDefaultGameProfile", out object val) && val is bool enabled)
+                {
+                    if (ForceDefaultGameProfileToggle != null)
+                    {
+                        ForceDefaultGameProfileToggle.IsOn = enabled;
+                    }
+                    // Send to helper on startup
+                    forceDefaultGameProfile?.SetValue(enabled);
+                    Logger.Info($"Loaded Force Default Game Profile setting: {enabled}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error loading Force Default Game Profile setting: {ex.Message}");
+            }
+        }
+
         private void ColorSettingsExpandButton_Click(object sender, RoutedEventArgs e)
         {
             isColorSettingsExpanded = !isColorSettingsExpanded;
@@ -5449,6 +5478,21 @@ namespace XboxGamingBar
             settings.Values["ForceParkMode"] = enabled;
         }
 
+        private void ForceDefaultGameProfileToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (ForceDefaultGameProfileToggle == null) return;
+
+            bool enabled = ForceDefaultGameProfileToggle.IsOn;
+            Logger.Info($"Force Default Game Profile toggled to: {enabled}");
+
+            // Send to helper
+            forceDefaultGameProfile?.SetValue(enabled);
+
+            // Save to local settings
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["ForceDefaultGameProfile"] = enabled;
+        }
+
         #region Debug Panel Handlers
 
         private void DebugExpandButton_Click(object sender, RoutedEventArgs e)
@@ -5463,6 +5507,37 @@ namespace XboxGamingBar
             if (DebugExpandIcon != null)
             {
                 DebugExpandIcon.Glyph = isDebugExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private bool isAboutExpanded = false;
+
+        private void AboutExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isAboutExpanded = !isAboutExpanded;
+
+            if (AboutContent != null)
+            {
+                AboutContent.Visibility = isAboutExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (AboutExpandIcon != null)
+            {
+                AboutExpandIcon.Glyph = isAboutExpanded ? "\uE70E" : "\uE70D";
+            }
+
+            // Update version text dynamically
+            if (isAboutExpanded && AboutVersionText != null)
+            {
+                try
+                {
+                    var version = Windows.ApplicationModel.Package.Current.Id.Version;
+                    AboutVersionText.Text = $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+                }
+                catch
+                {
+                    // Keep default version text
+                }
             }
         }
 

@@ -447,6 +447,7 @@ namespace XboxGamingBarHelper
                 propertyList.Add(defaultGameProfileManager.ProfileAvailable);
                 propertyList.Add(defaultGameProfileManager.ProfileData);
                 propertyList.Add(defaultGameProfileManager.ProfileEnabled);
+                propertyList.Add(defaultGameProfileManager.ForceProfile);
             }
 
             // Initialize properties

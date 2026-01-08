@@ -32,6 +32,10 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         public DefaultGameProfileAvailableProperty ProfileAvailable { get; }
         public DefaultGameProfileDataProperty ProfileData { get; }
         public DefaultGameProfileEnabledProperty ProfileEnabled { get; }
+        public ForceDefaultGameProfileProperty ForceProfile { get; }
+
+        // Force setting (for non-Z1/Z2 devices)
+        private bool _forceEnabled;
 
         // Current state
         private DefaultGameProfile? _currentProfile;
@@ -44,9 +48,9 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         private int? _savedFpsLimit;
 
         /// <summary>
-        /// Whether the default profile feature is available (has valid hardware detection).
+        /// Whether the default profile feature is available (has valid hardware detection or force enabled).
         /// </summary>
-        public bool IsFeatureAvailable => _service.HardwareVariant != LegionGoVariant.Unknown;
+        public bool IsFeatureAvailable => _service.HardwareVariant != LegionGoVariant.Unknown || _forceEnabled;
 
         public DefaultGameProfileManager(
             AppServiceConnection connection,
@@ -72,6 +76,7 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
             ProfileAvailable = new DefaultGameProfileAvailableProperty(this);
             ProfileData = new DefaultGameProfileDataProperty(this);
             ProfileEnabled = new DefaultGameProfileEnabledProperty(this);
+            ForceProfile = new ForceDefaultGameProfileProperty(this);
 
             // Subscribe to running game changes
             if (_systemManager?.RunningGame != null)
@@ -85,6 +90,44 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
             // Subscribe to power state changes
             PowerManager.BatteryStatusChanged += OnBatteryStatusChanged;
             PowerManager.PowerSupplyStatusChanged += OnPowerSupplyStatusChanged;
+        }
+
+        /// <summary>
+        /// Called when the Force Default Game Profile setting changes from widget.
+        /// </summary>
+        public void OnForceSettingChanged(bool enabled)
+        {
+            if (_forceEnabled == enabled) return;
+
+            _forceEnabled = enabled;
+            Logger.Info($"DefaultGameProfileManager: Force setting changed to {enabled}");
+
+            if (enabled)
+            {
+                // Force enabled - use Z1 Extreme (OMNI) profiles as fallback
+                _service.SetForcedProfileKey("OMNI");
+                Logger.Info("DefaultGameProfileManager: Using OMNI (Z1 Extreme) profiles as fallback");
+            }
+            else
+            {
+                // Force disabled - use detected hardware only
+                _service.SetForcedProfileKey(null);
+                Logger.Info("DefaultGameProfileManager: Using detected hardware profiles only");
+            }
+
+            // Re-check current game if any
+            if (!string.IsNullOrEmpty(_currentGamePath))
+            {
+                // Trigger re-evaluation by resetting path
+                var path = _currentGamePath;
+                _currentGamePath = null;
+
+                // Simulate game change to re-evaluate
+                if (_systemManager?.RunningGame?.Value.IsValid() == true)
+                {
+                    OnRunningGameChanged(this, new PropertyChangedEventArgs(nameof(_systemManager.RunningGame)));
+                }
+            }
         }
 
         /// <summary>
