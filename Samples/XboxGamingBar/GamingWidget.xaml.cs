@@ -5721,6 +5721,38 @@ namespace XboxGamingBar
             }
         }
 
+        private async Task ApplyThemeOnLoadAsync(string themeName)
+        {
+            // Wait for UI to fully initialize
+            await Task.Delay(100);
+
+            try
+            {
+                // Set ComboBox selection (isThemeInitialized is still false, so this won't trigger save)
+                if (ThemeComboBox != null)
+                {
+                    for (int i = 0; i < ThemeComboBox.Items.Count; i++)
+                    {
+                        if (ThemeComboBox.Items[i] is ComboBoxItem item && item.Content?.ToString() == themeName)
+                        {
+                            ThemeComboBox.SelectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+
+                ApplyTheme(themeName);
+
+                // Apply to all tabs to prevent flash when switching
+                ApplyThemeToCurrentTab();
+            }
+            finally
+            {
+                // Now allow saves on future changes
+                isThemeInitialized = true;
+            }
+        }
+
         private void SaveThemeSetting(string themeName)
         {
             try
@@ -5744,32 +5776,8 @@ namespace XboxGamingBar
                     currentThemeName = themeName;
                     Logger.Info($"Theme loaded from settings: {themeName}");
 
-                    // Defer visual updates until UI is ready
-                    _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
-                    {
-                        try
-                        {
-                            // Set ComboBox selection (isThemeInitialized is still false, so this won't trigger save)
-                            if (ThemeComboBox != null)
-                            {
-                                for (int i = 0; i < ThemeComboBox.Items.Count; i++)
-                                {
-                                    if (ThemeComboBox.Items[i] is ComboBoxItem item && item.Content?.ToString() == themeName)
-                                    {
-                                        ThemeComboBox.SelectedIndex = i;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            ApplyTheme(themeName);
-                        }
-                        finally
-                        {
-                            // Now allow saves on future changes
-                            isThemeInitialized = true;
-                        }
-                    });
+                    // Defer visual updates until UI is fully ready
+                    _ = ApplyThemeOnLoadAsync(themeName);
                 }
                 else
                 {
@@ -10381,15 +10389,19 @@ namespace XboxGamingBar
                 }
 
                 // Re-apply theme to newly visible tab (StaticResources don't update dynamically)
-                // Defer to allow visual tree to load
+                // Defer with delay to ensure visual tree is fully loaded
                 if (currentThemeName != "Default")
                 {
-                    _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-                    {
-                        ApplyThemeToCurrentTab();
-                    });
+                    _ = ApplyThemeToCurrentTabAsync();
                 }
             }
+        }
+
+        private async Task ApplyThemeToCurrentTabAsync()
+        {
+            // Wait for visual tree to fully load
+            await Task.Delay(50);
+            ApplyThemeToCurrentTab();
         }
 
         private void ApplyThemeToCurrentTab()
@@ -14109,7 +14121,8 @@ namespace XboxGamingBar
         {
             // Skip Legion tiles if not detected
             if ((tile.Id == "LegionTouchpad" || tile.Id == "LegionLightMode" ||
-                 tile.Id == "LegionDesktopControls" || tile.Id == "LegionRemapControls") &&
+                 tile.Id == "LegionDesktopControls" || tile.Id == "LegionRemapControls" ||
+                 tile.Id == "LegionChargeLimit") &&
                 (legionGoDetected?.Value != true))
             {
                 return true;
