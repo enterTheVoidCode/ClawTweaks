@@ -52,6 +52,7 @@ namespace XboxGamingBarHelper.Profile
             {
                 GlobalProfile = XmlHelper.FromXMLFile<GameProfile>(globalProfilePath);
                 GlobalProfile.Path = globalProfilePath;
+                GlobalProfile.Cache = gameProfiles;
             }
 
             Logger.Info("Create game profiles folder.");
@@ -113,6 +114,70 @@ namespace XboxGamingBarHelper.Profile
             newGameProfile.Save();
             Logger.Info($"Add new profile for {gameId.Name} at {newGameProfilePath}.");
             return newGameProfile;
+        }
+
+        /// <summary>
+        /// Gets a profile by game path.
+        /// </summary>
+        public GameProfile? GetProfile(string gamePath)
+        {
+            if (string.IsNullOrEmpty(gamePath))
+            {
+                return null;
+            }
+
+            foreach (var kvp in gameProfiles)
+            {
+                if (string.Equals(kvp.Key.Path, gamePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return kvp.Value;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Updates DGP preference for a game profile.
+        /// </summary>
+        public void UpdateDgpPreference(string gamePath, bool isOnBattery, bool enabled)
+        {
+            if (string.IsNullOrEmpty(gamePath))
+            {
+                return;
+            }
+
+            // Find the profile by path
+            GameId? targetKey = null;
+            foreach (var kvp in gameProfiles)
+            {
+                if (string.Equals(kvp.Key.Path, gamePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    targetKey = kvp.Key;
+                    break;
+                }
+            }
+
+            if (!targetKey.HasValue)
+            {
+                Logger.Warn($"No profile found for {gamePath} to update DGP preference");
+                return;
+            }
+
+            // Get mutable copy, update, and save
+            var profile = gameProfiles[targetKey.Value];
+            if (isOnBattery)
+            {
+                profile.DgpEnabledOnDC = enabled;
+            }
+            else
+            {
+                profile.DgpEnabledOnAC = enabled;
+            }
+
+            // Update cache (profile.Save() already does this via its setter)
+            gameProfiles[targetKey.Value] = profile;
+            Logger.Info($"Updated DGP preference for {targetKey.Value.Name}: {(isOnBattery ? "DC" : "AC")}={enabled}");
         }
     }
 }

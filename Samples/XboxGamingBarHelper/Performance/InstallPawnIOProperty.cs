@@ -128,6 +128,16 @@ namespace XboxGamingBarHelper.Performance
                 // Step 4: Refresh the installed status
                 Logger.Info("Refreshing PawnIO installed status...");
                 Manager?.RefreshPawnIOInstalledStatus();
+
+                // Step 5: If PawnIO is now installed, restart helper to reinitialize with PawnIO support
+                if (Manager?.IsPawnIOInstalled == true)
+                {
+                    Logger.Info("PawnIO is now installed - restarting helper to reinitialize...");
+                    // Give time for the status to be sent to widget
+                    System.Threading.Thread.Sleep(1000);
+                    // Exit helper - widget will detect disconnection and relaunch
+                    Environment.Exit(0);
+                }
             }
         }
     }

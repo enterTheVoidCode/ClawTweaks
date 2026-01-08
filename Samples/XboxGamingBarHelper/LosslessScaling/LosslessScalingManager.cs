@@ -230,7 +230,18 @@ namespace XboxGamingBarHelper.LosslessScaling
 
         #region Core Methods
 
-        private bool IsInstalled() => File.Exists(SETTINGS_PATH);
+        private bool IsInstalled()
+        {
+            // Check both settings file and exe exist
+            // Settings file alone isn't enough - user may have uninstalled but settings remain
+            if (!File.Exists(SETTINGS_PATH))
+            {
+                return false;
+            }
+
+            string exePath = FindLosslessScalingExePath();
+            return !string.IsNullOrEmpty(exePath) && File.Exists(exePath);
+        }
 
         private bool IsRunning()
         {
