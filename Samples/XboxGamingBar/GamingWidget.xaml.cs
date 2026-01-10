@@ -527,6 +527,12 @@ namespace XboxGamingBar
         private string _pendingUpdateZipUrl = null;
         private string _pendingUpdateVersion = null;
 
+        // Helper launch guard - prevents duplicate launches and UAC prompts
+        private static bool isLaunchingHelper = false;
+        private static DateTime lastLaunchAttempt = DateTime.MinValue;
+        private const int MinLaunchIntervalMs = 10000; // 10 seconds between launch attempts
+        private const int HeartbeatStaleThresholdSeconds = 5;
+
         // Properties
         private readonly OSDProperty osd;
         private readonly TDPProperty tdp;
@@ -705,6 +711,7 @@ namespace XboxGamingBar
         private bool isTDPBoostExpanded = false;
         private bool isLoadingTDPBoostSettings = false;
         private bool isLoadingStickyTDPSettings = false;
+        private bool isUpdatingTDPMode = false; // Prevents saving toggle states during mode changes
 
         // OS Power Mode
         private readonly OSPowerModeProperty osPowerMode;
@@ -2338,6 +2345,8 @@ namespace XboxGamingBar
         {
             // Skip during initialization - don't capture TDP or start timer until profile loads
             if (isLoadingStickyTDPSettings) return;
+            // Skip during mode changes - don't save forced-off state
+            if (isUpdatingTDPMode) return;
 
             Logger.Info($"StickyTDPToggle toggled to: {StickyTDPToggle.IsOn}");
 
@@ -2360,6 +2369,9 @@ namespace XboxGamingBar
                 StopStickyTDPTimer();
                 Logger.Info("Sticky TDP disabled");
             }
+
+            // Trigger profile save if SaveStickyTDP is enabled
+            SettingChanged(sender, e);
         }
 
         private void StickyTDPIntervalSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
@@ -2386,6 +2398,9 @@ namespace XboxGamingBar
                 StopStickyTDPTimer();
                 StartStickyTDPTimer();
             }
+
+            // Trigger profile save if SaveStickyTDP is enabled
+            SettingChanged(sender, e);
         }
 
         private void StartStickyTDPTimer()
@@ -2520,6 +2535,8 @@ namespace XboxGamingBar
         {
             if (AutoTDPToggle == null) return;
             if (isApplyingHelperUpdate) return;
+            // Skip during mode changes - don't save forced-off state
+            if (isUpdatingTDPMode) return;
 
             Logger.Info($"AutoTDP toggled to: {AutoTDPToggle.IsOn}");
 
@@ -4481,6 +4498,8 @@ namespace XboxGamingBar
         {
             if (TDPBoostToggle == null) return;
             if (isApplyingHelperUpdate) return;
+            // Skip during mode changes - don't save forced-off state
+            if (isUpdatingTDPMode) return;
 
             Logger.Info($"TDP Boost toggled to: {TDPBoostToggle.IsOn}");
 
@@ -4628,30 +4647,26 @@ namespace XboxGamingBar
 
         private void TDPBoostEnabled_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            // Update UI when helper sends TDPBoostEnabled changes (profile sync)
+            // NOTE: This callback is triggered when helper syncs TDPBoostEnabled.
+            // We do NOT update the toggle from this callback because:
+            // 1. The widget (LocalSettings) is the source of truth for this setting
+            // 2. The helper doesn't persist TDPBoostEnabled, so it always sends False on fresh start
+            // 3. Profile loading explicitly sets the toggle in LoadProfileSettings()
+            //
+            // If boost is enabled, we just need to ensure SPPT/FPPT values are sent to helper.
             _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 if (TDPBoostToggle == null || tdpBoostEnabled == null) return;
 
-                isApplyingHelperUpdate = true;
-                try
+                // Only send SPPT/FPPT to helper if boost is currently enabled in the UI
+                // (regardless of what the helper sent us)
+                if (TDPBoostToggle.IsOn)
                 {
-                    TDPBoostToggle.IsOn = tdpBoostEnabled.Value;
-                    Logger.Info($"TDP Boost toggle updated from helper: {tdpBoostEnabled.Value}");
-
-                    // When boost is enabled from profile, send current SPPT/FPPT values to helper
-                    if (tdpBoostEnabled.Value)
-                    {
-                        int spptBoost = (int)(TDPBoostSPPTSlider?.Value ?? 1);
-                        int fpptBoost = (int)(TDPBoostFPPTSlider?.Value ?? 3);
-                        tdpBoostSPPT?.SetValue(spptBoost);
-                        tdpBoostFPPT?.SetValue(fpptBoost);
-                        Logger.Info($"TDP Boost enabled from profile - sent SPPT={spptBoost}W, FPPT={fpptBoost}W to helper");
-                    }
-                }
-                finally
-                {
-                    isApplyingHelperUpdate = false;
+                    int spptBoost = (int)(TDPBoostSPPTSlider?.Value ?? 1);
+                    int fpptBoost = (int)(TDPBoostFPPTSlider?.Value ?? 3);
+                    tdpBoostSPPT?.SetValue(spptBoost);
+                    tdpBoostFPPT?.SetValue(fpptBoost);
+                    Logger.Debug($"TDP Boost PropertyChanged - ensuring SPPT={spptBoost}W, FPPT={fpptBoost}W sent to helper");
                 }
             });
         }
@@ -10737,13 +10752,8 @@ namespace XboxGamingBar
                 App.AppServiceConnected += GamingWidget_AppServiceConnected;
                 App.AppServiceDisconnected += GamingWidget_AppServiceDisconnected;
 
-                // Show launching banner while waiting for helper to connect
-                ShowConnectionBanner(BannerState.Launching);
-                Logger.Info("Connection status banner shown - launching helper.");
-
-                Logger.Info("Launching full trust process via FullTrustProcessLauncher.");
-                await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
-                Logger.Info("FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync completed.");
+                // Launch helper with guards (checks heartbeat, enforces rate limiting)
+                await LaunchHelperWithGuardsAsync("OnNavigatedTo - initial connection");
             }
             else
             {
@@ -10916,12 +10926,8 @@ namespace XboxGamingBar
                 if (!syncSucceeded)
                 {
                     Logger.Info("Sync failed, triggering helper reconnection...");
-                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-                    {
-                        ShowConnectionBanner(BannerState.Reconnecting);
-                    });
-                    // Relaunch helper - AppServiceConnected event will handle re-sync
-                    await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+                    // Launch helper with guards (checks heartbeat, enforces rate limiting)
+                    await LaunchHelperWithGuardsAsync("LeavingBackground - sync failed");
                     return; // Exit early, let AppServiceConnected handle the rest
                 }
 
@@ -11464,6 +11470,132 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Check if helper is alive by reading its heartbeat file.
+        /// Returns true if heartbeat file exists and is recent (less than HeartbeatStaleThresholdSeconds old).
+        /// </summary>
+        private async Task<bool> IsHelperAliveAsync()
+        {
+            try
+            {
+                var localFolder = Windows.Storage.ApplicationData.Current.LocalFolder;
+                var heartbeatFile = await localFolder.TryGetItemAsync("helper_heartbeat.json");
+
+                if (heartbeatFile == null)
+                {
+                    Logger.Info("Heartbeat file not found - helper not running");
+                    return false;
+                }
+
+                string content = await Windows.Storage.FileIO.ReadTextAsync((Windows.Storage.StorageFile)heartbeatFile);
+
+                // Simple JSON parsing without external dependency
+                // Format: {"pid":1234,"timestamp":1234567890,"connected":true,"elevated":true}
+                var timestampMatch = System.Text.RegularExpressions.Regex.Match(content, @"""timestamp"":(\d+)");
+                if (!timestampMatch.Success)
+                {
+                    Logger.Warn("Could not parse heartbeat timestamp");
+                    return false;
+                }
+
+                long timestamp = long.Parse(timestampMatch.Groups[1].Value);
+                long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                long age = now - timestamp;
+
+                if (age > HeartbeatStaleThresholdSeconds)
+                {
+                    // Heartbeat stale, but check if process is still running (e.g., after sleep/hibernation)
+                    var pidMatch = System.Text.RegularExpressions.Regex.Match(content, @"""pid"":(\d+)");
+                    if (pidMatch.Success)
+                    {
+                        int pid = int.Parse(pidMatch.Groups[1].Value);
+                        try
+                        {
+                            var process = System.Diagnostics.Process.GetProcessById(pid);
+                            if (process != null && !process.HasExited)
+                            {
+                                Logger.Info($"Heartbeat stale ({age}s old) but process {pid} still running - helper likely resuming from sleep");
+                                return true; // Helper is alive, just needs time to resume
+                            }
+                        }
+                        catch (ArgumentException)
+                        {
+                            // Process not found - it has exited
+                            Logger.Info($"Heartbeat stale ({age}s old) and process {pid} not found - helper is dead");
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Debug($"Error checking process {pid}: {ex.Message}");
+                        }
+                    }
+
+                    Logger.Info($"Heartbeat is stale ({age}s old) - helper may be hung or dead");
+                    return false;
+                }
+
+                Logger.Info($"Helper is alive (heartbeat {age}s old)");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Error reading heartbeat: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Launch helper with guards to prevent duplicate launches and unnecessary UAC prompts.
+        /// Checks if helper is already alive (via heartbeat) and enforces minimum interval between launches.
+        /// </summary>
+        /// <param name="reason">Description of why we're launching (for logging)</param>
+        /// <returns>True if launch was attempted, false if skipped</returns>
+        private async Task<bool> LaunchHelperWithGuardsAsync(string reason)
+        {
+            // Check if already launching
+            if (isLaunchingHelper)
+            {
+                Logger.Info($"Skipping launch ({reason}) - already launching");
+                return false;
+            }
+
+            // Check minimum interval
+            var timeSinceLastLaunch = (DateTime.Now - lastLaunchAttempt).TotalMilliseconds;
+            if (timeSinceLastLaunch < MinLaunchIntervalMs)
+            {
+                Logger.Info($"Skipping launch ({reason}) - too soon since last attempt ({timeSinceLastLaunch:F0}ms)");
+                return false;
+            }
+
+            // Check if helper is already alive
+            bool helperAlive = await IsHelperAliveAsync();
+            if (helperAlive)
+            {
+                Logger.Info($"Skipping launch ({reason}) - helper is already alive, waiting for reconnection");
+                return false;
+            }
+
+            try
+            {
+                isLaunchingHelper = true;
+                lastLaunchAttempt = DateTime.Now;
+
+                Logger.Info($"Launching helper ({reason})...");
+                ShowConnectionBanner(BannerState.Launching);
+                await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+                Logger.Info("Helper launch completed");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error launching helper: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                isLaunchingHelper = false;
+            }
+        }
+
+        /// <summary>
         /// When the desktop process is disconnected, reconnect if needed
         /// </summary>
         private async void GamingWidget_AppServiceDisconnected(object sender, EventArgs e)
@@ -11532,17 +11664,25 @@ namespace XboxGamingBar
 
             if (shouldRelaunch)
             {
-                Logger.Info($"Widget disconnected (reason: {eventArgs?.Reason.ToString() ?? "Unknown"}) and no connection exists. Attempting to relaunch full trust process.");
-                try
+                Logger.Info($"Widget disconnected (reason: {eventArgs?.Reason.ToString() ?? "Unknown"}), waiting for helper reconnection...");
+
+                // Wait for helper to reconnect naturally (it has a 1-second retry loop)
+                // This avoids triggering unnecessary UAC prompts when helper is still running
+                await Task.Delay(3000);
+
+                // Check if reconnected during the wait
+                if (App.Connection != null)
                 {
-                    // Small delay to ensure helper has fully exited before relaunching
-                    await Task.Delay(500);
-                    await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+                    Logger.Info("Helper reconnected during wait period, no relaunch needed.");
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        HideConnectionBanner();
+                    });
+                    return;
                 }
-                catch (Exception ex)
-                {
-                    Logger.Error($"Error relaunching full trust process: {ex.Message}");
-                }
+
+                // Launch helper with guards (checks heartbeat, enforces rate limiting)
+                await LaunchHelperWithGuardsAsync("AppServiceDisconnected - reconnection timeout");
             }
             else
             {
@@ -13197,30 +13337,39 @@ namespace XboxGamingBar
             {
                 TDPSlider.IsEnabled = false;
 
-                // Also disable TDP Boost and AutoTDP controls in preset modes
-                if (TDPBoostToggle != null)
+                // Set flag to prevent toggle handlers from saving forced-off state to LocalSettings
+                isUpdatingTDPMode = true;
+                try
                 {
-                    TDPBoostToggle.IsEnabled = false;
-                    TDPBoostToggle.IsOn = false; // Turn off when switching to preset mode
+                    // Also disable TDP Boost and AutoTDP controls in preset modes
+                    if (TDPBoostToggle != null)
+                    {
+                        TDPBoostToggle.IsEnabled = false;
+                        TDPBoostToggle.IsOn = false; // Turn off when switching to preset mode
+                    }
+                    if (TDPBoostContent != null)
+                    {
+                        TDPBoostContent.Visibility = Visibility.Collapsed;
+                    }
+                    if (AutoTDPToggle != null)
+                    {
+                        AutoTDPToggle.IsEnabled = false;
+                        AutoTDPToggle.IsOn = false; // Turn off when switching to preset mode
+                    }
+                    if (AutoTDPTargetFPSSlider != null) AutoTDPTargetFPSSlider.IsEnabled = false;
+                    if (AutoTDPMinSlider != null) AutoTDPMinSlider.IsEnabled = false;
+                    if (AutoTDPMaxSlider != null) AutoTDPMaxSlider.IsEnabled = false;
+                    if (StickyTDPToggle != null)
+                    {
+                        StickyTDPToggle.IsEnabled = false;
+                        StickyTDPToggle.IsOn = false; // Turn off when switching to preset mode
+                    }
+                    if (StickyTDPIntervalSlider != null) StickyTDPIntervalSlider.IsEnabled = false;
                 }
-                if (TDPBoostContent != null)
+                finally
                 {
-                    TDPBoostContent.Visibility = Visibility.Collapsed;
+                    isUpdatingTDPMode = false;
                 }
-                if (AutoTDPToggle != null)
-                {
-                    AutoTDPToggle.IsEnabled = false;
-                    AutoTDPToggle.IsOn = false; // Turn off when switching to preset mode
-                }
-                if (AutoTDPTargetFPSSlider != null) AutoTDPTargetFPSSlider.IsEnabled = false;
-                if (AutoTDPMinSlider != null) AutoTDPMinSlider.IsEnabled = false;
-                if (AutoTDPMaxSlider != null) AutoTDPMaxSlider.IsEnabled = false;
-                if (StickyTDPToggle != null)
-                {
-                    StickyTDPToggle.IsEnabled = false;
-                    StickyTDPToggle.IsOn = false; // Turn off when switching to preset mode
-                }
-                if (StickyTDPIntervalSlider != null) StickyTDPIntervalSlider.IsEnabled = false;
 
                 // Update XY focus to skip disabled controls
                 // TDPModeComboBox -> OSPowerModeComboBox (skip all TDP controls)
@@ -13245,6 +13394,53 @@ namespace XboxGamingBar
                 if (AutoTDPMaxSlider != null) AutoTDPMaxSlider.IsEnabled = true;
                 if (StickyTDPToggle != null) StickyTDPToggle.IsEnabled = true;
                 if (StickyTDPIntervalSlider != null) StickyTDPIntervalSlider.IsEnabled = true;
+
+                // Restore toggle states from LocalSettings (they were turned off when not in Custom mode)
+                // Use flag to prevent toggle handlers from re-saving the restored values
+                isUpdatingTDPMode = true;
+                try
+                {
+                    var settings = ApplicationData.Current.LocalSettings;
+
+                    if (TDPBoostToggle != null && settings.Values.TryGetValue("TDPBoostEnabled", out object tdpBoostVal) && tdpBoostVal is bool tdpBoostEnabledVal)
+                    {
+                        TDPBoostToggle.IsOn = tdpBoostEnabledVal;
+                        this.tdpBoostEnabled?.SetValue(tdpBoostEnabledVal); // Send to helper
+                        if (tdpBoostEnabledVal && TDPBoostContent != null)
+                        {
+                            TDPBoostContent.Visibility = Visibility.Visible;
+                        }
+                        Logger.Debug($"Restored TDP Boost toggle state from LocalSettings: {tdpBoostEnabledVal}");
+                    }
+
+                    if (AutoTDPToggle != null && settings.Values.TryGetValue("AutoTDPEnabled", out object autoTdpVal) && autoTdpVal is bool autoTdpEnabled)
+                    {
+                        AutoTDPToggle.IsOn = autoTdpEnabled;
+                        this.autoTDPEnabled?.SetValue(autoTdpEnabled); // Send to helper
+                        Logger.Debug($"Restored AutoTDP toggle state from LocalSettings: {autoTdpEnabled}");
+                    }
+
+                    if (StickyTDPToggle != null && settings.Values.TryGetValue("StickyTDPEnabled", out object stickyVal) && stickyVal is bool stickyEnabled)
+                    {
+                        StickyTDPToggle.IsOn = stickyEnabled;
+                        // Start/stop Sticky TDP timer based on restored state
+                        if (stickyEnabled)
+                        {
+                            targetTDPLimit = TDPSlider.Value;
+                            StartStickyTDPTimer();
+                            Logger.Debug($"Restored Sticky TDP enabled - monitoring TDP: {targetTDPLimit}W");
+                        }
+                        else
+                        {
+                            StopStickyTDPTimer();
+                        }
+                        Logger.Debug($"Restored Sticky TDP toggle state from LocalSettings: {stickyEnabled}");
+                    }
+                }
+                finally
+                {
+                    isUpdatingTDPMode = false;
+                }
 
                 Logger.Debug($"TDP slider, TDP Boost, AutoTDP, and Sticky TDP enabled in Custom mode: {TDPSlider.IsEnabled}");
 

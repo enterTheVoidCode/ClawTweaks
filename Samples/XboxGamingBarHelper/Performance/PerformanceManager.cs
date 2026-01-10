@@ -6,9 +6,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.AppService;
+using Windows.System.Power;
 using Shared.Enums;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Legion;
@@ -88,6 +90,25 @@ namespace XboxGamingBarHelper.Performance
 
     internal class PerformanceManager : Manager
     {
+        // Native methods for fast PawnIO driver detection
+        private const string PAWNIO_DEVICE_PATH = @"\\.\PawnIO";
+        private const uint GENERIC_READ = 0x80000000;
+        private const uint FILE_SHARE_READ = 0x00000001;
+        private const uint OPEN_EXISTING = 3;
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern IntPtr CreateFile(
+            string lpFileName,
+            uint dwDesiredAccess,
+            uint dwShareMode,
+            IntPtr lpSecurityAttributes,
+            uint dwCreationDisposition,
+            uint dwFlagsAndAttributes,
+            IntPtr hTemplateFile);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
         private Computer computer;
         private IVisitor updateVisitor;
         private IntPtr ryzenAdjHandle;
@@ -208,9 +229,9 @@ namespace XboxGamingBarHelper.Performance
         private RyzenSmuService ryzenSmuService;
         private bool pawnIOAvailable;
 
-        // WinRing0 availability (bundled with helper)
-        private bool winRing0Available;
-        private const string WinRing0BackupFolder = @"C:\GoTweaks";
+        // WinRing0 removed - deprecated TDP method, no longer bundled
+        // private bool winRing0Available;
+        // private const string WinRing0BackupFolder = @"C:\GoTweaks";
 
         // PawnIO driver installation status
         private bool pawnIOInstalled;
@@ -224,7 +245,7 @@ namespace XboxGamingBarHelper.Performance
         private readonly object ryzenAdjInitLock = new object();
 
         // Properties for TDP method availability
-        private TdpMethodAvailableProperty winRing0AvailableProperty;
+        // private TdpMethodAvailableProperty winRing0AvailableProperty; // WinRing0 removed
         private TdpMethodAvailableProperty pawnIOAvailableProperty;
         private TdpMethodAvailableProperty pawnIOInstalledProperty;
         private InstallPawnIOProperty installPawnIOProperty;
@@ -234,15 +255,16 @@ namespace XboxGamingBarHelper.Performance
         /// </summary>
         public bool IsPawnIOAvailable => pawnIOAvailable;
 
-        /// <summary>
-        /// Gets whether WinRing0 files are available in C:\GoTweaks.
-        /// </summary>
-        public bool IsWinRing0Available => winRing0Available;
+        // WinRing0 removed - deprecated TDP method
+        // /// <summary>
+        // /// Gets whether WinRing0 files are available in C:\GoTweaks.
+        // /// </summary>
+        // public bool IsWinRing0Available => winRing0Available;
 
-        /// <summary>
-        /// Property for WinRing0 availability (exposed to widget).
-        /// </summary>
-        public TdpMethodAvailableProperty WinRing0AvailableProperty => winRing0AvailableProperty;
+        // /// <summary>
+        // /// Property for WinRing0 availability (exposed to widget).
+        // /// </summary>
+        // public TdpMethodAvailableProperty WinRing0AvailableProperty => winRing0AvailableProperty;
 
         /// <summary>
         /// Property for PawnIO availability (exposed to widget).
@@ -515,65 +537,66 @@ namespace XboxGamingBarHelper.Performance
             currentTdpTimer.Start();
             Logger.Info("CurrentTDP timer started, updating every 3 seconds");
 
-            // Check WinRing0 availability (files in C:\GoTweaks)
-            CheckWinRing0Availability();
+            // WinRing0 removed - deprecated TDP method, no longer bundled
+            // CheckWinRing0Availability();
 
             // Check PawnIO driver installation status
             CheckPawnIODriverInstalled();
 
             // Initialize TDP method availability properties
-            winRing0AvailableProperty = new TdpMethodAvailableProperty(winRing0Available, Function.TdpMethod_WinRing0Available, this);
+            // winRing0AvailableProperty = new TdpMethodAvailableProperty(winRing0Available, Function.TdpMethod_WinRing0Available, this); // WinRing0 removed
             pawnIOAvailableProperty = new TdpMethodAvailableProperty(pawnIOAvailable, Function.TdpMethod_PawnIOAvailable, this);
             pawnIOInstalledProperty = new TdpMethodAvailableProperty(pawnIOInstalled, Function.TdpMethod_PawnIOInstalled, this);
             installPawnIOProperty = new InstallPawnIOProperty(this);
-            Logger.Info($"TDP method availability: WinRing0={winRing0Available}, PawnIO={pawnIOAvailable}, PawnIOInstalled={pawnIOInstalled}");
+            Logger.Info($"TDP method availability: PawnIO={pawnIOAvailable}, PawnIOInstalled={pawnIOInstalled}");
         }
 
-        /// <summary>
-        /// Checks if WinRing0 files exist in C:\GoTweaks folder.
-        /// </summary>
-        private void CheckWinRing0Availability()
-        {
-            try
-            {
-                // Check for bundled WinRing0 files in helper's directory
-                string helperDir = AppDomain.CurrentDomain.BaseDirectory;
-                string dllPath = Path.Combine(helperDir, "WinRing0x64.dll");
-                string sysPath = Path.Combine(helperDir, "WinRing0x64.sys");
-                string libRyzenAdjPath = Path.Combine(helperDir, "libryzenadj.dll");
-
-                winRing0Available = File.Exists(dllPath) && File.Exists(sysPath) && File.Exists(libRyzenAdjPath);
-
-                if (winRing0Available)
-                {
-                    Logger.Info($"WinRing0 files found (bundled) in {helperDir}");
-
-                    // Also copy to backup folder for external access if needed
-                    try
-                    {
-                        if (!Directory.Exists(WinRing0BackupFolder))
-                            Directory.CreateDirectory(WinRing0BackupFolder);
-
-                        CopyFileIfNewer(dllPath, Path.Combine(WinRing0BackupFolder, "WinRing0x64.dll"));
-                        CopyFileIfNewer(sysPath, Path.Combine(WinRing0BackupFolder, "WinRing0x64.sys"));
-                        CopyFileIfNewer(libRyzenAdjPath, Path.Combine(WinRing0BackupFolder, "libryzenadj.dll"));
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Warn($"Could not copy WinRing0 files to backup folder: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    Logger.Info($"WinRing0 files not bundled in {helperDir} (WinRing0 TDP method will be hidden)");
-                }
-            }
-            catch (Exception ex)
-            {
-                winRing0Available = false;
-                Logger.Warn($"Error checking WinRing0 availability: {ex.Message}");
-            }
-        }
+        // WinRing0 removed - deprecated TDP method, no longer bundled
+        // /// <summary>
+        // /// Checks if WinRing0 files exist in C:\GoTweaks folder.
+        // /// </summary>
+        // private void CheckWinRing0Availability()
+        // {
+        //     try
+        //     {
+        //         // Check for bundled WinRing0 files in helper's directory
+        //         string helperDir = AppDomain.CurrentDomain.BaseDirectory;
+        //         string dllPath = Path.Combine(helperDir, "WinRing0x64.dll");
+        //         string sysPath = Path.Combine(helperDir, "WinRing0x64.sys");
+        //         string libRyzenAdjPath = Path.Combine(helperDir, "libryzenadj.dll");
+        //
+        //         winRing0Available = File.Exists(dllPath) && File.Exists(sysPath) && File.Exists(libRyzenAdjPath);
+        //
+        //         if (winRing0Available)
+        //         {
+        //             Logger.Info($"WinRing0 files found (bundled) in {helperDir}");
+        //
+        //             // Also copy to backup folder for external access if needed
+        //             try
+        //             {
+        //                 if (!Directory.Exists(WinRing0BackupFolder))
+        //                     Directory.CreateDirectory(WinRing0BackupFolder);
+        //
+        //                 CopyFileIfNewer(dllPath, Path.Combine(WinRing0BackupFolder, "WinRing0x64.dll"));
+        //                 CopyFileIfNewer(sysPath, Path.Combine(WinRing0BackupFolder, "WinRing0x64.sys"));
+        //                 CopyFileIfNewer(libRyzenAdjPath, Path.Combine(WinRing0BackupFolder, "libryzenadj.dll"));
+        //             }
+        //             catch (Exception ex)
+        //             {
+        //                 Logger.Warn($"Could not copy WinRing0 files to backup folder: {ex.Message}");
+        //             }
+        //         }
+        //         else
+        //         {
+        //             Logger.Info($"WinRing0 files not bundled in {helperDir} (WinRing0 TDP method will be hidden)");
+        //         }
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         winRing0Available = false;
+        //         Logger.Warn($"Error checking WinRing0 availability: {ex.Message}");
+        //     }
+        // }
 
         private void CopyFileIfNewer(string source, string dest)
         {
@@ -595,51 +618,43 @@ namespace XboxGamingBarHelper.Performance
 
         /// <summary>
         /// Checks if PawnIO driver is installed on the system.
-        /// This checks if the driver service exists in Windows services.
+        /// Uses fast CreateFile check instead of slow WMI query.
         /// </summary>
         private void CheckPawnIODriverInstalled()
         {
             Logger.Info("Checking PawnIO driver installation status...");
 
-            // WMI queries can hang - use timeout
-            const int timeoutMs = 5000;
-            var checkTask = Task.Run(() =>
+            try
             {
-                try
-                {
-                    // Check if PawnIO driver service exists
-                    using (var searcher = new System.Management.ManagementObjectSearcher(
-                        "SELECT * FROM Win32_SystemDriver WHERE Name = 'PawnIO'"))
-                    {
-                        using (var collection = searcher.Get())
-                        {
-                            return collection.Count > 0;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Warn($"Error in PawnIO WMI query: {ex.Message}");
-                    return false;
-                }
-            });
+                // Try to open the PawnIO device - this is much faster than WMI
+                IntPtr handle = CreateFile(
+                    PAWNIO_DEVICE_PATH,
+                    GENERIC_READ,
+                    FILE_SHARE_READ,
+                    IntPtr.Zero,
+                    OPEN_EXISTING,
+                    0,
+                    IntPtr.Zero);
 
-            if (checkTask.Wait(timeoutMs))
-            {
-                pawnIOInstalled = checkTask.Result;
-                if (pawnIOInstalled)
+                if (handle != IntPtr.Zero && handle.ToInt64() != -1)
                 {
-                    Logger.Info("PawnIO driver is installed");
+                    // Successfully opened - driver is installed
+                    CloseHandle(handle);
+                    pawnIOInstalled = true;
+                    Logger.Info("PawnIO driver is installed (device opened successfully)");
                 }
                 else
                 {
-                    Logger.Info("PawnIO driver is not installed");
+                    // Failed to open - driver not installed or not running
+                    pawnIOInstalled = false;
+                    int error = Marshal.GetLastWin32Error();
+                    Logger.Info($"PawnIO driver is not installed (error code: {error})");
                 }
             }
-            else
+            catch (Exception ex)
             {
                 pawnIOInstalled = false;
-                Logger.Warn($"PawnIO driver check timed out after {timeoutMs}ms - assuming not installed");
+                Logger.Warn($"Error checking PawnIO driver: {ex.Message}");
             }
         }
 
@@ -690,6 +705,17 @@ namespace XboxGamingBarHelper.Performance
 
                 // Accept visitor to ensure all values are propagated
                 computer.Accept(updateVisitor);
+
+                // Log Windows API battery value for comparison
+                try
+                {
+                    int windowsBatteryPercent = PowerManager.RemainingChargePercent;
+                    Logger.Info($"ForceRefreshHardware: Windows API Battery = {windowsBatteryPercent}%");
+                }
+                catch (Exception apiEx)
+                {
+                    Logger.Warn($"ForceRefreshHardware: Failed to get Windows API battery: {apiEx.Message}");
+                }
 
                 Logger.Info("ForceRefreshHardware: Hardware refresh complete");
             }
@@ -767,6 +793,22 @@ namespace XboxGamingBarHelper.Performance
                     }
                 }
             }
+
+            // Override battery level with Windows API value
+            // LibreHardwareMonitor calculates battery % from capacity values which can be stale after sleep
+            // Windows API returns the battery controller's actual reported percentage
+            try
+            {
+                int windowsBatteryPercent = PowerManager.RemainingChargePercent;
+                if (windowsBatteryPercent >= 0 && windowsBatteryPercent <= 100)
+                {
+                    BatteryLevel.Value = windowsBatteryPercent;
+                }
+            }
+            catch
+            {
+                // Fallback to LibreHardwareMonitor value if Windows API fails
+            }
         }
 
         public int GetTDP()
@@ -832,7 +874,7 @@ namespace XboxGamingBarHelper.Performance
             lock (tdpLock)
             {
                 var settingsManager = SettingsManager.GetInstance();
-                TdpMethod tdpMethod = settingsManager?.TdpMethod?.Method ?? TdpMethod.PawnIO;
+                TdpMethod tdpMethod = settingsManager?.TdpMethod?.Method ?? TdpMethod.ManufacturerWMI;
                 bool legionDetected = legionManager?.LegionGoDetected?.Value ?? false;
 
                 // Calculate actual TDP values based on TDP Boost settings
@@ -901,22 +943,23 @@ namespace XboxGamingBarHelper.Performance
                         Logger.Warn("SetTDP: No TDP control method available");
                         return;
 
-                    case TdpMethod.WinRing0:
-                        // RyzenAdj (deprecated - WinRing0 no longer bundled)
-                        if (!EnsureRyzenAdjInitialized())
-                        {
-                            Logger.Warn("SetTDP: WinRing0/RyzenAdj unavailable");
-                            return;
-                        }
-                        Logger.Info($"Using RyzenAdj to set TDP (STAPM={spl}W, SLOW={sppt}W, FAST={fppt}W) (deprecated)");
-                        RyzenAdj.set_fast_limit(ryzenAdjHandle, (uint)(fppt * 1000));
-                        RyzenAdj.set_slow_limit(ryzenAdjHandle, (uint)(sppt * 1000));
-                        RyzenAdj.set_stapm_limit(ryzenAdjHandle, (uint)(spl * 1000));
-#if DEBUG
-                        RyzenAdj.refresh_table(ryzenAdjHandle);
-                        Logger.Info($"Set TDP, current fast limit is {RyzenAdj.get_fast_limit(ryzenAdjHandle)}");
-#endif
-                        break;
+                    // WinRing0 removed - deprecated TDP method, no longer bundled
+                    // case TdpMethod.WinRing0:
+                    //     // RyzenAdj (deprecated - WinRing0 no longer bundled)
+                    //     if (!EnsureRyzenAdjInitialized())
+                    //     {
+                    //         Logger.Warn("SetTDP: WinRing0/RyzenAdj unavailable");
+                    //         return;
+                    //     }
+                    //     Logger.Info($"Using RyzenAdj to set TDP (STAPM={spl}W, SLOW={sppt}W, FAST={fppt}W) (deprecated)");
+                    //     RyzenAdj.set_fast_limit(ryzenAdjHandle, (uint)(fppt * 1000));
+                    //     RyzenAdj.set_slow_limit(ryzenAdjHandle, (uint)(sppt * 1000));
+                    //     RyzenAdj.set_stapm_limit(ryzenAdjHandle, (uint)(spl * 1000));
+                    // #if DEBUG
+                    //     RyzenAdj.refresh_table(ryzenAdjHandle);
+                    //     Logger.Info($"Set TDP, current fast limit is {RyzenAdj.get_fast_limit(ryzenAdjHandle)}");
+                    // #endif
+                    //     break;
                 }
             }
 
@@ -945,123 +988,125 @@ namespace XboxGamingBarHelper.Performance
             });
         }
 
-        /// <summary>
-        /// Lazy-loads RyzenAdj when needed. RyzenAdj is deprecated as WinRing0 is no longer bundled.
-        /// This will only succeed if the user has WinRing0 files in C:\GoTweaks.
-        /// Copies libryzenadj.dll from app bundle to C:\GoTweaks so all files are together.
-        /// </summary>
-        /// <returns>True if RyzenAdj is available</returns>
-        private bool EnsureRyzenAdjInitialized()
-        {
-            // Lock to prevent double-initialization race condition when multiple threads
-            // try to initialize RyzenAdj simultaneously
-            lock (ryzenAdjInitLock)
-            {
-                if (ryzenAdjInitialized)
-                    return ryzenAdjHandle != IntPtr.Zero;
+        // WinRing0 removed - deprecated TDP method, no longer bundled
+        // /// <summary>
+        // /// Lazy-loads RyzenAdj when needed. RyzenAdj is deprecated as WinRing0 is no longer bundled.
+        // /// This will only succeed if the user has WinRing0 files in C:\GoTweaks.
+        // /// Copies libryzenadj.dll from app bundle to C:\GoTweaks so all files are together.
+        // /// </summary>
+        // /// <returns>True if RyzenAdj is available</returns>
+        // private bool EnsureRyzenAdjInitialized()
+        // {
+        //     // Lock to prevent double-initialization race condition when multiple threads
+        //     // try to initialize RyzenAdj simultaneously
+        //     lock (ryzenAdjInitLock)
+        //     {
+        //         if (ryzenAdjInitialized)
+        //             return ryzenAdjHandle != IntPtr.Zero;
+        //
+        //         if (ryzenAdjInitAttempted)
+        //             return false; // Already tried and failed
+        //
+        //         ryzenAdjInitAttempted = true;
+        //
+        //         // Check if WinRing0 files are bundled
+        //         if (!winRing0Available)
+        //         {
+        //             Logger.Warn("EnsureRyzenAdjInitialized: WinRing0 files not bundled");
+        //             return false;
+        //         }
+        //
+        //         try
+        //         {
+        //             // Load from helper's bundled directory (all files are together)
+        //             string helperDir = AppDomain.CurrentDomain.BaseDirectory;
+        //             RyzenAdj.LoadFromFolder(helperDir);
+        //             ryzenAdjHandle = RyzenAdj.init_ryzenadj();
+        //
+        //             if (ryzenAdjHandle == IntPtr.Zero)
+        //             {
+        //                 // Get WinRing0 status for diagnostics
+        //                 uint finalStatus = RyzenAdj.GetLastWinRing0Status();
+        //                 string statusDesc = RyzenAdj.GetWinRing0StatusDescription(finalStatus);
+        //                 Logger.Warn($"RyzenAdj initialization failed - WinRing0 status: {finalStatus} ({statusDesc})");
+        //                 return false;
+        //             }
+        //
+        //             RyzenAdj.refresh_table(ryzenAdjHandle);
+        //             var stapm = (int)RyzenAdj.get_stapm_limit(ryzenAdjHandle);
+        //             var fast = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
+        //             var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
+        //
+        //             if (stapm > 0 && fast > 0 && slow > 0 &&
+        //                 stapm != int.MinValue && fast != int.MinValue && slow != int.MinValue)
+        //             {
+        //                 Logger.Info($"RyzenAdj initialized successfully - STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W");
+        //                 ryzenAdjInitialized = true;
+        //                 return true;
+        //             }
+        //             else
+        //             {
+        //                 Logger.Warn($"RyzenAdj returned invalid values - STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W");
+        //                 return false;
+        //             }
+        //         }
+        //         catch (Exception ex)
+        //         {
+        //             Logger.Error($"RyzenAdj initialization failed: {ex.Message}");
+        //             ryzenAdjHandle = IntPtr.Zero;
+        //             return false;
+        //         }
+        //     }
+        // }
 
-                if (ryzenAdjInitAttempted)
-                    return false; // Already tried and failed
-
-                ryzenAdjInitAttempted = true;
-
-                // Check if WinRing0 files are bundled
-                if (!winRing0Available)
-                {
-                    Logger.Warn("EnsureRyzenAdjInitialized: WinRing0 files not bundled");
-                    return false;
-                }
-
-                try
-                {
-                    // Load from helper's bundled directory (all files are together)
-                    string helperDir = AppDomain.CurrentDomain.BaseDirectory;
-                    RyzenAdj.LoadFromFolder(helperDir);
-                    ryzenAdjHandle = RyzenAdj.init_ryzenadj();
-
-                    if (ryzenAdjHandle == IntPtr.Zero)
-                    {
-                        // Get WinRing0 status for diagnostics
-                        uint finalStatus = RyzenAdj.GetLastWinRing0Status();
-                        string statusDesc = RyzenAdj.GetWinRing0StatusDescription(finalStatus);
-                        Logger.Warn($"RyzenAdj initialization failed - WinRing0 status: {finalStatus} ({statusDesc})");
-                        return false;
-                    }
-
-                    RyzenAdj.refresh_table(ryzenAdjHandle);
-                    var stapm = (int)RyzenAdj.get_stapm_limit(ryzenAdjHandle);
-                    var fast = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
-                    var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
-
-                    if (stapm > 0 && fast > 0 && slow > 0 &&
-                        stapm != int.MinValue && fast != int.MinValue && slow != int.MinValue)
-                    {
-                        Logger.Info($"RyzenAdj initialized successfully - STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W");
-                        ryzenAdjInitialized = true;
-                        return true;
-                    }
-                    else
-                    {
-                        Logger.Warn($"RyzenAdj returned invalid values - STAPM:{stapm}W FAST:{fast}W SLOW:{slow}W");
-                        return false;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"RyzenAdj initialization failed: {ex.Message}");
-                    ryzenAdjHandle = IntPtr.Zero;
-                    return false;
-                }
-            }
-        }
-
-        private void ReinitializeRyzenAdj()
-        {
-            // Lock to ensure thread-safe reinitialization
-            lock (ryzenAdjInitLock)
-            {
-                Logger.Info("ReinitializeRyzenAdj: Attempting to reinitialize RyzenAdj handle");
-
-                // Clean up old handle if it exists
-                if (ryzenAdjHandle != IntPtr.Zero)
-                {
-                    try
-                    {
-                        RyzenAdj.cleanup_ryzenadj(ryzenAdjHandle);
-                        Logger.Info("ReinitializeRyzenAdj: Old handle cleaned up");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Warn($"ReinitializeRyzenAdj: Error cleaning up old handle: {ex.Message}");
-                    }
-                }
-
-                // Reset flags and try again
-                ryzenAdjInitialized = false;
-                ryzenAdjInitAttempted = false;
-            }
-
-            // Call outside lock since EnsureRyzenAdjInitialized acquires the same lock
-            if (EnsureRyzenAdjInitialized())
-            {
-                consecutiveReadFailures = 0;
-            }
-        }
-
-        private (int stapm, int fast, int slow) TryReadTdpValues()
-        {
-            RyzenAdj.refresh_table(ryzenAdjHandle);
-            var stapm = (int)RyzenAdj.get_stapm_limit(ryzenAdjHandle);
-            var fast = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
-            var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
-            return (stapm, fast, slow);
-        }
-
-        private bool AreValuesValid(int stapm, int fast, int slow)
-        {
-            return stapm > 0 && fast > 0 && slow > 0 &&
-                   stapm != int.MinValue && fast != int.MinValue && slow != int.MinValue;
-        }
+        // WinRing0 removed - deprecated TDP method, no longer bundled
+        // private void ReinitializeRyzenAdj()
+        // {
+        //     // Lock to ensure thread-safe reinitialization
+        //     lock (ryzenAdjInitLock)
+        //     {
+        //         Logger.Info("ReinitializeRyzenAdj: Attempting to reinitialize RyzenAdj handle");
+        //
+        //         // Clean up old handle if it exists
+        //         if (ryzenAdjHandle != IntPtr.Zero)
+        //         {
+        //             try
+        //             {
+        //                 RyzenAdj.cleanup_ryzenadj(ryzenAdjHandle);
+        //                 Logger.Info("ReinitializeRyzenAdj: Old handle cleaned up");
+        //             }
+        //             catch (Exception ex)
+        //             {
+        //                 Logger.Warn($"ReinitializeRyzenAdj: Error cleaning up old handle: {ex.Message}");
+        //             }
+        //         }
+        //
+        //         // Reset flags and try again
+        //         ryzenAdjInitialized = false;
+        //         ryzenAdjInitAttempted = false;
+        //     }
+        //
+        //     // Call outside lock since EnsureRyzenAdjInitialized acquires the same lock
+        //     if (EnsureRyzenAdjInitialized())
+        //     {
+        //         consecutiveReadFailures = 0;
+        //     }
+        // }
+        //
+        // private (int stapm, int fast, int slow) TryReadTdpValues()
+        // {
+        //     RyzenAdj.refresh_table(ryzenAdjHandle);
+        //     var stapm = (int)RyzenAdj.get_stapm_limit(ryzenAdjHandle);
+        //     var fast = (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
+        //     var slow = (int)RyzenAdj.get_slow_limit(ryzenAdjHandle);
+        //     return (stapm, fast, slow);
+        // }
+        //
+        // private bool AreValuesValid(int stapm, int fast, int slow)
+        // {
+        //     return stapm > 0 && fast > 0 && slow > 0 &&
+        //            stapm != int.MinValue && fast != int.MinValue && slow != int.MinValue;
+        // }
 
         private void UpdateCurrentTDP(object sender, System.Timers.ElapsedEventArgs e)
         {
@@ -1069,7 +1114,7 @@ namespace XboxGamingBarHelper.Performance
             {
                 // Check selected TDP method
                 var settingsManager = SettingsManager.GetInstance();
-                TdpMethod tdpMethod = settingsManager?.TdpMethod?.Method ?? TdpMethod.PawnIO;
+                TdpMethod tdpMethod = settingsManager?.TdpMethod?.Method ?? TdpMethod.ManufacturerWMI;
                 bool legionDetected = legionManager?.LegionGoDetected?.Value ?? false;
 
                 // Priority 1: Legion WMI (when ManufacturerWMI selected and Legion is detected)
@@ -1116,92 +1161,96 @@ namespace XboxGamingBarHelper.Performance
                     return;
                 }
 
-                // Only use RyzenAdj when WinRing0 method is explicitly selected
-                if (tdpMethod != TdpMethod.WinRing0)
-                {
-                    Logger.Debug("UpdateCurrentTDP: TDP method is not WinRing0, skipping RyzenAdj");
-                    return;
-                }
+                // WinRing0 removed - deprecated TDP method, no longer bundled
+                // RyzenAdj/WinRing0 TDP reading is no longer available
+                return;
 
-                // Initialize RyzenAdj (lazy-load, copies WinRing0 files from C:\GoTweaks)
-                if (!EnsureRyzenAdjInitialized())
-                {
-                    Logger.Debug("UpdateCurrentTDP: RyzenAdj not available");
-                    return;
-                }
-
-                Logger.Debug("UpdateCurrentTDP: Reading TDP limits from hardware");
-
-                // Try reading values with retry
-                var (stapm, fastVal, slowVal) = TryReadTdpValues();
-
-                // If first read fails, retry up to 2 more times with small delay
-                int retryCount = 0;
-                while (!AreValuesValid(stapm, fastVal, slowVal) && retryCount < 2)
-                {
-                    retryCount++;
-                    Logger.Debug($"UpdateCurrentTDP: Read attempt {retryCount + 1} failed, retrying...");
-                    System.Threading.Thread.Sleep(100); // Brief delay before retry
-                    (stapm, fastVal, slowVal) = TryReadTdpValues();
-                }
-
-                // Check for invalid values (int.MinValue indicates read failure)
-                if (!AreValuesValid(stapm, fastVal, slowVal))
-                {
-                    consecutiveReadFailures++;
-                    Logger.Debug($"UpdateCurrentTDP: Invalid values read (STAPM:{stapm}, FAST:{fastVal}, SLOW:{slowVal}), failure count: {consecutiveReadFailures}");
-
-                    // Backoff timer to reduce CPU usage during failures
-                    if (currentTdpTimer != null && currentTdpTimer.Interval != BackoffTimerInterval)
-                    {
-                        currentTdpTimer.Interval = BackoffTimerInterval;
-                        Logger.Info($"UpdateCurrentTDP: Backing off timer to {BackoffTimerInterval}ms due to failures");
-                    }
-
-                    // If we've had too many consecutive failures, try reinitializing
-                    if (consecutiveReadFailures >= MaxConsecutiveFailuresBeforeReinit)
-                    {
-                        Logger.Warn($"UpdateCurrentTDP: {consecutiveReadFailures} consecutive read failures, reinitializing RyzenAdj");
-                        ReinitializeRyzenAdj();
-                    }
-                    return;
-                }
-
-                // Reset failure counter on successful read
-                if (consecutiveReadFailures > 0)
-                {
-                    Logger.Info($"UpdateCurrentTDP: Read succeeded after {consecutiveReadFailures} failures");
-                    consecutiveReadFailures = 0;
-
-                    // Restore normal timer interval
-                    if (currentTdpTimer != null && currentTdpTimer.Interval != NormalTimerInterval)
-                    {
-                        currentTdpTimer.Interval = NormalTimerInterval;
-                        Logger.Info($"UpdateCurrentTDP: Restored timer to {NormalTimerInterval}ms");
-                    }
-                }
-
-                // Update actual hardware limits for OSD display
-                // RyzenAdj: STAPM=SPL (base), SLOW=SPPT, FAST=FPPT
-                CurrentSPL = stapm;
-                CurrentSPPT = slowVal;
-                CurrentFPPT = fastVal;
-
-                // Only show limits (power consumption methods not working on this hardware)
-                var newTdpStringRyzen = $"STAPM:{stapm}W FAST:{fastVal}W SLOW:{slowVal}W";
-                Logger.Debug($"UpdateCurrentTDP: Read values - {newTdpStringRyzen}");
-
-                // Only update if value has changed to reduce IPC traffic
-                if (newTdpStringRyzen != lastTdpString)
-                {
-                    Logger.Info($"UpdateCurrentTDP: Value changed from '{lastTdpString}' to '{newTdpStringRyzen}', sending update");
-                    currentTdp.SetValue(newTdpStringRyzen);
-                    lastTdpString = newTdpStringRyzen;
-                }
-                else
-                {
-                    Logger.Debug($"UpdateCurrentTDP: Value unchanged ({newTdpStringRyzen}), skipping update");
-                }
+                // // Only use RyzenAdj when WinRing0 method is explicitly selected
+                // if (tdpMethod != TdpMethod.WinRing0)
+                // {
+                //     Logger.Debug("UpdateCurrentTDP: TDP method is not WinRing0, skipping RyzenAdj");
+                //     return;
+                // }
+                //
+                // // Initialize RyzenAdj (lazy-load, copies WinRing0 files from C:\GoTweaks)
+                // if (!EnsureRyzenAdjInitialized())
+                // {
+                //     Logger.Debug("UpdateCurrentTDP: RyzenAdj not available");
+                //     return;
+                // }
+                //
+                // Logger.Debug("UpdateCurrentTDP: Reading TDP limits from hardware");
+                //
+                // // Try reading values with retry
+                // var (stapm, fastVal, slowVal) = TryReadTdpValues();
+                //
+                // // If first read fails, retry up to 2 more times with small delay
+                // int retryCount = 0;
+                // while (!AreValuesValid(stapm, fastVal, slowVal) && retryCount < 2)
+                // {
+                //     retryCount++;
+                //     Logger.Debug($"UpdateCurrentTDP: Read attempt {retryCount + 1} failed, retrying...");
+                //     System.Threading.Thread.Sleep(100); // Brief delay before retry
+                //     (stapm, fastVal, slowVal) = TryReadTdpValues();
+                // }
+                //
+                // // Check for invalid values (int.MinValue indicates read failure)
+                // if (!AreValuesValid(stapm, fastVal, slowVal))
+                // {
+                //     consecutiveReadFailures++;
+                //     Logger.Debug($"UpdateCurrentTDP: Invalid values read (STAPM:{stapm}, FAST:{fastVal}, SLOW:{slowVal}), failure count: {consecutiveReadFailures}");
+                //
+                //     // Backoff timer to reduce CPU usage during failures
+                //     if (currentTdpTimer != null && currentTdpTimer.Interval != BackoffTimerInterval)
+                //     {
+                //         currentTdpTimer.Interval = BackoffTimerInterval;
+                //         Logger.Info($"UpdateCurrentTDP: Backing off timer to {BackoffTimerInterval}ms due to failures");
+                //     }
+                //
+                //     // If we've had too many consecutive failures, try reinitializing
+                //     if (consecutiveReadFailures >= MaxConsecutiveFailuresBeforeReinit)
+                //     {
+                //         Logger.Warn($"UpdateCurrentTDP: {consecutiveReadFailures} consecutive read failures, reinitializing RyzenAdj");
+                //         ReinitializeRyzenAdj();
+                //     }
+                //     return;
+                // }
+                //
+                // // Reset failure counter on successful read
+                // if (consecutiveReadFailures > 0)
+                // {
+                //     Logger.Info($"UpdateCurrentTDP: Read succeeded after {consecutiveReadFailures} failures");
+                //     consecutiveReadFailures = 0;
+                //
+                //     // Restore normal timer interval
+                //     if (currentTdpTimer != null && currentTdpTimer.Interval != NormalTimerInterval)
+                //     {
+                //         currentTdpTimer.Interval = NormalTimerInterval;
+                //         Logger.Info($"UpdateCurrentTDP: Restored timer to {NormalTimerInterval}ms");
+                //     }
+                // }
+                //
+                // // Update actual hardware limits for OSD display
+                // // RyzenAdj: STAPM=SPL (base), SLOW=SPPT, FAST=FPPT
+                // CurrentSPL = stapm;
+                // CurrentSPPT = slowVal;
+                // CurrentFPPT = fastVal;
+                //
+                // // Only show limits (power consumption methods not working on this hardware)
+                // var newTdpStringRyzen = $"STAPM:{stapm}W FAST:{fastVal}W SLOW:{slowVal}W";
+                // Logger.Debug($"UpdateCurrentTDP: Read values - {newTdpStringRyzen}");
+                //
+                // // Only update if value has changed to reduce IPC traffic
+                // if (newTdpStringRyzen != lastTdpString)
+                // {
+                //     Logger.Info($"UpdateCurrentTDP: Value changed from '{lastTdpString}' to '{newTdpStringRyzen}', sending update");
+                //     currentTdp.SetValue(newTdpStringRyzen);
+                //     lastTdpString = newTdpStringRyzen;
+                // }
+                // else
+                // {
+                //     Logger.Debug($"UpdateCurrentTDP: Value unchanged ({newTdpStringRyzen}), skipping update");
+                // }
             }
             catch (Exception ex)
             {
@@ -1209,11 +1258,12 @@ namespace XboxGamingBarHelper.Performance
                 Logger.Error($"Error updating current TDP: {ex.Message}");
                 Logger.Error($"Stack trace: {ex.StackTrace}");
 
-                if (consecutiveReadFailures >= MaxConsecutiveFailuresBeforeReinit)
-                {
-                    Logger.Warn($"UpdateCurrentTDP: {consecutiveReadFailures} consecutive failures with exceptions, reinitializing RyzenAdj");
-                    ReinitializeRyzenAdj();
-                }
+                // WinRing0 removed - RyzenAdj no longer used
+                // if (consecutiveReadFailures >= MaxConsecutiveFailuresBeforeReinit)
+                // {
+                //     Logger.Warn($"UpdateCurrentTDP: {consecutiveReadFailures} consecutive failures with exceptions, reinitializing RyzenAdj");
+                //     ReinitializeRyzenAdj();
+                // }
             }
         }
 
