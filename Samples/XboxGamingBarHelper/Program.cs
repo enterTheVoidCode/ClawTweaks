@@ -9,6 +9,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.ServiceProcess;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
@@ -36,6 +37,9 @@ namespace XboxGamingBarHelper
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private static Mutex singleInstanceMutex;
         private static AppServiceConnection connection = null;
+        private static CancellationToken _serviceCancellationToken;
+        private static bool _isRunningAsService = false;
+        private static bool _isShuttingDown = false;
 
         // Managers
         private static PerformanceManager performanceManager;
@@ -81,8 +85,38 @@ namespace XboxGamingBarHelper
         /// </summary>
         private static HotkeyManager hotkeyManager;
 
+        /// <summary>
+        /// Heartbeat file path for widget to detect if helper is running
+        /// </summary>
+        private static string heartbeatFilePath;
+        private static DateTime lastHeartbeatWrite = DateTime.MinValue;
+        private const int HeartbeatIntervalMs = 2000;
+
         static async Task Main(string[] args)
         {
+            // Check if running as a Windows Service (MSIX Desktop Service)
+            // Services are started by SCM and have no console/interactive session
+            bool isService = !Environment.UserInteractive;
+
+            if (isService)
+            {
+                // Running as Windows Service - let SCM handle the lifecycle
+                Logger.Info("Starting as Windows Service");
+                _isRunningAsService = true;
+                ServiceBase.Run(new GoTweaksService());
+                return;
+            }
+
+            // Running interactively (console/debug mode or via FullTrustProcessLauncher)
+            Logger.Info("Starting in interactive mode");
+
+            // Self-elevation bootstrap - only needed in interactive mode
+            // Service runs as LocalSystem which is already elevated
+            if (!ElevationBootstrapper.EnsureElevated(args))
+            {
+                return; // Relaunching elevated via scheduled task, exit this instance
+            }
+
             // Ensure only one instance of the helper runs at a time
             const string mutexName = "Global\\XboxGamingBarHelper_SingleInstance";
             bool createdNew;
@@ -113,6 +147,157 @@ namespace XboxGamingBarHelper
             {
                 singleInstanceMutex?.ReleaseMutex();
                 singleInstanceMutex?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Entry point when running as a Windows Service.
+        /// Called by GoTweaksService.OnStart().
+        /// </summary>
+        public static async Task RunAsService(CancellationToken cancellationToken)
+        {
+            Logger.Info("RunAsService starting...");
+            _serviceCancellationToken = cancellationToken;
+            _isRunningAsService = true;
+
+            // Ensure only one instance of the helper runs at a time
+            const string mutexName = "Global\\XboxGamingBarHelper_SingleInstance";
+            bool createdNew;
+
+            try
+            {
+                singleInstanceMutex = new Mutex(true, mutexName, out createdNew);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to create mutex: {ex.Message}");
+                return;
+            }
+
+            if (!createdNew)
+            {
+                Logger.Warn("Another instance of XboxGamingBarHelper is already running. Service will wait.");
+                // In service mode, we might want to wait for the other instance to exit
+                // For now, just return - the service will be marked as started but won't do anything
+                return;
+            }
+
+            Logger.Info("Single instance mutex acquired. Starting service helper.");
+
+            try
+            {
+                await Initialize();
+            }
+            finally
+            {
+                singleInstanceMutex?.ReleaseMutex();
+                singleInstanceMutex?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Cleanup when service is stopping.
+        /// Called by GoTweaksService.OnStop().
+        /// </summary>
+        public static void Shutdown()
+        {
+            Logger.Info("Shutdown called");
+            _isShuttingDown = true;
+
+            try
+            {
+                // Dispose managers
+                if (Managers != null)
+                {
+                    foreach (var manager in Managers)
+                    {
+                        try
+                        {
+                            (manager as IDisposable)?.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error(ex, $"Error disposing manager {manager.GetType().Name}");
+                        }
+                    }
+                }
+
+                // Dispose connection
+                connection?.Dispose();
+                connection = null;
+
+                // Dispose hotkey manager
+                hotkeyManager?.Dispose();
+                hotkeyManager = null;
+
+                // Delete heartbeat file on shutdown
+                DeleteHeartbeatFile();
+
+                Logger.Info("Shutdown complete");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Error during shutdown");
+            }
+        }
+
+        /// <summary>
+        /// Write heartbeat file so widget can detect if helper is running.
+        /// Called every HeartbeatIntervalMs in main loop.
+        /// </summary>
+        private static void WriteHeartbeat()
+        {
+            if ((DateTime.Now - lastHeartbeatWrite).TotalMilliseconds < HeartbeatIntervalMs)
+                return;
+
+            try
+            {
+                if (string.IsNullOrEmpty(heartbeatFilePath))
+                {
+                    // Initialize heartbeat file path on first write
+                    var localStateFolder = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "Packages",
+                        Package.Current.Id.FamilyName,
+                        "LocalState"
+                    );
+                    heartbeatFilePath = Path.Combine(localStateFolder, "helper_heartbeat.json");
+                }
+
+                var heartbeat = new
+                {
+                    pid = Process.GetCurrentProcess().Id,
+                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                    connected = appServiceConnectionStatus == AppServiceConnectionStatus.Success,
+                    elevated = ElevationBootstrapper.IsRunningAsAdmin()
+                };
+
+                string json = $"{{\"pid\":{heartbeat.pid},\"timestamp\":{heartbeat.timestamp},\"connected\":{heartbeat.connected.ToString().ToLower()},\"elevated\":{heartbeat.elevated.ToString().ToLower()}}}";
+                File.WriteAllText(heartbeatFilePath, json);
+                lastHeartbeatWrite = DateTime.Now;
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Failed to write heartbeat: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Delete heartbeat file on shutdown so widget knows helper is not running.
+        /// </summary>
+        private static void DeleteHeartbeatFile()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(heartbeatFilePath) && File.Exists(heartbeatFilePath))
+                {
+                    File.Delete(heartbeatFilePath);
+                    Logger.Info("Heartbeat file deleted");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Failed to delete heartbeat file: {ex.Message}");
             }
         }
 
@@ -435,7 +620,7 @@ namespace XboxGamingBarHelper
                 performanceManager.TDPBoostEnabled,
                 performanceManager.TDPBoostSPPT,
                 performanceManager.TDPBoostFPPT,
-                performanceManager.WinRing0AvailableProperty,
+                // performanceManager.WinRing0AvailableProperty, // WinRing0 removed - deprecated
                 performanceManager.PawnIOAvailableProperty,
                 performanceManager.PawnIOInstalledProperty,
                 performanceManager.InstallPawnIOProperty
@@ -516,9 +701,16 @@ namespace XboxGamingBarHelper
                 legionManager.StartBatteryMonitoringIfConnected();
             }
 
-            // Infinite loop - helper runs forever and auto-reconnects if needed
-            while (true)
+            // Main loop - helper runs until cancelled (service stop) or shutdown
+            while (!_isShuttingDown)
             {
+                // Check for service cancellation
+                if (_isRunningAsService && _serviceCancellationToken.IsCancellationRequested)
+                {
+                    Logger.Info("Service cancellation requested, exiting main loop");
+                    break;
+                }
+
                 if (appServiceConnectionStatus != AppServiceConnectionStatus.Success)
                 {
                     Logger.Info("Try to reconnect to the widget.");
@@ -527,11 +719,19 @@ namespace XboxGamingBarHelper
 
                 await Task.Delay(1000);
 
+                // Write heartbeat file so widget can detect if helper is running
+                WriteHeartbeat();
+
                 foreach (var manager in Managers)
                 {
                     manager.Update();
                 }
             }
+
+            // Clean up heartbeat file before exiting
+            DeleteHeartbeatFile();
+
+            Logger.Info("Main loop exited");
         }
 
         private static void CPUState_PropertyChanged(object sender, PropertyChangedEventArgs e)

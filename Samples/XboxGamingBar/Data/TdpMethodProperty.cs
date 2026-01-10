@@ -6,11 +6,11 @@ using Windows.UI.Xaml.Controls;
 namespace XboxGamingBar.Data
 {
     /// <summary>
-    /// Property for TDP control method selection (ManufacturerWMI=0, PawnIO=1, WinRing0=2)
+    /// Property for TDP control method selection (ManufacturerWMI=0, PawnIO=1)
     /// </summary>
     internal class TdpMethodProperty : WidgetControlProperty<int, ComboBox>
     {
-        public TdpMethodProperty(ComboBox inUI, Page inOwner) : base((int)TdpMethod.PawnIO, Function.Settings_TdpMethod, inUI, inOwner)
+        public TdpMethodProperty(ComboBox inUI, Page inOwner) : base((int)TdpMethod.ManufacturerWMI, Function.Settings_TdpMethod, inUI, inOwner)
         {
             if (UI != null)
             {
@@ -73,8 +73,8 @@ namespace XboxGamingBar.Data
             {
                 case "ManufacturerWMI": return (int)TdpMethod.ManufacturerWMI;
                 case "PawnIO": return (int)TdpMethod.PawnIO;
-                case "WinRing0": return (int)TdpMethod.WinRing0;
-                default: return (int)TdpMethod.PawnIO;
+                // WinRing0 removed - deprecated TDP method
+                default: return (int)TdpMethod.ManufacturerWMI; // Default to ManufacturerWMI for Legion Go
             }
         }
 
@@ -84,8 +84,8 @@ namespace XboxGamingBar.Data
             {
                 case TdpMethod.ManufacturerWMI: return "ManufacturerWMI";
                 case TdpMethod.PawnIO: return "PawnIO";
-                case TdpMethod.WinRing0: return "WinRing0";
-                default: return "PawnIO";
+                // WinRing0 removed - deprecated TDP method
+                default: return "ManufacturerWMI"; // Default to ManufacturerWMI for Legion Go
             }
         }
     }
