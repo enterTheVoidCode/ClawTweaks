@@ -113,6 +113,8 @@
         LegionButtonM1,             // string - JSON ButtonMapping (new button)
         LegionButtonM2,             // string - JSON ButtonMapping
         LegionButtonM3,             // string - JSON ButtonMapping
+        LegionButtonDesktop,        // string - JSON ButtonMapping (Desktop button - Win+G default)
+        LegionButtonPage,           // string - JSON ButtonMapping (Page button - Win+Tab default)
         LegionNintendoLayout,       // bool - Nintendo-style face button swap (A↔B, X↔Y)
         LegionVibrationMode,        // int - vibration mode preset (FPS=1, Racing=2, AVG=3, SPG=4, RPG=5)
         LegionControllerProfileEnabled, // bool - per-game controller profile toggle
@@ -133,6 +135,13 @@
         // Legion Go Stick Deadzones (per-game profile)
         LegionLeftStickDeadzone,        // int - 0-50 (percent)
         LegionRightStickDeadzone,       // int - 0-50 (percent)
+
+        // Legion Go Trigger Travel (per-game profile)
+        LegionLeftTriggerStart,         // int - 0-100 (start %)
+        LegionLeftTriggerEnd,           // int - 0-100 (end % from full)
+        LegionRightTriggerStart,        // int - 0-100 (start %)
+        LegionRightTriggerEnd,          // int - 0-100 (end % from full)
+        LegionHairTriggers,             // bool - hair triggers preset (0%/1%)
 
         // Legion Go Joystick as Mouse (per-game profile)
         LegionJoystickAsMouseMode,      // int - 0=Disabled, 1=Left Stick, 2=Right Stick

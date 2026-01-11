@@ -556,6 +556,44 @@ namespace XboxGamingBarHelper.Legion
         }
     }
 
+    // Button Desktop remap (JSON ButtonMapping: Type, GamepadAction, KeyboardKeys[], MouseButton)
+    // Default: Win+G (Game Bar)
+    internal class LegionButtonDesktopProperty : HelperProperty<string, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionButtonDesktopProperty(string initialValue, LegionManager inManager) : base(initialValue ?? "", null, Function.LegionButtonDesktop, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionButtonDesktop changed to {Value}");
+            var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
+            Manager?.SetLegionButtonMapping(LegionGo.GamepadButton.DesktopButton, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
+        }
+    }
+
+    // Button Page remap (JSON ButtonMapping: Type, GamepadAction, KeyboardKeys[], MouseButton)
+    // Default: Win+Tab (Task View)
+    internal class LegionButtonPageProperty : HelperProperty<string, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionButtonPageProperty(string initialValue, LegionManager inManager) : base(initialValue ?? "", null, Function.LegionButtonPage, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionButtonPage changed to {Value}");
+            var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
+            Manager?.SetLegionButtonMapping(LegionGo.GamepadButton.PageButton, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
+        }
+    }
+
     // Nintendo layout toggle (A↔B, X↔Y swap)
     internal class LegionNintendoLayoutProperty : HelperProperty<bool, LegionManager>
     {
@@ -791,6 +829,101 @@ namespace XboxGamingBarHelper.Legion
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionRightStickDeadzone changed to {Value}");
             Manager?.SetRightStickDeadzone(Value);
+        }
+    }
+
+    // Trigger Travel - Left Start (0-100%)
+    internal class LegionLeftTriggerStartProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionLeftTriggerStartProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionLeftTriggerStart, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionLeftTriggerStart changed to {Value}");
+            // Send HID command with current Start and End values
+            Manager?.SetLeftTriggerTravel(Value, Manager.LegionLeftTriggerEnd.Value);
+        }
+    }
+
+    // Trigger Travel - Left End (0-100%)
+    internal class LegionLeftTriggerEndProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionLeftTriggerEndProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionLeftTriggerEnd, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionLeftTriggerEnd changed to {Value}");
+            // Send the HID command when end value changes (start should already be set)
+            Manager?.SetLeftTriggerTravel(Manager.LegionLeftTriggerStart.Value, Value);
+        }
+    }
+
+    // Trigger Travel - Right Start (0-100%)
+    internal class LegionRightTriggerStartProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionRightTriggerStartProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionRightTriggerStart, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionRightTriggerStart changed to {Value}");
+            // Send HID command with current Start and End values
+            Manager?.SetRightTriggerTravel(Value, Manager.LegionRightTriggerEnd.Value);
+        }
+    }
+
+    // Trigger Travel - Right End (0-100%)
+    internal class LegionRightTriggerEndProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionRightTriggerEndProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionRightTriggerEnd, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionRightTriggerEnd changed to {Value}");
+            // Send the HID command when end value changes (start should already be set)
+            Manager?.SetRightTriggerTravel(Manager.LegionRightTriggerStart.Value, Value);
+        }
+    }
+
+    // Hair Triggers toggle (sets both triggers to 0%/1% for instant response)
+    internal class LegionHairTriggersProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionHairTriggersProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionHairTriggers, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionHairTriggers changed to {Value}");
+            if (Value)
+            {
+                // Hair triggers: start at 0%, full at 1% (instant response)
+                Manager?.SetLeftTriggerTravel(0, 1);
+                Manager?.SetRightTriggerTravel(0, 1);
+            }
+            // When turned off, the individual slider values will be re-applied by the widget
         }
     }
 

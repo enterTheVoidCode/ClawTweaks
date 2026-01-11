@@ -579,6 +579,8 @@ namespace XboxGamingBarHelper
                 legionManager.LegionButtonM1,
                 legionManager.LegionButtonM2,
                 legionManager.LegionButtonM3,
+                legionManager.LegionButtonDesktop,
+                legionManager.LegionButtonPage,
                 legionManager.LegionNintendoLayout,
                 legionManager.LegionVibrationMode,
                 legionManager.LegionControllerProfileEnabled,
@@ -596,6 +598,12 @@ namespace XboxGamingBarHelper
                 // Stick deadzone properties
                 legionManager.LegionLeftStickDeadzone,
                 legionManager.LegionRightStickDeadzone,
+                // Trigger travel properties
+                legionManager.LegionLeftTriggerStart,
+                legionManager.LegionLeftTriggerEnd,
+                legionManager.LegionRightTriggerStart,
+                legionManager.LegionRightTriggerEnd,
+                legionManager.LegionHairTriggers,
                 // Touchpad vibration (GLOBAL setting)
                 legionManager.LegionTouchpadVibration,
                 // Joystick as mouse properties
@@ -664,6 +672,8 @@ namespace XboxGamingBarHelper
                 legionManager.LegionButtonM1.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 legionManager.LegionButtonM2.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 legionManager.LegionButtonM3.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionButtonDesktop.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionButtonPage.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 // Gyro settings
                 legionManager.LegionGyroActivationButton.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 legionManager.LegionGyroTarget.PropertyChanged += LegionControllerSetting_PropertyChanged;
@@ -677,6 +687,12 @@ namespace XboxGamingBarHelper
                 // Stick deadzones
                 legionManager.LegionLeftStickDeadzone.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 legionManager.LegionRightStickDeadzone.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                // Trigger travel
+                legionManager.LegionLeftTriggerStart.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionLeftTriggerEnd.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionRightTriggerStart.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionRightTriggerEnd.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionHairTriggers.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 // Joystick as mouse
                 legionManager.LegionJoystickAsMouseMode.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 legionManager.LegionJoystickMouseSens.PropertyChanged += LegionControllerSetting_PropertyChanged;
@@ -836,6 +852,16 @@ namespace XboxGamingBarHelper
                 Logger.Info($"Saving LegionButtonM3 to profile {profileName}");
                 profileManager.CurrentProfile.LegionButtonM3 = legionManager.LegionButtonM3.Value;
             }
+            else if (sender == legionManager?.LegionButtonDesktop)
+            {
+                Logger.Info($"Saving LegionButtonDesktop to profile {profileName}");
+                profileManager.CurrentProfile.LegionButtonDesktop = legionManager.LegionButtonDesktop.Value;
+            }
+            else if (sender == legionManager?.LegionButtonPage)
+            {
+                Logger.Info($"Saving LegionButtonPage to profile {profileName}");
+                profileManager.CurrentProfile.LegionButtonPage = legionManager.LegionButtonPage.Value;
+            }
             // Gyro settings
             else if (sender == legionManager?.LegionGyroActivationButton)
             {
@@ -892,6 +918,32 @@ namespace XboxGamingBarHelper
             {
                 Logger.Info($"Saving LegionRightStickDeadzone to profile {profileName}");
                 profileManager.CurrentProfile.LegionRightStickDeadzone = legionManager.LegionRightStickDeadzone.Value;
+            }
+            // Trigger travel
+            else if (sender == legionManager?.LegionLeftTriggerStart)
+            {
+                Logger.Info($"Saving LegionLeftTriggerStart to profile {profileName}");
+                profileManager.CurrentProfile.LegionLeftTriggerStart = legionManager.LegionLeftTriggerStart.Value;
+            }
+            else if (sender == legionManager?.LegionLeftTriggerEnd)
+            {
+                Logger.Info($"Saving LegionLeftTriggerEnd to profile {profileName}");
+                profileManager.CurrentProfile.LegionLeftTriggerEnd = legionManager.LegionLeftTriggerEnd.Value;
+            }
+            else if (sender == legionManager?.LegionRightTriggerStart)
+            {
+                Logger.Info($"Saving LegionRightTriggerStart to profile {profileName}");
+                profileManager.CurrentProfile.LegionRightTriggerStart = legionManager.LegionRightTriggerStart.Value;
+            }
+            else if (sender == legionManager?.LegionRightTriggerEnd)
+            {
+                Logger.Info($"Saving LegionRightTriggerEnd to profile {profileName}");
+                profileManager.CurrentProfile.LegionRightTriggerEnd = legionManager.LegionRightTriggerEnd.Value;
+            }
+            else if (sender == legionManager?.LegionHairTriggers)
+            {
+                Logger.Info($"Saving LegionHairTriggers to profile {profileName}");
+                profileManager.CurrentProfile.LegionHairTriggers = legionManager.LegionHairTriggers.Value;
             }
             // Joystick as mouse
             else if (sender == legionManager?.LegionJoystickAsMouseMode)
@@ -971,6 +1023,16 @@ namespace XboxGamingBarHelper
                 Logger.Debug($"Applying LegionButtonM3: {profile.LegionButtonM3}");
                 legionManager.LegionButtonM3.SetValue(profile.LegionButtonM3);
             }
+            if (!string.IsNullOrEmpty(profile.LegionButtonDesktop))
+            {
+                Logger.Debug($"Applying LegionButtonDesktop: {profile.LegionButtonDesktop}");
+                legionManager.LegionButtonDesktop.SetValue(profile.LegionButtonDesktop);
+            }
+            if (!string.IsNullOrEmpty(profile.LegionButtonPage))
+            {
+                Logger.Debug($"Applying LegionButtonPage: {profile.LegionButtonPage}");
+                legionManager.LegionButtonPage.SetValue(profile.LegionButtonPage);
+            }
 
             // Gyro settings
             if (profile.LegionGyroButton.HasValue)
@@ -1029,6 +1091,33 @@ namespace XboxGamingBarHelper
             {
                 Logger.Debug($"Applying LegionRightStickDeadzone: {profile.LegionRightStickDeadzone.Value}");
                 legionManager.LegionRightStickDeadzone.SetValue(profile.LegionRightStickDeadzone.Value);
+            }
+
+            // Trigger travel
+            if (profile.LegionLeftTriggerStart.HasValue)
+            {
+                Logger.Debug($"Applying LegionLeftTriggerStart: {profile.LegionLeftTriggerStart.Value}");
+                legionManager.LegionLeftTriggerStart.SetValue(profile.LegionLeftTriggerStart.Value);
+            }
+            if (profile.LegionLeftTriggerEnd.HasValue)
+            {
+                Logger.Debug($"Applying LegionLeftTriggerEnd: {profile.LegionLeftTriggerEnd.Value}");
+                legionManager.LegionLeftTriggerEnd.SetValue(profile.LegionLeftTriggerEnd.Value);
+            }
+            if (profile.LegionRightTriggerStart.HasValue)
+            {
+                Logger.Debug($"Applying LegionRightTriggerStart: {profile.LegionRightTriggerStart.Value}");
+                legionManager.LegionRightTriggerStart.SetValue(profile.LegionRightTriggerStart.Value);
+            }
+            if (profile.LegionRightTriggerEnd.HasValue)
+            {
+                Logger.Debug($"Applying LegionRightTriggerEnd: {profile.LegionRightTriggerEnd.Value}");
+                legionManager.LegionRightTriggerEnd.SetValue(profile.LegionRightTriggerEnd.Value);
+            }
+            if (profile.LegionHairTriggers.HasValue)
+            {
+                Logger.Debug($"Applying LegionHairTriggers: {profile.LegionHairTriggers.Value}");
+                legionManager.LegionHairTriggers.SetValue(profile.LegionHairTriggers.Value);
             }
 
             // Joystick as mouse

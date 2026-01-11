@@ -165,6 +165,30 @@ namespace XboxGamingBarHelper.Profile
             }
         }
 
+        public string LegionButtonDesktop
+        {
+            get { return value.LegionButtonDesktop; }
+            set
+            {
+                if (this.value.LegionButtonDesktop != value)
+                {
+                    this.value.LegionButtonDesktop = value;
+                }
+            }
+        }
+
+        public string LegionButtonPage
+        {
+            get { return value.LegionButtonPage; }
+            set
+            {
+                if (this.value.LegionButtonPage != value)
+                {
+                    this.value.LegionButtonPage = value;
+                }
+            }
+        }
+
         public int? LegionGyroButton
         {
             get { return value.LegionGyroButton; }
@@ -319,6 +343,66 @@ namespace XboxGamingBarHelper.Profile
                 if (this.value.LegionRightStickDeadzone != value)
                 {
                     this.value.LegionRightStickDeadzone = value;
+                }
+            }
+        }
+
+        public int? LegionLeftTriggerStart
+        {
+            get { return value.LegionLeftTriggerStart; }
+            set
+            {
+                if (this.value.LegionLeftTriggerStart != value)
+                {
+                    this.value.LegionLeftTriggerStart = value;
+                }
+            }
+        }
+
+        public int? LegionLeftTriggerEnd
+        {
+            get { return value.LegionLeftTriggerEnd; }
+            set
+            {
+                if (this.value.LegionLeftTriggerEnd != value)
+                {
+                    this.value.LegionLeftTriggerEnd = value;
+                }
+            }
+        }
+
+        public int? LegionRightTriggerStart
+        {
+            get { return value.LegionRightTriggerStart; }
+            set
+            {
+                if (this.value.LegionRightTriggerStart != value)
+                {
+                    this.value.LegionRightTriggerStart = value;
+                }
+            }
+        }
+
+        public int? LegionRightTriggerEnd
+        {
+            get { return value.LegionRightTriggerEnd; }
+            set
+            {
+                if (this.value.LegionRightTriggerEnd != value)
+                {
+                    this.value.LegionRightTriggerEnd = value;
+                }
+            }
+        }
+
+        public bool? LegionHairTriggers
+        {
+            get { return value.LegionHairTriggers; }
+            set
+            {
+                if (this.value.LegionHairTriggers != value)
+                {
+                    this.value.LegionHairTriggers = value;
                 }
             }
         }

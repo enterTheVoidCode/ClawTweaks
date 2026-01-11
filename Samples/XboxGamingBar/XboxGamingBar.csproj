@@ -170,6 +170,8 @@
     <Compile Include="Data\LegionButtonM1Property.cs" />
     <Compile Include="Data\LegionButtonM2Property.cs" />
     <Compile Include="Data\LegionButtonM3Property.cs" />
+    <Compile Include="Data\LegionButtonDesktopProperty.cs" />
+    <Compile Include="Data\LegionButtonPageProperty.cs" />
     <Compile Include="Data\LegionNintendoLayoutProperty.cs" />
     <Compile Include="Data\LegionDesktopControlsProperty.cs" />
     <Compile Include="Data\LegionVibrationModeProperty.cs" />
@@ -185,6 +187,11 @@
     <Compile Include="Data\LegionGyroDeadzoneProperty.cs" />
     <Compile Include="Data\LegionLeftStickDeadzoneProperty.cs" />
     <Compile Include="Data\LegionRightStickDeadzoneProperty.cs" />
+    <Compile Include="Data\LegionLeftTriggerStartProperty.cs" />
+    <Compile Include="Data\LegionLeftTriggerEndProperty.cs" />
+    <Compile Include="Data\LegionRightTriggerStartProperty.cs" />
+    <Compile Include="Data\LegionRightTriggerEndProperty.cs" />
+    <Compile Include="Data\LegionHairTriggersProperty.cs" />
     <Compile Include="Data\LegionTouchpadVibrationProperty.cs" />
     <Compile Include="Data\LegionJoystickAsMouseModeProperty.cs" />
     <Compile Include="Data\LegionJoystickMouseSensProperty.cs" />
