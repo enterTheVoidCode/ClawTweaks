@@ -133,6 +133,8 @@ namespace XboxGamingBarHelper.Legion
         public readonly LegionButtonM1Property LegionButtonM1;
         public readonly LegionButtonM2Property LegionButtonM2;
         public readonly LegionButtonM3Property LegionButtonM3;
+        public readonly LegionButtonDesktopProperty LegionButtonDesktop;
+        public readonly LegionButtonPageProperty LegionButtonPage;
         public readonly LegionNintendoLayoutProperty LegionNintendoLayout;
         public readonly LegionVibrationModeProperty LegionVibrationMode;
         public readonly LegionControllerProfileEnabledProperty LegionControllerProfileEnabled;
@@ -153,6 +155,13 @@ namespace XboxGamingBarHelper.Legion
         // Stick deadzone properties (per-game profile)
         public readonly LegionLeftStickDeadzoneProperty LegionLeftStickDeadzone;
         public readonly LegionRightStickDeadzoneProperty LegionRightStickDeadzone;
+
+        // Trigger travel properties (per-game profile)
+        public readonly LegionLeftTriggerStartProperty LegionLeftTriggerStart;
+        public readonly LegionLeftTriggerEndProperty LegionLeftTriggerEnd;
+        public readonly LegionRightTriggerStartProperty LegionRightTriggerStart;
+        public readonly LegionRightTriggerEndProperty LegionRightTriggerEnd;
+        public readonly LegionHairTriggersProperty LegionHairTriggers;
 
         // Touchpad vibration property (GLOBAL setting)
         public readonly LegionTouchpadVibrationProperty LegionTouchpadVibration;
@@ -263,6 +272,8 @@ namespace XboxGamingBarHelper.Legion
             LegionButtonM1 = new LegionButtonM1Property("", this);
             LegionButtonM2 = new LegionButtonM2Property("", this);
             LegionButtonM3 = new LegionButtonM3Property("", this);
+            LegionButtonDesktop = new LegionButtonDesktopProperty("", this);
+            LegionButtonPage = new LegionButtonPageProperty("", this);
             LegionNintendoLayout = new LegionNintendoLayoutProperty(nintendoLayoutEnabled, this);
             LegionVibrationMode = new LegionVibrationModeProperty(vibrationMode, this);
             LegionControllerProfileEnabled = new LegionControllerProfileEnabledProperty(false, this);
@@ -283,6 +294,13 @@ namespace XboxGamingBarHelper.Legion
             // Initialize stick deadzone properties
             LegionLeftStickDeadzone = new LegionLeftStickDeadzoneProperty(leftStickDeadzone, this);
             LegionRightStickDeadzone = new LegionRightStickDeadzoneProperty(rightStickDeadzone, this);
+
+            // Initialize trigger travel properties
+            LegionLeftTriggerStart = new LegionLeftTriggerStartProperty(0, this);
+            LegionLeftTriggerEnd = new LegionLeftTriggerEndProperty(0, this);
+            LegionRightTriggerStart = new LegionRightTriggerStartProperty(0, this);
+            LegionRightTriggerEnd = new LegionRightTriggerEndProperty(0, this);
+            LegionHairTriggers = new LegionHairTriggersProperty(false, this);
 
             // Initialize touchpad vibration property (GLOBAL setting)
             LegionTouchpadVibration = new LegionTouchpadVibrationProperty(touchpadVibrationLevel, this);
@@ -1343,6 +1361,62 @@ namespace XboxGamingBarHelper.Legion
         }
 
         /// <summary>
+        /// Sets mapping for Legion-specific buttons (Desktop, Page) which use GamepadButton codes.
+        /// </summary>
+        /// <param name="button">The GamepadButton to map (DesktopButton=0x25, PageButton=0x26)</param>
+        /// <param name="mappingType">0=Gamepad, 1=Keyboard, 2=Mouse</param>
+        /// <param name="values">Mapping values (key codes, button codes, etc.)</param>
+        public void SetLegionButtonMapping(LegionGo.GamepadButton button, int mappingType, int[] values)
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn($"Cannot set {button} mapping: controller not connected");
+                    return;
+                }
+
+                var type = (LegionGo.MappingType)(mappingType + 1); // 0->Gamepad(1), 1->Keyboard(2), 2->Mouse(3)
+                byte[] mappings;
+
+                if (mappingType == 0)
+                {
+                    // Gamepad: use RemapActionHelper to convert to HID button code
+                    if (values.Length > 0 && values[0] == 0)
+                    {
+                        // Disabled - clear the mapping
+                        controller.ClearGamepadButtonMapping(button);
+                        Logger.Info($"{button} mapping cleared (disabled)");
+                        return;
+                    }
+                    var action = LegionGo.RemapActionHelper.GetByIndex(values.Length > 0 ? values[0] : 0);
+                    mappings = new byte[] { (byte)action };
+                }
+                else
+                {
+                    // Keyboard or Mouse: use raw values
+                    mappings = values.Select(v => (byte)v).ToArray();
+                }
+
+                bool success = controller.SetGamepadButtonMappingAdvanced(button, type, mappings);
+                var hidBytes = $"05 00 12 0A 03 01 11 01 {(byte)button:X2} {(byte)type:X2} {string.Join(" ", mappings.Select(b => b.ToString("X2")))}";
+                Logger.Info($"{button} mapped to {type} with mappings=[{string.Join(",", mappings.Select(b => $"0x{b:X2}"))}] (HID: {hidBytes})");
+
+                if (!success)
+                {
+                    Logger.Error($"Failed to set {button} mapping");
+                }
+
+                System.Threading.Thread.Sleep(50);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting {button} mapping: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Sets the Nintendo layout mode (swaps A↔B and X↔Y face buttons).
         /// </summary>
         public void SetNintendoLayout(bool enabled)
@@ -1734,6 +1808,83 @@ namespace XboxGamingBarHelper.Legion
             catch (Exception ex)
             {
                 Logger.Error($"Error setting right stick deadzone: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region Trigger Travel
+
+        private int leftTriggerStart = 0;
+        private int leftTriggerEnd = 0;
+        private int rightTriggerStart = 0;
+        private int rightTriggerEnd = 0;
+
+        /// <summary>
+        /// Sets the left trigger travel range.
+        /// </summary>
+        /// <param name="start">Percentage where trigger starts registering (0-100).</param>
+        /// <param name="end">Percentage from end where trigger reports full (0-100).</param>
+        public void SetLeftTriggerTravel(int start, int end)
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn("Cannot set left trigger travel: controller not connected");
+                    return;
+                }
+
+                bool success = controller.SetTriggerTravel(LegionGo.Controller.Left, start, end);
+                if (success)
+                {
+                    leftTriggerStart = start;
+                    leftTriggerEnd = end;
+                    Logger.Info($"Left trigger travel set to start={start}%, end={end}%");
+                }
+                else
+                {
+                    Logger.Error($"Failed to set left trigger travel");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting left trigger travel: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sets the right trigger travel range.
+        /// </summary>
+        /// <param name="start">Percentage where trigger starts registering (0-100).</param>
+        /// <param name="end">Percentage from end where trigger reports full (0-100).</param>
+        public void SetRightTriggerTravel(int start, int end)
+        {
+            try
+            {
+                using var controller = new LegionGo.LegionGoController();
+                if (!controller.Connect())
+                {
+                    Logger.Warn("Cannot set right trigger travel: controller not connected");
+                    return;
+                }
+
+                bool success = controller.SetTriggerTravel(LegionGo.Controller.Right, start, end);
+                if (success)
+                {
+                    rightTriggerStart = start;
+                    rightTriggerEnd = end;
+                    Logger.Info($"Right trigger travel set to start={start}%, end={end}%");
+                }
+                else
+                {
+                    Logger.Error($"Failed to set right trigger travel");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error setting right trigger travel: {ex.Message}");
             }
         }
 

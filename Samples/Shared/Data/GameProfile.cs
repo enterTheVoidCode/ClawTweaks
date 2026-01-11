@@ -503,6 +503,36 @@ namespace Shared.Data
             }
         }
 
+        [XmlElement("LegionButtonDesktop")]
+        private string legionButtonDesktop;
+        public string LegionButtonDesktop
+        {
+            get { return legionButtonDesktop; }
+            set
+            {
+                if (legionButtonDesktop != value)
+                {
+                    legionButtonDesktop = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionButtonPage")]
+        private string legionButtonPage;
+        public string LegionButtonPage
+        {
+            get { return legionButtonPage; }
+            set
+            {
+                if (legionButtonPage != value)
+                {
+                    legionButtonPage = value;
+                    Save();
+                }
+            }
+        }
+
         [XmlElement("LegionGyroButton")]
         private int? legionGyroButton;
         public int? LegionGyroButton
@@ -700,6 +730,81 @@ namespace Shared.Data
             }
         }
 
+        [XmlElement("LegionLeftTriggerStart")]
+        private int? legionLeftTriggerStart;
+        public int? LegionLeftTriggerStart
+        {
+            get { return legionLeftTriggerStart; }
+            set
+            {
+                if (legionLeftTriggerStart != value)
+                {
+                    legionLeftTriggerStart = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionLeftTriggerEnd")]
+        private int? legionLeftTriggerEnd;
+        public int? LegionLeftTriggerEnd
+        {
+            get { return legionLeftTriggerEnd; }
+            set
+            {
+                if (legionLeftTriggerEnd != value)
+                {
+                    legionLeftTriggerEnd = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionRightTriggerStart")]
+        private int? legionRightTriggerStart;
+        public int? LegionRightTriggerStart
+        {
+            get { return legionRightTriggerStart; }
+            set
+            {
+                if (legionRightTriggerStart != value)
+                {
+                    legionRightTriggerStart = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionRightTriggerEnd")]
+        private int? legionRightTriggerEnd;
+        public int? LegionRightTriggerEnd
+        {
+            get { return legionRightTriggerEnd; }
+            set
+            {
+                if (legionRightTriggerEnd != value)
+                {
+                    legionRightTriggerEnd = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("LegionHairTriggers")]
+        private bool? legionHairTriggers;
+        public bool? LegionHairTriggers
+        {
+            get { return legionHairTriggers; }
+            set
+            {
+                if (legionHairTriggers != value)
+                {
+                    legionHairTriggers = value;
+                    Save();
+                }
+            }
+        }
+
         [XmlElement("LegionJoystickAsMouseMode")]
         private int? legionJoystickAsMouseMode;
         public int? LegionJoystickAsMouseMode
@@ -844,6 +949,8 @@ namespace Shared.Data
             legionButtonY3 = null;
             legionButtonM2 = null;
             legionButtonM3 = null;
+            legionButtonDesktop = null;
+            legionButtonPage = null;
             legionGyroButton = null;
             // Additional Legion controller settings
             legionControllerProfileEnabled = null;
@@ -858,6 +965,11 @@ namespace Shared.Data
             legionGyroDeadzone = null;
             legionLeftStickDeadzone = null;
             legionRightStickDeadzone = null;
+            legionLeftTriggerStart = null;
+            legionLeftTriggerEnd = null;
+            legionRightTriggerStart = null;
+            legionRightTriggerEnd = null;
+            legionHairTriggers = null;
             legionJoystickAsMouseMode = null;
             legionJoystickMouseSens = null;
             legionGamepadMapping = null;

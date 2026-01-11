@@ -320,6 +320,8 @@ namespace XboxGamingBar
         public ButtonMapping ButtonM1 { get; set; } = new ButtonMapping();
         public ButtonMapping ButtonM2 { get; set; } = new ButtonMapping();
         public ButtonMapping ButtonM3 { get; set; } = new ButtonMapping();
+        public ButtonMapping ButtonDesktop { get; set; } = new ButtonMapping();
+        public ButtonMapping ButtonPage { get; set; } = new ButtonMapping();
         public bool NintendoLayout { get; set; } = false;
         public int VibrationLevel { get; set; } = 2;  // Medium
         public int VibrationMode { get; set; } = 1;   // FPS
@@ -341,6 +343,13 @@ namespace XboxGamingBar
         public int LeftStickDeadzone { get; set; } = 4;    // Default 4%
         public int RightStickDeadzone { get; set; } = 4;
 
+        // Trigger travel (per-game profile)
+        public int LeftTriggerStart { get; set; } = 0;     // Start % (0-100)
+        public int LeftTriggerEnd { get; set; } = 0;       // End % from full (0-100)
+        public int RightTriggerStart { get; set; } = 0;
+        public int RightTriggerEnd { get; set; } = 0;
+        public bool HairTriggers { get; set; } = false;    // Hair triggers preset (0%/1%)
+
         // Joystick as mouse (per-game profile)
         public int JoystickAsMouseMode { get; set; } = 0;  // 0=Disabled, 1=Left Stick, 2=Right Stick
         public int JoystickMouseSens { get; set; } = 50;   // 10-100
@@ -350,6 +359,13 @@ namespace XboxGamingBar
 
         // Desktop Controls preset (per-game profile)
         public bool DesktopControlsEnabled { get; set; } = false;
+
+        // Lighting (per-game profile)
+        public int LightMode { get; set; } = 1;          // 0=Off, 1=Solid, 2=Pulse, 3=Dynamic, 4=Spiral
+        public byte LightColorR { get; set; } = 255;     // RGB color for Solid/Pulse modes
+        public byte LightColorG { get; set; } = 255;
+        public byte LightColorB { get; set; } = 255;
+        public int LightSpeed { get; set; } = 50;        // Animation speed for dynamic modes
 
         public ControllerProfile Clone()
         {
@@ -361,6 +377,8 @@ namespace XboxGamingBar
                 ButtonM1 = this.ButtonM1.Clone(),
                 ButtonM2 = this.ButtonM2.Clone(),
                 ButtonM3 = this.ButtonM3.Clone(),
+                ButtonDesktop = this.ButtonDesktop.Clone(),
+                ButtonPage = this.ButtonPage.Clone(),
                 NintendoLayout = this.NintendoLayout,
                 VibrationLevel = this.VibrationLevel,
                 VibrationMode = this.VibrationMode,
@@ -378,6 +396,12 @@ namespace XboxGamingBar
                 // Stick deadzones
                 LeftStickDeadzone = this.LeftStickDeadzone,
                 RightStickDeadzone = this.RightStickDeadzone,
+                // Trigger travel
+                LeftTriggerStart = this.LeftTriggerStart,
+                LeftTriggerEnd = this.LeftTriggerEnd,
+                RightTriggerStart = this.RightTriggerStart,
+                RightTriggerEnd = this.RightTriggerEnd,
+                HairTriggers = this.HairTriggers,
                 // Joystick as mouse
                 JoystickAsMouseMode = this.JoystickAsMouseMode,
                 JoystickMouseSens = this.JoystickMouseSens,
@@ -386,7 +410,13 @@ namespace XboxGamingBar
                     kvp => kvp.Key,
                     kvp => kvp.Value.Clone()),
                 // Desktop Controls preset
-                DesktopControlsEnabled = this.DesktopControlsEnabled
+                DesktopControlsEnabled = this.DesktopControlsEnabled,
+                // Lighting
+                LightMode = this.LightMode,
+                LightColorR = this.LightColorR,
+                LightColorG = this.LightColorG,
+                LightColorB = this.LightColorB,
+                LightSpeed = this.LightSpeed
             };
         }
     }
@@ -639,6 +669,8 @@ namespace XboxGamingBar
         private readonly LegionButtonM1Property legionButtonM1;
         private readonly LegionButtonM2Property legionButtonM2;
         private readonly LegionButtonM3Property legionButtonM3;
+        private readonly LegionButtonDesktopProperty legionButtonDesktop;
+        private readonly LegionButtonPageProperty legionButtonPage;
         private readonly LegionNintendoLayoutProperty legionNintendoLayout;
         private readonly LegionVibrationModeProperty legionVibrationMode;
         private readonly LegionControllerProfileProperty legionControllerProfile;
@@ -659,6 +691,13 @@ namespace XboxGamingBar
         // Stick deadzone properties
         private readonly LegionLeftStickDeadzoneProperty legionLeftStickDeadzone;
         private readonly LegionRightStickDeadzoneProperty legionRightStickDeadzone;
+
+        // Trigger travel properties
+        private readonly LegionLeftTriggerStartProperty legionLeftTriggerStart;
+        private readonly LegionLeftTriggerEndProperty legionLeftTriggerEnd;
+        private readonly LegionRightTriggerStartProperty legionRightTriggerStart;
+        private readonly LegionRightTriggerEndProperty legionRightTriggerEnd;
+        private readonly LegionHairTriggersProperty legionHairTriggers;
 
         // Touchpad vibration property (GLOBAL setting)
         private readonly LegionTouchpadVibrationProperty legionTouchpadVibration;
@@ -965,6 +1004,8 @@ namespace XboxGamingBar
             legionButtonM1 = new LegionButtonM1Property(LegionButtonM1ComboBox, this);
             legionButtonM2 = new LegionButtonM2Property(LegionButtonM2ComboBox, this);
             legionButtonM3 = new LegionButtonM3Property(LegionButtonM3ComboBox, this);
+            legionButtonDesktop = new LegionButtonDesktopProperty(LegionButtonDesktopComboBox, this);
+            legionButtonPage = new LegionButtonPageProperty(LegionButtonPageComboBox, this);
             legionNintendoLayout = new LegionNintendoLayoutProperty(LegionNintendoLayoutToggle, this);
             legionVibrationMode = new LegionVibrationModeProperty(LegionVibrationModeComboBox, this);
             legionControllerProfile = new LegionControllerProfileProperty(LegionControllerProfileToggle, this);
@@ -985,6 +1026,13 @@ namespace XboxGamingBar
             // Stick deadzone properties
             legionLeftStickDeadzone = new LegionLeftStickDeadzoneProperty(LegionLeftStickDeadzoneSlider, this);
             legionRightStickDeadzone = new LegionRightStickDeadzoneProperty(LegionRightStickDeadzoneSlider, this);
+
+            // Trigger travel properties
+            legionLeftTriggerStart = new LegionLeftTriggerStartProperty(LegionLeftTriggerStartSlider, this);
+            legionLeftTriggerEnd = new LegionLeftTriggerEndProperty(LegionLeftTriggerEndSlider, this);
+            legionRightTriggerStart = new LegionRightTriggerStartProperty(LegionRightTriggerStartSlider, this);
+            legionRightTriggerEnd = new LegionRightTriggerEndProperty(LegionRightTriggerEndSlider, this);
+            legionHairTriggers = new LegionHairTriggersProperty(LegionHairTriggersToggle, this);
 
             // Touchpad vibration property (GLOBAL setting)
             legionTouchpadVibration = new LegionTouchpadVibrationProperty(LegionTouchpadVibrationComboBox, this);
@@ -2103,6 +2151,8 @@ namespace XboxGamingBar
             InitializeButtonMappingEvents("M1");
             InitializeButtonMappingEvents("M2");
             InitializeButtonMappingEvents("M3");
+            InitializeButtonMappingEvents("Desktop");
+            InitializeButtonMappingEvents("Page");
 
             if (LegionNintendoLayoutToggle != null)
                 LegionNintendoLayoutToggle.Toggled += LegionNintendoLayout_Toggled;
@@ -2140,6 +2190,18 @@ namespace XboxGamingBar
                 LegionLeftStickDeadzoneSlider.ValueChanged += ControllerSettingChanged;
             if (LegionRightStickDeadzoneSlider != null)
                 LegionRightStickDeadzoneSlider.ValueChanged += ControllerSettingChanged;
+
+            // Trigger travel (per-game profile)
+            if (LegionLeftTriggerStartSlider != null)
+                LegionLeftTriggerStartSlider.ValueChanged += ControllerSettingChanged;
+            if (LegionLeftTriggerEndSlider != null)
+                LegionLeftTriggerEndSlider.ValueChanged += ControllerSettingChanged;
+            if (LegionRightTriggerStartSlider != null)
+                LegionRightTriggerStartSlider.ValueChanged += ControllerSettingChanged;
+            if (LegionRightTriggerEndSlider != null)
+                LegionRightTriggerEndSlider.ValueChanged += ControllerSettingChanged;
+            if (LegionHairTriggersToggle != null)
+                LegionHairTriggersToggle.Toggled += LegionHairTriggers_Toggled;
 
             // Joystick as mouse (per-game profile)
             if (LegionJoystickAsMouseComboBox != null)
@@ -7734,6 +7796,8 @@ namespace XboxGamingBar
             container.Values["ButtonM1"] = profile.ButtonM1.ToJson();
             container.Values["ButtonM2"] = profile.ButtonM2.ToJson();
             container.Values["ButtonM3"] = profile.ButtonM3.ToJson();
+            container.Values["ButtonDesktop"] = profile.ButtonDesktop.ToJson();
+            container.Values["ButtonPage"] = profile.ButtonPage.ToJson();
             container.Values["NintendoLayout"] = profile.NintendoLayout;
             container.Values["VibrationLevel"] = profile.VibrationLevel;
             container.Values["VibrationMode"] = profile.VibrationMode;
@@ -7755,6 +7819,13 @@ namespace XboxGamingBar
             container.Values["LeftStickDeadzone"] = profile.LeftStickDeadzone;
             container.Values["RightStickDeadzone"] = profile.RightStickDeadzone;
 
+            // Trigger travel
+            container.Values["LeftTriggerStart"] = profile.LeftTriggerStart;
+            container.Values["LeftTriggerEnd"] = profile.LeftTriggerEnd;
+            container.Values["RightTriggerStart"] = profile.RightTriggerStart;
+            container.Values["RightTriggerEnd"] = profile.RightTriggerEnd;
+            container.Values["HairTriggers"] = profile.HairTriggers;
+
             // Joystick as mouse
             container.Values["JoystickAsMouseMode"] = profile.JoystickAsMouseMode;
             container.Values["JoystickMouseSens"] = profile.JoystickMouseSens;
@@ -7772,6 +7843,13 @@ namespace XboxGamingBar
 
             // Desktop Controls preset
             container.Values["DesktopControlsEnabled"] = profile.DesktopControlsEnabled;
+
+            // Lighting
+            container.Values["LightMode"] = profile.LightMode;
+            container.Values["LightColorR"] = profile.LightColorR;
+            container.Values["LightColorG"] = profile.LightColorG;
+            container.Values["LightColorB"] = profile.LightColorB;
+            container.Values["LightSpeed"] = profile.LightSpeed;
 
             // Store the game exe path for game profiles (used for loading icons)
             if (profileName.StartsWith("Game_") && !string.IsNullOrEmpty(currentGameExePath))
@@ -7817,6 +7895,8 @@ namespace XboxGamingBar
                 profile.ButtonM1 = LoadButtonMapping(container, "ButtonM1");
                 profile.ButtonM2 = LoadButtonMapping(container, "ButtonM2");
                 profile.ButtonM3 = LoadButtonMapping(container, "ButtonM3");
+                profile.ButtonDesktop = LoadButtonMapping(container, "ButtonDesktop");
+                profile.ButtonPage = LoadButtonMapping(container, "ButtonPage");
                 profile.NintendoLayout = container.Values.ContainsKey("NintendoLayout") ? (bool)container.Values["NintendoLayout"] : false;
                 profile.VibrationLevel = container.Values.ContainsKey("VibrationLevel") ? (int)container.Values["VibrationLevel"] : 2;
                 profile.VibrationMode = container.Values.ContainsKey("VibrationMode") ? (int)container.Values["VibrationMode"] : 1;
@@ -7837,6 +7917,13 @@ namespace XboxGamingBar
                 // Stick deadzones
                 profile.LeftStickDeadzone = container.Values.ContainsKey("LeftStickDeadzone") ? (int)container.Values["LeftStickDeadzone"] : 4;
                 profile.RightStickDeadzone = container.Values.ContainsKey("RightStickDeadzone") ? (int)container.Values["RightStickDeadzone"] : 4;
+
+                // Trigger travel
+                profile.LeftTriggerStart = container.Values.ContainsKey("LeftTriggerStart") ? (int)container.Values["LeftTriggerStart"] : 0;
+                profile.LeftTriggerEnd = container.Values.ContainsKey("LeftTriggerEnd") ? (int)container.Values["LeftTriggerEnd"] : 0;
+                profile.RightTriggerStart = container.Values.ContainsKey("RightTriggerStart") ? (int)container.Values["RightTriggerStart"] : 0;
+                profile.RightTriggerEnd = container.Values.ContainsKey("RightTriggerEnd") ? (int)container.Values["RightTriggerEnd"] : 0;
+                profile.HairTriggers = container.Values.ContainsKey("HairTriggers") ? (bool)container.Values["HairTriggers"] : false;
 
                 // Joystick as mouse
                 profile.JoystickAsMouseMode = container.Values.ContainsKey("JoystickAsMouseMode") ? (int)container.Values["JoystickAsMouseMode"] : 0;
@@ -7864,6 +7951,13 @@ namespace XboxGamingBar
                 profile.DesktopControlsEnabled = container.Values.ContainsKey("DesktopControlsEnabled")
                     ? (bool)container.Values["DesktopControlsEnabled"]
                     : false;
+
+                // Lighting
+                profile.LightMode = container.Values.ContainsKey("LightMode") ? (int)container.Values["LightMode"] : 1;
+                profile.LightColorR = container.Values.ContainsKey("LightColorR") ? (byte)container.Values["LightColorR"] : (byte)255;
+                profile.LightColorG = container.Values.ContainsKey("LightColorG") ? (byte)container.Values["LightColorG"] : (byte)255;
+                profile.LightColorB = container.Values.ContainsKey("LightColorB") ? (byte)container.Values["LightColorB"] : (byte)255;
+                profile.LightSpeed = container.Values.ContainsKey("LightSpeed") ? (int)container.Values["LightSpeed"] : 50;
 
                 Logger.Info($"Loaded controller profile: {profileName}");
             }
@@ -8180,6 +8274,8 @@ namespace XboxGamingBar
                 SetStoredKeyboardKeys("M1", profile.ButtonM1?.KeyboardKeys ?? new List<int>());
                 SetStoredKeyboardKeys("M2", profile.ButtonM2?.KeyboardKeys ?? new List<int>());
                 SetStoredKeyboardKeys("M3", profile.ButtonM3?.KeyboardKeys ?? new List<int>());
+                SetStoredKeyboardKeys("Desktop", profile.ButtonDesktop?.KeyboardKeys ?? new List<int>());
+                SetStoredKeyboardKeys("Page", profile.ButtonPage?.KeyboardKeys ?? new List<int>());
 
                 // Apply button mappings (with full type support)
                 ApplyButtonMappingToUI("Y1", profile.ButtonY1);
@@ -8188,6 +8284,8 @@ namespace XboxGamingBar
                 ApplyButtonMappingToUI("M1", profile.ButtonM1);
                 ApplyButtonMappingToUI("M2", profile.ButtonM2);
                 ApplyButtonMappingToUI("M3", profile.ButtonM3);
+                ApplyButtonMappingToUI("Desktop", profile.ButtonDesktop);
+                ApplyButtonMappingToUI("Page", profile.ButtonPage);
 
                 // Apply Nintendo layout
                 if (LegionNintendoLayoutToggle != null)
@@ -8247,6 +8345,45 @@ namespace XboxGamingBar
                         LegionRightStickDeadzoneValue.Text = $"{profile.RightStickDeadzone}%";
                 }
 
+                // Apply trigger travel settings
+                if (LegionHairTriggersToggle != null)
+                {
+                    LegionHairTriggersToggle.Toggled -= LegionHairTriggers_Toggled;
+                    try
+                    {
+                        LegionHairTriggersToggle.IsOn = profile.HairTriggers;
+                        UpdateTriggerSlidersEnabled(!profile.HairTriggers);
+                    }
+                    finally
+                    {
+                        LegionHairTriggersToggle.Toggled += LegionHairTriggers_Toggled;
+                    }
+                }
+                if (LegionLeftTriggerStartSlider != null)
+                {
+                    LegionLeftTriggerStartSlider.Value = profile.LeftTriggerStart;
+                    if (LegionLeftTriggerStartValue != null)
+                        LegionLeftTriggerStartValue.Text = $"{profile.LeftTriggerStart}%";
+                }
+                if (LegionLeftTriggerEndSlider != null)
+                {
+                    LegionLeftTriggerEndSlider.Value = profile.LeftTriggerEnd;
+                    if (LegionLeftTriggerEndValue != null)
+                        LegionLeftTriggerEndValue.Text = $"{profile.LeftTriggerEnd}%";
+                }
+                if (LegionRightTriggerStartSlider != null)
+                {
+                    LegionRightTriggerStartSlider.Value = profile.RightTriggerStart;
+                    if (LegionRightTriggerStartValue != null)
+                        LegionRightTriggerStartValue.Text = $"{profile.RightTriggerStart}%";
+                }
+                if (LegionRightTriggerEndSlider != null)
+                {
+                    LegionRightTriggerEndSlider.Value = profile.RightTriggerEnd;
+                    if (LegionRightTriggerEndValue != null)
+                        LegionRightTriggerEndValue.Text = $"{profile.RightTriggerEnd}%";
+                }
+
                 // Apply joystick as mouse settings
                 if (LegionJoystickAsMouseComboBox != null)
                 {
@@ -8300,10 +8437,47 @@ namespace XboxGamingBar
                     }
                 }
 
-                Logger.Info($"Applied controller profile: Y1={FormatButtonMapping(profile.ButtonY1)}, Y2={FormatButtonMapping(profile.ButtonY2)}, Y3={FormatButtonMapping(profile.ButtonY3)}, M1={FormatButtonMapping(profile.ButtonM1)}, M2={FormatButtonMapping(profile.ButtonM2)}, M3={FormatButtonMapping(profile.ButtonM3)}, Nintendo={profile.NintendoLayout}, Vib={profile.VibrationLevel}, VibMode={profile.VibrationMode}, GyroTarget={profile.GyroTarget}, LDZ={profile.LeftStickDeadzone}, RDZ={profile.RightStickDeadzone}, GamepadMappings={profile.GamepadButtonMappings?.Count ?? 0}, DesktopControls={profile.DesktopControlsEnabled}");
+                // Apply lighting settings
+                if (LegionLightModeComboBox != null)
+                {
+                    LegionLightModeComboBox.SelectionChanged -= LegionLightModeComboBox_SelectionChanged;
+                    try
+                    {
+                        LegionLightModeComboBox.SelectedIndex = profile.LightMode;
+                    }
+                    finally
+                    {
+                        LegionLightModeComboBox.SelectionChanged += LegionLightModeComboBox_SelectionChanged;
+                    }
+                }
+                if (LegionColorPicker != null)
+                {
+                    LegionColorPicker.ColorChanged -= LegionColorPicker_ColorChanged;
+                    try
+                    {
+                        LegionColorPicker.Color = Windows.UI.Color.FromArgb(255, profile.LightColorR, profile.LightColorG, profile.LightColorB);
+                        if (LegionColorPreview != null)
+                        {
+                            LegionColorPreview.Background = new SolidColorBrush(LegionColorPicker.Color);
+                        }
+                    }
+                    finally
+                    {
+                        LegionColorPicker.ColorChanged += LegionColorPicker_ColorChanged;
+                    }
+                }
+                if (LegionSpeedSlider != null)
+                {
+                    LegionSpeedSlider.Value = profile.LightSpeed;
+                }
+
+                Logger.Info($"Applied controller profile: Y1={FormatButtonMapping(profile.ButtonY1)}, Y2={FormatButtonMapping(profile.ButtonY2)}, Y3={FormatButtonMapping(profile.ButtonY3)}, M1={FormatButtonMapping(profile.ButtonM1)}, M2={FormatButtonMapping(profile.ButtonM2)}, M3={FormatButtonMapping(profile.ButtonM3)}, Nintendo={profile.NintendoLayout}, Vib={profile.VibrationLevel}, VibMode={profile.VibrationMode}, GyroTarget={profile.GyroTarget}, LDZ={profile.LeftStickDeadzone}, RDZ={profile.RightStickDeadzone}, GamepadMappings={profile.GamepadButtonMappings?.Count ?? 0}, DesktopControls={profile.DesktopControlsEnabled}, LightMode={profile.LightMode}");
 
                 // Send button mappings to helper
                 SendButtonMappingsToHelper(profile);
+
+                // Send lighting settings to helper
+                SendLightingToHelper(profile);
             }
             finally
             {
@@ -8321,6 +8495,8 @@ namespace XboxGamingBar
                 ButtonM1 = GetButtonMappingFromUI("M1"),
                 ButtonM2 = GetButtonMappingFromUI("M2"),
                 ButtonM3 = GetButtonMappingFromUI("M3"),
+                ButtonDesktop = GetButtonMappingFromUI("Desktop"),
+                ButtonPage = GetButtonMappingFromUI("Page"),
                 NintendoLayout = LegionNintendoLayoutToggle?.IsOn ?? false,
                 VibrationLevel = LegionVibrationComboBox?.SelectedIndex ?? 2,
                 VibrationMode = (LegionVibrationModeComboBox?.SelectedIndex ?? 0) + 1, // Index is 0-based, mode is 1-based
@@ -8338,6 +8514,12 @@ namespace XboxGamingBar
                 // Stick deadzones
                 LeftStickDeadzone = (int)(LegionLeftStickDeadzoneSlider?.Value ?? 4),
                 RightStickDeadzone = (int)(LegionRightStickDeadzoneSlider?.Value ?? 4),
+                // Trigger travel
+                LeftTriggerStart = (int)(LegionLeftTriggerStartSlider?.Value ?? 0),
+                LeftTriggerEnd = (int)(LegionLeftTriggerEndSlider?.Value ?? 0),
+                RightTriggerStart = (int)(LegionRightTriggerStartSlider?.Value ?? 0),
+                RightTriggerEnd = (int)(LegionRightTriggerEndSlider?.Value ?? 0),
+                HairTriggers = LegionHairTriggersToggle?.IsOn ?? false,
                 // Joystick as mouse
                 JoystickAsMouseMode = LegionJoystickAsMouseComboBox?.SelectedIndex ?? 0,
                 JoystickMouseSens = (int)(LegionJoystickMouseSensSlider?.Value ?? 50),
@@ -8346,7 +8528,13 @@ namespace XboxGamingBar
                     kvp => kvp.Key,
                     kvp => kvp.Value.Clone()),
                 // Desktop Controls preset
-                DesktopControlsEnabled = LegionDesktopControlsToggle?.IsOn ?? false
+                DesktopControlsEnabled = LegionDesktopControlsToggle?.IsOn ?? false,
+                // Lighting
+                LightMode = LegionLightModeComboBox?.SelectedIndex ?? 1,
+                LightColorR = LegionColorPicker?.Color.R ?? 255,
+                LightColorG = LegionColorPicker?.Color.G ?? 255,
+                LightColorB = LegionColorPicker?.Color.B ?? 255,
+                LightSpeed = (int)(LegionSpeedSlider?.Value ?? 50)
             };
         }
 
@@ -8463,6 +8651,8 @@ namespace XboxGamingBar
                 legionButtonM1?.SendMapping(profile.ButtonM1?.ToJson() ?? "");
                 legionButtonM2?.SendMapping(profile.ButtonM2?.ToJson() ?? "");
                 legionButtonM3?.SendMapping(profile.ButtonM3?.ToJson() ?? "");
+                legionButtonDesktop?.SendMapping(profile.ButtonDesktop?.ToJson() ?? "");
+                legionButtonPage?.SendMapping(profile.ButtonPage?.ToJson() ?? "");
 
                 // Send gamepad button mappings as JSON dictionary
                 if (profile.GamepadButtonMappings != null && profile.GamepadButtonMappings.Count > 0)
@@ -8478,6 +8668,31 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Error sending button mappings: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sends lighting settings to the helper via IPC
+        /// </summary>
+        private void SendLightingToHelper(ControllerProfile profile)
+        {
+            try
+            {
+                // Send light mode
+                legionLightMode?.SetValue(profile.LightMode);
+
+                // Send light color as hex string (RRGGBB format)
+                string colorHex = $"{profile.LightColorR:X2}{profile.LightColorG:X2}{profile.LightColorB:X2}";
+                legionLightColor?.SetValue(colorHex);
+
+                // Send light speed
+                legionLightSpeed?.SetValue(profile.LightSpeed);
+
+                Logger.Info($"Sent lighting to helper: Mode={profile.LightMode}, Color=#{colorHex}, Speed={profile.LightSpeed}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending lighting settings: {ex.Message}");
             }
         }
 
@@ -8501,6 +8716,15 @@ namespace XboxGamingBar
                     LegionLeftStickDeadzoneValue.Text = $"{(int)LegionLeftStickDeadzoneSlider.Value}%";
                 else if (sender == LegionRightStickDeadzoneSlider && LegionRightStickDeadzoneValue != null)
                     LegionRightStickDeadzoneValue.Text = $"{(int)LegionRightStickDeadzoneSlider.Value}%";
+                // Trigger travel sliders
+                else if (sender == LegionLeftTriggerStartSlider && LegionLeftTriggerStartValue != null)
+                    LegionLeftTriggerStartValue.Text = $"{(int)LegionLeftTriggerStartSlider.Value}%";
+                else if (sender == LegionLeftTriggerEndSlider && LegionLeftTriggerEndValue != null)
+                    LegionLeftTriggerEndValue.Text = $"{(int)LegionLeftTriggerEndSlider.Value}%";
+                else if (sender == LegionRightTriggerStartSlider && LegionRightTriggerStartValue != null)
+                    LegionRightTriggerStartValue.Text = $"{(int)LegionRightTriggerStartSlider.Value}%";
+                else if (sender == LegionRightTriggerEndSlider && LegionRightTriggerEndValue != null)
+                    LegionRightTriggerEndValue.Text = $"{(int)LegionRightTriggerEndSlider.Value}%";
                 // Joystick as mouse sensitivity slider
                 else if (sender == LegionJoystickMouseSensSlider && LegionJoystickMouseSensValue != null)
                     LegionJoystickMouseSensValue.Text = ((int)LegionJoystickMouseSensSlider.Value).ToString();
@@ -8782,6 +9006,96 @@ namespace XboxGamingBar
             // Update the summary display
             UpdateGamepadMappingSummary();
         }
+
+        #region Trigger Travel
+
+        private void LegionHairTriggers_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (isLoadingControllerProfile || isSwitchingControllerProfile)
+                return;
+
+            bool enabled = LegionHairTriggersToggle?.IsOn ?? false;
+
+            if (enabled)
+            {
+                // Hair triggers: Start=0 (no dead zone), End=99 (full press at 1% travel)
+                // HID command end% is offset from 100%, so end=99 means trigger fully pressed at 1% travel
+                if (LegionLeftTriggerStartSlider != null)
+                {
+                    LegionLeftTriggerStartSlider.Value = 0;
+                    if (LegionLeftTriggerStartValue != null)
+                        LegionLeftTriggerStartValue.Text = "0%";
+                }
+                if (LegionLeftTriggerEndSlider != null)
+                {
+                    LegionLeftTriggerEndSlider.Value = 99;
+                    if (LegionLeftTriggerEndValue != null)
+                        LegionLeftTriggerEndValue.Text = "99%";
+                }
+                if (LegionRightTriggerStartSlider != null)
+                {
+                    LegionRightTriggerStartSlider.Value = 0;
+                    if (LegionRightTriggerStartValue != null)
+                        LegionRightTriggerStartValue.Text = "0%";
+                }
+                if (LegionRightTriggerEndSlider != null)
+                {
+                    LegionRightTriggerEndSlider.Value = 99;
+                    if (LegionRightTriggerEndValue != null)
+                        LegionRightTriggerEndValue.Text = "99%";
+                }
+            }
+            else
+            {
+                // Disable hair triggers: Reset to full travel (0% for all = full trigger press required)
+                if (LegionLeftTriggerStartSlider != null)
+                {
+                    LegionLeftTriggerStartSlider.Value = 0;
+                    if (LegionLeftTriggerStartValue != null)
+                        LegionLeftTriggerStartValue.Text = "0%";
+                }
+                if (LegionLeftTriggerEndSlider != null)
+                {
+                    LegionLeftTriggerEndSlider.Value = 0;
+                    if (LegionLeftTriggerEndValue != null)
+                        LegionLeftTriggerEndValue.Text = "0%";
+                }
+                if (LegionRightTriggerStartSlider != null)
+                {
+                    LegionRightTriggerStartSlider.Value = 0;
+                    if (LegionRightTriggerStartValue != null)
+                        LegionRightTriggerStartValue.Text = "0%";
+                }
+                if (LegionRightTriggerEndSlider != null)
+                {
+                    LegionRightTriggerEndSlider.Value = 0;
+                    if (LegionRightTriggerEndValue != null)
+                        LegionRightTriggerEndValue.Text = "0%";
+                }
+            }
+
+            // Enable/disable sliders based on hair triggers state
+            UpdateTriggerSlidersEnabled(!enabled);
+
+            Logger.Info($"Hair Triggers toggled: {enabled}");
+
+            // Save the profile
+            ControllerSettingChanged(sender, e);
+        }
+
+        private void UpdateTriggerSlidersEnabled(bool enabled)
+        {
+            if (LegionLeftTriggerStartSlider != null)
+                LegionLeftTriggerStartSlider.IsEnabled = enabled;
+            if (LegionLeftTriggerEndSlider != null)
+                LegionLeftTriggerEndSlider.IsEnabled = enabled;
+            if (LegionRightTriggerStartSlider != null)
+                LegionRightTriggerStartSlider.IsEnabled = enabled;
+            if (LegionRightTriggerEndSlider != null)
+                LegionRightTriggerEndSlider.IsEnabled = enabled;
+        }
+
+        #endregion
 
         #region Desktop Controls Preset
 
@@ -12917,10 +13231,35 @@ namespace XboxGamingBar
             if (TdpMethodComboBox == null) return;
 
             var selectedItem = TdpMethodComboBox.SelectedItem as ComboBoxItem;
+            var selectedIndex = TdpMethodComboBox.SelectedIndex;
 
             // If current selection is valid (visible and enabled), do nothing
             if (selectedItem != null && selectedItem.Visibility == Visibility.Visible && selectedItem.IsEnabled)
             {
+                return;
+            }
+
+            // If ManufacturerWMI is selected but collapsed, wait for Legion detection
+            // Don't auto-select PawnIO - Legion detection will make WMI visible if it's a Legion device
+            if (selectedItem != null && selectedItem == TdpMethodWmiItem && selectedItem.Visibility == Visibility.Collapsed)
+            {
+                Logger.Debug("EnsureValidTdpMethodSelected: ManufacturerWMI selected but collapsed, waiting for Legion detection");
+                return;
+            }
+
+            // If selectedIndex is 0 (ManufacturerWMI position) but selectedItem isn't matching,
+            // it means WMI was intended but may be collapsed - wait for Legion detection
+            if (selectedIndex == 0 && TdpMethodWmiItem?.Visibility == Visibility.Collapsed)
+            {
+                Logger.Debug("EnsureValidTdpMethodSelected: SelectedIndex=0 (WMI) but WMI collapsed, waiting for Legion detection");
+                return;
+            }
+
+            // If nothing is selected yet and WMI is collapsed, wait for Legion detection
+            // This handles the case where the ComboBox rejected the initial Collapsed selection
+            if (selectedItem == null && TdpMethodWmiItem?.Visibility == Visibility.Collapsed)
+            {
+                Logger.Debug("EnsureValidTdpMethodSelected: No selection and WMI collapsed, waiting for Legion detection");
                 return;
             }
 

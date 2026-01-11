@@ -329,6 +329,8 @@ public class LegionGoController : IDisposable
             case GamepadButton.LB:
             case GamepadButton.LT:
             case GamepadButton.Select:
+            case GamepadButton.DesktopButton:
+            case GamepadButton.PageButton:
                 return Controller.Left;
             default:
                 return Controller.Right;
@@ -737,6 +739,29 @@ public class LegionGoController : IDisposable
             (byte)controller,
             (byte)deadzonePercent,
             0x01
+        );
+        return SendCommand(command);
+    }
+
+    /// <summary>
+    /// Sets the trigger travel range for a controller.
+    /// This controls when the trigger starts registering input and when it reports full press.
+    ///
+    /// HID Command: 05 00 0A 02 [controller] [start%] [end%]
+    /// </summary>
+    /// <param name="controller">Left (0x03) or Right (0x04) controller.</param>
+    /// <param name="startPercent">Percentage of travel where trigger starts registering (0-100).</param>
+    /// <param name="endPercent">Percentage from end where trigger reports full (0-100, e.g., 6 means 94% = full).</param>
+    /// <returns>True if command sent successfully.</returns>
+    public bool SetTriggerTravel(Controller controller, int startPercent, int endPercent)
+    {
+        startPercent = Clamp(startPercent, 0, 100);
+        endPercent = Clamp(endPercent, 0, 100);
+        var command = CreateCommand(
+            0x00, 0x0A, 0x02,
+            (byte)controller,
+            (byte)startPercent,
+            (byte)endPercent
         );
         return SendCommand(command);
     }
@@ -1212,7 +1237,11 @@ public enum GamepadButton : byte
     RB = 0x18,
     RT = 0x19,
     Start = 0x23,
-    Select = 0x24
+    Select = 0x24,
+    /// <summary>Legion Desktop button (left controller, default: Win+G for Game Bar)</summary>
+    DesktopButton = 0x25,
+    /// <summary>Legion Page button (left controller, default: Win+Tab for Task View)</summary>
+    PageButton = 0x26
 }
 
 /// <summary>
@@ -1307,7 +1336,10 @@ public enum RemapAction : byte
     // 0x1A-0x22 are skipped in HID protocol
     View = 0x23,
     Menu = 0x24,
-    // Screenshot, XboxButton, LegionL, LegionR HID values not yet verified
+    /// <summary>Legion Desktop button (Win+G default)</summary>
+    DesktopButton = 0x25,
+    /// <summary>Legion Page button (Win+Tab default)</summary>
+    PageButton = 0x26
 }
 
 /// <summary>
@@ -1342,6 +1374,8 @@ public static class RemapActionHelper
         RemapAction.RightTrigger,   // 22
         RemapAction.View,           // 23
         RemapAction.Menu,           // 24
+        RemapAction.DesktopButton,  // 25
+        RemapAction.PageButton,     // 26
     };
 
     /// <summary>
