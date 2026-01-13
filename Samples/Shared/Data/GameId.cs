@@ -11,10 +11,25 @@ namespace Shared.Data
         [XmlElement("Path")]
         public string Path;
 
+        /// <summary>
+        /// Path to the cached game icon (extracted from exe).
+        /// Set by the helper after icon extraction.
+        /// </summary>
+        [XmlElement("IconPath")]
+        public string IconPath;
+
         public GameId(string name, string path)
         {
             Name = name;
             Path = path;
+            IconPath = null;
+        }
+
+        public GameId(string name, string path, string iconPath)
+        {
+            Name = name;
+            Path = path;
+            IconPath = iconPath;
         }
 
         public bool IsValid()
