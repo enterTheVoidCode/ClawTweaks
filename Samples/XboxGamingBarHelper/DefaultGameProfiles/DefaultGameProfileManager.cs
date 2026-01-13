@@ -47,10 +47,20 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         private int? _savedTdpValue;
         private int? _savedFpsLimit;
 
+        // Power state debouncing
+        private bool? _lastKnownPowerState;
+        private DateTime _lastPowerStateChangeTime = DateTime.MinValue;
+        private const int POWER_STATE_DEBOUNCE_MS = 2000; // 2 second debounce
+
         /// <summary>
         /// Whether the default profile feature is available (has valid hardware detection or force enabled).
         /// </summary>
         public bool IsFeatureAvailable => _service.HardwareVariant != LegionGoVariant.Unknown || _forceEnabled;
+
+        /// <summary>
+        /// Gets the underlying service for debug/export purposes.
+        /// </summary>
+        public DefaultGameProfileService GetService() => _service;
 
         public DefaultGameProfileManager(
             AppServiceConnection connection,
@@ -238,6 +248,7 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
 
         /// <summary>
         /// Handles power state changes for auto-enable logic.
+        /// Includes debouncing to prevent rapid toggling from unstable power connections.
         /// </summary>
         private void HandlePowerStateChange()
         {
@@ -247,6 +258,28 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
             }
 
             var isOnBattery = IsOnBattery();
+
+            // Debounce: Check if power state actually changed and enough time has passed
+            var now = DateTime.Now;
+            var timeSinceLastChange = (now - _lastPowerStateChangeTime).TotalMilliseconds;
+
+            if (_lastKnownPowerState.HasValue && _lastKnownPowerState.Value == isOnBattery)
+            {
+                // Power state hasn't changed, ignore this event
+                return;
+            }
+
+            if (timeSinceLastChange < POWER_STATE_DEBOUNCE_MS)
+            {
+                // Too soon after last change, ignore to prevent rapid toggling
+                Logger.Debug($"DefaultGameProfileManager: Ignoring power state change (debounce), time since last: {timeSinceLastChange}ms");
+                return;
+            }
+
+            // Update tracking
+            _lastKnownPowerState = isOnBattery;
+            _lastPowerStateChangeTime = now;
+
             var userPref = GetUserPreference();
 
             // Use saved preference if available, otherwise use default auto-enable logic
@@ -270,17 +303,19 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
 
         /// <summary>
         /// Checks if device is currently on battery power.
+        /// Uses same logic as GamingWidget: only checks if power supply is present.
+        /// This avoids rapid toggling when charger is connected but BatteryStatus fluctuates.
         /// </summary>
         private bool IsOnBattery()
         {
             try
             {
-                var batteryStatus = PowerManager.BatteryStatus;
                 var powerSupply = PowerManager.PowerSupplyStatus;
 
-                // On battery if discharging OR power supply not present
-                return batteryStatus == BatteryStatus.Discharging ||
-                       powerSupply == PowerSupplyStatus.NotPresent;
+                // On battery only if power supply is not present
+                // This matches the widget's logic and avoids fluctuations
+                // when charger is plugged in but BatteryStatus changes
+                return powerSupply == PowerSupplyStatus.NotPresent;
             }
             catch (Exception ex)
             {

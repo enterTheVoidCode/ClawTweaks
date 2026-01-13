@@ -4,5 +4,6 @@
     {
         Get,
         Set,
+        BatchGet,  // Request multiple property values in one message
     }
 }

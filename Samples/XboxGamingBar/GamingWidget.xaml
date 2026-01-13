@@ -378,7 +378,12 @@
                                         <Button x:Name="Column4Button"
                                                 Content="4"
                                                 MinWidth="40"
+                                                Margin="0,0,4,0"
                                                 Click="ColumnCount4_Click"/>
+                                        <Button x:Name="Column5Button"
+                                                Content="5"
+                                                MinWidth="40"
+                                                Click="ColumnCount5_Click"/>
                                     </StackPanel>
                                 </Grid>
 
@@ -2988,6 +2993,14 @@
                                             Style="{StaticResource StandaloneButtonStyle}"
                                             Click="CheckForUpdateDebugButton_Click"/>
 
+                                    <!-- Export Default Game Profiles Button -->
+                                    <Button x:Name="ExportDGPsButton"
+                                            Content="Export DGPs (Desktop)"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Click="ExportDGPsButton_Click"/>
+
                                     <!-- Update Status Text -->
                                     <TextBlock x:Name="UpdateStatusText"
                                                Text=""
@@ -3079,16 +3092,16 @@
                                     </Grid>
 
                                     <!-- Donate Button -->
-                                    <HyperlinkButton x:Name="DonateButton"
-                                                     Content="Support Development - Donate"
-                                                     NavigateUri="https://paypal.me/corando98"
-                                                     HorizontalAlignment="Stretch"
-                                                     HorizontalContentAlignment="Center"
-                                                     Padding="12,8"
-                                                     Background="#40107C10"
-                                                     Foreground="#88FF88"
-                                                     FontSize="14"
-                                                     CornerRadius="4"/>
+                                    <Button x:Name="DonateButton"
+                                            Content="Support Development - Donate"
+                                            Click="DonateButton_Click"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Center"
+                                            Padding="12,8"
+                                            Background="#40107C10"
+                                            Foreground="#88FF88"
+                                            FontSize="14"
+                                            CornerRadius="4"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -3514,6 +3527,67 @@
                                            FontSize="14"
                                            Foreground="#4CAF50"
                                            Margin="0,4,0,0"/>
+
+                                <!-- Controller Battery Info -->
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Left Controller -->
+                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                        <TextBlock Text="Left Controller" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <FontIcon Glyph="&#xE83F;" FontSize="14" Foreground="#AAAAAA" Margin="0,0,6,0"/>
+                                            <TextBlock x:Name="LeftControllerBatteryText"
+                                                       Text="--%"
+                                                       FontSize="14"
+                                                       Foreground="#FFFFFF"/>
+                                            <FontIcon x:Name="LeftControllerChargingIcon"
+                                                      Glyph="&#xE945;"
+                                                      FontSize="12"
+                                                      Foreground="#4CAF50"
+                                                      Margin="6,0,0,0"
+                                                      Visibility="Collapsed"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="LeftControllerConnectionText"
+                                                   Text="--"
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   Margin="0,2,0,0"/>
+                                    </StackPanel>
+
+                                    <!-- Right Controller -->
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock Text="Right Controller" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <FontIcon Glyph="&#xE83F;" FontSize="14" Foreground="#AAAAAA" Margin="0,0,6,0"/>
+                                            <TextBlock x:Name="RightControllerBatteryText"
+                                                       Text="--%"
+                                                       FontSize="14"
+                                                       Foreground="#FFFFFF"/>
+                                            <FontIcon x:Name="RightControllerChargingIcon"
+                                                      Glyph="&#xE945;"
+                                                      FontSize="12"
+                                                      Foreground="#4CAF50"
+                                                      Margin="6,0,0,0"
+                                                      Visibility="Collapsed"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="RightControllerConnectionText"
+                                                   Text="--"
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Device Info -->
+                                <TextBlock x:Name="LegionControllerPidVidText"
+                                           Text="VID:PID --"
+                                           FontSize="11"
+                                           Foreground="#666666"
+                                           Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
 
@@ -3631,9 +3705,18 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Per-Game Controller Profile" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock x:Name="LegionControllerProfileGameText"
-                                                   Text="No game detected"
-                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image x:Name="LegionControllerProfileGameIcon"
+                                                   Width="16" Height="16"
+                                                   Margin="0,0,6,0"
+                                                   Stretch="UniformToFill"
+                                                   VerticalAlignment="Center"
+                                                   Visibility="Collapsed"/>
+                                            <TextBlock x:Name="LegionControllerProfileGameText"
+                                                       Text="No game detected"
+                                                       Style="{StaticResource CardCaptionStyle}"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="LegionControllerProfileToggle"
                                                   Grid.Column="1"
@@ -4805,6 +4888,18 @@
                                         <TextBlock Text="Only applies when using Custom TDP mode"
                                                    FontSize="10" Foreground="#888888" Margin="0,2,0,0"/>
                                     </StackPanel>
+                                    <ComboBox x:Name="FanCurvePresetComboBox"
+                                              Grid.Column="1"
+                                              Width="110"
+                                              VerticalAlignment="Center"
+                                              Margin="0,0,8,0"
+                                              SelectionChanged="FanCurvePresetComboBox_SelectionChanged">
+                                        <ComboBoxItem Content="Silent" Tag="Silent"/>
+                                        <ComboBoxItem Content="Balanced" Tag="Balanced"/>
+                                        <ComboBoxItem Content="Performance" Tag="Performance"/>
+                                        <ComboBoxItem Content="Max Cooling" Tag="MaxCooling"/>
+                                        <ComboBoxItem Content="Custom" Tag="Custom" IsSelected="True"/>
+                                    </ComboBox>
                                     <ToggleButton x:Name="FanCurveExpandToggle"
                                                   Grid.Column="2"
                                                   IsChecked="False"
@@ -4854,6 +4949,13 @@
                                                      Fill="#3300AAFF"
                                                      Stroke="Transparent"/>
 
+                                            <!-- EC Override Floor Line (dashed orange reference line) -->
+                                            <Polyline x:Name="ECFloorPolyline"
+                                                      Stroke="#FF6600"
+                                                      StrokeThickness="1.5"
+                                                      StrokeDashArray="4,2"
+                                                      Opacity="0.7"/>
+
                                             <!-- The curve line -->
                                             <Polyline x:Name="FanCurvePolyline"
                                                       Stroke="#00AAFF"
@@ -4889,17 +4991,23 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="46°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="1" Text="52°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="2" Text="60°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="3" Text="69°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Right"/>
-                                        <TextBlock Grid.Column="4" Text="75°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="0" Text="10°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="1" Text="30°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="2" Text="50°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="70°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Right"/>
+                                        <TextBlock Grid.Column="4" Text="100°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Right"/>
                                     </Grid>
 
-                                    <!-- Current temperature display -->
+                                    <!-- Current temperature display (0x01 sensor - what EC uses for fan curve) -->
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0" HorizontalAlignment="Center">
-                                        <TextBlock Text="CPU: " FontSize="12" Foreground="#999999"/>
+                                        <TextBlock Text="Fan Sensor Temp: " FontSize="12" Foreground="#999999"/>
                                         <TextBlock x:Name="CurrentTempLabel" Text="--°C" FontSize="12" Foreground="#FF8800" FontWeight="SemiBold"/>
+                                    </StackPanel>
+
+                                    <!-- EC Floor legend -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0" HorizontalAlignment="Center">
+                                        <Line X1="0" Y1="0" X2="20" Y2="0" Stroke="#FF8800" StrokeThickness="2" StrokeDashArray="4,2" VerticalAlignment="Center"/>
+                                        <TextBlock Text=" EC Protection Floor" FontSize="10" Foreground="#888888" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>
@@ -4927,19 +5035,201 @@
                             </Grid>
                         </Border>
 
+                        <!-- LABS Section Header -->
+                        <TextBlock Text="LABS" Style="{StaticResource SectionHeaderStyle}"/>
+
+                        <!-- Labs Description -->
+                        <TextBlock Text="Experimental features - use at your own risk"
+                                   Style="{StaticResource CardCaptionStyle}"
+                                   Margin="0,4,0,8"/>
+
+                        <!-- Disable Legion Space Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Disable Legion Space Service" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Removes Legion L/R handling. May override TDP, remaps, fan curve. You can still open Legion Space for updates."
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <Button x:Name="ToggleDAServiceButton"
+                                            Grid.Column="1"
+                                            Content="Disable"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Click="ToggleDAServiceButton_Click"/>
+                                </Grid>
+                                <TextBlock x:Name="DAServiceStatusText"
+                                           Text="Checking..."
+                                           FontSize="14"
+                                           Foreground="#A0A0A0"
+                                           Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Legion Button Remap Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Legion Button Remap" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock x:Name="LegionRemapDescription"
+                                           Text="Map Legion L/R buttons to Xbox Guide or keyboard shortcut"
+                                           Style="{StaticResource CardCaptionStyle}"/>
+
+                                <!-- Legion L Row -->
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Legion L:"
+                                               Grid.Column="0"
+                                               VerticalAlignment="Center"
+                                               FontSize="14"
+                                               Foreground="#E0E0E0"/>
+                                    <ComboBox x:Name="LegionLActionComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}">
+                                        <ComboBoxItem Content="Disabled" IsSelected="True"/>
+                                        <ComboBoxItem Content="Xbox Guide"/>
+                                        <ComboBoxItem Content="Keyboard Shortcut"/>
+                                        <ComboBoxItem Content="Run Command"/>
+                                        <ComboBoxItem Content="Focus GoTweaks"/>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- Legion L Shortcut Input (hidden by default) -->
+                                <Grid x:Name="LegionLShortcutGrid" Margin="70,8,0,0" Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="LegionLShortcutTextBox"
+                                             Grid.Column="0"
+                                             PlaceholderText="e.g. Win+G, Ctrl+Shift+O"/>
+                                    <Button x:Name="LegionLShortcutApplyButton"
+                                            Grid.Column="1"
+                                            Content="Apply"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Margin="8,0,0,0"
+                                            Click="LegionLShortcutApplyButton_Click"/>
+                                </Grid>
+
+                                <!-- Legion L Command Input (hidden by default) -->
+                                <Grid x:Name="LegionLCommandGrid" Margin="70,8,0,0" Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="LegionLCommandTextBox"
+                                             Grid.Column="0"
+                                             PlaceholderText="e.g. C:\path\app.exe -arg1"/>
+                                    <Button x:Name="LegionLCommandApplyButton"
+                                            Grid.Column="1"
+                                            Content="Apply"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Margin="8,0,0,0"
+                                            Click="LegionLCommandApplyButton_Click"/>
+                                </Grid>
+
+                                <!-- Legion R Row -->
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Legion R:"
+                                               Grid.Column="0"
+                                               VerticalAlignment="Center"
+                                               FontSize="14"
+                                               Foreground="#E0E0E0"/>
+                                    <ComboBox x:Name="LegionRActionComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}">
+                                        <ComboBoxItem Content="Disabled" IsSelected="True"/>
+                                        <ComboBoxItem Content="Xbox Guide"/>
+                                        <ComboBoxItem Content="Keyboard Shortcut"/>
+                                        <ComboBoxItem Content="Run Command"/>
+                                        <ComboBoxItem Content="Focus GoTweaks"/>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- Legion R Shortcut Input (hidden by default) -->
+                                <Grid x:Name="LegionRShortcutGrid" Margin="70,8,0,0" Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="LegionRShortcutTextBox"
+                                             Grid.Column="0"
+                                             PlaceholderText="e.g. Win+G, Ctrl+Shift+O"/>
+                                    <Button x:Name="LegionRShortcutApplyButton"
+                                            Grid.Column="1"
+                                            Content="Apply"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Margin="8,0,0,0"
+                                            Click="LegionRShortcutApplyButton_Click"/>
+                                </Grid>
+
+                                <!-- Legion R Command Input (hidden by default) -->
+                                <Grid x:Name="LegionRCommandGrid" Margin="70,8,0,0" Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="LegionRCommandTextBox"
+                                             Grid.Column="0"
+                                             PlaceholderText="e.g. C:\path\app.exe -arg1"/>
+                                    <Button x:Name="LegionRCommandApplyButton"
+                                            Grid.Column="1"
+                                            Content="Apply"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Margin="8,0,0,0"
+                                            Click="LegionRCommandApplyButton_Click"/>
+                                </Grid>
+
+                                <!-- Status Text -->
+                                <TextBlock x:Name="LegionRemapStatusText"
+                                           Text=""
+                                           FontSize="12"
+                                           Foreground="#A0A0A0"
+                                           Margin="0,8,0,0"/>
+
+                                <!-- ViGEmBus Note -->
+                                <Border Background="#1A1A2E" CornerRadius="4" Padding="10" Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Xbox Guide remap requires ViGEmBus driver"
+                                                   FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                            <TextBlock x:Name="ViGEmBusStatusText" Text="Status: Checking..."
+                                                       FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                            <Button x:Name="ViGEmBusInstallButton" Content="Install ViGEmBus"
+                                                    Style="{StaticResource ModernButtonStyle}"
+                                                    FontSize="11" Padding="10,4" Margin="12,0,0,0"
+                                                    Click="ViGEmBusInstallButton_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
                     </StackPanel>
                 </ScrollViewer>
 
                 <!-- Connection Status Banner - placed last for z-order (renders on top) -->
+                <!-- Visible by default with Loading... so user sees immediate feedback before code runs -->
                 <Border x:Name="ConnectionStatusBanner"
-                        Background="#CC3333"
+                        Background="#3366CC"
                         Padding="8,4"
                         VerticalAlignment="Top"
-                        Visibility="Collapsed"
+                        Visibility="Visible"
                         CornerRadius="0"
                         Margin="0,0,0,0">
                     <TextBlock x:Name="ConnectionStatusText"
-                               Text="Not connected to helper"
+                               Text="Loading..."
                                Foreground="White"
                                FontSize="12"
                                HorizontalAlignment="Center"/>

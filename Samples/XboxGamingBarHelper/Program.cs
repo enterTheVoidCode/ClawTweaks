@@ -29,6 +29,8 @@ using XboxGamingBarHelper.Settings;
 using XboxGamingBarHelper.Systems;
 using XboxGamingBarHelper.AutoTDP;
 using XboxGamingBarHelper.DefaultGameProfiles;
+using XboxGamingBarHelper.Labs;
+using Shared.Enums;
 
 namespace XboxGamingBarHelper
 {
@@ -81,6 +83,11 @@ namespace XboxGamingBarHelper
         private static InputInjector inputInjector;
 
         /// <summary>
+        /// Labs: Unified Legion button monitor (handles both L and R buttons + battery)
+        /// </summary>
+        private static LegionButtonMonitor legionButtonMonitor;
+
+        /// <summary>
         /// Hotkey manager for global keyboard shortcuts (Ctrl+Shift+D for Desktop Controls)
         /// </summary>
         private static HotkeyManager hotkeyManager;
@@ -92,6 +99,11 @@ namespace XboxGamingBarHelper
         private static DateTime lastHeartbeatWrite = DateTime.MinValue;
         private const int HeartbeatIntervalMs = 2000;
 
+        /// <summary>
+        /// Debounce for Focus GoTweaks to prevent rapid button presses from flooding the system
+        /// </summary>
+        private static DateTime lastFocusWidgetTime = DateTime.MinValue;
+        private const int FocusWidgetDebounceMs = 200;
         static async Task Main(string[] args)
         {
             // Check if running as a Windows Service (MSIX Desktop Service)
@@ -230,6 +242,10 @@ namespace XboxGamingBarHelper
                 hotkeyManager?.Dispose();
                 hotkeyManager = null;
 
+                // Dispose Legion button monitor
+                legionButtonMonitor?.Dispose();
+                legionButtonMonitor = null;
+
                 // Delete heartbeat file on shutdown
                 DeleteHeartbeatFile();
 
@@ -315,6 +331,56 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
+        /// Initialize DefaultGameProfileManager in background.
+        /// Deferred because it's not needed for initial UI and takes ~600ms.
+        /// DGP only activates when a game starts running.
+        /// </summary>
+        private static async void InitializeDefaultGameProfileManagerAsync()
+        {
+            await Task.Run(() =>
+            {
+                var dgpTimer = System.Diagnostics.Stopwatch.StartNew();
+                try
+                {
+                    defaultGameProfileManager = new DefaultGameProfileManager(connection, performanceManager, rtssManager, systemManager, profileManager, legionManager);
+
+                    if (defaultGameProfileManager != null)
+                    {
+                        // Add to Managers list for cleanup
+                        lock (Managers)
+                        {
+                            Managers.Add(defaultGameProfileManager);
+                        }
+
+                        // Wait for properties to be initialized before adding DGP properties
+                        // The properties object is created in Initialize() which runs before this
+                        while (properties == null)
+                        {
+                            Thread.Sleep(10);
+                        }
+
+                        // Add properties dynamically using thread-safe Add method
+                        properties.Add(defaultGameProfileManager.ProfileAvailable);
+                        properties.Add(defaultGameProfileManager.ProfileData);
+                        properties.Add(defaultGameProfileManager.ProfileEnabled);
+                        properties.Add(defaultGameProfileManager.ForceProfile);
+
+                        Logger.Info("DefaultGameProfileManager properties added to helper");
+                    }
+
+                    dgpTimer.Stop();
+                    Logger.Info($"[TIMING] DefaultGameProfileManager (background): {dgpTimer.ElapsedMilliseconds}ms");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Failed to initialize DefaultGameProfileManager: {ex.Message}");
+                    Logger.Error($"Stack trace: {ex.StackTrace}");
+                    defaultGameProfileManager = null;
+                }
+            });
+        }
+
+        /// <summary>
         /// Connect to the widget with optional blocking retry
         /// </summary>
         private static async Task ConnectToWidget(bool blocking)
@@ -364,6 +430,8 @@ namespace XboxGamingBarHelper
         /// </summary>
         private static async Task Initialize()
         {
+            var initTimer = System.Diagnostics.Stopwatch.StartNew();
+
             // Initialize app service connection.
             InitializeConnection();
 
@@ -373,38 +441,46 @@ namespace XboxGamingBarHelper
             //}
 
             // ALL MANAGERS RE-ENABLED - LibreHardwareMonitor sensors disabled in PerformanceManager
+            var perfTimer = System.Diagnostics.Stopwatch.StartNew();
             Logger.Info("Initialize Performance Manager.");
             performanceManager = new PerformanceManager(connection);
+            perfTimer.Stop();
+            Logger.Info($"[TIMING] PerformanceManager: {perfTimer.ElapsedMilliseconds}ms");
+            var otherManagersTimer = System.Diagnostics.Stopwatch.StartNew();
+            var mgr = System.Diagnostics.Stopwatch.StartNew();
             Logger.Info("Initialize RTSS Manager.");
             rtssManager = new RTSSManager(performanceManager, connection);
+            Logger.Info($"[TIMING] RTSSManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
             Logger.Info("Initialize Profile Manager.");
             profileManager = new ProfileManager(connection);
+            Logger.Info($"[TIMING] ProfileManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
             Logger.Info("Initialize System Manager.");
             systemManager = new SystemManager(connection, profileManager.GameProfiles);
+            Logger.Info($"[TIMING] SystemManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
             Logger.Info("Initialize Power Manager.");
             powerManager = new PowerManager(connection, performanceManager.RyzenAdjHandle);
+            Logger.Info($"[TIMING] PowerManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
             Logger.Info("Initialize AMD Manager.");
             amdManager = new AMDManager(connection);
+            Logger.Info($"[TIMING] AMDManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
             Logger.Info("Initialize Lossless Scaling Manager.");
             losslessScalingManager = new LosslessScalingManager(connection);
+            Logger.Info($"[TIMING] LosslessScalingManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
             settingsManager = SettingsManager.CreateInstance(connection);
+            Logger.Info($"[TIMING] SettingsManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
             Logger.Info("Initialize Legion Manager.");
             legionManager = new LegionManager(connection);
+            Logger.Info($"[TIMING] LegionManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
             Logger.Info("Initialize AutoTDP Manager.");
             autoTDPManager = new AutoTDPManager(connection, performanceManager, systemManager);
+            Logger.Info($"[TIMING] AutoTDPManager: {mgr.ElapsedMilliseconds}ms");
+            otherManagersTimer.Stop();
+            Logger.Info($"[TIMING] Other managers total: {otherManagersTimer.ElapsedMilliseconds}ms");
 
-            Logger.Info("Initialize Default Game Profile Manager.");
-            try
-            {
-                defaultGameProfileManager = new DefaultGameProfileManager(connection, performanceManager, rtssManager, systemManager, profileManager, legionManager);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Failed to initialize DefaultGameProfileManager: {ex.Message}");
-                Logger.Error($"Stack trace: {ex.StackTrace}");
-                // Create a null-safe placeholder that won't crash
-                defaultGameProfileManager = null;
-            }
+            // Initialize DefaultGameProfileManager in background - not needed for initial UI
+            // Deferred to avoid blocking startup - DGP only kicks in when a game is running
+            Logger.Info("Initialize Default Game Profile Manager (deferred to background).");
+            InitializeDefaultGameProfileManagerAsync();
 
             // Initialize input injector for keyboard shortcuts (works in widget context unlike SendInput)
             inputInjector = InputInjector.TryCreate();
@@ -436,6 +512,60 @@ namespace XboxGamingBarHelper
                 () => legionManager.IsRightControllerCharging()
             );
 
+            // Start Legion button monitor for battery monitoring (even when button remap is disabled)
+            // This allows controller battery to be monitored without requiring button remapping
+            if (legionManager.LegionGoDetected.Value)
+            {
+                try
+                {
+                    legionButtonMonitor = new LegionButtonMonitor();
+                    legionButtonMonitor.BatteryUpdated += (sender, e) =>
+                    {
+                        try
+                        {
+                            legionManager?.UpdateControllerBatteryFromButtonMonitor(
+                                e.LeftBattery, e.LeftCharging, e.LeftConnected,
+                                e.RightBattery, e.RightCharging, e.RightConnected);
+
+                            // Also sync VID:PID on battery updates to ensure it gets sent once connection is ready
+                            var vidPid = legionButtonMonitor?.DetectedVidPid;
+                            if (!string.IsNullOrEmpty(vidPid))
+                            {
+                                legionManager?.UpdateControllerVidPid(vidPid);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"BatteryUpdated handler exception: {ex.Message}");
+                        }
+                    };
+
+                    if (legionButtonMonitor.StartForBatteryMonitoring())
+                    {
+                        Logger.Info("Legion button monitor started for battery monitoring");
+                        // Update VID:PID in LegionManager
+                        var vidPid = legionButtonMonitor.DetectedVidPid;
+                        Logger.Info($"Legion button monitor VID:PID after start: '{vidPid}'");
+                        if (!string.IsNullOrEmpty(vidPid))
+                        {
+                            legionManager.UpdateControllerVidPid(vidPid);
+                        }
+                        else
+                        {
+                            Logger.Warn("Legion button monitor VID:PID is empty after start");
+                        }
+                    }
+                    else
+                    {
+                        Logger.Warn("Failed to start Legion button monitor for battery monitoring");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error initializing Legion button monitor for battery: {ex.Message}");
+                }
+            }
+
             // Set AutoTDPManager reference in RTSSManager for AutoTDP OSD support
             rtssManager.SetAutoTDPManager(autoTDPManager);
 
@@ -459,10 +589,7 @@ namespace XboxGamingBarHelper
                 legionManager,
                 autoTDPManager
             };
-            if (defaultGameProfileManager != null)
-            {
-                Managers.Add(defaultGameProfileManager);
-            }
+            // Note: defaultGameProfileManager is added in background task when ready
 
             Logger.Info("Initialize properties.");
             onScreenDisplay = new OnScreenDisplayProperty(0, null, rtssManager);
@@ -567,6 +694,7 @@ namespace XboxGamingBarHelper
                 legionManager.LegionFanFullSpeed,
                 legionManager.LegionFanCurveData,
                 legionManager.LegionCPUCurrentTemp,
+                legionManager.LegionFanSensorTemp,
                 legionManager.LegionCPUFanRPM,
                 legionManager.LegionFanCurveVisible,
                 legionManager.LegionGyroEnabled,
@@ -618,6 +746,9 @@ namespace XboxGamingBarHelper
                 legionManager.ControllerBatteryRight,
                 legionManager.ControllerChargingLeft,
                 legionManager.ControllerChargingRight,
+                legionManager.ControllerConnectedLeft,
+                legionManager.ControllerConnectedRight,
+                legionManager.ControllerVidPid,
                 autoTDPManager.Enabled,
                 autoTDPManager.TargetFPS,
                 autoTDPManager.CurrentFPS,
@@ -634,14 +765,7 @@ namespace XboxGamingBarHelper
                 performanceManager.InstallPawnIOProperty
             };
 
-            // Add Default Game Profile properties if manager initialized successfully
-            if (defaultGameProfileManager != null)
-            {
-                propertyList.Add(defaultGameProfileManager.ProfileAvailable);
-                propertyList.Add(defaultGameProfileManager.ProfileData);
-                propertyList.Add(defaultGameProfileManager.ProfileEnabled);
-                propertyList.Add(defaultGameProfileManager.ForceProfile);
-            }
+            // Note: DefaultGameProfileManager properties are added dynamically in background task
 
             // Initialize properties
             properties = new HelperProperties(propertyList.ToArray());
@@ -705,8 +829,14 @@ namespace XboxGamingBarHelper
                 legionManager.LegionControllerProfileEnabled.PropertyChanged += LegionControllerSetting_PropertyChanged;
             }
 
+            initTimer.Stop();
+            Logger.Info($"[TIMING] Helper initialization (before connect): {initTimer.ElapsedMilliseconds}ms");
+
             // Initial blocking connection to widget
+            var connectTimer = System.Diagnostics.Stopwatch.StartNew();
             await ConnectToWidget(true);
+            connectTimer.Stop();
+            Logger.Info($"[TIMING] Widget connection: {connectTimer.ElapsedMilliseconds}ms");
 
             Logger.Info($"Widget connection status: {appServiceConnectionStatus}");
 
@@ -716,6 +846,11 @@ namespace XboxGamingBarHelper
             {
                 legionManager.StartBatteryMonitoringIfConnected();
             }
+
+            // Load and apply Legion button remap settings from LocalSettings
+            LoadLegionButtonRemapSettings();
+
+            Logger.Info($"[TIMING] Helper fully initialized and ready");
 
             // Main loop - helper runs until cancelled (service stop) or shutdown
             while (!_isShuttingDown)
@@ -1400,6 +1535,48 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Handle hibernate request
+                if (args.Request.Message.TryGetValue("Hibernate", out object _hibernate))
+                {
+                    try
+                    {
+                        Logger.Info("Hibernate request received - putting system to sleep");
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = "shutdown.exe",
+                            Arguments = "/h",
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        });
+                        Logger.Info("Hibernate command executed");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Failed to hibernate: {ex.Message}");
+                    }
+                    return;
+                }
+
+                // Handle launch URL request (for donate button etc. - Game Bar blocks direct URL launching)
+                if (args.Request.Message.TryGetValue("LaunchUrl", out object urlValue) && urlValue is string url)
+                {
+                    try
+                    {
+                        Logger.Info($"LaunchUrl request received: {url}");
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = url,
+                            UseShellExecute = true
+                        });
+                        Logger.Info($"URL launched: {url}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Failed to launch URL {url}: {ex.Message}");
+                    }
+                    return;
+                }
+
                 // Handle Energy Saver toggle request
                 if (args.Request.Message.TryGetValue("ToggleEnergySaver", out object _toggleEs))
                 {
@@ -1703,10 +1880,19 @@ namespace XboxGamingBarHelper
                         };
 
                         Logger.Info("Launching msixbundle installer...");
-                        Process.Start(startInfo);
+                        var installerProcess = Process.Start(startInfo);
 
                         response.Add("UpdateStatus", "Installing");
                         await args.Request.SendResponseAsync(response);
+
+                        // Wait for installer to fully load the package before exiting
+                        // The msixbundle installer needs time to open and read the package
+                        Logger.Info("Waiting for installer to load package...");
+                        await Task.Delay(5000); // 5 seconds for installer to fully open
+
+                        // Exit helper so installer can replace files
+                        Logger.Info("Exiting helper for update installation...");
+                        Environment.Exit(0);
                     }
                     catch (WebException ex)
                     {
@@ -1723,12 +1909,192 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Handle Labs section requests
+                if (args.Request.Message.TryGetValue("Function", out object functionObj))
+                {
+                    int functionValue = Convert.ToInt32(functionObj);
+
+                    // Labs: DAService Status request
+                    if (functionValue == (int)Function.Labs_DAServiceStatus)
+                    {
+                        int status = GetDAServiceStatus();
+                        var response = new global::Windows.Foundation.Collections.ValueSet();
+                        response.Add("Function", (int)Function.Labs_DAServiceStatus);
+                        response.Add("Value", status);
+                        await args.Request.SendResponseAsync(response);
+                        Logger.Info($"Labs: DAService status = {status} (0=Stopped, 1=Running, 2=NotFound)");
+                        return;
+                    }
+
+                    // Labs: DAService Control request (Start/Stop)
+                    if (functionValue == (int)Function.Labs_DAServiceControl)
+                    {
+                        if (args.Request.Message.TryGetValue("Value", out object actionObj))
+                        {
+                            int action = Convert.ToInt32(actionObj);
+                            ControlDAService(action);
+
+                            // Send back updated status after a short delay
+                            await Task.Delay(500);
+                            int status = GetDAServiceStatus();
+                            var response = new global::Windows.Foundation.Collections.ValueSet();
+                            response.Add("Function", (int)Function.Labs_DAServiceStatus);
+                            response.Add("Value", status);
+                            await args.Request.SendResponseAsync(response);
+                            Logger.Info($"Labs: DAService control action={action}, new status={status}");
+                        }
+                        return;
+                    }
+
+                    // Labs: Legion Button Remap (L/R to Xbox Guide or Keyboard Shortcut)
+                    if (functionValue == (int)Function.Labs_LegionButtonRemap)
+                    {
+                        string button = "L";      // "L" or "R"
+                        bool enabled = false;
+                        int actionType = 0;       // 0=Xbox Guide, 1=Keyboard Shortcut
+                        string shortcut = "";
+
+                        if (args.Request.Message.TryGetValue("Button", out object buttonObj))
+                            button = buttonObj?.ToString() ?? "L";
+                        if (args.Request.Message.TryGetValue("Enabled", out object enabledObj))
+                            enabled = Convert.ToBoolean(enabledObj);
+                        if (args.Request.Message.TryGetValue("Action", out object actionObj))
+                            actionType = Convert.ToInt32(actionObj);
+                        if (args.Request.Message.TryGetValue("Shortcut", out object shortcutObj))
+                            shortcut = shortcutObj?.ToString() ?? "";
+
+                        bool success = ConfigureLegionButtonRemap(button, enabled, actionType, shortcut);
+
+                        var response = new global::Windows.Foundation.Collections.ValueSet();
+                        response.Add("Success", success);
+                        await args.Request.SendResponseAsync(response);
+
+                        string actionName = actionType == 0 ? "Xbox Guide" : $"Shortcut: {shortcut}";
+                        Logger.Info($"Labs: Legion {button} Remap - Enabled: {enabled}, Action: {actionName}, Success: {success}");
+                        return;
+                    }
+
+                    // ViGEmBus: Check installed status
+                    if (functionValue == (int)Function.ViGEmBusInstalled)
+                    {
+                        bool installed = XboxGamingBarHelper.Labs.ViGEmBusHelper.IsInstalled();
+                        var response = new global::Windows.Foundation.Collections.ValueSet();
+                        response.Add("Function", (int)Function.ViGEmBusInstalled);
+                        response.Add("Value", installed);
+                        await args.Request.SendResponseAsync(response);
+                        Logger.Info($"ViGEmBus installed status: {installed}");
+                        return;
+                    }
+
+                    // ViGEmBus: Install request
+                    if (functionValue == (int)Function.InstallViGEmBus)
+                    {
+                        Logger.Info("ViGEmBus installation requested from widget");
+                        // Run installation asynchronously
+                        _ = Task.Run(async () =>
+                        {
+                            bool success = XboxGamingBarHelper.Labs.ViGEmBusHelper.Install();
+                            // After installation, send updated status to widget
+                            bool installed = XboxGamingBarHelper.Labs.ViGEmBusHelper.IsInstalled();
+                            if (connection != null)
+                            {
+                                var message = new global::Windows.Foundation.Collections.ValueSet();
+                                message.Add("Command", (int)Shared.Enums.Command.Set);
+                                message.Add("Function", (int)Function.ViGEmBusInstalled);
+                                message.Add("Content", installed);
+                                message.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                                await connection.SendMessageAsync(message);
+                                Logger.Info($"ViGEmBus installation complete, sent updated status: {installed}");
+                            }
+                        });
+                        return;
+                    }
+
+                    // Debug: Export Default Game Profiles to Desktop
+                    if (functionValue == (int)Function.Debug_ExportDGPs)
+                    {
+                        var response = new global::Windows.Foundation.Collections.ValueSet();
+                        try
+                        {
+                            string exportPath = ExportDefaultGameProfiles();
+                            response.Add("ExportPath", exportPath);
+                            Logger.Info($"Debug: DGPs exported to {exportPath}");
+                        }
+                        catch (Exception ex)
+                        {
+                            response.Add("Error", ex.Message);
+                            Logger.Error($"Debug: Failed to export DGPs: {ex.Message}");
+                        }
+                        await args.Request.SendResponseAsync(response);
+                        return;
+                    }
+                }
+
+                // Handle BatchGet command for fast property sync
+                if (args.Request.Message.TryGetValue("Command", out object cmdObj) &&
+                    cmdObj is int cmdInt && cmdInt == (int)Shared.Enums.Command.BatchGet)
+                {
+                    await HandleBatchGetRequest(args.Request);
+                    return;
+                }
+
                 await properties.OnRequestReceived(args.Request);
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error handling request: {ex.Message}");
                 Logger.Error($"Stack trace: {ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// Handle batch get request for fast property sync.
+        /// Returns all requested property values in a single response.
+        /// </summary>
+        private static async Task HandleBatchGetRequest(AppServiceRequest request)
+        {
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                if (!request.Message.TryGetValue("Functions", out object functionsObj) || !(functionsObj is string functionsJson))
+                {
+                    Logger.Warn("BatchGet request missing Functions");
+                    return;
+                }
+
+                var functionIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(functionsJson);
+                if (functionIds == null || functionIds.Length == 0)
+                {
+                    Logger.Warn("BatchGet request has empty Functions array");
+                    return;
+                }
+
+                // Build batch response with all property values
+                var batchData = new Dictionary<string, object>();
+                foreach (var funcId in functionIds)
+                {
+                    var func = (Shared.Enums.Function)funcId;
+                    if (properties.TryGetProperty(func, out var property))
+                    {
+                        var propData = new Dictionary<string, object>
+                        {
+                            { "Content", property.GetValue() },
+                            { "UpdatedTime", property.UpdatedTime }
+                        };
+                        batchData[funcId.ToString()] = propData;
+                    }
+                }
+
+                var response = new global::Windows.Foundation.Collections.ValueSet();
+                response.Add("BatchData", System.Text.Json.JsonSerializer.Serialize(batchData));
+                await request.SendResponseAsync(response);
+
+                timer.Stop();
+                Logger.Info($"[TIMING] BatchGet {functionIds.Length} properties: {timer.ElapsedMilliseconds}ms");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"BatchGet failed: {ex.Message}");
             }
         }
 
@@ -1909,6 +2275,17 @@ namespace XboxGamingBarHelper
                 Logger.Error($"Error disposing hotkey manager: {ex.Message}");
             }
 
+            // Dispose Legion button monitor
+            try
+            {
+                legionButtonMonitor?.Dispose();
+                legionButtonMonitor = null;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error disposing Legion button monitor: {ex.Message}");
+            }
+
             // Clear references
             performanceManager = null;
             rtssManager = null;
@@ -2028,5 +2405,460 @@ namespace XboxGamingBarHelper
                 Logger.Error($"ToggleDesktopControls: Error toggling desktop controls: {ex.Message}");
             }
         }
+
+        #region Labs Section
+
+        /// <summary>
+        /// Get the current status of DAService (Legion Space service).
+        /// Returns: 0 = Stopped, 1 = Running, 2 = Not Found
+        /// </summary>
+        private static int GetDAServiceStatus()
+        {
+            try
+            {
+                using (var sc = new ServiceController("DAService"))
+                {
+                    var status = sc.Status;
+                    return status == ServiceControllerStatus.Running ? 1 : 0;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // Service not found
+                return 2;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Labs: Error getting DAService status: {ex.Message}");
+                return 2;
+            }
+        }
+
+        /// <summary>
+        /// Control DAService (Legion Space service).
+        /// Action: 0 = Stop and Disable, 1 = Enable and Start
+        /// </summary>
+        private static void ControlDAService(int action)
+        {
+            try
+            {
+                if (action == 0) // Stop and Disable
+                {
+                    // First stop the service
+                    using (var sc = new ServiceController("DAService"))
+                    {
+                        if (sc.Status == ServiceControllerStatus.Running)
+                        {
+                            Logger.Info("Labs: Stopping DAService...");
+                            sc.Stop();
+                            sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10));
+                            Logger.Info("Labs: DAService stopped");
+                        }
+                    }
+
+                    // Then disable the service startup type using sc.exe
+                    Logger.Info("Labs: Disabling DAService startup...");
+                    var disableProcess = new Process
+                    {
+                        StartInfo = new ProcessStartInfo
+                        {
+                            FileName = "sc.exe",
+                            Arguments = "config DAService start= disabled",
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                            RedirectStandardOutput = true
+                        }
+                    };
+                    disableProcess.Start();
+                    disableProcess.WaitForExit(5000);
+                    Logger.Info($"Labs: DAService startup disabled (exit code: {disableProcess.ExitCode})");
+                }
+                else // Enable and Start
+                {
+                    // First enable the service startup type using sc.exe
+                    Logger.Info("Labs: Enabling DAService startup...");
+                    var enableProcess = new Process
+                    {
+                        StartInfo = new ProcessStartInfo
+                        {
+                            FileName = "sc.exe",
+                            Arguments = "config DAService start= auto",
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                            RedirectStandardOutput = true
+                        }
+                    };
+                    enableProcess.Start();
+                    enableProcess.WaitForExit(5000);
+                    Logger.Info($"Labs: DAService startup enabled (exit code: {enableProcess.ExitCode})");
+
+                    // Then start the service
+                    using (var sc = new ServiceController("DAService"))
+                    {
+                        if (sc.Status == ServiceControllerStatus.Stopped)
+                        {
+                            Logger.Info("Labs: Starting DAService...");
+                            sc.Start();
+                            sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(10));
+                            Logger.Info("Labs: DAService started");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Labs: Error controlling DAService: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Export all Default Game Profiles to a text file on the Desktop.
+        /// </summary>
+        private static string ExportDefaultGameProfiles()
+        {
+            var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            var exportPath = System.IO.Path.Combine(desktopPath, $"GoTweaks_DGPs_{DateTime.Now:yyyy-MM-dd_HHmmss}.txt");
+
+            using (var writer = new System.IO.StreamWriter(exportPath))
+            {
+                writer.WriteLine($"GoTweaks Default Game Profiles Export");
+                writer.WriteLine($"Exported: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                writer.WriteLine($"========================================");
+                writer.WriteLine();
+
+                if (defaultGameProfileManager == null)
+                {
+                    writer.WriteLine("DefaultGameProfileManager not initialized.");
+                    return exportPath;
+                }
+
+                var service = defaultGameProfileManager.GetService();
+                if (service == null)
+                {
+                    writer.WriteLine("DefaultGameProfileService not available.");
+                    return exportPath;
+                }
+
+                writer.WriteLine($"Hardware Variant: {service.HardwareVariant}");
+                writer.WriteLine($"Primary Profile Key: {service.PrimaryProfileKey}");
+                writer.WriteLine($"Effective Profile Key: {service.EffectiveProfileKey}");
+                writer.WriteLine($"Total Profiles: {service.ProfileCount}");
+                writer.WriteLine();
+                writer.WriteLine("========================================");
+                writer.WriteLine("PROFILE LIST (key -> game name [hardware]: TDP/FPS)");
+                writer.WriteLine("========================================");
+                writer.WriteLine();
+
+                var keys = service.GetAllProfileKeys().OrderBy(k => k).ToList();
+                foreach (var key in keys)
+                {
+                    var info = service.GetProfileDebugInfo(key);
+                    // Format: key -> info (which already includes game name and profiles)
+                    writer.WriteLine($"{key} -> {info}");
+                }
+            }
+
+            return exportPath;
+        }
+
+        /// <summary>
+        /// Load and apply Legion button remap settings from LocalSettings on startup.
+        /// </summary>
+        private static void LoadLegionButtonRemapSettings()
+        {
+            try
+            {
+                var settings = global::Windows.Storage.ApplicationData.Current.LocalSettings;
+
+                // Load Legion L settings
+                // Action: 0=Disabled, 1=Xbox Guide, 2=Keyboard Shortcut, 3=Run Command, 4=Focus GoTweaks
+                int lAction = 0;
+                string lShortcut = "";
+                string lCommand = "";
+
+                if (settings.Values.TryGetValue("LegionL_Action", out object lActionObj) && lActionObj is int)
+                    lAction = (int)lActionObj;
+                if (settings.Values.TryGetValue("LegionL_Shortcut", out object lShortcutObj) && lShortcutObj is string)
+                    lShortcut = (string)lShortcutObj;
+                if (settings.Values.TryGetValue("LegionL_Command", out object lCommandObj) && lCommandObj is string)
+                    lCommand = (string)lCommandObj;
+
+                // Load Legion R settings
+                int rAction = 0;
+                string rShortcut = "";
+                string rCommand = "";
+
+                if (settings.Values.TryGetValue("LegionR_Action", out object rActionObj) && rActionObj is int)
+                    rAction = (int)rActionObj;
+                if (settings.Values.TryGetValue("LegionR_Shortcut", out object rShortcutObj) && rShortcutObj is string)
+                    rShortcut = (string)rShortcutObj;
+                if (settings.Values.TryGetValue("LegionR_Command", out object rCommandObj) && rCommandObj is string)
+                    rCommand = (string)rCommandObj;
+
+                // Apply Legion L if not disabled
+                if (lAction > 0)
+                {
+                    // Map action index to actionType: 1=Xbox Guide(0), 2=Shortcut(1), 3=Command(2), 4=FocusGoTweaks(3)
+                    int actionType = lAction - 1;
+                    string shortcutOrCommand = actionType == 1 ? lShortcut : (actionType == 2 ? lCommand : "");
+                    bool success = ConfigureLegionButtonRemap("L", true, actionType, shortcutOrCommand);
+                    Logger.Info($"Labs: Loaded Legion L remap from settings - Action={lAction}, Success={success}");
+                }
+
+                // Apply Legion R if not disabled
+                if (rAction > 0)
+                {
+                    int actionType = rAction - 1;
+                    string shortcutOrCommand = actionType == 1 ? rShortcut : (actionType == 2 ? rCommand : "");
+                    bool success = ConfigureLegionButtonRemap("R", true, actionType, shortcutOrCommand);
+                    Logger.Info($"Labs: Loaded Legion R remap from settings - Action={rAction}, Success={success}");
+                }
+
+                if (lAction == 0 && rAction == 0)
+                {
+                    Logger.Info("Labs: No Legion button remap settings found in LocalSettings");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Labs: Failed to load Legion button remap settings: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Configure Legion button remap (L or R to Xbox Guide or Keyboard Shortcut).
+        /// Uses a single unified monitor that handles both buttons and battery.
+        /// </summary>
+        /// <param name="button">"L" for Legion L, "R" for Legion R</param>
+        /// <param name="enabled">Whether to enable the remap</param>
+        /// <param name="actionType">0=Xbox Guide, 1=Keyboard Shortcut, 2=Run Command, 3=Focus GoTweaks</param>
+        /// <param name="shortcutOrCommand">Keyboard shortcut string (e.g., "Win+G") or command path</param>
+        /// <returns>True if successful</returns>
+        private static bool ConfigureLegionButtonRemap(string button, bool enabled, int actionType, string shortcutOrCommand)
+        {
+            try
+            {
+                // Create unified monitor if it doesn't exist
+                if (legionButtonMonitor == null)
+                {
+                    legionButtonMonitor = new LegionButtonMonitor();
+
+                    // Subscribe to battery updates once
+                    legionButtonMonitor.BatteryUpdated += (sender, e) =>
+                    {
+                        try
+                        {
+                            legionManager?.UpdateControllerBatteryFromButtonMonitor(
+                                e.LeftBattery, e.LeftCharging, e.LeftConnected,
+                                e.RightBattery, e.RightCharging, e.RightConnected);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"Labs: BatteryUpdated handler exception: {ex.Message}\n{ex.StackTrace}");
+                        }
+                    };
+                    Logger.Info("Labs: Created unified Legion button monitor with battery support");
+                }
+
+                // Remember state before configuration
+                bool wasRunning = legionButtonMonitor.IsRunning;
+                bool neededViGEmBefore = legionButtonMonitor.NeedsViGEm;
+
+                // Configure the button on the unified monitor
+                // This just updates internal flags - the monitor loop will pick up changes on next iteration
+                legionButtonMonitor.ConfigureButton(
+                    button,
+                    enabled,
+                    actionType,
+                    shortcutOrCommand,
+                    (shortcutKeys) =>
+                    {
+                        // Execute the keyboard shortcut when the button is pressed
+                        Logger.Debug($"Labs: Executing shortcut '{shortcutKeys}'");
+                        SendKeyboardShortcutViaInputInjector(shortcutKeys);
+                    },
+                    (commandPath) =>
+                    {
+                        // Execute the command when the button is pressed
+                        Logger.Debug($"Labs: Executing command '{commandPath}'");
+                        ExecuteCommand(commandPath);
+                    },
+                    () =>
+                    {
+                        // Focus GoTweaks widget when the button is pressed
+                        Logger.Debug("Labs: Focusing GoTweaks widget");
+                        FocusGoTweaksWidget();
+                    }
+                );
+
+                // Check if ViGEm requirements changed (need to restart monitor to add/remove ViGEm controller)
+                bool needsViGEmNow = legionButtonMonitor.NeedsViGEm;
+                bool vigemRequirementChanged = neededViGEmBefore != needsViGEmNow;
+
+                // Handle different scenarios
+                if (!legionButtonMonitor.HasAnyButtonConfigured)
+                {
+                    // No buttons configured - restart for battery-only mode if it was running with buttons
+                    if (wasRunning && neededViGEmBefore)
+                    {
+                        // Was running with ViGEm for buttons, restart for battery-only
+                        Logger.Info($"Labs: Legion {button} button disabled, restarting monitor for battery-only mode");
+                        legionButtonMonitor.Stop();
+                        legionButtonMonitor.StartForBatteryMonitoring();
+                    }
+                    else if (!wasRunning)
+                    {
+                        // Monitor wasn't running, start for battery monitoring
+                        legionButtonMonitor.StartForBatteryMonitoring();
+                    }
+                    // else: already running for battery-only, no change needed
+                    Logger.Info($"Labs: Legion {button} button disabled, no buttons configured - battery monitoring continues");
+                    return true;
+                }
+                else if (wasRunning && vigemRequirementChanged)
+                {
+                    // ViGEm requirement changed - need to restart monitor
+                    Logger.Info($"Labs: ViGEm requirement changed ({neededViGEmBefore} -> {needsViGEmNow}), restarting monitor");
+                    legionButtonMonitor.Stop();
+                    if (!legionButtonMonitor.Start())
+                    {
+                        string errorReason = needsViGEmNow ? "ViGEmBus not installed or " : "";
+                        Logger.Error($"Labs: Failed to restart Legion button monitoring ({errorReason}controller not found)");
+                        return false;
+                    }
+                }
+                else if (!wasRunning)
+                {
+                    // Monitor wasn't running - start it
+                    if (!legionButtonMonitor.Start())
+                    {
+                        string errorReason = needsViGEmNow ? "ViGEmBus not installed or " : "";
+                        Logger.Error($"Labs: Failed to start Legion button monitoring ({errorReason}controller not found)");
+                        return false;
+                    }
+                }
+                // else: Monitor was running and ViGEm requirement didn't change - config is hot-applied
+
+                string actionName = !enabled ? "Disabled" :
+                                   actionType == 0 ? "Xbox Guide" :
+                                   actionType == 1 ? $"Shortcut: {shortcutOrCommand}" :
+                                   actionType == 2 ? $"Command: {shortcutOrCommand}" :
+                                   "Focus GoTweaks";
+                Logger.Info($"Labs: Legion {button} button configured -> {actionName}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Labs: Error configuring Legion {button} button remap: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Execute a command/executable with optional arguments.
+        /// </summary>
+        private static void ExecuteCommand(string commandPath)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(commandPath))
+                    return;
+
+                // Parse the command - first part is the executable, rest are arguments
+                string exe;
+                string args = "";
+
+                // Check if the path is quoted
+                if (commandPath.StartsWith("\""))
+                {
+                    int endQuote = commandPath.IndexOf('"', 1);
+                    if (endQuote > 0)
+                    {
+                        exe = commandPath.Substring(1, endQuote - 1);
+                        if (endQuote + 1 < commandPath.Length)
+                            args = commandPath.Substring(endQuote + 1).Trim();
+                    }
+                    else
+                    {
+                        exe = commandPath;
+                    }
+                }
+                else
+                {
+                    // Find the first space that's not inside the exe path
+                    int spaceIndex = commandPath.IndexOf(' ');
+                    if (spaceIndex > 0)
+                    {
+                        exe = commandPath.Substring(0, spaceIndex);
+                        args = commandPath.Substring(spaceIndex + 1).Trim();
+                    }
+                    else
+                    {
+                        exe = commandPath;
+                    }
+                }
+
+                var startInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = exe,
+                    Arguments = args,
+                    UseShellExecute = true,
+                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal
+                };
+
+                System.Diagnostics.Process.Start(startInfo);
+                Logger.Info($"Labs: Executed command: {exe} {args}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Labs: Failed to execute command '{commandPath}': {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Focus GoTweaks widget by opening Game Bar and sending activation command to widget.
+        /// Win+G is required to open Game Bar before widget can be activated.
+        /// </summary>
+        private static async void FocusGoTweaksWidget()
+        {
+            try
+            {
+                // Debounce: ignore rapid button presses
+                var now = DateTime.Now;
+                if ((now - lastFocusWidgetTime).TotalMilliseconds < FocusWidgetDebounceMs)
+                {
+                    Logger.Debug("Labs: Focus widget debounced (rapid press ignored)");
+                    return;
+                }
+                lastFocusWidgetTime = now;
+
+                // Open Game Bar (required for widget activation)
+                SendKeyboardShortcutViaInputInjector("Win+G");
+                Logger.Info("Labs: Sent Win+G to open Game Bar");
+
+                // Delay to ensure Game Bar is fully open and widget is ready
+                await Task.Delay(500);
+
+                // Send focus command to widget via AppService
+                if (connection != null && appServiceConnectionStatus == AppServiceConnectionStatus.Success)
+                {
+                    var message = new global::Windows.Foundation.Collections.ValueSet();
+                    message.Add("Command", (int)Shared.Enums.Command.Set);
+                    message.Add("Function", (int)Shared.Enums.Function.Labs_FocusWidget);
+                    await connection.SendMessageAsync(message);
+                    Logger.Info("Labs: Sent focus widget command to widget");
+                }
+                else
+                {
+                    Logger.Warn("Labs: Cannot send focus widget command - connection not available");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Labs: Failed to focus GoTweaks widget: {ex.Message}");
+            }
+        }
+
+        #endregion
     }
 }

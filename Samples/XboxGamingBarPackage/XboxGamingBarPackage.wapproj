@@ -139,4 +139,9 @@
   <Target Name="IncrementBuildNumber" BeforeTargets="Build">
     <Exec Command="powershell.exe -ExecutionPolicy Bypass -Command &quot;$manifestPath = '$(MSBuildProjectDirectory)\Package.appxmanifest'; [xml]$manifest = Get-Content $manifestPath; $version = $manifest.Package.Identity.Version; $parts = $version.Split('.'); $parts[2] = [int]$parts[2] + 1; $newVersion = $parts -join '.'; $manifest.Package.Identity.Version = $newVersion; $manifest.Save($manifestPath); Write-Host 'Build number incremented to: ' $newVersion&quot;" />
   </Target>
+  <!-- Convert Install.ps1 to Install.exe after package generation -->
+  <Target Name="ConvertInstallScriptToExe" AfterTargets="GenerateAppxPackage" Condition="'$(GenerateAppxPackageOnBuild)' == 'true'">
+    <Message Importance="high" Text="Converting Install.ps1 to Install.exe..." />
+    <Exec Command="powershell.exe -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\Build-InstallExe.ps1&quot; -PackageDir &quot;$(AppxPackageDir)&quot;" ContinueOnError="true" />
+  </Target>
 </Project>

@@ -19,6 +19,17 @@ namespace Shared.Data
             get { return function; }
         }
 
+        /// <summary>
+        /// The last time this property was updated (for sync ordering).
+        /// </summary>
+        public abstract long UpdatedTime { get; }
+
+        /// <summary>
+        /// When true, NotifyPropertyChanged will update UI but won't send value to remote.
+        /// Used during batch sync to prevent echoing values back to sender.
+        /// </summary>
+        public bool SuppressRemoteSync { get; set; }
+
         public FunctionalProperty() : base()
         {
             function = Function.OSD;
@@ -37,6 +48,12 @@ namespace Shared.Data
         protected override async void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
+
+            // Skip sending to remote if suppressed (e.g., during batch sync)
+            if (SuppressRemoteSync)
+            {
+                return;
+            }
 
             try
             {
@@ -137,6 +154,15 @@ namespace Shared.Data
         protected abstract Task<AppServiceResponse> SendMessageAsync(ValueSet request);
 
         public abstract ValueSet AddValueSetContent(in ValueSet inValueSet);
+
+        /// <summary>
+        /// Called after batch sync completes to allow derived classes to perform post-sync actions.
+        /// Override this in WidgetControlProperty to enable controls after batch sync.
+        /// </summary>
+        public virtual Task OnBatchSyncCompleted()
+        {
+            return Task.CompletedTask;
+        }
 
         /// <summary>
         /// Sends the current value to the other side (widget/helper) without triggering local property change handlers.
