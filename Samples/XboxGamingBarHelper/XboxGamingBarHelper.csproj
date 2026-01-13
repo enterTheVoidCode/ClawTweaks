@@ -500,6 +500,7 @@
     <Compile Include="Labs\ViGEmController.cs" />
     <Compile Include="Labs\LegionButtonMonitor.cs" />
     <Compile Include="Labs\ViGEmBusProperties.cs" />
+    <Compile Include="Icons\GameIconHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ADLXCSharpBind.exp">

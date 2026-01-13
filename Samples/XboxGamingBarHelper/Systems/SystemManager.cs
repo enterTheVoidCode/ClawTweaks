@@ -4,10 +4,12 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Shared.Data;
 using XboxGamingBarHelper.Windows;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Settings;
+using XboxGamingBarHelper.Icons;
 using Windows.ApplicationModel.AppService;
 using System.Collections.Generic;
 using Shared.Utilities;
@@ -409,6 +411,100 @@ namespace XboxGamingBarHelper.Systems
 
             Logger.Debug($"ProcessWindows count: {ProcessWindows.Count}, AppEntries count: {AppEntries.Count}");
 
+            // Xbox Game Bar TrackedGame: Trust it directly without window matching
+            // This handles UWP/Store games that run inside ApplicationFrameHost.exe
+            // Game Bar already identified this as a game, so we don't need to validate via window title/process name
+            if (trackedGame.IsValid())
+            {
+                // Try to find the actual game process, not just any foreground window
+                ProcessWindow? matchedWindow = null;
+
+                // Extract package family prefix from AumId for UWP apps (e.g., "Microsoft.WindowsNotepad" from "Microsoft.WindowsNotepad_8wekyb3d8bbwe!App")
+                string packagePrefix = null;
+                if (!string.IsNullOrEmpty(trackedGame.AumId) && trackedGame.AumId.Contains("_"))
+                {
+                    packagePrefix = trackedGame.AumId.Split('_')[0];
+                }
+
+                // First pass: Look for a window that matches the TrackedGame
+                foreach (var pw in ProcessWindows.Values)
+                {
+                    if (string.IsNullOrEmpty(pw.Path)) continue;
+
+                    // Skip Game Bar itself
+                    bool isGameBar = (pw.ProcessName ?? "").IndexOf("GameBar", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                     pw.Path.IndexOf("GameBar", StringComparison.OrdinalIgnoreCase) >= 0;
+                    if (isGameBar) continue;
+
+                    bool isMatch = false;
+
+                    // For UWP apps: Match by package family name in path
+                    if (!string.IsNullOrEmpty(packagePrefix))
+                    {
+                        // UWP apps run from WindowsApps folder with package name in path
+                        if (pw.Path.IndexOf(packagePrefix, StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            isMatch = true;
+                        }
+                    }
+
+                    // For regular apps: Match by window title or process name containing DisplayName
+                    if (!isMatch && !string.IsNullOrEmpty(trackedGame.DisplayName))
+                    {
+                        // Check if window title contains the game name (common for game windows)
+                        if (!string.IsNullOrEmpty(pw.Title) &&
+                            pw.Title.IndexOf(trackedGame.DisplayName, StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            isMatch = true;
+                        }
+                        // Check if process name matches (e.g., "citron" in "citron.exe")
+                        else if (!string.IsNullOrEmpty(pw.ProcessName))
+                        {
+                            // Extract first word from DisplayName for matching (e.g., "citron" from "citron Nightly | 2028150eb")
+                            var firstWord = trackedGame.DisplayName.Split(' ')[0];
+                            if (pw.ProcessName.IndexOf(firstWord, StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                isMatch = true;
+                            }
+                        }
+                    }
+
+                    if (isMatch)
+                    {
+                        // Prefer foreground window, but accept background if it's the only match
+                        if (pw.IsForeground)
+                        {
+                            matchedWindow = pw;
+                            break; // Foreground match is best, stop searching
+                        }
+                        else if (!matchedWindow.HasValue)
+                        {
+                            matchedWindow = pw; // Keep looking for foreground
+                        }
+                    }
+                }
+
+                if (matchedWindow.HasValue)
+                {
+                    var mw = matchedWindow.Value;
+                    // Get FPS from RTSS if available
+                    uint fps = 0;
+                    if (AppEntries.TryGetValue(mw.ProcessId, out var appEntry))
+                    {
+                        fps = appEntry.InstantaneousFrames;
+                    }
+
+                    var gameName = trackedGame.DisplayName;
+                    Logger.Info($"TrackedGame \"{gameName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground}");
+                    return new RunningGame(mw.ProcessId, gameName, mw.Path, fps, mw.IsForeground);
+                }
+                else
+                {
+                    // No matching window found - the game might be minimized or not visible
+                    Logger.Debug($"TrackedGame \"{trackedGame.DisplayName}\" is valid but no matching window found (AumId={trackedGame.AumId})");
+                }
+            }
+
             var possibleGames = new List<RunningGame>();
             if (ProcessWindows.Count > 0)
             {
@@ -429,28 +525,9 @@ namespace XboxGamingBarHelper.Systems
                         fps = appEntry.InstantaneousFrames;
                     }
 
-                    // GamesOnly mode: TrackedGame (Xbox Game Bar) and user profiles are always trusted.
+                    // GamesOnly mode: User profiles are always trusted.
                     // For other apps, gamesOnly ON requires FPS > 0 to be considered a game.
                     bool hasFPS = fps > 0;
-
-                    // Check if this window matches the TrackedGame from Xbox Game Bar
-                    // Match by: window title equals DisplayName, OR process name contains game name (for games with empty window titles like Forza)
-                    // TrackedGame is always trusted as a game (Xbox Game Bar already identified it) regardless of gamesOnly setting
-                    if (trackedGame.IsValid())
-                    {
-                        bool matchesByTitle = !string.IsNullOrEmpty(processWindow.Value.Title) && trackedGame.DisplayName == processWindow.Value.Title;
-                        bool matchesByProcessName = !string.IsNullOrEmpty(trackedGame.DisplayName) &&
-                            processWindow.Value.ProcessName.Replace(" ", "").IndexOf(trackedGame.DisplayName.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) >= 0;
-
-                        if (matchesByTitle || matchesByProcessName)
-                        {
-                            // TrackedGame from Xbox Game Bar is always considered a game - no FPS check needed
-                            // Xbox Game Bar already confirmed this is a game
-                            var gameName = GetGameName(processWindow.Value.Path, trackedGame.DisplayName);
-                            Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" matches TrackedGame \"{gameName}\" (byTitle={matchesByTitle}, byProcess={matchesByProcessName}, FPS={fps}).");
-                            possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
-                        }
-                    }
 
                     // Check for existing profile - try both exe name and window title based on preferExe setting
                     // If user created a profile for this app, trust it as a game regardless of gamesOnly setting
@@ -580,6 +657,51 @@ namespace XboxGamingBarHelper.Systems
                     if (currentRunningGame.GameId.IsValid())
                     {
                         Logger.Info($"Detect new running game {currentRunningGame.GameId.Name}.");
+
+                        // Try to get cached icon first (synchronous, fast)
+                        var exePath = currentRunningGame.GameId.Path;
+                        var cachedIconPath = GameIconHelper.GetCachedIconPath(exePath);
+
+                        if (!string.IsNullOrEmpty(cachedIconPath))
+                        {
+                            // Icon already cached - include it in the RunningGame
+                            currentRunningGame.GameId = new GameId(
+                                currentRunningGame.GameId.Name,
+                                currentRunningGame.GameId.Path,
+                                cachedIconPath);
+                            Logger.Info($"Using cached icon: {cachedIconPath}");
+                        }
+                        else
+                        {
+                            // Extract icon asynchronously for future use
+                            Task.Run(() =>
+                            {
+                                try
+                                {
+                                    var iconPath = GameIconHelper.ExtractAndCacheIcon(exePath);
+                                    if (!string.IsNullOrEmpty(iconPath))
+                                    {
+                                        Logger.Info($"Game icon extracted: {iconPath}");
+
+                                        // Only send update if the game is still running
+                                        if (RunningGame.Value.GameId.Path == exePath)
+                                        {
+                                            var updatedGame = RunningGame.Value;
+                                            updatedGame.GameId = new GameId(
+                                                updatedGame.GameId.Name,
+                                                updatedGame.GameId.Path,
+                                                iconPath);
+                                            RunningGame.ForceSetValue(updatedGame);
+                                            Logger.Info($"Sent icon update to widget");
+                                        }
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Logger.Debug($"Failed to extract icon for {exePath}: {ex.Message}");
+                                }
+                            });
+                        }
                     }
                     else
                     {

@@ -12810,6 +12810,7 @@ namespace XboxGamingBar
                 if (runningGame?.Value != null && runningGame.Value.IsValid())
                 {
                     string exePath = runningGame.Value.GameId.Path;
+                    string iconPath = runningGame.Value.GameId.IconPath;
 
                     if (!string.IsNullOrEmpty(exePath))
                     {
@@ -12817,7 +12818,8 @@ namespace XboxGamingBar
                         Logger.Info($"Updated currentGameExePath: {currentGameExePath}");
 
                         // Load the game icon for the Profiles tab
-                        LoadCurrentGameIcon(exePath);
+                        // Use helper-extracted icon if available, otherwise fall back to Steam lookup
+                        LoadCurrentGameIcon(exePath, iconPath);
                     }
                     else
                     {
@@ -12825,7 +12827,7 @@ namespace XboxGamingBar
                         Logger.Info("Cleared currentGameExePath (no path in RunningGame)");
 
                         // Clear the game icon
-                        LoadCurrentGameIcon(null);
+                        LoadCurrentGameIcon(null, null);
                     }
                 }
                 else
@@ -12834,7 +12836,7 @@ namespace XboxGamingBar
                     Logger.Info("Cleared currentGameExePath (no running game)");
 
                     // Clear the game icon
-                    LoadCurrentGameIcon(null);
+                    LoadCurrentGameIcon(null, null);
                 }
             }
             catch (Exception ex)
@@ -17369,10 +17371,13 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Loads the Steam game icon for the current game and updates the UI.
-        /// Must be called from background thread - does Steam lookup then dispatches to UI thread.
+        /// Loads the game icon for the current game and updates the UI.
+        /// Uses helper-extracted icon if available, falls back to Steam lookup.
+        /// Must be called from background thread - dispatches to UI thread.
         /// </summary>
-        private async void LoadCurrentGameIcon(string exePath)
+        /// <param name="exePath">Path to the game executable</param>
+        /// <param name="helperIconPath">Optional icon path from helper (extracted via Shell API)</param>
+        private async void LoadCurrentGameIcon(string exePath, string helperIconPath)
         {
             if (string.IsNullOrEmpty(exePath))
             {
@@ -17396,34 +17401,32 @@ namespace XboxGamingBar
             {
                 Logger.Info($"LoadCurrentGameIcon: Starting for {exePath}");
 
-                // Get Steam App ID from exe path (can be done on any thread)
-                var steamAppId = GetSteamAppIdFromPath(exePath);
-                if (string.IsNullOrEmpty(steamAppId))
+                string iconPath = null;
+
+                // Priority 1: Use helper-extracted icon if available
+                if (!string.IsNullOrEmpty(helperIconPath) && File.Exists(helperIconPath))
                 {
-                    Logger.Info($"LoadCurrentGameIcon: No Steam App ID found for {exePath}");
-                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    iconPath = helperIconPath;
+                    Logger.Info($"LoadCurrentGameIcon: Using helper icon: {iconPath}");
+                }
+                else
+                {
+                    // Priority 2: Fall back to Steam icon lookup
+                    var steamAppId = GetSteamAppIdFromPath(exePath);
+                    if (!string.IsNullOrEmpty(steamAppId))
                     {
-                        if (CurrentGameIcon != null)
+                        Logger.Info($"LoadCurrentGameIcon: Found Steam App ID {steamAppId}");
+                        iconPath = GetSteamIconPath(steamAppId);
+                        if (!string.IsNullOrEmpty(iconPath))
                         {
-                            CurrentGameIcon.Source = null;
-                            CurrentGameIcon.Visibility = Visibility.Collapsed;
+                            Logger.Info($"LoadCurrentGameIcon: Using Steam icon: {iconPath}");
                         }
-                        if (LegionControllerProfileGameIcon != null)
-                        {
-                            LegionControllerProfileGameIcon.Source = null;
-                            LegionControllerProfileGameIcon.Visibility = Visibility.Collapsed;
-                        }
-                    });
-                    return;
+                    }
                 }
 
-                Logger.Info($"LoadCurrentGameIcon: Found Steam App ID {steamAppId}");
-
-                // Get icon path (can be done on any thread)
-                var iconPath = GetSteamIconPath(steamAppId);
                 if (string.IsNullOrEmpty(iconPath))
                 {
-                    Logger.Info($"LoadCurrentGameIcon: No icon path found for Steam App ID {steamAppId}");
+                    Logger.Info($"LoadCurrentGameIcon: No icon found for {exePath}");
                     await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                     {
                         if (CurrentGameIcon != null)
@@ -17439,8 +17442,6 @@ namespace XboxGamingBar
                     });
                     return;
                 }
-
-                Logger.Info($"LoadCurrentGameIcon: Found icon at {iconPath}");
 
                 // Load icon and update UI - must be done on UI thread
                 await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
@@ -17489,7 +17490,8 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Loads the Steam game icon for a saved profile.
+        /// Loads the game icon for a saved profile.
+        /// Checks helper-extracted cache first, falls back to Steam lookup.
         /// Returns a BitmapImage if found, null otherwise.
         /// </summary>
         private async Task<BitmapImage> LoadSavedProfileIconAsync(string exePath)
@@ -17499,13 +17501,24 @@ namespace XboxGamingBar
 
             try
             {
-                // Get Steam App ID from exe path
-                var steamAppId = GetSteamAppIdFromPath(exePath);
-                if (string.IsNullOrEmpty(steamAppId))
-                    return null;
+                string iconPath = null;
 
-                // Get icon path
-                var iconPath = GetSteamIconPath(steamAppId);
+                // Priority 1: Check helper-extracted icon cache
+                var cachedIconPath = GetCachedIconPath(exePath);
+                if (!string.IsNullOrEmpty(cachedIconPath) && File.Exists(cachedIconPath))
+                {
+                    iconPath = cachedIconPath;
+                }
+                else
+                {
+                    // Priority 2: Fall back to Steam icon lookup
+                    var steamAppId = GetSteamAppIdFromPath(exePath);
+                    if (!string.IsNullOrEmpty(steamAppId))
+                    {
+                        iconPath = GetSteamIconPath(steamAppId);
+                    }
+                }
+
                 if (string.IsNullOrEmpty(iconPath) || !File.Exists(iconPath))
                     return null;
 
@@ -17531,6 +17544,51 @@ namespace XboxGamingBar
                 });
 
                 return await tcs.Task;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Gets the cached icon path for an executable from the helper's icon cache.
+        /// Uses the same MD5 hash-based naming scheme as the helper.
+        /// </summary>
+        private string GetCachedIconPath(string exePath)
+        {
+            if (string.IsNullOrEmpty(exePath))
+                return null;
+
+            try
+            {
+                // Get the icon cache folder (same as helper uses)
+                var cacheFolder = Path.Combine(
+                    Windows.Storage.ApplicationData.Current.LocalFolder.Path,
+                    "icons");
+
+                if (!Directory.Exists(cacheFolder))
+                    return null;
+
+                // Generate cache filename using same algorithm as helper
+                using (var md5 = System.Security.Cryptography.MD5.Create())
+                {
+                    var hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(exePath.ToLowerInvariant()));
+                    var hashString = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+
+                    var exeName = Path.GetFileNameWithoutExtension(exePath);
+                    foreach (var c in Path.GetInvalidFileNameChars())
+                    {
+                        exeName = exeName.Replace(c, '_');
+                    }
+                    if (exeName.Length > 32)
+                        exeName = exeName.Substring(0, 32);
+
+                    var cacheFileName = $"{exeName}_{hashString.Substring(0, 8)}.png";
+                    var cachePath = Path.Combine(cacheFolder, cacheFileName);
+
+                    return File.Exists(cachePath) ? cachePath : null;
+                }
             }
             catch
             {
