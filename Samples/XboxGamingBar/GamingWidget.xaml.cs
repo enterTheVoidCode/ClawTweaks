@@ -367,6 +367,7 @@ namespace XboxGamingBar
         public byte LightColorG { get; set; } = 255;
         public byte LightColorB { get; set; } = 255;
         public int LightSpeed { get; set; } = 50;        // Animation speed for dynamic modes
+        public bool HasExplicitLighting { get; set; } = false;  // True if lighting was explicitly saved in this profile
 
         public ControllerProfile Clone()
         {
@@ -417,7 +418,8 @@ namespace XboxGamingBar
                 LightColorR = this.LightColorR,
                 LightColorG = this.LightColorG,
                 LightColorB = this.LightColorB,
-                LightSpeed = this.LightSpeed
+                LightSpeed = this.LightSpeed,
+                HasExplicitLighting = this.HasExplicitLighting
             };
         }
     }
@@ -8366,14 +8368,18 @@ namespace XboxGamingBar
                     ? (bool)container.Values["DesktopControlsEnabled"]
                     : false;
 
-                // Lighting
+                // Lighting - only load if explicitly saved (to avoid defaulting to white for old profiles)
+                profile.HasExplicitLighting = container.Values.ContainsKey("LightColorR");
                 profile.LightMode = container.Values.ContainsKey("LightMode") ? (int)container.Values["LightMode"] : 1;
-                profile.LightColorR = container.Values.ContainsKey("LightColorR") ? (byte)container.Values["LightColorR"] : (byte)255;
-                profile.LightColorG = container.Values.ContainsKey("LightColorG") ? (byte)container.Values["LightColorG"] : (byte)255;
-                profile.LightColorB = container.Values.ContainsKey("LightColorB") ? (byte)container.Values["LightColorB"] : (byte)255;
+                if (profile.HasExplicitLighting)
+                {
+                    profile.LightColorR = (byte)container.Values["LightColorR"];
+                    profile.LightColorG = container.Values.ContainsKey("LightColorG") ? (byte)container.Values["LightColorG"] : (byte)255;
+                    profile.LightColorB = container.Values.ContainsKey("LightColorB") ? (byte)container.Values["LightColorB"] : (byte)255;
+                }
                 profile.LightSpeed = container.Values.ContainsKey("LightSpeed") ? (int)container.Values["LightSpeed"] : 50;
 
-                Logger.Info($"Loaded controller profile: {profileName}");
+                Logger.Info($"Loaded controller profile: {profileName} (HasExplicitLighting={profile.HasExplicitLighting})");
             }
         }
 
@@ -8948,7 +8954,8 @@ namespace XboxGamingBar
                 LightColorR = LegionColorPicker?.Color.R ?? 255,
                 LightColorG = LegionColorPicker?.Color.G ?? 255,
                 LightColorB = LegionColorPicker?.Color.B ?? 255,
-                LightSpeed = (int)(LegionSpeedSlider?.Value ?? 50)
+                LightSpeed = (int)(LegionSpeedSlider?.Value ?? 50),
+                HasExplicitLighting = true  // Mark as having explicit lighting since we're capturing from UI
             };
         }
 
@@ -9092,6 +9099,14 @@ namespace XboxGamingBar
         {
             try
             {
+                // Only send lighting if the profile has explicit lighting settings saved
+                // This prevents old profiles (created before per-game lighting) from resetting to white
+                if (!profile.HasExplicitLighting)
+                {
+                    Logger.Info($"Skipping lighting update - profile has no explicit lighting settings");
+                    return;
+                }
+
                 // Send light mode
                 legionLightMode?.SetValue(profile.LightMode);
 
