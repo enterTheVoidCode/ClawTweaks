@@ -14,6 +14,7 @@ using System.Linq;
 using System.Management;
 using System.Runtime.InteropServices;
 using System.Threading;
+using XboxGamingBarHelper.Labs;
 
 namespace LegionGoLibrary
 {
@@ -104,6 +105,8 @@ namespace LegionGoLibrary
         GpuCurrentFanSpeed = 0x04030002,
 
         // Temperature Sensors
+        /// <summary>Fan control sensor temperature (0x01 sensor) - what EC uses for fan curve lookup</summary>
+        FanControlSensorTemp = 0x05010000,
         /// <summary>Current CPU temperature in Celsius</summary>
         CpuCurrentTemperature = 0x05040000,
         /// <summary>Current GPU temperature in Celsius</summary>
@@ -870,6 +873,13 @@ namespace LegionGoLibrary
         #endregion
 
         #region Temperature Convenience Methods
+
+        /// <summary>
+        /// Gets the fan control sensor temperature (0x01 sensor) that the EC uses for fan curve lookup.
+        /// This is typically 10-17°C lower than CPU temperature.
+        /// </summary>
+        /// <returns>Tuple containing success status, message, and temperature in Celsius</returns>
+        public (bool Success, string Message, int? Result) GetFanControlSensorTemp() => GetFeatureValue(CapabilityID.FanControlSensorTemp);
 
         /// <summary>
         /// Gets the current CPU temperature from LENOVO_OTHER_METHOD.
@@ -1650,6 +1660,10 @@ namespace LegionGoLibrary
                 byte[] buffer = new byte[64];
                 Array.Copy(command, buffer, Math.Min(command.Length, 64));
 
+                // Notify LegionButtonMonitor that we're about to send an output report
+                // This prevents false button triggers caused by HID report interference
+                LegionButtonMonitor.NotifyOutputReportSent();
+
                 // Try HidD_SetOutputReport first (standard method)
                 if (HidD_SetOutputReport(_deviceHandle, buffer, (uint)buffer.Length))
                 {
@@ -2061,23 +2075,30 @@ namespace LegionGoLibrary
                     {
                         consecutiveFailures = 0; // Reset on successful read
 
-                        // Check for battery report format: 04 00 a1 ...
-                        // Bytes: [0-1]=ReportID, [2]=Status, [3]=LeftBat, [4]=LeftCharge, [5]=RightBat, [6]=RightCharge
-                        //        [7-9]=UNK, [10]=LeftConnType, [11]=RightConnType
-                        // Connection type: 0x01=Not connected, 0x02=Bluetooth, 0x03=USB
-                        if (bytesRead >= 12 && buffer[0] == 0x04 && buffer[1] == 0x00 && buffer[2] == 0xa1)
+
+                        // Check for battery report format
+                        // Attached mode: 04:00:A1 - battery at bytes 3-6, connection at bytes 10-11
+                        // Detached mode: 04:3C:74 - battery at bytes 5-8, connection at bytes 12-13
+                        bool isAttachedMode = bytesRead >= 12 && buffer[0] == 0x04 && buffer[1] == 0x00 && buffer[2] == 0xA1;
+                        bool isDetachedMode = bytesRead >= 14 && buffer[0] == 0x04 && buffer[1] == 0x3C && buffer[2] == 0x74;
+
+                        if (isAttachedMode || isDetachedMode)
                         {
-                            // Check connection type: 0x01 = not connected, 0x02 = BT, 0x03 = USB
-                            bool leftConnected = buffer[10] != 0x01;
-                            bool rightConnected = buffer[11] != 0x01;
+                            // Byte offsets differ between modes (detached has 2 extra bytes before battery data)
+                            int batteryOffset = isDetachedMode ? 5 : 3;
+                            int connOffset = isDetachedMode ? 12 : 10;
+
+                            // Check connection status: 0x01 = not connected, 0x02 = BT/attached, 0x03 = USB/detached
+                            bool leftConnected = buffer[connOffset] != 0x01;
+                            bool rightConnected = buffer[connOffset + 1] != 0x01;
 
                             // Battery value (1-100), or -1 if not connected
-                            int leftBattery = leftConnected ? buffer[3] : -1;
-                            int rightBattery = rightConnected ? buffer[5] : -1;
+                            int leftBattery = leftConnected ? buffer[batteryOffset] : -1;
+                            int rightBattery = rightConnected ? buffer[batteryOffset + 2] : -1;
 
                             // Charging status: 0x04 = charging, 0x01 = discharging
-                            bool leftCharging = leftConnected && buffer[4] == 0x04;
-                            bool rightCharging = rightConnected && buffer[6] == 0x04;
+                            bool leftCharging = leftConnected && buffer[batteryOffset + 1] == 0x04;
+                            bool rightCharging = rightConnected && buffer[batteryOffset + 3] == 0x04;
 
                             bool changed = _leftControllerBattery != leftBattery ||
                                            _rightControllerBattery != rightBattery ||

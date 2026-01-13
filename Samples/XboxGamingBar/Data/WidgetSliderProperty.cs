@@ -85,6 +85,14 @@ namespace XboxGamingBar.Data
                     debounceTimer.Stop();
                 }
 
+                // Check if connection is available before sending
+                if (App.Connection == null)
+                {
+                    Logger.Debug($"{Function} Debounce timer tick - no connection yet, skipping send.");
+                    hasPendingValue = false;
+                    return;
+                }
+
                 if (hasPendingValue && pendingValue != Value)
                 {
                     Logger.Info($"{Function} Debounce timer elapsed, applying pending value {pendingValue}.");

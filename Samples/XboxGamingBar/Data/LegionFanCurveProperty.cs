@@ -23,9 +23,9 @@ namespace XboxGamingBar.Data
         // Default fan curve values (Legion Go defaults)
         public static readonly int[] DefaultCurve = { 44, 48, 55, 60, 71, 79, 87, 87, 100, 100 };
 
-        // Minimum fan speeds (%) for each temperature threshold (46°C to 75°C)
-        // ~30% below Legion Space constraints to allow lower fan speeds
-        private static readonly int[] MinSpeeds = { 30, 33, 33, 36, 40, 46, 58, 62, 66, 70 };
+        // Minimum fan speeds - set to 0 since EC enforces its own thermal protection floor
+        // EC override floor: 0-44°C=0%, 45°C=27%, 50°C=40%, 55°C=55%, 60°C=65%, 70°C=85%, 80+°C=100%
+        private static readonly int[] MinSpeeds = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         public LegionFanCurveGraphProperty(Page owner)
             : base(FormatCurveData(DefaultCurve), null, Function.LegionFanCurveData)
@@ -206,6 +206,44 @@ namespace XboxGamingBar.Data
                 await _owner.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                 {
                     Logger.Info($"Invoking temp callback with {temp}°C");
+                    _tempUpdateCallback(temp);
+                });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Read-only property for fan control sensor temperature (0x01 sensor) from the helper.
+    /// This is the temperature the EC uses for fan curve lookup (typically 10-17°C lower than CPU temp).
+    /// </summary>
+    internal class LegionFanSensorTempProperty : WidgetProperty<int>
+    {
+        private readonly Page _owner;
+        private Action<int> _tempUpdateCallback;
+
+        public LegionFanSensorTempProperty(Page owner)
+            : base(0, null, Function.LegionFanSensorTemp)
+        {
+            _owner = owner;
+        }
+
+        /// <summary>
+        /// Sets a callback to update the fan sensor temperature indicator on the graph
+        /// </summary>
+        public void SetTempUpdateCallback(Action<int> callback)
+        {
+            _tempUpdateCallback = callback;
+        }
+
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+
+            if (_tempUpdateCallback != null && _owner != null)
+            {
+                var temp = Value;
+                await _owner.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
                     _tempUpdateCallback(temp);
                 });
             }

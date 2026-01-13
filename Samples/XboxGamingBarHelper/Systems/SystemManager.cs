@@ -300,9 +300,38 @@ namespace XboxGamingBarHelper.Systems
         {
             // Get profile detection settings
             var settings = SettingsManager.GetInstance();
-            bool matchByExe = settings?.ProfileMatchByExe?.Value ?? false;
+            bool preferExe = settings?.ProfileMatchByExe?.Value ?? false;
             var customGamePathProperty = settings?.ProfileCustomGamePath;
             bool gamesOnly = settings?.ProfileGamesOnly?.Value ?? true;
+
+            // Helper: Get game name based on preferExe setting
+            // When preferExe is true: use exe name if available, fall back to window title
+            // When preferExe is false: use window title, fall back to exe name
+            string GetGameName(string path, string windowTitle)
+            {
+                if (preferExe)
+                {
+                    // Prefer executable name, fall back to window title if path is empty
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        var exeName = Path.GetFileNameWithoutExtension(path);
+                        if (!string.IsNullOrEmpty(exeName))
+                            return exeName;
+                    }
+                    // Fall back to window title
+                    if (!string.IsNullOrEmpty(windowTitle))
+                        return windowTitle;
+                    // Last resort: try exe name again
+                    return Path.GetFileNameWithoutExtension(path) ?? "";
+                }
+                else
+                {
+                    // Use window title, fall back to exe name
+                    if (!string.IsNullOrEmpty(windowTitle))
+                        return windowTitle;
+                    return Path.GetFileNameWithoutExtension(path) ?? "";
+                }
+            }
 
             try
             {
@@ -343,11 +372,7 @@ namespace XboxGamingBarHelper.Systems
                 {
                     if (customGamePathProperty.ContainsPath(processWindow.Value.Path))
                     {
-                        var gameName = matchByExe ? Path.GetFileNameWithoutExtension(processWindow.Value.Path) : processWindow.Value.Title;
-                        if (string.IsNullOrEmpty(gameName))
-                        {
-                            gameName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
-                        }
+                        var gameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
                         Logger.Debug($"Custom game match: {processWindow.Value.Path}");
                         return new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, 0, processWindow.Value.IsForeground);
                     }
@@ -404,11 +429,13 @@ namespace XboxGamingBarHelper.Systems
                         fps = appEntry.InstantaneousFrames;
                     }
 
-                    // When gamesOnly is ON, skip apps with no FPS (unless they match TrackedGame or have a profile)
+                    // GamesOnly mode: TrackedGame (Xbox Game Bar) and user profiles are always trusted.
+                    // For other apps, gamesOnly ON requires FPS > 0 to be considered a game.
                     bool hasFPS = fps > 0;
 
                     // Check if this window matches the TrackedGame from Xbox Game Bar
                     // Match by: window title equals DisplayName, OR process name contains game name (for games with empty window titles like Forza)
+                    // TrackedGame is always trusted as a game (Xbox Game Bar already identified it) regardless of gamesOnly setting
                     if (trackedGame.IsValid())
                     {
                         bool matchesByTitle = !string.IsNullOrEmpty(processWindow.Value.Title) && trackedGame.DisplayName == processWindow.Value.Title;
@@ -417,47 +444,30 @@ namespace XboxGamingBarHelper.Systems
 
                         if (matchesByTitle || matchesByProcessName)
                         {
-                            // When gamesOnly is ON, only match TrackedGame if it has FPS
-                            if (!gamesOnly || hasFPS)
-                            {
-                                // Use exe name when matchByExe, otherwise use TrackedGame.DisplayName
-                                var gameName = matchByExe ? Path.GetFileNameWithoutExtension(processWindow.Value.Path) : trackedGame.DisplayName;
-                                if (string.IsNullOrEmpty(gameName))
-                                {
-                                    gameName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
-                                }
-                                Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" matches TrackedGame \"{gameName}\" (byTitle={matchesByTitle}, byProcess={matchesByProcessName}, FPS={fps}).");
-                                possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
-                            }
+                            // TrackedGame from Xbox Game Bar is always considered a game - no FPS check needed
+                            // Xbox Game Bar already confirmed this is a game
+                            var gameName = GetGameName(processWindow.Value.Path, trackedGame.DisplayName);
+                            Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" matches TrackedGame \"{gameName}\" (byTitle={matchesByTitle}, byProcess={matchesByProcessName}, FPS={fps}).");
+                            possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
                         }
                     }
 
-                    // Check for existing profile - try both exe name and window title based on matchByExe setting
-                    var profileGameName = matchByExe ? Path.GetFileNameWithoutExtension(processWindow.Value.Path) : processWindow.Value.Title;
-                    if (string.IsNullOrEmpty(profileGameName))
-                    {
-                        profileGameName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
-                    }
+                    // Check for existing profile - try both exe name and window title based on preferExe setting
+                    // If user created a profile for this app, trust it as a game regardless of gamesOnly setting
+                    var profileGameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
                     if (Profiles.ContainsKey(new GameId(profileGameName, processWindow.Value.Path)))
                     {
-                        // When gamesOnly is ON, only match profile if it has FPS
-                        if (!gamesOnly || hasFPS)
-                        {
-                            Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has profile, use it (FPS={fps}).");
-                            possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, profileGameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
-                            continue;
-                        }
+                        // User-created profile is always trusted as a game - no FPS check needed
+                        Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has profile, use it (FPS={fps}).");
+                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, profileGameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
+                        continue;
                     }
 
                     // Check RTSS entry for FPS-based detection
                     if (hasFPS)
                     {
                         // App has FPS > 0, it's a game
-                        var gameName = matchByExe ? Path.GetFileNameWithoutExtension(processWindow.Value.Path) : processWindow.Value.Title;
-                        if (string.IsNullOrEmpty(gameName))
-                        {
-                            gameName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
-                        }
+                        var gameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
                         Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has {fps} FPS, use it.");
                         possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
                         continue;
@@ -466,11 +476,7 @@ namespace XboxGamingBarHelper.Systems
                     // When gamesOnly is OFF, any foreground app qualifies as a game
                     if (!gamesOnly && processWindow.Value.IsForeground)
                     {
-                        var gameName = matchByExe ? Path.GetFileNameWithoutExtension(processWindow.Value.Path) : processWindow.Value.Title;
-                        if (string.IsNullOrEmpty(gameName))
-                        {
-                            gameName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
-                        }
+                        var gameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
                         Logger.Debug($"GamesOnly OFF: Foreground window \"{processWindow.Value.Title}\" at path \"{processWindow.Value.Path}\" treated as game.");
                         possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, 0, processWindow.Value.IsForeground));
                         continue;
@@ -479,11 +485,7 @@ namespace XboxGamingBarHelper.Systems
                     // GameProcesses list (emulators) - only when gamesOnly is OFF or has FPS
                     if (GameProcesses.Contains(processExecutable) && !gamesOnly)
                     {
-                        var gameName = matchByExe ? Path.GetFileNameWithoutExtension(processWindow.Value.Path) : processWindow.Value.Title;
-                        if (string.IsNullOrEmpty(gameName))
-                        {
-                            gameName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
-                        }
+                        var gameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
                         Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processPath}\" named \"{processWindow.Value.ProcessName}\" in pre-defined list.");
                         possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processPath, 0, processWindow.Value.IsForeground));
                         continue;

@@ -99,6 +99,7 @@
         LegionFanFullSpeed,         // bool - fan full speed mode
         LegionFanCurveData,         // string - fan curve data "v0,v1,v2,...,v9" (10 values 0-100)
         LegionCPUCurrentTemp,       // int - current CPU temperature in Celsius (read-only from helper)
+        LegionFanSensorTemp,        // int - fan control sensor temp (0x01 sensor, what EC uses for curve) (read-only from helper)
         LegionCPUFanRPM,            // int - current CPU fan speed in RPM (read-only from helper)
         LegionFanCurveVisible,      // bool - widget sets this when fan curve is expanded and visible
         LegionGyroEnabled,          // bool - gyroscope on/off (WIP)
@@ -161,6 +162,9 @@
         ControllerBatteryRight,         // int - right controller battery (1-100, or -1 if unavailable)
         ControllerChargingLeft,         // bool - whether left controller is charging
         ControllerChargingRight,        // bool - whether right controller is charging
+        ControllerConnectedLeft,        // bool - whether left controller is connected (attached/detached)
+        ControllerConnectedRight,       // bool - whether right controller is connected
+        ControllerVidPid,               // string - detected controller VID:PID (e.g., "17EF:6182")
 
         // AutoTDP functions
         AutoTDPEnabled,             // bool - enable/disable AutoTDP
@@ -210,5 +214,17 @@
         ProfileGamesOnly,               // bool - only detect apps rendering frames (FPS > 0)
         ProfileBlacklistPaths,          // string - pipe-separated paths never treated as games
         ForegroundApp,                  // string - current foreground app path (for UI display)
+
+        // Labs Section (Experimental Features)
+        Labs_DAServiceControl,          // int - 0=Stop, 1=Start DAService
+        Labs_DAServiceStatus,           // int - 0=Stopped, 1=Running, 2=NotFound
+        Labs_LegionLToXbox,             // DEPRECATED - replaced by Labs_LegionButtonRemap
+        Labs_LegionButtonRemap,         // Button (0=Disabled, 1=Legion L, 2=Legion R), Action (0=Xbox Guide, 1=Shortcut), Shortcut (string)
+        Labs_FocusWidget,               // Trigger: helper sends to widget to focus itself
+        Debug_ExportDGPs,               // Trigger: widget requests helper to export DGPs to Desktop
+
+        // ViGEmBus Driver
+        ViGEmBusInstalled,              // bool - whether ViGEmBus driver is installed
+        InstallViGEmBus,                // string - trigger to install ViGEmBus (write "install" to trigger)
     }
 }

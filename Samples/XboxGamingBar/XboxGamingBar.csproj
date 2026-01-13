@@ -116,6 +116,8 @@
     <Compile Include="Data\WinRing0AvailableProperty.cs" />
     <Compile Include="Data\PawnIOInstalledProperty.cs" />
     <Compile Include="Data\InstallPawnIOProperty.cs" />
+    <Compile Include="Data\ViGEmBusInstalledProperty.cs" />
+    <Compile Include="Data\InstallViGEmBusProperty.cs" />
     <Compile Include="Data\CPUBoostProperty.cs" />
     <Compile Include="Data\IsForegroundProperty.cs" />
     <Compile Include="Data\MaxCPUStateProperty.cs" />
@@ -200,6 +202,9 @@
     <Compile Include="Data\ControllerBatteryRightProperty.cs" />
     <Compile Include="Data\ControllerChargingLeftProperty.cs" />
     <Compile Include="Data\ControllerChargingRightProperty.cs" />
+    <Compile Include="Data\ControllerConnectedLeftProperty.cs" />
+    <Compile Include="Data\ControllerConnectedRightProperty.cs" />
+    <Compile Include="Data\ControllerVidPidProperty.cs" />
     <Compile Include="Data\DefaultGameProfileAvailableProperty.cs" />
     <Compile Include="Data\DefaultGameProfileDataProperty.cs" />
     <Compile Include="Data\DefaultGameProfileEnabledProperty.cs" />

@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
@@ -553,6 +554,11 @@ namespace XboxGamingBar
         // Power source change TDP reapply timer
         private DispatcherTimer powerSourceTdpReapplyTimer = null;
 
+        // Labs section - DAService status timer
+        private DispatcherTimer daServiceStatusTimer = null;
+        private bool daServiceIsRunning = false;
+        private bool labsSectionInitialized = false;
+
         // Update check
         private string _pendingUpdateZipUrl = null;
         private string _pendingUpdateVersion = null;
@@ -655,6 +661,7 @@ namespace XboxGamingBar
         private readonly LegionFanFullSpeedProperty legionFanFullSpeed;
         private readonly LegionFanCurveGraphProperty legionFanCurveGraph;
         private readonly LegionCPUTempProperty legionCPUTemp;
+        private readonly LegionFanSensorTempProperty legionFanSensorTemp;
         private readonly LegionCPUFanRPMProperty legionCPUFanRPM;
         private readonly LegionFanCurveVisibleProperty legionFanCurveVisible;
         private readonly LegionGyroEnabledProperty legionGyroEnabled;
@@ -718,6 +725,9 @@ namespace XboxGamingBar
         private readonly ControllerBatteryRightProperty controllerBatteryRight;
         private readonly ControllerChargingLeftProperty controllerChargingLeft;
         private readonly ControllerChargingRightProperty controllerChargingRight;
+        private readonly ControllerConnectedLeftProperty controllerConnectedLeft;
+        private readonly ControllerConnectedRightProperty controllerConnectedRight;
+        private readonly ControllerVidPidProperty controllerVidPid;
 
         // Default Game Profile properties (Microsoft Gaming Services profiles)
         private readonly DefaultGameProfileAvailableProperty defaultGameProfileAvailable;
@@ -729,6 +739,8 @@ namespace XboxGamingBar
         private readonly WinRing0AvailableProperty winRing0Available;
         private readonly PawnIOInstalledProperty pawnIOInstalled;
         private readonly InstallPawnIOProperty installPawnIO;
+        private readonly ViGEmBusInstalledProperty vigemBusInstalled;
+        private readonly InstallViGEmBusProperty installViGEmBus;
 
         // AutoTDP properties
         private readonly AutoTDPEnabledProperty autoTDPEnabled;
@@ -872,6 +884,7 @@ namespace XboxGamingBar
 
         public GamingWidget()
         {
+            var constructorTimer = Stopwatch.StartNew();
             Logger.Info("GamingWidget constructor called - creating new instance.");
 
             // Prevent OSD checkbox events from saving during XAML initialization
@@ -881,7 +894,10 @@ namespace XboxGamingBar
             // Prevent TDP limits slider events from saving during XAML initialization
             isLoadingTDPLimits = true;
 
+            var xamlTimer = Stopwatch.StartNew();
             InitializeComponent();
+            xamlTimer.Stop();
+            Logger.Info($"[TIMING] InitializeComponent: {xamlTimer.ElapsedMilliseconds}ms");
 
             // Register for lifecycle events
             this.Loaded += GamingWidget_Loaded;
@@ -891,6 +907,7 @@ namespace XboxGamingBar
             // Register for LT/RT tab navigation (PreviewKeyDown to intercept before scrolling)
             this.PreviewKeyDown += GamingWidget_PreviewKeyDown;
 
+            var propertiesTimer = Stopwatch.StartNew();
             tdp = new TDPProperty(4, TDPSlider, this);
             currentTdp = new CurrentTDPProperty(CurrentTDPValueText, this);
             osd = new OSDProperty(0, PerformanceOverlaySlider, this);
@@ -988,6 +1005,8 @@ namespace XboxGamingBar
             legionFanCurveGraph.SetGraphUpdateCallback(OnFanCurveUpdated);
             legionCPUTemp = new LegionCPUTempProperty(this);
             legionCPUTemp.SetTempUpdateCallback(OnCPUTempUpdated);
+            legionFanSensorTemp = new LegionFanSensorTempProperty(this);
+            legionFanSensorTemp.SetTempUpdateCallback(OnFanSensorTempUpdated);
             legionCPUFanRPM = new LegionCPUFanRPMProperty(this);
             legionCPUFanRPM.SetRPMUpdateCallback(OnFanRPMUpdated);
             legionFanCurveVisible = new LegionFanCurveVisibleProperty();
@@ -1052,6 +1071,9 @@ namespace XboxGamingBar
             controllerBatteryRight = new ControllerBatteryRightProperty();
             controllerChargingLeft = new ControllerChargingLeftProperty();
             controllerChargingRight = new ControllerChargingRightProperty();
+            controllerConnectedLeft = new ControllerConnectedLeftProperty();
+            controllerConnectedRight = new ControllerConnectedRightProperty();
+            controllerVidPid = new ControllerVidPidProperty();
 
             // Default Game Profile properties
             defaultGameProfileAvailable = new DefaultGameProfileAvailableProperty(this);
@@ -1069,10 +1091,13 @@ namespace XboxGamingBar
             winRing0Available = new WinRing0AvailableProperty(this);
             pawnIOInstalled = new PawnIOInstalledProperty(this);
             installPawnIO = new InstallPawnIOProperty(this);
+            vigemBusInstalled = new ViGEmBusInstalledProperty(this);
+            installViGEmBus = new InstallViGEmBusProperty(this);
 
             // Set up callbacks for TDP method availability
             winRing0Available.SetAvailabilityCallback(UpdateWinRing0Visibility);
             pawnIOInstalled.SetInstalledCallback(UpdatePawnIOInstalledUI);
+            vigemBusInstalled.SetInstalledCallback(UpdateViGEmBusInstalledUI);
 
             // AutoTDP properties
             autoTDPEnabled = new AutoTDPEnabledProperty(false);
@@ -1119,6 +1144,10 @@ namespace XboxGamingBar
             // to avoid crash when binding evaluates RadeonChillOnText before both values are ready
             // See RegisterChillFPSHandlers() called after sync completes
 
+            propertiesTimer.Stop();
+            Logger.Info($"[TIMING] Property creation: {propertiesTimer.ElapsedMilliseconds}ms");
+
+            var widgetPropsTimer = Stopwatch.StartNew();
             properties = new WidgetProperties(
                 osd,
                 tdp,
@@ -1202,6 +1231,7 @@ namespace XboxGamingBar
                 legionFanFullSpeed,
                 legionFanCurveGraph,
                 legionCPUTemp,
+                legionFanSensorTemp,
                 legionCPUFanRPM,
                 legionFanCurveVisible,
                 legionGyroEnabled,
@@ -1212,6 +1242,8 @@ namespace XboxGamingBar
                 winRing0Available,
                 pawnIOInstalled,
                 installPawnIO,
+                vigemBusInstalled,
+                installViGEmBus,
                 autoTDPEnabled,
                 autoTDPTargetFPS,
                 autoTDPCurrentFPS,
@@ -1232,6 +1264,9 @@ namespace XboxGamingBar
                 controllerBatteryRight,
                 controllerChargingLeft,
                 controllerChargingRight,
+                controllerConnectedLeft,
+                controllerConnectedRight,
+                controllerVidPid,
                 defaultGameProfileAvailable,
                 defaultGameProfileData,
                 defaultGameProfileEnabled,
@@ -1243,9 +1278,14 @@ namespace XboxGamingBar
                 profileBlacklistPaths,
                 foregroundApp
             );
+            widgetPropsTimer.Stop();
+            Logger.Info($"[TIMING] WidgetProperties creation: {widgetPropsTimer.ElapsedMilliseconds}ms");
 
             // Register card focus handlers for all interactive controls
             RegisterCardFocusHandlers();
+
+            constructorTimer.Stop();
+            Logger.Info($"[TIMING] Constructor total: {constructorTimer.ElapsedMilliseconds}ms");
         }
 
         // Track the currently focused card
@@ -1690,6 +1730,9 @@ namespace XboxGamingBar
             // Send OSD config to helper on startup
             SendOSDConfigToHelper();
             _ = SendDisplayOSDConfigToHelper();
+
+            // Initialize Labs section (DAService status polling)
+            InitializeLabsSection();
         }
 
         private void AutoTDPCurrentFPS_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -1747,13 +1790,37 @@ namespace XboxGamingBar
 
             // Controller battery properties - update tile when battery status changes
             if (controllerBatteryLeft != null)
+            {
                 controllerBatteryLeft.PropertyChanged += QuickSettingsProperty_Changed;
+                controllerBatteryLeft.PropertyChanged += LegionControllerBattery_PropertyChanged;
+            }
             if (controllerBatteryRight != null)
+            {
                 controllerBatteryRight.PropertyChanged += QuickSettingsProperty_Changed;
+                controllerBatteryRight.PropertyChanged += LegionControllerBattery_PropertyChanged;
+            }
             if (controllerChargingLeft != null)
+            {
                 controllerChargingLeft.PropertyChanged += QuickSettingsProperty_Changed;
+                controllerChargingLeft.PropertyChanged += LegionControllerBattery_PropertyChanged;
+            }
             if (controllerChargingRight != null)
+            {
                 controllerChargingRight.PropertyChanged += QuickSettingsProperty_Changed;
+                controllerChargingRight.PropertyChanged += LegionControllerBattery_PropertyChanged;
+            }
+            if (controllerConnectedLeft != null)
+            {
+                controllerConnectedLeft.PropertyChanged += LegionControllerBattery_PropertyChanged;
+            }
+            if (controllerConnectedRight != null)
+            {
+                controllerConnectedRight.PropertyChanged += LegionControllerBattery_PropertyChanged;
+            }
+            if (controllerVidPid != null)
+            {
+                controllerVidPid.PropertyChanged += LegionControllerVidPid_PropertyChanged;
+            }
 
             // Subscribe to CPU core config changes
             if (cpuCoreConfig != null)
@@ -1788,6 +1855,101 @@ namespace XboxGamingBar
             {
                 UpdateQuickSettingsTileStates();
             });
+        }
+
+        private void LegionControllerBattery_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                UpdateLegionControllerBatteryDisplay();
+                // Also refresh VID:PID in case it was missed during initial sync
+                UpdateLegionControllerVidPidDisplay();
+            });
+        }
+
+        private void UpdateLegionControllerBatteryDisplay()
+        {
+            try
+            {
+                // Update left controller battery
+                int leftBattery = controllerBatteryLeft?.Value ?? -1;
+                bool leftCharging = controllerChargingLeft?.Value ?? false;
+                bool leftConnected = controllerConnectedLeft?.Value ?? false;
+
+                if (leftBattery >= 0)
+                {
+                    LeftControllerBatteryText.Text = $"{leftBattery}%";
+                    LeftControllerBatteryText.Foreground = GetBatteryBrush(leftBattery);
+                }
+                else
+                {
+                    LeftControllerBatteryText.Text = "N/A";
+                    LeftControllerBatteryText.Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x88, 0x88, 0x88));
+                }
+                LeftControllerChargingIcon.Visibility = leftCharging ? Visibility.Visible : Visibility.Collapsed;
+                LeftControllerConnectionText.Text = leftConnected ? "Attached" : "Detached";
+
+                // Update right controller battery
+                int rightBattery = controllerBatteryRight?.Value ?? -1;
+                bool rightCharging = controllerChargingRight?.Value ?? false;
+                bool rightConnected = controllerConnectedRight?.Value ?? false;
+
+                if (rightBattery >= 0)
+                {
+                    RightControllerBatteryText.Text = $"{rightBattery}%";
+                    RightControllerBatteryText.Foreground = GetBatteryBrush(rightBattery);
+                }
+                else
+                {
+                    RightControllerBatteryText.Text = "N/A";
+                    RightControllerBatteryText.Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x88, 0x88, 0x88));
+                }
+                RightControllerChargingIcon.Visibility = rightCharging ? Visibility.Visible : Visibility.Collapsed;
+                RightControllerConnectionText.Text = rightConnected ? "Attached" : "Detached";
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error updating Legion controller battery display: {ex.Message}");
+            }
+        }
+
+        private Windows.UI.Xaml.Media.SolidColorBrush GetBatteryBrush(int percentage)
+        {
+            if (percentage <= 20)
+                return new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0xF4, 0x43, 0x36)); // Red
+            else if (percentage <= 40)
+                return new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0xFF, 0x98, 0x00)); // Orange
+            else
+                return new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x4C, 0xAF, 0x50)); // Green
+        }
+
+        private void LegionControllerVidPid_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                UpdateLegionControllerVidPidDisplay();
+            });
+        }
+
+        private void UpdateLegionControllerVidPidDisplay()
+        {
+            try
+            {
+                string vidPid = controllerVidPid?.Value ?? "";
+                Logger.Info($"UpdateLegionControllerVidPidDisplay: vidPid='{vidPid}'");
+                if (!string.IsNullOrEmpty(vidPid))
+                {
+                    LegionControllerPidVidText.Text = $"VID:PID {vidPid}";
+                }
+                else
+                {
+                    LegionControllerPidVidText.Text = "VID:PID --";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error updating Legion controller VID:PID display: {ex.Message}");
+            }
         }
 
         private void Resolution_PropertyChanged_OSD(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -2947,11 +3109,28 @@ namespace XboxGamingBar
         private int draggedPointIndex = -1;
         private bool isDraggingPoint = false;
 
-        // Legion Go fan curve temperature thresholds (°C) - actual values from device
-        private static readonly int[] FanCurveTemperatures = { 46, 49, 52, 55, 60, 63, 66, 69, 72, 75 };
-        // Minimum fan speeds (%) for each temperature threshold - ~30% below Legion Space minimums
-        // Legion Space minimums (RPM): 2000, 2200, 2200, 2400, 2700, 3000, 3900, 4100, 4400, 4700
-        private static readonly int[] FanCurveMinSpeeds = { 30, 33, 33, 36, 40, 46, 58, 62, 66, 70 };
+        // Legion Go fan curve temperature thresholds (°C) - FIXED by EC at 10°C increments
+        private static readonly int[] FanCurveTemperatures = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+        // Minimum fan speeds - set to 0 since EC enforces its own thermal protection floor
+        // EC override floor: 0-44°C=0%, 45°C=27%, 50°C=40%, 55°C=55%, 60°C=65%, 70°C=85%, 80+°C=100%
+        private static readonly int[] FanCurveMinSpeeds = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        // EC Override Floor points: (temperature, minimum fan %) - what the EC enforces regardless of user curve
+        private static readonly (int temp, int floor)[] ECFloorPoints = new[]
+        {
+            (10, 0), (20, 0), (30, 0), (44, 0),
+            (45, 27), (50, 40), (55, 55), (60, 65), (70, 85),
+            (80, 100), (90, 100), (100, 100)
+        };
+        // Fan curve preset definitions (values are fan % for temps 10,20,30,40,50,60,70,80,90,100°C)
+        private static readonly Dictionary<string, int[]> FanCurvePresets = new Dictionary<string, int[]>
+        {
+            { "Silent", new int[] { 0, 0, 0, 27, 30, 40, 55, 65, 80, 100 } },       // Silent (Safe)
+            { "Balanced", new int[] { 0, 0, 25, 30, 35, 45, 55, 70, 85, 100 } },    // Balanced
+            { "Performance", new int[] { 30, 35, 40, 45, 50, 60, 70, 80, 90, 100 } }, // Performance
+            { "MaxCooling", new int[] { 40, 45, 50, 55, 60, 70, 80, 90, 100, 100 } }  // Max Cooling
+        };
+        private string currentFanCurvePreset = "Custom";
+        private bool isFanCurvePresetLoading = false;
         private bool isTDPExtrasExpanded = false;
         private bool isCPUExtrasExpanded = false;
         private bool isDebugExpanded = false;
@@ -4152,6 +4331,52 @@ namespace XboxGamingBar
             }
         }
 
+        #region Quick Settings Action Helpers
+
+        /// <summary>
+        /// Toggles the Legion Power Light on/off.
+        /// </summary>
+        private void ToggleLegionPowerLight()
+        {
+            if (legionPowerLight == null) return;
+
+            // Toggle the current state
+            bool newState = !legionPowerLight.Value;
+            legionPowerLight.SetValue(newState);
+
+            Logger.Info($"Power Light toggled: {(newState ? "On" : "Off")}");
+        }
+
+        /// <summary>
+        /// Puts the system into hibernation via helper.
+        /// </summary>
+        private async void ExecuteHibernate()
+        {
+            Logger.Info("Hibernate action triggered");
+
+            try
+            {
+                if (App.Connection != null)
+                {
+                    // Send hibernate request to helper (UWP can't execute shutdown directly)
+                    var message = new Windows.Foundation.Collections.ValueSet();
+                    message.Add("Hibernate", true);
+                    await App.Connection.SendMessageAsync(message);
+                    Logger.Info("Hibernate request sent to helper");
+                }
+                else
+                {
+                    Logger.Warn("Cannot hibernate - helper not connected");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to hibernate: {ex.Message}");
+            }
+        }
+
+        #endregion
+
         private void LightingExpandToggle_Click(object sender, RoutedEventArgs e)
         {
             isLightingExpanded = !isLightingExpanded;
@@ -4221,9 +4446,86 @@ namespace XboxGamingBar
 
             fanCurveGraphInitialized = true;
 
+            // Load saved preset selection
+            LoadFanCurvePresetSetting();
+
             // Draw the graph
             DrawGridLines();
             UpdateFanCurveGraph();
+        }
+
+        private void FanCurvePresetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isFanCurvePresetLoading) return;
+
+            if (FanCurvePresetComboBox?.SelectedItem is ComboBoxItem item && item.Tag is string presetName)
+            {
+                if (presetName == "Custom") return; // User manually selected Custom, no action needed
+
+                if (FanCurvePresets.TryGetValue(presetName, out int[] presetValues))
+                {
+                    currentFanCurvePreset = presetName;
+                    currentFanCurveValues = (int[])presetValues.Clone();
+                    UpdateFanCurveGraph();
+
+                    // Send to helper
+                    legionFanCurveGraph?.SetCurveValuesDebounced(currentFanCurveValues);
+
+                    // Save preset selection
+                    SaveFanCurvePresetSetting(presetName);
+                }
+            }
+        }
+
+        private void SwitchToCustomPreset()
+        {
+            if (currentFanCurvePreset != "Custom")
+            {
+                currentFanCurvePreset = "Custom";
+                isFanCurvePresetLoading = true;
+                SelectPresetInComboBox("Custom");
+                isFanCurvePresetLoading = false;
+                SaveFanCurvePresetSetting("Custom");
+            }
+        }
+
+        private void SelectPresetInComboBox(string presetName)
+        {
+            if (FanCurvePresetComboBox == null) return;
+            foreach (ComboBoxItem item in FanCurvePresetComboBox.Items)
+            {
+                if (item.Tag is string tag && tag == presetName)
+                {
+                    FanCurvePresetComboBox.SelectedItem = item;
+                    break;
+                }
+            }
+        }
+
+        private void SaveFanCurvePresetSetting(string presetName)
+        {
+            try
+            {
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                settings.Values["FanCurvePreset"] = presetName;
+            }
+            catch { }
+        }
+
+        private void LoadFanCurvePresetSetting()
+        {
+            try
+            {
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                if (settings.Values.TryGetValue("FanCurvePreset", out object saved) && saved is string presetName)
+                {
+                    currentFanCurvePreset = presetName;
+                    isFanCurvePresetLoading = true;
+                    SelectPresetInComboBox(presetName);
+                    isFanCurvePresetLoading = false;
+                }
+            }
+            catch { }
         }
 
         private void DrawGridLines()
@@ -4268,6 +4570,32 @@ namespace XboxGamingBar
                 Canvas.SetZIndex(line, -1);
                 FanCurveCanvas.Children.Add(line);
             }
+
+            // Draw EC floor line after grid lines
+            DrawECFloorLine();
+        }
+
+        private void DrawECFloorLine()
+        {
+            if (ECFloorPolyline == null || FanCurveCanvas == null) return;
+
+            double width = FanCurveCanvas.ActualWidth;
+            double height = FanCurveCanvas.ActualHeight;
+
+            if (width <= 0 || height <= 0) return;
+
+            var points = new Windows.UI.Xaml.Media.PointCollection();
+
+            foreach (var (temp, floor) in ECFloorPoints)
+            {
+                // Map temperature to X position (10-100°C range)
+                double x = (temp - 10.0) / 90.0 * width;
+                // Map fan % to Y position (inverted)
+                double y = height - (floor / 100.0 * height);
+                points.Add(new Windows.Foundation.Point(x, y));
+            }
+
+            ECFloorPolyline.Points = points;
         }
 
         private void UpdateFanCurveGraph()
@@ -4283,12 +4611,12 @@ namespace XboxGamingBar
             var points = new Windows.UI.Xaml.Media.PointCollection();
             var fillPoints = new Windows.UI.Xaml.Media.PointCollection();
 
-            // Legion Go temperature thresholds: 46, 49, 52, 55, 60, 63, 66, 69, 72, 75°C
-            // Map to 0-100% of width (46-75°C range = 29°C)
+            // Legion Go temperature thresholds: 10, 20, 30, 40, 50, 60, 70, 80, 90, 100°C (FIXED by EC)
+            // Map to 0-100% of width (10-100°C range = 90°C)
             for (int i = 0; i < 10; i++)
             {
                 int temp = FanCurveTemperatures[i];
-                double x = (temp - 46.0) / 29.0 * width; // Normalize 46-75 to 0-width
+                double x = (temp - 10.0) / 90.0 * width; // Normalize 10-100 to 0-width
                 double y = height - (currentFanCurveValues[i] / 100.0 * height);
 
                 points.Add(new Windows.Foundation.Point(x, y));
@@ -4320,11 +4648,11 @@ namespace XboxGamingBar
 
             if (width <= 0 || height <= 0) return;
 
-            // Clamp temp to 46-75 range (Legion Go fan curve range)
-            tempC = Math.Max(46, Math.Min(75, tempC));
+            // Clamp temp to 10-100 range (Legion Go fan curve range, FIXED by EC)
+            tempC = Math.Max(10, Math.Min(100, tempC));
 
-            // Calculate X position
-            double x = (tempC - 46.0) / 29.0 * width;
+            // Calculate X position (10-100°C range = 90°C span)
+            double x = (tempC - 10.0) / 90.0 * width;
 
             TempIndicatorLine.X1 = x;
             TempIndicatorLine.X2 = x;
@@ -4343,12 +4671,19 @@ namespace XboxGamingBar
 
         private void OnCPUTempUpdated(int tempC)
         {
+            // CPU temp is shown as reference only, fan sensor temp is used for graph indicator
+            // (CPU temp is typically 10-17°C higher than fan sensor temp)
+        }
+
+        private void OnFanSensorTempUpdated(int tempC)
+        {
+            // Update temperature label (this is the temp the EC uses for fan curve)
             if (CurrentTempLabel != null)
             {
                 CurrentTempLabel.Text = $"{tempC}°C";
             }
-            // Add +5°C offset to match the fan curve response
-            UpdateTemperatureIndicator(tempC + 5);
+            // Update temperature indicator on graph (fan sensor temp matches the curve's X-axis)
+            UpdateTemperatureIndicator(tempC);
         }
 
         private void OnFanRPMUpdated(int rpm)
@@ -4372,8 +4707,8 @@ namespace XboxGamingBar
 
             if (width <= 0 || height <= 0) return;
 
-            // Convert RPM to percentage (max 4800 RPM)
-            const int MAX_RPM = 4800;
+            // Convert RPM to percentage (max 7500 RPM for Legion Go)
+            const int MAX_RPM = 7500;
             double percent = Math.Max(0, Math.Min(100, (double)rpm / MAX_RPM * 100));
 
             // Calculate Y position (inverted - 0% at bottom, 100% at top)
@@ -4407,10 +4742,10 @@ namespace XboxGamingBar
                 DrawGridLines();
                 UpdateFanCurveGraph();
 
-                // Re-update temp indicator if we have a value (with +5°C offset)
-                if (legionCPUTemp != null && legionCPUTemp.Value > 0)
+                // Re-update temp indicator if we have a value (fan sensor temp is used for graph)
+                if (legionFanSensorTemp != null && legionFanSensorTemp.Value > 0)
                 {
-                    UpdateTemperatureIndicator(legionCPUTemp.Value + 5);
+                    UpdateTemperatureIndicator(legionFanSensorTemp.Value);
                 }
             }
         }
@@ -4478,6 +4813,9 @@ namespace XboxGamingBar
             if (isDraggingPoint && FanCurveCanvas != null)
             {
                 FanCurveCanvas.ReleasePointerCapture(e.Pointer);
+
+                // Switch to Custom preset when manually dragging
+                SwitchToCustomPreset();
 
                 // Send the updated values to the helper (debounced)
                 legionFanCurveGraph.SetCurveValuesDebounced(currentFanCurveValues);
@@ -5768,7 +6106,9 @@ namespace XboxGamingBar
                 if (child is Border border)
                 {
                     // Check if this looks like a card (has corner radius and padding typical of CardStyle)
-                    if (border.CornerRadius.TopLeft == 8 && border.Padding.Left == 12)
+                    // Skip borders with LinearGradientBrush backgrounds (custom gradients for "smart" features like DGP card)
+                    if (border.CornerRadius.TopLeft == 8 && border.Padding.Left == 12 &&
+                        !(border.Background is LinearGradientBrush))
                     {
                         border.Background = cardBgBrush;
                         border.BorderBrush = cardBorderBrush;
@@ -5900,6 +6240,29 @@ namespace XboxGamingBar
                 {
                     // Keep default version text
                 }
+            }
+        }
+
+        private async void DonateButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Send message to helper to launch URL (Game Bar blocks direct URL launching)
+                if (App.Connection != null)
+                {
+                    var message = new Windows.Foundation.Collections.ValueSet();
+                    message.Add("LaunchUrl", "https://paypal.me/corando98");
+                    await App.Connection.SendMessageAsync(message);
+                    Logger.Info("Sent LaunchUrl request to helper");
+                }
+                else
+                {
+                    Logger.Warn("Cannot launch donate URL - no connection to helper");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to send donate link request: {ex.Message}");
             }
         }
 
@@ -6303,6 +6666,57 @@ namespace XboxGamingBar
                 UpdateStatusText.Text = $"Failed: {ex.Message}";
                 CheckForUpdateDebugButton.Content = "Check for Update (Debug)";
                 CheckForUpdateDebugButton.IsEnabled = true;
+            }
+        }
+
+        private async void ExportDGPsButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                ExportDGPsButton.IsEnabled = false;
+                ExportDGPsButton.Content = "Exporting...";
+
+                if (App.Connection == null)
+                {
+                    ExportDGPsButton.Content = "Helper not connected";
+                    await Task.Delay(2000);
+                    ExportDGPsButton.Content = "Export DGPs (Desktop)";
+                    ExportDGPsButton.IsEnabled = true;
+                    return;
+                }
+
+                // Send request to helper to export DGPs
+                var message = new Windows.Foundation.Collections.ValueSet();
+                message.Add("Command", (int)Shared.Enums.Command.Set);
+                message.Add("Function", (int)Shared.Enums.Function.Debug_ExportDGPs);
+                var result = await App.Connection.SendMessageAsync(message);
+
+                if (result.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                {
+                    if (result.Message.TryGetValue("ExportPath", out object pathObj))
+                    {
+                        ExportDGPsButton.Content = $"Exported!";
+                        Logger.Info($"DGPs exported to: {pathObj}");
+                    }
+                    else if (result.Message.TryGetValue("Error", out object errorObj))
+                    {
+                        ExportDGPsButton.Content = $"Error: {errorObj}";
+                    }
+                }
+                else
+                {
+                    ExportDGPsButton.Content = "Failed";
+                }
+
+                await Task.Delay(2000);
+                ExportDGPsButton.Content = "Export DGPs (Desktop)";
+                ExportDGPsButton.IsEnabled = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to export DGPs: {ex.Message}");
+                ExportDGPsButton.Content = "Export DGPs (Desktop)";
+                ExportDGPsButton.IsEnabled = true;
             }
         }
 
@@ -10680,6 +11094,9 @@ namespace XboxGamingBar
                 // Stop fan curve updates when leaving Legion tab (will be re-enabled if Legion is selected)
                 legionFanCurveVisible?.SetVisible(false);
 
+                // Stop DAService status polling when leaving Legion tab
+                daServiceStatusTimer?.Stop();
+
                 // Show selected section and scroll to top
                 switch (tag)
                 {
@@ -10710,6 +11127,14 @@ namespace XboxGamingBar
                         LegionScrollViewer.ChangeView(null, 0, null, true);
                         // Update fan curve visibility when switching to Legion tab
                         legionFanCurveVisible?.SetVisible(isFanCurveExpanded);
+                        // Start DAService status polling when on Legion tab
+                        if (daServiceStatusTimer != null)
+                        {
+                            UpdateDAServiceStatus(); // Immediate update
+                            daServiceStatusTimer.Start();
+                        }
+                        // Request ViGEmBus status for button remap section
+                        RequestViGEmBusStatus();
                         break;
                     case "System":
                         SystemScrollViewer.Visibility = Visibility.Visible;
@@ -10999,6 +11424,12 @@ namespace XboxGamingBar
 
             base.OnNavigatedTo(e);
 
+            // Show loading banner immediately to give user feedback during initialization
+            ShowConnectionBanner(BannerState.Loading);
+
+            // Yield to UI thread to allow banner to render before async operations block
+            await Task.Yield();
+
             // Register this instance as the active widget to handle AppService messages
             Logger.Info("Registering this GamingWidget instance as the active widget.");
             App.RegisterActiveGamingWidget(this);
@@ -11240,8 +11671,9 @@ namespace XboxGamingBar
                 if (!syncSucceeded)
                 {
                     Logger.Info("Sync failed, triggering helper reconnection...");
-                    // Launch helper with guards (checks heartbeat, enforces rate limiting)
-                    await LaunchHelperWithGuardsAsync("LeavingBackground - sync failed");
+                    // Force relaunch helper - ignore heartbeat since we know connection is broken
+                    // Helper has mutex protection so it will restart cleanly
+                    await LaunchHelperWithGuardsAsync("LeavingBackground - sync failed", forceLaunch: true);
                     return; // Exit early, let AppServiceConnected handle the rest
                 }
 
@@ -11620,7 +12052,9 @@ namespace XboxGamingBar
             /// <summary>Orange banner - Reconnecting to helper (warning state)</summary>
             Reconnecting,
             /// <summary>Blue banner - Launching helper process (info state)</summary>
-            Launching
+            Launching,
+            /// <summary>Blue banner - Loading widget (initial state)</summary>
+            Loading
         }
 
         /// <summary>
@@ -11649,6 +12083,10 @@ namespace XboxGamingBar
                 case BannerState.Launching:
                     ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 102, 204)); // #3366CC
                     ConnectionStatusText.Text = "Launching helper...";
+                    break;
+                case BannerState.Loading:
+                    ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 102, 204)); // #3366CC
+                    ConnectionStatusText.Text = "Loading...";
                     break;
             }
             ConnectionStatusBanner.Visibility = Visibility.Visible;
@@ -11861,30 +12299,43 @@ namespace XboxGamingBar
         /// Checks if helper is already alive (via heartbeat) and enforces minimum interval between launches.
         /// </summary>
         /// <param name="reason">Description of why we're launching (for logging)</param>
+        /// <param name="forceLaunch">If true, ignore heartbeat check (use when sync explicitly failed)</param>
         /// <returns>True if launch was attempted, false if skipped</returns>
-        private async Task<bool> LaunchHelperWithGuardsAsync(string reason)
+        private async Task<bool> LaunchHelperWithGuardsAsync(string reason, bool forceLaunch = false)
         {
             // Check if already launching
             if (isLaunchingHelper)
             {
                 Logger.Info($"Skipping launch ({reason}) - already launching");
+                // Keep existing Launching banner visible
                 return false;
             }
 
-            // Check minimum interval
+            // Check minimum interval (skip if force launching)
             var timeSinceLastLaunch = (DateTime.Now - lastLaunchAttempt).TotalMilliseconds;
-            if (timeSinceLastLaunch < MinLaunchIntervalMs)
+            if (!forceLaunch && timeSinceLastLaunch < MinLaunchIntervalMs)
             {
                 Logger.Info($"Skipping launch ({reason}) - too soon since last attempt ({timeSinceLastLaunch:F0}ms)");
+                // Show reconnecting banner since we're rate-limited but trying to connect
+                ShowConnectionBanner(BannerState.Reconnecting);
                 return false;
             }
 
-            // Check if helper is already alive
-            bool helperAlive = await IsHelperAliveAsync();
-            if (helperAlive)
+            // Check if helper is already alive (skip if force launching - we know connection is broken)
+            if (!forceLaunch)
             {
-                Logger.Info($"Skipping launch ({reason}) - helper is already alive, waiting for reconnection");
-                return false;
+                bool helperAlive = await IsHelperAliveAsync();
+                if (helperAlive)
+                {
+                    Logger.Info($"Skipping launch ({reason}) - helper is already alive, waiting for reconnection");
+                    // Show reconnecting banner since we're waiting for helper to reconnect
+                    ShowConnectionBanner(BannerState.Reconnecting);
+                    return false;
+                }
+            }
+            else
+            {
+                Logger.Info($"Force launching helper ({reason}) - ignoring heartbeat check");
             }
 
             try
@@ -12109,6 +12560,15 @@ namespace XboxGamingBar
 
                 Logger.Info($"Widget received message {args.Request.Message.ToDebugString()} from helper.");
 
+                // Check for focus widget request from helper
+                if (args.Request.Message.TryGetValue("Function", out object funcObj) &&
+                    (int)funcObj == (int)Shared.Enums.Function.Labs_FocusWidget)
+                {
+                    Logger.Info("Focus widget request received from helper");
+                    await FocusThisWidgetAsync();
+                    return;
+                }
+
                 // Skip TDP and CurrentTDP updates during Sticky TDP reapply to prevent flicker and race conditions
                 if (isStickyTDPReapplying && args.Request.Message.ContainsKey("Function"))
                 {
@@ -12147,6 +12607,32 @@ namespace XboxGamingBar
                 Logger.Error($"Error processing message from helper: {ex.Message}");
                 Logger.Error($"Exception Type: {ex.GetType().FullName}");
                 Logger.Error($"Stack Trace: {ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// Focus this widget using XboxGameBarWidgetControl API.
+        /// Called when helper sends Labs_FocusWidget command.
+        /// </summary>
+        private async Task FocusThisWidgetAsync()
+        {
+            try
+            {
+                if (widget != null)
+                {
+                    // Create widget control and activate this widget
+                    var widgetControl = new XboxGameBarWidgetControl(widget);
+                    await widgetControl.ActivateAsync("GamingWidget");
+                    Logger.Info("Widget focused successfully via XboxGameBarWidgetControl");
+                }
+                else
+                {
+                    Logger.Warn("Cannot focus widget - widget object is null");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to focus widget: {ex.Message}");
             }
         }
 
@@ -13402,6 +13888,71 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Updates the ViGEmBus install button state based on driver installation status.
+        /// </summary>
+        private void UpdateViGEmBusInstalledUI(bool installed)
+        {
+            if (ViGEmBusStatusText != null)
+            {
+                ViGEmBusStatusText.Text = installed ? "Status: Installed" : "Status: Not Installed";
+                ViGEmBusStatusText.Foreground = installed
+                    ? new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.LimeGreen)
+                    : new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
+            }
+
+            if (ViGEmBusInstallButton != null)
+            {
+                ViGEmBusInstallButton.Content = installed ? "Installed" : "Install ViGEmBus";
+                ViGEmBusInstallButton.IsEnabled = !installed;
+            }
+
+            Logger.Info($"ViGEmBus install UI updated: installed={installed}");
+        }
+
+        /// <summary>
+        /// Handles the ViGEmBus install button click.
+        /// </summary>
+        private async void ViGEmBusInstallButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Logger.Info("ViGEmBusInstallButton clicked - triggering ViGEmBus installation");
+
+                // Update button to show installing state
+                if (ViGEmBusInstallButton != null)
+                {
+                    ViGEmBusInstallButton.Content = "Installing...";
+                    ViGEmBusInstallButton.IsEnabled = false;
+                }
+
+                if (ViGEmBusStatusText != null)
+                {
+                    ViGEmBusStatusText.Text = "Status: Installing...";
+                }
+
+                // Trigger the installation via the property
+                installViGEmBus?.TriggerInstall();
+
+                // The helper will send an updated status after installation completes
+                Logger.Info("ViGEmBus installation triggered, waiting for helper response...");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error during ViGEmBus installation: {ex.Message}");
+                // Reset button state on error
+                if (ViGEmBusInstallButton != null)
+                {
+                    ViGEmBusInstallButton.Content = "Install ViGEmBus";
+                    ViGEmBusInstallButton.IsEnabled = true;
+                }
+                if (ViGEmBusStatusText != null)
+                {
+                    ViGEmBusStatusText.Text = "Status: Error";
+                }
+            }
+        }
+
+        /// <summary>
         /// Shows or hides the Custom TDP card based on performance mode
         /// </summary>
         private void SetCustomTDPVisibility(bool visible)
@@ -13891,7 +14442,7 @@ namespace XboxGamingBar
         private TileDefinition qsSelectedTileForMove = null;
 
         // Column count setting (3 or 4 columns)
-        private int qsColumnCount = 3;
+        private int qsColumnCount = 4;
 
         // Timer for TDP reapply when switching to Custom mode
         private Windows.UI.Xaml.DispatcherTimer qsTdpReapplyTimer;
@@ -14014,6 +14565,7 @@ namespace XboxGamingBar
             AddTileDefinition("LegionDesktopControls", "Desktop", "\uE7F4", order: order++);
             AddTileDefinition("LegionRemapControls", "Remap", "\uE7FC", order: order++);
             AddTileDefinition("LegionChargeLimit", "Charge Limit", "\uE83F", order: order++);
+            AddTileDefinition("LegionPowerLight", "Power Light", "\uE7E8", order: order++);
             AddTileDefinition("Battery", "Battery", "\uE83F", order: order++);
 
             // Load custom shortcut tiles from storage
@@ -14025,6 +14577,7 @@ namespace XboxGamingBar
             AddTileDefinition("ActionExplorer", "Explorer", "\uEC50", isAction: true, order: actionOrder++);
             AddTileDefinition("ActionEndTask", "End Task", "\uE711", isAction: true, order: actionOrder++);
             AddTileDefinition("ActionFullscreen", "Fullscreen", "\uE740", isAction: true, order: actionOrder++);
+            AddTileDefinition("ActionHibernate", "Hibernate", "\uE708", isAction: true, order: actionOrder++);
         }
 
         private void AddTileDefinition(string id, string name, string glyph, bool isTrigger = false, bool isAction = false, string customShortcut = null, int order = 0)
@@ -14200,7 +14753,7 @@ namespace XboxGamingBar
                 // Load column count setting
                 if (settings.Values.TryGetValue("QS_ColumnCount", out object colVal) && colVal is int colCount)
                 {
-                    qsColumnCount = Math.Max(3, Math.Min(4, colCount));  // Clamp to 3-4
+                    qsColumnCount = Math.Max(3, Math.Min(5, colCount));  // Clamp to 3-5
                 }
 
                 foreach (var tile in qsTileDefinitions)
@@ -14657,7 +15210,7 @@ namespace XboxGamingBar
             // Skip Legion tiles if not detected
             if ((tile.Id == "LegionTouchpad" || tile.Id == "LegionLightMode" ||
                  tile.Id == "LegionDesktopControls" || tile.Id == "LegionRemapControls" ||
-                 tile.Id == "LegionChargeLimit") &&
+                 tile.Id == "LegionChargeLimit" || tile.Id == "LegionPowerLight") &&
                 (legionGoDetected?.Value != true))
             {
                 return true;
@@ -15241,6 +15794,18 @@ namespace XboxGamingBar
                     }
                 }
 
+                // Legion Power Light tile
+                if (qsTileMap.TryGetValue("LegionPowerLight", out var powerLightTile) && powerLightTile.TileButton != null)
+                {
+                    if (legionGoDetected?.Value == true)
+                    {
+                        bool enabled = legionPowerLight?.Value ?? false;
+                        powerLightTile.StateText.Text = enabled ? "On" : "Off";
+                        powerLightTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                        powerLightTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                    }
+                }
+
                 // Battery tile - device battery in title, controllers in state text
                 if (qsTileMap.TryGetValue("Battery", out var batteryTile) && batteryTile.TileButton != null)
                 {
@@ -15444,6 +16009,12 @@ namespace XboxGamingBar
                                 break;
                             case "ActionFullscreen":
                                 ToggleFullscreen();
+                                break;
+                            case "ActionHibernate":
+                                ExecuteHibernate();
+                                break;
+                            case "LegionPowerLight":
+                                ToggleLegionPowerLight();
                                 break;
                         }
                     }
@@ -16495,17 +17066,32 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Set column count to 5
+        /// </summary>
+        private void ColumnCount5_Click(object sender, RoutedEventArgs e)
+        {
+            if (qsColumnCount != 5)
+            {
+                qsColumnCount = 5;
+                UpdateColumnButtonVisuals();
+                BuildSortableGrid();
+                RebuildQuickSettingsTiles();
+            }
+        }
+
+        /// <summary>
         /// Update column button visuals to show current selection
         /// </summary>
         private void UpdateColumnButtonVisuals()
         {
-            if (Column3Button == null || Column4Button == null) return;
+            if (Column3Button == null || Column4Button == null || Column5Button == null) return;
 
             var selectedBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 180));
             var normalBrush = tileOffBrush ?? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 26, 28, 30));
 
             Column3Button.Background = qsColumnCount == 3 ? selectedBrush : normalBrush;
             Column4Button.Background = qsColumnCount == 4 ? selectedBrush : normalBrush;
+            Column5Button.Background = qsColumnCount == 5 ? selectedBrush : normalBrush;
         }
 
         /// <summary>
@@ -16797,6 +17383,11 @@ namespace XboxGamingBar
                         CurrentGameIcon.Source = null;
                         CurrentGameIcon.Visibility = Visibility.Collapsed;
                     }
+                    if (LegionControllerProfileGameIcon != null)
+                    {
+                        LegionControllerProfileGameIcon.Source = null;
+                        LegionControllerProfileGameIcon.Visibility = Visibility.Collapsed;
+                    }
                 });
                 return;
             }
@@ -16817,6 +17408,11 @@ namespace XboxGamingBar
                             CurrentGameIcon.Source = null;
                             CurrentGameIcon.Visibility = Visibility.Collapsed;
                         }
+                        if (LegionControllerProfileGameIcon != null)
+                        {
+                            LegionControllerProfileGameIcon.Source = null;
+                            LegionControllerProfileGameIcon.Visibility = Visibility.Collapsed;
+                        }
                     });
                     return;
                 }
@@ -16834,6 +17430,11 @@ namespace XboxGamingBar
                         {
                             CurrentGameIcon.Source = null;
                             CurrentGameIcon.Visibility = Visibility.Collapsed;
+                        }
+                        if (LegionControllerProfileGameIcon != null)
+                        {
+                            LegionControllerProfileGameIcon.Source = null;
+                            LegionControllerProfileGameIcon.Visibility = Visibility.Collapsed;
                         }
                     });
                     return;
@@ -16856,8 +17457,13 @@ namespace XboxGamingBar
                             {
                                 CurrentGameIcon.Source = bitmapImage;
                                 CurrentGameIcon.Visibility = Visibility.Visible;
-                                Logger.Info($"LoadCurrentGameIcon: Icon loaded successfully");
                             }
+                            if (LegionControllerProfileGameIcon != null)
+                            {
+                                LegionControllerProfileGameIcon.Source = bitmapImage;
+                                LegionControllerProfileGameIcon.Visibility = Visibility.Visible;
+                            }
+                            Logger.Info($"LoadCurrentGameIcon: Icon loaded successfully");
                         }
                     }
                     catch (Exception ex)
@@ -16867,6 +17473,11 @@ namespace XboxGamingBar
                         {
                             CurrentGameIcon.Source = null;
                             CurrentGameIcon.Visibility = Visibility.Collapsed;
+                        }
+                        if (LegionControllerProfileGameIcon != null)
+                        {
+                            LegionControllerProfileGameIcon.Source = null;
+                            LegionControllerProfileGameIcon.Visibility = Visibility.Collapsed;
                         }
                     }
                 });
@@ -16924,6 +17535,473 @@ namespace XboxGamingBar
             catch
             {
                 return null;
+            }
+        }
+
+        #endregion
+
+        #region Labs Section
+
+        private void InitializeLabsSection()
+        {
+            // Create DAService status polling timer (only runs when Legion tab is visible)
+            daServiceStatusTimer = new DispatcherTimer();
+            daServiceStatusTimer.Interval = TimeSpan.FromSeconds(30);
+            daServiceStatusTimer.Tick += (s, e) => UpdateDAServiceStatus();
+            // Don't start timer here - it will be started when Legion tab becomes visible
+
+            // Wire up Legion button remap event handlers (done in code to avoid XAML init issues)
+            if (LegionLActionComboBox != null)
+                LegionLActionComboBox.SelectionChanged += LegionLActionComboBox_SelectionChanged;
+            if (LegionRActionComboBox != null)
+                LegionRActionComboBox.SelectionChanged += LegionRActionComboBox_SelectionChanged;
+
+            // Load saved Legion remap settings
+            LoadLegionRemapSettings();
+
+            // Mark Labs section as initialized (enables event handlers)
+            labsSectionInitialized = true;
+
+            // Apply saved settings to helper (after connection is established)
+            _ = Task.Run(async () =>
+            {
+                // Wait for helper connection
+                for (int i = 0; i < 30 && App.Connection == null; i++)
+                    await Task.Delay(200);
+
+                if (App.Connection != null)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        ApplyLegionRemapSettingsToHelper();
+                    });
+                }
+            });
+        }
+
+        private async void RequestViGEmBusStatus()
+        {
+            if (App.Connection == null)
+                return;
+
+            // Request ViGEmBus installed status from helper
+            try
+            {
+                var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("Function", (int)Function.ViGEmBusInstalled);
+                var response = await App.Connection.SendMessageAsync(request);
+
+                // Handle response
+                if (response.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                {
+                    if (response.Message.TryGetValue("Value", out object installedObj))
+                    {
+                        bool installed = Convert.ToBoolean(installedObj);
+                        UpdateViGEmBusInstalledUI(installed);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to request ViGEmBus status: {ex.Message}");
+            }
+        }
+
+        private async void UpdateDAServiceStatus()
+        {
+            if (App.Connection == null)
+                return;
+
+            // Request DAService status from helper
+            try
+            {
+                var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("Function", (int)Function.Labs_DAServiceStatus);
+                request.Add("Value", 0); // Request status
+                var response = await App.Connection.SendMessageAsync(request);
+
+                // Handle response
+                if (response.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                {
+                    if (response.Message.TryGetValue("Value", out object statusObj))
+                    {
+                        int status = Convert.ToInt32(statusObj);
+                        OnDAServiceStatusReceived(status);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to request DAService status: {ex.Message}");
+            }
+        }
+
+        private void OnDAServiceStatusReceived(int status)
+        {
+            // Status: 0 = Stopped/Disabled, 1 = Running, 2 = Not Found
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                if (DAServiceStatusText == null || ToggleDAServiceButton == null)
+                    return;
+
+                switch (status)
+                {
+                    case 0: // Stopped/Disabled
+                        daServiceIsRunning = false;
+                        DAServiceStatusText.Text = "Service disabled - Legion L/R buttons disabled";
+                        DAServiceStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 200, 83)); // Green
+                        ToggleDAServiceButton.Content = "Enable";
+                        break;
+                    case 1: // Running
+                        daServiceIsRunning = true;
+                        DAServiceStatusText.Text = "Service running - Legion Space controls buttons";
+                        DAServiceStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 170, 0)); // Orange
+                        ToggleDAServiceButton.Content = "Disable";
+                        break;
+                    case 2: // Not Found
+                        daServiceIsRunning = false;
+                        DAServiceStatusText.Text = "DAService not found on this system";
+                        DAServiceStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 128, 128, 128)); // Gray
+                        ToggleDAServiceButton.IsEnabled = false;
+                        break;
+                }
+            });
+        }
+
+        private async void ToggleDAServiceButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (App.Connection == null)
+                return;
+
+            try
+            {
+                // Update button text immediately for responsiveness
+                ToggleDAServiceButton.Content = "...";
+                DAServiceStatusText.Text = daServiceIsRunning ? "Disabling service..." : "Enabling service...";
+
+                // Send start/stop command to helper
+                // Value: 0 = Stop, 1 = Start
+                int action = daServiceIsRunning ? 0 : 1;
+                var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("Function", (int)Function.Labs_DAServiceControl);
+                request.Add("Value", action);
+                var response = await App.Connection.SendMessageAsync(request);
+
+                // Handle response - helper sends back updated status
+                if (response.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                {
+                    if (response.Message.TryGetValue("Value", out object statusObj))
+                    {
+                        int status = Convert.ToInt32(statusObj);
+                        OnDAServiceStatusReceived(status);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to control DAService: {ex.Message}");
+                // Reset UI on error
+                UpdateDAServiceStatus();
+            }
+        }
+
+        // Legion L event handlers
+        private void LegionLActionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!labsSectionInitialized) return;
+
+            int selection = LegionLActionComboBox?.SelectedIndex ?? 0;
+            // 0=Disabled, 1=Xbox Guide, 2=Keyboard Shortcut, 3=Run Command, 4=Focus GoTweaks
+            bool isShortcut = selection == 2;
+            bool isCommand = selection == 3;
+            if (LegionLShortcutGrid != null)
+                LegionLShortcutGrid.Visibility = isShortcut ? Visibility.Visible : Visibility.Collapsed;
+            if (LegionLCommandGrid != null)
+                LegionLCommandGrid.Visibility = isCommand ? Visibility.Visible : Visibility.Collapsed;
+
+            // Apply immediately for Disabled, Xbox Guide, or Focus GoTweaks
+            if (selection != 2 && selection != 3)
+                ApplyLegionButtonConfig(true);
+
+            UpdateLegionRemapDescription();
+        }
+
+        private void LegionLShortcutApplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyLegionButtonConfig(true);
+            UpdateLegionRemapDescription();
+        }
+
+        private void LegionLCommandApplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyLegionButtonConfig(true);
+            UpdateLegionRemapDescription();
+        }
+
+        // Legion R event handlers
+        private void LegionRActionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!labsSectionInitialized) return;
+
+            int selection = LegionRActionComboBox?.SelectedIndex ?? 0;
+            // 0=Disabled, 1=Xbox Guide, 2=Keyboard Shortcut, 3=Run Command, 4=Focus GoTweaks
+            bool isShortcut = selection == 2;
+            bool isCommand = selection == 3;
+            if (LegionRShortcutGrid != null)
+                LegionRShortcutGrid.Visibility = isShortcut ? Visibility.Visible : Visibility.Collapsed;
+            if (LegionRCommandGrid != null)
+                LegionRCommandGrid.Visibility = isCommand ? Visibility.Visible : Visibility.Collapsed;
+
+            // Apply immediately for Disabled, Xbox Guide, or Focus GoTweaks
+            if (selection != 2 && selection != 3)
+                ApplyLegionButtonConfig(false);
+
+            UpdateLegionRemapDescription();
+        }
+
+        private void LegionRShortcutApplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyLegionButtonConfig(false);
+            UpdateLegionRemapDescription();
+        }
+
+        private void LegionRCommandApplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyLegionButtonConfig(false);
+            UpdateLegionRemapDescription();
+        }
+
+        private void UpdateLegionRemapDescription()
+        {
+            if (LegionRemapDescription == null) return;
+
+            int lSelection = LegionLActionComboBox?.SelectedIndex ?? 0;
+            int rSelection = LegionRActionComboBox?.SelectedIndex ?? 0;
+
+            // 0=Disabled, 1=Xbox Guide, 2=Keyboard Shortcut, 3=Run Command, 4=Focus GoTweaks
+            string lAction = lSelection == 0 ? null :
+                             lSelection == 1 ? "Xbox Guide" :
+                             lSelection == 2 ? LegionLShortcutTextBox?.Text?.Trim() :
+                             lSelection == 3 ? GetCommandDisplayName(LegionLCommandTextBox?.Text?.Trim()) :
+                             "GoTweaks";
+            string rAction = rSelection == 0 ? null :
+                             rSelection == 1 ? "Xbox Guide" :
+                             rSelection == 2 ? LegionRShortcutTextBox?.Text?.Trim() :
+                             rSelection == 3 ? GetCommandDisplayName(LegionRCommandTextBox?.Text?.Trim()) :
+                             "GoTweaks";
+
+            var parts = new System.Collections.Generic.List<string>();
+            if (!string.IsNullOrEmpty(lAction))
+                parts.Add($"L → {lAction}");
+            if (!string.IsNullOrEmpty(rAction))
+                parts.Add($"R → {rAction}");
+
+            if (parts.Count > 0)
+                LegionRemapDescription.Text = string.Join(", ", parts);
+            else
+                LegionRemapDescription.Text = "Requires ViGEmBus for Xbox Guide";
+        }
+
+        private string GetCommandDisplayName(string commandPath)
+        {
+            if (string.IsNullOrEmpty(commandPath))
+                return null;
+            // Show just the exe name if it's a path
+            try
+            {
+                var fileName = System.IO.Path.GetFileName(commandPath.Split(' ')[0]);
+                return !string.IsNullOrEmpty(fileName) ? fileName : commandPath;
+            }
+            catch
+            {
+                return commandPath;
+            }
+        }
+
+        private void SaveLegionRemapSettings()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                settings.Values["LegionL_Action"] = LegionLActionComboBox?.SelectedIndex ?? 0;
+                settings.Values["LegionL_Shortcut"] = LegionLShortcutTextBox?.Text ?? "";
+                settings.Values["LegionL_Command"] = LegionLCommandTextBox?.Text ?? "";
+                settings.Values["LegionR_Action"] = LegionRActionComboBox?.SelectedIndex ?? 0;
+                settings.Values["LegionR_Shortcut"] = LegionRShortcutTextBox?.Text ?? "";
+                settings.Values["LegionR_Command"] = LegionRCommandTextBox?.Text ?? "";
+                Logger.Info("Legion remap settings saved");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to save Legion remap settings: {ex.Message}");
+            }
+        }
+
+        private void LoadLegionRemapSettings()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                // Load Legion L settings
+                if (settings.Values.TryGetValue("LegionL_Action", out var lAction) && lAction is int lActionInt)
+                {
+                    if (LegionLActionComboBox != null && lActionInt >= 0 && lActionInt <= 4)
+                        LegionLActionComboBox.SelectedIndex = lActionInt;
+                }
+                if (settings.Values.TryGetValue("LegionL_Shortcut", out var lShortcut) && lShortcut is string lShortcutStr)
+                {
+                    if (LegionLShortcutTextBox != null)
+                        LegionLShortcutTextBox.Text = lShortcutStr;
+                }
+                if (settings.Values.TryGetValue("LegionL_Command", out var lCommand) && lCommand is string lCommandStr)
+                {
+                    if (LegionLCommandTextBox != null)
+                        LegionLCommandTextBox.Text = lCommandStr;
+                }
+
+                // Load Legion R settings
+                if (settings.Values.TryGetValue("LegionR_Action", out var rAction) && rAction is int rActionInt)
+                {
+                    if (LegionRActionComboBox != null && rActionInt >= 0 && rActionInt <= 4)
+                        LegionRActionComboBox.SelectedIndex = rActionInt;
+                }
+                if (settings.Values.TryGetValue("LegionR_Shortcut", out var rShortcut) && rShortcut is string rShortcutStr)
+                {
+                    if (LegionRShortcutTextBox != null)
+                        LegionRShortcutTextBox.Text = rShortcutStr;
+                }
+                if (settings.Values.TryGetValue("LegionR_Command", out var rCommand) && rCommand is string rCommandStr)
+                {
+                    if (LegionRCommandTextBox != null)
+                        LegionRCommandTextBox.Text = rCommandStr;
+                }
+
+                // Update description and show/hide input grids based on loaded settings
+                UpdateLegionRemapDescription();
+                int lSelectionLoaded = LegionLActionComboBox?.SelectedIndex ?? 0;
+                int rSelectionLoaded = LegionRActionComboBox?.SelectedIndex ?? 0;
+                if (LegionLShortcutGrid != null)
+                    LegionLShortcutGrid.Visibility = (lSelectionLoaded == 2) ? Visibility.Visible : Visibility.Collapsed;
+                if (LegionLCommandGrid != null)
+                    LegionLCommandGrid.Visibility = (lSelectionLoaded == 3) ? Visibility.Visible : Visibility.Collapsed;
+                if (LegionRShortcutGrid != null)
+                    LegionRShortcutGrid.Visibility = (rSelectionLoaded == 2) ? Visibility.Visible : Visibility.Collapsed;
+                if (LegionRCommandGrid != null)
+                    LegionRCommandGrid.Visibility = (rSelectionLoaded == 3) ? Visibility.Visible : Visibility.Collapsed;
+
+                Logger.Info("Legion remap settings loaded");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to load Legion remap settings: {ex.Message}");
+            }
+        }
+
+        private async void ApplyLegionRemapSettingsToHelper()
+        {
+            // Apply Legion L if not disabled
+            if (LegionLActionComboBox?.SelectedIndex > 0)
+                ApplyLegionButtonConfig(true);
+
+            // Small delay between requests
+            await Task.Delay(100);
+
+            // Apply Legion R if not disabled
+            if (LegionRActionComboBox?.SelectedIndex > 0)
+                ApplyLegionButtonConfig(false);
+        }
+
+        private async void ApplyLegionButtonConfig(bool isLegionL)
+        {
+            if (App.Connection == null) return;
+
+            try
+            {
+                ComboBox actionComboBox = isLegionL ? LegionLActionComboBox : LegionRActionComboBox;
+                TextBox shortcutTextBox = isLegionL ? LegionLShortcutTextBox : LegionRShortcutTextBox;
+                TextBox commandTextBox = isLegionL ? LegionLCommandTextBox : LegionRCommandTextBox;
+                string buttonName = isLegionL ? "Legion L" : "Legion R";
+
+                if (actionComboBox == null) return;
+
+                int selection = actionComboBox.SelectedIndex; // 0=Disabled, 1=Xbox Guide, 2=Shortcut, 3=Command, 4=Focus GoTweaks
+                bool enabled = selection != 0;
+                // Convert UI selection to helper action type: 0=Xbox Guide, 1=Shortcut, 2=Command, 3=Focus GoTweaks
+                int actionType = selection == 1 ? 0 : selection == 2 ? 1 : selection == 3 ? 2 : selection == 4 ? 3 : 0;
+
+                string shortcutOrCommand = "";
+                if (selection == 2 && shortcutTextBox != null)
+                {
+                    shortcutOrCommand = shortcutTextBox.Text?.Trim() ?? "";
+                    if (string.IsNullOrEmpty(shortcutOrCommand))
+                    {
+                        if (LegionRemapStatusText != null)
+                        {
+                            LegionRemapStatusText.Text = $"{buttonName}: Please enter a shortcut";
+                            LegionRemapStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 200, 100));
+                        }
+                        return;
+                    }
+                }
+                else if (selection == 3 && commandTextBox != null)
+                {
+                    shortcutOrCommand = commandTextBox.Text?.Trim() ?? "";
+                    if (string.IsNullOrEmpty(shortcutOrCommand))
+                    {
+                        if (LegionRemapStatusText != null)
+                        {
+                            LegionRemapStatusText.Text = $"{buttonName}: Please enter a command";
+                            LegionRemapStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 200, 100));
+                        }
+                        return;
+                    }
+                }
+
+                var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("Function", (int)Function.Labs_LegionButtonRemap);
+                request.Add("Button", isLegionL ? "L" : "R");
+                request.Add("Enabled", enabled);
+                request.Add("Action", actionType);
+                request.Add("Shortcut", shortcutOrCommand); // Reuse "Shortcut" field for both shortcut and command
+
+                var response = await App.Connection.SendMessageAsync(request);
+
+                if (response.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                {
+                    if (response.Message.TryGetValue("Success", out object successObj))
+                    {
+                        bool success = Convert.ToBoolean(successObj);
+                        if (LegionRemapStatusText != null)
+                        {
+                            if (!enabled)
+                            {
+                                LegionRemapStatusText.Text = "";
+                            }
+                            else if (success)
+                            {
+                                LegionRemapStatusText.Text = "";
+                            }
+                            else
+                            {
+                                string errorMsg = actionType == 0 ? "ViGEmBus not installed or controller not found" : "Controller not found";
+                                LegionRemapStatusText.Text = $"{buttonName}: Failed - {errorMsg}";
+                                LegionRemapStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 100, 100));
+                                actionComboBox.SelectedIndex = 0; // Reset to Disabled
+                            }
+                        }
+
+                        // Save settings on success
+                        if (success || !enabled)
+                            SaveLegionRemapSettings();
+
+                        Logger.Info($"Legion Button Remap: {buttonName}, Enabled={enabled}, Action={actionType}, Value={shortcutOrCommand}, Success={success}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to apply Legion button config: {ex.Message}");
             }
         }
 

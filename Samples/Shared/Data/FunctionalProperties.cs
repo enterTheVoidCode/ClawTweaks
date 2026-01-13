@@ -29,6 +29,36 @@ namespace Shared.Data
             }
         }
 
+        /// <summary>
+        /// Try to get a property by its function type.
+        /// </summary>
+        public bool TryGetProperty(Function function, out FunctionalProperty property)
+        {
+            lock (properties)
+            {
+                return properties.TryGetValue(function, out property);
+            }
+        }
+
+        /// <summary>
+        /// Add a property dynamically (thread-safe for background initialization).
+        /// </summary>
+        public void Add(FunctionalProperty property)
+        {
+            lock (properties)
+            {
+                if (!properties.ContainsKey(property.Function))
+                {
+                    properties.Add(property.Function, property);
+                    Logger.Debug($"Added property {property.Function} dynamically");
+                }
+                else
+                {
+                    Logger.Warn($"Property {property.Function} already exists, skipping");
+                }
+            }
+        }
+
         public async Task OnRequestReceived(AppServiceRequest request)
         {
             var function = (Function)request.Message[nameof(Function)];
@@ -37,10 +67,14 @@ namespace Shared.Data
                 return;
             }
 
-            if (!properties.TryGetValue(function, out var property))
+            FunctionalProperty property;
+            lock (properties)
             {
-                Logger.Error($"Property {function} not found.");
-                return;
+                if (!properties.TryGetValue(function, out property))
+                {
+                    Logger.Error($"Property {function} not found.");
+                    return;
+                }
             }
 
             var command = (Command)request.Message[nameof(Command)];

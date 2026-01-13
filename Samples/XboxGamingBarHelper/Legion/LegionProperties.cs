@@ -340,6 +340,27 @@ namespace XboxGamingBarHelper.Legion
         }
     }
 
+    // Fan control sensor temperature (0x01 sensor) - what EC uses for fan curve lookup
+    // This is typically 10-17°C lower than CPU temperature
+    internal class LegionFanSensorTempProperty : HelperProperty<int, LegionManager>
+    {
+        public LegionFanSensorTempProperty(int initialValue, LegionManager inManager)
+            : base(initialValue, null, Function.LegionFanSensorTemp, inManager)
+        {
+        }
+
+        /// <summary>
+        /// Called by LegionManager to update the fan sensor temp and sync to widget
+        /// </summary>
+        public void UpdateTemp(int tempC)
+        {
+            if (tempC != Value)
+            {
+                SetValue(tempC);
+            }
+        }
+    }
+
     // CPU fan RPM property - read-only, updated by LegionManager periodically
     internal class LegionCPUFanRPMProperty : HelperProperty<int, LegionManager>
     {
@@ -1079,6 +1100,54 @@ namespace XboxGamingBarHelper.Legion
         }
 
         public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Controller Connected Left (read-only, true if controller is connected/attached)
+    internal class ControllerConnectedLeftProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerConnectedLeftProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.ControllerConnectedLeft, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Controller Connected Right (read-only, true if controller is connected/attached)
+    internal class ControllerConnectedRightProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerConnectedRightProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.ControllerConnectedRight, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Controller VID:PID (read-only, e.g., "17EF:6182")
+    internal class ControllerVidPidProperty : HelperProperty<string, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerVidPidProperty(string initialValue, LegionManager inManager) : base(initialValue, null, Function.ControllerVidPid, inManager)
+        {
+        }
+
+        public void SetValueAndSync(string value)
         {
             SetValue((object)value);
             SyncToRemote();

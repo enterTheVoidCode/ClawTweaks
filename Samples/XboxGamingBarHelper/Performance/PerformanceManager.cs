@@ -121,6 +121,7 @@ namespace XboxGamingBarHelper.Performance
         public CPUClockSensor CPUClock { get; }
         public CPUWattageSensor CPUWattage { get ; }
         public CPUTemperatureSensor CPUTemperature { get; }
+        public VRMTemperatureSensor VRMTemperature { get; }
 
         public GPUUsageSensor GPUUsage { get; }
         public GPUClockSensor GPUClock { get; }
@@ -343,6 +344,9 @@ namespace XboxGamingBarHelper.Performance
         private int pendingTDP = -1; // -1 means no pending TDP
         private readonly object debounceLock = new object();
 
+        // Flag to indicate if hardware detection is complete
+        private volatile bool hardwareInitialized = false;
+
         internal PerformanceManager(AppServiceConnection connection) : base(connection)
         {
             // Initialize the computer sensors
@@ -365,109 +369,19 @@ namespace XboxGamingBarHelper.Performance
             };
             Logger.Info("PerformanceManager: Creating UpdateVisitor...");
             updateVisitor = new UpdateVisitor();
-            Logger.Info("PerformanceManager: Calling computer.Open() with 15s timeout...");
 
-            // Call computer.Open() with timeout - can hang indefinitely if another app has sensors locked
-            const int timeoutMs = 15000;
-            var openTask = Task.Run(() =>
-            {
-                try
-                {
-                    computer.Open();
-                    return true;
-                }
-                catch (AggregateException ae)
-                {
-                    Logger.Warn($"PerformanceManager: computer.Open() had {ae.InnerExceptions.Count} errors (some hardware may not be available):");
-                    foreach (var innerEx in ae.InnerExceptions)
-                    {
-                        Logger.Warn($"  - {innerEx.GetType().Name}: {innerEx.Message}");
-                    }
-                    return true; // Continue anyway - use whatever hardware was initialized
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"PerformanceManager: computer.Open() failed: {ex.GetType().Name}: {ex.Message}");
-                    if (ex.InnerException != null)
-                    {
-                        Logger.Error($"  Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
-                    }
-                    return false;
-                }
-            });
+            // Start hardware detection in background - don't block constructor
+            // Sensors will return default values until hardware is initialized
+            Logger.Info("PerformanceManager: Starting hardware detection in background...");
+            Task.Run(() => InitializeHardwareAsync());
 
-            if (openTask.Wait(timeoutMs))
-            {
-                Logger.Info("PerformanceManager: computer.Open() completed successfully.");
-            }
-            else
-            {
-                Logger.Warn($"PerformanceManager: computer.Open() timed out after {timeoutMs}ms - hardware sensors may be limited. Check for other monitoring apps (HWiNFO, MSI Afterburner, etc.)");
-                // Continue anyway - some sensors may be available, others may not
-            }
-
-            // Always try to accept the visitor for whatever hardware was found
-            try
-            {
-                computer.Accept(updateVisitor);
-                Logger.Info("PerformanceManager: computer.Accept() completed.");
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"PerformanceManager: computer.Accept() failed: {ex.Message}");
-            }
-
-            foreach (IHardware hardware in computer.Hardware)
-            {
-                var properties = string.Empty;
-                if (hardware.Properties.Count > 0)
-                {
-                    foreach (var property in hardware.Properties)
-                    {
-                        properties = properties.Length == 0 ? $"{property.Key}:{property.Value}" : $"{properties}, {property.Key}:{property.Value}";
-                    }
-                }
-                Logger.Info($"Found hardware {hardware.HardwareType}: Name={hardware.Name}, Type={hardware.HardwareType}, Id={hardware.Identifier}, Properties={properties}");
-
-                // Log all sensors for CPU to diagnose sensor name matching
-                if (hardware.HardwareType == HardwareType.Cpu)
-                {
-                    hardware.Update();
-                    foreach (ISensor sensor in hardware.Sensors)
-                    {
-                        Logger.Info($"  CPU Sensor: Name='{sensor.Name}', Type={sensor.SensorType}, Value={sensor.Value}");
-                    }
-                }
-
-                // Log all sensors for Battery to diagnose time-to-full calculation
-                if (hardware.HardwareType == HardwareType.Battery)
-                {
-                    hardware.Update();
-                    foreach (ISensor sensor in hardware.Sensors)
-                    {
-                        Logger.Info($"  Battery Sensor: Name='{sensor.Name}', Type={sensor.SensorType}, Value={sensor.Value}");
-                    }
-                }
-
-                // Log all sensors for GPUs to diagnose Intel/Nvidia sensor name matching
-                if (hardware.HardwareType == HardwareType.GpuNvidia ||
-                    hardware.HardwareType == HardwareType.GpuIntel ||
-                    hardware.HardwareType == HardwareType.GpuAmd)
-                {
-                    hardware.Update();
-                    foreach (ISensor sensor in hardware.Sensors)
-                    {
-                        Logger.Info($"  GPU Sensor: Name='{sensor.Name}', Type={sensor.SensorType}, Value={sensor.Value}");
-                    }
-                }
-            }
-
-            // Initialize hardware sensors
+            // Initialize hardware sensors immediately (they'll work once hardware is detected)
             Logger.Info("Initializing hardware sensors...");
             CPUClock = new CPUClockSensor();
             CPUUsage = new CPUUsageSensor();
             CPUWattage = new CPUWattageSensor();
             CPUTemperature = new CPUTemperatureSensor();
+            VRMTemperature = new VRMTemperatureSensor();
             GPUUsage = new GPUUsageSensor();
             GPUClock = new GPUClockSensor();
             GPUTemperature = new GPUTemperatureSensor();
@@ -493,6 +407,7 @@ namespace XboxGamingBarHelper.Performance
                 CPUUsage,
                 CPUWattage,
                 CPUTemperature,
+                VRMTemperature,
                 GPUUsage,
                 GPUClock,
                 GPUTemperature,
@@ -549,6 +464,90 @@ namespace XboxGamingBarHelper.Performance
             pawnIOInstalledProperty = new TdpMethodAvailableProperty(pawnIOInstalled, Function.TdpMethod_PawnIOInstalled, this);
             installPawnIOProperty = new InstallPawnIOProperty(this);
             Logger.Info($"TDP method availability: PawnIO={pawnIOAvailable}, PawnIOInstalled={pawnIOInstalled}");
+        }
+
+        /// <summary>
+        /// Initialize hardware detection in background. This is slow (2+ seconds) so we don't block the constructor.
+        /// </summary>
+        private void InitializeHardwareAsync()
+        {
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                Logger.Info("PerformanceManager: Background hardware detection starting...");
+
+                // Call computer.Open() - this is the slow part
+                try
+                {
+                    computer.Open();
+                    Logger.Info("PerformanceManager: computer.Open() completed successfully.");
+                }
+                catch (AggregateException ae)
+                {
+                    Logger.Warn($"PerformanceManager: computer.Open() had {ae.InnerExceptions.Count} errors (some hardware may not be available):");
+                    foreach (var innerEx in ae.InnerExceptions)
+                    {
+                        Logger.Warn($"  - {innerEx.GetType().Name}: {innerEx.Message}");
+                    }
+                    // Continue anyway - use whatever hardware was initialized
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"PerformanceManager: computer.Open() failed: {ex.GetType().Name}: {ex.Message}");
+                    if (ex.InnerException != null)
+                    {
+                        Logger.Error($"  Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+                    }
+                }
+
+                // Accept the visitor for whatever hardware was found
+                try
+                {
+                    computer.Accept(updateVisitor);
+                    Logger.Info("PerformanceManager: computer.Accept() completed.");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"PerformanceManager: computer.Accept() failed: {ex.Message}");
+                }
+
+                // Log discovered hardware
+                foreach (IHardware hardware in computer.Hardware)
+                {
+                    var properties = string.Empty;
+                    if (hardware.Properties.Count > 0)
+                    {
+                        foreach (var property in hardware.Properties)
+                        {
+                            properties = properties.Length == 0 ? $"{property.Key}:{property.Value}" : $"{properties}, {property.Key}:{property.Value}";
+                        }
+                    }
+                    Logger.Info($"Found hardware {hardware.HardwareType}: Name={hardware.Name}, Type={hardware.HardwareType}, Id={hardware.Identifier}, Properties={properties}");
+
+                    // Log sensors for key hardware types
+                    if (hardware.HardwareType == HardwareType.Cpu ||
+                        hardware.HardwareType == HardwareType.Battery ||
+                        hardware.HardwareType == HardwareType.GpuNvidia ||
+                        hardware.HardwareType == HardwareType.GpuIntel ||
+                        hardware.HardwareType == HardwareType.GpuAmd)
+                    {
+                        hardware.Update();
+                        foreach (ISensor sensor in hardware.Sensors)
+                        {
+                            Logger.Info($"  {hardware.HardwareType} Sensor: Name='{sensor.Name}', Type={sensor.SensorType}, Value={sensor.Value}");
+                        }
+                    }
+                }
+
+                hardwareInitialized = true;
+                timer.Stop();
+                Logger.Info($"[TIMING] Background hardware detection completed: {timer.ElapsedMilliseconds}ms");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"PerformanceManager: Background hardware detection failed: {ex.Message}");
+                timer.Stop();
+            }
         }
 
         // WinRing0 removed - deprecated TDP method, no longer bundled

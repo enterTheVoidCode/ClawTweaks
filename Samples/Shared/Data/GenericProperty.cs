@@ -34,6 +34,11 @@ namespace Shared.Data
 
         private long lastUpdatedTime;
 
+        /// <summary>
+        /// The last time this property was updated.
+        /// </summary>
+        public override long UpdatedTime => lastUpdatedTime;
+
         public static implicit operator ValueType(GenericProperty<ValueType> property)
         {
             return property.Value;
@@ -243,6 +248,23 @@ namespace Shared.Data
             lastUpdatedTime = updatedTime;
             value = newValue;
             NotifyPropertyChanged(nameof(value));
+            return true;
+        }
+
+        /// <summary>
+        /// Sets the value without triggering NotifyPropertyChanged.
+        /// Use this for batch sync to avoid echoing values back to the sender.
+        /// </summary>
+        protected bool SetValueSilent(ValueType newValue, long updatedTime)
+        {
+            if (updatedTime < lastUpdatedTime)
+            {
+                return false;
+            }
+
+            lastUpdatedTime = updatedTime;
+            value = newValue;
+            // No NotifyPropertyChanged - silent update
             return true;
         }
 

@@ -36,5 +36,17 @@ namespace XboxGamingBar.Data
                 UI.IsEnabled = isEnabled;
             }
         }
+
+        /// <summary>
+        /// Called after batch sync completes. Enables the control since batch sync
+        /// bypasses individual Sync() which normally handles enable/disable.
+        /// </summary>
+        public override async Task OnBatchSyncCompleted()
+        {
+            if (UI != null && Owner != null)
+            {
+                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => SetControlEnabled(true));
+            }
+        }
     }
 }

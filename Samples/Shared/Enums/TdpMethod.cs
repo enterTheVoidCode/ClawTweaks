@@ -15,12 +15,8 @@ namespace Shared.Enums
         /// Use PawnIO driver with RyzenSMU module
         /// Anti-cheat safe
         /// </summary>
-        PawnIO = 1,
+        PawnIO = 1
 
-        /// <summary>
-        /// Use WinRing0 driver (deprecated)
-        /// May trigger anti-cheat systems like EAC
-        /// </summary>
-        WinRing0 = 2
+        // WinRing0 = 2 - Removed: WinRing0 driver deprecated and no longer bundled
     }
 }

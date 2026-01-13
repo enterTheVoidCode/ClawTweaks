@@ -6,6 +6,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.AppService;
+using Windows.Storage;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Performance;
 
@@ -72,6 +73,8 @@ namespace XboxGamingBarHelper.Legion
         private int rightControllerBattery = -1;
         private bool leftControllerCharging = false;
         private bool rightControllerCharging = false;
+        private bool leftControllerConnected = false;
+        private bool rightControllerConnected = false;
 
         // Fan speed (RPM)
         private int cpuFanSpeed = 0;
@@ -119,6 +122,7 @@ namespace XboxGamingBarHelper.Legion
         public readonly LegionFanFullSpeedProperty LegionFanFullSpeed;
         public readonly LegionFanCurveDataProperty LegionFanCurveData;
         public readonly LegionCPUCurrentTempProperty LegionCPUCurrentTemp;
+        public readonly LegionFanSensorTempProperty LegionFanSensorTemp;
         public readonly LegionCPUFanRPMProperty LegionCPUFanRPM;
         public readonly LegionFanCurveVisibleProperty LegionFanCurveVisible;
         public readonly LegionGyroEnabledProperty LegionGyroEnabled;
@@ -181,6 +185,9 @@ namespace XboxGamingBarHelper.Legion
         public readonly ControllerBatteryRightProperty ControllerBatteryRight;
         public readonly ControllerChargingLeftProperty ControllerChargingLeft;
         public readonly ControllerChargingRightProperty ControllerChargingRight;
+        public readonly ControllerConnectedLeftProperty ControllerConnectedLeft;
+        public readonly ControllerConnectedRightProperty ControllerConnectedRight;
+        public readonly ControllerVidPidProperty ControllerVidPid;
 
         // Reference to PerformanceManager for LibreHardwareMonitor sensor access
         private PerformanceManager performanceManager;
@@ -198,12 +205,16 @@ namespace XboxGamingBarHelper.Legion
         public LegionManager(AppServiceConnection connection) : base(connection)
         {
             Logger.Info("Initializing Legion Manager...");
+            var constructorTimer = System.Diagnostics.Stopwatch.StartNew();
 
             // Record startup time for grace period
             startupTime = DateTime.Now;
 
             // Try to detect Legion Go device
+            var detectTimer = System.Diagnostics.Stopwatch.StartNew();
             DetectLegionGo();
+            detectTimer.Stop();
+            Logger.Info($"[TIMING] LegionManager.DetectLegionGo: {detectTimer.ElapsedMilliseconds}ms");
 
             // Initialize properties (pass this as manager)
             LegionGoDetected = new LegionGoDetectedProperty(isLegionGoDetected, this);
@@ -218,45 +229,81 @@ namespace XboxGamingBarHelper.Legion
             LegionCustomTDPPeak = new LegionCustomTDPPeakProperty(customTDPPeak, this);
             LegionFanFullSpeed = new LegionFanFullSpeedProperty(fanFullSpeed, this);
 
-            // Initialize fan curve from device only if Legion Go is detected
+            // Initialize fan curve - first try LocalSettings, then device
             if (isLegionGoDetected)
             {
-                Logger.Info("Reading fan curve from device...");
-                const int fanCurveTimeoutMs = 5000;
-                var fanCurveTask = Task.Run(() =>
-                {
-                    try
-                    {
-                        return wmiService?.GetFanCurve();
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Warn($"GetFanCurve exception: {ex.Message}");
-                        return null;
-                    }
-                });
+                var fanCurveTimer = System.Diagnostics.Stopwatch.StartNew();
 
-                if (fanCurveTask.Wait(fanCurveTimeoutMs))
+                // First, try to load saved fan curve from LocalSettings
+                bool loadedFromSettings = false;
+                try
                 {
-                    var curveResult = fanCurveTask.Result;
-                    if (curveResult.HasValue && curveResult.Value.Success && curveResult.Value.FanSpeeds?.Length == 10)
+                    var settings = ApplicationData.Current.LocalSettings;
+                    if (settings.Values.TryGetValue("LegionFanCurve", out object savedCurve) && savedCurve is string savedCurveString)
                     {
-                        fanCurve = curveResult.Value.FanSpeeds;
-                        Logger.Info($"Fan curve loaded from device: {string.Join(",", fanCurve)}");
+                        var parts = savedCurveString.Split(',');
+                        if (parts.Length == 10)
+                        {
+                            for (int i = 0; i < 10; i++)
+                            {
+                                if (int.TryParse(parts[i].Trim(), out int value))
+                                {
+                                    fanCurve[i] = (ushort)Math.Max(0, Math.Min(100, value));
+                                }
+                            }
+                            loadedFromSettings = true;
+                            Logger.Info($"Fan curve loaded from LocalSettings: {string.Join(",", fanCurve)}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Failed to load fan curve from LocalSettings: {ex.Message}");
+                }
+
+                // If no saved curve, read from device
+                if (!loadedFromSettings)
+                {
+                    Logger.Info("Reading fan curve from device...");
+                    const int fanCurveTimeoutMs = 5000;
+                    var fanCurveTask = Task.Run(() =>
+                    {
+                        try
+                        {
+                            return wmiService?.GetFanCurve();
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"GetFanCurve exception: {ex.Message}");
+                            return null;
+                        }
+                    });
+
+                    if (fanCurveTask.Wait(fanCurveTimeoutMs))
+                    {
+                        var curveResult = fanCurveTask.Result;
+                        if (curveResult.HasValue && curveResult.Value.Success && curveResult.Value.FanSpeeds?.Length == 10)
+                        {
+                            fanCurve = curveResult.Value.FanSpeeds;
+                            Logger.Info($"Fan curve loaded from device: {string.Join(",", fanCurve)}");
+                        }
+                        else
+                        {
+                            Logger.Warn($"Failed to load fan curve from device, using defaults: {string.Join(",", fanCurve)}");
+                        }
                     }
                     else
                     {
-                        Logger.Warn($"Failed to load fan curve from device (wmiService={wmiService != null}, hasValue={curveResult.HasValue}, success={curveResult?.Success}, message={curveResult?.Message}), using defaults: {string.Join(",", fanCurve)}");
+                        Logger.Warn($"GetFanCurve timed out after {fanCurveTimeoutMs}ms, using defaults: {string.Join(",", fanCurve)}");
                     }
                 }
-                else
-                {
-                    Logger.Warn($"GetFanCurve timed out after {fanCurveTimeoutMs}ms, using defaults: {string.Join(",", fanCurve)}");
-                }
+                fanCurveTimer.Stop();
+                Logger.Info($"[TIMING] LegionManager.FanCurve read: {fanCurveTimer.ElapsedMilliseconds}ms");
             }
             string fanCurveString = string.Join(",", fanCurve.Select(v => (int)v));
             LegionFanCurveData = new LegionFanCurveDataProperty(fanCurveString, this);
             LegionCPUCurrentTemp = new LegionCPUCurrentTempProperty(0, this);
+            LegionFanSensorTemp = new LegionFanSensorTempProperty(0, this);
             LegionCPUFanRPM = new LegionCPUFanRPMProperty(0, this);
             LegionFanCurveVisible = new LegionFanCurveVisibleProperty(false, this);
 
@@ -320,6 +367,9 @@ namespace XboxGamingBarHelper.Legion
             ControllerBatteryRight = new ControllerBatteryRightProperty(-1, this);
             ControllerChargingLeft = new ControllerChargingLeftProperty(false, this);
             ControllerChargingRight = new ControllerChargingRightProperty(false, this);
+            ControllerConnectedLeft = new ControllerConnectedLeftProperty(false, this);
+            ControllerConnectedRight = new ControllerConnectedRightProperty(false, this);
+            ControllerVidPid = new ControllerVidPidProperty("", this);
 
             // NOTE: Battery monitoring is started from Program.cs AFTER widget connection
             // is established. Starting it here blocks the AppService connection.
@@ -329,6 +379,7 @@ namespace XboxGamingBarHelper.Legion
                 // Read current performance mode and TDP values (with timeouts to prevent hangs)
                 const int wmiReadTimeoutMs = 5000;
 
+                var perfModeTimer = System.Diagnostics.Stopwatch.StartNew();
                 Logger.Info("Reading current performance mode...");
                 var perfModeTask = Task.Run(() =>
                 {
@@ -339,7 +390,10 @@ namespace XboxGamingBarHelper.Legion
                 {
                     Logger.Warn($"ReadCurrentPerformanceMode timed out after {wmiReadTimeoutMs}ms");
                 }
+                perfModeTimer.Stop();
+                Logger.Info($"[TIMING] LegionManager.ReadPerformanceMode: {perfModeTimer.ElapsedMilliseconds}ms");
 
+                var tdpTimer = System.Diagnostics.Stopwatch.StartNew();
                 Logger.Info("Reading current TDP values...");
                 var tdpTask = Task.Run(() =>
                 {
@@ -350,6 +404,8 @@ namespace XboxGamingBarHelper.Legion
                 {
                     Logger.Warn($"ReadCurrentTDPValues timed out after {wmiReadTimeoutMs}ms");
                 }
+                tdpTimer.Stop();
+                Logger.Info($"[TIMING] LegionManager.ReadTDPValues: {tdpTimer.ElapsedMilliseconds}ms");
 
                 // Update properties with the values read from device
                 // Use silent update to avoid triggering WMI calls back
@@ -375,6 +431,8 @@ namespace XboxGamingBarHelper.Legion
                 fanCurveEnableTimer.Start();
             }
 
+            constructorTimer.Stop();
+            Logger.Info($"[TIMING] LegionManager constructor total: {constructorTimer.ElapsedMilliseconds}ms");
             Logger.Info($"Legion Manager initialized. Legion Go detected: {isLegionGoDetected}");
         }
 
@@ -382,26 +440,32 @@ namespace XboxGamingBarHelper.Legion
         {
             try
             {
-                // Try WMI detection first (works even without controllers attached)
-                wmiService = new LenovoWMIService();
-                var classes = wmiService.ListWMIClasses();
+                var stepTimer = System.Diagnostics.Stopwatch.StartNew();
 
-                if (classes.Success && classes.Classes != null)
+                // Try WMI detection first (works even without controllers attached)
+                // Instead of slow ListWMIClasses (1000ms+), directly try a known WMI method
+                wmiService = new LenovoWMIService();
+                Logger.Info($"[TIMING] LenovoWMIService created: {stepTimer.ElapsedMilliseconds}ms");
+                stepTimer.Restart();
+
+                // Try GetSmartFanMode - if it works, this is a Legion device with GAMEZONE WMI
+                var fanModeResult = wmiService.GetSmartFanMode();
+                Logger.Info($"[TIMING] GetSmartFanMode (WMI check): {stepTimer.ElapsedMilliseconds}ms");
+                stepTimer.Restart();
+
+                if (fanModeResult.Success)
                 {
-                    // Check for Legion Go specific WMI classes
-                    foreach (var className in classes.Classes)
-                    {
-                        if (className.Contains("GAMEZONE") || className.Contains("LEGION"))
-                        {
-                            Logger.Info($"Found Lenovo WMI class: {className}");
-                            isLegionGoDetected = true;
-                        }
-                    }
+                    isLegionGoDetected = true;
+                    Logger.Info($"Legion Go detected via WMI (SmartFanMode={fanModeResult.Result})");
                 }
 
                 // Try to connect to controller service
                 controllerService = new LegionControllerService();
+                Logger.Info($"[TIMING] LegionControllerService created: {stepTimer.ElapsedMilliseconds}ms");
+                stepTimer.Restart();
+
                 var connectResult = controllerService.Connect();
+                Logger.Info($"[TIMING] Controller Connect: {stepTimer.ElapsedMilliseconds}ms");
 
                 if (connectResult.Success)
                 {
@@ -1171,6 +1235,9 @@ namespace XboxGamingBarHelper.Legion
                 if (result.Success)
                 {
                     Logger.Info($"Fan curve applied: [{string.Join(", ", fanCurve)}]%");
+
+                    // Save to LocalSettings for persistence across restarts
+                    SaveFanCurveToSettings();
                 }
                 else
                 {
@@ -1180,6 +1247,24 @@ namespace XboxGamingBarHelper.Legion
             catch (Exception ex)
             {
                 Logger.Error($"Error applying fan curve: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Saves the current fan curve to LocalSettings for persistence.
+        /// </summary>
+        private void SaveFanCurveToSettings()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                string curveString = string.Join(",", fanCurve.Select(v => (int)v));
+                settings.Values["LegionFanCurve"] = curveString;
+                Logger.Info($"Fan curve saved to LocalSettings: {curveString}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to save fan curve to LocalSettings: {ex.Message}");
             }
         }
 
@@ -2225,6 +2310,96 @@ namespace XboxGamingBarHelper.Legion
         /// </summary>
         public bool IsRightControllerCharging() => rightControllerCharging;
 
+        /// <summary>
+        /// Updates controller battery values from the LegionButtonMonitor.
+        /// This is used when the button monitor is active and reading HID reports
+        /// that contain battery data (same interface as button data).
+        /// </summary>
+        public void UpdateControllerBatteryFromButtonMonitor(int leftBattery, bool leftCharging, bool leftConnected,
+                                                              int rightBattery, bool rightCharging, bool rightConnected)
+        {
+            try
+            {
+                bool batteryChanged = leftControllerBattery != leftBattery ||
+                                     rightControllerBattery != rightBattery ||
+                                     leftControllerCharging != leftCharging ||
+                                     rightControllerCharging != rightCharging;
+
+                bool connectionChanged = leftControllerConnected != leftConnected ||
+                                        rightControllerConnected != rightConnected;
+
+                leftControllerBattery = leftBattery;
+                leftControllerCharging = leftCharging;
+                leftControllerConnected = leftConnected;
+                rightControllerBattery = rightBattery;
+                rightControllerCharging = rightCharging;
+                rightControllerConnected = rightConnected;
+
+                if (batteryChanged)
+                {
+                    Logger.Info($"Controller battery from button monitor: L={leftBattery}% R={rightBattery}%");
+                    try
+                    {
+                        ControllerBatteryLeft.SetValueAndSync(leftBattery);
+                        ControllerBatteryRight.SetValueAndSync(rightBattery);
+                        ControllerChargingLeft.SetValueAndSync(leftCharging);
+                        ControllerChargingRight.SetValueAndSync(rightCharging);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Failed to sync battery status from button monitor: {ex.Message}");
+                    }
+                }
+
+                if (connectionChanged)
+                {
+                    Logger.Info($"Controller connection changed: L={leftConnected} R={rightConnected}");
+                    try
+                    {
+                        ControllerConnectedLeft.SetValueAndSync(leftConnected);
+                        ControllerConnectedRight.SetValueAndSync(rightConnected);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Failed to sync connection status from button monitor: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"UpdateControllerBatteryFromButtonMonitor exception: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// Updates the controller VID:PID from LegionButtonMonitor.
+        /// Called from Program.cs when the button monitor successfully connects.
+        /// </summary>
+        public void UpdateControllerVidPid(string vidPid)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(vidPid))
+                {
+                    // Always update the internal value
+                    bool wasEmpty = string.IsNullOrEmpty(ControllerVidPid.Value);
+                    bool changed = vidPid != ControllerVidPid.Value;
+
+                    if (changed || wasEmpty)
+                    {
+                        Logger.Info($"Controller VID:PID set to {vidPid}");
+                    }
+
+                    // Always try to sync (the property will handle deduplication)
+                    ControllerVidPid.SetValueAndSync(vidPid);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"UpdateControllerVidPid exception: {ex.Message}");
+            }
+        }
+
         #endregion
 
         public override void Update()
@@ -2293,8 +2468,20 @@ namespace XboxGamingBarHelper.Legion
                 {
                     LegionCPUFanRPM.UpdateRPM(cpuFanSpeed);
 
-                    // Get CPU temperature from LibreHardwareMonitor
-                    if (performanceManager?.CPUTemperature != null)
+                    // Read the fan control sensor temp (0x01 sensor) - this is what the EC uses for fan curve lookup
+                    var fanSensorResult = wmiService.GetFanControlSensorTemp();
+                    if (fanSensorResult.Success && fanSensorResult.Result.HasValue)
+                    {
+                        LegionFanSensorTemp.UpdateTemp(fanSensorResult.Result.Value);
+                    }
+
+                    // Also send CPU temp for reference (VRM temp with fallback to CPU temp)
+                    if (performanceManager?.VRMTemperature != null && performanceManager.VRMTemperature.Value > 0)
+                    {
+                        int vrmTemp = (int)performanceManager.VRMTemperature.Value;
+                        LegionCPUCurrentTemp.UpdateTemp(vrmTemp);
+                    }
+                    else if (performanceManager?.CPUTemperature != null)
                     {
                         int cpuTemp = (int)performanceManager.CPUTemperature.Value;
                         LegionCPUCurrentTemp.UpdateTemp(cpuTemp);
@@ -2319,7 +2506,21 @@ namespace XboxGamingBarHelper.Legion
             if (visible)
             {
                 LegionCPUFanRPM.UpdateRPM(cpuFanSpeed);
-                if (performanceManager?.CPUTemperature != null)
+
+                // Read the fan control sensor temp (0x01 sensor) - this is what the EC uses for fan curve lookup
+                var fanSensorResult = wmiService?.GetFanControlSensorTemp();
+                if (fanSensorResult?.Success == true && fanSensorResult.Value.Result.HasValue)
+                {
+                    LegionFanSensorTemp.UpdateTemp(fanSensorResult.Value.Result.Value);
+                }
+
+                // Also push CPU temp for reference (VRM temp with fallback to CPU temp)
+                if (performanceManager?.VRMTemperature != null && performanceManager.VRMTemperature.Value > 0)
+                {
+                    int vrmTemp = (int)performanceManager.VRMTemperature.Value;
+                    LegionCPUCurrentTemp.UpdateTemp(vrmTemp);
+                }
+                else if (performanceManager?.CPUTemperature != null)
                 {
                     int cpuTemp = (int)performanceManager.CPUTemperature.Value;
                     LegionCPUCurrentTemp.UpdateTemp(cpuTemp);
