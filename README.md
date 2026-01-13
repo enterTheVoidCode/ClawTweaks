@@ -258,9 +258,14 @@ Original project by [namquang93](https://github.com/namquang93).
 - **[GameTechPlanet](https://www.youtube.com/@GameTechPlanet)** - For the opportunity to showcase the app and covering the widget's use cases
 - **The Community** - For reporting issues and helping make this app better for everyone
 
+## Support Development
+- Donations are always appreciated, do not feel obligated to donate. Anything helps
+- [Donate](https://www.paypal.com/paypalme/corando98)
+
 ## License
 
 This project is open source. See LICENSE file for details.
+
 
 
 
