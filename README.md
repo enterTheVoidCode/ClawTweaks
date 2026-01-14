@@ -173,7 +173,7 @@ Designed for full gamepad control - no mouse needed.
 
 ### Option A: Install Script (Recommended)
 
-1. Download the latest release from [Releases](https://github.com/namquang93/XboxGamingBar/releases)
+1. Download the latest release from [Releases](https://github.com/corando98/GoTweaks/releases)
 2. Extract the package
 3. Right-click `Install.ps1` → **Run with PowerShell**
 4. Click **Yes** if prompted for Administrator access
@@ -265,6 +265,7 @@ Original project by [namquang93](https://github.com/namquang93).
 ## License
 
 This project is open source. See LICENSE file for details.
+
 
 
 
