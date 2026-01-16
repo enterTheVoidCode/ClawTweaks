@@ -478,5 +478,78 @@ namespace XboxGamingBarHelper.Profile
                 }
             }
         }
+
+        public int? LegionPerformanceMode
+        {
+            get { return value.LegionPerformanceMode; }
+            set
+            {
+                if (this.value.LegionPerformanceMode != value)
+                {
+                    this.value.LegionPerformanceMode = value;
+                }
+            }
+        }
+
+        // Lighting properties
+        public int? LegionLightMode
+        {
+            get { return value.LegionLightMode; }
+            set
+            {
+                if (this.value.LegionLightMode != value)
+                {
+                    this.value.LegionLightMode = value;
+                }
+            }
+        }
+
+        public string LegionLightColor
+        {
+            get { return value.LegionLightColor; }
+            set
+            {
+                if (this.value.LegionLightColor != value)
+                {
+                    this.value.LegionLightColor = value;
+                }
+            }
+        }
+
+        public int? LegionLightBrightness
+        {
+            get { return value.LegionLightBrightness; }
+            set
+            {
+                if (this.value.LegionLightBrightness != value)
+                {
+                    this.value.LegionLightBrightness = value;
+                }
+            }
+        }
+
+        public int? LegionLightSpeed
+        {
+            get { return value.LegionLightSpeed; }
+            set
+            {
+                if (this.value.LegionLightSpeed != value)
+                {
+                    this.value.LegionLightSpeed = value;
+                }
+            }
+        }
+
+        public bool? LegionPowerLight
+        {
+            get { return value.LegionPowerLight; }
+            set
+            {
+                if (this.value.LegionPowerLight != value)
+                {
+                    this.value.LegionPowerLight = value;
+                }
+            }
+        }
     }
 }

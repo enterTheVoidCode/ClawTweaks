@@ -10,6 +10,12 @@ namespace XboxGamingBar.Data
     /// </summary>
     internal class LegionLightModeProperty : WidgetControlProperty<int, ComboBox>
     {
+        /// <summary>
+        /// Flag to indicate when the UI is being updated programmatically (from helper sync).
+        /// When true, SelectionChanged events should not trigger profile saves.
+        /// </summary>
+        public bool IsUpdatingUI { get; private set; }
+
         public LegionLightModeProperty(ComboBox inUI, Page inOwner) : base(1, Function.LegionLightMode, inUI, inOwner)
         {
             if (UI != null)
@@ -44,7 +50,16 @@ namespace XboxGamingBar.Data
                     if (UI.Items.Count > Value && UI.SelectedIndex != Value)
                     {
                         Logger.Info($"{Function} combo box selected index {Value}.");
-                        UI.SelectedIndex = Value;
+                        // Set flag to prevent SelectionChanged from triggering profile saves
+                        IsUpdatingUI = true;
+                        try
+                        {
+                            UI.SelectedIndex = Value;
+                        }
+                        finally
+                        {
+                            IsUpdatingUI = false;
+                        }
                     }
                 });
             }

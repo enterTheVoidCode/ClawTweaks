@@ -2,7 +2,6 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using NLog;
@@ -11,7 +10,7 @@ using Windows.Storage;
 namespace XboxGamingBarHelper.Icons
 {
     /// <summary>
-    /// Extracts game icons from executables using Windows Shell API.
+    /// Extracts game icons from executables using managed .NET APIs.
     /// Works with any executable - Steam, GOG, Epic, direct installs, etc.
     /// </summary>
     public static class GameIconHelper
@@ -20,63 +19,6 @@ namespace XboxGamingBarHelper.Icons
         private const string ICON_CACHE_FOLDER = "icons";
         private const int DEFAULT_ICON_SIZE = 64;
         private const int DEFAULT_CORNER_RADIUS = 6;
-
-        #region COM Interfaces
-
-        [ComImport]
-        [Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b")]
-        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        private interface IShellItemImageFactory
-        {
-            [PreserveSig]
-            int GetImage(
-                [In, MarshalAs(UnmanagedType.Struct)] SIZE size,
-                [In] SIIGBF flags,
-                out IntPtr phbm);
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct SIZE
-        {
-            public int cx;
-            public int cy;
-        }
-
-        [Flags]
-        private enum SIIGBF
-        {
-            SIIGBF_RESIZETOFIT = 0x00,
-            SIIGBF_BIGGERSIZEOK = 0x01,
-            SIIGBF_MEMORYONLY = 0x02,
-            SIIGBF_ICONONLY = 0x04,
-            SIIGBF_THUMBNAILONLY = 0x08,
-            SIIGBF_INCACHEONLY = 0x10,
-            SIIGBF_ICONBACKGROUND = 0x80
-        }
-
-        [ComImport]
-        [Guid("43826d1e-e718-42ee-bc55-a1e261c37bfe")]
-        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        private interface IShellItem
-        {
-        }
-
-        #endregion
-
-        #region P/Invoke
-
-        [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
-        private static extern void SHCreateItemFromParsingName(
-            [MarshalAs(UnmanagedType.LPWStr)] string pszPath,
-            IntPtr pbc,
-            [MarshalAs(UnmanagedType.LPStruct)] Guid riid,
-            out IShellItem ppv);
-
-        [DllImport("gdi32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool DeleteObject(IntPtr hObject);
-
-        #endregion
 
         /// <summary>
         /// Gets the path to the icon cache folder.
@@ -176,7 +118,7 @@ namespace XboxGamingBarHelper.Icons
                     return cachePath;
                 }
 
-                // Extract icon using Shell API
+                // Extract icon using managed API
                 using (var bitmap = ExtractIconBitmap(exePath, size, cornerRadius))
                 {
                     if (bitmap == null)
@@ -199,71 +141,52 @@ namespace XboxGamingBarHelper.Icons
         }
 
         /// <summary>
-        /// Extracts an icon from an executable using Windows Shell API.
+        /// Extracts an icon from an executable using the managed .NET Icon API.
         /// </summary>
         private static Bitmap ExtractIconBitmap(string exePath, int size, int cornerRadius)
         {
-            IntPtr hBitmap = IntPtr.Zero;
             try
             {
-                // Create the shell item from the file path
-                Guid shellItemGuid = new Guid("43826d1e-e718-42ee-bc55-a1e261c37bfe");
-                SHCreateItemFromParsingName(exePath, IntPtr.Zero, shellItemGuid, out IShellItem shellItem);
-
-                if (shellItem == null)
+                // Use managed API - Icon.ExtractAssociatedIcon
+                // This is a trusted .NET Framework API that doesn't trigger security warnings
+                using (var icon = Icon.ExtractAssociatedIcon(exePath))
                 {
-                    Logger.Debug($"ExtractIconBitmap: SHCreateItemFromParsingName returned null for {exePath}");
-                    return null;
-                }
-
-                var factory = (IShellItemImageFactory)shellItem;
-                if (factory == null)
-                {
-                    Logger.Debug($"ExtractIconBitmap: Failed to get IShellItemImageFactory for {exePath}");
-                    return null;
-                }
-
-                SIZE sz = new SIZE { cx = size, cy = size };
-
-                // Request the icon with the specified size
-                int hr = factory.GetImage(sz, SIIGBF.SIIGBF_RESIZETOFIT | SIIGBF.SIIGBF_BIGGERSIZEOK | SIIGBF.SIIGBF_ICONONLY, out hBitmap);
-                if (hr != 0 || hBitmap == IntPtr.Zero)
-                {
-                    Logger.Debug($"ExtractIconBitmap: GetImage failed with HRESULT {hr:X8} for {exePath}");
-                    return null;
-                }
-
-                // Convert HBITMAP to managed Bitmap
-                using (var temp = Image.FromHbitmap(hBitmap))
-                {
-                    // Apply rounded corners if needed
-                    if (cornerRadius > 0)
+                    if (icon == null)
                     {
-                        return ApplyRoundedCorners(temp, size, cornerRadius);
+                        Logger.Debug($"ExtractIconBitmap: ExtractAssociatedIcon returned null for {exePath}");
+                        return null;
                     }
-                    else
+
+                    // Convert icon to bitmap at desired size
+                    using (var iconBitmap = icon.ToBitmap())
                     {
-                        // Return a copy (temp will be disposed)
-                        return new Bitmap(temp);
+                        // Resize to target size
+                        var resizedBitmap = new Bitmap(size, size, PixelFormat.Format32bppArgb);
+                        using (Graphics g = Graphics.FromImage(resizedBitmap))
+                        {
+                            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                            g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+                            g.DrawImage(iconBitmap, 0, 0, size, size);
+                        }
+
+                        // Apply rounded corners if needed
+                        if (cornerRadius > 0)
+                        {
+                            var rounded = ApplyRoundedCorners(resizedBitmap, size, cornerRadius);
+                            resizedBitmap.Dispose();
+                            return rounded;
+                        }
+
+                        return resizedBitmap;
                     }
                 }
-            }
-            catch (COMException ex)
-            {
-                Logger.Debug($"ExtractIconBitmap: COM exception for {exePath}: {ex.Message}");
-                return null;
             }
             catch (Exception ex)
             {
                 Logger.Debug($"ExtractIconBitmap: Exception for {exePath}: {ex.Message}");
                 return null;
-            }
-            finally
-            {
-                if (hBitmap != IntPtr.Zero)
-                {
-                    DeleteObject(hBitmap);
-                }
             }
         }
 

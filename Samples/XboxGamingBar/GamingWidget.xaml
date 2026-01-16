@@ -980,7 +980,7 @@
                             </Grid>
                         </Border>
 
-                        <!-- Profile Detection Card -->
+                        <!-- Game Detection Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <Grid>
@@ -989,9 +989,9 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Profile Detection"
+                                        <TextBlock Text="Game Detection"
                                                    Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Configure how games are detected"
+                                        <TextBlock Text="Games with profiles always detect regardless of settings"
                                                    Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="ProfileDetectionExpandToggle"
@@ -1037,7 +1037,7 @@
                                             <TextBlock Text="Games only"
                                                        FontSize="12"
                                                        Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Only detect apps rendering frames (requires RTSS)"
+                                            <TextBlock Text="Detect apps with FPS (RTSS) or added to Xbox Game Bar"
                                                        FontSize="11"
                                                        Foreground="#888888"/>
                                         </StackPanel>
@@ -1047,14 +1047,15 @@
                                                       IsOn="True"/>
                                     </Grid>
 
-                                    <!-- Current Apps (up to 5) -->
+                                    <!-- COMMENTED OUT: Current Apps, Custom Games, and Blacklist sections
+                                         These features caused user confusion and are disabled for now.
+
                                     <StackPanel>
                                         <TextBlock Text="Current apps"
                                                    FontSize="11"
                                                    Foreground="#888888"
                                                    Margin="0,0,0,4"/>
                                         <StackPanel x:Name="ForegroundAppsContainer" Spacing="4">
-                                            <!-- App items are created dynamically in code-behind -->
                                             <TextBlock x:Name="ForegroundAppsEmptyText"
                                                        Text="No apps detected"
                                                        FontSize="11"
@@ -1063,7 +1064,6 @@
                                         </StackPanel>
                                     </StackPanel>
 
-                                    <!-- Custom Games -->
                                     <StackPanel>
                                         <TextBlock Text="Custom games"
                                                    FontSize="12"
@@ -1071,49 +1071,17 @@
                                         <TextBlock Text="Apps always treated as games"
                                                    FontSize="11"
                                                    Foreground="#888888"/>
-
-                                        <!-- Empty state -->
                                         <TextBlock x:Name="CustomGamesEmptyText"
                                                    Text="No custom games added"
                                                    FontSize="11"
                                                    Foreground="#666666"
                                                    FontStyle="Italic"
                                                    Margin="0,8,0,0"/>
-
-                                        <!-- Custom games list -->
                                         <ItemsControl x:Name="CustomGamesList" Margin="0,4,0,0">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Margin="0,4,0,0">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBlock Text="{Binding DisplayName}"
-                                                                   Grid.Column="0"
-                                                                   FontSize="12"
-                                                                   Foreground="#88FF88"
-                                                                   VerticalAlignment="Center"
-                                                                   TextTrimming="CharacterEllipsis"
-                                                                   ToolTipService.ToolTip="{Binding FullPath}"/>
-                                                        <Button Grid.Column="1"
-                                                                Content="&#xE711;"
-                                                                FontFamily="Segoe MDL2 Assets"
-                                                                FontSize="10"
-                                                                Padding="6,4"
-                                                                Background="Transparent"
-                                                                Foreground="#888888"
-                                                                BorderThickness="0"
-                                                                Tag="{Binding FullPath}"
-                                                                Click="CustomGameRemoveButton_Click"
-                                                                ToolTipService.ToolTip="Remove"/>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
+                                            ...
                                         </ItemsControl>
                                     </StackPanel>
 
-                                    <!-- Blacklist -->
                                     <StackPanel>
                                         <TextBlock Text="Blacklist"
                                                    FontSize="12"
@@ -1121,47 +1089,18 @@
                                         <TextBlock Text="Apps never treated as games"
                                                    FontSize="11"
                                                    Foreground="#888888"/>
-
-                                        <!-- Empty state -->
                                         <TextBlock x:Name="BlacklistEmptyText"
                                                    Text="No apps blacklisted"
                                                    FontSize="11"
                                                    Foreground="#666666"
                                                    FontStyle="Italic"
                                                    Margin="0,8,0,0"/>
-
-                                        <!-- Blacklist list -->
                                         <ItemsControl x:Name="BlacklistList" Margin="0,4,0,0">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Margin="0,4,0,0">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBlock Text="{Binding DisplayName}"
-                                                                   Grid.Column="0"
-                                                                   FontSize="12"
-                                                                   Foreground="#FF8888"
-                                                                   VerticalAlignment="Center"
-                                                                   TextTrimming="CharacterEllipsis"
-                                                                   ToolTipService.ToolTip="{Binding FullPath}"/>
-                                                        <Button Grid.Column="1"
-                                                                Content="&#xE711;"
-                                                                FontFamily="Segoe MDL2 Assets"
-                                                                FontSize="10"
-                                                                Padding="6,4"
-                                                                Background="Transparent"
-                                                                Foreground="#888888"
-                                                                BorderThickness="0"
-                                                                Tag="{Binding FullPath}"
-                                                                Click="BlacklistRemoveButton_Click"
-                                                                ToolTipService.ToolTip="Remove"/>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
+                                            ...
                                         </ItemsControl>
                                     </StackPanel>
+
+                                    END COMMENTED OUT -->
 
                                 </StackPanel>
                             </StackPanel>
@@ -1305,13 +1244,18 @@
                                            Stretch="UniformToFill"
                                            VerticalAlignment="Center"
                                            Visibility="Collapsed"/>
-                                    <TextBlock x:Name="RunningGameText"
-                                               Grid.Column="1"
-                                               Text="No game detected"
-                                               FontSize="16"
-                                               Foreground="White"
-                                               TextWrapping="Wrap"
-                                               VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock x:Name="RunningGameText"
+                                                   Text="No game detected"
+                                                   FontSize="16"
+                                                   Foreground="White"
+                                                   TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="CurrentGameProfileStatus"
+                                                   Text=""
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   Visibility="Collapsed"/>
+                                    </StackPanel>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -4924,7 +4868,7 @@
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- Y-axis labels -->
+                                        <!-- Y-axis labels (percentage scale) -->
                                         <StackPanel Grid.Column="0" VerticalAlignment="Stretch">
                                             <TextBlock Text="100" FontSize="10" Foreground="#666666" VerticalAlignment="Top"/>
                                             <TextBlock Text="75" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>

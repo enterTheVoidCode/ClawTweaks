@@ -13,6 +13,12 @@ namespace XboxGamingBar.Data
     /// </summary>
     internal class LegionLightColorProperty : WidgetControlProperty<string, muxc.ColorPicker>
     {
+        /// <summary>
+        /// Flag to indicate when the UI is being updated programmatically (from helper sync).
+        /// When true, ColorChanged events should not trigger profile saves.
+        /// </summary>
+        public bool IsUpdatingUI { get; private set; }
+
         public LegionLightColorProperty(muxc.ColorPicker inUI, Page inOwner) : base("#FFFFFF", Function.LegionLightColor, inUI, inOwner)
         {
             // Don't initialize color in constructor - let the sync from helper set it
@@ -38,7 +44,16 @@ namespace XboxGamingBar.Data
                 if (UI != null && !string.IsNullOrEmpty(Value))
                 {
                     Color color = ParseHexColor(Value);
-                    UI.Color = color;
+                    // Set flag to prevent ColorChanged from triggering profile saves
+                    IsUpdatingUI = true;
+                    try
+                    {
+                        UI.Color = color;
+                    }
+                    finally
+                    {
+                        IsUpdatingUI = false;
+                    }
                 }
             }
             catch (Exception ex)

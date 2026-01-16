@@ -21,9 +21,43 @@ namespace XboxGamingBar.Data
             if (UI != null)
             {
                 UI.SelectionChanged += ComboBox_SelectionChanged;
-                if (UI.Items.Count > Value)
+
+                // Always ensure initial selection is set - handles both fresh install and
+                // cases where helper/widget have same value (no sync message sent)
+                SetInitialSelection();
+            }
+        }
+
+        private void SetInitialSelection()
+        {
+            // If items are loaded, set selection immediately
+            if (UI.Items.Count > 0)
+            {
+                int index = Math.Min(Value, UI.Items.Count - 1);
+                if (index >= 0)
                 {
-                    UI.SelectedIndex = Value;
+                    UI.SelectedIndex = index;
+                    Logger.Info($"{Function} initialized to index {index}");
+                }
+                UpdateSensitivityGridVisibility();
+            }
+            else
+            {
+                // Items not loaded yet, wait for Loaded event
+                UI.Loaded += OnComboBoxLoaded;
+            }
+        }
+
+        private void OnComboBoxLoaded(object sender, RoutedEventArgs e)
+        {
+            UI.Loaded -= OnComboBoxLoaded; // Unsubscribe to avoid multiple calls
+            if (UI.Items.Count > 0)
+            {
+                int index = Math.Min(Value, UI.Items.Count - 1);
+                if (index >= 0 && UI.SelectedIndex != index)
+                {
+                    UI.SelectedIndex = index;
+                    Logger.Info($"{Function} initialized to index {index} (after load)");
                 }
                 UpdateSensitivityGridVisibility();
             }

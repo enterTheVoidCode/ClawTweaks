@@ -58,6 +58,20 @@ namespace XboxGamingBarHelper.Legion
         }
 
         /// <summary>
+        /// Returns true if the mapping JSON represents a default/empty mapping (Type=0, GamepadAction=0).
+        /// Default mappings should not be applied as they would clear existing button mappings.
+        /// </summary>
+        public static bool IsDefaultMapping(string json)
+        {
+            if (string.IsNullOrEmpty(json))
+                return true;
+
+            var (type, gamepadAction, _, _) = Parse(json);
+            // A mapping is default if Type=0 (Gamepad) and GamepadAction=0 (Disabled)
+            return type == 0 && gamepadAction == 0;
+        }
+
+        /// <summary>
         /// Gets the mapping values to send to the HID command based on mapping type
         /// </summary>
         public static int[] GetMappingValues(int type, int gamepadAction, int[] keyboardKeys, int mouseButton)
@@ -481,7 +495,13 @@ namespace XboxGamingBarHelper.Legion
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
-            Logger.Info($"LegionButtonY1 changed to {Value}");
+            // Skip applying default/empty mappings to prevent clearing existing button bindings
+            if (ButtonMappingParser.IsDefaultMapping(Value))
+            {
+                Logger.Info($"LegionButtonY1 skipping default mapping: {Value}");
+                return;
+            }
+            Logger.Info($"LegionButtonY1 applying mapping: {Value}");
             var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
             Manager?.SetButtonMappingAdvanced(0, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
@@ -499,7 +519,12 @@ namespace XboxGamingBarHelper.Legion
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
-            Logger.Info($"LegionButtonY2 changed to {Value}");
+            if (ButtonMappingParser.IsDefaultMapping(Value))
+            {
+                Logger.Info($"LegionButtonY2 skipping default mapping: {Value}");
+                return;
+            }
+            Logger.Info($"LegionButtonY2 applying mapping: {Value}");
             var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
             Manager?.SetButtonMappingAdvanced(1, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
@@ -517,7 +542,12 @@ namespace XboxGamingBarHelper.Legion
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
-            Logger.Info($"LegionButtonY3 changed to {Value}");
+            if (ButtonMappingParser.IsDefaultMapping(Value))
+            {
+                Logger.Info($"LegionButtonY3 skipping default mapping: {Value}");
+                return;
+            }
+            Logger.Info($"LegionButtonY3 applying mapping: {Value}");
             var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
             Manager?.SetButtonMappingAdvanced(2, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
@@ -535,7 +565,12 @@ namespace XboxGamingBarHelper.Legion
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
-            Logger.Info($"LegionButtonM1 changed to {Value}");
+            if (ButtonMappingParser.IsDefaultMapping(Value))
+            {
+                Logger.Info($"LegionButtonM1 skipping default mapping: {Value}");
+                return;
+            }
+            Logger.Info($"LegionButtonM1 applying mapping: {Value}");
             var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
             Manager?.SetButtonMappingAdvanced(3, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
@@ -553,7 +588,12 @@ namespace XboxGamingBarHelper.Legion
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
-            Logger.Info($"LegionButtonM2 changed to {Value}");
+            if (ButtonMappingParser.IsDefaultMapping(Value))
+            {
+                Logger.Info($"LegionButtonM2 skipping default mapping: {Value}");
+                return;
+            }
+            Logger.Info($"LegionButtonM2 applying mapping: {Value}");
             var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
             Manager?.SetButtonMappingAdvanced(4, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
@@ -571,7 +611,12 @@ namespace XboxGamingBarHelper.Legion
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
-            Logger.Info($"LegionButtonM3 changed to {Value}");
+            if (ButtonMappingParser.IsDefaultMapping(Value))
+            {
+                Logger.Info($"LegionButtonM3 skipping default mapping: {Value}");
+                return;
+            }
+            Logger.Info($"LegionButtonM3 applying mapping: {Value}");
             var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
             Manager?.SetButtonMappingAdvanced(5, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
@@ -590,7 +635,12 @@ namespace XboxGamingBarHelper.Legion
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
-            Logger.Info($"LegionButtonDesktop changed to {Value}");
+            if (ButtonMappingParser.IsDefaultMapping(Value))
+            {
+                Logger.Info($"LegionButtonDesktop skipping default mapping: {Value}");
+                return;
+            }
+            Logger.Info($"LegionButtonDesktop applying mapping: {Value}");
             var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
             Manager?.SetLegionButtonMapping(LegionGo.GamepadButton.DesktopButton, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
@@ -609,7 +659,12 @@ namespace XboxGamingBarHelper.Legion
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
-            Logger.Info($"LegionButtonPage changed to {Value}");
+            if (ButtonMappingParser.IsDefaultMapping(Value))
+            {
+                Logger.Info($"LegionButtonPage skipping default mapping: {Value}");
+                return;
+            }
+            Logger.Info($"LegionButtonPage applying mapping: {Value}");
             var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
             Manager?.SetLegionButtonMapping(LegionGo.GamepadButton.PageButton, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }

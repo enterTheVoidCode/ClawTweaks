@@ -13,6 +13,12 @@ namespace XboxGamingBar.Data
         private bool hasPendingValue;
         private const int DEBOUNCE_DELAY_MS = 500; // Wait 500ms after last change before sending
 
+        /// <summary>
+        /// Flag to indicate when the UI is being updated programmatically (from helper sync).
+        /// When true, ValueChanged events should not trigger profile saves.
+        /// </summary>
+        public bool IsUpdatingUI { get; private set; }
+
         public WidgetSliderProperty(int inValue, Function inFunction, Slider inControl, Page inOwner) : base(inValue, inFunction, inControl, inOwner)
         {
             if (UI != null)
@@ -131,7 +137,19 @@ namespace XboxGamingBar.Data
             if (UI != null && Owner != null)
             {
                 Logger.Info($"Update {Function} slider value {Value}.");
-                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => { UI.Value = Value; });
+                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    // Set flag to prevent ValueChanged from triggering profile saves
+                    IsUpdatingUI = true;
+                    try
+                    {
+                        UI.Value = Value;
+                    }
+                    finally
+                    {
+                        IsUpdatingUI = false;
+                    }
+                });
             }
         }
     }

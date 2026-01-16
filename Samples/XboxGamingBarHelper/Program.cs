@@ -346,6 +346,12 @@ namespace XboxGamingBarHelper
 
                     if (defaultGameProfileManager != null)
                     {
+                        // Wait for Managers list to be initialized before trying to lock it
+                        while (Managers == null)
+                        {
+                            Thread.Sleep(10);
+                        }
+
                         // Add to Managers list for cleanup
                         lock (Managers)
                         {
@@ -604,6 +610,7 @@ namespace XboxGamingBarHelper
                 performanceManager.TDP,
                 performanceManager.CurrentTDP,
                 profileManager.PerGameProfile,
+                profileManager.DeleteGameProfile,
                 powerManager.CPUBoost,
                 powerManager.CPUEPP,
                 powerManager.MaxCPUState,
@@ -827,6 +834,14 @@ namespace XboxGamingBarHelper
                 legionManager.LegionVibration.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 legionManager.LegionVibrationMode.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 legionManager.LegionControllerProfileEnabled.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                // Performance mode (for per-game TDP mode)
+                legionManager.LegionPerformanceMode.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                // Lighting settings (per-game lighting profiles)
+                legionManager.LegionLightMode.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionLightColor.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionLightBrightness.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionLightSpeed.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionPowerLight.PropertyChanged += LegionControllerSetting_PropertyChanged;
             }
 
             initTimer.Stop();
@@ -866,6 +881,14 @@ namespace XboxGamingBarHelper
                 {
                     Logger.Info("Try to reconnect to the widget.");
                     await ConnectToWidget(false);
+
+                    // Force-sync RunningGame to widget after reconnection
+                    // This ensures the widget receives the current game even if it hasn't changed
+                    if (appServiceConnectionStatus == AppServiceConnectionStatus.Success && systemManager?.RunningGame != null)
+                    {
+                        Logger.Info("Widget reconnected - force-syncing RunningGame to widget");
+                        systemManager.RunningGame.ForceSetValue(systemManager.RunningGame.Value);
+                    }
                 }
 
                 await Task.Delay(1000);
@@ -1118,6 +1141,38 @@ namespace XboxGamingBarHelper
                 Logger.Info($"Saving LegionControllerProfileEnabled to profile {profileName}");
                 profileManager.CurrentProfile.LegionControllerProfileEnabled = legionManager.LegionControllerProfileEnabled.Value;
             }
+            // Performance mode (for per-game TDP mode switching)
+            else if (sender == legionManager?.LegionPerformanceMode)
+            {
+                Logger.Info($"Saving LegionPerformanceMode to profile {profileName}");
+                profileManager.CurrentProfile.LegionPerformanceMode = legionManager.LegionPerformanceMode.Value;
+            }
+            // Lighting settings
+            else if (sender == legionManager?.LegionLightMode)
+            {
+                Logger.Info($"Saving LegionLightMode to profile {profileName}");
+                profileManager.CurrentProfile.LegionLightMode = legionManager.LegionLightMode.Value;
+            }
+            else if (sender == legionManager?.LegionLightColor)
+            {
+                Logger.Info($"Saving LegionLightColor to profile {profileName}");
+                profileManager.CurrentProfile.LegionLightColor = legionManager.LegionLightColor.Value;
+            }
+            else if (sender == legionManager?.LegionLightBrightness)
+            {
+                Logger.Info($"Saving LegionLightBrightness to profile {profileName}");
+                profileManager.CurrentProfile.LegionLightBrightness = legionManager.LegionLightBrightness.Value;
+            }
+            else if (sender == legionManager?.LegionLightSpeed)
+            {
+                Logger.Info($"Saving LegionLightSpeed to profile {profileName}");
+                profileManager.CurrentProfile.LegionLightSpeed = legionManager.LegionLightSpeed.Value;
+            }
+            else if (sender == legionManager?.LegionPowerLight)
+            {
+                Logger.Info($"Saving LegionPowerLight to profile {profileName}");
+                profileManager.CurrentProfile.LegionPowerLight = legionManager.LegionPowerLight.Value;
+            }
         }
 
         private static void ApplyLegionControllerSettingsFromProfile()
@@ -1127,43 +1182,45 @@ namespace XboxGamingBarHelper
 
             Logger.Info($"Applying Legion controller settings from profile: {profileName}");
 
-            // Button mappings
-            if (!string.IsNullOrEmpty(profile.LegionButtonY1))
+            // Button mappings - skip default/empty mappings to avoid clearing existing button mappings
+            // A mapping like {"Type":0,"GamepadAction":0,...} represents "no mapping" and would clear the button
+            Logger.Info($"Button Y1 value: '{profile.LegionButtonY1}', IsDefault: {ButtonMappingParser.IsDefaultMapping(profile.LegionButtonY1)}");
+            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonY1))
             {
                 Logger.Debug($"Applying LegionButtonY1: {profile.LegionButtonY1}");
                 legionManager.LegionButtonY1.SetValue(profile.LegionButtonY1);
             }
-            if (!string.IsNullOrEmpty(profile.LegionButtonY2))
+            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonY2))
             {
                 Logger.Debug($"Applying LegionButtonY2: {profile.LegionButtonY2}");
                 legionManager.LegionButtonY2.SetValue(profile.LegionButtonY2);
             }
-            if (!string.IsNullOrEmpty(profile.LegionButtonY3))
+            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonY3))
             {
                 Logger.Debug($"Applying LegionButtonY3: {profile.LegionButtonY3}");
                 legionManager.LegionButtonY3.SetValue(profile.LegionButtonY3);
             }
-            if (!string.IsNullOrEmpty(profile.LegionButtonM1))
+            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonM1))
             {
                 Logger.Debug($"Applying LegionButtonM1: {profile.LegionButtonM1}");
                 legionManager.LegionButtonM1.SetValue(profile.LegionButtonM1);
             }
-            if (!string.IsNullOrEmpty(profile.LegionButtonM2))
+            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonM2))
             {
                 Logger.Debug($"Applying LegionButtonM2: {profile.LegionButtonM2}");
                 legionManager.LegionButtonM2.SetValue(profile.LegionButtonM2);
             }
-            if (!string.IsNullOrEmpty(profile.LegionButtonM3))
+            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonM3))
             {
                 Logger.Debug($"Applying LegionButtonM3: {profile.LegionButtonM3}");
                 legionManager.LegionButtonM3.SetValue(profile.LegionButtonM3);
             }
-            if (!string.IsNullOrEmpty(profile.LegionButtonDesktop))
+            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonDesktop))
             {
                 Logger.Debug($"Applying LegionButtonDesktop: {profile.LegionButtonDesktop}");
                 legionManager.LegionButtonDesktop.SetValue(profile.LegionButtonDesktop);
             }
-            if (!string.IsNullOrEmpty(profile.LegionButtonPage))
+            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonPage))
             {
                 Logger.Debug($"Applying LegionButtonPage: {profile.LegionButtonPage}");
                 legionManager.LegionButtonPage.SetValue(profile.LegionButtonPage);
@@ -1290,6 +1347,33 @@ namespace XboxGamingBarHelper
                 Logger.Debug($"Applying LegionVibrationMode: {profile.LegionVibrationMode.Value}");
                 legionManager.LegionVibrationMode.SetValue(profile.LegionVibrationMode.Value);
             }
+
+            // Lighting settings
+            if (profile.LegionLightMode.HasValue)
+            {
+                Logger.Debug($"Applying LegionLightMode: {profile.LegionLightMode.Value}");
+                legionManager.LegionLightMode.SetValue(profile.LegionLightMode.Value);
+            }
+            if (!string.IsNullOrEmpty(profile.LegionLightColor))
+            {
+                Logger.Debug($"Applying LegionLightColor: {profile.LegionLightColor}");
+                legionManager.LegionLightColor.SetValue(profile.LegionLightColor);
+            }
+            if (profile.LegionLightBrightness.HasValue)
+            {
+                Logger.Debug($"Applying LegionLightBrightness: {profile.LegionLightBrightness.Value}");
+                legionManager.LegionLightBrightness.SetValue(profile.LegionLightBrightness.Value);
+            }
+            if (profile.LegionLightSpeed.HasValue)
+            {
+                Logger.Debug($"Applying LegionLightSpeed: {profile.LegionLightSpeed.Value}");
+                legionManager.LegionLightSpeed.SetValue(profile.LegionLightSpeed.Value);
+            }
+            if (profile.LegionPowerLight.HasValue)
+            {
+                Logger.Debug($"Applying LegionPowerLight: {profile.LegionPowerLight.Value}");
+                legionManager.LegionPowerLight.SetValue(profile.LegionPowerLight.Value);
+            }
         }
 
         private static void CurrentProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -1311,6 +1395,27 @@ namespace XboxGamingBarHelper
                     {
                         isApplyingProfile = true;
                         Logger.Info($"Profile changed to {profileManager.CurrentProfile.GameId.Name}, apply it.");
+
+                        // For per-game profiles, apply the saved LegionPerformanceMode if set
+                        // This ensures the correct TDP mode is applied when the game is detected
+                        if (profileManager.CurrentProfile.Use && legionManager != null)
+                        {
+                            int? savedMode = profileManager.CurrentProfile.LegionPerformanceMode;
+                            if (savedMode.HasValue)
+                            {
+                                int currentMode = legionManager.LegionPerformanceMode.Value;
+                                if (currentMode != savedMode.Value)
+                                {
+                                    Logger.Info($"Switching to saved performance mode ({savedMode.Value}) for per-game profile (was {currentMode})");
+                                    legionManager.LegionPerformanceMode.SetValue(savedMode.Value);
+                                }
+                            }
+                            else
+                            {
+                                Logger.Debug($"Per-game profile has no saved LegionPerformanceMode, keeping current mode");
+                            }
+                        }
+
                         // Use SetProfileValue to ensure profile TDP takes precedence over in-flight widget messages
                         // All settings applied atomically under lock to prevent cross-contamination
                         performanceManager.TDP.SetProfileValue(profileManager.CurrentProfile.TDP);

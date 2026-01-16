@@ -140,7 +140,9 @@ namespace XboxGamingBarHelper.Windows
         public static void GetOpenWindows(IDictionary<int, ProcessWindow> windows)
         {
             var shellWindow = GetShellWindow();
-            var foregroundWindowProcessId = GetWindowProcessId(GetForegroundWindow());
+            // Get the exact window handle that has keyboard focus
+            var focusedWindowHandle = GetForegroundWindow();
+
             if (windows == null)
             {
                 windows = new Dictionary<int, ProcessWindow>();
@@ -194,7 +196,12 @@ namespace XboxGamingBarHelper.Windows
                         // Can't access MainModule for protected processes (anti-cheat, system processes)
                         // Continue with empty path - this is normal
                     }
-                    windows[processId] = new ProcessWindow(processId, hWnd, windowTitle, processName, processPath, processId == foregroundWindowProcessId);
+
+                    // Track focus by exact window handle - only the window with keyboard focus is marked as foreground
+                    // This allows different windows from the same app to have different profiles
+                    bool hasFocus = (hWnd == focusedWindowHandle);
+
+                    windows[processId] = new ProcessWindow(processId, hWnd, windowTitle, processName, processPath, hasFocus);
                 }
                 catch (Exception)
                 {

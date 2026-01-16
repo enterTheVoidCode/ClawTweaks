@@ -214,6 +214,7 @@
         ProfileGamesOnly,               // bool - only detect apps rendering frames (FPS > 0)
         ProfileBlacklistPaths,          // string - pipe-separated paths never treated as games
         ForegroundApp,                  // string - current foreground app path (for UI display)
+        DeleteGameProfile,              // string - write game name to delete its profile (widget -> helper)
 
         // Labs Section (Experimental Features)
         Labs_DAServiceControl,          // int - 0=Stop, 1=Start DAService

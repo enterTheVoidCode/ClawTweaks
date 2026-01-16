@@ -422,6 +422,7 @@
     <Compile Include="Power\CPUEPPProperty.cs" />
     <Compile Include="Power\OSPowerModeProperty.cs" />
     <Compile Include="Power\PowerManager.cs" />
+    <Compile Include="Profile\DeleteGameProfileProperty.cs" />
     <Compile Include="Profile\GameProfileProperty.cs" />
     <Compile Include="Profile\PerGameProfileProperty.cs" />
     <Compile Include="Profile\ProfileManager.cs" />
