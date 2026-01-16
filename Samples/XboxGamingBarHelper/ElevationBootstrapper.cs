@@ -226,7 +226,7 @@ namespace XboxGamingBarHelper
 
                 // Create task with schtasks.exe
                 // /SC ONLOGON - run at user logon
-                // /RL HIGHEST - run with highest privileges
+                // /RL HIGHEST - run with highest privileges (requires UAC to create, but auto-starts at logon)
                 // /F - force create (overwrite if exists)
                 // /DELAY 0000:30 - delay 30 seconds after logon to let system settle
                 var createInfo = new ProcessStartInfo

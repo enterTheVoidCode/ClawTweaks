@@ -24,6 +24,9 @@ namespace XboxGamingBarHelper.Systems
         public event ResumeFromSleepEventHandler ResumeFromSleep;
         private static readonly string[] IgnoredProcesses =
         {
+            // Windows shell and system processes - never games
+            "explorer.exe",
+            "applicationframehost.exe",
             // Remote desktop tools
             "rustdesk.exe",
             "anydesk.exe",
@@ -37,6 +40,8 @@ namespace XboxGamingBarHelper.Systems
             "appinstaller.exe",
             "winstore.app.exe",
             "systemsettings.exe",
+            // Xbox Gaming Services - shows game info but is not a game
+            "gamingservicesui.exe",
             // Monitoring/overlay tools
             "rtss.exe",
             "rivatuner.exe",
@@ -298,13 +303,28 @@ namespace XboxGamingBarHelper.Systems
             }
         }
 
+        // Diagnostic logging throttle - log summary every 30 seconds
+        private DateTime _lastDiagnosticLogTime = DateTime.MinValue;
+        private const int DIAGNOSTIC_LOG_INTERVAL_SECONDS = 30;
+        private int _gameDetectionCallCount = 0;
+
         private RunningGame GetRunningGame()
         {
+            _gameDetectionCallCount++;
+
             // Get profile detection settings
             var settings = SettingsManager.GetInstance();
             bool preferExe = settings?.ProfileMatchByExe?.Value ?? false;
             var customGamePathProperty = settings?.ProfileCustomGamePath;
             bool gamesOnly = settings?.ProfileGamesOnly?.Value ?? true;
+
+            // Periodic diagnostic logging to avoid spam but ensure visibility
+            bool shouldLogDiagnostics = (DateTime.Now - _lastDiagnosticLogTime).TotalSeconds >= DIAGNOSTIC_LOG_INTERVAL_SECONDS;
+            if (shouldLogDiagnostics)
+            {
+                _lastDiagnosticLogTime = DateTime.Now;
+                Logger.Info($"[GameDetection] Diagnostic: calls={_gameDetectionCallCount}, gamesOnly={gamesOnly}, preferExe={preferExe}");
+            }
 
             // Helper: Get game name based on preferExe setting
             // When preferExe is true: use exe name if available, fall back to window title
@@ -344,8 +364,18 @@ namespace XboxGamingBarHelper.Systems
                 Logger.Error($"Can't get open windows: {e}");
                 return new RunningGame();
             }
+
+            if (shouldLogDiagnostics)
+            {
+                Logger.Info($"[GameDetection] ProcessWindows count: {ProcessWindows.Count}, TrackedGame valid: {trackedGame.IsValid()}, TrackedGame: {(trackedGame.IsValid() ? trackedGame.DisplayName : "none")}");
+            }
+
             if (ProcessWindows.Count == 0)
             {
+                if (shouldLogDiagnostics)
+                {
+                    Logger.Info("[GameDetection] No open windows found - returning empty");
+                }
                 Logger.Debug("There is not any opening window, so no game detected");
                 return new RunningGame();
             }
@@ -436,19 +466,26 @@ namespace XboxGamingBarHelper.Systems
                                      pw.Path.IndexOf("GameBar", StringComparison.OrdinalIgnoreCase) >= 0;
                     if (isGameBar) continue;
 
+                    // Skip ignored processes (e.g., GamingServicesUI which may show game info but is not a game)
+                    var processExecutable = Path.GetFileName(pw.Path).ToLower();
+                    if (IgnoredProcesses.Contains(processExecutable)) continue;
+
                     bool isMatch = false;
 
-                    // For UWP apps: Match by package family name in path
+                    // For UWP apps: First try matching by package family name in path
                     if (!string.IsNullOrEmpty(packagePrefix))
                     {
-                        // UWP apps run from WindowsApps folder with package name in path
+                        // UWP apps from WindowsApps folder have package name in path
                         if (pw.Path.IndexOf(packagePrefix, StringComparison.OrdinalIgnoreCase) >= 0)
                         {
                             isMatch = true;
                         }
+                        // Note: UWP apps via ApplicationFrameHost.exe won't match by path,
+                        // so we fall through to DisplayName matching below
                     }
 
-                    // For regular apps: Match by window title or process name containing DisplayName
+                    // For all apps (including UWP when path didn't match): Try DisplayName matching
+                    // This handles UWP apps running via ApplicationFrameHost.exe which don't expose package path
                     if (!isMatch && !string.IsNullOrEmpty(trackedGame.DisplayName))
                     {
                         // Check if window title contains the game name (common for game windows)
@@ -494,24 +531,55 @@ namespace XboxGamingBarHelper.Systems
                         fps = appEntry.InstantaneousFrames;
                     }
 
-                    var gameName = trackedGame.DisplayName;
-                    Logger.Info($"TrackedGame \"{gameName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground}");
+                    // Use GetGameName to respect preferExe setting - returns exe name (e.g., "msedge")
+                    // instead of window title (e.g., "YouTube - Personal - Microsoft Edge")
+                    var gameName = GetGameName(mw.Path, trackedGame.DisplayName);
+                    Logger.Info($"TrackedGame \"{trackedGame.DisplayName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground} -> GameName={gameName}");
                     return new RunningGame(mw.ProcessId, gameName, mw.Path, fps, mw.IsForeground);
                 }
                 else
                 {
                     // No matching window found - the game might be minimized or not visible
+                    if (shouldLogDiagnostics)
+                    {
+                        Logger.Info($"[GameDetection] TrackedGame \"{trackedGame.DisplayName}\" valid but no window match (AumId={trackedGame.AumId})");
+                    }
                     Logger.Debug($"TrackedGame \"{trackedGame.DisplayName}\" is valid but no matching window found (AumId={trackedGame.AumId})");
                 }
             }
 
             var possibleGames = new List<RunningGame>();
+
+            // Check if Game Bar is the current foreground app
+            bool gameBarIsForeground = false;
+            foreach (var pw in ProcessWindows.Values)
+            {
+                if (!pw.IsForeground) continue;
+                bool isGameBar = (pw.ProcessName ?? "").IndexOf("GameBar", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 (pw.Path ?? "").IndexOf("GameBar", StringComparison.OrdinalIgnoreCase) >= 0;
+                if (isGameBar)
+                {
+                    gameBarIsForeground = true;
+                    Logger.Debug("Game Bar is currently foreground");
+                    break;
+                }
+            }
+
             if (ProcessWindows.Count > 0)
             {
                 foreach (var processWindow in ProcessWindows)
                 {
                     var processPath = processWindow.Value.Path;
                     var processExecutable = Path.GetFileName(processPath).ToLower();
+
+                    // Skip Game Bar itself - it shouldn't be detected as a game
+                    bool isGameBar = (processWindow.Value.ProcessName ?? "").IndexOf("GameBar", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                     processPath.IndexOf("GameBar", StringComparison.OrdinalIgnoreCase) >= 0;
+                    if (isGameBar)
+                    {
+                        continue;
+                    }
+
                     if (IgnoredProcesses.Contains(processExecutable))
                     {
                         Logger.Debug($"Window {processWindow.Value.Path} is ignored");
@@ -540,6 +608,26 @@ namespace XboxGamingBarHelper.Systems
                         continue;
                     }
 
+                    // Fallback TrackedGame matching (if early return didn't find a match)
+                    // This uses the OLD matching logic which removes spaces and compares full display name
+                    // TrackedGame from Xbox Game Bar is always trusted as a game - no FPS check needed
+                    if (trackedGame.IsValid())
+                    {
+                        bool matchesByTitle = !string.IsNullOrEmpty(processWindow.Value.Title) &&
+                            processWindow.Value.Title.Equals(trackedGame.DisplayName, StringComparison.OrdinalIgnoreCase);
+                        bool matchesByProcessName = !string.IsNullOrEmpty(trackedGame.DisplayName) &&
+                            processWindow.Value.ProcessName.Replace(" ", "").IndexOf(
+                                trackedGame.DisplayName.Replace(" ", ""), StringComparison.OrdinalIgnoreCase) >= 0;
+
+                        if (matchesByTitle || matchesByProcessName)
+                        {
+                            var gameName = GetGameName(processWindow.Value.Path, trackedGame.DisplayName);
+                            Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" matches TrackedGame \"{gameName}\" (byTitle={matchesByTitle}, byProcess={matchesByProcessName}, FPS={fps}).");
+                            possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
+                            continue;
+                        }
+                    }
+
                     // Check RTSS entry for FPS-based detection
                     if (hasFPS)
                     {
@@ -551,16 +639,31 @@ namespace XboxGamingBarHelper.Systems
                     }
 
                     // When gamesOnly is OFF, any foreground app qualifies as a game
-                    if (!gamesOnly && processWindow.Value.IsForeground)
+                    // Also include the last focused app if:
+                    // 1. Game Bar is currently foreground, OR
+                    // 2. No window has focus detected (Game Bar overlay may not show in ProcessWindows)
+                    bool isLastFocusedApp = !string.IsNullOrEmpty(lastFocusedAppPath) &&
+                                            processPath.Equals(lastFocusedAppPath, StringComparison.OrdinalIgnoreCase);
+                    bool useLastFocused = isLastFocusedApp && (gameBarIsForeground || !ProcessWindows.Values.Any(pw => pw.IsForeground));
+
+                    if (!gamesOnly && (processWindow.Value.IsForeground || useLastFocused))
                     {
                         var gameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
-                        Logger.Debug($"GamesOnly OFF: Foreground window \"{processWindow.Value.Title}\" at path \"{processWindow.Value.Path}\" treated as game.");
-                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, 0, processWindow.Value.IsForeground));
+                        if (useLastFocused && !processWindow.Value.IsForeground)
+                        {
+                            Logger.Info($"GamesOnly OFF: Last focused app \"{processWindow.Value.Title}\" at path \"{processWindow.Value.Path}\" treated as game (no foreground window detected).");
+                        }
+                        else
+                        {
+                            Logger.Info($"GamesOnly OFF: Foreground window \"{processWindow.Value.Title}\" at path \"{processWindow.Value.Path}\" treated as game.");
+                        }
+                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, 0, processWindow.Value.IsForeground || useLastFocused));
                         continue;
                     }
 
-                    // GameProcesses list (emulators) - only when gamesOnly is OFF or has FPS
-                    if (GameProcesses.Contains(processExecutable) && !gamesOnly)
+                    // GameProcesses list (emulators) - always detect as games since they're explicitly whitelisted
+                    // These are known gaming applications that Xbox Game Bar doesn't recognize
+                    if (GameProcesses.Contains(processExecutable))
                     {
                         var gameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
                         Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processPath}\" named \"{processWindow.Value.ProcessName}\" in pre-defined list.");
@@ -574,11 +677,19 @@ namespace XboxGamingBarHelper.Systems
 
             if (possibleGames.Count == 0)
             {
+                if (shouldLogDiagnostics)
+                {
+                    Logger.Info($"[GameDetection] No games found - returning empty (windows={ProcessWindows.Count}, gamesOnly={gamesOnly})");
+                }
                 Logger.Debug("Not found any game running.");
                 return new RunningGame();
             }
             else if (possibleGames.Count == 1)
             {
+                if (shouldLogDiagnostics)
+                {
+                    Logger.Info($"[GameDetection] Single game found: {possibleGames[0].GameId.Name} at {possibleGames[0].GameId.Path}");
+                }
                 Logger.Debug($"Found single running game {possibleGames[0].GameId.Name}.");
                 return possibleGames[0];
             }
@@ -649,6 +760,7 @@ namespace XboxGamingBarHelper.Systems
             // RunningGame equality now compares both GameId and IsForeground
             if (previousRunningGame != currentRunningGame)
             {
+                Logger.Info($"[GameDetection] State change: prev={previousRunningGame.GameId.Name ?? "none"} -> curr={currentRunningGame.GameId.Name ?? "none"}");
                 bool gameChanged = previousRunningGame.GameId != currentRunningGame.GameId;
                 bool foregroundChanged = previousRunningGame.IsForeground != currentRunningGame.IsForeground;
 
@@ -711,6 +823,15 @@ namespace XboxGamingBarHelper.Systems
                 else if (foregroundChanged)
                 {
                     Logger.Info($"Game {currentRunningGame.GameId.Name} foreground status changed to {currentRunningGame.IsForeground}.");
+
+                    // Preserve the IconPath from the previous RunningGame since GetRunningGame() doesn't include it
+                    if (!string.IsNullOrEmpty(previousRunningGame.GameId.IconPath))
+                    {
+                        currentRunningGame.GameId = new GameId(
+                            currentRunningGame.GameId.Name,
+                            currentRunningGame.GameId.Path,
+                            previousRunningGame.GameId.IconPath);
+                    }
                 }
                 RunningGame.SetValue(currentRunningGame);
             }

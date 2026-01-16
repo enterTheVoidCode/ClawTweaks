@@ -28,11 +28,17 @@ namespace XboxGamingBarHelper.Profile
         {
             get { return  perGameProfile; }
         }
-        
+
         private readonly GameProfileProperty currentProfile;
         public GameProfileProperty CurrentProfile
         {
             get { return currentProfile; }
+        }
+
+        private readonly DeleteGameProfileProperty deleteGameProfile;
+        public DeleteGameProfileProperty DeleteGameProfile
+        {
+            get { return deleteGameProfile; }
         }
 
         public ProfileManager(AppServiceConnection connection) : base(connection)
@@ -84,6 +90,7 @@ namespace XboxGamingBarHelper.Profile
             Logger.Info("Initialize game profile properties.");
             perGameProfile = new PerGameProfileProperty(null, this);
             currentProfile = new GameProfileProperty(GlobalProfile, this);
+            deleteGameProfile = new DeleteGameProfileProperty(this);
         }
 
         public static string GetGameProfilesFolder()
@@ -114,6 +121,57 @@ namespace XboxGamingBarHelper.Profile
             newGameProfile.Save();
             Logger.Info($"Add new profile for {gameId.Name} at {newGameProfilePath}.");
             return newGameProfile;
+        }
+
+        /// <summary>
+        /// Deletes a game profile by name.
+        /// </summary>
+        public bool DeleteProfile(string gameName)
+        {
+            if (string.IsNullOrEmpty(gameName))
+            {
+                return false;
+            }
+
+            // Find the profile by name
+            GameId? targetKey = null;
+            foreach (var kvp in gameProfiles)
+            {
+                if (string.Equals(kvp.Key.Name, gameName, StringComparison.OrdinalIgnoreCase))
+                {
+                    targetKey = kvp.Key;
+                    break;
+                }
+            }
+
+            if (!targetKey.HasValue)
+            {
+                Logger.Warn($"No profile found for {gameName} to delete");
+                return false;
+            }
+
+            var profile = gameProfiles[targetKey.Value];
+            var filePath = profile.Path;
+
+            // Remove from dictionary
+            gameProfiles.Remove(targetKey.Value);
+
+            // Delete the XML file
+            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+            {
+                try
+                {
+                    File.Delete(filePath);
+                    Logger.Info($"Deleted profile XML for {gameName} at {filePath}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Failed to delete profile XML for {gameName}: {ex.Message}");
+                }
+            }
+
+            Logger.Info($"Deleted profile for {gameName}");
+            return true;
         }
 
         /// <summary>

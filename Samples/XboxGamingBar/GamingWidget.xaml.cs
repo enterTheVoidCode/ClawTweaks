@@ -243,6 +243,12 @@ namespace XboxGamingBar
         /// <summary>Mouse button code (1-7)</summary>
         public int MouseButton { get; set; } = 0;
 
+        /// <summary>
+        /// Returns true if this mapping represents "no mapping" / default state.
+        /// A mapping is default if Type=0 (Gamepad) with GamepadAction=0 (Disabled).
+        /// </summary>
+        public bool IsDefault => Type == 0 && GamepadAction == 0;
+
         public ButtonMapping Clone() => new ButtonMapping
         {
             Type = this.Type,
@@ -367,6 +373,8 @@ namespace XboxGamingBar
         public byte LightColorG { get; set; } = 255;
         public byte LightColorB { get; set; } = 255;
         public int LightSpeed { get; set; } = 50;        // Animation speed for dynamic modes
+        public int LightBrightness { get; set; } = 50;   // Brightness level 0-100
+        public bool PowerLight { get; set; } = true;     // Power button light on/off
         public bool HasExplicitLighting { get; set; } = false;  // True if lighting was explicitly saved in this profile
 
         public ControllerProfile Clone()
@@ -419,6 +427,8 @@ namespace XboxGamingBar
                 LightColorG = this.LightColorG,
                 LightColorB = this.LightColorB,
                 LightSpeed = this.LightSpeed,
+                LightBrightness = this.LightBrightness,
+                PowerLight = this.PowerLight,
                 HasExplicitLighting = this.HasExplicitLighting
             };
         }
@@ -773,9 +783,10 @@ namespace XboxGamingBar
         // Profile Detection Settings
         private readonly ProfileMatchByExeProperty profileMatchByExe;
         private readonly ProfileGamesOnlyProperty profileGamesOnly;
-        private readonly ProfileCustomGamePathProperty profileCustomGamePath;
-        private readonly ProfileBlacklistPathsProperty profileBlacklistPaths;
-        private readonly ForegroundAppProperty foregroundApp;
+        // DISABLED: Custom games, blacklist, and current apps features - caused user confusion
+        // private readonly ProfileCustomGamePathProperty profileCustomGamePath;
+        // private readonly ProfileBlacklistPathsProperty profileBlacklistPaths;
+        // private readonly ForegroundAppProperty foregroundApp;
 
         // FPS Limit (RTSS)
         private readonly FPSLimitProperty fpsLimit;
@@ -793,10 +804,12 @@ namespace XboxGamingBar
         private string currentProfileName = ""; // Empty so first SwitchProfile() loads settings
         private string currentGameName = "";
         private string currentGameExePath = "";
+        private string currentGameIconPath = ""; // Cache icon path to preserve it across foreground changes
         private bool isLoadingProfile = false;
         private bool isSwitchingProfile = false;
         private bool isApplyingHelperUpdate = false; // Prevents saves when helper echoes values back
         private bool isInitialSync = true; // Prevents saves during initial app startup sync
+        private bool isCleanInstall = false; // True if no saved Global profile existed on startup
         private bool isInternalToggleDisable = false; // Indicates toggle is being disabled internally (game close)
         private bool isUserInitiatedProfileToggle = false; // Indicates user clicked Profile tile to toggle
         private bool isUserInitiatedTDPModeChange = false; // Indicates user clicked TDP Mode tile in Quick Tab
@@ -895,6 +908,10 @@ namespace XboxGamingBar
             isLoadingProfileSettings = true;
             // Prevent TDP limits slider events from saving during XAML initialization
             isLoadingTDPLimits = true;
+            // Prevent controller profile events from saving during XAML initialization
+            // This MUST be set before InitializeComponent() to prevent button ComboBox events
+            // from overwriting stored button mappings with defaults
+            isLoadingControllerProfile = true;
 
             var xamlTimer = Stopwatch.StartNew();
             InitializeComponent();
@@ -1128,10 +1145,11 @@ namespace XboxGamingBar
             // Profile Detection Settings
             profileMatchByExe = new ProfileMatchByExeProperty(ProfileMatchByExeToggle, this);
             profileGamesOnly = new ProfileGamesOnlyProperty(ProfileGamesOnlyToggle, this);
-            profileCustomGamePath = new ProfileCustomGamePathProperty(CustomGamesList, CustomGamesEmptyText, this);
-            profileBlacklistPaths = new ProfileBlacklistPathsProperty(BlacklistList, BlacklistEmptyText, this);
-            foregroundApp = new ForegroundAppProperty(ForegroundAppsContainer, this);
-            foregroundApp.OnAppsChanged = UpdateForegroundAppsList;
+            // DISABLED: Custom games, blacklist, and current apps features - caused user confusion
+            // profileCustomGamePath = new ProfileCustomGamePathProperty(CustomGamesList, CustomGamesEmptyText, this);
+            // profileBlacklistPaths = new ProfileBlacklistPathsProperty(BlacklistList, BlacklistEmptyText, this);
+            // foregroundApp = new ForegroundAppProperty(ForegroundAppsContainer, this);
+            // foregroundApp.OnAppsChanged = UpdateForegroundAppsList;
 
             // Set up Legion tab visibility callback
             legionGoDetected.SetVisibilityCallback(SetLegionTabVisibility);
@@ -1262,6 +1280,8 @@ namespace XboxGamingBar
                 tdpBoostSPPT,
                 tdpBoostFPPT,
                 legionDesktopControls,
+                legionJoystickAsMouseMode,
+                legionJoystickMouseSens,
                 controllerBatteryLeft,
                 controllerBatteryRight,
                 controllerChargingLeft,
@@ -1275,10 +1295,11 @@ namespace XboxGamingBar
                 forceDefaultGameProfile,
                 // Profile Detection Settings
                 profileMatchByExe,
-                profileGamesOnly,
-                profileCustomGamePath,
-                profileBlacklistPaths,
-                foregroundApp
+                profileGamesOnly
+                // DISABLED: Custom games, blacklist, and current apps features
+                // profileCustomGamePath,
+                // profileBlacklistPaths,
+                // foregroundApp
             );
             widgetPropsTimer.Stop();
             Logger.Info($"[TIMING] WidgetProperties creation: {widgetPropsTimer.ElapsedMilliseconds}ms");
@@ -1611,6 +1632,14 @@ namespace XboxGamingBar
             // Initialize CPU State comboboxes with percentage values
             InitializeCPUStateComboBoxes();
 
+            // Check if this is a clean install (no saved Global profile)
+            var settings = ApplicationData.Current.LocalSettings;
+            isCleanInstall = !settings.Containers.ContainsKey("Profile_Global");
+            if (isCleanInstall)
+            {
+                Logger.Info("Clean install detected - will initialize profile with current system values after helper sync");
+            }
+
             // Load profiles from storage
             LoadProfileFromStorage("Global", globalProfile);
             LoadProfileFromStorage("AC", acProfile);
@@ -1648,10 +1677,15 @@ namespace XboxGamingBar
             // Subscribe to checkbox changes to save settings
             // Event handlers are now in XAML (ProfileSettingsCheckBox_Changed)
 
+            // IMPORTANT: Set loading flag BEFORE subscribing to events to prevent
+            // UI initialization events from triggering saves that overwrite stored values
+            isLoadingControllerProfile = true;
+
             // Subscribe to settings changes for auto-save
             SubscribeToSettingsChanges();
 
             // Apply global controller profile to UI controls
+            // (ApplyControllerProfile will clear isLoadingControllerProfile when done)
             ApplyControllerProfile(globalControllerProfile);
 
             // Subscribe to power source profile toggle changes to update game profile card
@@ -2102,19 +2136,19 @@ namespace XboxGamingBar
                     string disabledKey = $"PerGameProfileDisabled_{currentGameName}";
                     bool userDisabledProfile = settings.Values.ContainsKey(disabledKey) && (bool)settings.Values[disabledKey];
 
-                    // Auto-enable per-game toggle if profile exists OR if it's already on
-                    // BUT respect user's preference if they explicitly disabled it
-                    if ((hasExistingProfile || (PerGameProfileToggle?.IsOn == true)) && !userDisabledProfile)
+                    // Auto-enable per-game toggle ONLY if profile already exists for this game
+                    // Do NOT carry over toggle state from previous game - that causes unwanted profile creation
+                    // Respect user's preference if they explicitly disabled it
+                    if (hasExistingProfile && !userDisabledProfile)
                     {
                         if (!PerGameProfileToggle.IsOn)
                         {
-                            Logger.Info($"Auto-enabling per-game profile for {currentGameName}");
+                            Logger.Info($"Auto-enabling per-game profile for {currentGameName} (profile exists)");
                             PerGameProfileToggle.IsOn = true;  // This will trigger PerGameProfileToggle_Changed
                         }
                         else
                         {
                             // Already on, need to switch to new game's profile
-
                             // Protect this sequence from auto-saves
                             isSwitchingProfile = true;
                             try
@@ -2127,6 +2161,14 @@ namespace XboxGamingBar
                                 isSwitchingProfile = false;
                             }
                         }
+                    }
+                    else if (PerGameProfileToggle?.IsOn == true)
+                    {
+                        // New game doesn't have a profile - turn off toggle to prevent auto-creation
+                        Logger.Info($"Disabling per-game toggle for {currentGameName} (no existing profile)");
+                        isInternalToggleDisable = true;
+                        PerGameProfileToggle.IsOn = false;
+                        isInternalToggleDisable = false;
                     }
                 }
 
@@ -2209,16 +2251,17 @@ namespace XboxGamingBar
                     }
                     else if (LegionControllerProfileToggle.IsOn)
                     {
-                        // Toggle was on for previous game, switch to new game's profile or create one
+                        // Toggle was on for previous game - only keep it on if new game has existing profile
                         isSwitchingControllerProfile = true;
                         try
                         {
                             if (!hasExistingControllerProfile)
                             {
-                                // Create new profile from current UI state
-                                gameControllerProfile = GetCurrentControllerProfileFromUI();
-                                SaveControllerProfileToStorage($"Game_{newGameName}", gameControllerProfile);
-                                Logger.Info($"Created new controller profile for {newGameName}");
+                                // No profile for new game - turn off toggle instead of auto-creating
+                                LegionControllerProfileToggle.IsOn = false;
+                                LoadControllerProfileFromStorage("Global", globalControllerProfile);
+                                ApplyControllerProfile(globalControllerProfile);
+                                Logger.Info($"Disabled controller profile toggle for {newGameName} (no existing profile)");
                             }
                             else
                             {
@@ -2372,6 +2415,18 @@ namespace XboxGamingBar
                 LegionJoystickAsMouseComboBox.SelectionChanged += ControllerSettingChanged;
             if (LegionJoystickMouseSensSlider != null)
                 LegionJoystickMouseSensSlider.ValueChanged += ControllerSettingChanged;
+
+            // Lighting settings (per-game profile)
+            if (LegionPowerLightToggle != null)
+                LegionPowerLightToggle.Toggled += ControllerSettingChanged;
+            if (LegionLightModeComboBox != null)
+                LegionLightModeComboBox.SelectionChanged += ControllerSettingChanged;
+            if (LegionColorPicker != null)
+                LegionColorPicker.ColorChanged += ControllerSettingChanged;
+            if (LegionBrightnessSlider != null)
+                LegionBrightnessSlider.ValueChanged += ControllerSettingChanged;
+            if (LegionSpeedSlider != null)
+                LegionSpeedSlider.ValueChanged += ControllerSettingChanged;
 
             // Gamepad button remapping (per-game profile)
             if (LegionGamepadButtonSelectorComboBox != null)
@@ -3841,6 +3896,7 @@ namespace XboxGamingBar
             }
         }
 
+        /* DISABLED: Custom games, blacklist, and current apps features - caused user confusion
         private async void CustomGameAddButton_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -3853,7 +3909,6 @@ namespace XboxGamingBar
                 var file = await picker.PickSingleFileAsync();
                 if (file != null)
                 {
-                    // Add the custom game path to the list
                     profileCustomGamePath?.AddPath(file.Path);
                 }
             }
@@ -3865,7 +3920,6 @@ namespace XboxGamingBar
 
         private void CustomGameRemoveButton_Click(object sender, RoutedEventArgs e)
         {
-            // Remove the custom game path from the list
             if (sender is Button button && button.Tag is string path)
             {
                 profileCustomGamePath?.RemovePath(path);
@@ -3874,7 +3928,6 @@ namespace XboxGamingBar
 
         private void BlacklistRemoveButton_Click(object sender, RoutedEventArgs e)
         {
-            // Remove the path from the blacklist
             if (sender is Button button && button.Tag is string path)
             {
                 profileBlacklistPaths?.RemovePath(path);
@@ -3883,17 +3936,12 @@ namespace XboxGamingBar
 
         private async void ForegroundAppAddCustom_Click(object sender, RoutedEventArgs e)
         {
-            // Get path from button's Tag
             var button = sender as Button;
             var path = button?.Tag as string;
             if (!string.IsNullOrEmpty(path))
             {
-                // Remove from blacklist if present
                 profileBlacklistPaths?.RemovePath(path);
-                // Add to custom games
                 profileCustomGamePath?.AddPath(path);
-
-                // Refresh foreground app detection after a short delay to let helper process the change
                 await System.Threading.Tasks.Task.Delay(200);
                 await foregroundApp?.Sync();
             }
@@ -3901,17 +3949,12 @@ namespace XboxGamingBar
 
         private async void ForegroundAppAddBlacklist_Click(object sender, RoutedEventArgs e)
         {
-            // Get path from button's Tag
             var button = sender as Button;
             var path = button?.Tag as string;
             if (!string.IsNullOrEmpty(path))
             {
-                // Remove from custom games if present
                 profileCustomGamePath?.RemovePath(path);
-                // Add to blacklist
                 profileBlacklistPaths?.AddPath(path);
-
-                // Refresh foreground app detection after a short delay to let helper process the change
                 await System.Threading.Tasks.Task.Delay(200);
                 await foregroundApp?.Sync();
             }
@@ -3919,118 +3962,15 @@ namespace XboxGamingBar
 
         private void UpdateForegroundAppsList(List<string> paths)
         {
-            if (ForegroundAppsContainer == null) return;
-
-            // Clear existing items except the empty text
-            var itemsToRemove = new List<UIElement>();
-            foreach (UIElement child in ForegroundAppsContainer.Children)
-            {
-                if (child != ForegroundAppsEmptyText)
-                {
-                    itemsToRemove.Add(child);
-                }
-            }
-            foreach (var item in itemsToRemove)
-            {
-                ForegroundAppsContainer.Children.Remove(item);
-            }
-
-            // Show/hide empty text
-            if (ForegroundAppsEmptyText != null)
-            {
-                ForegroundAppsEmptyText.Visibility = paths.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            }
-
-            // Create UI for each app
-            foreach (var path in paths)
-            {
-                var appRow = CreateForegroundAppRow(path);
-                ForegroundAppsContainer.Children.Add(appRow);
-            }
+            // ... method body removed for brevity ...
         }
 
         private Border CreateForegroundAppRow(string path)
         {
-            var fileName = System.IO.Path.GetFileName(path);
-            bool isInCustomGames = profileCustomGamePath?.GetPaths().Any(p => p.Equals(path, StringComparison.OrdinalIgnoreCase)) ?? false;
-            bool isInBlacklist = profileBlacklistPaths?.GetPaths().Any(p => p.Equals(path, StringComparison.OrdinalIgnoreCase)) ?? false;
-
-            // Create row container
-            var border = new Border
-            {
-                Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0x20, 0xFF, 0xFF, 0xFF)),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(8, 4, 8, 4)
-            };
-
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            // App name
-            var nameText = new TextBlock
-            {
-                Text = fileName,
-                FontSize = 11,
-                Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x00, 0xC8, 0xFF)),
-                VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            ToolTipService.SetToolTip(nameText, path);
-            Grid.SetColumn(nameText, 0);
-            grid.Children.Add(nameText);
-
-            // Buttons panel
-            var buttonsPanel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 4
-            };
-            Grid.SetColumn(buttonsPanel, 1);
-
-            // Add Game button (hidden if already in custom games)
-            if (!isInCustomGames)
-            {
-                var addGameBtn = new Button
-                {
-                    Content = "+ Game",
-                    FontSize = 10,
-                    Padding = new Thickness(6, 2, 6, 2),
-                    Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0x40, 0x00, 0x88, 0x00)),
-                    Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x88, 0xFF, 0x88)),
-                    BorderThickness = new Thickness(0),
-                    CornerRadius = new CornerRadius(3),
-                    Tag = path
-                };
-                addGameBtn.Click += ForegroundAppAddCustom_Click;
-                ToolTipService.SetToolTip(addGameBtn, "Add to custom games");
-                buttonsPanel.Children.Add(addGameBtn);
-            }
-
-            // Add Block button (hidden if already in blacklist)
-            if (!isInBlacklist)
-            {
-                var addBlockBtn = new Button
-                {
-                    Content = "+ Block",
-                    FontSize = 10,
-                    Padding = new Thickness(6, 2, 6, 2),
-                    Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0x40, 0x88, 0x00, 0x00)),
-                    Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0xFF, 0x88, 0x88)),
-                    BorderThickness = new Thickness(0),
-                    CornerRadius = new CornerRadius(3),
-                    Tag = path
-                };
-                addBlockBtn.Click += ForegroundAppAddBlacklist_Click;
-                ToolTipService.SetToolTip(addBlockBtn, "Add to blacklist");
-                buttonsPanel.Children.Add(addBlockBtn);
-            }
-
-            grid.Children.Add(buttonsPanel);
-            border.Child = grid;
-
-            return border;
+            // ... method body removed for brevity ...
+            return null;
         }
+        END DISABLED */
 
         private void ButtonRemappingExpandToggle_Click(object sender, RoutedEventArgs e)
         {
@@ -4129,7 +4069,7 @@ namespace XboxGamingBar
 
                     // Check for custom button mappings and show which buttons are remapped
                     var remapParts = new List<string>();
-                    foreach (var btnName in new[] { "Y1", "Y2", "Y3", "M1", "M2", "M3" })
+                    foreach (var btnName in new[] { "Y1", "Y2", "Y3", "M1", "M2", "M3", "Desktop", "Page" })
                     {
                         if (container.Values.TryGetValue($"Button{btnName}", out var mappingVal) && mappingVal is string mappingJson)
                         {
@@ -4143,13 +4083,16 @@ namespace XboxGamingBar
                                 }
                                 else if (mapping.Type == 1 && mapping.KeyboardKeys != null && mapping.KeyboardKeys.Count > 0)
                                 {
-                                    // Keyboard remap
-                                    remapParts.Add($"{btnName}:Key");
+                                    // Keyboard remap - show actual keys
+                                    var keyNames = mapping.KeyboardKeys.Select(k => GetKeyDisplayName(k));
+                                    remapParts.Add($"{btnName}:{string.Join("+", keyNames)}");
                                 }
                                 else if (mapping.Type == 2 && mapping.MouseButton > 0)
                                 {
-                                    // Mouse remap
-                                    remapParts.Add($"{btnName}:Mouse");
+                                    // Mouse remap - show which button
+                                    var mouseButtons = new[] { "", "Left", "Right", "Middle", "Back", "Forward" };
+                                    var mouseName = mapping.MouseButton < mouseButtons.Length ? mouseButtons[mapping.MouseButton] : "Mouse";
+                                    remapParts.Add($"{btnName}:{mouseName}Click");
                                 }
                             }
                         }
@@ -4182,6 +4125,48 @@ namespace XboxGamingBar
                     if (container.Values.TryGetValue("JoystickAsMouseMode", out var jamMode) && (int)jamMode > 0)
                     {
                         summaryParts.Add("JoyMouse");
+                    }
+
+                    // Check RGB lighting settings
+                    if (container.Values.TryGetValue("LightMode", out var lightModeVal))
+                    {
+                        int lightMode = (int)lightModeVal;
+                        if (lightMode > 0) // 0 = Off
+                        {
+                            var lightModes = new[] { "Off", "Solid", "Breathe", "Rainbow", "Spiral" };
+                            string modeName = lightMode < lightModes.Length ? lightModes[lightMode] : $"Mode{lightMode}";
+
+                            // Get color if solid or breathe mode
+                            if (lightMode == 1 || lightMode == 2) // Solid or Breathe
+                            {
+                                if (container.Values.TryGetValue("LightColorR", out var r) &&
+                                    container.Values.TryGetValue("LightColorG", out var g) &&
+                                    container.Values.TryGetValue("LightColorB", out var b))
+                                {
+                                    summaryParts.Add($"RGB:{modeName}({r},{g},{b})");
+                                }
+                                else
+                                {
+                                    summaryParts.Add($"RGB:{modeName}");
+                                }
+                            }
+                            else
+                            {
+                                summaryParts.Add($"RGB:{modeName}");
+                            }
+                        }
+                    }
+
+                    // Check brightness
+                    if (container.Values.TryGetValue("LightBrightness", out var brightnessVal) && (int)brightnessVal != 50)
+                    {
+                        summaryParts.Add($"Bright:{brightnessVal}%");
+                    }
+
+                    // Check power light
+                    if (container.Values.TryGetValue("PowerLight", out var powerLightVal) && !(bool)powerLightVal)
+                    {
+                        summaryParts.Add("PwrLight:Off");
                     }
 
                     var summary = summaryParts.Count > 0 ? string.Join(" | ", summaryParts) : "Default settings";
@@ -4709,7 +4694,7 @@ namespace XboxGamingBar
 
             if (width <= 0 || height <= 0) return;
 
-            // Convert RPM to percentage (max 7500 RPM for Legion Go)
+            // Convert RPM to percentage (max 7500 RPM for Legion Go EC scale)
             const int MAX_RPM = 7500;
             double percent = Math.Max(0, Math.Min(100, (double)rpm / MAX_RPM * 100));
 
@@ -7657,6 +7642,22 @@ namespace XboxGamingBar
             {
                 var profile = GetProfile(profileName);
 
+                // For Legion devices: check if we need to switch to Custom mode BEFORE sending any TDP-related settings
+                // This prevents TDP/TDPBoost/EPP from being ignored when helper is still in preset mode
+                bool legionNeedsModeChange = false;
+                bool legionSwitchingToCustom = false;
+                if (legionGoDetected?.Value == true && defaultGameProfileEnabled?.Value != true && !isInitialSync)
+                {
+                    int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
+                    int profileMode = profile.LegionPerformanceMode;
+                    int modeIndex = Array.IndexOf(modeValues, profileMode);
+                    if (modeIndex >= 0 && legionPerformanceMode?.Value != profileMode)
+                    {
+                        legionNeedsModeChange = true;
+                        legionSwitchingToCustom = profileMode == 255;
+                    }
+                }
+
                 // Apply only enabled settings to UI controls
                 // Skip TDP loading when DGP is active - DGP controls TDP
                 if (SaveTDP && defaultGameProfileEnabled?.Value != true)
@@ -7676,11 +7677,15 @@ namespace XboxGamingBar
                         Logger.Info($"Sticky TDP target updated to: {targetTDPLimit}W (profile load)");
                     }
                     // Load TDP Boost toggle state from profile
+                    // For Legion devices switching to Custom mode: defer sending to helper until mode change is applied
                     if (TDPBoostToggle != null)
                     {
                         TDPBoostToggle.IsOn = profile.TDPBoostEnabled;
-                        tdpBoostEnabled?.SetValue(profile.TDPBoostEnabled);
-                        Logger.Info($"TDP Boost loaded from profile: {profile.TDPBoostEnabled}");
+                        if (!legionSwitchingToCustom)
+                        {
+                            tdpBoostEnabled?.SetValue(profile.TDPBoostEnabled);
+                        }
+                        Logger.Info($"TDP Boost loaded from profile: {profile.TDPBoostEnabled} (deferred={legionSwitchingToCustom})");
                     }
                 }
                 if (SaveCPUBoost)
@@ -7693,7 +7698,11 @@ namespace XboxGamingBar
                 {
                     CPUEPPSlider.Value = profile.CPUEPP;
                     // Send to helper explicitly (cast to int for property type)
-                    cpuEPP?.SetValue((int)profile.CPUEPP);
+                    // For Legion devices switching to Custom mode: defer sending to helper until mode change is applied
+                    if (!legionSwitchingToCustom)
+                    {
+                        cpuEPP?.SetValue((int)profile.CPUEPP);
+                    }
                 }
                 if (SaveCPUState)
                 {
@@ -7853,12 +7862,24 @@ namespace XboxGamingBar
                                 legionPerformanceMode?.ForceSetValue(profileMode);
                                 Logger.Info($"Applied game profile TDP Mode: {GetLegionModeShortName(profileMode)} ({profileMode}) for {profileName}");
 
-                                // If switching to Custom mode (255), send TDP value with delay to allow mode change to propagate
+                                // If switching to Custom mode (255), send deferred settings with delay to allow mode change to propagate
                                 if (profileMode == 255)
                                 {
                                     _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
                                     {
-                                        await Task.Delay(300); // Allow mode change to propagate to helper
+                                        await Task.Delay(500); // Allow mode change to propagate to helper (increased for reliability)
+                                        // Send deferred TDP-related settings that were skipped earlier
+                                        if (SaveTDP && TDPBoostToggle != null)
+                                        {
+                                            tdpBoostEnabled?.ForceSetValue(profile.TDPBoostEnabled);
+                                            Logger.Info($"Applied deferred TDP Boost after mode change: {profile.TDPBoostEnabled}");
+                                        }
+                                        if (SaveCPUEPP)
+                                        {
+                                            cpuEPP?.ForceSetValue((int)profile.CPUEPP);
+                                            Logger.Info($"Applied deferred CPU EPP after mode change: {profile.CPUEPP}");
+                                        }
+                                        // Send TDP value last
                                         tdp?.ForceSetValue((int)profile.TDP);
                                         Logger.Info($"Applied game profile TDP value after mode change: {profile.TDP}W for {profileName}");
                                     });
@@ -7910,16 +7931,25 @@ namespace XboxGamingBar
                             TDPSlider.Value = profile.TDP;
                             Logger.Info($"Restored TDP slider to {profile.TDP}W after game closed");
                         }
-                        // If restoring to Custom mode (255), send TDP value after mode change
+                        // If restoring to Custom mode (255), send deferred settings after mode change
                         if (SaveTDP && savedLegionPerformanceMode == 255)
                         {
                             if (modeChanged)
                             {
                                 _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
                                 {
-                                    await Task.Delay(300); // Allow mode change to propagate to helper
+                                    await Task.Delay(500); // Allow mode change to propagate to helper
+                                    // Send deferred TDP-related settings
+                                    if (TDPBoostToggle != null)
+                                    {
+                                        tdpBoostEnabled?.ForceSetValue(profile.TDPBoostEnabled);
+                                    }
+                                    if (SaveCPUEPP)
+                                    {
+                                        cpuEPP?.ForceSetValue((int)profile.CPUEPP);
+                                    }
                                     tdp?.ForceSetValue((int)profile.TDP);
-                                    Logger.Info($"Restored TDP value after mode change: {profile.TDP}W");
+                                    Logger.Info($"Restored TDP settings after mode change: TDP={profile.TDP}W, Boost={profile.TDPBoostEnabled}, EPP={profile.CPUEPP}");
                                 });
                             }
                             else
@@ -7954,16 +7984,25 @@ namespace XboxGamingBar
                             legionPerformanceMode?.ForceSetValue(profileMode);
                             Logger.Info($"Applied profile TDP Mode: {GetLegionModeShortName(profileMode)} ({profileMode}) for {profileName}");
 
-                            // If Custom mode (255), send TDP value after mode change
+                            // If Custom mode (255), send deferred settings after mode change
                             if (profileMode == 255)
                             {
                                 if (modeChanged)
                                 {
                                     _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
                                     {
-                                        await Task.Delay(300); // Allow mode change to propagate to helper
+                                        await Task.Delay(500); // Allow mode change to propagate to helper
+                                        // Send deferred TDP-related settings
+                                        if (TDPBoostToggle != null)
+                                        {
+                                            tdpBoostEnabled?.ForceSetValue(profile.TDPBoostEnabled);
+                                        }
+                                        if (SaveCPUEPP)
+                                        {
+                                            cpuEPP?.ForceSetValue((int)profile.CPUEPP);
+                                        }
                                         tdp?.ForceSetValue((int)profile.TDP);
-                                        Logger.Info($"Applied profile TDP value after mode change: {profile.TDP}W for {profileName}");
+                                        Logger.Info($"Applied profile TDP settings after mode change: TDP={profile.TDP}W, Boost={profile.TDPBoostEnabled}, EPP={profile.CPUEPP} for {profileName}");
                                     });
                                 }
                                 else
@@ -8153,8 +8192,9 @@ namespace XboxGamingBar
                 var container = settings.Containers[$"Profile_{profileName}"];
 
                 profile.TDP = container.Values.ContainsKey("TDP") ? (double)container.Values["TDP"] : 15;
-                profile.CPUBoost = container.Values.ContainsKey("CPUBoost") ? (bool)container.Values["CPUBoost"] : false;
-                profile.CPUEPP = container.Values.ContainsKey("CPUEPP") ? (double)container.Values["CPUEPP"] : 0;
+                // Use current system values as defaults for EPP and CPU Boost (synced from helper)
+                profile.CPUBoost = container.Values.ContainsKey("CPUBoost") ? (bool)container.Values["CPUBoost"] : (cpuBoost?.Value ?? false);
+                profile.CPUEPP = container.Values.ContainsKey("CPUEPP") ? (double)container.Values["CPUEPP"] : (cpuEPP?.Value ?? 80);
                 profile.MaxCPUState = container.Values.ContainsKey("MaxCPUState") ? (int)container.Values["MaxCPUState"] : 100;
                 profile.MinCPUState = container.Values.ContainsKey("MinCPUState") ? (int)container.Values["MinCPUState"] : 5;
                 profile.FluidMotionFrames = container.Values.ContainsKey("FluidMotionFrames") ? (bool)container.Values["FluidMotionFrames"] : false;
@@ -8206,14 +8246,18 @@ namespace XboxGamingBar
             var container = settings.CreateContainer($"ControllerProfile_{profileName}", ApplicationDataCreateDisposition.Always);
 
             // Button mappings (serialized as JSON)
-            container.Values["ButtonY1"] = profile.ButtonY1.ToJson();
-            container.Values["ButtonY2"] = profile.ButtonY2.ToJson();
+            var y1Json = profile.ButtonY1.ToJson();
+            var y2Json = profile.ButtonY2.ToJson();
+            var desktopJson = profile.ButtonDesktop.ToJson();
+            container.Values["ButtonY1"] = y1Json;
+            container.Values["ButtonY2"] = y2Json;
             container.Values["ButtonY3"] = profile.ButtonY3.ToJson();
             container.Values["ButtonM1"] = profile.ButtonM1.ToJson();
             container.Values["ButtonM2"] = profile.ButtonM2.ToJson();
             container.Values["ButtonM3"] = profile.ButtonM3.ToJson();
-            container.Values["ButtonDesktop"] = profile.ButtonDesktop.ToJson();
+            container.Values["ButtonDesktop"] = desktopJson;
             container.Values["ButtonPage"] = profile.ButtonPage.ToJson();
+            Logger.Info($"SaveControllerProfile: {profileName} ButtonY1={y1Json}, ButtonY2={y2Json}, ButtonDesktop={desktopJson}");
             container.Values["NintendoLayout"] = profile.NintendoLayout;
             container.Values["VibrationLevel"] = profile.VibrationLevel;
             container.Values["VibrationMode"] = profile.VibrationMode;
@@ -8266,6 +8310,8 @@ namespace XboxGamingBar
             container.Values["LightColorG"] = profile.LightColorG;
             container.Values["LightColorB"] = profile.LightColorB;
             container.Values["LightSpeed"] = profile.LightSpeed;
+            container.Values["LightBrightness"] = profile.LightBrightness;
+            container.Values["PowerLight"] = profile.PowerLight;
 
             // Store the game exe path for game profiles (used for loading icons)
             if (profileName.StartsWith("Game_") && !string.IsNullOrEmpty(currentGameExePath))
@@ -8273,7 +8319,7 @@ namespace XboxGamingBar
                 container.Values["GameExePath"] = currentGameExePath;
             }
 
-            Logger.Info($"Saved controller profile: {profileName}");
+            Logger.Info($"Saved controller profile: {profileName}, LightMode={profile.LightMode}, Color=#{profile.LightColorR:X2}{profile.LightColorG:X2}{profile.LightColorB:X2}, Brightness={profile.LightBrightness}");
         }
 
         private ButtonMapping LoadButtonMapping(ApplicationDataContainer container, string key)
@@ -8300,9 +8346,16 @@ namespace XboxGamingBar
         private void LoadControllerProfileFromStorage(string profileName, ControllerProfile profile)
         {
             var settings = ApplicationData.Current.LocalSettings;
-            if (settings.Containers.ContainsKey($"ControllerProfile_{profileName}"))
+            var containerKey = $"ControllerProfile_{profileName}";
+            if (settings.Containers.ContainsKey(containerKey))
             {
-                var container = settings.Containers[$"ControllerProfile_{profileName}"];
+                var container = settings.Containers[containerKey];
+
+                // Log what's in the container for debugging
+                var y1Raw = container.Values.ContainsKey("ButtonY1") ? container.Values["ButtonY1"]?.ToString() : "(not found)";
+                var y2Raw = container.Values.ContainsKey("ButtonY2") ? container.Values["ButtonY2"]?.ToString() : "(not found)";
+                var desktopRaw = container.Values.ContainsKey("ButtonDesktop") ? container.Values["ButtonDesktop"]?.ToString() : "(not found)";
+                Logger.Info($"LoadControllerProfile: {profileName} raw values: ButtonY1={y1Raw}, ButtonY2={y2Raw}, ButtonDesktop={desktopRaw}");
 
                 // Button mappings (with backwards compatibility for old int format)
                 profile.ButtonY1 = LoadButtonMapping(container, "ButtonY1");
@@ -8313,6 +8366,8 @@ namespace XboxGamingBar
                 profile.ButtonM3 = LoadButtonMapping(container, "ButtonM3");
                 profile.ButtonDesktop = LoadButtonMapping(container, "ButtonDesktop");
                 profile.ButtonPage = LoadButtonMapping(container, "ButtonPage");
+
+                Logger.Info($"LoadControllerProfile: {profileName} parsed: Y1={FormatButtonMapping(profile.ButtonY1)}, Y2={FormatButtonMapping(profile.ButtonY2)}, Desktop={FormatButtonMapping(profile.ButtonDesktop)}");
                 profile.NintendoLayout = container.Values.ContainsKey("NintendoLayout") ? (bool)container.Values["NintendoLayout"] : false;
                 profile.VibrationLevel = container.Values.ContainsKey("VibrationLevel") ? (int)container.Values["VibrationLevel"] : 2;
                 profile.VibrationMode = container.Values.ContainsKey("VibrationMode") ? (int)container.Values["VibrationMode"] : 1;
@@ -8378,8 +8433,14 @@ namespace XboxGamingBar
                     profile.LightColorB = container.Values.ContainsKey("LightColorB") ? (byte)container.Values["LightColorB"] : (byte)255;
                 }
                 profile.LightSpeed = container.Values.ContainsKey("LightSpeed") ? (int)container.Values["LightSpeed"] : 50;
+                profile.LightBrightness = container.Values.ContainsKey("LightBrightness") ? (int)container.Values["LightBrightness"] : 50;
+                profile.PowerLight = container.Values.ContainsKey("PowerLight") ? (bool)container.Values["PowerLight"] : true;
 
-                Logger.Info($"Loaded controller profile: {profileName} (HasExplicitLighting={profile.HasExplicitLighting})");
+                Logger.Info($"Loaded controller profile: {profileName} (HasExplicitLighting={profile.HasExplicitLighting}, LightMode={profile.LightMode}, Color=#{profile.LightColorR:X2}{profile.LightColorG:X2}{profile.LightColorB:X2}, Brightness={profile.LightBrightness})");
+            }
+            else
+            {
+                Logger.Warn($"Controller profile container not found: {containerKey} - using defaults");
             }
         }
 
@@ -8707,9 +8768,28 @@ namespace XboxGamingBar
                 ApplyButtonMappingToUI("Desktop", profile.ButtonDesktop);
                 ApplyButtonMappingToUI("Page", profile.ButtonPage);
 
-                // Apply Nintendo layout
+                // Apply Nintendo layout (with event unsubscription to prevent handler firing)
                 if (LegionNintendoLayoutToggle != null)
-                    LegionNintendoLayoutToggle.IsOn = profile.NintendoLayout;
+                {
+                    LegionNintendoLayoutToggle.Toggled -= LegionNintendoLayout_Toggled;
+                    try
+                    {
+                        LegionNintendoLayoutToggle.IsOn = profile.NintendoLayout;
+                        // Apply or clear Nintendo layout mappings to match toggle state
+                        if (profile.NintendoLayout)
+                        {
+                            ApplyNintendoLayoutMappings();
+                        }
+                        else
+                        {
+                            ClearNintendoLayoutMappings();
+                        }
+                    }
+                    finally
+                    {
+                        LegionNintendoLayoutToggle.Toggled += LegionNintendoLayout_Toggled;
+                    }
+                }
 
                 // Apply vibration settings
                 if (LegionVibrationComboBox != null)
@@ -8807,12 +8887,18 @@ namespace XboxGamingBar
                 // Apply joystick as mouse settings
                 if (LegionJoystickAsMouseComboBox != null)
                 {
-                    LegionJoystickAsMouseComboBox.SelectedIndex = profile.JoystickAsMouseMode;
+                    // Set UI first
+                    if (LegionJoystickAsMouseComboBox.Items.Count > profile.JoystickAsMouseMode)
+                    {
+                        LegionJoystickAsMouseComboBox.SelectedIndex = profile.JoystickAsMouseMode;
+                    }
                     // Show/hide sensitivity grid based on mode
                     if (LegionJoystickMouseSensGrid != null)
                         LegionJoystickMouseSensGrid.Visibility = profile.JoystickAsMouseMode > 0
                             ? Windows.UI.Xaml.Visibility.Visible
                             : Windows.UI.Xaml.Visibility.Collapsed;
+                    // Send value to helper (SetValue instead of SetValueSilent)
+                    legionJoystickAsMouseMode?.SetValue(profile.JoystickAsMouseMode);
                 }
                 if (LegionJoystickMouseSensSlider != null)
                 {
@@ -8842,13 +8928,24 @@ namespace XboxGamingBar
                     try
                     {
                         LegionDesktopControlsToggle.IsOn = profile.DesktopControlsEnabled;
-                        // Update Joystick as Mouse UI to match Desktop Controls state
+                        // Apply/clear Desktop Controls mappings
                         if (profile.DesktopControlsEnabled)
                         {
+                            // Override Joystick as Mouse to Right Stick for Desktop Controls preset
                             if (LegionJoystickAsMouseComboBox != null)
                                 LegionJoystickAsMouseComboBox.SelectedIndex = 2; // Right Stick
                             if (LegionJoystickMouseSensGrid != null)
                                 LegionJoystickMouseSensGrid.Visibility = Windows.UI.Xaml.Visibility.Visible;
+                            // Send joystick as mouse mode to helper
+                            legionJoystickAsMouseMode?.SetValue(2);
+                            // Apply the desktop control button mappings to the controller
+                            ApplyDesktopControlMappings();
+                        }
+                        else
+                        {
+                            // Clear the desktop control button mappings from the controller
+                            // Note: JoystickAsMouseMode is preserved from profile (already applied above)
+                            ClearDesktopControlMappings();
                         }
                     }
                     finally
@@ -8889,6 +8986,16 @@ namespace XboxGamingBar
                 if (LegionSpeedSlider != null)
                 {
                     LegionSpeedSlider.Value = profile.LightSpeed;
+                }
+                if (LegionBrightnessSlider != null)
+                {
+                    LegionBrightnessSlider.Value = profile.LightBrightness;
+                    if (LegionBrightnessValue != null)
+                        LegionBrightnessValue.Text = $"{profile.LightBrightness}%";
+                }
+                if (LegionPowerLightToggle != null)
+                {
+                    LegionPowerLightToggle.IsOn = profile.PowerLight;
                 }
 
                 Logger.Info($"Applied controller profile: Y1={FormatButtonMapping(profile.ButtonY1)}, Y2={FormatButtonMapping(profile.ButtonY2)}, Y3={FormatButtonMapping(profile.ButtonY3)}, M1={FormatButtonMapping(profile.ButtonM1)}, M2={FormatButtonMapping(profile.ButtonM2)}, M3={FormatButtonMapping(profile.ButtonM3)}, Nintendo={profile.NintendoLayout}, Vib={profile.VibrationLevel}, VibMode={profile.VibrationMode}, GyroTarget={profile.GyroTarget}, LDZ={profile.LeftStickDeadzone}, RDZ={profile.RightStickDeadzone}, GamepadMappings={profile.GamepadButtonMappings?.Count ?? 0}, DesktopControls={profile.DesktopControlsEnabled}, LightMode={profile.LightMode}");
@@ -8955,6 +9062,8 @@ namespace XboxGamingBar
                 LightColorG = LegionColorPicker?.Color.G ?? 255,
                 LightColorB = LegionColorPicker?.Color.B ?? 255,
                 LightSpeed = (int)(LegionSpeedSlider?.Value ?? 50),
+                LightBrightness = (int)(LegionBrightnessSlider?.Value ?? 50),
+                PowerLight = LegionPowerLightToggle?.IsOn ?? true,
                 HasExplicitLighting = true  // Mark as having explicit lighting since we're capturing from UI
             };
         }
@@ -8989,6 +9098,12 @@ namespace XboxGamingBar
                             gameControllerProfile = GetCurrentControllerProfileFromUI();
                             SaveControllerProfileToStorage($"Game_{currentGameName}", gameControllerProfile);
                             Logger.Info($"Initialized game controller profile for {currentGameName} from current settings");
+
+                            // Refresh saved profiles list if expanded
+                            if (isSavedProfilesExpanded)
+                            {
+                                RefreshSavedProfilesList();
+                            }
                         }
                         else
                         {
@@ -9034,8 +9149,8 @@ namespace XboxGamingBar
             // Update slider value displays
             UpdateControllerSliderDisplays(sender);
 
-            // Don't save during profile loading or switching
-            if (isLoadingControllerProfile || isSwitchingControllerProfile)
+            // Don't save during profile loading, switching, widget unloading, or helper sync
+            if (isLoadingControllerProfile || isSwitchingControllerProfile || isUnloading || isApplyingHelperUpdate)
                 return;
 
             // Get current profile from UI
@@ -9057,23 +9172,38 @@ namespace XboxGamingBar
 
             // Send button mappings to helper
             SendButtonMappingsToHelper(profile);
+
+            // Send lighting settings to helper (so they get saved to helper's profile XML)
+            SendLightingToHelper(profile);
         }
 
         /// <summary>
-        /// Sends all button mappings to the helper via IPC
+        /// Sends all button mappings to the helper via IPC.
+        /// Only sends mappings that have actual values (not default/disabled).
         /// </summary>
         private void SendButtonMappingsToHelper(ControllerProfile profile)
         {
             try
             {
-                legionButtonY1?.SendMapping(profile.ButtonY1?.ToJson() ?? "");
-                legionButtonY2?.SendMapping(profile.ButtonY2?.ToJson() ?? "");
-                legionButtonY3?.SendMapping(profile.ButtonY3?.ToJson() ?? "");
-                legionButtonM1?.SendMapping(profile.ButtonM1?.ToJson() ?? "");
-                legionButtonM2?.SendMapping(profile.ButtonM2?.ToJson() ?? "");
-                legionButtonM3?.SendMapping(profile.ButtonM3?.ToJson() ?? "");
-                legionButtonDesktop?.SendMapping(profile.ButtonDesktop?.ToJson() ?? "");
-                legionButtonPage?.SendMapping(profile.ButtonPage?.ToJson() ?? "");
+                // Only send button mappings that are not default (Type=0, GamepadAction=0)
+                // Sending default mappings causes the helper to clear existing button mappings,
+                // which is not desired when loading profiles that don't have explicit mappings set.
+                if (profile.ButtonY1 != null && !profile.ButtonY1.IsDefault)
+                    legionButtonY1?.SendMapping(profile.ButtonY1.ToJson());
+                if (profile.ButtonY2 != null && !profile.ButtonY2.IsDefault)
+                    legionButtonY2?.SendMapping(profile.ButtonY2.ToJson());
+                if (profile.ButtonY3 != null && !profile.ButtonY3.IsDefault)
+                    legionButtonY3?.SendMapping(profile.ButtonY3.ToJson());
+                if (profile.ButtonM1 != null && !profile.ButtonM1.IsDefault)
+                    legionButtonM1?.SendMapping(profile.ButtonM1.ToJson());
+                if (profile.ButtonM2 != null && !profile.ButtonM2.IsDefault)
+                    legionButtonM2?.SendMapping(profile.ButtonM2.ToJson());
+                if (profile.ButtonM3 != null && !profile.ButtonM3.IsDefault)
+                    legionButtonM3?.SendMapping(profile.ButtonM3.ToJson());
+                if (profile.ButtonDesktop != null && !profile.ButtonDesktop.IsDefault)
+                    legionButtonDesktop?.SendMapping(profile.ButtonDesktop.ToJson());
+                if (profile.ButtonPage != null && !profile.ButtonPage.IsDefault)
+                    legionButtonPage?.SendMapping(profile.ButtonPage.ToJson());
 
                 // Send gamepad button mappings as JSON dictionary
                 if (profile.GamepadButtonMappings != null && profile.GamepadButtonMappings.Count > 0)
@@ -9117,7 +9247,13 @@ namespace XboxGamingBar
                 // Send light speed
                 legionLightSpeed?.SetValue(profile.LightSpeed);
 
-                Logger.Info($"Sent lighting to helper: Mode={profile.LightMode}, Color=#{colorHex}, Speed={profile.LightSpeed}");
+                // Send brightness
+                legionLightBrightness?.SetValue(profile.LightBrightness);
+
+                // Send power light
+                legionPowerLight?.SetValue(profile.PowerLight);
+
+                Logger.Info($"Sent lighting to helper: Mode={profile.LightMode}, Color=#{colorHex}, Speed={profile.LightSpeed}, Brightness={profile.LightBrightness}, PowerLight={profile.PowerLight}");
             }
             catch (Exception ex)
             {
@@ -9414,23 +9550,36 @@ namespace XboxGamingBar
 
         private void SaveAndSendGamepadMappings()
         {
+            // Don't save during profile loading - we're just applying the profile, not modifying it
+            // The profile will be fully applied and any saves will happen after isLoadingControllerProfile is cleared
+            if (isLoadingControllerProfile)
+            {
+                // Still send to helper, just don't save
+                ControllerProfile profile = LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName)
+                    ? gameControllerProfile
+                    : globalControllerProfile;
+                SendButtonMappingsToHelper(profile);
+                UpdateGamepadMappingSummary();
+                return;
+            }
+
             // Get current profile
-            ControllerProfile profile;
+            ControllerProfile currentProfile;
             if (LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName))
             {
                 gameControllerProfile = GetCurrentControllerProfileFromUI();
                 SaveControllerProfileToStorage($"Game_{currentGameName}", gameControllerProfile);
-                profile = gameControllerProfile;
+                currentProfile = gameControllerProfile;
             }
             else
             {
                 globalControllerProfile = GetCurrentControllerProfileFromUI();
                 SaveControllerProfileToStorage("Global", globalControllerProfile);
-                profile = globalControllerProfile;
+                currentProfile = globalControllerProfile;
             }
 
             // Send to helper
-            SendButtonMappingsToHelper(profile);
+            SendButtonMappingsToHelper(currentProfile);
 
             // Update the summary display
             UpdateGamepadMappingSummary();
@@ -12026,6 +12175,40 @@ namespace XboxGamingBar
                 isInitialSync = false;
                 Logger.Info("Initial sync complete - profile saves are now enabled");
 
+                // On clean install, initialize profile with current system values instead of defaults
+                // This prevents overwriting user's current CPU Boost and EPP settings with defaults
+                if (isCleanInstall)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        // Get current system values from helper
+                        bool currentCPUBoost = cpuBoost?.Value ?? true;
+                        double currentCPUEPP = cpuEPP?.Value ?? 50;
+
+                        Logger.Info($"Clean install: initializing profiles with current system values - CPUBoost={currentCPUBoost}, CPUEPP={currentCPUEPP}");
+
+                        // Update all profiles with current values
+                        globalProfile.CPUBoost = currentCPUBoost;
+                        globalProfile.CPUEPP = currentCPUEPP;
+                        acProfile.CPUBoost = currentCPUBoost;
+                        acProfile.CPUEPP = currentCPUEPP;
+                        dcProfile.CPUBoost = currentCPUBoost;
+                        dcProfile.CPUEPP = currentCPUEPP;
+
+                        // Save the profiles with current values
+                        SaveProfileToStorage("Global", globalProfile);
+                        SaveProfileToStorage("AC", acProfile);
+                        SaveProfileToStorage("DC", dcProfile);
+
+                        // Update UI to reflect current values
+                        CPUBoostToggle.IsOn = currentCPUBoost;
+                        CPUEPPSlider.Value = currentCPUEPP;
+
+                        isCleanInstall = false; // Only do this once
+                        Logger.Info("Clean install initialization complete - profiles saved with current system values");
+                    });
+                }
+
                 // Hide connection status banner and update profile display now that we're connected
                 await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                 {
@@ -12829,6 +13012,21 @@ namespace XboxGamingBar
 
                     if (!string.IsNullOrEmpty(exePath))
                     {
+                        // Check if this is the same game (preserve cached icon path if new one is empty)
+                        bool isSameGame = exePath.Equals(currentGameExePath, StringComparison.OrdinalIgnoreCase);
+
+                        if (!string.IsNullOrEmpty(iconPath))
+                        {
+                            // New icon path provided - cache it
+                            currentGameIconPath = iconPath;
+                        }
+                        else if (isSameGame && !string.IsNullOrEmpty(currentGameIconPath))
+                        {
+                            // Same game but no icon path in update - use cached path
+                            iconPath = currentGameIconPath;
+                            Logger.Info($"Using cached icon path for {exePath}");
+                        }
+
                         currentGameExePath = exePath;
                         Logger.Info($"Updated currentGameExePath: {currentGameExePath}");
 
@@ -12839,6 +13037,7 @@ namespace XboxGamingBar
                     else
                     {
                         currentGameExePath = "";
+                        currentGameIconPath = "";
                         Logger.Info("Cleared currentGameExePath (no path in RunningGame)");
 
                         // Clear the game icon
@@ -12848,6 +13047,7 @@ namespace XboxGamingBar
                 else
                 {
                     currentGameExePath = "";
+                    currentGameIconPath = "";
                     Logger.Info("Cleared currentGameExePath (no running game)");
 
                     // Clear the game icon
@@ -14049,6 +14249,9 @@ namespace XboxGamingBar
                 }
 
                 legionLightColor?.OnColorChanged(args.NewColor);
+
+                // Save to controller profile (handler is detached during profile loading)
+                ControllerSettingChanged(sender, null);
             }
             catch (Exception ex)
             {
@@ -14068,6 +14271,8 @@ namespace XboxGamingBar
                     int brightness = (int)LegionBrightnessSlider.Value;
                     LegionBrightnessValue.Text = $"{brightness}%";
                 }
+                // Save to controller profile
+                ControllerSettingChanged(sender, null);
             }
             catch (Exception ex)
             {
@@ -14087,6 +14292,9 @@ namespace XboxGamingBar
                     int speed = (int)LegionSpeedSlider.Value;
                     LegionSpeedValue.Text = $"{speed}%";
                 }
+
+                // Save to controller profile (ControllerSettingChanged checks for loading state)
+                ControllerSettingChanged(sender, null);
             }
             catch (Exception ex)
             {
@@ -14108,6 +14316,9 @@ namespace XboxGamingBar
             try
             {
                 UpdateLegionLightControlsVisibility();
+
+                // Save to controller profile (handler is detached during profile loading)
+                ControllerSettingChanged(sender, null);
             }
             catch (Exception ex)
             {

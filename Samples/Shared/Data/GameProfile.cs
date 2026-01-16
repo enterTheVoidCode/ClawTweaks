@@ -895,6 +895,117 @@ namespace Shared.Data
             }
         }
 
+        /// <summary>
+        /// Legion Performance Mode (1=Quiet, 2=Balanced, 3=Performance, 255=Custom)
+        /// null = use current system mode (don't change on profile switch)
+        /// </summary>
+        [XmlElement("LegionPerformanceMode")]
+        private int? legionPerformanceMode;
+        public int? LegionPerformanceMode
+        {
+            get { return legionPerformanceMode; }
+            set
+            {
+                if (legionPerformanceMode != value)
+                {
+                    legionPerformanceMode = value;
+                    Save();
+                }
+            }
+        }
+
+        // ========== Legion Controller Lighting ==========
+
+        /// <summary>
+        /// Legion Light Mode (0=Off, 1=Solid, 2=Pulse, 3=Dynamic, 4=Spiral)
+        /// </summary>
+        [XmlElement("LegionLightMode")]
+        private int? legionLightMode;
+        public int? LegionLightMode
+        {
+            get { return legionLightMode; }
+            set
+            {
+                if (legionLightMode != value)
+                {
+                    legionLightMode = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Legion Light Color as hex string (RRGGBB format)
+        /// </summary>
+        [XmlElement("LegionLightColor")]
+        private string legionLightColor;
+        public string LegionLightColor
+        {
+            get { return legionLightColor; }
+            set
+            {
+                if (legionLightColor != value)
+                {
+                    legionLightColor = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Legion Light Brightness (0-100%)
+        /// </summary>
+        [XmlElement("LegionLightBrightness")]
+        private int? legionLightBrightness;
+        public int? LegionLightBrightness
+        {
+            get { return legionLightBrightness; }
+            set
+            {
+                if (legionLightBrightness != value)
+                {
+                    legionLightBrightness = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Legion Light Speed (0-100%)
+        /// </summary>
+        [XmlElement("LegionLightSpeed")]
+        private int? legionLightSpeed;
+        public int? LegionLightSpeed
+        {
+            get { return legionLightSpeed; }
+            set
+            {
+                if (legionLightSpeed != value)
+                {
+                    legionLightSpeed = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Legion Power Light (controller's power indicator LED)
+        /// </summary>
+        [XmlElement("LegionPowerLight")]
+        private bool? legionPowerLight;
+        public bool? LegionPowerLight
+        {
+            get { return legionPowerLight; }
+            set
+            {
+                if (legionPowerLight != value)
+                {
+                    legionPowerLight = value;
+                    Save();
+                }
+            }
+        }
+
         [XmlIgnore]
         public string Path;
 
@@ -976,6 +1087,13 @@ namespace Shared.Data
             legionNintendoLayout = null;
             legionVibration = null;
             legionVibrationMode = null;
+            legionPerformanceMode = null;
+            // Lighting settings
+            legionLightMode = null;
+            legionLightColor = null;
+            legionLightBrightness = null;
+            legionLightSpeed = null;
+            legionPowerLight = null;
             Path = inPath;
             cache = inCache;
         }

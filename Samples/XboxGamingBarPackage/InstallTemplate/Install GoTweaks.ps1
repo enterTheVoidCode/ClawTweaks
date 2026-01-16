@@ -13,16 +13,21 @@
 .PARAMETER SkipCertificate
     Skip certificate installation (use if certificate is already trusted).
 
-.PARAMETER SkipUninstall
-    Skip uninstalling the existing package (not recommended for Debug-to-Release upgrades).
+.PARAMETER CleanInstall
+    Remove existing package before installing (loses user settings/profiles).
+    Default is to update in-place which preserves user data.
 
 .EXAMPLE
     .\Install.ps1
-    Interactive installation with prompts.
+    Interactive installation with prompts. Updates existing install, preserving settings.
 
 .EXAMPLE
     .\Install.ps1 -Force
     Silent installation without prompts.
+
+.EXAMPLE
+    .\Install.ps1 -CleanInstall
+    Remove existing package first (fresh install, loses settings).
 
 .NOTES
     Must be run as Administrator.
@@ -31,7 +36,7 @@
 param(
     [switch]$Force = $false,
     [switch]$SkipCertificate = $false,
-    [switch]$SkipUninstall = $false
+    [switch]$CleanInstall = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -153,7 +158,7 @@ function Request-Elevation {
     $paramArgs = @()
     if ($Force) { $paramArgs += "-Force" }
     if ($SkipCertificate) { $paramArgs += "-SkipCertificate" }
-    if ($SkipUninstall) { $paramArgs += "-SkipUninstall" }
+    if ($CleanInstall) { $paramArgs += "-CleanInstall" }
 
     try {
         if (Test-RunningAsExe) {
@@ -383,6 +388,7 @@ else {
 }
 
 # Find dependencies - x64 only
+# Note: We don't force-reinstall dependencies to avoid conflicts with other apps (Dolby, DTS, etc.)
 $DependenciesDir = Join-Path $ScriptDir "Dependencies"
 $depPackages = @()
 if (Test-Path $DependenciesDir) {
@@ -391,10 +397,10 @@ if (Test-Path $DependenciesDir) {
         $depPackages = Get-MissingDependencies -DependencyPackages $allDepPackages
         $skippedCount = $allDepPackages.Count - $depPackages.Count
         if ($depPackages.Count -gt 0) {
-            Write-Success "Dependencies: $($depPackages.Count) to install ($skippedCount already installed)"
+            Write-Success "Dependencies: $($depPackages.Count) missing (will install if needed)"
         }
         else {
-            Write-Success "Dependencies: All $($allDepPackages.Count) already installed"
+            Write-Success "Dependencies: All present (using system libraries)"
         }
     }
 }
@@ -458,22 +464,34 @@ else {
     Write-Success "No blocking processes"
 }
 
-# Phase 4: Uninstall existing package
-if (-not $SkipUninstall) {
-    Write-Step -Step 4 -Total 6 -Message "Removing existing package..."
+# Phase 4: Handle existing package
+if ($CleanInstall) {
+    Write-Step -Step 4 -Total 6 -Message "Removing existing package (clean install)..."
 
     $existingPkg = Get-AppxPackage -Name $PackageName -ErrorAction SilentlyContinue
     if ($existingPkg) {
-        Write-Info "Removing: v$($existingPkg.Version)"
-        try {
-            Stop-BlockingProcesses -Quiet | Out-Null
-            Remove-AppxPackage -Package $existingPkg.PackageFullName -ErrorAction Stop
-            Write-Success "Removed existing package"
-            Start-Sleep -Seconds 2
+        Write-Warn "Clean install will remove user settings and profiles!"
+        if (-not $Force) {
+            Write-Host ""
+            $response = Read-Host "       Continue with clean install? (Y/N)"
+            if ($response -ne 'Y' -and $response -ne 'y') {
+                Write-Info "Switching to update mode (preserving settings)..."
+                $CleanInstall = $false
+            }
         }
-        catch {
-            Write-Warn "Could not remove: $_"
-            Write-Info "Will attempt upgrade instead..."
+
+        if ($CleanInstall) {
+            Write-Info "Removing: v$($existingPkg.Version)"
+            try {
+                Stop-BlockingProcesses -Quiet | Out-Null
+                Remove-AppxPackage -Package $existingPkg.PackageFullName -ErrorAction Stop
+                Write-Success "Removed existing package"
+                Start-Sleep -Seconds 2
+            }
+            catch {
+                Write-Warn "Could not remove: $_"
+                Write-Info "Will attempt upgrade instead..."
+            }
         }
     }
     else {
@@ -481,7 +499,15 @@ if (-not $SkipUninstall) {
     }
 }
 else {
-    Write-Step -Step 4 -Total 6 -Message "Skipping removal (--SkipUninstall)"
+    Write-Step -Step 4 -Total 6 -Message "Checking existing installation..."
+    $existingPkg = Get-AppxPackage -Name $PackageName -ErrorAction SilentlyContinue
+    if ($existingPkg) {
+        Write-Info "Will update existing installation (preserving settings)"
+        Write-Info "Current version: $($existingPkg.Version)"
+    }
+    else {
+        Write-Info "Fresh installation"
+    }
 }
 
 # Phase 5: Install certificate
@@ -543,28 +569,37 @@ while ($retryCount -lt $maxRetries -and -not $installSuccess) {
     try {
         Stop-BlockingProcesses -Quiet | Out-Null
 
-        if ($depPackages.Count -gt 0) {
-            Write-Info "Installing dependencies..."
-            foreach ($dep in $depPackages) {
-                Write-Info "  -> $($dep.Name)"
-            }
-            Add-AppxPackage -Path $MainPackage.FullName `
-                -DependencyPath $depPackages.FullName `
-                -ForceUpdateFromAnyVersion `
-                -ErrorAction Stop
-        }
-        else {
-            Write-Info "Installing main package..."
-            Add-AppxPackage -Path $MainPackage.FullName `
-                -ForceUpdateFromAnyVersion `
-                -ErrorAction Stop
-        }
+        # Install main package without forcing dependency reinstall
+        # Windows will use already-installed shared dependencies (VCLibs etc.)
+        # This avoids conflicts with other apps using those dependencies
+        Write-Info "Installing GoTweaks package..."
+        Add-AppxPackage -Path $MainPackage.FullName `
+            -ForceUpdateFromAnyVersion `
+            -ErrorAction Stop
 
         $installSuccess = $true
     }
     catch {
         $retryCount++
         $errorMsg = $_.Exception.Message
+
+        # Check if it's a dependency error
+        if ($errorMsg -match "dependency" -and $depPackages.Count -gt 0) {
+            Write-Warn "Missing dependencies, attempting to install them..."
+            foreach ($dep in $depPackages) {
+                try {
+                    Write-Info "  -> $($dep.Name)"
+                    Add-AppxPackage -Path $dep.FullName -ForceUpdateFromAnyVersion -ErrorAction SilentlyContinue
+                }
+                catch {
+                    Write-Warn "    Could not install (may already be present)"
+                }
+            }
+            # Don't count this as a retry, try main package again
+            $retryCount--
+            Start-Sleep -Seconds 1
+            continue
+        }
 
         if ($retryCount -lt $maxRetries) {
             Write-Warn "Attempt $retryCount failed, retrying..."
@@ -576,6 +611,7 @@ while ($retryCount -lt $maxRetries -and -not $installSuccess) {
             Write-Host "       Troubleshooting:" -ForegroundColor Yellow
             Write-Host "       - Close Xbox Game Bar completely (Win+G, then X)" -ForegroundColor Gray
             Write-Host "       - Restart your computer and try again" -ForegroundColor Gray
+            Write-Host "       - If issue persists, run: Install.exe -CleanInstall" -ForegroundColor Gray
             Exit-WithPause -ExitCode 1
         }
     }

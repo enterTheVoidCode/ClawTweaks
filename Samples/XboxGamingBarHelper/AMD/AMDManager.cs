@@ -506,7 +506,28 @@ namespace XboxGamingBarHelper.AMD
             catch (Exception ex)
             {
                 Logger.Error($"ADLX initialization failed with exception: {ex.Message}");
+                Logger.Error($"Exception type: {ex.GetType().FullName}");
+
+                // Log inner exceptions to reveal the actual cause (especially for TypeInitializationException)
+                var innerEx = ex.InnerException;
+                while (innerEx != null)
+                {
+                    Logger.Error($"Inner exception: {innerEx.GetType().FullName}: {innerEx.Message}");
+                    innerEx = innerEx.InnerException;
+                }
+
                 Logger.Error($"Stack trace: {ex.StackTrace}");
+
+                // Provide guidance on common causes
+                if (ex.Message.Contains("ADLXPINVOKE") || ex.Message.Contains("type initializer"))
+                {
+                    Logger.Error("ADLX DLL failed to load. Possible causes:");
+                    Logger.Error("  1. AMD Adrenalin drivers not installed (ADLX requires AMD driver)");
+                    Logger.Error("  2. AMD driver version incompatible with ADLX SDK");
+                    Logger.Error("  3. Visual C++ Runtime not installed");
+                    Logger.Error("  4. System has no AMD GPU");
+                }
+
                 adlxInitializeResult = ADLX_RESULT.ADLX_FAIL;
 
                 // Initialize properties with default/disabled values

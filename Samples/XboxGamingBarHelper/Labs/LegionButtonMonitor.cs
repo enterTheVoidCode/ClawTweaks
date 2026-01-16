@@ -617,8 +617,8 @@ namespace XboxGamingBarHelper.Labs
                 initCommand[3] = 0x04;
                 // Rest are already zeros
 
-                // Log the actual bytes we're sending
-                Logger.Info($"LegionButtonMonitor: Sending init command: {initCommand[0]:X2}:{initCommand[1]:X2}:{initCommand[2]:X2}:{initCommand[3]:X2}:{initCommand[4]:X2}:{initCommand[5]:X2}");
+                // Log the actual bytes we're sending (Debug level to reduce log spam)
+                Logger.Debug($"LegionButtonMonitor: Sending init command: {initCommand[0]:X2}:{initCommand[1]:X2}:{initCommand[2]:X2}:{initCommand[3]:X2}:{initCommand[4]:X2}:{initCommand[5]:X2}");
 
                 // Use HidD_SetOutputReport for HID output reports (more reliable than WriteFile)
                 // Mark the time so we can skip button detection for a short period after
@@ -629,7 +629,7 @@ namespace XboxGamingBarHelper.Labs
 
                 if (result)
                 {
-                    Logger.Info("LegionButtonMonitor: Init command sent successfully via HidD_SetOutputReport");
+                    Logger.Debug("LegionButtonMonitor: Init command sent successfully via HidD_SetOutputReport");
                     return true;
                 }
                 else
@@ -1116,10 +1116,10 @@ namespace XboxGamingBarHelper.Labs
                         Thread.Sleep(500);
                     }
 
-                    // Log every 500 iterations to verify loop is running
+                    // Log every 500 iterations to verify loop is running (Debug level to reduce log spam)
                     if (loopIteration % 500 == 0)
                     {
-                        Logger.Info($"LegionButtonMonitor: Monitor loop alive, iteration {loopIteration}");
+                        Logger.Debug($"LegionButtonMonitor: Monitor loop alive, iteration {loopIteration}");
                     }
                 }
             }
