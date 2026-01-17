@@ -68,6 +68,9 @@ namespace XboxGamingBarHelper.Legion
         private bool nintendoLayoutEnabled = false;
         private int vibrationMode = 1; // FPS
 
+        // HID command timing - delay between commands for firmware to process
+        private const int HID_COMMAND_DELAY_MS = 20; // Reduced from 50ms for faster profile switches
+
         // Controller battery monitoring (uses controllerService, not a separate connection)
         private int leftControllerBattery = -1;
         private int rightControllerBattery = -1;
@@ -376,36 +379,29 @@ namespace XboxGamingBarHelper.Legion
 
             if (isLegionGoDetected)
             {
-                // Read current performance mode and TDP values (with timeouts to prevent hangs)
+                // Read current performance mode and TDP values IN PARALLEL (with timeouts to prevent hangs)
                 const int wmiReadTimeoutMs = 5000;
+                var parallelTimer = System.Diagnostics.Stopwatch.StartNew();
 
-                var perfModeTimer = System.Diagnostics.Stopwatch.StartNew();
-                Logger.Info("Reading current performance mode...");
+                Logger.Info("Reading performance mode and TDP values in parallel...");
                 var perfModeTask = Task.Run(() =>
                 {
                     try { ReadCurrentPerformanceMode(); }
                     catch (Exception ex) { Logger.Warn($"ReadCurrentPerformanceMode exception: {ex.Message}"); }
                 });
-                if (!perfModeTask.Wait(wmiReadTimeoutMs))
-                {
-                    Logger.Warn($"ReadCurrentPerformanceMode timed out after {wmiReadTimeoutMs}ms");
-                }
-                perfModeTimer.Stop();
-                Logger.Info($"[TIMING] LegionManager.ReadPerformanceMode: {perfModeTimer.ElapsedMilliseconds}ms");
-
-                var tdpTimer = System.Diagnostics.Stopwatch.StartNew();
-                Logger.Info("Reading current TDP values...");
                 var tdpTask = Task.Run(() =>
                 {
                     try { ReadCurrentTDPValues(); }
                     catch (Exception ex) { Logger.Warn($"ReadCurrentTDPValues exception: {ex.Message}"); }
                 });
-                if (!tdpTask.Wait(wmiReadTimeoutMs))
+
+                // Wait for both tasks to complete (or timeout)
+                if (!Task.WaitAll(new[] { perfModeTask, tdpTask }, wmiReadTimeoutMs))
                 {
-                    Logger.Warn($"ReadCurrentTDPValues timed out after {wmiReadTimeoutMs}ms");
+                    Logger.Warn($"WMI reads timed out after {wmiReadTimeoutMs}ms");
                 }
-                tdpTimer.Stop();
-                Logger.Info($"[TIMING] LegionManager.ReadTDPValues: {tdpTimer.ElapsedMilliseconds}ms");
+                parallelTimer.Stop();
+                Logger.Info($"[TIMING] LegionManager.ReadPerformanceMode+TDP (parallel): {parallelTimer.ElapsedMilliseconds}ms");
 
                 // Update properties with the values read from device
                 // Use silent update to avoid triggering WMI calls back
@@ -1437,7 +1433,7 @@ namespace XboxGamingBarHelper.Legion
                 }
 
                 // Delay to allow controller firmware to process command before next one
-                System.Threading.Thread.Sleep(50);
+                System.Threading.Thread.Sleep(HID_COMMAND_DELAY_MS);
             }
             catch (Exception ex)
             {
@@ -1493,7 +1489,7 @@ namespace XboxGamingBarHelper.Legion
                     Logger.Error($"Failed to set {button} mapping");
                 }
 
-                System.Threading.Thread.Sleep(50);
+                System.Threading.Thread.Sleep(HID_COMMAND_DELAY_MS);
             }
             catch (Exception ex)
             {
@@ -2157,12 +2153,12 @@ namespace XboxGamingBarHelper.Legion
                         // Reset button to default: first clear, then remap to itself
                         // Step 1: Clear the existing mapping
                         controller.ClearGamepadButtonMapping(button);
-                        System.Threading.Thread.Sleep(50); // Delay between clear and remap
+                        System.Threading.Thread.Sleep(HID_COMMAND_DELAY_MS); // Delay between clear and remap
 
                         // Step 2: Map button to itself (default behavior)
                         // This is needed for all buttons including sticks to restore axis properly
                         controller.SetGamepadButtonMappingAdvanced(button, LegionGo.MappingType.Gamepad, new byte[] { (byte)button });
-                        System.Threading.Thread.Sleep(50); // Delay after remap before next button (fixes stick range issues)
+                        System.Threading.Thread.Sleep(HID_COMMAND_DELAY_MS); // Delay after remap before next button (fixes stick range issues)
                         Logger.Info($"Reset gamepad button {buttonName} to default (cleared then mapped to self: 0x{(byte)button:X2})");
                     }
                     else
@@ -2190,7 +2186,7 @@ namespace XboxGamingBarHelper.Legion
                         if (mappings.Length > 0)
                         {
                             controller.SetGamepadButtonMappingAdvanced(button, mappingType, mappings);
-                            System.Threading.Thread.Sleep(50); // Delay after each mapping for firmware to process
+                            System.Threading.Thread.Sleep(HID_COMMAND_DELAY_MS); // Delay after each mapping for firmware to process
                             Logger.Info($"Applied gamepad button {buttonName} mapping: type={mappingType}, values=[{string.Join(",", mappings.Select(b => $"0x{b:X2}"))}]");
                         }
                     }

@@ -85,7 +85,17 @@ namespace Shared.Data
                     response = property.AddValueSetContent(response);
                     break;
                 case Command.Set:
-                    property.SetValue(request.Message[nameof(Content)], (long)request.Message[nameof(UpdatedTime)]);
+                    // Suppress remote sync to prevent echoing values back to sender
+                    // This prevents message ping-pong loops between widget and helper
+                    property.SuppressRemoteSync = true;
+                    try
+                    {
+                        property.SetValue(request.Message[nameof(Content)], (long)request.Message[nameof(UpdatedTime)]);
+                    }
+                    finally
+                    {
+                        property.SuppressRemoteSync = false;
+                    }
                     response.Add(nameof(Content), "Success");
                     break;
                 default:

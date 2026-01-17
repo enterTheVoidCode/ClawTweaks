@@ -351,6 +351,36 @@ namespace Shared.Data
             }
         }
 
+        [XmlElement("AutoTDPMinTDP")]
+        private int autoTDPMinTDP;
+        public int AutoTDPMinTDP
+        {
+            get { return autoTDPMinTDP; }
+            set
+            {
+                if (autoTDPMinTDP != value)
+                {
+                    autoTDPMinTDP = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("AutoTDPMaxTDP")]
+        private int autoTDPMaxTDP;
+        public int AutoTDPMaxTDP
+        {
+            get { return autoTDPMaxTDP; }
+            set
+            {
+                if (autoTDPMaxTDP != value)
+                {
+                    autoTDPMaxTDP = value;
+                    Save();
+                }
+            }
+        }
+
         [XmlElement("OSPowerMode")]
         private string osPowerMode;
         public string OSPowerMode
@@ -1044,6 +1074,8 @@ namespace Shared.Data
             fpsLimit = 0;
             autoTDPEnabled = false;
             autoTDPTargetFPS = 60;
+            autoTDPMinTDP = 8;
+            autoTDPMaxTDP = 30;
             osPowerMode = null;
             // Additional profile settings (DC overrides)
             fpsLimitDC = null;

@@ -63,20 +63,10 @@ namespace XboxGamingBarHelper
                     Logger.Info("Already running as administrator");
 
                     // If we're admin, ensure the task exists with correct path (create if needed)
-                    if (!TaskExistsWithCorrectPath(exePath))
-                    {
-                        Logger.Info("Creating scheduled task for future launches...");
-                        if (CreateScheduledTask(exePath))
-                        {
-                            Logger.Info("Scheduled task created successfully");
-                        }
-                        else
-                        {
-                            Logger.Warn("Failed to create scheduled task - UAC will be required on future launches");
-                        }
-                    }
+                    // Run this check asynchronously to avoid blocking startup (~7.8s for task creation)
+                    EnsureScheduledTaskAsync(exePath);
 
-                    return true; // Continue with normal execution
+                    return true; // Continue with normal execution immediately
                 }
 
                 Logger.Info($"Not running as administrator, checking for scheduled task. ExePath={exePath}");
@@ -119,6 +109,49 @@ namespace XboxGamingBarHelper
                 Logger.Error(ex, "Error in elevation bootstrapper");
                 return true; // Continue anyway on error
             }
+        }
+
+        /// <summary>
+        /// Asynchronously ensures the scheduled task exists with the correct path.
+        /// Runs in a background thread to avoid blocking startup.
+        /// </summary>
+        private static void EnsureScheduledTaskAsync(string exePath)
+        {
+            // Run task check and creation in background thread
+            Thread taskThread = new Thread(() =>
+            {
+                try
+                {
+                    Logger.Info("Background: Checking scheduled task...");
+                    if (!TaskExistsWithCorrectPath(exePath))
+                    {
+                        Logger.Info("Background: Creating scheduled task for future launches...");
+                        var timer = Stopwatch.StartNew();
+                        if (CreateScheduledTask(exePath))
+                        {
+                            timer.Stop();
+                            Logger.Info($"Background: Scheduled task created successfully in {timer.ElapsedMilliseconds}ms");
+                        }
+                        else
+                        {
+                            Logger.Warn("Background: Failed to create scheduled task - UAC will be required on future launches");
+                        }
+                    }
+                    else
+                    {
+                        Logger.Info("Background: Scheduled task already exists with correct path");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Background: Error ensuring scheduled task: {ex.Message}");
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "ScheduledTaskCreator"
+            };
+            taskThread.Start();
         }
 
         /// <summary>

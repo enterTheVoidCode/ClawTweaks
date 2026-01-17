@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
 using NLog;
+using Windows.Storage;
 
 namespace XboxGamingBarHelper.Labs
 {
@@ -94,6 +95,77 @@ namespace XboxGamingBarHelper.Labs
         // Detected device info
         private ushort _detectedVid = 0;
         private ushort _detectedPid = 0;
+
+        // Cached device path for faster reconnection (persisted to settings)
+        private static string _cachedDevicePath = null;
+        private static readonly object _cacheLock = new object();
+
+        /// <summary>
+        /// Get or set the cached HID device path for faster startup.
+        /// Call LoadCachedDevicePath() at startup and SaveCachedDevicePath() when a device is found.
+        /// </summary>
+        public static string CachedDevicePath
+        {
+            get { lock (_cacheLock) return _cachedDevicePath; }
+            set
+            {
+                lock (_cacheLock)
+                {
+                    _cachedDevicePath = value;
+                    SaveCachedDevicePathToSettings(value);
+                }
+            }
+        }
+
+        private const string CachedDevicePathSettingsKey = "LegionHIDDevicePath";
+
+        /// <summary>
+        /// Load the cached device path from LocalSettings at startup.
+        /// Call this once when the helper starts.
+        /// </summary>
+        public static void LoadCachedDevicePathFromSettings()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                if (settings.Values.ContainsKey(CachedDevicePathSettingsKey))
+                {
+                    string path = settings.Values[CachedDevicePathSettingsKey] as string;
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        lock (_cacheLock)
+                        {
+                            _cachedDevicePath = path;
+                        }
+                        Logger.Info($"LegionButtonMonitor: Loaded cached device path from settings");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"LegionButtonMonitor: Failed to load cached device path: {ex.Message}");
+            }
+        }
+
+        private static void SaveCachedDevicePathToSettings(string path)
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                if (string.IsNullOrEmpty(path))
+                {
+                    settings.Values.Remove(CachedDevicePathSettingsKey);
+                }
+                else
+                {
+                    settings.Values[CachedDevicePathSettingsKey] = path;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"LegionButtonMonitor: Failed to save cached device path: {ex.Message}");
+            }
+        }
 
         // Static timestamp for external output reports (e.g., from LegionGoLibrary brightness commands)
         // This allows other code to notify us when they send HID output reports to the controller
@@ -297,6 +369,53 @@ namespace XboxGamingBarHelper.Labs
                                actionType == LegionButtonAction.RunCommand ? $"Command: {commandPath}" :
                                "Focus GoTweaks";
             Logger.Info($"LegionButtonMonitor: Configured {buttonName} - Enabled: {enabled}, Action: {actionName}");
+
+            // If monitor is already running and we now need ViGEm, create it
+            if (isRunning && NeedsViGEm && vigemController == null)
+            {
+                EnsureViGEmController();
+            }
+        }
+
+        /// <summary>
+        /// Ensures ViGEmController is created and connected if Xbox Guide action is configured.
+        /// Call this after ConfigureButton or when button config changes.
+        /// </summary>
+        public bool EnsureViGEmController()
+        {
+            if (!NeedsViGEm)
+            {
+                return true; // Not needed
+            }
+
+            if (vigemController != null)
+            {
+                return true; // Already exists
+            }
+
+            Logger.Info("LegionButtonMonitor: Creating ViGEmController (Xbox Guide action configured)");
+            vigemController = new ViGEmController();
+            ownsViGEmController = true;
+
+            if (!vigemController.Connect())
+            {
+                Logger.Error("LegionButtonMonitor: Failed to connect to ViGEmBus");
+                vigemController = null;
+                ownsViGEmController = false;
+                return false;
+            }
+
+            if (!vigemController.PlugIn())
+            {
+                Logger.Error("LegionButtonMonitor: Failed to plug in virtual controller");
+                vigemController.Dispose();
+                vigemController = null;
+                ownsViGEmController = false;
+                return false;
+            }
+
+            Logger.Info("LegionButtonMonitor: ViGEmController created and plugged in successfully");
+            return true;
         }
 
         /// <summary>
@@ -367,19 +486,15 @@ namespace XboxGamingBarHelper.Labs
                 }
             }
 
-            // Find and open Legion controller HID device
-            if (!OpenLegionController())
+            // Try to find and open Legion controller HID device
+            // Even if not found initially, start the monitor thread which will retry
+            bool controllerFound = OpenLegionController();
+            if (!controllerFound)
             {
-                Logger.Error("LegionButtonMonitor: Failed to open Legion controller");
-                if (vigemController != null)
-                {
-                    vigemController.Dispose();
-                    vigemController = null;
-                }
-                return false;
+                Logger.Warn("LegionButtonMonitor: Controller not found initially, will retry in background");
             }
 
-            // Start monitoring thread
+            // Start monitoring thread - it will handle reconnection if controller not found
             isRunning = true;
             monitorThread = new Thread(MonitorLoop)
             {
@@ -391,7 +506,14 @@ namespace XboxGamingBarHelper.Labs
             string buttons = "";
             if (legionLEnabled) buttons += "L";
             if (legionREnabled) buttons += (buttons.Length > 0 ? " + R" : "R");
-            Logger.Info($"LegionButtonMonitor: Started monitoring Legion {buttons} button(s)");
+            if (controllerFound)
+            {
+                Logger.Info($"LegionButtonMonitor: Started monitoring Legion {buttons} button(s)");
+            }
+            else
+            {
+                Logger.Info($"LegionButtonMonitor: Started in background for Legion {buttons}, waiting for controller connection");
+            }
             return true;
         }
 
@@ -448,14 +570,15 @@ namespace XboxGamingBarHelper.Labs
             if (isRunning)
                 return true;
 
-            // Find and open Legion controller HID device
-            if (!OpenLegionController())
+            // Try to find and open Legion controller HID device
+            // Even if not found initially, start the monitor thread which will retry
+            bool controllerFound = OpenLegionController();
+            if (!controllerFound)
             {
-                Logger.Warn("LegionButtonMonitor: Failed to open Legion controller for battery monitoring");
-                return false;
+                Logger.Warn("LegionButtonMonitor: Controller not found initially, will retry in background");
             }
 
-            // Start monitoring thread (will only collect battery data since no buttons configured)
+            // Start monitoring thread - it will handle reconnection if controller not found
             isRunning = true;
             monitorThread = new Thread(MonitorLoop)
             {
@@ -464,7 +587,14 @@ namespace XboxGamingBarHelper.Labs
             };
             monitorThread.Start();
 
-            Logger.Info("LegionButtonMonitor: Started for battery monitoring only");
+            if (controllerFound)
+            {
+                Logger.Info("LegionButtonMonitor: Started for battery monitoring only");
+            }
+            else
+            {
+                Logger.Info("LegionButtonMonitor: Started in background, waiting for controller connection");
+            }
             return true;
         }
 
@@ -472,6 +602,34 @@ namespace XboxGamingBarHelper.Labs
         {
             try
             {
+                // Try cached device path first for faster startup
+                string cachedPath = CachedDevicePath;
+                if (!string.IsNullOrEmpty(cachedPath))
+                {
+                    Logger.Info($"LegionButtonMonitor: Trying cached device path first: {cachedPath}");
+                    if (TryOpenDeviceAtPath(cachedPath, out SafeFileHandle cachedHandle, out bool cachedWriteAccess))
+                    {
+                        if (ProbeDeviceFormat(cachedHandle, cachedWriteAccess))
+                        {
+                            hidHandle = cachedHandle;
+                            _hasWriteAccess = cachedWriteAccess;
+                            Logger.Info($"LegionButtonMonitor: Cached device path worked! VID:{_detectedVid:X4} PID:{_detectedPid:X4}");
+                            return true;
+                        }
+                        else
+                        {
+                            Logger.Info("LegionButtonMonitor: Cached device path no longer valid, scanning all devices");
+                            cachedHandle.Close();
+                            CachedDevicePath = null; // Clear invalid cache
+                        }
+                    }
+                    else
+                    {
+                        Logger.Info("LegionButtonMonitor: Cached device path not accessible, scanning all devices");
+                        CachedDevicePath = null; // Clear invalid cache
+                    }
+                }
+
                 HidD_GetHidGuid(out Guid hidGuid);
 
                 IntPtr deviceInfoSet = SetupDiGetClassDevs(
@@ -559,6 +717,10 @@ namespace XboxGamingBarHelper.Labs
                                                 _detectedVid = attrs.VendorID;
                                                 _detectedPid = attrs.ProductID;
                                                 Logger.Info($"LegionButtonMonitor: Selected device #{candidateCount} - VID:{_detectedVid:X4} PID:{_detectedPid:X4} (write: {hasWriteAccess})");
+
+                                                // Cache the successful device path for faster startup next time
+                                                CachedDevicePath = devicePath;
+                                                Logger.Info($"LegionButtonMonitor: Cached device path for future use");
                                                 return true;
                                             }
                                             else
@@ -595,6 +757,75 @@ namespace XboxGamingBarHelper.Labs
             catch (Exception ex)
             {
                 Logger.Error($"LegionButtonMonitor: Exception opening controller: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Try to open a specific HID device at the given path.
+        /// </summary>
+        private bool TryOpenDeviceAtPath(string devicePath, out SafeFileHandle handle, out bool hasWriteAccess)
+        {
+            handle = null;
+            hasWriteAccess = false;
+
+            try
+            {
+                // Try with read + write access first
+                handle = CreateFile(
+                    devicePath,
+                    GENERIC_READ | GENERIC_WRITE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE,
+                    IntPtr.Zero,
+                    OPEN_EXISTING,
+                    FILE_FLAG_OVERLAPPED,
+                    IntPtr.Zero);
+
+                hasWriteAccess = !handle.IsInvalid;
+                if (handle.IsInvalid)
+                {
+                    // Fallback to read-only
+                    handle = CreateFile(
+                        devicePath,
+                        GENERIC_READ,
+                        FILE_SHARE_READ | FILE_SHARE_WRITE,
+                        IntPtr.Zero,
+                        OPEN_EXISTING,
+                        FILE_FLAG_OVERLAPPED,
+                        IntPtr.Zero);
+                }
+
+                if (handle.IsInvalid)
+                {
+                    handle = null;
+                    return false;
+                }
+
+                // Verify VID/PID
+                var attrs = new HIDD_ATTRIBUTES { Size = Marshal.SizeOf<HIDD_ATTRIBUTES>() };
+                if (HidD_GetAttributes(handle, ref attrs))
+                {
+                    if (attrs.VendorID == LEGION_VID &&
+                        (attrs.ProductID == LEGION_GO1_PID || attrs.ProductID == LEGION_GO2_PID))
+                    {
+                        _detectedVid = attrs.VendorID;
+                        _detectedPid = attrs.ProductID;
+                        return true;
+                    }
+                }
+
+                handle.Close();
+                handle = null;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"LegionButtonMonitor: TryOpenDeviceAtPath exception: {ex.Message}");
+                if (handle != null && !handle.IsInvalid)
+                {
+                    handle.Close();
+                }
+                handle = null;
                 return false;
             }
         }
@@ -654,7 +885,7 @@ namespace XboxGamingBarHelper.Labs
         /// <param name="hasWriteAccess">Whether the handle has write access for initialization</param>
         private bool ProbeDeviceFormat(SafeFileHandle handle, bool hasWriteAccess)
         {
-            const uint READ_TIMEOUT_MS = 500; // Timeout per read attempt
+            const uint READ_TIMEOUT_MS = 200; // Reduced timeout per read attempt (was 500ms)
             IntPtr eventHandle = IntPtr.Zero;
             bool initializationAttempted = false;
 
@@ -671,8 +902,8 @@ namespace XboxGamingBarHelper.Labs
                 byte[] buffer = new byte[64];
                 int wrongFormatCount = 0;
 
-                // Try to read up to 10 reports to verify format (more attempts to allow for initialization)
-                for (int attempt = 0; attempt < 10; attempt++)
+                // Reduced from 10 to 5 attempts (still enough for initialization)
+                for (int attempt = 0; attempt < 5; attempt++)
                 {
                     // Reset event before each overlapped operation
                     ResetEvent(eventHandle);
@@ -765,8 +996,8 @@ namespace XboxGamingBarHelper.Labs
                         wrongFormatCount++;
                         Logger.Debug($"LegionButtonMonitor: Probe attempt {attempt + 1} - got {bytesRead} bytes, header: {buffer[0]:X2}:{buffer[1]:X2}:{buffer[2]:X2}");
 
-                        // If we've seen 3+ wrong format reports, this is probably not the right device
-                        if (wrongFormatCount >= 3)
+                        // Reduced from 3 to 2 - fail faster on wrong devices
+                        if (wrongFormatCount >= 2)
                         {
                             Logger.Debug("LegionButtonMonitor: Probe failed - consistently wrong format");
                             return false;
@@ -793,7 +1024,7 @@ namespace XboxGamingBarHelper.Labs
 
         /// <summary>
         /// Attempts to reconnect to the Legion controller after disconnection.
-        /// Also ensures ViGEm controller is still valid if Xbox Guide action is configured.
+        /// Also ensures ViGEm controller is created if Xbox Guide action is configured.
         /// </summary>
         private bool TryReconnect()
         {
@@ -815,6 +1046,36 @@ namespace XboxGamingBarHelper.Labs
                 // Reset button states on reconnect
                 lastLegionLState = false;
                 lastLegionRState = false;
+
+                // Create ViGEm controller if needed but not yet created
+                // This handles the case where monitor was started for battery only,
+                // then button config was added later with Xbox Guide action
+                if (NeedsViGEm && vigemController == null)
+                {
+                    Logger.Info("LegionButtonMonitor: Creating ViGEmController on reconnect (Xbox Guide action configured)");
+                    vigemController = new ViGEmController();
+                    ownsViGEmController = true;
+                    if (vigemController.Connect())
+                    {
+                        if (vigemController.PlugIn())
+                        {
+                            Logger.Info("LegionButtonMonitor: ViGEmController created and plugged in successfully");
+                        }
+                        else
+                        {
+                            Logger.Warn("LegionButtonMonitor: Failed to plug in ViGEmController on reconnect");
+                            vigemController.Dispose();
+                            vigemController = null;
+                            ownsViGEmController = false;
+                        }
+                    }
+                    else
+                    {
+                        Logger.Warn("LegionButtonMonitor: Failed to connect ViGEmController on reconnect");
+                        vigemController = null;
+                        ownsViGEmController = false;
+                    }
+                }
 
                 return true;
             }
@@ -1001,12 +1262,15 @@ namespace XboxGamingBarHelper.Labs
                             {
                                 if (hasValidReportHeader)
                                 {
-                                    int batteryOffset = isDetachedMode ? 5 : 3;
-                                    int connOffset = isDetachedMode ? 12 : 10;
+                                    // With heartbeat always active, we use 04:00:A1 header format
+                                    // Battery at bytes 3-6, connection status at bytes 10-11
+                                    int batteryOffset = 3;
+                                    int connOffset = 10;
 
-                                    // Check connection status: 0x01 = not connected
-                                    bool leftConnected = buffer[connOffset] != 0x01;
-                                    bool rightConnected = buffer[connOffset + 1] != 0x01;
+                                    // Connection status: 0x01=Off, 0x02=Attached, 0x03=Detached
+                                    // Only 0x02 means the controller is actually connected
+                                    bool leftConnected = buffer[connOffset] == 0x02;
+                                    bool rightConnected = buffer[connOffset + 1] == 0x02;
 
                                     // Battery value (1-100), or -1 if not connected
                                     int leftBattery = leftConnected ? buffer[batteryOffset] : -1;
