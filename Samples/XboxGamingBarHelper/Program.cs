@@ -446,42 +446,74 @@ namespace XboxGamingBarHelper
             //    await Task.Delay(500);
             //}
 
-            // ALL MANAGERS RE-ENABLED - LibreHardwareMonitor sensors disabled in PerformanceManager
-            var perfTimer = System.Diagnostics.Stopwatch.StartNew();
-            Logger.Info("Initialize Performance Manager.");
-            performanceManager = new PerformanceManager(connection);
-            perfTimer.Stop();
-            Logger.Info($"[TIMING] PerformanceManager: {perfTimer.ElapsedMilliseconds}ms");
-            var otherManagersTimer = System.Diagnostics.Stopwatch.StartNew();
-            var mgr = System.Diagnostics.Stopwatch.StartNew();
-            Logger.Info("Initialize RTSS Manager.");
-            rtssManager = new RTSSManager(performanceManager, connection);
-            Logger.Info($"[TIMING] RTSSManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
-            Logger.Info("Initialize Profile Manager.");
-            profileManager = new ProfileManager(connection);
-            Logger.Info($"[TIMING] ProfileManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
-            Logger.Info("Initialize System Manager.");
-            systemManager = new SystemManager(connection, profileManager.GameProfiles);
-            Logger.Info($"[TIMING] SystemManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
-            Logger.Info("Initialize Power Manager.");
-            powerManager = new PowerManager(connection, performanceManager.RyzenAdjHandle);
-            Logger.Info($"[TIMING] PowerManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
-            Logger.Info("Initialize AMD Manager.");
-            amdManager = new AMDManager(connection);
-            Logger.Info($"[TIMING] AMDManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
-            Logger.Info("Initialize Lossless Scaling Manager.");
-            losslessScalingManager = new LosslessScalingManager(connection);
-            Logger.Info($"[TIMING] LosslessScalingManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
-            settingsManager = SettingsManager.CreateInstance(connection);
-            Logger.Info($"[TIMING] SettingsManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
-            Logger.Info("Initialize Legion Manager.");
-            legionManager = new LegionManager(connection);
-            Logger.Info($"[TIMING] LegionManager: {mgr.ElapsedMilliseconds}ms"); mgr.Restart();
-            Logger.Info("Initialize AutoTDP Manager.");
+            // PARALLEL MANAGER INITIALIZATION - Wave-based to respect dependencies
+            var totalTimer = System.Diagnostics.Stopwatch.StartNew();
+            Logger.Info("Initialize managers (parallel waves)...");
+
+            // Wave 1: Independent managers (no dependencies) - run in parallel
+            var wave1Timer = System.Diagnostics.Stopwatch.StartNew();
+            Logger.Info("Wave 1: PerformanceManager, ProfileManager, AMDManager, LosslessScalingManager, SettingsManager, LegionManager");
+
+            PerformanceManager tempPerfMgr = null;
+            ProfileManager tempProfileMgr = null;
+            AMDManager tempAmdMgr = null;
+            LosslessScalingManager tempLosslessMgr = null;
+            SettingsManager tempSettingsMgr = null;
+            LegionManager tempLegionMgr = null;
+
+            var wave1Tasks = new[]
+            {
+                Task.Run(() => { tempPerfMgr = new PerformanceManager(connection); }),
+                Task.Run(() => { tempProfileMgr = new ProfileManager(connection); }),
+                Task.Run(() => { tempAmdMgr = new AMDManager(connection); }),
+                Task.Run(() => { tempLosslessMgr = new LosslessScalingManager(connection); }),
+                Task.Run(() => { tempSettingsMgr = SettingsManager.CreateInstance(connection); }),
+                Task.Run(() => { tempLegionMgr = new LegionManager(connection); })
+            };
+            Task.WaitAll(wave1Tasks);
+
+            performanceManager = tempPerfMgr;
+            profileManager = tempProfileMgr;
+            amdManager = tempAmdMgr;
+            losslessScalingManager = tempLosslessMgr;
+            settingsManager = tempSettingsMgr;
+            legionManager = tempLegionMgr;
+
+            wave1Timer.Stop();
+            Logger.Info($"[TIMING] Wave 1 (parallel): {wave1Timer.ElapsedMilliseconds}ms");
+
+            // Wave 2: Managers that depend on Wave 1 - run in parallel
+            var wave2Timer = System.Diagnostics.Stopwatch.StartNew();
+            Logger.Info("Wave 2: RTSSManager, SystemManager, PowerManager");
+
+            RTSSManager tempRtssMgr = null;
+            SystemManager tempSystemMgr = null;
+            PowerManager tempPowerMgr = null;
+
+            var wave2Tasks = new[]
+            {
+                Task.Run(() => { tempRtssMgr = new RTSSManager(performanceManager, connection); }),
+                Task.Run(() => { tempSystemMgr = new SystemManager(connection, profileManager.GameProfiles); }),
+                Task.Run(() => { tempPowerMgr = new PowerManager(connection, performanceManager.RyzenAdjHandle); })
+            };
+            Task.WaitAll(wave2Tasks);
+
+            rtssManager = tempRtssMgr;
+            systemManager = tempSystemMgr;
+            powerManager = tempPowerMgr;
+
+            wave2Timer.Stop();
+            Logger.Info($"[TIMING] Wave 2 (parallel): {wave2Timer.ElapsedMilliseconds}ms");
+
+            // Wave 3: Managers that depend on Wave 2
+            var wave3Timer = System.Diagnostics.Stopwatch.StartNew();
+            Logger.Info("Wave 3: AutoTDPManager");
             autoTDPManager = new AutoTDPManager(connection, performanceManager, systemManager);
-            Logger.Info($"[TIMING] AutoTDPManager: {mgr.ElapsedMilliseconds}ms");
-            otherManagersTimer.Stop();
-            Logger.Info($"[TIMING] Other managers total: {otherManagersTimer.ElapsedMilliseconds}ms");
+            wave3Timer.Stop();
+            Logger.Info($"[TIMING] Wave 3: {wave3Timer.ElapsedMilliseconds}ms");
+
+            totalTimer.Stop();
+            Logger.Info($"[TIMING] All managers total (parallel): {totalTimer.ElapsedMilliseconds}ms");
 
             // Initialize DefaultGameProfileManager in background - not needed for initial UI
             // Deferred to avoid blocking startup - DGP only kicks in when a game is running
@@ -524,6 +556,9 @@ namespace XboxGamingBarHelper
             {
                 try
                 {
+                    // Load cached HID device path for faster startup
+                    LegionButtonMonitor.LoadCachedDevicePathFromSettings();
+
                     legionButtonMonitor = new LegionButtonMonitor();
                     legionButtonMonitor.BatteryUpdated += (sender, e) =>
                     {
@@ -844,6 +879,15 @@ namespace XboxGamingBarHelper
                 legionManager.LegionPowerLight.PropertyChanged += LegionControllerSetting_PropertyChanged;
             }
 
+            // AutoTDP settings (per-game AutoTDP profiles)
+            if (autoTDPManager != null)
+            {
+                autoTDPManager.Enabled.PropertyChanged += AutoTDPSetting_PropertyChanged;
+                autoTDPManager.TargetFPS.PropertyChanged += AutoTDPSetting_PropertyChanged;
+                autoTDPManager.MinTDP.PropertyChanged += AutoTDPSetting_PropertyChanged;
+                autoTDPManager.MaxTDP.PropertyChanged += AutoTDPSetting_PropertyChanged;
+            }
+
             initTimer.Stop();
             Logger.Info($"[TIMING] Helper initialization (before connect): {initTimer.ElapsedMilliseconds}ms");
 
@@ -865,7 +909,26 @@ namespace XboxGamingBarHelper
             // Load and apply Legion button remap settings from LocalSettings
             LoadLegionButtonRemapSettings();
 
+            // Apply AutoTDP settings from current profile after widget sync
+            // This ensures profile values override any stale LocalSettings sent by widget during initial connection
+            if (profileManager?.CurrentProfile != null)
+            {
+                Logger.Info($"Applying AutoTDP settings from profile on startup: {profileManager.CurrentProfile.GameId.Name}");
+                ApplyAutoTDPSettingsFromProfile();
+            }
+
             Logger.Info($"[TIMING] Helper fully initialized and ready");
+
+            // Log version number for easier debugging
+            try
+            {
+                var packageVersion = Package.Current.Id.Version;
+                Logger.Info($"GoTweaks Helper v{packageVersion.Major}.{packageVersion.Minor}.{packageVersion.Build}.{packageVersion.Revision}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Could not get package version: {ex.Message}");
+            }
 
             // Main loop - helper runs until cancelled (service stop) or shutdown
             while (!_isShuttingDown)
@@ -1175,6 +1238,43 @@ namespace XboxGamingBarHelper
             }
         }
 
+        private static void AutoTDPSetting_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            // Skip during profile application to prevent cross-contamination
+            if (isApplyingProfile)
+            {
+                Logger.Debug("Skipping AutoTDPSetting_PropertyChanged - already applying profile");
+                return;
+            }
+
+            if (profileManager?.CurrentProfile == null || autoTDPManager == null)
+                return;
+
+            var profileName = profileManager.CurrentProfile.GameId.Name;
+
+            // Save the AutoTDP setting to the current profile (global or per-game)
+            if (sender == autoTDPManager.Enabled)
+            {
+                Logger.Info($"Saving AutoTDPEnabled to profile {profileName}");
+                profileManager.CurrentProfile.AutoTDPEnabled = autoTDPManager.Enabled.Value;
+            }
+            else if (sender == autoTDPManager.TargetFPS)
+            {
+                Logger.Info($"Saving AutoTDPTargetFPS to profile {profileName}");
+                profileManager.CurrentProfile.AutoTDPTargetFPS = autoTDPManager.TargetFPS.Value;
+            }
+            else if (sender == autoTDPManager.MinTDP)
+            {
+                Logger.Info($"Saving AutoTDPMinTDP to profile {profileName}");
+                profileManager.CurrentProfile.AutoTDPMinTDP = autoTDPManager.MinTDP.Value;
+            }
+            else if (sender == autoTDPManager.MaxTDP)
+            {
+                Logger.Info($"Saving AutoTDPMaxTDP to profile {profileName}");
+                profileManager.CurrentProfile.AutoTDPMaxTDP = autoTDPManager.MaxTDP.Value;
+            }
+        }
+
         private static void ApplyLegionControllerSettingsFromProfile()
         {
             var profile = profileManager.CurrentProfile;
@@ -1376,6 +1476,30 @@ namespace XboxGamingBarHelper
             }
         }
 
+        private static void ApplyAutoTDPSettingsFromProfile()
+        {
+            if (profileManager?.CurrentProfile == null || autoTDPManager == null)
+                return;
+
+            var profile = profileManager.CurrentProfile;
+            var profileName = profile.GameId.Name;
+
+            Logger.Info($"Applying AutoTDP settings from profile: {profileName}");
+
+            // Apply AutoTDP settings from profile
+            Logger.Debug($"Applying AutoTDPEnabled: {profile.AutoTDPEnabled}");
+            autoTDPManager.Enabled.SetValue(profile.AutoTDPEnabled);
+
+            Logger.Debug($"Applying AutoTDPTargetFPS: {profile.AutoTDPTargetFPS}");
+            autoTDPManager.TargetFPS.SetValue(profile.AutoTDPTargetFPS);
+
+            Logger.Debug($"Applying AutoTDPMinTDP: {profile.AutoTDPMinTDP}");
+            autoTDPManager.MinTDP.SetValue(profile.AutoTDPMinTDP);
+
+            Logger.Debug($"Applying AutoTDPMaxTDP: {profile.AutoTDPMaxTDP}");
+            autoTDPManager.MaxTDP.SetValue(profile.AutoTDPMaxTDP);
+        }
+
         private static void CurrentProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             // Use lock to ensure atomic profile application and prevent interleaved settings
@@ -1412,7 +1536,18 @@ namespace XboxGamingBarHelper
                             }
                             else
                             {
-                                Logger.Debug($"Per-game profile has no saved LegionPerformanceMode, keeping current mode");
+                                // Profile has no saved LegionPerformanceMode - auto-switch to Custom mode (255)
+                                // if not already in Custom mode, so that custom TDP values can be applied
+                                int currentMode = legionManager.LegionPerformanceMode.Value;
+                                if (currentMode != 255)
+                                {
+                                    Logger.Info($"Per-game profile has no saved LegionPerformanceMode, auto-switching to Custom mode (was {currentMode}) to enable TDP control");
+                                    legionManager.LegionPerformanceMode.SetValue(255);
+                                }
+                                else
+                                {
+                                    Logger.Debug($"Per-game profile has no saved LegionPerformanceMode, already in Custom mode");
+                                }
                             }
                         }
 
@@ -1431,6 +1566,9 @@ namespace XboxGamingBarHelper
                         {
                             ApplyLegionControllerSettingsFromProfile();
                         }
+
+                        // Apply AutoTDP settings from profile
+                        ApplyAutoTDPSettingsFromProfile();
                     }
                     finally
                     {
@@ -1465,6 +1603,21 @@ namespace XboxGamingBarHelper
                     }
                     Logger.Info($"Enable per-game profile for {systemManager.RunningGame.Value.GameId}");
                     gameProfile.Use = true;
+
+                    // Disable DefaultGameProfile when per-game profile is enabled
+                    if (defaultGameProfileManager != null && defaultGameProfileManager.ProfileEnabled.Value)
+                    {
+                        Logger.Info("Disabling DefaultGameProfile since per-game profile is now enabled");
+                        defaultGameProfileManager.ProfileEnabled.SetValue(false);
+                    }
+
+                    // Auto-switch to Custom TDP mode (255) when enabling per-game profile
+                    // This allows the user to customize TDP for this game
+                    if (legionManager != null && legionManager.LegionPerformanceMode.Value != 255)
+                    {
+                        Logger.Info("Switching to Custom TDP mode for per-game profile editing");
+                        legionManager.LegionPerformanceMode.SetValue(255);
+                    }
                 }
                 else
                 {
@@ -1569,6 +1722,41 @@ namespace XboxGamingBarHelper
                 {
                     Logger.Info($"Stopped playing game, use global profile instead.");
                     profileManager.CurrentProfile.SetValue(profileManager.GlobalProfile);
+
+                    // Apply global profile settings directly (handler is skipped because isApplyingProfile=true)
+                    Logger.Info($"Applying global profile settings: TDP={profileManager.GlobalProfile.TDP}, CPUBoost={profileManager.GlobalProfile.CPUBoost}, EPP={profileManager.GlobalProfile.CPUEPP}");
+
+                    // Restore LegionPerformanceMode from global profile if set
+                    if (legionManager != null)
+                    {
+                        int? savedMode = profileManager.GlobalProfile.LegionPerformanceMode;
+                        if (savedMode.HasValue)
+                        {
+                            int currentMode = legionManager.LegionPerformanceMode.Value;
+                            if (currentMode != savedMode.Value)
+                            {
+                                Logger.Info($"Restoring global profile performance mode ({savedMode.Value}) (was {currentMode})");
+                                legionManager.LegionPerformanceMode.SetValue(savedMode.Value);
+                            }
+                        }
+                    }
+
+                    performanceManager.TDP.SetProfileValue(profileManager.GlobalProfile.TDP);
+                    performanceManager.TDPBoostEnabled.SetValue(profileManager.GlobalProfile.TDPBoostEnabled);
+                    powerManager.CPUBoost.SetValue(profileManager.GlobalProfile.CPUBoost);
+                    powerManager.CPUEPP.SetValue(profileManager.GlobalProfile.CPUEPP);
+                    powerManager.MaxCPUState.SetValue(profileManager.GlobalProfile.MaxCPUState);
+                    powerManager.MinCPUState.SetValue(profileManager.GlobalProfile.MinCPUState);
+                    profileManager.PerGameProfile.SetValue(false);
+
+                    // Apply Legion controller settings from global profile
+                    if (legionManager != null)
+                    {
+                        ApplyLegionControllerSettingsFromProfile();
+                    }
+
+                    // Apply AutoTDP settings from global profile
+                    ApplyAutoTDPSettingsFromProfile();
 
                     // Reset Lossless Scaling to Default profile when game stops
                     if (losslessScalingManager.LosslessScalingInstalled.Value)

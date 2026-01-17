@@ -53,14 +53,30 @@ namespace XboxGamingBar.Data
                 // Also check string values (from BatchGet) - "{}" or empty XML means no valid game
                 else if (newValue is string xmlString)
                 {
-                    // Reject empty JSON objects or empty/minimal XML that won't deserialize to a valid game
+                    // Reject completely invalid data (not proper XML at all)
                     if (string.IsNullOrWhiteSpace(xmlString) ||
                         xmlString == "{}" ||
-                        xmlString == "null" ||
-                        !xmlString.Contains("<Name>") ||
-                        !xmlString.Contains("<ProcessId>"))
+                        xmlString == "null")
                     {
-                        Logger.Info($"Rejecting invalid RunningGame XML during batch sync - preserving current: {Value.GameId.Name}");
+                        Logger.Info($"Rejecting invalid RunningGame data during batch sync - preserving current: {Value.GameId.Name}");
+                        return false;
+                    }
+
+                    // Check if this is a valid "game closed" notification (ProcessId=0 or empty Name)
+                    // These should be ACCEPTED to properly clear the game state
+                    bool isGameClosedNotification = xmlString.Contains("<ProcessId>0</ProcessId>") ||
+                                                    xmlString.Contains("<Name />") ||
+                                                    xmlString.Contains("<Name/>");
+
+                    if (isGameClosedNotification)
+                    {
+                        Logger.Info($"Accepting game-close notification during batch sync (was: {Value.GameId.Name})");
+                        // Don't reject - let this through to clear the game state
+                    }
+                    // Reject XML that doesn't have proper structure (missing required tags entirely)
+                    else if (!xmlString.Contains("<Name") || !xmlString.Contains("<ProcessId"))
+                    {
+                        Logger.Info($"Rejecting malformed RunningGame XML during batch sync - preserving current: {Value.GameId.Name}");
                         return false;
                     }
                 }
