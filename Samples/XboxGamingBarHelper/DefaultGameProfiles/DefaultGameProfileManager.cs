@@ -182,12 +182,23 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
                 ProfileAvailable.SetValue(true);
                 ProfileData.SetValue(XmlHelper.ToXMLString(profile, true));
 
-                // Determine if should auto-enable
+                // Check if game has a per-game profile with Use=true - if so, don't auto-enable default profile
+                bool hasActivePerGameProfile = false;
+                if (_profileManager != null && _profileManager.TryGetProfile(runningGame.GameId, out var perGameProfile))
+                {
+                    if (perGameProfile.Use)
+                    {
+                        hasActivePerGameProfile = true;
+                        Logger.Info($"DefaultGameProfileManager: Per-game profile exists and is in use - skipping default profile auto-enable");
+                    }
+                }
+
+                // Determine if should auto-enable (skip if per-game profile is active)
                 var isOnBattery = IsOnBattery();
                 var userPref = GetUserPreference();
-                var shouldEnable = _service.ShouldAutoEnable(userPref, isOnBattery);
+                var shouldEnable = !hasActivePerGameProfile && _service.ShouldAutoEnable(userPref, isOnBattery);
 
-                Logger.Info($"DefaultGameProfileManager: Auto-enable decision: isOnBattery={isOnBattery}, userPref={userPref}, shouldEnable={shouldEnable}");
+                Logger.Info($"DefaultGameProfileManager: Auto-enable decision: isOnBattery={isOnBattery}, userPref={userPref}, hasActivePerGameProfile={hasActivePerGameProfile}, shouldEnable={shouldEnable}");
 
                 // Use ForceSetValue to ensure the value is always sent to widget, even if unchanged
                 ProfileEnabled.ForceSetValue(shouldEnable);

@@ -254,7 +254,78 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // You can perform whatever behavior you need based on the URI payload.
+                    // Subsequent activation from Game Bar
+                    // Check if we're running in app mode (no Game Bar widget) and should upgrade to widget mode
+                    Logger.Info($"Subsequent Game Bar activation received. AppExtensionId: {widgetArgs.AppExtensionId}");
+
+                    if (widgetArgs.AppExtensionId == "GamingWidget" && gamingXboxGameBarWidget == null)
+                    {
+                        Logger.Info("Running in app mode but received Game Bar activation. Attempting to upgrade to widget mode.");
+
+                        // Get the existing frame or create a new one
+                        var rootFrame = Window.Current.Content as Frame;
+                        if (rootFrame == null)
+                        {
+                            rootFrame = new Frame();
+                            rootFrame.NavigationFailed += OnNavigationFailed;
+                            Window.Current.Content = rootFrame;
+                        }
+
+                        try
+                        {
+                            // Create the Game Bar widget object
+                            gamingXboxGameBarWidget = new XboxGameBarWidget(widgetArgs, Window.Current.CoreWindow, rootFrame);
+                            Logger.Info("XboxGameBarWidget created successfully from subsequent activation.");
+
+                            // Re-navigate to inject the widget context
+                            rootFrame.Navigate(typeof(GamingWidget), gamingXboxGameBarWidget);
+                            gamingWidget = rootFrame.Content as GamingWidget;
+
+                            Window.Current.Closed -= GamingWidgetWindow_Closed; // Remove if already registered
+                            Window.Current.Closed += GamingWidgetWindow_Closed;
+
+                            Window.Current.Activate();
+                            Logger.Info("Successfully upgraded from app mode to Game Bar widget mode.");
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"Failed to upgrade to widget mode: {ex.Message}");
+                            Logger.Error($"Stack trace: {ex.StackTrace}");
+                        }
+                    }
+                    else if (widgetArgs.AppExtensionId == "GamingWidgetSettings" && gamingSettingsXboxGameBarWidget == null)
+                    {
+                        Logger.Info("Running in app mode but received Game Bar settings activation. Attempting to upgrade.");
+
+                        var rootFrame = Window.Current.Content as Frame;
+                        if (rootFrame == null)
+                        {
+                            rootFrame = new Frame();
+                            rootFrame.NavigationFailed += OnNavigationFailed;
+                            Window.Current.Content = rootFrame;
+                        }
+
+                        try
+                        {
+                            gamingSettingsXboxGameBarWidget = new XboxGameBarWidget(widgetArgs, Window.Current.CoreWindow, rootFrame);
+                            rootFrame.Navigate(typeof(GamingWidgetSettings), gamingSettingsXboxGameBarWidget);
+                            gamingWidgetSettings = rootFrame.Content as GamingWidgetSettings;
+
+                            Window.Current.Closed -= GamingSettingsWidgetWindow_Closed;
+                            Window.Current.Closed += GamingSettingsWidgetWindow_Closed;
+
+                            Window.Current.Activate();
+                            Logger.Info("Successfully upgraded settings to Game Bar widget mode.");
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"Failed to upgrade settings to widget mode: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        Logger.Info($"Subsequent activation ignored. gamingXboxGameBarWidget is null: {gamingXboxGameBarWidget == null}");
+                    }
                 }
             }
         }

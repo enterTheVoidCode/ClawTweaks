@@ -58,6 +58,22 @@ namespace XboxGamingBar.Data
             Logger.Info($"[TIMING] Individual sync {count} properties: {syncTimer.ElapsedMilliseconds}ms ({syncTimer.ElapsedMilliseconds / Math.Max(1, count)}ms avg)");
         }
 
+        // Properties that should NOT be synced from helper during initial startup.
+        // Widget loads these from saved profiles first, so helper's values would be stale/defaults.
+        // After initial sync, these ARE synced (e.g., when reconnecting, helper has current state).
+        private static readonly HashSet<Function> LightingProperties = new HashSet<Function>
+        {
+            Function.LegionLightMode,
+            Function.LegionLightColor,
+            Function.LegionLightBrightness,
+            Function.LegionLightSpeed,
+            Function.LegionPowerLight
+        };
+
+        // Set to true during initial startup to skip lighting sync (widget loaded from profiles)
+        // After first sync, this is cleared so subsequent syncs include lighting from helper
+        public bool SkipLightingSyncOnce { get; set; } = true;
+
         /// <summary>
         /// Attempt to sync all properties in a single batch request.
         /// </summary>
@@ -73,10 +89,25 @@ namespace XboxGamingBar.Data
 
                 // Build list of function IDs to request as JSON array
                 var jsonArray = new JsonArray();
+                bool skipLighting = SkipLightingSyncOnce;
+                if (skipLighting)
+                {
+                    Logger.Info("Skipping lighting properties in batch sync (initial startup - widget loaded from profiles)");
+                }
+
                 foreach (var prop in properties.Values)
                 {
+                    // Skip lighting on initial sync only (widget is source of truth from profiles)
+                    // Subsequent syncs include lighting (helper may have applied game profiles)
+                    if (skipLighting && LightingProperties.Contains(prop.Function))
+                    {
+                        continue;
+                    }
                     jsonArray.Add(JsonValue.CreateNumberValue((int)prop.Function));
                 }
+
+                // Clear the skip flag after this sync
+                SkipLightingSyncOnce = false;
 
                 // Create batch request
                 var request = new ValueSet

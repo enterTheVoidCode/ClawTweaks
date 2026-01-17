@@ -580,6 +580,8 @@ namespace XboxGamingBar
         private static DateTime lastLaunchAttempt = DateTime.MinValue;
         private const int MinLaunchIntervalMs = 10000; // 10 seconds between launch attempts
         private const int HeartbeatStaleThresholdSeconds = 5;
+        private const int ReconnectionTimeoutSeconds = 5;
+        private DispatcherTimer reconnectionTimeoutTimer = null;
 
         // Properties
         private readonly OSDProperty osd;
@@ -820,6 +822,8 @@ namespace XboxGamingBar
         private ControllerProfile gameControllerProfile = new ControllerProfile();
         private bool isLoadingControllerProfile = false;
         private bool isSwitchingControllerProfile = false;
+        private DateTime lastProfileApplyTime = DateTime.MinValue; // Prevents duplicate sends from queued UI events
+        private string lastSentGamepadMappingsJson = null; // Tracks last sent mappings to avoid duplicates
 
         // Helper to check if we have a valid game (not null, not empty, not "No game detected")
         private bool HasValidGame(string gameName)
@@ -2233,46 +2237,54 @@ namespace XboxGamingBar
                     // Auto-enable if profile exists and user hasn't disabled it
                     if (hasExistingControllerProfile && !userDisabledProfile)
                     {
-                        isSwitchingControllerProfile = true;
-                        try
+                        if (!LegionControllerProfileToggle.IsOn)
                         {
-                            if (!LegionControllerProfileToggle.IsOn)
-                            {
-                                LegionControllerProfileToggle.IsOn = true;
-                            }
-                            LoadControllerProfileFromStorage($"Game_{newGameName}", gameControllerProfile);
-                            ApplyControllerProfile(gameControllerProfile);
+                            // Setting toggle to true triggers LegionControllerProfileToggle_Toggled
+                            // which handles loading and applying the profile
+                            LegionControllerProfileToggle.IsOn = true;
                             Logger.Info($"Auto-enabled controller profile for {newGameName}");
                         }
-                        finally
+                        else
                         {
-                            isSwitchingControllerProfile = false;
-                        }
-                    }
-                    else if (LegionControllerProfileToggle.IsOn)
-                    {
-                        // Toggle was on for previous game - only keep it on if new game has existing profile
-                        isSwitchingControllerProfile = true;
-                        try
-                        {
-                            if (!hasExistingControllerProfile)
-                            {
-                                // No profile for new game - turn off toggle instead of auto-creating
-                                LegionControllerProfileToggle.IsOn = false;
-                                LoadControllerProfileFromStorage("Global", globalControllerProfile);
-                                ApplyControllerProfile(globalControllerProfile);
-                                Logger.Info($"Disabled controller profile toggle for {newGameName} (no existing profile)");
-                            }
-                            else
+                            // Toggle already on, need to switch to new game's profile
+                            isSwitchingControllerProfile = true;
+                            try
                             {
                                 LoadControllerProfileFromStorage($"Game_{newGameName}", gameControllerProfile);
                                 ApplyControllerProfile(gameControllerProfile);
                                 Logger.Info($"Switched to controller profile for {newGameName}");
                             }
+                            finally
+                            {
+                                isSwitchingControllerProfile = false;
+                            }
                         }
-                        finally
+                    }
+                    else if (LegionControllerProfileToggle.IsOn)
+                    {
+                        // Toggle was on for previous game - only keep it on if new game has existing profile
+                        if (!hasExistingControllerProfile)
                         {
-                            isSwitchingControllerProfile = false;
+                            // No profile for new game - turn off toggle instead of auto-creating
+                            // Setting toggle to false triggers LegionControllerProfileToggle_Toggled
+                            // which handles switching to global profile
+                            LegionControllerProfileToggle.IsOn = false;
+                            Logger.Info($"Disabled controller profile toggle for {newGameName} (no existing profile)");
+                        }
+                        else
+                        {
+                            // Profile exists, switch to it
+                            isSwitchingControllerProfile = true;
+                            try
+                            {
+                                LoadControllerProfileFromStorage($"Game_{newGameName}", gameControllerProfile);
+                                ApplyControllerProfile(gameControllerProfile);
+                                Logger.Info($"Switched to controller profile for {newGameName}");
+                            }
+                            finally
+                            {
+                                isSwitchingControllerProfile = false;
+                            }
                         }
                     }
                 }
@@ -2818,6 +2830,8 @@ namespace XboxGamingBar
             if (isApplyingHelperUpdate) return;
             // Skip during mode changes - don't save forced-off state
             if (isUpdatingTDPMode) return;
+            // Skip during AutoTDP settings load to prevent overwriting saved values
+            if (isLoadingAutoTDPSettings) return;
 
             Logger.Info($"AutoTDP toggled to: {AutoTDPToggle.IsOn}");
 
@@ -7773,28 +7787,34 @@ namespace XboxGamingBar
                 }
                 if (SaveAutoTDP)
                 {
-                    AutoTDPToggle.IsOn = profile.AutoTDPEnabled;
-                    AutoTDPTargetFPSSlider.Value = profile.AutoTDPTargetFPS;
-                    AutoTDPMinSlider.Value = profile.AutoTDPMinTDP;
-                    AutoTDPMaxSlider.Value = profile.AutoTDPMaxTDP;
-                    // Update text displays explicitly
-                    if (AutoTDPTargetFPSValue != null)
+                    // Set loading flag to prevent toggled event from sending to helper
+                    isLoadingAutoTDPSettings = true;
+                    try
                     {
-                        AutoTDPTargetFPSValue.Text = $"{profile.AutoTDPTargetFPS} FPS";
+                        AutoTDPToggle.IsOn = profile.AutoTDPEnabled;
+                        AutoTDPTargetFPSSlider.Value = profile.AutoTDPTargetFPS;
+                        AutoTDPMinSlider.Value = profile.AutoTDPMinTDP;
+                        AutoTDPMaxSlider.Value = profile.AutoTDPMaxTDP;
+                        // Update text displays explicitly
+                        if (AutoTDPTargetFPSValue != null)
+                        {
+                            AutoTDPTargetFPSValue.Text = $"{profile.AutoTDPTargetFPS} FPS";
+                        }
+                        if (AutoTDPMinValue != null)
+                        {
+                            AutoTDPMinValue.Text = $"{profile.AutoTDPMinTDP}W";
+                        }
+                        if (AutoTDPMaxValue != null)
+                        {
+                            AutoTDPMaxValue.Text = $"{profile.AutoTDPMaxTDP}W";
+                        }
+                        // NOTE: Do NOT send to helper here - helper is source of truth for profile values
+                        // Helper will apply profile values and sync back to widget
                     }
-                    if (AutoTDPMinValue != null)
+                    finally
                     {
-                        AutoTDPMinValue.Text = $"{profile.AutoTDPMinTDP}W";
+                        isLoadingAutoTDPSettings = false;
                     }
-                    if (AutoTDPMaxValue != null)
-                    {
-                        AutoTDPMaxValue.Text = $"{profile.AutoTDPMaxTDP}W";
-                    }
-                    // Send to helper explicitly (toggle/slider handlers may be blocked by flags)
-                    autoTDPEnabled?.SetValue(profile.AutoTDPEnabled);
-                    autoTDPTargetFPS?.SetValue(profile.AutoTDPTargetFPS);
-                    autoTDPMinTDP?.SetValue(profile.AutoTDPMinTDP);
-                    autoTDPMaxTDP?.SetValue(profile.AutoTDPMaxTDP);
                 }
                 if (SaveOSPowerMode)
                 {
@@ -9000,8 +9020,15 @@ namespace XboxGamingBar
 
                 Logger.Info($"Applied controller profile: Y1={FormatButtonMapping(profile.ButtonY1)}, Y2={FormatButtonMapping(profile.ButtonY2)}, Y3={FormatButtonMapping(profile.ButtonY3)}, M1={FormatButtonMapping(profile.ButtonM1)}, M2={FormatButtonMapping(profile.ButtonM2)}, M3={FormatButtonMapping(profile.ButtonM3)}, Nintendo={profile.NintendoLayout}, Vib={profile.VibrationLevel}, VibMode={profile.VibrationMode}, GyroTarget={profile.GyroTarget}, LDZ={profile.LeftStickDeadzone}, RDZ={profile.RightStickDeadzone}, GamepadMappings={profile.GamepadButtonMappings?.Count ?? 0}, DesktopControls={profile.DesktopControlsEnabled}, LightMode={profile.LightMode}");
 
+                // Set timestamp BEFORE sending to prevent any queued events from causing duplicate sends
+                // Use 2 second window since HID commands take ~1.5s to complete (50ms per button × ~30 buttons)
+                lastProfileApplyTime = DateTime.Now;
+
                 // Send button mappings to helper
                 SendButtonMappingsToHelper(profile);
+
+                // Send controller settings to helper (gyro, deadzone, vibration, triggers)
+                SendControllerSettingsToHelper(profile);
 
                 // Send lighting settings to helper
                 SendLightingToHelper(profile);
@@ -9153,6 +9180,10 @@ namespace XboxGamingBar
             if (isLoadingControllerProfile || isSwitchingControllerProfile || isUnloading || isApplyingHelperUpdate)
                 return;
 
+            // Skip if a profile was just applied (prevents duplicate sends from queued UI events)
+            if ((DateTime.Now - lastProfileApplyTime).TotalMilliseconds < 2000)
+                return;
+
             // Get current profile from UI
             ControllerProfile profile;
             if (LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName))
@@ -9206,9 +9237,12 @@ namespace XboxGamingBar
                     legionButtonPage?.SendMapping(profile.ButtonPage.ToJson());
 
                 // Send gamepad button mappings as JSON dictionary
-                if (profile.GamepadButtonMappings != null && profile.GamepadButtonMappings.Count > 0)
+                // During profile loading, use gamepadButtonMappings (includes desktop control changes)
+                // Otherwise use profile.GamepadButtonMappings
+                var mappingsToSend = isLoadingControllerProfile ? gamepadButtonMappings : profile.GamepadButtonMappings;
+                if (mappingsToSend != null && mappingsToSend.Count > 0)
                 {
-                    var gamepadMappingsJson = SerializeGamepadButtonMappings(profile.GamepadButtonMappings);
+                    var gamepadMappingsJson = SerializeGamepadButtonMappings(mappingsToSend);
                     legionGamepadMapping?.SetValue(gamepadMappingsJson);
                 }
                 else
@@ -9258,6 +9292,48 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Error sending lighting settings: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sends all controller settings (gyro, deadzone, vibration, triggers) to the helper via IPC.
+        /// This ensures the helper has the full profile even when the widget is closed.
+        /// </summary>
+        private void SendControllerSettingsToHelper(ControllerProfile profile)
+        {
+            try
+            {
+                // Vibration settings
+                legionVibration?.SetValue(profile.VibrationLevel);
+                legionVibrationMode?.SetValue(profile.VibrationMode);
+
+                // Gyro settings
+                legionGyroTarget?.SetValue(profile.GyroTarget);
+                legionGyroSensitivityX?.SetValue(profile.GyroSensitivityX);
+                legionGyroSensitivityY?.SetValue(profile.GyroSensitivityY);
+                legionGyroInvertX?.SetValue(profile.GyroInvertX);
+                legionGyroInvertY?.SetValue(profile.GyroInvertY);
+                legionGyroMappingType?.SetValue(profile.GyroMappingType);
+                legionGyroActivationMode?.SetValue(profile.GyroActivationMode);
+                legionGyroActivationButton?.SetValue(profile.GyroActivationButton);
+                legionGyroDeadzone?.SetValue(profile.GyroDeadzone);
+
+                // Stick deadzone settings
+                legionLeftStickDeadzone?.SetValue(profile.LeftStickDeadzone);
+                legionRightStickDeadzone?.SetValue(profile.RightStickDeadzone);
+
+                // Trigger travel settings
+                legionLeftTriggerStart?.SetValue(profile.LeftTriggerStart);
+                legionLeftTriggerEnd?.SetValue(profile.LeftTriggerEnd);
+                legionRightTriggerStart?.SetValue(profile.RightTriggerStart);
+                legionRightTriggerEnd?.SetValue(profile.RightTriggerEnd);
+                legionHairTriggers?.SetValue(profile.HairTriggers);
+
+                Logger.Info($"Sent controller settings to helper: Vib={profile.VibrationLevel}, VibMode={profile.VibrationMode}, GyroTarget={profile.GyroTarget}, LDZ={profile.LeftStickDeadzone}, RDZ={profile.RightStickDeadzone}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending controller settings: {ex.Message}");
             }
         }
 
@@ -9484,6 +9560,10 @@ namespace XboxGamingBar
             if (isLoadingControllerProfile || isSwitchingControllerProfile)
                 return;
 
+            // Skip if a profile was just applied (prevents duplicate sends from queued UI events)
+            if ((DateTime.Now - lastProfileApplyTime).TotalMilliseconds < 2000)
+                return;
+
             if (LegionGamepadButtonSelectorComboBox == null || LegionGamepadButtonSelectorComboBox.SelectedIndex < 0)
                 return;
 
@@ -9516,6 +9596,10 @@ namespace XboxGamingBar
         private void LegionGamepadKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (isLoadingControllerProfile || isSwitchingControllerProfile)
+                return;
+
+            // Skip if a profile was just applied (prevents duplicate sends from queued UI events)
+            if ((DateTime.Now - lastProfileApplyTime).TotalMilliseconds < 2000)
                 return;
 
             if (LegionGamepadKeyComboBox == null || LegionGamepadKeyComboBox.SelectedIndex <= 0)
@@ -9554,12 +9638,16 @@ namespace XboxGamingBar
             // The profile will be fully applied and any saves will happen after isLoadingControllerProfile is cleared
             if (isLoadingControllerProfile)
             {
-                // Still send to helper, just don't save
-                ControllerProfile profile = LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName)
-                    ? gameControllerProfile
-                    : globalControllerProfile;
-                SendButtonMappingsToHelper(profile);
-                UpdateGamepadMappingSummary();
+                // Skip sending if this is a duplicate call during profile loading
+                // (the main send will happen via SendButtonMappingsToHelper at the end of ApplyControllerProfile)
+                return;
+            }
+
+            // Skip if a profile was just applied (prevents duplicate sends from queued UI events)
+            // HID commands take ~1.5s to complete, so use 2 second window
+            if ((DateTime.Now - lastProfileApplyTime).TotalMilliseconds < 2000)
+            {
+                Logger.Info("SaveAndSendGamepadMappings skipped - profile was just applied");
                 return;
             }
 
@@ -9682,6 +9770,13 @@ namespace XboxGamingBar
             if (isLoadingControllerProfile || isSwitchingControllerProfile)
                 return;
 
+            // Skip if a profile was just applied (prevents duplicate sends from queued UI events)
+            if ((DateTime.Now - lastProfileApplyTime).TotalMilliseconds < 2000)
+            {
+                Logger.Info("Desktop Controls toggled event skipped - profile was just applied");
+                return;
+            }
+
             bool enabled = LegionDesktopControlsToggle?.IsOn ?? false;
 
             if (enabled)
@@ -9751,7 +9846,11 @@ namespace XboxGamingBar
             gamepadButtonMappings["LB"] = new ButtonMapping { Type = 2, MouseButton = 0 };     // Left Click
             gamepadButtonMappings["LT"] = new ButtonMapping { Type = 2, MouseButton = 1 };     // Right Click
 
-            SaveAndSendGamepadMappings();
+            // During profile loading, just update the dictionary - SendButtonMappingsToHelper will send once at the end
+            if (!isLoadingControllerProfile)
+            {
+                SaveAndSendGamepadMappings();
+            }
             UpdateGamepadMappingSummary();
 
             Logger.Info("Applied desktop control mappings: DPAD/LS→Arrows, LSClick→Win, A→Enter, B→Esc, LB→LClick, LT→RClick");
@@ -9766,13 +9865,19 @@ namespace XboxGamingBar
             {
                 gamepadButtonMappings[button] = new ButtonMapping { Type = 0, GamepadAction = 0 };
             }
-            SaveAndSendGamepadMappings();
 
-            // Remove from dictionary after sending reset
-            foreach (var button in desktopButtons)
+            // During profile loading, just update the dictionary - SendButtonMappingsToHelper will send once at the end
+            if (!isLoadingControllerProfile)
             {
-                gamepadButtonMappings.Remove(button);
+                SaveAndSendGamepadMappings();
+
+                // Remove from dictionary after sending reset (only when not loading profile)
+                foreach (var button in desktopButtons)
+                {
+                    gamepadButtonMappings.Remove(button);
+                }
             }
+            // When loading profile, keep Type=0 entries in dictionary so they get sent with other mappings
 
             UpdateGamepadMappingSummary();
 
@@ -9787,6 +9892,13 @@ namespace XboxGamingBar
         {
             if (isLoadingControllerProfile || isSwitchingControllerProfile)
                 return;
+
+            // Skip if a profile was just applied (prevents duplicate sends from queued UI events)
+            if ((DateTime.Now - lastProfileApplyTime).TotalMilliseconds < 2000)
+            {
+                Logger.Info("Nintendo Layout toggled event skipped - profile was just applied");
+                return;
+            }
 
             bool enabled = LegionNintendoLayoutToggle?.IsOn ?? false;
 
@@ -11472,6 +11584,9 @@ namespace XboxGamingBar
                 powerSourceTdpReapplyTimer = null;
             }
 
+            // Stop reconnection timeout timer
+            StopReconnectionTimeoutTimer();
+
             // Unregister this instance as the active widget
             Logger.Info("Unregistering this GamingWidget instance as the active widget.");
             App.UnregisterActiveGamingWidget(this);
@@ -11732,6 +11847,10 @@ namespace XboxGamingBar
 
                         await properties.Sync();
                         Logger.Info("Property sync completed.");
+
+                        // Update Legion Controller battery display after sync (values come from helper)
+                        UpdateLegionControllerBatteryDisplay();
+                        UpdateLegionControllerVidPidDisplay();
 
                         // Update FPS Limit controls based on RTSS installed status
                         UpdateFPSLimitControls();
@@ -12050,6 +12169,10 @@ namespace XboxGamingBar
         private async void GamingWidget_AppServiceConnected(object sender, AppServiceTriggerDetails e)
         {
             Logger.Info("=== GamingWidget_AppServiceConnected START ===");
+
+            // Stop reconnection timeout timer - connection established
+            StopReconnectionTimeoutTimer();
+
             Logger.Info($"Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}");
 
             if (widget != null)
@@ -12528,6 +12651,9 @@ namespace XboxGamingBar
                     Logger.Info($"Skipping launch ({reason}) - helper is already alive, waiting for reconnection");
                     // Show reconnecting banner since we're waiting for helper to reconnect
                     ShowConnectionBanner(BannerState.Reconnecting);
+
+                    // Start timeout timer - if helper doesn't reconnect within timeout, force launch
+                    StartReconnectionTimeoutTimer();
                     return false;
                 }
             }
@@ -12556,6 +12682,66 @@ namespace XboxGamingBar
             {
                 isLaunchingHelper = false;
             }
+        }
+
+        /// <summary>
+        /// Starts a timer that will force-launch the helper if connection isn't established within timeout.
+        /// Call this when helper is detected as alive but not connected.
+        /// </summary>
+        private void StartReconnectionTimeoutTimer()
+        {
+            // Stop any existing timer
+            StopReconnectionTimeoutTimer();
+
+            // Don't start timer if already connected
+            if (App.Connection != null)
+            {
+                Logger.Info("Reconnection timeout timer not started - already connected");
+                return;
+            }
+
+            Logger.Info($"Starting reconnection timeout timer ({ReconnectionTimeoutSeconds}s)");
+
+            reconnectionTimeoutTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(ReconnectionTimeoutSeconds)
+            };
+            reconnectionTimeoutTimer.Tick += ReconnectionTimeoutTimer_Tick;
+            reconnectionTimeoutTimer.Start();
+        }
+
+        /// <summary>
+        /// Stops the reconnection timeout timer if running.
+        /// </summary>
+        private void StopReconnectionTimeoutTimer()
+        {
+            if (reconnectionTimeoutTimer != null)
+            {
+                Logger.Info("Stopping reconnection timeout timer");
+                reconnectionTimeoutTimer.Stop();
+                reconnectionTimeoutTimer.Tick -= ReconnectionTimeoutTimer_Tick;
+                reconnectionTimeoutTimer = null;
+            }
+        }
+
+        /// <summary>
+        /// Called when reconnection timeout fires - force launch the helper.
+        /// </summary>
+        private async void ReconnectionTimeoutTimer_Tick(object sender, object e)
+        {
+            // Stop the timer first (it's a one-shot)
+            StopReconnectionTimeoutTimer();
+
+            // Check if we're now connected (race condition check)
+            if (App.Connection != null)
+            {
+                Logger.Info("Reconnection timeout fired but already connected - skipping force launch");
+                HideConnectionBanner();
+                return;
+            }
+
+            Logger.Info("Reconnection timeout fired - force launching helper");
+            await LaunchHelperWithGuardsAsync("Reconnection timeout", forceLaunch: true);
         }
 
         /// <summary>
@@ -12644,8 +12830,9 @@ namespace XboxGamingBar
                     return;
                 }
 
-                // Launch helper with guards (checks heartbeat, enforces rate limiting)
-                await LaunchHelperWithGuardsAsync("AppServiceDisconnected - reconnection timeout");
+                // Force launch helper since we waited and connection didn't recover
+                // Helper has mutex protection so it will restart cleanly
+                await LaunchHelperWithGuardsAsync("AppServiceDisconnected - reconnection timeout", forceLaunch: true);
             }
             else
             {
@@ -14533,9 +14720,17 @@ namespace XboxGamingBar
 
                     if (AutoTDPToggle != null && settings.Values.TryGetValue("AutoTDPEnabled", out object autoTdpVal) && autoTdpVal is bool autoTdpEnabled)
                     {
-                        AutoTDPToggle.IsOn = autoTdpEnabled;
-                        this.autoTDPEnabled?.SetValue(autoTdpEnabled); // Send to helper
-                        Logger.Debug($"Restored AutoTDP toggle state from LocalSettings: {autoTdpEnabled}");
+                        isLoadingAutoTDPSettings = true;
+                        try
+                        {
+                            AutoTDPToggle.IsOn = autoTdpEnabled;
+                            // NOTE: Do NOT send to helper - helper is source of truth for profile values
+                            Logger.Debug($"Restored AutoTDP toggle state from LocalSettings: {autoTdpEnabled}");
+                        }
+                        finally
+                        {
+                            isLoadingAutoTDPSettings = false;
+                        }
                     }
 
                     if (StickyTDPToggle != null && settings.Values.TryGetValue("StickyTDPEnabled", out object stickyVal) && stickyVal is bool stickyEnabled)

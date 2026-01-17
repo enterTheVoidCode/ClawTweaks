@@ -47,9 +47,12 @@
         <SolidColorBrush x:Key="CardFocusBorderBrush" Color="White"/>
 
         <!-- Navigation Item Style with Focus - Optimized for Handheld -->
+        <!-- Compact padding to ensure all tabs fit without overflow -->
         <Style x:Key="NavItemStyle" TargetType="muxc:NavigationViewItem">
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Padding" Value="8,5,8,5"/>
             <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
             <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
             <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
@@ -305,10 +308,10 @@
                         Background="Transparent"
                         SelectionChanged="MainNavigationView_SelectionChanged">
 
-            <!-- LT indicator in nav bar -->
+            <!-- LT indicator in nav bar (compact) -->
             <muxc:NavigationView.PaneHeader>
-                <Border Background="#404040" CornerRadius="4" Padding="6,2" Margin="8,0,4,0" VerticalAlignment="Center">
-                    <TextBlock Text="LT" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
+                <Border Background="#404040" CornerRadius="3" Padding="4,1" Margin="4,0,2,0" VerticalAlignment="Center">
+                    <TextBlock Text="LT" Foreground="#FFFFFF" FontSize="10" FontWeight="SemiBold"/>
                 </Border>
             </muxc:NavigationView.PaneHeader>
 
@@ -322,10 +325,10 @@
                 <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"/>
             </muxc:NavigationView.MenuItems>
 
-            <!-- RT indicator in nav bar -->
+            <!-- RT indicator in nav bar (compact) -->
             <muxc:NavigationView.PaneFooter>
-                <Border Background="#404040" CornerRadius="4" Padding="6,2" Margin="4,0,8,0" VerticalAlignment="Center">
-                    <TextBlock Text="RT" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
+                <Border Background="#404040" CornerRadius="3" Padding="4,1" Margin="2,0,4,0" VerticalAlignment="Center">
+                    <TextBlock Text="RT" Foreground="#FFFFFF" FontSize="10" FontWeight="SemiBold"/>
                 </Border>
             </muxc:NavigationView.PaneFooter>
 
