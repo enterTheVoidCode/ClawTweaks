@@ -306,6 +306,7 @@
                         CompactModeThresholdWidth="0"
                         ExpandedModeThresholdWidth="0"
                         Background="Transparent"
+                        Margin="0,-6,0,-6"
                         SelectionChanged="MainNavigationView_SelectionChanged">
 
             <!-- LT indicator in nav bar (compact) -->
@@ -5160,6 +5161,137 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Scroll Wheel Remap Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Scroll Wheel Remap" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock x:Name="ScrollRemapDescription"
+                                           Text="Map back scroll wheel actions (direction not available via Raw Input)"
+                                           Style="{StaticResource CardCaptionStyle}"/>
+
+                                <!-- Scroll Wheel Row (unified - direction not available) -->
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="85"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Scroll:"
+                                               Grid.Column="0"
+                                               VerticalAlignment="Center"
+                                               FontSize="14"
+                                               Foreground="#E0E0E0"/>
+                                    <ComboBox x:Name="ScrollActionComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              SelectionChanged="ScrollActionComboBox_SelectionChanged">
+                                        <ComboBoxItem Content="Disabled" IsSelected="True"/>
+                                        <ComboBoxItem Content="Xbox Guide"/>
+                                        <ComboBoxItem Content="Keyboard Shortcut"/>
+                                        <ComboBoxItem Content="Run Command"/>
+                                        <ComboBoxItem Content="Focus GoTweaks"/>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- Scroll Shortcut Input (hidden by default) -->
+                                <Grid x:Name="ScrollShortcutGrid" Margin="85,8,0,0" Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="ScrollShortcutTextBox"
+                                             Grid.Column="0"
+                                             PlaceholderText="e.g. Volume_Up, Ctrl+Shift+O"/>
+                                    <Button x:Name="ScrollShortcutApplyButton"
+                                            Grid.Column="1"
+                                            Content="Apply"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Margin="8,0,0,0"
+                                            Click="ScrollShortcutApplyButton_Click"/>
+                                </Grid>
+
+                                <!-- Scroll Command Input (hidden by default) -->
+                                <Grid x:Name="ScrollCommandGrid" Margin="85,8,0,0" Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="ScrollCommandTextBox"
+                                             Grid.Column="0"
+                                             PlaceholderText="e.g. C:\path\app.exe -arg1"/>
+                                    <Button x:Name="ScrollCommandApplyButton"
+                                            Grid.Column="1"
+                                            Content="Apply"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Margin="8,0,0,0"
+                                            Click="ScrollCommandApplyButton_Click"/>
+                                </Grid>
+
+                                <!-- Scroll Click Row -->
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="85"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Scroll Click:"
+                                               Grid.Column="0"
+                                               VerticalAlignment="Center"
+                                               FontSize="14"
+                                               Foreground="#E0E0E0"/>
+                                    <ComboBox x:Name="ScrollClickActionComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              SelectionChanged="ScrollClickActionComboBox_SelectionChanged">
+                                        <ComboBoxItem Content="Disabled" IsSelected="True"/>
+                                        <ComboBoxItem Content="Xbox Guide"/>
+                                        <ComboBoxItem Content="Keyboard Shortcut"/>
+                                        <ComboBoxItem Content="Run Command"/>
+                                        <ComboBoxItem Content="Focus GoTweaks"/>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- Scroll Click Shortcut Input (hidden by default) -->
+                                <Grid x:Name="ScrollClickShortcutGrid" Margin="85,8,0,0" Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="ScrollClickShortcutTextBox"
+                                             Grid.Column="0"
+                                             PlaceholderText="e.g. Win+G, Ctrl+Shift+O"/>
+                                    <Button x:Name="ScrollClickShortcutApplyButton"
+                                            Grid.Column="1"
+                                            Content="Apply"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Margin="8,0,0,0"
+                                            Click="ScrollClickShortcutApplyButton_Click"/>
+                                </Grid>
+
+                                <!-- Scroll Click Command Input (hidden by default) -->
+                                <Grid x:Name="ScrollClickCommandGrid" Margin="85,8,0,0" Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="ScrollClickCommandTextBox"
+                                             Grid.Column="0"
+                                             PlaceholderText="e.g. C:\path\app.exe -arg1"/>
+                                    <Button x:Name="ScrollClickCommandApplyButton"
+                                            Grid.Column="1"
+                                            Content="Apply"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Margin="8,0,0,0"
+                                            Click="ScrollClickCommandApplyButton_Click"/>
+                                </Grid>
+
+                                <!-- Status Text -->
+                                <TextBlock x:Name="ScrollRemapStatusText"
+                                           Text=""
+                                           FontSize="12"
+                                           Foreground="#A0A0A0"
+                                           Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
 

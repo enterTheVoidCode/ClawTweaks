@@ -2267,6 +2267,34 @@ namespace XboxGamingBarHelper
                         return;
                     }
 
+                    // Labs: Scroll Wheel Remap (Up/Down/Click)
+                    if (functionValue == (int)Function.Labs_LegionScrollRemap)
+                    {
+                        string direction = "Up";  // "Up", "Down", or "Click"
+                        bool enabled = false;
+                        int actionType = 0;       // 0=Xbox Guide, 1=Keyboard Shortcut, 2=Run Command, 3=Focus GoTweaks
+                        string shortcut = "";
+
+                        if (args.Request.Message.TryGetValue("Direction", out object directionObj))
+                            direction = directionObj?.ToString() ?? "Up";
+                        if (args.Request.Message.TryGetValue("Enabled", out object enabledObj))
+                            enabled = Convert.ToBoolean(enabledObj);
+                        if (args.Request.Message.TryGetValue("Action", out object actionObj))
+                            actionType = Convert.ToInt32(actionObj);
+                        if (args.Request.Message.TryGetValue("Shortcut", out object shortcutObj))
+                            shortcut = shortcutObj?.ToString() ?? "";
+
+                        bool success = ConfigureLegionScrollRemap(direction, enabled, actionType, shortcut);
+
+                        var response = new global::Windows.Foundation.Collections.ValueSet();
+                        response.Add("Success", success);
+                        await args.Request.SendResponseAsync(response);
+
+                        string actionName = actionType == 0 ? "Xbox Guide" : $"Shortcut: {shortcut}";
+                        Logger.Info($"Labs: Scroll {direction} Remap - Enabled: {enabled}, Action: {actionName}, Success: {success}");
+                        return;
+                    }
+
                     // ViGEmBus: Check installed status
                     if (functionValue == (int)Function.ViGEmBusInstalled)
                     {
@@ -3043,6 +3071,131 @@ namespace XboxGamingBarHelper
             catch (Exception ex)
             {
                 Logger.Error($"Labs: Error configuring Legion {button} button remap: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Configure scroll wheel remap (Up/Down/Click to Xbox Guide, Keyboard Shortcut, Command, or Focus GoTweaks).
+        /// Uses the unified LegionButtonMonitor which handles both buttons and scroll wheel.
+        /// </summary>
+        /// <param name="direction">"Up", "Down", or "Click"</param>
+        /// <param name="enabled">Whether to enable the remap</param>
+        /// <param name="actionType">0=Xbox Guide, 1=Keyboard Shortcut, 2=Run Command, 3=Focus GoTweaks</param>
+        /// <param name="shortcutOrCommand">Keyboard shortcut string or command path</param>
+        /// <returns>True if successful</returns>
+        private static bool ConfigureLegionScrollRemap(string direction, bool enabled, int actionType, string shortcutOrCommand)
+        {
+            try
+            {
+                // Create unified monitor if it doesn't exist
+                if (legionButtonMonitor == null)
+                {
+                    legionButtonMonitor = new LegionButtonMonitor();
+
+                    // Subscribe to battery updates once
+                    legionButtonMonitor.BatteryUpdated += (sender, e) =>
+                    {
+                        try
+                        {
+                            legionManager?.UpdateControllerBatteryFromButtonMonitor(
+                                e.LeftBattery, e.LeftCharging, e.LeftConnected,
+                                e.RightBattery, e.RightCharging, e.RightConnected);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"Labs: BatteryUpdated handler exception: {ex.Message}\n{ex.StackTrace}");
+                        }
+                    };
+                    Logger.Info("Labs: Created unified Legion button monitor with battery support");
+                }
+
+                // Remember state before configuration
+                bool wasRunning = legionButtonMonitor.IsRunning;
+                bool neededViGEmBefore = legionButtonMonitor.NeedsViGEm;
+
+                // Configure the scroll wheel action on the unified monitor
+                legionButtonMonitor.ConfigureScrollWheel(
+                    direction,
+                    enabled,
+                    actionType,
+                    shortcutOrCommand,
+                    (shortcutKeys) =>
+                    {
+                        // Execute the keyboard shortcut when scroll action is triggered
+                        Logger.Debug($"Labs: Executing shortcut '{shortcutKeys}' for scroll {direction}");
+                        SendKeyboardShortcutViaInputInjector(shortcutKeys);
+                    },
+                    (commandPath) =>
+                    {
+                        // Execute the command when scroll action is triggered
+                        Logger.Debug($"Labs: Executing command '{commandPath}' for scroll {direction}");
+                        ExecuteCommand(commandPath);
+                    },
+                    () =>
+                    {
+                        // Focus GoTweaks widget when scroll action is triggered
+                        Logger.Debug($"Labs: Focusing GoTweaks widget for scroll {direction}");
+                        FocusGoTweaksWidget();
+                    }
+                );
+
+                // Check if ViGEm requirements changed
+                bool needsViGEmNow = legionButtonMonitor.NeedsViGEm;
+                bool vigemRequirementChanged = neededViGEmBefore != needsViGEmNow;
+
+                // Handle different scenarios
+                if (!legionButtonMonitor.HasAnyButtonConfigured && !legionButtonMonitor.HasAnyScrollConfigured)
+                {
+                    // No buttons or scroll configured - restart for battery-only mode if it was running
+                    if (wasRunning && neededViGEmBefore)
+                    {
+                        Logger.Info($"Labs: Scroll {direction} disabled, no buttons/scroll configured - restarting for battery-only");
+                        legionButtonMonitor.Stop();
+                        legionButtonMonitor.StartForBatteryMonitoring();
+                    }
+                    else if (!wasRunning)
+                    {
+                        legionButtonMonitor.StartForBatteryMonitoring();
+                    }
+                    Logger.Info($"Labs: Scroll {direction} disabled - battery monitoring continues");
+                    return true;
+                }
+                else if (wasRunning && vigemRequirementChanged)
+                {
+                    // ViGEm requirement changed - need to restart monitor
+                    Logger.Info($"Labs: ViGEm requirement changed ({neededViGEmBefore} -> {needsViGEmNow}), restarting monitor");
+                    legionButtonMonitor.Stop();
+                    if (!legionButtonMonitor.Start())
+                    {
+                        string errorReason = needsViGEmNow ? "ViGEmBus not installed or " : "";
+                        Logger.Error($"Labs: Failed to restart monitoring ({errorReason}controller not found)");
+                        return false;
+                    }
+                }
+                else if (!wasRunning)
+                {
+                    // Monitor wasn't running - start it
+                    if (!legionButtonMonitor.Start())
+                    {
+                        string errorReason = needsViGEmNow ? "ViGEmBus not installed or " : "";
+                        Logger.Error($"Labs: Failed to start monitoring ({errorReason}controller not found)");
+                        return false;
+                    }
+                }
+                // else: Monitor was running and ViGEm requirement didn't change - config is hot-applied
+
+                string actionName = !enabled ? "Disabled" :
+                                   actionType == 0 ? "Xbox Guide" :
+                                   actionType == 1 ? $"Shortcut: {shortcutOrCommand}" :
+                                   actionType == 2 ? $"Command: {shortcutOrCommand}" :
+                                   "Focus GoTweaks";
+                Logger.Info($"Labs: Scroll {direction} configured -> {actionName}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Labs: Error configuring scroll {direction} remap: {ex.Message}");
                 return false;
             }
         }

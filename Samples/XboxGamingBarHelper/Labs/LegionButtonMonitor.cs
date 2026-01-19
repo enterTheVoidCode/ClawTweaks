@@ -56,6 +56,28 @@ namespace XboxGamingBarHelper.Labs
         private string legionRShortcutKeys = "";
         private string legionRCommandPath = "";
 
+        // Configuration for Scroll Wheel (unified scroll + click)
+        // Note: Raw Input API can't distinguish scroll up/down, so we have unified "scroll" action
+        private bool scrollEnabled = false;
+        private LegionButtonAction scrollActionType = LegionButtonAction.XboxGuide;
+        private string scrollShortcutKeys = "";
+        private string scrollCommandPath = "";
+
+        private bool scrollClickEnabled = false;
+        private LegionButtonAction scrollClickActionType = LegionButtonAction.XboxGuide;
+        private string scrollClickShortcutKeys = "";
+        private string scrollClickCommandPath = "";
+
+        // Legacy fields for backward compatibility (deprecated - use scrollEnabled instead)
+        private bool scrollUpEnabled = false;
+        private LegionButtonAction scrollUpActionType = LegionButtonAction.XboxGuide;
+        private string scrollUpShortcutKeys = "";
+        private string scrollUpCommandPath = "";
+        private bool scrollDownEnabled = false;
+        private LegionButtonAction scrollDownActionType = LegionButtonAction.XboxGuide;
+        private string scrollDownShortcutKeys = "";
+        private string scrollDownCommandPath = "";
+
         // Callbacks for actions
         private Action<string> onShortcutTriggered;
         private Action<string> onCommandTriggered;
@@ -67,6 +89,14 @@ namespace XboxGamingBarHelper.Labs
         private Thread monitorThread;
         private volatile bool isRunning = false;
         private volatile bool isDisposed = false;
+
+        // Scroll wheel click state tracking
+        private bool lastScrollClickState = false;
+
+        // Scroll wheel Raw Input monitor thread
+        // Uses Raw Input API to capture mouse events from Legion Go mi_01/col02 interface
+        private Thread scrollWheelThread;
+        private volatile bool scrollWheelRunning;
 
         // Track button states for both L and R
         private bool lastLegionLState = false;
@@ -268,6 +298,9 @@ namespace XboxGamingBarHelper.Labs
         private static extern bool CancelIo(SafeFileHandle hFile);
 
         [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CancelIoEx(SafeFileHandle hFile, IntPtr lpOverlapped);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool ResetEvent(IntPtr hEvent);
 
         [DllImport("hid.dll", SetLastError = true)]
@@ -286,6 +319,39 @@ namespace XboxGamingBarHelper.Labs
             SafeFileHandle hidDeviceObject,
             byte[] lpReportBuffer,
             uint reportBufferLength);
+
+        [DllImport("hid.dll", SetLastError = true)]
+        private static extern bool HidD_GetPreparsedData(SafeFileHandle hidDeviceObject, out IntPtr preparsedData);
+
+        [DllImport("hid.dll", SetLastError = true)]
+        private static extern bool HidD_FreePreparsedData(IntPtr preparsedData);
+
+        [DllImport("hid.dll", SetLastError = true)]
+        private static extern int HidP_GetCaps(IntPtr preparsedData, out HIDP_CAPS capabilities);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct HIDP_CAPS
+        {
+            public ushort Usage;
+            public ushort UsagePage;
+            public ushort InputReportByteLength;
+            public ushort OutputReportByteLength;
+            public ushort FeatureReportByteLength;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)]
+            public ushort[] Reserved;
+            public ushort NumberLinkCollectionNodes;
+            public ushort NumberInputButtonCaps;
+            public ushort NumberInputValueCaps;
+            public ushort NumberInputDataIndices;
+            public ushort NumberOutputButtonCaps;
+            public ushort NumberOutputValueCaps;
+            public ushort NumberOutputDataIndices;
+            public ushort NumberFeatureButtonCaps;
+            public ushort NumberFeatureValueCaps;
+            public ushort NumberFeatureDataIndices;
+        }
+
+        private const int HIDP_STATUS_SUCCESS = 0x00110000;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct SP_DEVICE_INTERFACE_DATA
@@ -316,6 +382,120 @@ namespace XboxGamingBarHelper.Labs
         private const uint WAIT_OBJECT_0 = 0x00000000;
         private const uint WAIT_TIMEOUT = 0x00000102;
         private const int ERROR_IO_PENDING = 997;
+
+        // Raw Input API constants and structures for scroll wheel monitoring
+        private const uint RIDEV_INPUTSINK = 0x00000100;
+        private const uint RIM_TYPEMOUSE = 0;
+        private const uint WM_INPUT = 0x00FF;
+        private const uint RID_INPUT = 0x10000003;
+        private const uint RIDI_DEVICENAME = 0x20000007;
+        private const uint PM_REMOVE = 1;
+        private const int HWND_MESSAGE = -3;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RAWINPUTDEVICE
+        {
+            public ushort usUsagePage;
+            public ushort usUsage;
+            public uint dwFlags;
+            public IntPtr hwndTarget;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RAWINPUTHEADER
+        {
+            public uint dwType;
+            public uint dwSize;
+            public IntPtr hDevice;
+            public IntPtr wParam;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RAWMOUSE
+        {
+            public ushort usFlags;
+            public ushort usButtonFlags;
+            public ushort usButtonData;
+            public uint ulRawButtons;
+            public int lLastX;
+            public int lLastY;
+            public uint ulExtraInformation;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RAWINPUT_MOUSE
+        {
+            public RAWINPUTHEADER header;
+            public RAWMOUSE mouse;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MSG
+        {
+            public IntPtr hwnd;
+            public uint message;
+            public IntPtr wParam;
+            public IntPtr lParam;
+            public uint time;
+            public int pt_x;
+            public int pt_y;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct WNDCLASS
+        {
+            public uint style;
+            public IntPtr lpfnWndProc;
+            public int cbClsExtra;
+            public int cbWndExtra;
+            public IntPtr hInstance;
+            public IntPtr hIcon;
+            public IntPtr hCursor;
+            public IntPtr hbrBackground;
+            public string lpszMenuName;
+            public string lpszClassName;
+        }
+
+        private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+        private static WndProcDelegate _scrollWndProcDelegate; // prevent GC
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] pRawInputDevices, uint uiNumDevices, int cbSize);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint GetRawInputData(IntPtr hRawInput, uint uiCommand, IntPtr pData, ref uint pcbSize, uint cbSizeHeader);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern uint GetRawInputDeviceInfoW(IntPtr hDevice, uint uiCommand, IntPtr pData, ref uint pcbSize);
+
+        [DllImport("user32.dll")]
+        private static extern bool PeekMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax, uint wRemoveMsg);
+
+        [DllImport("user32.dll")]
+        private static extern bool TranslateMessage(ref MSG lpMsg);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr DispatchMessage(ref MSG lpMsg);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool DestroyWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern ushort RegisterClassW(ref WNDCLASS lpWndClass);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern IntPtr CreateWindowExW(uint dwExStyle, string lpClassName, string lpWindowName,
+            uint dwStyle, int x, int y, int nWidth, int nHeight, IntPtr hWndParent,
+            IntPtr hMenu, IntPtr hInstance, IntPtr lpParam);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr DefWindowProcW(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
+
+        // Scroll wheel Raw Input window handle
+        private IntPtr scrollWheelWindowHandle = IntPtr.Zero;
 
         /// <summary>
         /// Initialize the unified monitor for both Legion L and R buttons.
@@ -378,6 +558,89 @@ namespace XboxGamingBarHelper.Labs
         }
 
         /// <summary>
+        /// Configure a scroll wheel action (Up, Down, or Click).
+        /// </summary>
+        /// <param name="direction">"Up", "Down", or "Click"</param>
+        /// <param name="enabled">Whether to enable the remap for this action</param>
+        /// <param name="action">0 = Xbox Guide, 1 = Keyboard Shortcut, 2 = Run Command, 3 = Focus GoTweaks</param>
+        /// <param name="shortcutOrCommand">Keyboard shortcut string or command path</param>
+        /// <param name="shortcutCallback">Callback to execute keyboard shortcut</param>
+        /// <param name="commandCallback">Callback to execute command (optional)</param>
+        /// <param name="focusGoTweaksCallback">Callback to focus GoTweaks widget (optional)</param>
+        public void ConfigureScrollWheel(string direction, bool enabled, int action, string shortcutOrCommand,
+            Action<string> shortcutCallback, Action<string> commandCallback = null, Action focusGoTweaksCallback = null)
+        {
+            // Store callbacks (shared between all actions)
+            onShortcutTriggered = shortcutCallback;
+            onCommandTriggered = commandCallback;
+            onFocusGoTweaksTriggered = focusGoTweaksCallback;
+
+            var actionType = (LegionButtonAction)action;
+            string shortcutKeys = actionType == LegionButtonAction.RunCommand ? "" : (shortcutOrCommand ?? "");
+            string commandPath = actionType == LegionButtonAction.RunCommand ? (shortcutOrCommand ?? "") : "";
+
+            switch (direction.ToLower())
+            {
+                case "scroll":
+                    // Unified scroll action (direction not available via Raw Input API)
+                    scrollEnabled = enabled;
+                    scrollActionType = actionType;
+                    scrollShortcutKeys = shortcutKeys;
+                    scrollCommandPath = commandPath;
+                    break;
+                case "up":
+                    // Legacy - now handled by unified "scroll"
+                    scrollUpEnabled = enabled;
+                    scrollUpActionType = actionType;
+                    scrollUpShortcutKeys = shortcutKeys;
+                    scrollUpCommandPath = commandPath;
+                    break;
+                case "down":
+                    // Legacy - now handled by unified "scroll"
+                    scrollDownEnabled = enabled;
+                    scrollDownActionType = actionType;
+                    scrollDownShortcutKeys = shortcutKeys;
+                    scrollDownCommandPath = commandPath;
+                    break;
+                case "click":
+                    scrollClickEnabled = enabled;
+                    scrollClickActionType = actionType;
+                    scrollClickShortcutKeys = shortcutKeys;
+                    scrollClickCommandPath = commandPath;
+                    break;
+                default:
+                    Logger.Warn($"LegionButtonMonitor: Unknown scroll direction '{direction}'");
+                    return;
+            }
+
+            string actionName = actionType == LegionButtonAction.XboxGuide ? "Xbox Guide" :
+                               actionType == LegionButtonAction.KeyboardShortcut ? $"Shortcut: {shortcutKeys}" :
+                               actionType == LegionButtonAction.RunCommand ? $"Command: {commandPath}" :
+                               "Focus GoTweaks";
+            Logger.Info($"LegionButtonMonitor: Configured Scroll {direction} - Enabled: {enabled}, Action: {actionName}");
+
+            // If monitor is already running and we now need ViGEm, create it
+            if (isRunning && NeedsViGEm && vigemController == null)
+            {
+                EnsureViGEmController();
+            }
+
+            // If monitor is already running and scroll is now configured, start the scroll wheel thread
+            // This handles the case where scroll is configured after the monitor is already running for buttons/battery
+            if (isRunning && HasAnyScrollConfigured && (scrollWheelThread == null || !scrollWheelThread.IsAlive))
+            {
+                scrollWheelRunning = true;
+                scrollWheelThread = new Thread(ScrollWheelThreadProc)
+                {
+                    IsBackground = true,
+                    Name = "LegionScrollWheel"
+                };
+                scrollWheelThread.Start();
+                Logger.Info("LegionButtonMonitor: Scroll wheel Raw Input monitor thread started (hot-configured)");
+            }
+        }
+
+        /// <summary>
         /// Ensures ViGEmController is created and connected if Xbox Guide action is configured.
         /// Call this after ConfigureButton or when button config changes.
         /// </summary>
@@ -422,12 +685,20 @@ namespace XboxGamingBarHelper.Labs
         /// Get whether ViGEmBus is needed for the current configuration.
         /// </summary>
         public bool NeedsViGEm => (legionLEnabled && legionLActionType == LegionButtonAction.XboxGuide) ||
-                                  (legionREnabled && legionRActionType == LegionButtonAction.XboxGuide);
+                                  (legionREnabled && legionRActionType == LegionButtonAction.XboxGuide) ||
+                                  (scrollUpEnabled && scrollUpActionType == LegionButtonAction.XboxGuide) ||
+                                  (scrollDownEnabled && scrollDownActionType == LegionButtonAction.XboxGuide) ||
+                                  (scrollClickEnabled && scrollClickActionType == LegionButtonAction.XboxGuide);
 
         /// <summary>
         /// Get whether any button is configured.
         /// </summary>
         public bool HasAnyButtonConfigured => legionLEnabled || legionREnabled;
+
+        /// <summary>
+        /// Get whether any scroll wheel action is configured.
+        /// </summary>
+        public bool HasAnyScrollConfigured => scrollEnabled || scrollClickEnabled || scrollUpEnabled || scrollDownEnabled;
 
         /// <summary>
         /// Get whether the monitor is currently running.
@@ -459,10 +730,10 @@ namespace XboxGamingBarHelper.Labs
             if (isRunning)
                 return true;
 
-            // Check if we have any button configured
-            if (!HasAnyButtonConfigured)
+            // Check if we have any button or scroll configured
+            if (!HasAnyButtonConfigured && !HasAnyScrollConfigured)
             {
-                Logger.Warn("LegionButtonMonitor: No buttons configured, not starting");
+                Logger.Warn("LegionButtonMonitor: No buttons or scroll configured, not starting");
                 return false;
             }
 
@@ -503,6 +774,20 @@ namespace XboxGamingBarHelper.Labs
             };
             monitorThread.Start();
 
+            // Start scroll wheel thread if any scroll action is configured
+            // Uses Raw Input API to capture mouse events from Legion Go mi_01/col02 interface
+            if (HasAnyScrollConfigured)
+            {
+                scrollWheelRunning = true;
+                scrollWheelThread = new Thread(ScrollWheelThreadProc)
+                {
+                    IsBackground = true,
+                    Name = "LegionScrollWheel"
+                };
+                scrollWheelThread.Start();
+                Logger.Info("LegionButtonMonitor: Scroll wheel Raw Input monitor thread started");
+            }
+
             string buttons = "";
             if (legionLEnabled) buttons += "L";
             if (legionREnabled) buttons += (buttons.Length > 0 ? " + R" : "R");
@@ -514,6 +799,7 @@ namespace XboxGamingBarHelper.Labs
             {
                 Logger.Info($"LegionButtonMonitor: Started in background for Legion {buttons}, waiting for controller connection");
             }
+
             return true;
         }
 
@@ -527,7 +813,16 @@ namespace XboxGamingBarHelper.Labs
 
             isRunning = false;
 
-            // Wait for thread to finish
+            // Stop scroll wheel Raw Input thread
+            scrollWheelRunning = false;
+            if (scrollWheelThread != null && scrollWheelThread.IsAlive)
+            {
+                // Thread will exit its message loop and clean up its window
+                scrollWheelThread.Join(2000);
+                scrollWheelThread = null;
+            }
+
+            // Wait for main monitor thread to finish
             if (monitorThread != null && monitorThread.IsAlive)
             {
                 monitorThread.Join(1000);
@@ -827,6 +1122,340 @@ namespace XboxGamingBarHelper.Labs
                 }
                 handle = null;
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Process a scroll action (up/down) - these are instant actions, not press/release.
+        /// </summary>
+        private void ProcessScrollAction(string actionName, LegionButtonAction actionType, string shortcutKeys, string commandPath)
+        {
+            Logger.Info($"LegionButtonMonitor: {actionName} triggered - action={actionType}");
+
+            switch (actionType)
+            {
+                case LegionButtonAction.XboxGuide:
+                    if (vigemController != null)
+                    {
+                        // Press and release Guide button quickly for scroll actions
+                        vigemController.SetGuide(true);
+                        Thread.Sleep(50);
+                        vigemController.SetGuide(false);
+                    }
+                    break;
+
+                case LegionButtonAction.KeyboardShortcut:
+                    if (!string.IsNullOrEmpty(shortcutKeys))
+                    {
+                        Logger.Info($"LegionButtonMonitor: Executing shortcut '{shortcutKeys}', callback={(onShortcutTriggered != null ? "set" : "NULL")}");
+                        try
+                        {
+                            if (onShortcutTriggered != null)
+                            {
+                                onShortcutTriggered.Invoke(shortcutKeys);
+                            }
+                            else
+                            {
+                                Logger.Warn("LegionButtonMonitor: Shortcut callback is null!");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"LegionButtonMonitor: Scroll shortcut exception: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        Logger.Warn($"LegionButtonMonitor: Shortcut keys is empty!");
+                    }
+                    break;
+
+                case LegionButtonAction.RunCommand:
+                    if (!string.IsNullOrEmpty(commandPath))
+                    {
+                        try
+                        {
+                            onCommandTriggered?.Invoke(commandPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"LegionButtonMonitor: Scroll command exception: {ex.Message}");
+                        }
+                    }
+                    break;
+
+                case LegionButtonAction.FocusGoTweaks:
+                    try
+                    {
+                        onFocusGoTweaksTriggered?.Invoke();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"LegionButtonMonitor: Scroll FocusGoTweaks exception: {ex.Message}");
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// WndProc callback for the Raw Input message window.
+        /// Simply passes messages to DefWindowProc.
+        /// </summary>
+        private static IntPtr ScrollWheelWndProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam)
+        {
+            return DefWindowProcW(hWnd, uMsg, wParam, lParam);
+        }
+
+        /// <summary>
+        /// Creates a message-only window to receive Raw Input events.
+        /// </summary>
+        private IntPtr CreateScrollWheelRawInputWindow()
+        {
+            try
+            {
+                _scrollWndProcDelegate = ScrollWheelWndProc;
+                IntPtr hInstance = GetModuleHandle(null);
+
+                var wc = new WNDCLASS
+                {
+                    lpfnWndProc = Marshal.GetFunctionPointerForDelegate(_scrollWndProcDelegate),
+                    hInstance = hInstance,
+                    lpszClassName = "LegionScrollWheelRawInput"
+                };
+
+                ushort atom = RegisterClassW(ref wc);
+                // 1410 = ERROR_CLASS_ALREADY_EXISTS which is OK
+                if (atom == 0 && Marshal.GetLastWin32Error() != 1410)
+                {
+                    Logger.Error($"LegionButtonMonitor: Failed to register window class (error={Marshal.GetLastWin32Error()})");
+                    return IntPtr.Zero;
+                }
+
+                // Create message-only window (HWND_MESSAGE = -3)
+                IntPtr hwnd = CreateWindowExW(0, "LegionScrollWheelRawInput", "LegionScrollWheel",
+                    0, 0, 0, 0, 0, new IntPtr(HWND_MESSAGE), IntPtr.Zero, hInstance, IntPtr.Zero);
+
+                if (hwnd == IntPtr.Zero)
+                {
+                    Logger.Error($"LegionButtonMonitor: Failed to create window (error={Marshal.GetLastWin32Error()})");
+                }
+
+                return hwnd;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LegionButtonMonitor: CreateScrollWheelRawInputWindow exception: {ex.Message}");
+                return IntPtr.Zero;
+            }
+        }
+
+        /// <summary>
+        /// Initializes Raw Input registration for mouse events (to capture scroll wheel).
+        /// </summary>
+        private bool InitializeScrollWheelRawInput(IntPtr hwnd)
+        {
+            try
+            {
+                // Register for mouse input (scroll wheel reports as mouse)
+                var rid = new RAWINPUTDEVICE[1];
+                rid[0].usUsagePage = 0x01;  // Generic Desktop
+                rid[0].usUsage = 0x02;       // Mouse
+                rid[0].dwFlags = RIDEV_INPUTSINK;  // Receive input even when not focused
+                rid[0].hwndTarget = hwnd;
+
+                if (!RegisterRawInputDevices(rid, 1, Marshal.SizeOf<RAWINPUTDEVICE>()))
+                {
+                    Logger.Error($"LegionButtonMonitor: Failed to register for Raw Input (error={Marshal.GetLastWin32Error()})");
+                    return false;
+                }
+
+                Logger.Info("LegionButtonMonitor: Registered for Raw Input mouse events");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LegionButtonMonitor: InitializeScrollWheelRawInput exception: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Gets the device name from a Raw Input device handle.
+        /// </summary>
+        private string GetRawInputDeviceName(IntPtr hDevice)
+        {
+            try
+            {
+                uint size = 0;
+                GetRawInputDeviceInfoW(hDevice, RIDI_DEVICENAME, IntPtr.Zero, ref size);
+                if (size == 0) return null;
+
+                IntPtr buffer = Marshal.AllocHGlobal((int)(size * 2));
+                try
+                {
+                    if (GetRawInputDeviceInfoW(hDevice, RIDI_DEVICENAME, buffer, ref size) > 0)
+                        return Marshal.PtrToStringUni(buffer);
+                    return null;
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(buffer);
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Dedicated thread procedure for monitoring scroll wheel via Raw Input API.
+        /// Uses Windows Raw Input to capture mouse events from the Legion Go scroll wheel
+        /// interface (mi_01/col02). This works even though the device is "locked" by Windows.
+        ///
+        /// Raw Input button data:
+        /// - 0x0010 = scroll click pressed
+        /// - 0x0020 = scroll click released
+        /// - 0x0400 = scroll event (check ulRawButtons for direction)
+        /// </summary>
+        private void ScrollWheelThreadProc()
+        {
+            Logger.Info("LegionButtonMonitor: Scroll wheel Raw Input thread started");
+
+            try
+            {
+                // Create message-only window for Raw Input
+                scrollWheelWindowHandle = CreateScrollWheelRawInputWindow();
+                if (scrollWheelWindowHandle == IntPtr.Zero)
+                {
+                    Logger.Error("LegionButtonMonitor: Failed to create Raw Input window");
+                    return;
+                }
+
+                // Register for Raw Input mouse events
+                if (!InitializeScrollWheelRawInput(scrollWheelWindowHandle))
+                {
+                    Logger.Error("LegionButtonMonitor: Failed to initialize Raw Input");
+                    DestroyWindow(scrollWheelWindowHandle);
+                    scrollWheelWindowHandle = IntPtr.Zero;
+                    return;
+                }
+
+                Logger.Info("LegionButtonMonitor: Scroll wheel Raw Input initialized, listening for Legion Go mi_01/col02 events");
+
+                // Message loop
+                while (scrollWheelRunning)
+                {
+                    while (PeekMessage(out MSG msg, IntPtr.Zero, 0, 0, PM_REMOVE))
+                    {
+                        if (msg.message == WM_INPUT)
+                        {
+                            ProcessScrollWheelRawInput(msg.lParam);
+                        }
+                        TranslateMessage(ref msg);
+                        DispatchMessage(ref msg);
+                    }
+                    Thread.Sleep(10);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LegionButtonMonitor: Scroll wheel thread exception: {ex.Message}\n{ex.StackTrace}");
+            }
+            finally
+            {
+                if (scrollWheelWindowHandle != IntPtr.Zero)
+                {
+                    DestroyWindow(scrollWheelWindowHandle);
+                    scrollWheelWindowHandle = IntPtr.Zero;
+                }
+                Logger.Info("LegionButtonMonitor: Scroll wheel Raw Input thread exiting");
+            }
+        }
+
+        /// <summary>
+        /// Process a Raw Input message for scroll wheel events.
+        /// Filters for Legion Go device (VID 17EF, PID 61EB) and mi_01/col02 interface.
+        /// </summary>
+        private void ProcessScrollWheelRawInput(IntPtr hRawInput)
+        {
+            try
+            {
+                // Get size of raw input data
+                uint size = 0;
+                uint headerSize = (uint)Marshal.SizeOf<RAWINPUTHEADER>();
+                GetRawInputData(hRawInput, RID_INPUT, IntPtr.Zero, ref size, headerSize);
+                if (size == 0) return;
+
+                IntPtr buffer = Marshal.AllocHGlobal((int)size);
+                try
+                {
+                    if (GetRawInputData(hRawInput, RID_INPUT, buffer, ref size, headerSize) == size)
+                    {
+                        var header = Marshal.PtrToStructure<RAWINPUTHEADER>(buffer);
+
+                        // Filter: only process mouse input from Legion Go scroll wheel interface
+                        string deviceName = GetRawInputDeviceName(header.hDevice);
+                        if (deviceName == null) return;
+
+                        string deviceLower = deviceName.ToLowerInvariant();
+
+                        // Must be Legion Go device (VID 17EF, PID 61EB)
+                        if (!deviceLower.Contains("vid_17ef") || !deviceLower.Contains("pid_61eb")) return;
+
+                        // Must be scroll wheel interface: mi_01 and col02
+                        if (!deviceLower.Contains("mi_01") || !deviceLower.Contains("col02")) return;
+
+                        if (header.dwType == RIM_TYPEMOUSE)
+                        {
+                            var mouse = Marshal.PtrToStructure<RAWINPUT_MOUSE>(buffer);
+                            ushort buttonData = mouse.mouse.usButtonData;
+
+                            // Process scroll wheel events
+                            switch (buttonData)
+                            {
+                                case 0x0010: // Scroll click pressed
+                                    if (scrollClickEnabled && !lastScrollClickState)
+                                    {
+                                        lastScrollClickState = true;
+                                        Logger.Debug("LegionButtonMonitor: Scroll Click PRESSED (Raw Input)");
+                                        ProcessButtonAction("Scroll Click", true, scrollClickActionType,
+                                            scrollClickShortcutKeys, scrollClickCommandPath);
+                                    }
+                                    break;
+
+                                case 0x0020: // Scroll click released
+                                    if (scrollClickEnabled && lastScrollClickState)
+                                    {
+                                        lastScrollClickState = false;
+                                        Logger.Debug("LegionButtonMonitor: Scroll Click RELEASED (Raw Input)");
+                                        ProcessButtonAction("Scroll Click", false, scrollClickActionType,
+                                            scrollClickShortcutKeys, scrollClickCommandPath);
+                                    }
+                                    break;
+
+                                case 0x0400: // Scroll wheel movement
+                                    // Note: Raw Input API for Legion Go mi_01/col02 doesn't provide scroll direction
+                                    // We can only detect that a scroll event occurred, not up vs down
+                                    // Use unified scroll action for any scroll event
+                                    if (scrollEnabled)
+                                    {
+                                        Logger.Debug("LegionButtonMonitor: Scroll Wheel (Raw Input)");
+                                        ProcessScrollAction("Scroll", scrollActionType, scrollShortcutKeys, scrollCommandPath);
+                                    }
+                                    break;
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(buffer);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LegionButtonMonitor: ProcessScrollWheelRawInput exception: {ex.Message}");
             }
         }
 
@@ -1235,9 +1864,13 @@ namespace XboxGamingBarHelper.Labs
                             continue;
                         }
 
-                        if (readResult && bytesRead >= currentButtonByte + 1)
+                        if (readResult && bytesRead >= 1)
                         {
                             consecutiveFailures = 0; // Reset on successful read
+
+                            // Note: Scroll wheel reports (0x07) are now handled by the dedicated ScrollWheelThreadProc
+                            // which reads from the separate mi_01 HID interface. This ensures only Legion Go
+                            // scroll wheel events are captured, not events from other mice.
 
                             // Validate report header before parsing battery or buttons
                             // Only process reports with valid Legion controller headers:
@@ -1245,7 +1878,7 @@ namespace XboxGamingBarHelper.Labs
                             // - Detached/uninitialized mode: 04:3C:74 (battery at bytes 5-8, buttons at byte 18)
                             // Other reports like 04:06:xx (brightness responses) should be ignored
                             bool hasValidReportHeader = false;
-                            if (bytesRead >= 14 && buffer[0] == 0x04)
+                            if (bytesRead >= currentButtonByte + 1 && bytesRead >= 14 && buffer[0] == 0x04)
                             {
                                 if (!isDetachedMode && buffer[1] == 0x00 && buffer[2] == 0xA1)
                                 {
