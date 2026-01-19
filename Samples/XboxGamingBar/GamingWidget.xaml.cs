@@ -18035,8 +18035,17 @@ namespace XboxGamingBar
             if (LegionRActionComboBox != null)
                 LegionRActionComboBox.SelectionChanged += LegionRActionComboBox_SelectionChanged;
 
+            // Wire up Scroll wheel remap event handlers
+            if (ScrollActionComboBox != null)
+                ScrollActionComboBox.SelectionChanged += ScrollActionComboBox_SelectionChanged;
+            if (ScrollClickActionComboBox != null)
+                ScrollClickActionComboBox.SelectionChanged += ScrollClickActionComboBox_SelectionChanged;
+
             // Load saved Legion remap settings
             LoadLegionRemapSettings();
+
+            // Load saved Scroll wheel remap settings
+            LoadScrollRemapSettings();
 
             // Mark Labs section as initialized (enables event handlers)
             labsSectionInitialized = true;
@@ -18053,6 +18062,7 @@ namespace XboxGamingBar
                     await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                     {
                         ApplyLegionRemapSettingsToHelper();
+                        ApplyScrollRemapSettingsToHelper();
                     });
                 }
             });
@@ -18481,6 +18491,301 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Failed to apply Legion button config: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region Scroll Wheel Remap
+
+        // Scroll (unified) event handlers - direction not available via Raw Input API
+        private void ScrollActionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!labsSectionInitialized) return;
+
+            int selection = ScrollActionComboBox?.SelectedIndex ?? 0;
+            // 0=Disabled, 1=Xbox Guide, 2=Keyboard Shortcut, 3=Run Command, 4=Focus GoTweaks
+            bool isShortcut = selection == 2;
+            bool isCommand = selection == 3;
+            if (ScrollShortcutGrid != null)
+                ScrollShortcutGrid.Visibility = isShortcut ? Visibility.Visible : Visibility.Collapsed;
+            if (ScrollCommandGrid != null)
+                ScrollCommandGrid.Visibility = isCommand ? Visibility.Visible : Visibility.Collapsed;
+
+            // Apply immediately for Disabled, Xbox Guide, or Focus GoTweaks
+            if (selection != 2 && selection != 3)
+                ApplyScrollWheelConfig("Scroll");
+
+            UpdateScrollRemapDescription();
+        }
+
+        private void ScrollShortcutApplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyScrollWheelConfig("Scroll");
+            UpdateScrollRemapDescription();
+        }
+
+        private void ScrollCommandApplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyScrollWheelConfig("Scroll");
+            UpdateScrollRemapDescription();
+        }
+
+        // Scroll Click event handlers
+        private void ScrollClickActionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!labsSectionInitialized) return;
+
+            int selection = ScrollClickActionComboBox?.SelectedIndex ?? 0;
+            bool isShortcut = selection == 2;
+            bool isCommand = selection == 3;
+            if (ScrollClickShortcutGrid != null)
+                ScrollClickShortcutGrid.Visibility = isShortcut ? Visibility.Visible : Visibility.Collapsed;
+            if (ScrollClickCommandGrid != null)
+                ScrollClickCommandGrid.Visibility = isCommand ? Visibility.Visible : Visibility.Collapsed;
+
+            if (selection != 2 && selection != 3)
+                ApplyScrollWheelConfig("Click");
+
+            UpdateScrollRemapDescription();
+        }
+
+        private void ScrollClickShortcutApplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyScrollWheelConfig("Click");
+            UpdateScrollRemapDescription();
+        }
+
+        private void ScrollClickCommandApplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyScrollWheelConfig("Click");
+            UpdateScrollRemapDescription();
+        }
+
+        private void UpdateScrollRemapDescription()
+        {
+            if (ScrollRemapDescription == null) return;
+
+            int scrollSelection = ScrollActionComboBox?.SelectedIndex ?? 0;
+            int clickSelection = ScrollClickActionComboBox?.SelectedIndex ?? 0;
+
+            string scrollAction = scrollSelection == 0 ? null :
+                             scrollSelection == 1 ? "Guide" :
+                             scrollSelection == 2 ? ScrollShortcutTextBox?.Text?.Trim() :
+                             scrollSelection == 3 ? GetCommandDisplayName(ScrollCommandTextBox?.Text?.Trim()) :
+                             "GoTweaks";
+            string clickAction = clickSelection == 0 ? null :
+                             clickSelection == 1 ? "Guide" :
+                             clickSelection == 2 ? ScrollClickShortcutTextBox?.Text?.Trim() :
+                             clickSelection == 3 ? GetCommandDisplayName(ScrollClickCommandTextBox?.Text?.Trim()) :
+                             "GoTweaks";
+
+            var parts = new System.Collections.Generic.List<string>();
+            if (!string.IsNullOrEmpty(scrollAction))
+                parts.Add($"⟳{scrollAction}");
+            if (!string.IsNullOrEmpty(clickAction))
+                parts.Add($"●{clickAction}");
+
+            if (parts.Count > 0)
+                ScrollRemapDescription.Text = string.Join(" ", parts);
+            else
+                ScrollRemapDescription.Text = "Map back scroll wheel actions (direction not available via Raw Input)";
+        }
+
+        private void SaveScrollRemapSettings()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                settings.Values["Scroll_Action"] = ScrollActionComboBox?.SelectedIndex ?? 0;
+                settings.Values["Scroll_Shortcut"] = ScrollShortcutTextBox?.Text ?? "";
+                settings.Values["Scroll_Command"] = ScrollCommandTextBox?.Text ?? "";
+                settings.Values["ScrollClick_Action"] = ScrollClickActionComboBox?.SelectedIndex ?? 0;
+                settings.Values["ScrollClick_Shortcut"] = ScrollClickShortcutTextBox?.Text ?? "";
+                settings.Values["ScrollClick_Command"] = ScrollClickCommandTextBox?.Text ?? "";
+                Logger.Info("Scroll wheel remap settings saved");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to save scroll wheel remap settings: {ex.Message}");
+            }
+        }
+
+        private void LoadScrollRemapSettings()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                // Load Scroll (unified) settings
+                if (settings.Values.TryGetValue("Scroll_Action", out var scrollAction) && scrollAction is int scrollActionInt)
+                {
+                    if (ScrollActionComboBox != null && scrollActionInt >= 0 && scrollActionInt <= 4)
+                        ScrollActionComboBox.SelectedIndex = scrollActionInt;
+                }
+                if (settings.Values.TryGetValue("Scroll_Shortcut", out var scrollShortcut) && scrollShortcut is string scrollShortcutStr)
+                {
+                    if (ScrollShortcutTextBox != null)
+                        ScrollShortcutTextBox.Text = scrollShortcutStr;
+                }
+                if (settings.Values.TryGetValue("Scroll_Command", out var scrollCommand) && scrollCommand is string scrollCommandStr)
+                {
+                    if (ScrollCommandTextBox != null)
+                        ScrollCommandTextBox.Text = scrollCommandStr;
+                }
+
+                // Load Scroll Click settings
+                if (settings.Values.TryGetValue("ScrollClick_Action", out var clickAction) && clickAction is int clickActionInt)
+                {
+                    if (ScrollClickActionComboBox != null && clickActionInt >= 0 && clickActionInt <= 4)
+                        ScrollClickActionComboBox.SelectedIndex = clickActionInt;
+                }
+                if (settings.Values.TryGetValue("ScrollClick_Shortcut", out var clickShortcut) && clickShortcut is string clickShortcutStr)
+                {
+                    if (ScrollClickShortcutTextBox != null)
+                        ScrollClickShortcutTextBox.Text = clickShortcutStr;
+                }
+                if (settings.Values.TryGetValue("ScrollClick_Command", out var clickCommand) && clickCommand is string clickCommandStr)
+                {
+                    if (ScrollClickCommandTextBox != null)
+                        ScrollClickCommandTextBox.Text = clickCommandStr;
+                }
+
+                // Update visibility of shortcut/command grids based on loaded settings
+                UpdateScrollGridVisibility();
+
+                Logger.Info("Scroll wheel remap settings loaded");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to load scroll wheel remap settings: {ex.Message}");
+            }
+        }
+
+        private void UpdateScrollGridVisibility()
+        {
+            int scrollSelection = ScrollActionComboBox?.SelectedIndex ?? 0;
+            if (ScrollShortcutGrid != null)
+                ScrollShortcutGrid.Visibility = scrollSelection == 2 ? Visibility.Visible : Visibility.Collapsed;
+            if (ScrollCommandGrid != null)
+                ScrollCommandGrid.Visibility = scrollSelection == 3 ? Visibility.Visible : Visibility.Collapsed;
+
+            int clickSelection = ScrollClickActionComboBox?.SelectedIndex ?? 0;
+            if (ScrollClickShortcutGrid != null)
+                ScrollClickShortcutGrid.Visibility = clickSelection == 2 ? Visibility.Visible : Visibility.Collapsed;
+            if (ScrollClickCommandGrid != null)
+                ScrollClickCommandGrid.Visibility = clickSelection == 3 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private async void ApplyScrollRemapSettingsToHelper()
+        {
+            // Apply Scroll (unified) if not disabled
+            if (ScrollActionComboBox?.SelectedIndex > 0)
+                ApplyScrollWheelConfig("Scroll");
+
+            await Task.Delay(100);
+
+            // Apply Scroll Click if not disabled
+            if (ScrollClickActionComboBox?.SelectedIndex > 0)
+                ApplyScrollWheelConfig("Click");
+        }
+
+        private async void ApplyScrollWheelConfig(string direction)
+        {
+            if (App.Connection == null) return;
+
+            try
+            {
+                ComboBox actionComboBox = direction == "Scroll" ? ScrollActionComboBox :
+                                          direction == "Click" ? ScrollClickActionComboBox :
+                                          ScrollClickActionComboBox;
+                TextBox shortcutTextBox = direction == "Scroll" ? ScrollShortcutTextBox :
+                                          direction == "Click" ? ScrollClickShortcutTextBox :
+                                          ScrollClickShortcutTextBox;
+                TextBox commandTextBox = direction == "Scroll" ? ScrollCommandTextBox :
+                                         direction == "Click" ? ScrollClickCommandTextBox :
+                                         ScrollClickCommandTextBox;
+                string actionName = direction == "Scroll" ? "Scroll Wheel" : $"Scroll {direction}";
+
+                if (actionComboBox == null) return;
+
+                int selection = actionComboBox.SelectedIndex; // 0=Disabled, 1=Xbox Guide, 2=Shortcut, 3=Command, 4=Focus GoTweaks
+                bool enabled = selection != 0;
+                // Convert UI selection to helper action type: 0=Xbox Guide, 1=Shortcut, 2=Command, 3=Focus GoTweaks
+                int actionType = selection == 1 ? 0 : selection == 2 ? 1 : selection == 3 ? 2 : selection == 4 ? 3 : 0;
+
+                string shortcutOrCommand = "";
+                if (selection == 2 && shortcutTextBox != null)
+                {
+                    shortcutOrCommand = shortcutTextBox.Text?.Trim() ?? "";
+                    if (string.IsNullOrEmpty(shortcutOrCommand))
+                    {
+                        if (ScrollRemapStatusText != null)
+                        {
+                            ScrollRemapStatusText.Text = $"{actionName}: Please enter a shortcut";
+                            ScrollRemapStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 200, 100));
+                        }
+                        return;
+                    }
+                }
+                else if (selection == 3 && commandTextBox != null)
+                {
+                    shortcutOrCommand = commandTextBox.Text?.Trim() ?? "";
+                    if (string.IsNullOrEmpty(shortcutOrCommand))
+                    {
+                        if (ScrollRemapStatusText != null)
+                        {
+                            ScrollRemapStatusText.Text = $"{actionName}: Please enter a command";
+                            ScrollRemapStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 200, 100));
+                        }
+                        return;
+                    }
+                }
+
+                var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("Function", (int)Function.Labs_LegionScrollRemap);
+                request.Add("Direction", direction);
+                request.Add("Enabled", enabled);
+                request.Add("Action", actionType);
+                request.Add("Shortcut", shortcutOrCommand);
+
+                var response = await App.Connection.SendMessageAsync(request);
+
+                if (response.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                {
+                    if (response.Message.TryGetValue("Success", out object successObj))
+                    {
+                        bool success = Convert.ToBoolean(successObj);
+                        if (ScrollRemapStatusText != null)
+                        {
+                            if (!enabled)
+                            {
+                                ScrollRemapStatusText.Text = "";
+                            }
+                            else if (success)
+                            {
+                                ScrollRemapStatusText.Text = "";
+                            }
+                            else
+                            {
+                                string errorMsg = actionType == 0 ? "ViGEmBus not installed or controller not found" : "Controller not found";
+                                ScrollRemapStatusText.Text = $"{actionName}: Failed - {errorMsg}";
+                                ScrollRemapStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 100, 100));
+                                actionComboBox.SelectedIndex = 0; // Reset to Disabled
+                            }
+                        }
+
+                        // Save settings on success
+                        if (success || !enabled)
+                            SaveScrollRemapSettings();
+
+                        Logger.Info($"Scroll Wheel Remap: {direction}, Enabled={enabled}, Action={actionType}, Value={shortcutOrCommand}, Success={success}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to apply scroll wheel config: {ex.Message}");
             }
         }
 

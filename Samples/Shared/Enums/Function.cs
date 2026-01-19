@@ -221,6 +221,7 @@
         Labs_DAServiceStatus,           // int - 0=Stopped, 1=Running, 2=NotFound
         Labs_LegionLToXbox,             // DEPRECATED - replaced by Labs_LegionButtonRemap
         Labs_LegionButtonRemap,         // Button (0=Disabled, 1=Legion L, 2=Legion R), Action (0=Xbox Guide, 1=Shortcut), Shortcut (string)
+        Labs_LegionScrollRemap,         // Direction (Up/Down/Click), Enabled, Action, Shortcut - back scroll wheel remap
         Labs_FocusWidget,               // Trigger: helper sends to widget to focus itself
         Debug_ExportDGPs,               // Trigger: widget requests helper to export DGPs to Desktop
 
