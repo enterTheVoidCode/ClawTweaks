@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Shared.Enums;
-using Windows.Storage;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Settings
@@ -14,35 +13,22 @@ namespace XboxGamingBarHelper.Settings
 
         public ProfileBlacklistPathsProperty(SettingsManager inManager) : base(LoadFromSettings(), null, Function.ProfileBlacklistPaths, inManager)
         {
-            Logger.Info($"ProfileBlacklistPaths loaded from LocalSettings: {GetPaths().Count} paths");
+            Logger.Info($"ProfileBlacklistPaths loaded: {GetPaths().Count} paths");
         }
 
         private static string LoadFromSettings()
         {
-            try
+            if (LocalSettingsHelper.TryGetValue<string>(SettingsKey, out var value))
             {
-                var settings = ApplicationData.Current.LocalSettings;
-                if (settings.Values.TryGetValue(SettingsKey, out var value))
-                {
-                    return value as string ?? "";
-                }
+                return value ?? "";
             }
-            catch { }
             return "";
         }
 
         private void SaveToSettings()
         {
-            try
-            {
-                var settings = ApplicationData.Current.LocalSettings;
-                settings.Values[SettingsKey] = Value ?? "";
-                Logger.Info($"Blacklist saved to LocalSettings: {GetPaths().Count} paths");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Failed to save blacklist to LocalSettings: {ex.Message}");
-            }
+            LocalSettingsHelper.SetValue(SettingsKey, Value ?? "");
+            Logger.Debug($"Blacklist saved: {GetPaths().Count} paths");
         }
 
         /// <summary>

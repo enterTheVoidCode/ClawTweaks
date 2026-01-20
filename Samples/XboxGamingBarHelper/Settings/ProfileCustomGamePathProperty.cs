@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Shared.Enums;
-using Windows.Storage;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Settings
@@ -14,34 +13,21 @@ namespace XboxGamingBarHelper.Settings
 
         public ProfileCustomGamePathProperty(SettingsManager inManager) : base(LoadFromSettings(), null, Function.ProfileCustomGamePath, inManager)
         {
-            Logger.Info($"ProfileCustomGamePath loaded from LocalSettings: {GetPaths().Count} paths");
+            Logger.Info($"ProfileCustomGamePath loaded: {GetPaths().Count} paths");
         }
 
         private static string LoadFromSettings()
         {
-            try
+            if (LocalSettingsHelper.TryGetValue<string>(SettingsKey, out var value))
             {
-                var settings = ApplicationData.Current.LocalSettings;
-                if (settings.Values.TryGetValue(SettingsKey, out var value))
-                {
-                    return value as string ?? "";
-                }
+                return value ?? "";
             }
-            catch { }
             return "";
         }
 
         private void SaveToSettings()
         {
-            try
-            {
-                var settings = ApplicationData.Current.LocalSettings;
-                settings.Values[SettingsKey] = Value ?? "";
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Failed to save ProfileCustomGamePath: {ex.Message}");
-            }
+            LocalSettingsHelper.SetValue(SettingsKey, Value ?? "");
         }
 
         /// <summary>

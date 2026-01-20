@@ -335,6 +335,58 @@ namespace Shared.Data
                 myTypeValue = (ValueType)(object)listStringValue.Split(StringConstants.COMMA.ToCharArray()).ToList();
                 Logger.Debug($"SetValue string {listStringValue} to string list {myTypeValue}");
             }
+            // Handle string-to-bool conversion (for pipe JSON deserialization)
+            else if (typeof(ValueType) == typeof(bool) && newValue is string boolStringValue)
+            {
+                if (bool.TryParse(boolStringValue, out bool parsedBool))
+                {
+                    myTypeValue = (ValueType)(object)parsedBool;
+                }
+                else
+                {
+                    Logger.Error($"Can't parse '{boolStringValue}' as Boolean for property {Function}");
+                    return false;
+                }
+            }
+            // Handle string-to-int conversion (for pipe JSON deserialization)
+            else if (typeof(ValueType) == typeof(int) && newValue is string intStringValue)
+            {
+                if (int.TryParse(intStringValue, out int parsedInt))
+                {
+                    myTypeValue = (ValueType)(object)parsedInt;
+                }
+                else
+                {
+                    Logger.Error($"Can't parse '{intStringValue}' as Int32 for property {Function}");
+                    return false;
+                }
+            }
+            // Handle string-to-double conversion (for pipe JSON deserialization)
+            else if (typeof(ValueType) == typeof(double) && newValue is string doubleStringValue)
+            {
+                if (double.TryParse(doubleStringValue, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double parsedDouble))
+                {
+                    myTypeValue = (ValueType)(object)parsedDouble;
+                }
+                else
+                {
+                    Logger.Error($"Can't parse '{doubleStringValue}' as Double for property {Function}");
+                    return false;
+                }
+            }
+            // Handle string-to-float conversion (for pipe JSON deserialization)
+            else if (typeof(ValueType) == typeof(float) && newValue is string floatStringValue)
+            {
+                if (float.TryParse(floatStringValue, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float parsedFloat))
+                {
+                    myTypeValue = (ValueType)(object)parsedFloat;
+                }
+                else
+                {
+                    Logger.Error($"Can't parse '{floatStringValue}' as Single for property {Function}");
+                    return false;
+                }
+            }
             else if (newValue is ValueType correctValueType)
             {
                 myTypeValue = correctValueType;

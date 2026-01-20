@@ -1,22 +1,26 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Security.Principal;
-using System.Text.RegularExpressions;
 using System.Threading;
 using NLog;
+using XboxGamingBarHelper.Services;
 
 namespace XboxGamingBarHelper
 {
     /// <summary>
     /// Handles self-elevation via scheduled task to avoid repeated UAC prompts.
-    /// On first run, creates a scheduled task with elevated privileges.
-    /// Subsequent launches use the task to self-elevate without UAC.
+    ///
+    /// Architecture:
+    /// - Helper files are deployed to %LocalAppData%\GoTweaks\Helper\ (stable location)
+    /// - Scheduled task points to the deployed location (survives MSIX updates)
+    /// - First run or update: UAC prompt once to deploy and create task
+    /// - Subsequent launches: task runs without UAC
     /// </summary>
     public static class ElevationBootstrapper
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-        private const string TaskName = "GoTweaksHelper";
         private const int ProcessStartTimeoutMs = 5000;
 
         /// <summary>
@@ -25,10 +29,92 @@ namespace XboxGamingBarHelper
         /// </summary>
         public static bool EnsureElevated(string[] args)
         {
+            // Debug: Write immediately to see if we even get here
             try
             {
-                // Check if another elevated instance is already running FIRST
-                // This prevents triggering UAC when helper is already alive
+                var debugPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "elevation_debug.txt");
+                File.AppendAllText(debugPath, $"{DateTime.Now}: EnsureElevated called, IsAdmin={IsRunningAsAdmin()}\n");
+            }
+            catch { }
+
+            try
+            {
+                string exePath = Process.GetCurrentProcess().MainModule?.FileName;
+                if (string.IsNullOrEmpty(exePath))
+                {
+                    Logger.Error("Could not determine executable path");
+                    return true; // Continue anyway, may fail later
+                }
+
+                // Already running as admin
+                if (IsRunningAsAdmin())
+                {
+                    Logger.Info("Already running as administrator");
+
+                    // If running from MSIX, trigger background deployment for future launches
+                    if (HelperDeploymentService.IsRunningFromMsix())
+                    {
+                        EnsureDeploymentAsync();
+                    }
+
+                    return true; // Continue with normal execution immediately
+                }
+
+                // Not admin - check if setup is needed BEFORE mutex check
+                // This ensures we can update even if an old instance is running
+                Logger.Info($"Not running as administrator. ExePath={exePath}");
+                Logger.Info($"HelperFolder: {HelperDeploymentService.HelperFolder}");
+                Logger.Info($"DeployedExePath: {HelperDeploymentService.DeployedExePath}");
+                Logger.Info($"Running from MSIX: {HelperDeploymentService.IsRunningFromMsix()}");
+                Logger.Info($"Running from deployed location: {HelperDeploymentService.IsRunningFromDeployedLocation()}");
+                LogManager.Flush(); // Ensure logs are written before checks
+
+                // Debug: Write to a simple file to diagnose non-admin path
+                try
+                {
+                    var debugPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "elevation_debug.txt");
+                    var debugInfo = $"{DateTime.Now}: ExePath={exePath}\n" +
+                                   $"HelperFolder={HelperDeploymentService.HelperFolder}\n" +
+                                   $"DeployedExePath={HelperDeploymentService.DeployedExePath}\n" +
+                                   $"DeployedExeExists={File.Exists(HelperDeploymentService.DeployedExePath)}\n";
+                    File.AppendAllText(debugPath, debugInfo);
+                }
+                catch { }
+
+                bool deploymentValid = HelperDeploymentService.IsDeploymentValid();
+                bool deploymentNeeded = HelperDeploymentService.IsDeploymentNeeded();
+                bool taskConfigured = ScheduledTaskService.IsTaskConfiguredCorrectly();
+
+                // Debug: Write check results
+                try
+                {
+                    var debugPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "elevation_debug.txt");
+                    var debugInfo = $"DeploymentValid={deploymentValid}, DeploymentNeeded={deploymentNeeded}, TaskConfigured={taskConfigured}\n\n";
+                    File.AppendAllText(debugPath, debugInfo);
+                }
+                catch { }
+
+                Logger.Info($"Deployment valid: {deploymentValid}, Deployment needed: {deploymentNeeded}, Task configured: {taskConfigured}");
+                LogManager.Flush(); // Ensure logs are written before decision
+
+                // If deployment is needed (missing or outdated), always trigger setup
+                // This handles the case where an old instance is running from WindowsApps
+                if (deploymentNeeded || !taskConfigured)
+                {
+                    Logger.Info("Setup needed - launching with --setup flag (will trigger UAC)...");
+                    if (LaunchElevatedForSetup(exePath, args))
+                    {
+                        Logger.Info("Launched setup process via UAC, exiting current instance");
+                        LogManager.Flush();
+                        return false; // Exit this non-elevated instance
+                    }
+
+                    Logger.Error("Failed to launch setup - continuing without admin rights (some features may not work)");
+                    LogManager.Flush();
+                    return true; // Continue anyway, but warn user
+                }
+
+                // Deployment is valid and task is configured - check for existing instance
                 const string mutexName = "Global\\XboxGamingBarHelper_SingleInstance";
                 try
                 {
@@ -50,54 +136,21 @@ namespace XboxGamingBarHelper
                     // Continue anyway - let the normal mutex in Main() handle duplicates
                 }
 
-                string exePath = Process.GetCurrentProcess().MainModule?.FileName;
-                if (string.IsNullOrEmpty(exePath))
+                // Try to launch via scheduled task (no UAC)
+                Logger.Info("Deployment and task are ready, launching via scheduled task (no UAC)...");
+                if (ScheduledTaskService.RunTaskNow())
                 {
-                    Logger.Error("Could not determine executable path");
-                    return true; // Continue anyway, may fail later
-                }
-
-                // Already running as admin - continue normally
-                if (IsRunningAsAdmin())
-                {
-                    Logger.Info("Already running as administrator");
-
-                    // If we're admin, ensure the task exists with correct path (create if needed)
-                    // Run this check asynchronously to avoid blocking startup (~7.8s for task creation)
-                    EnsureScheduledTaskAsync(exePath);
-
-                    return true; // Continue with normal execution immediately
-                }
-
-                Logger.Info($"Not running as administrator, checking for scheduled task. ExePath={exePath}");
-
-                // Check if task exists with correct path
-                if (TaskExistsWithCorrectPath(exePath))
-                {
-                    Logger.Info("Scheduled task exists with correct path, launching via task (no UAC)...");
-                    if (LaunchViaTask())
-                    {
-                        Logger.Info("Launched via scheduled task, exiting current instance");
-                        LogManager.Flush(); // Ensure logs are written before exit
-                        return false; // Exit this non-elevated instance
-                    }
-                    else
-                    {
-                        Logger.Warn("Failed to launch via task, falling back to direct UAC elevation");
-                    }
-                }
-                else
-                {
-                    Logger.Info("Scheduled task not found or path mismatch, requesting UAC elevation...");
-                }
-
-                // Fall back to direct elevation (will trigger UAC)
-                Logger.Info("Attempting direct UAC elevation...");
-                if (LaunchElevated(exePath, args))
-                {
-                    Logger.Info("Launched elevated process via UAC, exiting current instance");
-                    LogManager.Flush(); // Ensure logs are written before exit
+                    Logger.Info("Launched via scheduled task, exiting current instance");
+                    LogManager.Flush();
                     return false; // Exit this non-elevated instance
+                }
+
+                Logger.Warn("Failed to launch via task, falling back to UAC elevation");
+                if (LaunchElevatedForSetup(exePath, args))
+                {
+                    Logger.Info("Launched setup process via UAC, exiting current instance");
+                    LogManager.Flush();
+                    return false;
                 }
 
                 Logger.Error("Failed to elevate - continuing without admin rights (some features may not work)");
@@ -112,46 +165,125 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
-        /// Asynchronously ensures the scheduled task exists with the correct path.
+        /// Asynchronously ensures deployment is up to date.
         /// Runs in a background thread to avoid blocking startup.
+        /// Called when running elevated from MSIX.
         /// </summary>
-        private static void EnsureScheduledTaskAsync(string exePath)
+        private static void EnsureDeploymentAsync()
         {
-            // Run task check and creation in background thread
-            Thread taskThread = new Thread(() =>
+            Thread deployThread = new Thread(() =>
             {
                 try
                 {
-                    Logger.Info("Background: Checking scheduled task...");
-                    if (!TaskExistsWithCorrectPath(exePath))
+                    // Always remove legacy task first (cleanup from old implementation)
+                    Logger.Info("Background: Removing legacy task if present...");
+                    ScheduledTaskService.RemoveLegacyTaskIfExists();
+
+                    Logger.Info("Background: Checking if deployment update is needed...");
+
+                    if (HelperDeploymentService.IsDeploymentNeeded())
                     {
-                        Logger.Info("Background: Creating scheduled task for future launches...");
+                        Logger.Info("Background: Deploying updated helper files...");
                         var timer = Stopwatch.StartNew();
-                        if (CreateScheduledTask(exePath))
+
+                        if (HelperDeploymentService.DeployHelper())
                         {
                             timer.Stop();
-                            Logger.Info($"Background: Scheduled task created successfully in {timer.ElapsedMilliseconds}ms");
+                            Logger.Info($"Background: Helper deployed successfully in {timer.ElapsedMilliseconds}ms");
+
+                            // Also ensure task is configured correctly
+                            if (!ScheduledTaskService.IsTaskConfiguredCorrectly())
+                            {
+                                Logger.Info("Background: Creating/updating scheduled task...");
+                                if (ScheduledTaskService.CreateOrUpdateTask())
+                                {
+                                    Logger.Info("Background: Scheduled task created successfully");
+                                }
+                                else
+                                {
+                                    Logger.Warn("Background: Failed to create scheduled task");
+                                }
+                            }
                         }
                         else
                         {
-                            Logger.Warn("Background: Failed to create scheduled task - UAC will be required on future launches");
+                            Logger.Warn("Background: Failed to deploy helper files");
                         }
                     }
                     else
                     {
-                        Logger.Info("Background: Scheduled task already exists with correct path");
+                        Logger.Info("Background: Deployment is up to date");
+
+                        // Still check if task needs update
+                        if (!ScheduledTaskService.IsTaskConfiguredCorrectly())
+                        {
+                            Logger.Info("Background: Task needs update, creating...");
+                            ScheduledTaskService.CreateOrUpdateTask();
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error($"Background: Error ensuring scheduled task: {ex.Message}");
+                    Logger.Error($"Background: Error during deployment check: {ex.Message}");
                 }
             })
             {
                 IsBackground = true,
-                Name = "ScheduledTaskCreator"
+                Name = "DeploymentUpdater"
             };
-            taskThread.Start();
+            deployThread.Start();
+        }
+
+        /// <summary>
+        /// Performs the setup process: deploys files and creates task.
+        /// Called from Program.cs when --setup flag is present.
+        /// Returns true if setup succeeded and task was launched.
+        /// </summary>
+        public static bool PerformSetup()
+        {
+            try
+            {
+                if (!IsRunningAsAdmin())
+                {
+                    Logger.Error("PerformSetup called without admin privileges");
+                    return false;
+                }
+
+                Logger.Info("=== Starting Setup ===");
+                Logger.Info($"Source directory: {HelperDeploymentService.GetSourceDirectory()}");
+                Logger.Info($"Target directory: {HelperDeploymentService.HelperFolder}");
+                Logger.Info($"Package version: {HelperDeploymentService.GetCurrentPackageVersion()}");
+
+                // Step 1: Deploy helper files
+                Logger.Info("Step 1: Deploying helper files...");
+                if (!HelperDeploymentService.DeployHelper())
+                {
+                    Logger.Error("Failed to deploy helper files");
+                    return false;
+                }
+                Logger.Info("Helper files deployed successfully");
+
+                // Step 2: Create scheduled task
+                Logger.Info("Step 2: Creating scheduled task...");
+                if (!ScheduledTaskService.CreateOrUpdateTask())
+                {
+                    Logger.Error("Failed to create scheduled task");
+                    return false;
+                }
+                Logger.Info("Scheduled task created successfully");
+
+                // Note: After setup, we EXIT and let the widget relaunch the helper.
+                // The relaunched helper will detect setup is complete and run via scheduled task.
+                // This is cleaner than having the UAC-launched helper continue running.
+                Logger.Info("Setup complete - will exit and let widget relaunch");
+                Logger.Info("=== Setup Complete ===");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Error during setup");
+                return false;
+            }
         }
 
         /// <summary>
@@ -175,272 +307,44 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
-        /// Checks if the scheduled task exists and points to the correct executable path.
+        /// Launches the helper with --setup flag and UAC elevation.
         /// </summary>
-        private static bool TaskExistsWithCorrectPath(string exePath)
+        private static bool LaunchElevatedForSetup(string exePath, string[] args)
         {
             try
             {
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = "schtasks.exe",
-                    Arguments = $"/Query /TN \"{TaskName}\" /V /FO LIST",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                using (var process = Process.Start(startInfo))
-                {
-                    if (process == null)
-                    {
-                        Logger.Error("TaskExistsWithCorrectPath: Failed to start schtasks process");
-                        return false;
-                    }
-
-                    string output = process.StandardOutput.ReadToEnd();
-                    string error = process.StandardError.ReadToEnd();
-                    process.WaitForExit(ProcessStartTimeoutMs);
-
-                    Logger.Debug($"TaskExistsWithCorrectPath: schtasks ExitCode={process.ExitCode}");
-
-                    if (process.ExitCode != 0)
-                    {
-                        Logger.Info($"Scheduled task does not exist. Error: {error.Trim()}");
-                        return false;
-                    }
-
-                    // Parse "Task To Run:" line from verbose output
-                    // Format: Task To Run:                          "C:\path\to\exe.exe"
-                    var match = Regex.Match(output, @"Task To Run:\s+""?([^""]+)""?", RegexOptions.IgnoreCase);
-                    if (match.Success)
-                    {
-                        string taskPath = match.Groups[1].Value.Trim().Trim('"');
-                        Logger.Debug($"TaskExistsWithCorrectPath: Parsed taskPath={taskPath}");
-
-                        // Compare paths (case-insensitive on Windows)
-                        if (string.Equals(taskPath, exePath, StringComparison.OrdinalIgnoreCase))
-                        {
-                            Logger.Info($"Scheduled task exists with correct path: {taskPath}");
-                            return true;
-                        }
-                        else
-                        {
-                            Logger.Info($"Scheduled task path mismatch. Task: {taskPath}, Current: {exePath}");
-                            // Delete the old task so it can be recreated with correct path
-                            UnregisterTask();
-                            return false;
-                        }
-                    }
-
-                    // Log first 500 chars of output to help debug regex issues
-                    Logger.Warn($"Could not parse task path from schtasks output. First 500 chars: {output.Substring(0, Math.Min(500, output.Length))}");
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "Error checking scheduled task");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Creates the scheduled task with elevated privileges.
-        /// Must be called from an elevated process.
-        /// </summary>
-        private static bool CreateScheduledTask(string exePath)
-        {
-            try
-            {
-                // First, delete any existing task
-                UnregisterTask();
-
-                // Create task with schtasks.exe
-                // /SC ONLOGON - run at user logon
-                // /RL HIGHEST - run with highest privileges (requires UAC to create, but auto-starts at logon)
-                // /F - force create (overwrite if exists)
-                // /DELAY 0000:30 - delay 30 seconds after logon to let system settle
-                var createInfo = new ProcessStartInfo
-                {
-                    FileName = "schtasks.exe",
-                    Arguments = $"/Create /TN \"{TaskName}\" /TR \"\\\"{exePath}\\\"\" /SC ONLOGON /RL HIGHEST /F /DELAY 0000:30",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                using (var process = Process.Start(createInfo))
-                {
-                    if (process == null) return false;
-
-                    string output = process.StandardOutput.ReadToEnd();
-                    string error = process.StandardError.ReadToEnd();
-                    process.WaitForExit(ProcessStartTimeoutMs);
-
-                    if (process.ExitCode != 0)
-                    {
-                        Logger.Error($"schtasks /Create failed: {error}");
-                        return false;
-                    }
-
-                    Logger.Debug($"schtasks /Create output: {output}");
-                }
-
-                // Configure additional settings and add wake trigger via PowerShell
-                // Settings: battery, time limit, multiple instances
-                // Triggers: keep logon trigger + add wake from sleep event trigger
-                var wakeEventXml = "<QueryList><Query Id='0' Path='System'><Select Path='System'>*[System[Provider[@Name='Microsoft-Windows-Power-Troubleshooter'] and EventID=1]]</Select></Query></QueryList>";
-                var psScript = $@"
-                    $task = Get-ScheduledTask -TaskName '{TaskName}' -ErrorAction SilentlyContinue
-                    if ($task) {{
-                        $task.Settings.DisallowStartIfOnBatteries = $false
-                        $task.Settings.StopIfGoingOnBatteries = $false
-                        $task.Settings.ExecutionTimeLimit = 'PT0S'
-                        $task.Settings.MultipleInstances = 'IgnoreNew'
-                        $task.Settings.StartWhenAvailable = $true
-                        Set-ScheduledTask -InputObject $task | Out-Null
-                    }}
-                ";
-
-                // Separate script for adding wake trigger (event-based triggers need special handling)
-                var psWakeTriggerScript = $@"
-                    $xml = @'
-{wakeEventXml}
-'@
-                    $CIMClass = Get-CimClass -ClassName MSFT_TaskEventTrigger -Namespace Root/Microsoft/Windows/TaskScheduler
-                    $trigger = New-CimInstance -CimClass $CIMClass -ClientOnly
-                    $trigger.Subscription = $xml
-                    $trigger.Enabled = $true
-                    $trigger.Delay = 'PT10S'
-                    $task = Get-ScheduledTask -TaskName '{TaskName}'
-                    $allTriggers = @($task.Triggers) + $trigger
-                    Set-ScheduledTask -TaskName '{TaskName}' -Trigger $allTriggers | Out-Null
-                ";
-
-                var psInfo = new ProcessStartInfo
-                {
-                    FileName = "powershell.exe",
-                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"{psScript.Replace("\"", "\\\"")}\"",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                using (var process = Process.Start(psInfo))
-                {
-                    if (process == null)
-                    {
-                        Logger.Warn("Could not start PowerShell to configure task settings");
-                        return true; // Task was created, just settings failed
-                    }
-
-                    process.WaitForExit(ProcessStartTimeoutMs);
-
-                    if (process.ExitCode != 0)
-                    {
-                        string error = process.StandardError.ReadToEnd();
-                        Logger.Warn($"PowerShell task settings configuration warning: {error}");
-                    }
-                }
-
-                // Add wake from sleep trigger (separate execution for cleaner error handling)
-                var psWakeInfo = new ProcessStartInfo
-                {
-                    FileName = "powershell.exe",
-                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"{psWakeTriggerScript.Replace("\"", "\\\"")}\"",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                using (var process = Process.Start(psWakeInfo))
-                {
-                    if (process != null)
-                    {
-                        process.WaitForExit(ProcessStartTimeoutMs);
-
-                        if (process.ExitCode != 0)
-                        {
-                            string error = process.StandardError.ReadToEnd();
-                            Logger.Warn($"PowerShell wake trigger configuration warning: {error}");
-                            // Don't fail - task works, just wake trigger might not be added
-                        }
-                        else
-                        {
-                            Logger.Info("Wake from sleep trigger added successfully");
-                        }
-                    }
-                }
-
-                Logger.Info("Scheduled task created and configured successfully");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "Error creating scheduled task");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Launches the helper via the scheduled task (no UAC prompt).
-        /// </summary>
-        private static bool LaunchViaTask()
-        {
-            try
-            {
-                Logger.Info("Attempting to run scheduled task...");
+                // Build arguments: original args + --setup flag
+                var argsList = args.Where(a => a != "--setup").ToList();
+                argsList.Add("--setup");
+                string arguments = string.Join(" ", argsList);
 
                 var startInfo = new ProcessStartInfo
                 {
-                    FileName = "schtasks.exe",
-                    Arguments = $"/Run /TN \"{TaskName}\"",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
+                    FileName = exePath,
+                    Arguments = arguments,
+                    UseShellExecute = true,
+                    Verb = "runas" // This triggers UAC
                 };
 
-                using (var process = Process.Start(startInfo))
-                {
-                    if (process == null)
-                    {
-                        Logger.Error("schtasks /Run: Failed to start process");
-                        return false;
-                    }
-
-                    string output = process.StandardOutput.ReadToEnd();
-                    string error = process.StandardError.ReadToEnd();
-                    process.WaitForExit(ProcessStartTimeoutMs);
-
-                    Logger.Info($"schtasks /Run: ExitCode={process.ExitCode}, Output={output.Trim()}, Error={error.Trim()}");
-
-                    if (process.ExitCode != 0)
-                    {
-                        Logger.Error($"schtasks /Run failed with exit code {process.ExitCode}: {error}");
-                        return false;
-                    }
-
-                    // Give the task a moment to start the process
-                    Thread.Sleep(1000);
-                    Logger.Info("Scheduled task run command completed successfully");
-                    return true;
-                }
+                Logger.Info($"Launching with UAC: {exePath} {arguments}");
+                var process = Process.Start(startInfo);
+                return process != null;
+            }
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+            {
+                // User cancelled UAC prompt
+                Logger.Warn("User cancelled UAC elevation prompt");
+                return false;
             }
             catch (Exception ex)
             {
-                Logger.Error(ex, "Error launching via scheduled task");
+                Logger.Error(ex, "Error launching elevated setup process");
                 return false;
             }
         }
 
         /// <summary>
-        /// Launches the helper with direct UAC elevation (will prompt user).
+        /// Legacy method for direct UAC elevation (fallback).
         /// </summary>
         private static bool LaunchElevated(string exePath, string[] args)
         {
@@ -475,39 +379,15 @@ namespace XboxGamingBarHelper
         /// </summary>
         public static void UnregisterTask()
         {
-            try
-            {
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = "schtasks.exe",
-                    Arguments = $"/Delete /TN \"{TaskName}\" /F",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
+            ScheduledTaskService.RemoveTask();
+        }
 
-                using (var process = Process.Start(startInfo))
-                {
-                    if (process == null) return;
-
-                    process.WaitForExit(ProcessStartTimeoutMs);
-
-                    if (process.ExitCode == 0)
-                    {
-                        Logger.Info("Scheduled task removed successfully");
-                    }
-                    else
-                    {
-                        // Exit code 1 typically means task doesn't exist, which is fine
-                        Logger.Debug("Scheduled task removal - task may not have existed");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "Error removing scheduled task");
-            }
+        /// <summary>
+        /// Full uninstall: removes task and deployed files.
+        /// </summary>
+        public static void Uninstall()
+        {
+            ScheduledTaskService.Uninstall();
         }
     }
 }

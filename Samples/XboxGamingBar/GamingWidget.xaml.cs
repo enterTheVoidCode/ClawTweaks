@@ -33,6 +33,7 @@ using Windows.System;
 using Windows.UI.Xaml.Input;
 using XboxGamingBar.Data;
 using XboxGamingBar.Event;
+using XboxGamingBar.IPC;
 using XboxGamingBar.QuickSettings;
 using Shared.Enums;
 using NavigationView = Microsoft.UI.Xaml.Controls.NavigationView;
@@ -2764,7 +2765,7 @@ namespace XboxGamingBar
                 // To force the helper to actually apply the TDP (even if its internal value matches),
                 // we need to change the value first, then set it to the target.
                 // This triggers NotifyPropertyChanged -> Manager.SetTDP() in the helper.
-                if (App.Connection != null)
+                if (App.IsConnected)
                 {
                     // Calculate a different value to force a change
                     int tempValue = (int)targetTDPLimit == 15 ? 16 : (int)targetTDPLimit - 1;
@@ -2777,7 +2778,7 @@ namespace XboxGamingBar
                         { "Content", tempValue },
                         { "UpdatedTime", DateTimeOffset.Now.Ticks }
                     };
-                    await App.Connection.SendMessageAsync(tempRequest);
+                    await App.SendMessageAsync(tempRequest);
 
                     // Small delay to ensure the temp value is processed
                     await Task.Delay(50);
@@ -2791,8 +2792,8 @@ namespace XboxGamingBar
                         { "UpdatedTime", DateTimeOffset.Now.Ticks }
                     };
 
-                    var response = await App.Connection.SendMessageAsync(targetRequest);
-                    if (response != null && response.Message != null)
+                    var response = await App.SendMessageAsync(targetRequest);
+                    if (response != null)
                     {
                         Logger.Info($"Sticky TDP: Successfully reapplied TDP {targetTDPLimit}W to hardware.");
                     }
@@ -3307,11 +3308,11 @@ namespace XboxGamingBar
             // Use helper's InputInjector since UWP widget can't use SendInput directly
             try
             {
-                if (App.Connection != null)
+                if (App.IsConnected)
                 {
                     var request = new Windows.Foundation.Collections.ValueSet();
                     request.Add("SendKeyboardShortcut", "Ctrl+Shift+O");
-                    await App.Connection.SendMessageAsync(request);
+                    await App.SendMessageAsync(request);
                     Logger.Info("Sent AMD overlay toggle hotkey (Ctrl+Shift+O) via helper");
                 }
                 else
@@ -3331,11 +3332,11 @@ namespace XboxGamingBar
             // Use helper's InputInjector since UWP widget can't use SendInput directly
             try
             {
-                if (App.Connection != null)
+                if (App.IsConnected)
                 {
                     var request = new Windows.Foundation.Collections.ValueSet();
                     request.Add("SendKeyboardShortcut", "Ctrl+Shift+X");
-                    await App.Connection.SendMessageAsync(request);
+                    await App.SendMessageAsync(request);
                     Logger.Info("Sent AMD overlay cycle hotkey (Ctrl+Shift+X) via helper");
                 }
                 else
@@ -3691,7 +3692,7 @@ namespace XboxGamingBar
         {
             try
             {
-                if (App.Connection == null) return;
+                if (!App.IsConnected) return;
 
                 // Build config string to send to helper
                 var configParts = new List<string>();
@@ -3752,7 +3753,7 @@ namespace XboxGamingBar
                     { "Content", configString },
                     { "UpdatedTime", DateTimeOffset.Now.Ticks }
                 };
-                await App.Connection.SendMessageAsync(request);
+                await App.SendMessageAsync(request);
 
                 Logger.Info($"OSD config sent to helper: {configString}");
             }
@@ -3854,7 +3855,7 @@ namespace XboxGamingBar
         {
             try
             {
-                if (App.Connection == null) return;
+                if (!App.IsConnected) return;
 
                 var configString = $"AdaptiveBrightness:{(adaptiveBrightnessEnabled ? 1 : 0)};" +
                                    $"PositionShift:{(osdPositionShiftEnabled ? 1 : 0)}";
@@ -3866,7 +3867,7 @@ namespace XboxGamingBar
                     { "Content", configString },
                     { "UpdatedTime", DateTimeOffset.Now.Ticks }
                 };
-                await App.Connection.SendMessageAsync(request);
+                await App.SendMessageAsync(request);
 
                 Logger.Info($"Display/OSD config sent to helper: {configString}");
             }
@@ -4357,12 +4358,12 @@ namespace XboxGamingBar
 
             try
             {
-                if (App.Connection != null)
+                if (App.IsConnected)
                 {
                     // Send hibernate request to helper (UWP can't execute shutdown directly)
                     var message = new Windows.Foundation.Collections.ValueSet();
                     message.Add("Hibernate", true);
-                    await App.Connection.SendMessageAsync(message);
+                    await App.SendMessageAsync(message);
                     Logger.Info("Hibernate request sent to helper");
                 }
                 else
@@ -5103,19 +5104,19 @@ namespace XboxGamingBar
             try
             {
                 // Request power plans from helper
-                if (App.Connection != null)
+                if (App.IsConnected)
                 {
                     var request = new Windows.Foundation.Collections.ValueSet();
                     request.Add("GetPowerPlans", true);
 
-                    var response = await App.Connection.SendMessageAsync(request);
+                    var response = await App.SendMessageAsync(request);
 
-                    if (response?.Message != null)
+                    if (response != null)
                     {
                         availablePowerPlans.Clear();
 
                         // Parse response: "GUID1|Name1;GUID2|Name2;..."
-                        if (response.Message.TryGetValue("PowerPlans", out object plansValue) && plansValue is string plansStr)
+                        if (response.TryGetValue("PowerPlans", out object plansValue) && plansValue is string plansStr)
                         {
                             var planParts = plansStr.Split(';');
                             foreach (var part in planParts)
@@ -5135,7 +5136,7 @@ namespace XboxGamingBar
                         }
 
                         // Get currently active plan
-                        if (response.Message.TryGetValue("ActivePowerPlan", out object activeValue) && activeValue is string activeStr)
+                        if (response.TryGetValue("ActivePowerPlan", out object activeValue) && activeValue is string activeStr)
                         {
                             if (Guid.TryParse(activeStr, out Guid activeGuid))
                             {
@@ -5317,11 +5318,11 @@ namespace XboxGamingBar
 
         private async Task SendHelperMessageAsync(Windows.Foundation.Collections.ValueSet message)
         {
-            if (App.Connection != null)
+            if (App.IsConnected)
             {
                 try
                 {
-                    await App.Connection.SendMessageAsync(message);
+                    await App.SendMessageAsync(message);
                 }
                 catch (Exception ex)
                 {
@@ -6249,11 +6250,11 @@ namespace XboxGamingBar
             try
             {
                 // Send message to helper to launch URL (Game Bar blocks direct URL launching)
-                if (App.Connection != null)
+                if (App.IsConnected)
                 {
                     var message = new Windows.Foundation.Collections.ValueSet();
                     message.Add("LaunchUrl", "https://paypal.me/corando98");
-                    await App.Connection.SendMessageAsync(message);
+                    await App.SendMessageAsync(message);
                     Logger.Info("Sent LaunchUrl request to helper");
                 }
                 else
@@ -6274,16 +6275,16 @@ namespace XboxGamingBar
                 RestartHelperButton.IsEnabled = false;
                 RestartHelperButton.Content = "Restarting...";
 
-                // Send exit command to helper via AppServiceConnection
-                if (App.Connection != null)
+                // Send exit command to helper via IPC
+                if (App.IsConnected)
                 {
                     var message = new Windows.Foundation.Collections.ValueSet();
                     message.Add("ExitHelper", true);
 
                     Logger.Info("Sending ExitHelper command to helper");
-                    var response = await App.Connection.SendMessageAsync(message);
+                    var response = await App.SendMessageAsync(message);
 
-                    if (response.Status == AppServiceResponseStatus.Success)
+                    if (response != null)
                     {
                         Logger.Info("Helper acknowledged exit command");
                     }
@@ -6296,7 +6297,12 @@ namespace XboxGamingBar
                 Logger.Info("Launching new helper instance");
                 await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
 
-                await Task.Delay(2000);
+                // Give the helper a moment to start its pipe server, then try to reconnect
+                await Task.Delay(500);
+                Logger.Info("Attempting to reconnect to helper via Named Pipe");
+                _ = TryConnectPipeAsync();
+
+                await Task.Delay(1500);
                 RestartHelperButton.Content = "Restart Helper";
                 RestartHelperButton.IsEnabled = true;
             }
@@ -6315,37 +6321,37 @@ namespace XboxGamingBar
                 ExportLogsButton.IsEnabled = false;
                 ExportLogsButton.Content = "Exporting...";
 
-                // Send export logs command to helper via AppServiceConnection
-                if (App.Connection != null)
+                // Send export logs command to helper via IPC
+                if (App.IsConnected)
                 {
                     var message = new Windows.Foundation.Collections.ValueSet();
                     message.Add("ExportLogs", true);
 
                     Logger.Info("Sending ExportLogs command to helper");
-                    var response = await App.Connection.SendMessageAsync(message);
+                    var response = await App.SendMessageAsync(message);
 
-                    if (response.Status == AppServiceResponseStatus.Success)
+                    if (response != null)
                     {
                         bool success = false;
-                        if (response.Message.TryGetValue("Success", out object successObj) && successObj is bool successVal)
+                        if (response.TryGetValue("Success", out object successObj) && successObj is bool successVal)
                             success = successVal;
 
                         if (success)
                         {
-                            var path = response.Message.TryGetValue("Path", out object pathObj) ? pathObj as string : "Desktop";
+                            var path = response.TryGetValue("Path", out object pathObj) ? pathObj as string : "Desktop";
                             Logger.Info($"Logs exported successfully to: {path}");
                             ExportLogsButton.Content = "Exported!";
                         }
                         else
                         {
-                            var error = response.Message.TryGetValue("Error", out object errorObj) ? errorObj as string : "Unknown error";
+                            var error = response.TryGetValue("Error", out object errorObj) ? errorObj as string : "Unknown error";
                             Logger.Error($"Export logs failed: {error}");
                             ExportLogsButton.Content = "Export Failed";
                         }
                     }
                     else
                     {
-                        Logger.Error($"Export logs request failed: {response.Status}");
+                        Logger.Error("Export logs request failed - no response");
                         ExportLogsButton.Content = "Export Failed";
                     }
                 }
@@ -6375,17 +6381,62 @@ namespace XboxGamingBar
             {
                 Logger.Info("Kill GoTweaks requested by user");
 
-                // Send exit command to helper first
-                if (App.Connection != null)
+                // Send exit command to helper using all available methods
+                bool exitSent = false;
+
+                // Try via Named Pipe first (primary method)
+                if (App.PipeClient?.IsConnected == true)
                 {
                     var message = new Windows.Foundation.Collections.ValueSet();
                     message.Add("ExitHelper", true);
-
-                    Logger.Info("Sending ExitHelper command before killing widget");
+                    Logger.Info("Sending ExitHelper via Named Pipe");
+                    await App.SendMessageAsync(message);
+                    exitSent = true;
+                }
+                // Try via AppServiceConnection
+                else if (App.Connection != null && App.IsConnected)
+                {
+                    var message = new Windows.Foundation.Collections.ValueSet();
+                    message.Add("ExitHelper", true);
+                    Logger.Info("Sending ExitHelper via AppServiceConnection");
                     await App.Connection.SendMessageAsync(message);
+                    exitSent = true;
+                }
+                // Not connected - try temporary pipe connection
+                else
+                {
+                    Logger.Info("Not connected - attempting temporary pipe connection for ExitHelper");
+                    try
+                    {
+                        using (var tempPipe = new System.IO.Pipes.NamedPipeClientStream(".", "GoTweaksHelper", System.IO.Pipes.PipeDirection.InOut, System.IO.Pipes.PipeOptions.Asynchronous))
+                        {
+                            var connectTask = tempPipe.ConnectAsync(2000);
+                            if (await Task.WhenAny(connectTask, Task.Delay(2500)) == connectTask)
+                            {
+                                using (var writer = new System.IO.StreamWriter(tempPipe, System.Text.Encoding.UTF8, 4096, leaveOpen: true))
+                                {
+                                    writer.AutoFlush = true;
+                                    await writer.WriteLineAsync("{\"RequestId\":0,\"ExitHelper\":true}");
+                                }
+                                Logger.Info("Sent ExitHelper via temporary pipe connection");
+                                exitSent = true;
+                            }
+                        }
+                    }
+                    catch (Exception pipeEx)
+                    {
+                        Logger.Warn($"Temporary pipe connection failed: {pipeEx.Message}");
+                    }
+                }
 
+                if (exitSent)
+                {
                     // Give helper time to exit
-                    await Task.Delay(500);
+                    await Task.Delay(1000);
+                }
+                else
+                {
+                    Logger.Warn("Could not send ExitHelper - helper may still be running");
                 }
 
                 // Exit the widget application
@@ -6530,15 +6581,17 @@ namespace XboxGamingBar
                 UpdateButton.Content = "Downloading...";
                 UpdateStatusText.Text = $"Downloading {_pendingUpdateVersion}...";
 
-                if (App.Connection != null)
+                if (App.IsConnected)
                 {
                     var message = new Windows.Foundation.Collections.ValueSet();
-                    message.Add("DownloadAndInstallUpdate", _pendingUpdateZipUrl);
-                    var result = await App.Connection.SendMessageAsync(message);
+                    message.Add("Command", (int)Shared.Enums.Command.Set);
+                    message.Add("Function", (int)Shared.Enums.Function.InstallUpdate);
+                    message.Add("Content", _pendingUpdateZipUrl);
+                    var result = await App.SendMessageAsync(message);
 
-                    if (result.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                    if (result != null)
                     {
-                        if (result.Message.TryGetValue("UpdateStatus", out object status))
+                        if (result.TryGetValue("UpdateStatus", out object status))
                         {
                             var statusStr = status?.ToString() ?? "";
                             if (statusStr == "Installing")
@@ -6594,7 +6647,7 @@ namespace XboxGamingBar
                 _pendingUpdateZipUrl = null;
                 _pendingUpdateVersion = null;
 
-                if (App.Connection == null)
+                if (!App.IsConnected)
                 {
                     UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
                     UpdateStatusText.Text = "Helper not connected";
@@ -6605,22 +6658,23 @@ namespace XboxGamingBar
 
                 // Ask helper to check for local updates (helper has file system access)
                 var message = new Windows.Foundation.Collections.ValueSet();
-                message.Add("CheckLocalUpdate", true);
-                var result = await App.Connection.SendMessageAsync(message);
+                message.Add("Command", (int)Shared.Enums.Command.Get);
+                message.Add("Function", (int)Shared.Enums.Function.CheckLocalUpdate);
+                var result = await App.SendMessageAsync(message);
 
-                if (result.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                if (result != null)
                 {
-                    if (result.Message.TryGetValue("Error", out object errorObj))
+                    if (result.TryGetValue("Error", out object errorObj))
                     {
                         UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
                         UpdateStatusText.Text = errorObj?.ToString() ?? "Unknown error";
                     }
-                    else if (result.Message.TryGetValue("LatestVersion", out object versionObj) &&
-                             result.Message.TryGetValue("MsixbundlePath", out object pathObj))
+                    else if (result.TryGetValue("LatestVersion", out object versionObj) &&
+                             result.TryGetValue("MsixbundlePath", out object pathObj))
                     {
                         var foundVersionStr = versionObj?.ToString();
                         var msixbundlePath = pathObj?.ToString();
-                        var folderName = result.Message.TryGetValue("FolderName", out object folderObj) ? folderObj?.ToString() : "";
+                        var folderName = result.TryGetValue("FolderName", out object folderObj) ? folderObj?.ToString() : "";
 
                         // Get current version
                         var packageVersion = Package.Current.Id.Version;
@@ -6677,7 +6731,7 @@ namespace XboxGamingBar
                 ExportDGPsButton.IsEnabled = false;
                 ExportDGPsButton.Content = "Exporting...";
 
-                if (App.Connection == null)
+                if (!App.IsConnected)
                 {
                     ExportDGPsButton.Content = "Helper not connected";
                     await Task.Delay(2000);
@@ -6690,16 +6744,16 @@ namespace XboxGamingBar
                 var message = new Windows.Foundation.Collections.ValueSet();
                 message.Add("Command", (int)Shared.Enums.Command.Set);
                 message.Add("Function", (int)Shared.Enums.Function.Debug_ExportDGPs);
-                var result = await App.Connection.SendMessageAsync(message);
+                var result = await App.SendMessageAsync(message);
 
-                if (result.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                if (result != null)
                 {
-                    if (result.Message.TryGetValue("ExportPath", out object pathObj))
+                    if (result.TryGetValue("ExportPath", out object pathObj))
                     {
                         ExportDGPsButton.Content = $"Exported!";
                         Logger.Info($"DGPs exported to: {pathObj}");
                     }
-                    else if (result.Message.TryGetValue("Error", out object errorObj))
+                    else if (result.TryGetValue("Error", out object errorObj))
                     {
                         ExportDGPsButton.Content = $"Error: {errorObj}";
                     }
@@ -11767,9 +11821,9 @@ namespace XboxGamingBar
                 Logger.Info("XboxGameBarWidget not available, probably running as an app instead of widget.");
             }
 
-            if (App.Connection == null && ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0))
+            if (!App.IsConnected && ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0))
             {
-                Logger.Info("App.Connection is null. Registering event handlers and launching full trust process.");
+                Logger.Info("Not connected to helper. Registering event handlers and launching full trust process.");
                 // Use -= before += to ensure we don't register duplicate handlers
                 App.AppServiceConnected -= GamingWidget_AppServiceConnected;
                 App.AppServiceDisconnected -= GamingWidget_AppServiceDisconnected;
@@ -11781,12 +11835,12 @@ namespace XboxGamingBar
             }
             else
             {
-                Logger.Info($"Not launching full trust process. App.Connection is null: {App.Connection == null}, FullTrustAppContract present: {ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0)}");
+                Logger.Info($"Not launching full trust process. App.IsConnected: {App.IsConnected}, FullTrustAppContract present: {ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0)}");
 
                 // If connection already exists, register event handlers and sync properties
-                if (App.Connection != null)
+                if (App.IsConnected)
                 {
-                    Logger.Info("AppService connection already exists. Ensuring event handlers are registered.");
+                    Logger.Info("Already connected to helper. Ensuring event handlers are registered.");
 
                     // Hide connection status banner since we're connected
                     HideConnectionBanner();
@@ -11913,7 +11967,7 @@ namespace XboxGamingBar
                 await widget.CenterWindowAsync();
             }
 
-            if (App.Connection != null)
+            if (App.IsConnected)
             {
                 Logger.Info("GamingWidget LeavingBackground, syncing UI properties with helper.");
 
@@ -12336,7 +12390,7 @@ namespace XboxGamingBar
                 await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                 {
                     // Verify connection still exists (could have been cleared by disconnect during sync)
-                    if (App.Connection == null)
+                    if (!App.IsConnected)
                     {
                         Logger.Warn("Connection was cleared during sync - keeping banner visible");
                         return;
@@ -12375,7 +12429,11 @@ namespace XboxGamingBar
             /// <summary>Blue banner - Launching helper process (info state)</summary>
             Launching,
             /// <summary>Blue banner - Loading widget (initial state)</summary>
-            Loading
+            Loading,
+            /// <summary>Purple banner - Initial setup in progress (requires UAC)</summary>
+            InitialSetup,
+            /// <summary>Blue banner - Upgrading helper (UAC-free upgrade in progress)</summary>
+            Upgrading
         }
 
         /// <summary>
@@ -12408,6 +12466,14 @@ namespace XboxGamingBar
                 case BannerState.Loading:
                     ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 102, 204)); // #3366CC
                     ConnectionStatusText.Text = "Loading...";
+                    break;
+                case BannerState.InitialSetup:
+                    ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 102, 51, 153)); // #663399 Purple
+                    ConnectionStatusText.Text = "Initial setup in progress - please wait...";
+                    break;
+                case BannerState.Upgrading:
+                    ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 153, 102)); // #339966 Green
+                    ConnectionStatusText.Text = "Upgrading helper...";
                     break;
             }
             ConnectionStatusBanner.Visibility = Visibility.Visible;
@@ -12545,6 +12611,7 @@ namespace XboxGamingBar
         /// <summary>
         /// Check if helper is alive by reading its heartbeat file.
         /// Returns true if heartbeat file exists and is recent (less than HeartbeatStaleThresholdSeconds old).
+        /// Also checks version match - if helper version doesn't match widget version, requests helper exit.
         /// </summary>
         private async Task<bool> IsHelperAliveAsync()
         {
@@ -12562,7 +12629,7 @@ namespace XboxGamingBar
                 string content = await Windows.Storage.FileIO.ReadTextAsync((Windows.Storage.StorageFile)heartbeatFile);
 
                 // Simple JSON parsing without external dependency
-                // Format: {"pid":1234,"timestamp":1234567890,"connected":true,"elevated":true}
+                // Format: {"pid":1234,"timestamp":1234567890,"connected":true,"elevated":true,"version":"0.3.1430.0"}
                 var timestampMatch = System.Text.RegularExpressions.Regex.Match(content, @"""timestamp"":(\d+)");
                 if (!timestampMatch.Success)
                 {
@@ -12605,6 +12672,41 @@ namespace XboxGamingBar
                     return false;
                 }
 
+                // Check version match - if helper is outdated, request it to exit
+                var versionMatch = System.Text.RegularExpressions.Regex.Match(content, @"""version"":""([^""]+)""");
+                if (versionMatch.Success)
+                {
+                    string helperVersion = versionMatch.Groups[1].Value;
+                    string widgetVersion = GetWidgetVersion();
+
+                    if (helperVersion != widgetVersion)
+                    {
+                        Logger.Info($"Helper version mismatch: helper={helperVersion}, widget={widgetVersion} - requesting helper restart");
+
+                        // Show upgrading banner before requesting exit
+                        await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                        {
+                            ShowConnectionBanner(BannerState.Upgrading);
+                        });
+
+                        await RequestHelperExitAsync();
+
+                        // Wait for the old helper to fully exit
+                        // The helper has a 7 second force-exit timeout after receiving ExitHelper.
+                        // We can't reliably check process exit from UWP (sandbox restrictions on elevated processes).
+                        // Instead, wait for the force-exit timeout plus buffer to guarantee the old helper is dead.
+                        const int forceExitTimeoutMs = 7000; // Helper's force-exit timeout
+                        const int bufferMs = 1500; // Extra buffer for pipe cleanup
+                        const int totalWaitMs = forceExitTimeoutMs + bufferMs;
+
+                        Logger.Info($"Waiting {totalWaitMs}ms for old helper force-exit timeout...");
+                        await Task.Delay(totalWaitMs);
+                        Logger.Info("Old helper should now be fully exited");
+
+                        return false; // Return false so a new helper will be launched
+                    }
+                }
+
                 Logger.Info($"Helper is alive (heartbeat {age}s old)");
                 return true;
             }
@@ -12612,6 +12714,287 @@ namespace XboxGamingBar
             {
                 Logger.Debug($"Error reading heartbeat: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the current widget/package version as a string.
+        /// </summary>
+        private string GetWidgetVersion()
+        {
+            try
+            {
+                var packageVersion = Windows.ApplicationModel.Package.Current.Id.Version;
+                return $"{packageVersion.Major}.{packageVersion.Minor}.{packageVersion.Build}.{packageVersion.Revision}";
+            }
+            catch
+            {
+                return "0.0.0.0";
+            }
+        }
+
+        /// <summary>
+        /// Request the helper to exit gracefully. Used when version mismatch is detected.
+        /// </summary>
+        private async Task RequestHelperExitAsync()
+        {
+            try
+            {
+                bool exitSent = false;
+
+                // Try via Named Pipe first
+                if (App.PipeClient?.IsConnected == true)
+                {
+                    var request = new Windows.Foundation.Collections.ValueSet();
+                    request.Add("ExitHelper", true);
+                    await App.SendMessageAsync(request);
+                    Logger.Info("Sent ExitHelper via Named Pipe (already connected)");
+                    exitSent = true;
+                }
+                // Fall back to AppServiceConnection
+                else if (App.Connection != null)
+                {
+                    var request = new Windows.Foundation.Collections.ValueSet();
+                    request.Add("ExitHelper", true);
+                    await App.Connection.SendMessageAsync(request);
+                    Logger.Info("Sent ExitHelper via AppServiceConnection");
+                    exitSent = true;
+                }
+                // Not connected - try to establish a temporary pipe connection just to send ExitHelper
+                else
+                {
+                    Logger.Info("Not connected to helper - attempting temporary pipe connection to send ExitHelper");
+                    try
+                    {
+                        // Create a temporary pipe client just for this purpose
+                        using (var tempPipe = new System.IO.Pipes.NamedPipeClientStream(".", "GoTweaksHelper", System.IO.Pipes.PipeDirection.InOut, System.IO.Pipes.PipeOptions.Asynchronous))
+                        {
+                            // Try to connect with short timeout
+                            var connectTask = tempPipe.ConnectAsync(2000);
+                            if (await Task.WhenAny(connectTask, Task.Delay(2500)) == connectTask)
+                            {
+                                // Connected - send ExitHelper as simple JSON
+                                using (var writer = new System.IO.StreamWriter(tempPipe, System.Text.Encoding.UTF8, 4096, leaveOpen: true))
+                                {
+                                    writer.AutoFlush = true;
+                                    await writer.WriteLineAsync("{\"RequestId\":0,\"ExitHelper\":true}");
+                                }
+                                Logger.Info("Sent ExitHelper via temporary pipe connection");
+                                exitSent = true;
+                            }
+                            else
+                            {
+                                Logger.Warn("Timed out connecting to helper pipe for ExitHelper");
+                            }
+                        }
+                    }
+                    catch (Exception pipeEx)
+                    {
+                        Logger.Warn($"Failed to establish temporary pipe connection: {pipeEx.Message}");
+                    }
+                }
+
+                if (!exitSent)
+                {
+                    Logger.Warn("Could not send ExitHelper to helper - no connection available");
+                }
+
+                // Give helper time to exit
+                await Task.Delay(1000);
+
+                // Delete stale heartbeat file
+                try
+                {
+                    var localFolder = Windows.Storage.ApplicationData.Current.LocalFolder;
+                    var heartbeatFile = await localFolder.TryGetItemAsync("helper_heartbeat.json");
+                    if (heartbeatFile != null)
+                    {
+                        await heartbeatFile.DeleteAsync();
+                        Logger.Info("Deleted stale heartbeat file after requesting helper exit");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"Could not delete heartbeat file: {ex.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to request helper exit: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Request the helper to perform a UAC-free upgrade.
+        /// Sends the MSIX source path so the elevated helper can copy new files and restart.
+        /// This avoids UAC prompts during upgrades since the running helper is already elevated.
+        /// </summary>
+        /// <returns>True if upgrade succeeded and new helper is running, false otherwise</returns>
+        private async Task<bool> RequestHelperUpgradeAsync()
+        {
+            try
+            {
+                // Show upgrading banner
+                ShowConnectionBanner(BannerState.Upgrading);
+
+                // Get the MSIX helper source path
+                string msixSourcePath = GetMsixHelperSourcePath();
+                if (string.IsNullOrEmpty(msixSourcePath))
+                {
+                    Logger.Warn("Could not determine MSIX helper source path - falling back to ExitHelper");
+                    await RequestHelperExitAsync();
+                    return false;
+                }
+
+                Logger.Info($"Requesting UAC-free upgrade with source: {msixSourcePath}");
+                bool upgradeSent = false;
+
+                // Try via Named Pipe (primary method)
+                if (App.PipeClient?.IsConnected == true)
+                {
+                    var request = new Windows.Foundation.Collections.ValueSet();
+                    request.Add("UpgradeHelper", msixSourcePath);
+                    await App.SendMessageAsync(request);
+                    Logger.Info("Sent UpgradeHelper via Named Pipe (already connected)");
+                    upgradeSent = true;
+                }
+                // Not connected - try to establish a temporary pipe connection
+                else
+                {
+                    Logger.Info("Not connected to helper - attempting temporary pipe connection for UpgradeHelper");
+                    try
+                    {
+                        using (var tempPipe = new System.IO.Pipes.NamedPipeClientStream(".", "GoTweaksHelper", System.IO.Pipes.PipeDirection.InOut, System.IO.Pipes.PipeOptions.Asynchronous))
+                        {
+                            var connectTask = tempPipe.ConnectAsync(2000);
+                            if (await Task.WhenAny(connectTask, Task.Delay(2500)) == connectTask)
+                            {
+                                using (var writer = new System.IO.StreamWriter(tempPipe, System.Text.Encoding.UTF8, 4096, leaveOpen: true))
+                                {
+                                    writer.AutoFlush = true;
+                                    // Send as JSON with UpgradeHelper in Extra
+                                    string json = $"{{\"RequestId\":0,\"Extra\":{{\"UpgradeHelper\":\"{msixSourcePath.Replace("\\", "\\\\")}\"}}}}";
+                                    await writer.WriteLineAsync(json);
+                                }
+                                Logger.Info("Sent UpgradeHelper via temporary pipe connection");
+                                upgradeSent = true;
+                            }
+                            else
+                            {
+                                Logger.Warn("Timed out connecting to helper pipe for UpgradeHelper");
+                            }
+                        }
+                    }
+                    catch (Exception pipeEx)
+                    {
+                        Logger.Warn($"Failed to establish temporary pipe connection: {pipeEx.Message}");
+                    }
+                }
+
+                if (!upgradeSent)
+                {
+                    Logger.Warn("Could not send UpgradeHelper - falling back to ExitHelper");
+                    await RequestHelperExitAsync();
+                    return false;
+                }
+
+                // Delete stale heartbeat file first
+                try
+                {
+                    var localFolder = Windows.Storage.ApplicationData.Current.LocalFolder;
+                    var heartbeatFile = await localFolder.TryGetItemAsync("helper_heartbeat.json");
+                    if (heartbeatFile != null)
+                    {
+                        await heartbeatFile.DeleteAsync();
+                        Logger.Info("Deleted stale heartbeat file before waiting for upgrade");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"Could not delete heartbeat file: {ex.Message}");
+                }
+
+                // Wait for the upgrade to complete and new helper to start
+                // The batch script needs time to: wait for old helper to exit, copy files, run task
+                // Poll for new heartbeat file to confirm new helper is running
+                Logger.Info("Waiting for new helper to start after upgrade...");
+                bool newHelperStarted = false;
+                for (int i = 0; i < 15; i++) // Wait up to 15 seconds
+                {
+                    await Task.Delay(1000);
+
+                    try
+                    {
+                        var localFolder = Windows.Storage.ApplicationData.Current.LocalFolder;
+                        var heartbeatFile = await localFolder.TryGetItemAsync("helper_heartbeat.json");
+                        if (heartbeatFile != null)
+                        {
+                            // Heartbeat file exists - check if it's from new helper
+                            var file = heartbeatFile as Windows.Storage.StorageFile;
+                            if (file != null)
+                            {
+                                string content = await Windows.Storage.FileIO.ReadTextAsync(file);
+                                // Check if version matches new version
+                                var versionMatch = System.Text.RegularExpressions.Regex.Match(content, @"""version"":""([^""]+)""");
+                                if (versionMatch.Success)
+                                {
+                                    string helperVersion = versionMatch.Groups[1].Value;
+                                    string widgetVersion = GetWidgetVersion();
+                                    if (helperVersion == widgetVersion)
+                                    {
+                                        Logger.Info($"New helper v{helperVersion} started successfully after upgrade");
+                                        newHelperStarted = true;
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        Logger.Debug($"Heartbeat version {helperVersion} doesn't match widget {widgetVersion} yet");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"Error checking heartbeat during upgrade wait: {ex.Message}");
+                    }
+                }
+
+                if (newHelperStarted)
+                {
+                    Logger.Info("UAC-free upgrade completed successfully");
+                    HideConnectionBanner();
+                    return true;
+                }
+                else
+                {
+                    Logger.Warn("New helper did not start within timeout - may need manual intervention");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to request helper upgrade: {ex.Message} - falling back to ExitHelper");
+                await RequestHelperExitAsync();
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Gets the MSIX helper source path (in WindowsApps folder).
+        /// </summary>
+        private string GetMsixHelperSourcePath()
+        {
+            try
+            {
+                var package = Windows.ApplicationModel.Package.Current;
+                var installPath = package.InstalledLocation.Path;
+                return System.IO.Path.Combine(installPath, "XboxGamingBarHelper");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Could not get MSIX helper path: {ex.Message}");
+                return null;
             }
         }
 
@@ -12648,11 +13031,14 @@ namespace XboxGamingBar
                 bool helperAlive = await IsHelperAliveAsync();
                 if (helperAlive)
                 {
-                    Logger.Info($"Skipping launch ({reason}) - helper is already alive, waiting for reconnection");
+                    Logger.Info($"Skipping launch ({reason}) - helper is already alive, trying pipe connection");
                     // Show reconnecting banner since we're waiting for helper to reconnect
                     ShowConnectionBanner(BannerState.Reconnecting);
 
-                    // Start timeout timer - if helper doesn't reconnect within timeout, force launch
+                    // Immediately try to connect via Named Pipe (don't wait for timeout)
+                    _ = TryConnectPipeAsync();
+
+                    // Start timeout timer as backup - if pipe doesn't connect within timeout, force launch
                     StartReconnectionTimeoutTimer();
                     return false;
                 }
@@ -12671,6 +13057,12 @@ namespace XboxGamingBar
                 ShowConnectionBanner(BannerState.Launching);
                 await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
                 Logger.Info("Helper launch completed");
+
+                // Try to connect via Named Pipe (works even when helper is elevated)
+                // Give the helper a moment to start its pipe server
+                await Task.Delay(500);
+                _ = TryConnectPipeAsync();
+
                 return true;
             }
             catch (Exception ex)
@@ -12685,6 +13077,78 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Attempts to connect to the helper via Named Pipe.
+        /// Runs in background and triggers PipeConnected event on success.
+        /// Uses longer retry duration to handle elevation scenario where helper
+        /// goes through setup mode (UAC prompt, task creation) before pipe server starts.
+        /// </summary>
+        private async Task TryConnectPipeAsync()
+        {
+            // Longer retry duration for elevation scenario:
+            // - MSIX helper launches, checks elevation, launches --setup (UAC prompt)
+            // - User approves UAC
+            // - Setup helper deploys, creates task, runs task, exits
+            // - Elevated helper starts from deployed location
+            // - Pipe server starts
+            // This can take 15-30 seconds total
+            const int maxAttempts = 60;
+            const int delayBetweenAttempts = 1000;
+
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                if (App.PipeClient?.IsConnected == true)
+                {
+                    Logger.Info("Pipe already connected");
+                    return;
+                }
+
+                // Only log every 5 attempts to reduce noise
+                if (attempt == 1 || attempt % 5 == 0)
+                {
+                    Logger.Info($"Attempting pipe connection ({attempt}/{maxAttempts})...");
+                }
+
+                // After 5 seconds, show InitialSetup banner (likely UAC/setup in progress)
+                if (attempt == 5)
+                {
+                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        ShowConnectionBanner(BannerState.InitialSetup);
+                    });
+                }
+
+                bool connected = await App.ConnectPipeAsync(2000);
+
+                if (connected)
+                {
+                    Logger.Info("Connected to helper via Named Pipe!");
+
+                    // Register for pipe messages
+                    App.PipeMessageReceived -= PipeClient_MessageReceived;
+                    App.PipeMessageReceived += PipeClient_MessageReceived;
+                    App.PipeDisconnected -= PipeClient_Disconnected;
+                    App.PipeDisconnected += PipeClient_Disconnected;
+
+                    // Trigger connection success flow if AppService hasn't connected
+                    if (App.Connection == null)
+                    {
+                        Logger.Info("Pipe connected before AppService - using pipe as primary connection");
+                        await OnPipeConnectedAsync();
+                    }
+                    return;
+                }
+
+                // Wait before next attempt
+                if (attempt < maxAttempts)
+                {
+                    await Task.Delay(delayBetweenAttempts);
+                }
+            }
+
+            Logger.Warn($"Failed to connect via pipe after {maxAttempts} attempts ({maxAttempts * delayBetweenAttempts / 1000}s)");
+        }
+
+        /// <summary>
         /// Starts a timer that will force-launch the helper if connection isn't established within timeout.
         /// Call this when helper is detected as alive but not connected.
         /// </summary>
@@ -12693,8 +13157,8 @@ namespace XboxGamingBar
             // Stop any existing timer
             StopReconnectionTimeoutTimer();
 
-            // Don't start timer if already connected
-            if (App.Connection != null)
+            // Don't start timer if already connected (via AppService or pipe)
+            if (App.IsConnected)
             {
                 Logger.Info("Reconnection timeout timer not started - already connected");
                 return;
@@ -12733,7 +13197,7 @@ namespace XboxGamingBar
             StopReconnectionTimeoutTimer();
 
             // Check if we're now connected (race condition check)
-            if (App.Connection != null)
+            if (App.IsConnected)
             {
                 Logger.Info("Reconnection timeout fired but already connected - skipping force launch");
                 HideConnectionBanner();
@@ -12809,7 +13273,7 @@ namespace XboxGamingBar
             // Relaunch if we're running as a widget (not standalone app)
             // AND we don't already have a connection (prevents duplicate launches)
             // Accept any disconnection reason since helper may exit gracefully (e.g., PawnIO install, restart)
-            bool shouldRelaunch = widget != null && App.Connection == null;
+            bool shouldRelaunch = widget != null && !App.IsConnected;
 
             if (shouldRelaunch)
             {
@@ -12820,7 +13284,7 @@ namespace XboxGamingBar
                 await Task.Delay(3000);
 
                 // Check if reconnected during the wait
-                if (App.Connection != null)
+                if (App.IsConnected)
                 {
                     Logger.Info("Helper reconnected during wait period, no relaunch needed.");
                     await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
@@ -13019,6 +13483,286 @@ namespace XboxGamingBar
             {
                 Logger.Error($"Failed to focus widget: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Handles messages received from helper via Named Pipe.
+        /// Similar to AppServiceConnection_RequestReceived but for pipe communication.
+        /// </summary>
+        private async void PipeClient_MessageReceived(object sender, IPC.PipeMessageEventArgs e)
+        {
+            try
+            {
+                // Only process messages if this is the active widget instance
+                var activeWidget = App.GetActiveGamingWidget();
+                if (activeWidget != null && activeWidget != this)
+                {
+                    Logger.Debug("Widget received pipe message but this is NOT the active instance. Ignoring.");
+                    return;
+                }
+
+                // Parse the JSON message to ValueSet
+                var message = ParsePipeMessageToValueSet(e.Message);
+                if (message == null)
+                {
+                    Logger.Warn("Failed to parse pipe message");
+                    return;
+                }
+
+                Logger.Debug($"Widget received pipe message: Function={message["Function"]}");
+
+                // Check for focus widget request from helper
+                if (message.TryGetValue("Function", out object funcObj) &&
+                    Convert.ToInt32(funcObj) == (int)Shared.Enums.Function.Labs_FocusWidget)
+                {
+                    Logger.Info("Focus widget request received from helper via pipe");
+                    await FocusThisWidgetAsync();
+                    return;
+                }
+
+                // Skip TDP and CurrentTDP updates during Sticky TDP reapply
+                if (isStickyTDPReapplying && message.ContainsKey("Function"))
+                {
+                    var function = Convert.ToInt32(message["Function"]);
+                    if (function == (int)Shared.Enums.Function.TDP || function == (int)Shared.Enums.Function.CurrentTDP)
+                    {
+                        Logger.Debug("Skipping TDP/CurrentTDP pipe update during Sticky TDP reapply");
+                        return;
+                    }
+                }
+
+                // Set flag to prevent auto-save when helper updates slider values
+                isApplyingHelperUpdate = true;
+                try
+                {
+                    // Handle the message via the properties system
+                    properties.HandlePipeMessage(message);
+                    await Task.Delay(50);
+                }
+                finally
+                {
+                    isApplyingHelperUpdate = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error processing pipe message from helper: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Parses a pipe JSON message into a ValueSet.
+        /// </summary>
+        private Windows.Foundation.Collections.ValueSet ParsePipeMessageToValueSet(string json)
+        {
+            try
+            {
+                var result = new Windows.Foundation.Collections.ValueSet();
+                json = json.Trim();
+                if (!json.StartsWith("{") || !json.EndsWith("}"))
+                    return null;
+
+                // Simple JSON parsing
+                var matches = System.Text.RegularExpressions.Regex.Matches(json,
+                    @"""(\w+)""\s*:\s*(""[^""\\]*(\\.[^""\\]*)*""|-?\d+\.?\d*|true|false|null|\{[^{}]*\}|\[[^\[\]]*\])");
+
+                foreach (System.Text.RegularExpressions.Match match in matches)
+                {
+                    var key = match.Groups[1].Value;
+                    var value = match.Groups[2].Value;
+
+                    if (value.StartsWith("\"") && value.EndsWith("\""))
+                    {
+                        result[key] = value.Substring(1, value.Length - 2)
+                            .Replace("\\\"", "\"").Replace("\\\\", "\\")
+                            .Replace("\\n", "\n").Replace("\\r", "\r").Replace("\\t", "\t");
+                    }
+                    else if (value == "true")
+                    {
+                        result[key] = true;
+                    }
+                    else if (value == "false")
+                    {
+                        result[key] = false;
+                    }
+                    else if (value == "null")
+                    {
+                        result[key] = null;
+                    }
+                    else if (value.StartsWith("{") || value.StartsWith("["))
+                    {
+                        result[key] = value;
+                    }
+                    else if (value.Contains("."))
+                    {
+                        if (double.TryParse(value, out var d))
+                            result[key] = d;
+                    }
+                    else
+                    {
+                        if (int.TryParse(value, out var i))
+                            result[key] = i;
+                        else if (long.TryParse(value, out var l))
+                            result[key] = l;
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error parsing pipe message JSON: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Handles Named Pipe disconnection from the helper.
+        /// </summary>
+        private async void PipeClient_Disconnected(object sender, EventArgs e)
+        {
+            Logger.Info("Named pipe disconnected from helper");
+
+            // Unregister handlers
+            App.PipeMessageReceived -= PipeClient_MessageReceived;
+            App.PipeDisconnected -= PipeClient_Disconnected;
+
+            // If AppService is also disconnected, show disconnected banner
+            if (App.Connection == null)
+            {
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    ShowConnectionBanner(BannerState.Disconnected);
+                });
+            }
+        }
+
+        /// <summary>
+        /// Called when pipe connection is established (when AppService hasn't connected yet).
+        /// This handles the case when the helper is running elevated and can't use AppService.
+        /// </summary>
+        private async Task OnPipeConnectedAsync()
+        {
+            Logger.Info("=== OnPipeConnectedAsync START ===");
+
+            // Stop reconnection timeout timer - connection established
+            StopReconnectionTimeoutTimer();
+
+            // Verify we connected to the correct helper version by reading heartbeat
+            // This prevents issues during upgrades where we connect to the old dying helper
+            try
+            {
+                var localFolder = Windows.Storage.ApplicationData.Current.LocalFolder;
+                var heartbeatFile = await localFolder.TryGetItemAsync("helper_heartbeat.json");
+
+                if (heartbeatFile != null)
+                {
+                    string content = await Windows.Storage.FileIO.ReadTextAsync((Windows.Storage.StorageFile)heartbeatFile);
+                    var versionMatch = System.Text.RegularExpressions.Regex.Match(content, @"""version"":""([^""]+)""");
+
+                    if (versionMatch.Success)
+                    {
+                        string helperVersion = versionMatch.Groups[1].Value;
+                        string widgetVersion = GetWidgetVersion();
+
+                        if (helperVersion != widgetVersion)
+                        {
+                            Logger.Warn($"Connected to wrong helper version: helper={helperVersion}, widget={widgetVersion} - disconnecting and retrying");
+
+                            // Disconnect and trigger reconnection
+                            App.PipeClient?.Dispose();
+
+                            // Wait a bit for the old helper to finish exiting
+                            await Task.Delay(3000);
+
+                            // Show reconnecting banner and retry
+                            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                            {
+                                ShowConnectionBanner(BannerState.Upgrading);
+                            });
+
+                            // Retry connection
+                            _ = TryConnectPipeAsync();
+                            return;
+                        }
+
+                        Logger.Info($"Connected to correct helper version: {helperVersion}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Version check failed (may be expected during startup): {ex.Message}");
+                // Continue anyway - version check is optional safety measure
+            }
+
+            // Register as active widget
+            App.RegisterActiveGamingWidget(this);
+            Logger.Info("Registered as active widget for pipe communication");
+
+            // Create widget activity and app target tracker if widget is available
+            if (widget != null)
+            {
+                await CreateWidgetActivity();
+                await CreateAppTargetTracker();
+            }
+
+            // Sync properties now that pipe is connected
+            Logger.Info("Starting property sync via pipe...");
+            try
+            {
+                isApplyingHelperUpdate = true;
+
+                if (legionPerformanceMode != null)
+                {
+                    legionPerformanceMode.SuppressUpdates = true;
+                }
+
+                await properties.Sync();
+                Logger.Info("Property sync via pipe completed successfully.");
+
+                RegisterChillFPSHandlers();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error during property sync via pipe: {ex}");
+            }
+            finally
+            {
+                isApplyingHelperUpdate = false;
+            }
+
+            try
+            {
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    properties.StopPendingUpdates();
+                });
+
+                if (legionPerformanceMode != null)
+                {
+                    legionPerformanceMode.SuppressUpdates = false;
+                }
+
+                SendOSDConfigToHelper();
+                await ApplyProfileTDPToHelper();
+
+                await Task.Delay(200);
+                isInitialSync = false;
+                Logger.Info("Initial sync via pipe complete - profile saves are now enabled");
+
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    HideConnectionBanner();
+                    UpdateProfileDisplay();
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in post-sync initialization via pipe: {ex}");
+            }
+
+            Logger.Info("=== OnPipeConnectedAsync END ===");
         }
 
         // Lossless Scaling Helper Methods
@@ -16578,10 +17322,10 @@ namespace XboxGamingBar
             try
             {
                 // Launch the accessibility on-screen keyboard via helper
-                if (App.Connection != null)
+                if (App.IsConnected)
                 {
                     var message = new Windows.Foundation.Collections.ValueSet { { "LaunchProcess", "osk.exe" } };
-                    await App.Connection.SendMessageAsync(message);
+                    await App.SendMessageAsync(message);
                     Logger.Info("On-screen keyboard launched via osk.exe");
                 }
                 else
@@ -18053,11 +18797,11 @@ namespace XboxGamingBar
             // Apply saved settings to helper (after connection is established)
             _ = Task.Run(async () =>
             {
-                // Wait for helper connection
-                for (int i = 0; i < 30 && App.Connection == null; i++)
+                // Wait for helper connection (pipe or AppService)
+                for (int i = 0; i < 30 && !App.IsConnected; i++)
                     await Task.Delay(200);
 
-                if (App.Connection != null)
+                if (App.IsConnected)
                 {
                     await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                     {
@@ -18070,23 +18814,25 @@ namespace XboxGamingBar
 
         private async void RequestViGEmBusStatus()
         {
-            if (App.Connection == null)
+            if (!App.IsConnected)
                 return;
 
             // Request ViGEmBus installed status from helper
             try
             {
                 var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("Command", (int)Command.Get);
                 request.Add("Function", (int)Function.ViGEmBusInstalled);
-                var response = await App.Connection.SendMessageAsync(request);
+                var response = await App.SendMessageAsync(request);
 
-                // Handle response
-                if (response.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                // Handle response - helper returns "Content" with bool value
+                if (response != null)
                 {
-                    if (response.Message.TryGetValue("Value", out object installedObj))
+                    if (response.TryGetValue("Content", out object installedObj))
                     {
                         bool installed = Convert.ToBoolean(installedObj);
                         UpdateViGEmBusInstalledUI(installed);
+                        Logger.Debug($"ViGEmBus status received: {installed}");
                     }
                 }
             }
@@ -18098,21 +18844,21 @@ namespace XboxGamingBar
 
         private async void UpdateDAServiceStatus()
         {
-            if (App.Connection == null)
+            if (!App.IsConnected)
                 return;
 
             // Request DAService status from helper
             try
             {
                 var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("Command", (int)Command.Get);
                 request.Add("Function", (int)Function.Labs_DAServiceStatus);
-                request.Add("Value", 0); // Request status
-                var response = await App.Connection.SendMessageAsync(request);
+                var response = await App.SendMessageAsync(request);
 
                 // Handle response
-                if (response.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                if (response != null)
                 {
-                    if (response.Message.TryGetValue("Value", out object statusObj))
+                    if (response.TryGetValue("Content", out object statusObj))
                     {
                         int status = Convert.ToInt32(statusObj);
                         OnDAServiceStatusReceived(status);
@@ -18159,7 +18905,7 @@ namespace XboxGamingBar
 
         private async void ToggleDAServiceButton_Click(object sender, RoutedEventArgs e)
         {
-            if (App.Connection == null)
+            if (!App.IsConnected)
                 return;
 
             try
@@ -18174,12 +18920,12 @@ namespace XboxGamingBar
                 var request = new Windows.Foundation.Collections.ValueSet();
                 request.Add("Function", (int)Function.Labs_DAServiceControl);
                 request.Add("Value", action);
-                var response = await App.Connection.SendMessageAsync(request);
+                var response = await App.SendMessageAsync(request);
 
                 // Handle response - helper sends back updated status
-                if (response.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                if (response != null)
                 {
-                    if (response.Message.TryGetValue("Value", out object statusObj))
+                    if (response.TryGetValue("Value", out object statusObj))
                     {
                         int status = Convert.ToInt32(statusObj);
                         OnDAServiceStatusReceived(status);
@@ -18307,17 +19053,96 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Saves settings to the JSON fallback file that the elevated helper can read.
+        /// The elevated helper runs without package identity and can't access ApplicationData.Current.LocalSettings.
+        /// </summary>
+        private void SaveToFallbackSettingsFile(Dictionary<string, object> settingsToSave)
+        {
+            try
+            {
+                var settingsPath = System.IO.Path.Combine(
+                    ApplicationData.Current.LocalCacheFolder.Path,
+                    "settings.json");
+
+                // Load existing settings or create new
+                Windows.Data.Json.JsonObject allSettings;
+                if (System.IO.File.Exists(settingsPath))
+                {
+                    var existingJson = System.IO.File.ReadAllText(settingsPath);
+                    if (Windows.Data.Json.JsonObject.TryParse(existingJson, out var parsed))
+                    {
+                        allSettings = parsed;
+                    }
+                    else
+                    {
+                        allSettings = new Windows.Data.Json.JsonObject();
+                    }
+                }
+                else
+                {
+                    allSettings = new Windows.Data.Json.JsonObject();
+                }
+
+                // Merge in the new settings
+                foreach (var kvp in settingsToSave)
+                {
+                    if (kvp.Value is int intVal)
+                    {
+                        allSettings[kvp.Key] = Windows.Data.Json.JsonValue.CreateNumberValue(intVal);
+                    }
+                    else if (kvp.Value is string strVal)
+                    {
+                        allSettings[kvp.Key] = Windows.Data.Json.JsonValue.CreateStringValue(strVal);
+                    }
+                    else if (kvp.Value is bool boolVal)
+                    {
+                        allSettings[kvp.Key] = Windows.Data.Json.JsonValue.CreateBooleanValue(boolVal);
+                    }
+                }
+
+                // Save back with indentation
+                var json = allSettings.Stringify();
+                System.IO.File.WriteAllText(settingsPath, json);
+
+                Logger.Info($"Saved {settingsToSave.Count} settings to fallback JSON file");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to save to fallback settings file: {ex.Message}");
+            }
+        }
+
         private void SaveLegionRemapSettings()
         {
             try
             {
                 var settings = ApplicationData.Current.LocalSettings;
-                settings.Values["LegionL_Action"] = LegionLActionComboBox?.SelectedIndex ?? 0;
-                settings.Values["LegionL_Shortcut"] = LegionLShortcutTextBox?.Text ?? "";
-                settings.Values["LegionL_Command"] = LegionLCommandTextBox?.Text ?? "";
-                settings.Values["LegionR_Action"] = LegionRActionComboBox?.SelectedIndex ?? 0;
-                settings.Values["LegionR_Shortcut"] = LegionRShortcutTextBox?.Text ?? "";
-                settings.Values["LegionR_Command"] = LegionRCommandTextBox?.Text ?? "";
+                int lAction = LegionLActionComboBox?.SelectedIndex ?? 0;
+                string lShortcut = LegionLShortcutTextBox?.Text ?? "";
+                string lCommand = LegionLCommandTextBox?.Text ?? "";
+                int rAction = LegionRActionComboBox?.SelectedIndex ?? 0;
+                string rShortcut = LegionRShortcutTextBox?.Text ?? "";
+                string rCommand = LegionRCommandTextBox?.Text ?? "";
+
+                settings.Values["LegionL_Action"] = lAction;
+                settings.Values["LegionL_Shortcut"] = lShortcut;
+                settings.Values["LegionL_Command"] = lCommand;
+                settings.Values["LegionR_Action"] = rAction;
+                settings.Values["LegionR_Shortcut"] = rShortcut;
+                settings.Values["LegionR_Command"] = rCommand;
+
+                // Also save to JSON fallback file for elevated helper
+                SaveToFallbackSettingsFile(new Dictionary<string, object>
+                {
+                    { "LegionL_Action", lAction },
+                    { "LegionL_Shortcut", lShortcut },
+                    { "LegionL_Command", lCommand },
+                    { "LegionR_Action", rAction },
+                    { "LegionR_Shortcut", rShortcut },
+                    { "LegionR_Command", rCommand }
+                });
+
                 Logger.Info("Legion remap settings saved");
             }
             catch (Exception ex)
@@ -18379,6 +19204,17 @@ namespace XboxGamingBar
                 if (LegionRCommandGrid != null)
                     LegionRCommandGrid.Visibility = (rSelectionLoaded == 3) ? Visibility.Visible : Visibility.Collapsed;
 
+                // Also sync to JSON fallback file for elevated helper
+                SaveToFallbackSettingsFile(new Dictionary<string, object>
+                {
+                    { "LegionL_Action", LegionLActionComboBox?.SelectedIndex ?? 0 },
+                    { "LegionL_Shortcut", LegionLShortcutTextBox?.Text ?? "" },
+                    { "LegionL_Command", LegionLCommandTextBox?.Text ?? "" },
+                    { "LegionR_Action", LegionRActionComboBox?.SelectedIndex ?? 0 },
+                    { "LegionR_Shortcut", LegionRShortcutTextBox?.Text ?? "" },
+                    { "LegionR_Command", LegionRCommandTextBox?.Text ?? "" }
+                });
+
                 Logger.Info("Legion remap settings loaded");
             }
             catch (Exception ex)
@@ -18403,7 +19239,7 @@ namespace XboxGamingBar
 
         private async void ApplyLegionButtonConfig(bool isLegionL)
         {
-            if (App.Connection == null) return;
+            if (!App.IsConnected) return;
 
             try
             {
@@ -18454,11 +19290,11 @@ namespace XboxGamingBar
                 request.Add("Action", actionType);
                 request.Add("Shortcut", shortcutOrCommand); // Reuse "Shortcut" field for both shortcut and command
 
-                var response = await App.Connection.SendMessageAsync(request);
+                var response = await App.SendMessageAsync(request);
 
-                if (response.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                if (response != null)
                 {
-                    if (response.Message.TryGetValue("Success", out object successObj))
+                    if (response.TryGetValue("Success", out object successObj))
                     {
                         bool success = Convert.ToBoolean(successObj);
                         if (LegionRemapStatusText != null)
@@ -18597,12 +19433,31 @@ namespace XboxGamingBar
             try
             {
                 var settings = ApplicationData.Current.LocalSettings;
-                settings.Values["Scroll_Action"] = ScrollActionComboBox?.SelectedIndex ?? 0;
-                settings.Values["Scroll_Shortcut"] = ScrollShortcutTextBox?.Text ?? "";
-                settings.Values["Scroll_Command"] = ScrollCommandTextBox?.Text ?? "";
-                settings.Values["ScrollClick_Action"] = ScrollClickActionComboBox?.SelectedIndex ?? 0;
-                settings.Values["ScrollClick_Shortcut"] = ScrollClickShortcutTextBox?.Text ?? "";
-                settings.Values["ScrollClick_Command"] = ScrollClickCommandTextBox?.Text ?? "";
+                int scrollAction = ScrollActionComboBox?.SelectedIndex ?? 0;
+                string scrollShortcut = ScrollShortcutTextBox?.Text ?? "";
+                string scrollCommand = ScrollCommandTextBox?.Text ?? "";
+                int clickAction = ScrollClickActionComboBox?.SelectedIndex ?? 0;
+                string clickShortcut = ScrollClickShortcutTextBox?.Text ?? "";
+                string clickCommand = ScrollClickCommandTextBox?.Text ?? "";
+
+                settings.Values["Scroll_Action"] = scrollAction;
+                settings.Values["Scroll_Shortcut"] = scrollShortcut;
+                settings.Values["Scroll_Command"] = scrollCommand;
+                settings.Values["ScrollClick_Action"] = clickAction;
+                settings.Values["ScrollClick_Shortcut"] = clickShortcut;
+                settings.Values["ScrollClick_Command"] = clickCommand;
+
+                // Also save to JSON fallback file for elevated helper
+                SaveToFallbackSettingsFile(new Dictionary<string, object>
+                {
+                    { "Scroll_Action", scrollAction },
+                    { "Scroll_Shortcut", scrollShortcut },
+                    { "Scroll_Command", scrollCommand },
+                    { "ScrollClick_Action", clickAction },
+                    { "ScrollClick_Shortcut", clickShortcut },
+                    { "ScrollClick_Command", clickCommand }
+                });
+
                 Logger.Info("Scroll wheel remap settings saved");
             }
             catch (Exception ex)
@@ -18654,6 +19509,24 @@ namespace XboxGamingBar
                 // Update visibility of shortcut/command grids based on loaded settings
                 UpdateScrollGridVisibility();
 
+                // Also sync to JSON fallback file for elevated helper
+                int scrollActionLoaded = ScrollActionComboBox?.SelectedIndex ?? 0;
+                string scrollShortcutLoaded = ScrollShortcutTextBox?.Text ?? "";
+                string scrollCommandLoaded = ScrollCommandTextBox?.Text ?? "";
+                int clickActionLoaded = ScrollClickActionComboBox?.SelectedIndex ?? 0;
+                string clickShortcutLoaded = ScrollClickShortcutTextBox?.Text ?? "";
+                string clickCommandLoaded = ScrollClickCommandTextBox?.Text ?? "";
+
+                SaveToFallbackSettingsFile(new Dictionary<string, object>
+                {
+                    { "Scroll_Action", scrollActionLoaded },
+                    { "Scroll_Shortcut", scrollShortcutLoaded },
+                    { "Scroll_Command", scrollCommandLoaded },
+                    { "ScrollClick_Action", clickActionLoaded },
+                    { "ScrollClick_Shortcut", clickShortcutLoaded },
+                    { "ScrollClick_Command", clickCommandLoaded }
+                });
+
                 Logger.Info("Scroll wheel remap settings loaded");
             }
             catch (Exception ex)
@@ -18692,7 +19565,7 @@ namespace XboxGamingBar
 
         private async void ApplyScrollWheelConfig(string direction)
         {
-            if (App.Connection == null) return;
+            if (!App.IsConnected) return;
 
             try
             {
@@ -18749,11 +19622,11 @@ namespace XboxGamingBar
                 request.Add("Action", actionType);
                 request.Add("Shortcut", shortcutOrCommand);
 
-                var response = await App.Connection.SendMessageAsync(request);
+                var response = await App.SendMessageAsync(request);
 
-                if (response.Status == Windows.ApplicationModel.AppService.AppServiceResponseStatus.Success)
+                if (response != null)
                 {
-                    if (response.Message.TryGetValue("Success", out object successObj))
+                    if (response.TryGetValue("Success", out object successObj))
                     {
                         bool success = Convert.ToBoolean(successObj);
                         if (ScrollRemapStatusText != null)

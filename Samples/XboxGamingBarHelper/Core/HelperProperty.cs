@@ -38,15 +38,35 @@ namespace XboxGamingBarHelper.Core
 
         protected override Task<AppServiceResponse> SendMessageAsync(ValueSet request)
         {
+            // First try Named Pipes (works when running via scheduled task)
+            if (Program.IsPipeConnected)
+            {
+                try
+                {
+                    var pipeMsg = Shared.IPC.PipeMessage.FromValueSet(request);
+                    if (Program.SendPipeMessage(pipeMsg))
+                    {
+                        Logger.Debug($"Property {Function} sent update via Named Pipe.");
+                        // Return a completed task - pipe doesn't return AppServiceResponse
+                        return Task.FromResult<AppServiceResponse>(null);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Property {Function} failed to send via pipe: {ex.Message}");
+                }
+            }
+
+            // Fall back to AppService (works when running in package context)
             if (Manager == null)
             {
-                Logger.Warn($"Property {Function}'s manager is null.");
+                Logger.Debug($"Property {Function}'s manager is null, skipping AppService send.");
                 return null;
             }
 
             if (Manager.Connection == null)
             {
-                Logger.Warn($"Property {Function}'s manager doesn't have connection.");
+                Logger.Debug($"Property {Function}'s manager doesn't have connection, skipping AppService send.");
                 return null;
             }
 

@@ -81,7 +81,7 @@ namespace XboxGamingBar.Data
         {
             try
             {
-                if (App.Connection == null)
+                if (!App.IsConnected)
                 {
                     Logger.Warn("Cannot batch sync - no connection");
                     return false;
@@ -116,14 +116,14 @@ namespace XboxGamingBar.Data
                     { "Functions", jsonArray.Stringify() }
                 };
 
-                var response = await App.Connection.SendMessageAsync(request);
-                if (response?.Message == null)
+                var response = await App.SendMessageAsync(request);
+                if (response == null)
                 {
                     Logger.Warn("Batch sync got null response");
                     return false;
                 }
 
-                if (!response.Message.TryGetValue("BatchData", out object batchDataObj) || !(batchDataObj is string batchDataJson))
+                if (!response.TryGetValue("BatchData", out object batchDataObj) || !(batchDataObj is string batchDataJson))
                 {
                     Logger.Warn("Batch sync response missing BatchData");
                     return false;

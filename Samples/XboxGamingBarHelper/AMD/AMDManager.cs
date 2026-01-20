@@ -248,6 +248,9 @@ namespace XboxGamingBarHelper.AMD
             try
             {
                 Logger.Info("Initializing ADLX...");
+                // Note: SetDllDirectory is called in Program.cs before manager initialization
+                // to ensure native DLLs are found when running elevated from deployed location
+
                 // Initialize ADLX with ADLXHelper
                 adlxHelper = new ADLXHelper();
                 adlxInitializeResult = adlxHelper.Initialize();

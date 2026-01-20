@@ -228,5 +228,9 @@
         // ViGEmBus Driver
         ViGEmBusInstalled,              // bool - whether ViGEmBus driver is installed
         InstallViGEmBus,                // string - trigger to install ViGEmBus (write "install" to trigger)
+
+        // Debug/Development
+        CheckLocalUpdate,               // Trigger: check for local AppPackages update (Debug)
+        InstallUpdate,                  // Trigger: download and install update (Content = URL or local path)
     }
 }

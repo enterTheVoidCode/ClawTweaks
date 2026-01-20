@@ -15,6 +15,44 @@ namespace XboxGamingBarHelper.Profile
         private const string PROFILE_FOLDER_NAME = "profiles";
         private const string XML_EXTENSION = ".xml";
 
+        /// <summary>
+        /// Package family name for constructing LocalState path when running outside MSIX
+        /// </summary>
+        private const string PACKAGE_FAMILY_NAME = "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg";
+
+        /// <summary>
+        /// Cached local folder path (works both in MSIX and elevated contexts)
+        /// </summary>
+        private static string _localFolderPath;
+
+        /// <summary>
+        /// Gets the local folder path, falling back to a known path when running outside MSIX
+        /// </summary>
+        private static string GetLocalFolderPath()
+        {
+            if (_localFolderPath != null)
+                return _localFolderPath;
+
+            try
+            {
+                _localFolderPath = ApplicationData.Current.LocalFolder.Path;
+            }
+            catch (InvalidOperationException)
+            {
+                // Running outside MSIX (elevated via scheduled task)
+                // Use the same path that MSIX would use
+                _localFolderPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Packages",
+                    PACKAGE_FAMILY_NAME,
+                    "LocalState"
+                );
+                Logger.Info($"Using fallback LocalFolder path: {_localFolderPath}");
+            }
+
+            return _localFolderPath;
+        }
+
         public readonly GameProfile GlobalProfile;
 
         private readonly Dictionary<GameId, GameProfile> gameProfiles;
@@ -95,12 +133,12 @@ namespace XboxGamingBarHelper.Profile
 
         public static string GetGameProfilesFolder()
         {
-            return Path.Combine(ApplicationData.Current.LocalFolder.Path, PROFILE_FOLDER_NAME);
+            return Path.Combine(GetLocalFolderPath(), PROFILE_FOLDER_NAME);
         }
 
         public static string GetGlobalProfilePath()
         {
-            return Path.Combine(ApplicationData.Current.LocalFolder.Path, $"{GameProfile.GLOBAL_PROFILE_NAME}{XML_EXTENSION}");
+            return Path.Combine(GetLocalFolderPath(), $"{GameProfile.GLOBAL_PROFILE_NAME}{XML_EXTENSION}");
         }
 
         public bool TryGetProfile(GameId gameId, out GameProfile gameProfile)

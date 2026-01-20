@@ -1213,7 +1213,12 @@ namespace XboxGamingBarHelper.Labs
         {
             try
             {
-                _scrollWndProcDelegate = ScrollWheelWndProc;
+                // Only assign delegate once to prevent GC issues when window class is reused
+                // (window class retains the original function pointer even after re-registration)
+                if (_scrollWndProcDelegate == null)
+                {
+                    _scrollWndProcDelegate = ScrollWheelWndProc;
+                }
                 IntPtr hInstance = GetModuleHandle(null);
 
                 var wc = new WNDCLASS

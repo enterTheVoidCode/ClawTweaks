@@ -431,6 +431,9 @@
     <Compile Include="Profile\ProfileManager.cs" />
     <Compile Include="ElevationBootstrapper.cs" />
     <Compile Include="GoTweaksService.cs" />
+    <Compile Include="Services\HelperDeploymentService.cs" />
+    <Compile Include="Services\ScheduledTaskService.cs" />
+    <Compile Include="IPC\NamedPipeServer.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
@@ -466,6 +469,7 @@
     <Compile Include="Settings\ProfileCustomGamePathProperty.cs" />
     <Compile Include="Settings\ProfileGamesOnlyProperty.cs" />
     <Compile Include="Settings\ProfileBlacklistPathsProperty.cs" />
+    <Compile Include="Settings\LocalSettingsHelper.cs" />
     <Compile Include="Settings\SettingsManager.cs" />
     <Compile Include="Systems\ForegroundAppProperty.cs" />
     <Compile Include="Legion\LegionGoLibrary.cs" />

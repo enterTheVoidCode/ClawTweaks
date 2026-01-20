@@ -1,14 +1,17 @@
 ﻿using Microsoft.Gaming.XboxGameBar;
 using NLog;
 using System;
+using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.AppService;
 using Windows.ApplicationModel.Background;
+using Windows.Foundation.Collections;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
 using XboxGamingBar.Event;
+using XboxGamingBar.IPC;
 
 namespace XboxGamingBar
 {
@@ -22,6 +25,12 @@ namespace XboxGamingBar
         public static event EventHandler AppServiceDisconnected;
         public static event EventHandler<AppServiceTriggerDetails> AppServiceConnected;
         public static event EventHandler<AppServiceRequestReceivedEventArgs> AppServiceRequestReceived;
+
+        // Named Pipe client for communication when elevated
+        public static NamedPipeClient PipeClient = null;
+        public static event EventHandler PipeConnected;
+        public static event EventHandler PipeDisconnected;
+        public static event EventHandler<PipeMessageEventArgs> PipeMessageReceived;
 
         // Track the active GamingWidget instance to prevent multiple instances from handling messages
         private static GamingWidget activeGamingWidget = null;
@@ -186,6 +195,107 @@ namespace XboxGamingBar
             Logger.Info("AppServiceDisconnected event invoked.");
 
             Logger.Info("=== App.OnTaskCanceled END ===");
+        }
+
+        /// <summary>
+        /// Connects to the helper via Named Pipe.
+        /// This works even when the helper is running elevated.
+        /// </summary>
+        public static async Task<bool> ConnectPipeAsync(int timeoutMs = 5000)
+        {
+            try
+            {
+                // Dispose existing client if any
+                if (PipeClient != null)
+                {
+                    PipeClient.MessageReceived -= PipeClient_MessageReceived;
+                    PipeClient.Connected -= PipeClient_Connected;
+                    PipeClient.Disconnected -= PipeClient_Disconnected;
+                    PipeClient.Dispose();
+                    PipeClient = null;
+                }
+
+                PipeClient = new NamedPipeClient();
+                PipeClient.MessageReceived += PipeClient_MessageReceived;
+                PipeClient.Connected += PipeClient_Connected;
+                PipeClient.Disconnected += PipeClient_Disconnected;
+
+                return await PipeClient.ConnectAsync(timeoutMs);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error connecting to pipe: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Disconnects from the Named Pipe
+        /// </summary>
+        public static void DisconnectPipe()
+        {
+            if (PipeClient != null)
+            {
+                PipeClient.MessageReceived -= PipeClient_MessageReceived;
+                PipeClient.Connected -= PipeClient_Connected;
+                PipeClient.Disconnected -= PipeClient_Disconnected;
+                PipeClient.Disconnect();
+                PipeClient = null;
+            }
+        }
+
+        /// <summary>
+        /// Whether we have an active communication channel (either pipe or AppService)
+        /// </summary>
+        public static bool IsConnected => (PipeClient?.IsConnected == true) || (Connection != null);
+
+        /// <summary>
+        /// Sends a message and waits for a response.
+        /// Prefers pipe if connected, falls back to AppServiceConnection.
+        /// </summary>
+        public static async Task<ValueSet> SendMessageAsync(ValueSet message)
+        {
+            // Prefer Named Pipe (works when helper is elevated)
+            if (PipeClient?.IsConnected == true)
+            {
+                return await PipeClient.SendRequestAsync(message);
+            }
+
+            // Fall back to AppServiceConnection
+            if (Connection != null)
+            {
+                try
+                {
+                    var response = await Connection.SendMessageAsync(message);
+                    return response?.Message;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"AppService SendMessageAsync failed: {ex.Message}");
+                    return null;
+                }
+            }
+
+            Logger.Warn("Cannot send message - no connection available");
+            return null;
+        }
+
+        private static void PipeClient_MessageReceived(object sender, PipeMessageEventArgs e)
+        {
+            Logger.Debug($"Pipe message received from helper");
+            PipeMessageReceived?.Invoke(sender, e);
+        }
+
+        private static void PipeClient_Connected(object sender, EventArgs e)
+        {
+            Logger.Info("Named pipe connected to helper");
+            PipeConnected?.Invoke(sender, e);
+        }
+
+        private static void PipeClient_Disconnected(object sender, EventArgs e)
+        {
+            Logger.Info("Named pipe disconnected from helper");
+            PipeDisconnected?.Invoke(sender, e);
         }
 
         protected override void OnActivated(IActivatedEventArgs args)

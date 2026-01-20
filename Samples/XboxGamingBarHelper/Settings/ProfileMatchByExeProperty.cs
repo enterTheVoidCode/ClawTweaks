@@ -1,6 +1,4 @@
-using System;
 using Shared.Enums;
-using Windows.Storage;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Settings
@@ -11,34 +9,21 @@ namespace XboxGamingBarHelper.Settings
 
         public ProfileMatchByExeProperty(SettingsManager inManager) : base(LoadFromSettings(), null, Function.ProfileMatchByExe, inManager)
         {
-            Logger.Info($"ProfileMatchByExe loaded from LocalSettings: {Value}");
+            Logger.Info($"ProfileMatchByExe loaded: {Value}");
         }
 
         private static bool LoadFromSettings()
         {
-            try
+            if (LocalSettingsHelper.TryGetValue<bool>(SettingsKey, out var value))
             {
-                var settings = ApplicationData.Current.LocalSettings;
-                if (settings.Values.TryGetValue(SettingsKey, out var value))
-                {
-                    return value is bool b && b;
-                }
+                return value;
             }
-            catch { }
             return false;
         }
 
         private void SaveToSettings()
         {
-            try
-            {
-                var settings = ApplicationData.Current.LocalSettings;
-                settings.Values[SettingsKey] = Value;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Failed to save ProfileMatchByExe: {ex.Message}");
-            }
+            LocalSettingsHelper.SetValue(SettingsKey, Value);
         }
 
         protected override void NotifyPropertyChanged(string propertyName = "")
