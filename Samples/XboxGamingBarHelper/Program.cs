@@ -1191,6 +1191,7 @@ del /f /q ""%~f0"" 2>nul
                 systemManager.RefreshRate,
                 systemManager.Resolutions,
                 systemManager.Resolution,
+                systemManager.DisplayOrientation,
                 systemManager.HDRSupported,
                 systemManager.HDREnabled,
                 systemManager.CPUCoreConfig,

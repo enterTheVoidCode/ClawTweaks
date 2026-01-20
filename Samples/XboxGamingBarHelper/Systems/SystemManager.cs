@@ -121,6 +121,12 @@ namespace XboxGamingBarHelper.Systems
             get { return hdrEnabled; }
         }
 
+        private readonly DisplayOrientationProperty displayOrientation;
+        public DisplayOrientationProperty DisplayOrientation
+        {
+            get { return displayOrientation; }
+        }
+
         // CPU Core Configuration
         public int TotalPCores { get; private set; }
         public int TotalECores { get; private set; }
@@ -204,6 +210,8 @@ namespace XboxGamingBarHelper.Systems
             var hdrStatus = User32.GetHDRStatus();
             hdrSupported = new HDRSupportedProperty(hdrStatus.Supported, this);
             hdrEnabled = new HDREnabledProperty(hdrStatus.Enabled, this);
+            Logger.Info("Check display orientation.");
+            displayOrientation = new DisplayOrientationProperty(User32.GetCurrentOrientation(), this);
 
             Logger.Info("Detecting CPU core configuration.");
             DetectCPUCoreConfiguration();
@@ -296,6 +304,11 @@ namespace XboxGamingBarHelper.Systems
                 Logger.Info($"HDR status: Supported={hdrStatus.Supported}, Enabled={hdrStatus.Enabled}");
                 hdrSupported.SetValue(hdrStatus.Supported);
                 hdrEnabled.SetValue(hdrStatus.Enabled);
+
+                // Refresh display orientation
+                var currentOrientation = User32.GetCurrentOrientation();
+                Logger.Info($"Display orientation: {currentOrientation}");
+                displayOrientation.SetValue(currentOrientation);
             }
             catch (Exception ex)
             {

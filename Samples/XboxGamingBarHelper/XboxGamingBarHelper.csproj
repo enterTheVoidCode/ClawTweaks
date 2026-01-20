@@ -484,6 +484,7 @@
     <Compile Include="AutoTDP\TDPLimitsProperty.cs" />
     <Compile Include="RTSS\DisplayOSDConfigProperty.cs" />
     <Compile Include="Systems\HDREnabledProperty.cs" />
+    <Compile Include="Systems\DisplayOrientationProperty.cs" />
     <Compile Include="Systems\HDRSupportedProperty.cs" />
     <Compile Include="Systems\CPUCoreConfigProperty.cs" />
     <Compile Include="Systems\CPUCoreActiveConfigProperty.cs" />

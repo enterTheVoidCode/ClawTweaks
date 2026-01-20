@@ -602,6 +602,7 @@ namespace XboxGamingBar
         private readonly RefreshRateProperty refreshRate;
         private readonly ResolutionsProperty resolutions;
         private readonly ResolutionProperty resolution;
+        private readonly DisplayOrientationProperty displayOrientation;
         private readonly HDRSupportedProperty hdrSupported;
         private readonly HDREnabledProperty hdrEnabled;
         private readonly TrackedGameProperty trackedGame;
@@ -952,6 +953,7 @@ namespace XboxGamingBar
             resolutions = new ResolutionsProperty(ResolutionComboBox, this);
             resolution = new ResolutionProperty(ResolutionComboBox, this);
             resolutions.SetResolutionProperty(resolution); // Wire up for selection restoration on dock/undock
+            displayOrientation = new DisplayOrientationProperty();
             hdrSupported = new HDRSupportedProperty(HDRToggle, this);
             hdrEnabled = new HDREnabledProperty(HDRToggle, this);
             trackedGame = new TrackedGameProperty(new TrackedGame());
@@ -1190,6 +1192,7 @@ namespace XboxGamingBar
                 refreshRate,
                 resolutions,
                 resolution,
+                displayOrientation,
                 hdrSupported,
                 hdrEnabled,
                 trackedGame,
@@ -1814,6 +1817,8 @@ namespace XboxGamingBar
                 hdrEnabled.PropertyChanged += QuickSettingsProperty_Changed;
             if (hdrSupported != null)
                 hdrSupported.PropertyChanged += QuickSettingsProperty_Changed;
+            if (displayOrientation != null)
+                displayOrientation.PropertyChanged += QuickSettingsProperty_Changed;
             if (losslessScalingEnabled != null)
                 losslessScalingEnabled.PropertyChanged += QuickSettingsProperty_Changed;
             if (amdFluidMotionFrameEnabled != null)
@@ -9259,7 +9264,13 @@ namespace XboxGamingBar
             SendButtonMappingsToHelper(profile);
 
             // Send lighting settings to helper (so they get saved to helper's profile XML)
-            SendLightingToHelper(profile);
+            // Skip if only the power light changed - it's already sent directly by the property
+            // and resending all lighting would overwrite stick colors with UI color picker value
+            bool isPowerLightToggleOnly = sender == LegionPowerLightToggle;
+            if (!isPowerLightToggleOnly)
+            {
+                SendLightingToHelper(profile);
+            }
         }
 
         /// <summary>
@@ -15713,6 +15724,7 @@ namespace XboxGamingBar
             AddTileDefinition("FPSLimit", "FPS Limit", "\uE916", order: order++);
             AddTileDefinition("AutoTDP", "AutoTDP", "\uE9F5", order: order++);
             AddTileDefinition("Resolution", "Resolution", "\uE7F8", order: order++);
+            AddTileDefinition("Rotation", "Rotation", "\uE7AD", order: order++);
             AddTileDefinition("HDR", "HDR", "\uE706", order: order++);
             AddTileDefinition("LosslessScaling", "Lossless", "\uE740", order: order++);
             AddTileDefinition("RIS", "RIS", "\uE8B3", order: order++);
@@ -16781,6 +16793,16 @@ namespace XboxGamingBar
                     resTile.TileButton.Background = tileOffBrush;
                 }
 
+                // Rotation tile
+                if (qsTileMap.TryGetValue("Rotation", out var rotationTile) && rotationTile.TileButton != null)
+                {
+                    string orientationText = displayOrientation?.GetOrientationText() ?? "Landscape";
+                    bool isPortrait = (displayOrientation?.Value ?? 0) == 1 || (displayOrientation?.Value ?? 0) == 3;
+                    rotationTile.StateText.Text = orientationText;
+                    rotationTile.StateText.Foreground = isPortrait ? accentForeground : offForeground;
+                    rotationTile.TileButton.Background = isPortrait ? tileOnBrush : tileOffBrush;
+                }
+
                 // HDR tile
                 if (qsTileMap.TryGetValue("HDR", out var hdrTile) && hdrTile.TileButton != null)
                 {
@@ -17119,6 +17141,9 @@ namespace XboxGamingBar
                             case "Resolution":
                                 CycleResolution();
                                 break;
+                            case "Rotation":
+                                CycleRotation();
+                                break;
                             case "HDR":
                                 ToggleHDR();
                                 break;
@@ -17453,6 +17478,22 @@ namespace XboxGamingBar
                 string nextRes = quickResolutions[nextIndex];
                 resolution.SetValue(nextRes);
                 Logger.Info($"Resolution cycled from {currentRes} to {nextRes}");
+            }
+        }
+
+        /// <summary>
+        /// Cycles display orientation between Landscape (0) and Portrait (1).
+        /// </summary>
+        private void CycleRotation()
+        {
+            if (displayOrientation != null)
+            {
+                int currentOrientation = displayOrientation.Value;
+                // Cycle between Landscape (0) and Portrait (1)
+                // Skip flipped modes (2, 3) for simple toggle behavior
+                int nextOrientation = (currentOrientation == 0) ? 1 : 0;
+                displayOrientation.SetValue(nextOrientation);
+                Logger.Info($"Display orientation cycled from {currentOrientation} to {nextOrientation}");
             }
         }
 

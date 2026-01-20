@@ -217,6 +217,7 @@
     <Compile Include="Data\RefreshRatesProperty.cs" />
     <Compile Include="Data\ResolutionProperty.cs" />
     <Compile Include="Data\ResolutionsProperty.cs" />
+    <Compile Include="Data\DisplayOrientationProperty.cs" />
     <Compile Include="Data\HDRSupportedProperty.cs" />
     <Compile Include="Data\HDREnabledProperty.cs" />
     <Compile Include="Data\RTSSInstalledProperty.cs" />
