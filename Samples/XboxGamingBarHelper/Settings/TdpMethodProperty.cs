@@ -1,6 +1,4 @@
 using Shared.Enums;
-using System;
-using Windows.Storage;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Settings
@@ -15,22 +13,14 @@ namespace XboxGamingBarHelper.Settings
 
         public TdpMethodProperty(SettingsManager inManager) : base(LoadFromSettings(), null, Function.Settings_TdpMethod, inManager)
         {
-            Logger.Info($"TdpMethod loaded from LocalSettings: {(TdpMethod)Value}");
+            Logger.Info($"TdpMethod loaded: {(TdpMethod)Value}");
         }
 
         private static int LoadFromSettings()
         {
-            try
+            if (LocalSettingsHelper.TryGetValue<int>(SettingsKey, out var value))
             {
-                var settings = ApplicationData.Current.LocalSettings;
-                if (settings.Values.ContainsKey(SettingsKey))
-                {
-                    return (int)settings.Values[SettingsKey];
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Failed to load TdpMethod from LocalSettings: {ex.Message}");
+                return value;
             }
             // Default to ManufacturerWMI for Legion Go devices
             // Non-Legion devices will have WMI option hidden and fall back to PawnIO in the UI
@@ -39,16 +29,8 @@ namespace XboxGamingBarHelper.Settings
 
         private void SaveToSettings()
         {
-            try
-            {
-                var settings = ApplicationData.Current.LocalSettings;
-                settings.Values[SettingsKey] = Value;
-                Logger.Info($"TdpMethod saved to LocalSettings: {(TdpMethod)Value}");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Failed to save TdpMethod to LocalSettings: {ex.Message}");
-            }
+            LocalSettingsHelper.SetValue(SettingsKey, Value);
+            Logger.Debug($"TdpMethod saved: {(TdpMethod)Value}");
         }
 
         protected override void NotifyPropertyChanged(string propertyName = "")

@@ -13,8 +13,59 @@ namespace XboxGamingBar.Data
         {
         }
 
+        /// <summary>
+        /// Override Sync to use the unified App.SendMessageAsync which works with both pipe and AppService.
+        /// </summary>
+        public override async Task Sync()
+        {
+            if (!App.IsConnected)
+            {
+                Logger.Warn($"Can't sync {function} - no connection.");
+                return;
+            }
+
+            var request = new ValueSet
+            {
+                { nameof(Command), (int)Command.Get },
+                { nameof(Function), (int)function },
+            };
+
+            var response = await App.SendMessageAsync(request);
+            if (response != null)
+            {
+                if (response.TryGetValue(nameof(Content), out object responseValue))
+                {
+                    if (response.TryGetValue(nameof(UpdatedTime), out object updatedTimeValue))
+                    {
+                        var updatedTime = Convert.ToInt64(updatedTimeValue);
+                        if (SetValue(responseValue, updatedTime))
+                        {
+                            Logger.Info($"Sync {function} value {responseValue} successfully.");
+                        }
+                        else
+                        {
+                            Logger.Warn($"Got {function} value {responseValue} but can't sync.");
+                        }
+                    }
+                    else
+                    {
+                        Logger.Warn($"Can't get updated time when trying to sync property {function}.");
+                    }
+                }
+                else
+                {
+                    Logger.Warn($"Got empty response when trying to sync property {function}.");
+                }
+            }
+            else
+            {
+                Logger.Warn($"Got no response when trying to sync property {function}.");
+            }
+        }
+
         protected override Task<AppServiceResponse> SendMessageAsync(ValueSet request)
         {
+            // This method is only used by the base class when AppService is available
             if (App.Connection == null)
             {
                 Logger.Warn($"Widget property {function} doesn't have connection.");
@@ -22,6 +73,70 @@ namespace XboxGamingBar.Data
             }
 
             return App.Connection.SendMessageAsync(request).AsTask();
+        }
+
+        /// <summary>
+        /// Override NotifyPropertyChanged to use App.SendMessageAsync which handles both pipe and AppService.
+        /// We call InvokePropertyChanged directly to fire the INotifyPropertyChanged event
+        /// without going through FunctionalProperty.NotifyPropertyChanged which uses AppServiceConnection.
+        /// </summary>
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        {
+            // Call InvokePropertyChanged directly to trigger INotifyPropertyChanged events
+            // This bypasses FunctionalProperty.NotifyPropertyChanged which uses AppService
+            InvokePropertyChanged(propertyName);
+
+            // Skip sending to remote if suppressed (e.g., during batch sync)
+            if (SuppressRemoteSync)
+            {
+                return;
+            }
+
+            // Use App.IsConnected which checks both pipe and AppService
+            if (!App.IsConnected)
+            {
+                Logger.Debug($"Widget property {function} - skipping remote sync (not connected).");
+                return;
+            }
+
+            try
+            {
+                var request = new ValueSet
+                {
+                    { nameof(Command), (int)Command.Set },
+                    { nameof(Function), (int)function },
+                };
+                request = AddValueSetContent(request);
+
+                var response = await App.SendMessageAsync(request);
+                if (response != null)
+                {
+                    if (response.TryGetValue(nameof(Content), out object responseValue))
+                    {
+                        Logger.Debug($"Notify property {function} changed {responseValue}.");
+                    }
+                    else if (response.TryGetValue("Error", out object errorValue))
+                    {
+                        Logger.Warn($"Error notifying property {function}: {errorValue}");
+                    }
+                    else
+                    {
+                        if (function != Function.None)
+                        {
+                            Logger.Debug($"Got response for property {function} (no Content field).");
+                        }
+                    }
+                }
+                else
+                {
+                    Logger.Warn($"Got no response when notifying property {function}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Catch exceptions to prevent async void from crashing the process
+                Logger.Debug($"NotifyPropertyChanged failed for {function}: {ex.Message}");
+            }
         }
     }
 }

@@ -22,10 +22,22 @@ namespace XboxGamingBarHelper.Icons
 
         /// <summary>
         /// Gets the path to the icon cache folder.
+        /// Uses ApplicationData when available, falls back to LocalAppData when running outside package context.
         /// </summary>
         public static string GetIconCacheFolder()
         {
-            return Path.Combine(ApplicationData.Current.LocalFolder.Path, ICON_CACHE_FOLDER);
+            try
+            {
+                // Try to use ApplicationData (works when running in package context)
+                return Path.Combine(ApplicationData.Current.LocalFolder.Path, ICON_CACHE_FOLDER);
+            }
+            catch
+            {
+                // Fallback for running outside package context (e.g., via scheduled task)
+                // Use the same path as the deployed helper location
+                var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                return Path.Combine(localAppData, "Packages", "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg", "LocalCache", ICON_CACHE_FOLDER);
+            }
         }
 
         /// <summary>

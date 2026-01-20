@@ -5,5 +5,6 @@
         Get,
         Set,
         BatchGet,  // Request multiple property values in one message
+        Response,  // Response to a request via Named Pipe
     }
 }

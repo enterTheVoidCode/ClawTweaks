@@ -1,13 +1,14 @@
 ﻿using NLog;
 using Shared.Data;
 using Shared.Enums;
+using Shared.Utilities;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Systems
 {
     internal class TrackedGameProperty : HelperProperty<TrackedGame, SystemManager>
     {
-        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private static new readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         public string AumId
         {
@@ -35,16 +36,45 @@ namespace XboxGamingBarHelper.Systems
         }
 
         /// <summary>
+        /// Check if a TrackedGame instance is valid (has DisplayName or TitleId).
+        /// </summary>
+        private bool IsTrackedGameValid(TrackedGame trackedGame)
+        {
+            return !string.IsNullOrEmpty(trackedGame.DisplayName) || !string.IsNullOrEmpty(trackedGame.TitleId);
+        }
+
+        /// <summary>
         /// Override SetValue to reject empty/invalid TrackedGame updates from the widget.
         /// When the widget loses focus, Game Bar sends empty TrackedGame which should not
         /// clear our currently detected game.
         /// </summary>
         public override bool SetValue(object newValue, long updatedTime = 0)
         {
-            // Check if the incoming TrackedGame is valid before accepting it
-            if (newValue is TrackedGame trackedGame)
+            TrackedGame? trackedGame = null;
+
+            // Handle both cases: direct TrackedGame object or XML string that needs deserialization
+            if (newValue is TrackedGame directTrackedGame)
             {
-                bool newValueIsValid = !string.IsNullOrEmpty(trackedGame.DisplayName) || !string.IsNullOrEmpty(trackedGame.TitleId);
+                trackedGame = directTrackedGame;
+            }
+            else if (newValue is string xmlString && !string.IsNullOrEmpty(xmlString))
+            {
+                // Deserialize XML string to TrackedGame for validation
+                try
+                {
+                    trackedGame = XmlHelper.FromXMLString<TrackedGame>(xmlString);
+                }
+                catch
+                {
+                    // If deserialization fails, let base class handle it (will also fail there)
+                    Logger.Warn($"Failed to deserialize TrackedGame XML for validation, passing to base");
+                }
+            }
+
+            // Check if the incoming TrackedGame is valid before accepting it
+            if (trackedGame.HasValue)
+            {
+                bool newValueIsValid = IsTrackedGameValid(trackedGame.Value);
 
                 // If we have a valid tracked game and the new one is invalid, reject the update
                 if (IsValid() && !newValueIsValid)

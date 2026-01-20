@@ -1,6 +1,7 @@
 ﻿using NLog;
 using Shared.Constants;
 using Shared.Data;
+using Shared.IPC;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -9,6 +10,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,7 +43,12 @@ namespace XboxGamingBarHelper
         private static AppServiceConnection connection = null;
         private static CancellationToken _serviceCancellationToken;
         private static bool _isRunningAsService = false;
-        private static bool _isShuttingDown = false;
+        private static volatile bool _isShuttingDown = false;
+
+        // P/Invoke for SetDllDirectory - must be called BEFORE any native DLLs are loaded
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetDllDirectory(string lpPathName);
 
         // Managers
         private static PerformanceManager performanceManager;
@@ -93,6 +100,11 @@ namespace XboxGamingBarHelper
         private static HotkeyManager hotkeyManager;
 
         /// <summary>
+        /// Named Pipe server for IPC with the widget (works when elevated via scheduled task)
+        /// </summary>
+        private static IPC.NamedPipeServer pipeServer;
+
+        /// <summary>
         /// Heartbeat file path for widget to detect if helper is running
         /// </summary>
         private static string heartbeatFilePath;
@@ -100,12 +112,117 @@ namespace XboxGamingBarHelper
         private const int HeartbeatIntervalMs = 2000;
 
         /// <summary>
+        /// Helper version string for widget to detect version mismatch after updates
+        /// </summary>
+        private static string helperVersion = "0.0.0.0";
+
+        /// <summary>
         /// Debounce for Focus GoTweaks to prevent rapid button presses from flooding the system
         /// </summary>
         private static DateTime lastFocusWidgetTime = DateTime.MinValue;
         private const int FocusWidgetDebounceMs = 200;
+
+        /// <summary>
+        /// Package uninstall detection - path to the package's data folder
+        /// </summary>
+        private static string packageDataFolder;
+        private static DateTime lastUninstallCheck = DateTime.MinValue;
+        private const int UninstallCheckIntervalMs = 60000; // Check every 60 seconds
+
+        /// <summary>
+        /// Configures NLog to write logs to the package's LocalCache/Local folder.
+        /// Must be called BEFORE any logging happens.
+        /// </summary>
+        private static void ConfigureLogDirectory()
+        {
+            try
+            {
+                string logDir = null;
+
+                // Try to get the package's LocalCache path
+                try
+                {
+                    var localCache = global::Windows.Storage.ApplicationData.Current.LocalCacheFolder;
+                    logDir = Path.Combine(localCache.Path, "Local");
+                }
+                catch
+                {
+                    // Not running in package context - try to extract from exe path
+                    var exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                    if (exePath.Contains("LocalCache"))
+                    {
+                        int idx = exePath.IndexOf("LocalCache", StringComparison.OrdinalIgnoreCase);
+                        if (idx > 0)
+                        {
+                            logDir = Path.Combine(exePath.Substring(0, idx + "LocalCache".Length), "Local");
+                        }
+                    }
+                }
+
+                // Fallback to user's LocalAppData if we couldn't determine package path
+                if (string.IsNullOrEmpty(logDir))
+                {
+                    logDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                }
+
+                // Ensure the log directory exists
+                Directory.CreateDirectory(logDir);
+
+                // Set the NLog GDC variable
+                NLog.GlobalDiagnosticsContext.Set("LogDirectory", logDir);
+            }
+            catch
+            {
+                // If all else fails, use LocalApplicationData
+                var fallback = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                NLog.GlobalDiagnosticsContext.Set("LogDirectory", fallback);
+            }
+        }
+
         static async Task Main(string[] args)
         {
+            // Set log directory BEFORE any logging happens
+            // This ensures logs go to the package's LocalCache/Local folder even when running elevated
+            ConfigureLogDirectory();
+
+            // Check for setup mode FIRST (before anything else)
+            // Setup mode: deploy files, create scheduled task, run task, then EXIT
+            // The task launches the elevated helper which will connect to the widget.
+            if (args.Contains("--setup"))
+            {
+                Logger.Info("=== Setup Mode ===");
+                try
+                {
+                    bool success = ElevationBootstrapper.PerformSetup();
+                    Logger.Info($"Setup completed with result: {success}");
+
+                    if (success)
+                    {
+                        // Run the scheduled task to start the elevated helper
+                        // This helper will connect to the widget
+                        Logger.Info("Running scheduled task to start elevated helper...");
+                        if (Services.ScheduledTaskService.RunTaskNow())
+                        {
+                            Logger.Info("Scheduled task started successfully");
+                        }
+                        else
+                        {
+                            Logger.Warn("Failed to run scheduled task - widget will need to relaunch");
+                        }
+                    }
+
+                    Logger.Info("Exiting setup mode");
+                    LogManager.Flush();
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error(ex, "Setup failed with exception");
+                    LogManager.Flush();
+                    return; // Exit on setup failure
+                }
+            }
+
             // Check if running as a Windows Service (MSIX Desktop Service)
             // Services are started by SCM and have no console/interactive session
             bool isService = !Environment.UserInteractive;
@@ -154,6 +271,12 @@ namespace XboxGamingBarHelper
             try
             {
                 await Initialize();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "FATAL: Unhandled exception in Initialize()");
+                LogManager.Flush();
+                throw;
             }
             finally
             {
@@ -271,12 +394,28 @@ namespace XboxGamingBarHelper
                 if (string.IsNullOrEmpty(heartbeatFilePath))
                 {
                     // Initialize heartbeat file path on first write
-                    var localStateFolder = Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                        "Packages",
-                        Package.Current.Id.FamilyName,
-                        "LocalState"
-                    );
+                    string localStateFolder;
+                    try
+                    {
+                        // Try to use Package.Current (works when running in package context)
+                        localStateFolder = Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                            "Packages",
+                            Package.Current.Id.FamilyName,
+                            "LocalState"
+                        );
+                    }
+                    catch
+                    {
+                        // Fallback for elevated mode (no package identity)
+                        // Use hardcoded package family name (same as LocalSettingsHelper)
+                        localStateFolder = Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                            "Packages",
+                            "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg",
+                            "LocalState"
+                        );
+                    }
                     heartbeatFilePath = Path.Combine(localStateFolder, "helper_heartbeat.json");
                 }
 
@@ -284,11 +423,12 @@ namespace XboxGamingBarHelper
                 {
                     pid = Process.GetCurrentProcess().Id,
                     timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                    connected = appServiceConnectionStatus == AppServiceConnectionStatus.Success,
-                    elevated = ElevationBootstrapper.IsRunningAsAdmin()
+                    connected = appServiceConnectionStatus == AppServiceConnectionStatus.Success || (pipeServer?.IsConnected ?? false),
+                    elevated = ElevationBootstrapper.IsRunningAsAdmin(),
+                    version = helperVersion
                 };
 
-                string json = $"{{\"pid\":{heartbeat.pid},\"timestamp\":{heartbeat.timestamp},\"connected\":{heartbeat.connected.ToString().ToLower()},\"elevated\":{heartbeat.elevated.ToString().ToLower()}}}";
+                string json = $"{{\"pid\":{heartbeat.pid},\"timestamp\":{heartbeat.timestamp},\"connected\":{heartbeat.connected.ToString().ToLower()},\"elevated\":{heartbeat.elevated.ToString().ToLower()},\"version\":\"{heartbeat.version}\"}}";
                 File.WriteAllText(heartbeatFilePath, json);
                 lastHeartbeatWrite = DateTime.Now;
             }
@@ -318,16 +458,336 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
-        /// Initialize the app service connection
+        /// Initialize the package data folder path for uninstall detection.
+        /// Called once during startup.
+        /// We check the LocalState folder, not LocalCache, because:
+        /// - LocalCache contains the running helper (can't be deleted while in use)
+        /// - LocalState is the app's data folder that Windows removes during uninstall
+        /// </summary>
+        private static void InitializePackageDataFolder()
+        {
+            try
+            {
+                // Try to get the package's LocalState folder path
+                try
+                {
+                    var localState = global::Windows.Storage.ApplicationData.Current.LocalFolder;
+                    packageDataFolder = localState.Path;
+                    Logger.Info($"Package LocalState folder for uninstall detection: {packageDataFolder}");
+                }
+                catch
+                {
+                    // Not running in package context - try to extract from exe path
+                    // Helper runs from: C:\Users\<user>\AppData\Local\Packages\<PackageFamilyName>\LocalCache\GoTweaks\Helper\
+                    var exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                    if (exePath.Contains("Packages") && exePath.Contains("LocalCache"))
+                    {
+                        int packagesIdx = exePath.IndexOf("Packages", StringComparison.OrdinalIgnoreCase);
+                        int localCacheIdx = exePath.IndexOf("LocalCache", StringComparison.OrdinalIgnoreCase);
+                        if (packagesIdx > 0 && localCacheIdx > packagesIdx)
+                        {
+                            // Extract base: C:\Users\<user>\AppData\Local\Packages\<PackageFamilyName>
+                            var packageBase = exePath.Substring(0, localCacheIdx).TrimEnd('\\');
+                            // LocalState folder is at the same level as LocalCache
+                            packageDataFolder = Path.Combine(packageBase, "LocalState");
+                            Logger.Info($"Package LocalState folder (from exe path): {packageDataFolder}");
+                        }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(packageDataFolder))
+                {
+                    Logger.Warn("Could not determine package LocalState folder for uninstall detection");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Error initializing package data folder: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Check if the MSIX package is still installed.
+        /// We check if the LocalState folder exists - this is removed during uninstall.
+        /// The LocalCache folder (where the helper runs from) may remain due to the running process.
+        /// Returns true if installed, false if uninstalled.
+        /// </summary>
+        private static bool IsPackageInstalled()
+        {
+            if (string.IsNullOrEmpty(packageDataFolder))
+                return true; // Can't detect, assume installed
+
+            try
+            {
+                // Check if LocalState folder exists
+                // When MSIX is uninstalled, LocalState is removed but LocalCache may remain
+                // because files in use (like the running helper) can't be deleted
+                return Directory.Exists(packageDataFolder);
+            }
+            catch
+            {
+                return true; // Can't check, assume installed
+            }
+        }
+
+        /// <summary>
+        /// Periodic check for package uninstallation.
+        /// If uninstalled, cleans up the scheduled task and exits.
+        /// </summary>
+        private static void CheckForPackageUninstall()
+        {
+            if ((DateTime.Now - lastUninstallCheck).TotalMilliseconds < UninstallCheckIntervalMs)
+                return;
+
+            lastUninstallCheck = DateTime.Now;
+
+            if (!IsPackageInstalled())
+            {
+                Logger.Info("=== Package uninstall detected! Cleaning up... ===");
+
+                try
+                {
+                    // Remove the scheduled task
+                    Logger.Info("Removing scheduled task...");
+                    Services.ScheduledTaskService.RemoveTask();
+                    Services.ScheduledTaskService.RemoveLegacyTaskIfExists();
+
+                    // Delete heartbeat file
+                    DeleteHeartbeatFile();
+
+                    // Try to remove deployed files (may fail if in use, but that's OK)
+                    try
+                    {
+                        Logger.Info("Attempting to remove deployed files...");
+                        Services.HelperDeploymentService.RemoveDeployment();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"Could not remove deployed files (may be in use): {ex.Message}");
+                    }
+
+                    // Launch cleanup script to delete the package folder after helper exits
+                    LaunchCleanupScript();
+
+                    Logger.Info("Cleanup complete. Exiting helper.");
+                    LogManager.Flush();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error during uninstall cleanup: {ex.Message}");
+                }
+
+                // Exit the helper
+                _isShuttingDown = true;
+                Environment.Exit(0);
+            }
+        }
+
+        /// <summary>
+        /// Launches a batch script from temp that waits for the helper to exit,
+        /// then deletes the remaining package folder.
+        /// Uses cmd.exe with rd /s /q which silently handles errors without dialogs.
+        /// </summary>
+        private static void LaunchCleanupScript()
+        {
+            try
+            {
+                // Get the package folder path (parent of LocalState)
+                string packageFolder = Path.GetDirectoryName(packageDataFolder);
+                if (string.IsNullOrEmpty(packageFolder) || !Directory.Exists(packageFolder))
+                {
+                    Logger.Warn("Cannot determine package folder for cleanup script");
+                    return;
+                }
+
+                int helperPid = Process.GetCurrentProcess().Id;
+                string scriptPath = Path.Combine(Path.GetTempPath(), $"GoTweaksCleanup_{helperPid}.cmd");
+
+                // Batch script that:
+                // 1. Waits for the helper process to exit (using tasklist polling)
+                // 2. Waits a bit more for file handles to release
+                // 3. Deletes the package folder with rd /s /q (silent, no error dialogs)
+                // 4. Deletes itself
+                string script = $@"@echo off
+setlocal
+
+:: GoTweaks Uninstall Cleanup Script
+set HELPER_PID={helperPid}
+set PACKAGE_FOLDER={packageFolder}
+
+:: Wait for helper process to exit (poll every second, max 30 times)
+set /a COUNT=0
+:WAIT_LOOP
+tasklist /FI ""PID eq %HELPER_PID%"" 2>nul | find /i ""%HELPER_PID%"" >nul
+if errorlevel 1 goto PROCESS_EXITED
+set /a COUNT+=1
+if %COUNT% geq 30 goto PROCESS_EXITED
+timeout /t 1 /nobreak >nul
+goto WAIT_LOOP
+
+:PROCESS_EXITED
+:: Wait a bit more for file handles to release
+timeout /t 3 /nobreak >nul
+
+:: Delete the package folder (rd /s /q is silent and doesn't show error dialogs)
+if exist ""%PACKAGE_FOLDER%"" (
+    rd /s /q ""%PACKAGE_FOLDER%"" 2>nul
+)
+
+:: Delete this script
+del /f /q ""%~f0"" 2>nul
+";
+
+                File.WriteAllText(scriptPath, script);
+                Logger.Info($"Cleanup script created: {scriptPath}");
+
+                // Launch cmd.exe hidden to run the cleanup script
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"{scriptPath}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+
+                Process.Start(startInfo);
+                Logger.Info("Cleanup script launched");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to launch cleanup script: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Launches an upgrade script that waits for the helper to exit,
+        /// copies new files from MSIX, and restarts the helper via scheduled task.
+        /// This allows UAC-free upgrades since the current helper is already elevated.
+        /// </summary>
+        /// <param name="msixSourcePath">Path to the new helper files in the MSIX package</param>
+        private static void LaunchUpgradeScript(string msixSourcePath)
+        {
+            try
+            {
+                string deployedFolder = Services.HelperDeploymentService.HelperFolder;
+                string taskName = "GoTweaks\\GoTweaksHelper";
+                int helperPid = Process.GetCurrentProcess().Id;
+                string scriptPath = Path.Combine(Path.GetTempPath(), $"GoTweaksUpgrade_{helperPid}.cmd");
+
+                Logger.Info($"Creating upgrade script: {msixSourcePath} -> {deployedFolder}");
+
+                // Batch script that:
+                // 1. Waits for the old helper to exit
+                // 2. Copies all files from MSIX source to deployed location
+                // 3. Writes version file
+                // 4. Runs the scheduled task to start new helper
+                // 5. Deletes itself
+                string newVersion = Services.HelperDeploymentService.GetCurrentPackageVersion();
+                string versionFile = Path.Combine(deployedFolder, ".version");
+
+                string script = $@"@echo off
+setlocal
+
+:: GoTweaks Upgrade Script - UAC-free upgrade
+set HELPER_PID={helperPid}
+set SOURCE_PATH={msixSourcePath}
+set DEPLOY_PATH={deployedFolder}
+set TASK_NAME={taskName}
+set VERSION_FILE={versionFile}
+set NEW_VERSION={newVersion}
+
+:: Wait for old helper process to exit (poll every second, max 30 times)
+set /a COUNT=0
+:WAIT_LOOP
+tasklist /FI ""PID eq %HELPER_PID%"" 2>nul | find /i ""%HELPER_PID%"" >nul
+if errorlevel 1 goto PROCESS_EXITED
+set /a COUNT+=1
+if %COUNT% geq 30 goto PROCESS_EXITED
+timeout /t 1 /nobreak >nul
+goto WAIT_LOOP
+
+:PROCESS_EXITED
+:: Wait a bit more for file handles to release
+timeout /t 2 /nobreak >nul
+
+:: Create deploy directory if needed
+if not exist ""%DEPLOY_PATH%"" mkdir ""%DEPLOY_PATH%""
+
+:: Copy all files from MSIX source to deployed location
+xcopy /Y /Q ""%SOURCE_PATH%\*.*"" ""%DEPLOY_PATH%\"" >nul 2>&1
+
+:: Write version file
+echo %NEW_VERSION%> ""%VERSION_FILE%""
+
+:: Run the scheduled task to start the new helper
+schtasks /Run /TN ""%TASK_NAME%"" >nul 2>&1
+
+:: Delete this script
+timeout /t 1 /nobreak >nul
+del /f /q ""%~f0"" 2>nul
+";
+
+                File.WriteAllText(scriptPath, script);
+                Logger.Info($"Upgrade script created: {scriptPath}");
+
+                // Launch cmd.exe hidden to run the upgrade script
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"{scriptPath}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+
+                Process.Start(startInfo);
+                Logger.Info("Upgrade script launched - helper will exit now");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to launch upgrade script: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Initialize the app service connection and named pipe server
         /// </summary>
         private static void InitializeConnection()
         {
             Logger.Info("Initialize connection...");
-            connection = new AppServiceConnection();
-            connection.AppServiceName = "XboxGamingBarService";
-            connection.PackageFamilyName = Package.Current.Id.FamilyName;
-            connection.RequestReceived += Connection_RequestReceived;
-            connection.ServiceClosed += Connection_ServiceClosed;
+
+            // Start Named Pipe server (primary communication method - works when elevated)
+            try
+            {
+                pipeServer = new IPC.NamedPipeServer();
+                pipeServer.MessageReceived += PipeServer_MessageReceived;
+                pipeServer.Connected += (s, e) => Logger.Info("Widget connected via Named Pipe");
+                pipeServer.Disconnected += (s, e) => Logger.Info("Widget disconnected from Named Pipe");
+                pipeServer.Start();
+                Logger.Info($"Named Pipe server started: {IPC.NamedPipeServer.FullPipePath}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to start Named Pipe server: {ex.Message}");
+            }
+
+            // Also initialize AppServiceConnection as fallback (for non-elevated scenarios)
+            try
+            {
+                connection = new AppServiceConnection();
+                connection.AppServiceName = "XboxGamingBarService";
+                connection.PackageFamilyName = Package.Current.Id.FamilyName;
+                connection.RequestReceived += Connection_RequestReceived;
+                connection.ServiceClosed += Connection_ServiceClosed;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"AppServiceConnection setup failed (normal if running elevated): {ex.Message}");
+                // Clear the connection so we don't try to use a broken AppServiceConnection
+                connection?.Dispose();
+                connection = null;
+            }
         }
 
         /// <summary>
@@ -391,6 +851,24 @@ namespace XboxGamingBarHelper
         /// </summary>
         private static async Task ConnectToWidget(bool blocking)
         {
+            // If running elevated (no MSIX context), AppServiceConnection won't work
+            // In this case, we rely entirely on Named Pipes for IPC
+            if (connection == null)
+            {
+                Logger.Info("AppServiceConnection unavailable (running elevated). Using Named Pipes only.");
+                appServiceConnectionStatus = AppServiceConnectionStatus.AppServiceUnavailable;
+
+                // For blocking mode, wait for pipe connection instead
+                if (blocking && pipeServer != null)
+                {
+                    Logger.Info("Waiting for widget to connect via Named Pipe...");
+                    // Don't block forever - the main loop will handle reconnection
+                    // Just mark as "connected" so the main loop starts
+                    // The pipe server is already listening for connections
+                }
+                return;
+            }
+
             if (blocking)
             {
                 do
@@ -438,13 +916,36 @@ namespace XboxGamingBarHelper
         {
             var initTimer = System.Diagnostics.Stopwatch.StartNew();
 
-            // Initialize app service connection.
-            InitializeConnection();
+            // NOTE: InitializeConnection() (pipe server) is now called AFTER all managers are initialized
+            // to prevent the widget from connecting before we're ready to handle BatchGet requests.
+
+            // Initialize package data folder path for uninstall detection
+            InitializePackageDataFolder();
 
             //while (!System.Diagnostics.Debugger.IsAttached)
             //{
             //    await Task.Delay(500);
             //}
+
+            // Set DLL directory to exe location BEFORE loading any native DLLs (ADLX, etc.)
+            // This is critical for elevated helper running from deployed location
+            try
+            {
+                var exePath = Process.GetCurrentProcess().MainModule?.FileName;
+                if (!string.IsNullOrEmpty(exePath))
+                {
+                    var exeDir = Path.GetDirectoryName(exePath);
+                    if (!string.IsNullOrEmpty(exeDir))
+                    {
+                        SetDllDirectory(exeDir);
+                        Logger.Info($"SetDllDirectory to: {exeDir}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Could not set DLL directory: {ex.Message}");
+            }
 
             // PARALLEL MANAGER INITIALIZATION - Wave-based to respect dependencies
             var totalTimer = System.Diagnostics.Stopwatch.StartNew();
@@ -463,14 +964,45 @@ namespace XboxGamingBarHelper
 
             var wave1Tasks = new[]
             {
-                Task.Run(() => { tempPerfMgr = new PerformanceManager(connection); }),
-                Task.Run(() => { tempProfileMgr = new ProfileManager(connection); }),
-                Task.Run(() => { tempAmdMgr = new AMDManager(connection); }),
-                Task.Run(() => { tempLosslessMgr = new LosslessScalingManager(connection); }),
-                Task.Run(() => { tempSettingsMgr = SettingsManager.CreateInstance(connection); }),
-                Task.Run(() => { tempLegionMgr = new LegionManager(connection); })
+                Task.Run(() => {
+                    try { tempPerfMgr = new PerformanceManager(connection); Logger.Info("Wave1: PerformanceManager DONE"); }
+                    catch (Exception ex) { Logger.Error(ex, "Wave1: PerformanceManager FAILED"); throw; }
+                }),
+                Task.Run(() => {
+                    try { tempProfileMgr = new ProfileManager(connection); Logger.Info("Wave1: ProfileManager DONE"); }
+                    catch (Exception ex) { Logger.Error(ex, "Wave1: ProfileManager FAILED"); throw; }
+                }),
+                Task.Run(() => {
+                    try { tempAmdMgr = new AMDManager(connection); Logger.Info("Wave1: AMDManager DONE"); }
+                    catch (Exception ex) { Logger.Error(ex, "Wave1: AMDManager FAILED"); throw; }
+                }),
+                Task.Run(() => {
+                    try { tempLosslessMgr = new LosslessScalingManager(connection); Logger.Info("Wave1: LosslessScalingManager DONE"); }
+                    catch (Exception ex) { Logger.Error(ex, "Wave1: LosslessScalingManager FAILED"); throw; }
+                }),
+                Task.Run(() => {
+                    try { tempSettingsMgr = SettingsManager.CreateInstance(connection); Logger.Info("Wave1: SettingsManager DONE"); }
+                    catch (Exception ex) { Logger.Error(ex, "Wave1: SettingsManager FAILED"); throw; }
+                }),
+                Task.Run(() => {
+                    try { tempLegionMgr = new LegionManager(connection); Logger.Info("Wave1: LegionManager DONE"); }
+                    catch (Exception ex) { Logger.Error(ex, "Wave1: LegionManager FAILED"); throw; }
+                })
             };
-            Task.WaitAll(wave1Tasks);
+
+            try
+            {
+                Task.WaitAll(wave1Tasks);
+            }
+            catch (AggregateException ae)
+            {
+                Logger.Error("Wave1 Task.WaitAll failed with AggregateException:");
+                foreach (var ex in ae.InnerExceptions)
+                {
+                    Logger.Error(ex, $"  Inner exception: {ex.GetType().Name}");
+                }
+                throw;
+            }
 
             performanceManager = tempPerfMgr;
             profileManager = tempProfileMgr;
@@ -891,6 +1423,11 @@ namespace XboxGamingBarHelper
             initTimer.Stop();
             Logger.Info($"[TIMING] Helper initialization (before connect): {initTimer.ElapsedMilliseconds}ms");
 
+            // Start pipe server AFTER all managers are initialized
+            // This ensures BatchGet requests can be handled immediately when widget connects
+            InitializeConnection();
+            Logger.Info("Pipe server started - helper ready for widget connections");
+
             // Initial blocking connection to widget
             var connectTimer = System.Diagnostics.Stopwatch.StartNew();
             await ConnectToWidget(true);
@@ -909,6 +1446,9 @@ namespace XboxGamingBarHelper
             // Load and apply Legion button remap settings from LocalSettings
             LoadLegionButtonRemapSettings();
 
+            // Load and apply Legion scroll wheel remap settings from LocalSettings
+            LoadLegionScrollRemapSettings();
+
             // Apply AutoTDP settings from current profile after widget sync
             // This ensures profile values override any stale LocalSettings sent by widget during initial connection
             if (profileManager?.CurrentProfile != null)
@@ -919,15 +1459,33 @@ namespace XboxGamingBarHelper
 
             Logger.Info($"[TIMING] Helper fully initialized and ready");
 
-            // Log version number for easier debugging
+            // Log version number for easier debugging and set helperVersion for heartbeat
             try
             {
                 var packageVersion = Package.Current.Id.Version;
-                Logger.Info($"GoTweaks Helper v{packageVersion.Major}.{packageVersion.Minor}.{packageVersion.Build}.{packageVersion.Revision}");
+                helperVersion = $"{packageVersion.Major}.{packageVersion.Minor}.{packageVersion.Build}.{packageVersion.Revision}";
+                Logger.Info($"GoTweaks Helper v{helperVersion}");
             }
             catch (Exception ex)
             {
-                Logger.Debug($"Could not get package version: {ex.Message}");
+                // When running elevated (no package identity), try to get version from deployed .version file
+                try
+                {
+                    var deployedVersion = Services.HelperDeploymentService.GetDeployedVersion();
+                    if (!string.IsNullOrEmpty(deployedVersion))
+                    {
+                        helperVersion = deployedVersion;
+                        Logger.Info($"GoTweaks Helper v{helperVersion} (from deployed .version file)");
+                    }
+                    else
+                    {
+                        Logger.Debug($"Could not get package version: {ex.Message}");
+                    }
+                }
+                catch
+                {
+                    Logger.Debug($"Could not get deployed version: {ex.Message}");
+                }
             }
 
             // Main loop - helper runs until cancelled (service stop) or shutdown
@@ -940,9 +1498,18 @@ namespace XboxGamingBarHelper
                     break;
                 }
 
-                if (appServiceConnectionStatus != AppServiceConnectionStatus.Success)
+                // Check for shutdown (from ExitHelper request)
+                if (_isShuttingDown)
                 {
-                    Logger.Info("Try to reconnect to the widget.");
+                    Logger.Info("Shutdown flag set, exiting main loop for version update");
+                    break;
+                }
+
+                // Only try to reconnect AppServiceConnection if it's available (not running elevated)
+                // When running elevated via scheduled task, we use Named Pipes only
+                if (connection != null && appServiceConnectionStatus != AppServiceConnectionStatus.Success)
+                {
+                    Logger.Info("Try to reconnect to the widget via AppService.");
                     await ConnectToWidget(false);
 
                     // Force-sync RunningGame to widget after reconnection
@@ -958,6 +1525,9 @@ namespace XboxGamingBarHelper
 
                 // Write heartbeat file so widget can detect if helper is running
                 WriteHeartbeat();
+
+                // Check if MSIX package has been uninstalled - if so, clean up and exit
+                CheckForPackageUninstall();
 
                 foreach (var manager in Managers)
                 {
@@ -2307,9 +2877,25 @@ namespace XboxGamingBarHelper
                         return;
                     }
 
-                    // ViGEmBus: Install request
+                    // ViGEmBus: Install request - only install when explicitly requested with "install" content
                     if (functionValue == (int)Function.InstallViGEmBus)
                     {
+                        // Check if this is a Set command with "install" content
+                        bool shouldInstall = false;
+                        if (args.Request.Message.TryGetValue("Command", out object vigemCmdObj) && vigemCmdObj is int vigemCmd && vigemCmd == (int)Shared.Enums.Command.Set)
+                        {
+                            if (args.Request.Message.TryGetValue("Content", out object vigemContentObj) && vigemContentObj?.ToString() == "install")
+                            {
+                                shouldInstall = true;
+                            }
+                        }
+
+                        if (!shouldInstall)
+                        {
+                            Logger.Debug("InstallViGEmBus: Ignoring non-install request (Get or empty content)");
+                            return;
+                        }
+
                         Logger.Info("ViGEmBus installation requested from widget");
                         // Run installation asynchronously
                         _ = Task.Run(async () =>
@@ -2369,6 +2955,680 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
+        /// Handles messages received from the widget via Named Pipe
+        /// </summary>
+        private static async void PipeServer_MessageReceived(object sender, IPC.PipeMessageEventArgs e)
+        {
+            try
+            {
+                var pipeMsg = Shared.IPC.PipeMessage.FromJson(e.Message);
+                Logger.Info($"Helper received pipe message: {pipeMsg}");
+
+                // Convert to ValueSet for compatibility with existing handlers
+                var valueSet = pipeMsg.ToValueSet();
+
+                // Handle power plan change request
+                if (pipeMsg.Extra.TryGetValue("PowerPlan", out object powerPlanValue) && powerPlanValue is string guidStr)
+                {
+                    if (Guid.TryParse(guidStr, out Guid planGuid))
+                    {
+                        Logger.Info($"Setting power plan to: {planGuid}");
+                        Power.PowerManager.SetActivePowerPlan(planGuid);
+                    }
+                    return;
+                }
+
+                // Handle keyboard shortcut request
+                if (pipeMsg.Extra.TryGetValue("SendKeyboardShortcut", out object shortcutValue) && shortcutValue is string shortcutStr)
+                {
+                    Logger.Info($"Sending keyboard shortcut via InputInjector: {shortcutStr}");
+                    SendKeyboardShortcutViaInputInjector(shortcutStr);
+                    return;
+                }
+
+                // Handle close game request
+                if (pipeMsg.Extra.ContainsKey("CloseGame"))
+                {
+                    Logger.Info("CloseGame request received - attempting to close foreground window");
+                    bool success = Windows.User32.CloseForegroundWindow();
+                    Logger.Info($"CloseGame result: {success}");
+                    return;
+                }
+
+                // Handle export logs request
+                if (pipeMsg.Extra.ContainsKey("ExportLogs"))
+                {
+                    Logger.Info("Pipe: ExportLogs request received");
+                    var response = new global::Windows.Foundation.Collections.ValueSet();
+                    try
+                    {
+                        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                        var exportFolder = Path.Combine(desktopPath, $"GoTweaks_Logs_{timestamp}");
+
+                        // Create export folder
+                        Directory.CreateDirectory(exportFolder);
+                        var helperFolder = Path.Combine(exportFolder, "Helper");
+                        var widgetFolder = Path.Combine(exportFolder, "Widget");
+                        Directory.CreateDirectory(helperFolder);
+                        Directory.CreateDirectory(widgetFolder);
+
+                        // Get log paths from app package location
+                        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                        var packageFolder = Path.Combine(localAppData, "Packages", "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg");
+                        var helperLogPath = localAppData; // Helper logs are in %LocalAppData% when elevated
+                        var widgetLogPath = Path.Combine(packageFolder, "LocalState");
+
+                        // Copy helper logs (last 2) - check both locations
+                        var helperLogs = new List<string>();
+                        if (Directory.Exists(helperLogPath))
+                        {
+                            helperLogs.AddRange(Directory.GetFiles(helperLogPath, "helper_*.log"));
+                        }
+                        var packageHelperLogPath = Path.Combine(packageFolder, "LocalCache", "Local");
+                        if (Directory.Exists(packageHelperLogPath))
+                        {
+                            helperLogs.AddRange(Directory.GetFiles(packageHelperLogPath, "helper_*.log"));
+                        }
+                        foreach (var log in helperLogs.OrderByDescending(f => File.GetLastWriteTime(f)).Take(2))
+                        {
+                            var destPath = Path.Combine(helperFolder, Path.GetFileName(log));
+                            File.Copy(log, destPath, true);
+                            Logger.Info($"Copied: {Path.GetFileName(log)}");
+                        }
+
+                        // Copy widget logs (last 2)
+                        if (Directory.Exists(widgetLogPath))
+                        {
+                            var widgetLogs = Directory.GetFiles(widgetLogPath, "widget_*.log")
+                                .OrderByDescending(f => File.GetLastWriteTime(f))
+                                .Take(2);
+
+                            foreach (var log in widgetLogs)
+                            {
+                                var destPath = Path.Combine(widgetFolder, Path.GetFileName(log));
+                                File.Copy(log, destPath, true);
+                                Logger.Info($"Copied: {Path.GetFileName(log)}");
+                            }
+                        }
+
+                        Logger.Info($"Pipe: Logs exported to: {exportFolder}");
+                        response.Add("Success", true);
+                        response.Add("Path", exportFolder);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: Failed to export logs: {ex.Message}");
+                        response.Add("Success", false);
+                        response.Add("Error", ex.Message);
+                    }
+
+                    // Send response
+                    if (pipeServer != null && pipeServer.IsConnected)
+                    {
+                        var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                        responseMsg.RequestId = pipeMsg.RequestId;
+                        pipeServer.SendMessage(responseMsg.ToJson());
+                    }
+                    return;
+                }
+
+                // Handle exit helper request (for version mismatch restart - legacy)
+                if (pipeMsg.Extra.ContainsKey("ExitHelper"))
+                {
+                    Logger.Info("Pipe: ExitHelper request received - shutting down helper for version update");
+                    _isShuttingDown = true;
+
+                    // Schedule a forced exit in case the main loop doesn't exit quickly
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(3000); // Give main loop 3 seconds to exit gracefully
+                        if (_isShuttingDown)
+                        {
+                            Logger.Info("Forcing exit after ExitHelper timeout");
+                            Environment.Exit(0);
+                        }
+                    });
+                    return;
+                }
+
+                // Handle upgrade helper request (UAC-free upgrade - preferred)
+                // The widget sends the MSIX source path so we can copy files after exit
+                if (pipeMsg.Extra.ContainsKey("UpgradeHelper"))
+                {
+                    string msixSourcePath = pipeMsg.Extra["UpgradeHelper"]?.ToString();
+                    if (!string.IsNullOrEmpty(msixSourcePath))
+                    {
+                        Logger.Info($"Pipe: UpgradeHelper request received - source: {msixSourcePath}");
+
+                        // Launch upgrade script that will copy files and restart after we exit
+                        LaunchUpgradeScript(msixSourcePath);
+
+                        _isShuttingDown = true;
+
+                        // Schedule a forced exit
+                        _ = Task.Run(async () =>
+                        {
+                            await Task.Delay(2000); // Give main loop time to exit gracefully
+                            if (_isShuttingDown)
+                            {
+                                Logger.Info("Forcing exit for upgrade");
+                                Environment.Exit(0);
+                            }
+                        });
+                    }
+                    else
+                    {
+                        Logger.Warn("Pipe: UpgradeHelper request missing source path");
+                    }
+                    return;
+                }
+
+                // Handle batch get request (for fast property sync)
+                if (pipeMsg.Command == Shared.Enums.Command.BatchGet)
+                {
+                    await HandleBatchGetRequestViaPipe(pipeMsg);
+                    return;
+                }
+
+                // Handle property requests via the properties system
+                if (pipeMsg.Function != Shared.Enums.Function.None)
+                {
+                    HandlePipePropertyRequest(pipeMsg);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error handling pipe message: {ex.Message}");
+                Logger.Error($"Stack trace: {ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// Handles property Get/Set requests from the pipe
+        /// </summary>
+        private static void HandlePipePropertyRequest(Shared.IPC.PipeMessage request)
+        {
+            try
+            {
+                global::Windows.Foundation.Collections.ValueSet response = null;
+
+                // Handle special functions that are not in FunctionalProperties
+                int functionValue = (int)request.Function;
+
+                // Labs: DAService Status request
+                if (functionValue == (int)Function.Labs_DAServiceStatus)
+                {
+                    int status = GetDAServiceStatus();
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add(nameof(Function), functionValue);
+                    response.Add("Content", status);
+                    response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                    Logger.Info($"Pipe: Labs DAService status = {status}");
+                }
+                // Labs: DAService Control request (Start/Stop)
+                else if (functionValue == (int)Function.Labs_DAServiceControl)
+                {
+                    if (request.Content != null)
+                    {
+                        int action = Convert.ToInt32(request.Content);
+                        ControlDAService(action);
+                        System.Threading.Thread.Sleep(500);
+                        int status = GetDAServiceStatus();
+                        response = new global::Windows.Foundation.Collections.ValueSet();
+                        response.Add(nameof(Function), (int)Function.Labs_DAServiceStatus);
+                        response.Add("Content", status);
+                        response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                        Logger.Info($"Pipe: Labs DAService control action={action}, new status={status}");
+                    }
+                }
+                // Labs: Legion Button Remap
+                else if (functionValue == (int)Function.Labs_LegionButtonRemap)
+                {
+                    string button = "L";
+                    bool enabled = false;
+                    int actionType = 0;
+                    string shortcut = "";
+
+                    if (request.Extra.TryGetValue("Button", out object buttonObj))
+                        button = buttonObj?.ToString() ?? "L";
+                    if (request.Extra.TryGetValue("Enabled", out object enabledObj))
+                        enabled = Convert.ToBoolean(enabledObj);
+                    if (request.Extra.TryGetValue("Action", out object actionObj))
+                        actionType = Convert.ToInt32(actionObj);
+                    if (request.Extra.TryGetValue("Shortcut", out object shortcutObj))
+                        shortcut = shortcutObj?.ToString() ?? "";
+
+                    bool success = ConfigureLegionButtonRemap(button, enabled, actionType, shortcut);
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", success);
+                    Logger.Info($"Pipe: Legion {button} Remap - Enabled: {enabled}, Success: {success}");
+                }
+                // Labs: Scroll Wheel Remap
+                else if (functionValue == (int)Function.Labs_LegionScrollRemap)
+                {
+                    string direction = "Up";
+                    bool enabled = false;
+                    int actionType = 0;
+                    string shortcut = "";
+
+                    if (request.Extra.TryGetValue("Direction", out object directionObj))
+                        direction = directionObj?.ToString() ?? "Up";
+                    if (request.Extra.TryGetValue("Enabled", out object enabledObj))
+                        enabled = Convert.ToBoolean(enabledObj);
+                    if (request.Extra.TryGetValue("Action", out object actionObj))
+                        actionType = Convert.ToInt32(actionObj);
+                    if (request.Extra.TryGetValue("Shortcut", out object shortcutObj))
+                        shortcut = shortcutObj?.ToString() ?? "";
+
+                    bool success = ConfigureLegionScrollRemap(direction, enabled, actionType, shortcut);
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", success);
+                    Logger.Info($"Pipe: Scroll {direction} Remap - Enabled: {enabled}, Success: {success}");
+                }
+                // ViGEmBus: Check installed status
+                else if (functionValue == (int)Function.ViGEmBusInstalled)
+                {
+                    bool installed = XboxGamingBarHelper.Labs.ViGEmBusHelper.IsInstalled();
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add(nameof(Function), functionValue);
+                    response.Add("Content", installed);
+                    response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                    Logger.Info($"Pipe: ViGEmBus installed status: {installed}");
+                }
+                // ViGEmBus: Install request - only install when explicitly requested with Set command and "install" content
+                else if (functionValue == (int)Function.InstallViGEmBus)
+                {
+                    // Check if this is a Set command with "install" content
+                    bool shouldInstall = request.Command == Shared.Enums.Command.Set && request.Content == "install";
+
+                    if (!shouldInstall)
+                    {
+                        Logger.Debug("Pipe: InstallViGEmBus - Ignoring non-install request (Get or empty content)");
+                        return;
+                    }
+
+                    Logger.Info("Pipe: ViGEmBus installation requested from widget");
+                    _ = Task.Run(() =>
+                    {
+                        bool success = XboxGamingBarHelper.Labs.ViGEmBusHelper.Install();
+                        bool installed = XboxGamingBarHelper.Labs.ViGEmBusHelper.IsInstalled();
+                        // Send updated status via pipe
+                        var updateMsg = new Shared.IPC.PipeMessage
+                        {
+                            Command = Shared.Enums.Command.Set,
+                            Function = Function.ViGEmBusInstalled,
+                            Content = installed.ToString()
+                        };
+                        SendPipeMessage(updateMsg);
+                        Logger.Info($"Pipe: ViGEmBus installation complete, sent updated status: {installed}");
+                    });
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true); // Acknowledge request started
+                }
+                // Debug: Export Default Game Profiles
+                else if (functionValue == (int)Function.Debug_ExportDGPs)
+                {
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    try
+                    {
+                        string exportPath = ExportDefaultGameProfiles();
+                        response.Add("ExportPath", exportPath);
+                        Logger.Info($"Pipe: DGPs exported to {exportPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        response.Add("Error", ex.Message);
+                        Logger.Error($"Pipe: Failed to export DGPs: {ex.Message}");
+                    }
+                }
+                // Debug: Check for local update (AppPackages)
+                else if (functionValue == (int)Function.CheckLocalUpdate)
+                {
+                    Logger.Info("Pipe: CheckLocalUpdate request received");
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+
+                    try
+                    {
+                        const string appPackagesPath = @"C:\Users\diego\OneDrive\Desktop\Diego\projects\XboxGamingBar\Samples\XboxGamingBarPackage\AppPackages";
+
+                        if (!Directory.Exists(appPackagesPath))
+                        {
+                            response.Add("Error", $"AppPackages folder not found:\n{appPackagesPath}");
+                        }
+                        else
+                        {
+                            // Get all package folders and find the latest version
+                            var packageFolders = Directory.GetDirectories(appPackagesPath)
+                                .Where(d => Path.GetFileName(d).StartsWith("XboxGamingBarPackage_"))
+                                .ToList();
+
+                            if (packageFolders.Count == 0)
+                            {
+                                response.Add("Error", "No package folders found in AppPackages");
+                            }
+                            else
+                            {
+                                // Parse versions from folder names (e.g., XboxGamingBarPackage_0.3.98.0_Debug_Test)
+                                string latestFolder = null;
+                                string latestVersionStr = null;
+                                Version latestVersion = null;
+
+                                foreach (var folder in packageFolders)
+                                {
+                                    var folderName = Path.GetFileName(folder);
+                                    var parts = folderName.Split('_');
+                                    if (parts.Length >= 2)
+                                    {
+                                        var versionStr = parts[1];
+                                        if (Version.TryParse(versionStr, out var version))
+                                        {
+                                            if (latestVersion == null || version > latestVersion)
+                                            {
+                                                latestVersion = version;
+                                                latestVersionStr = versionStr;
+                                                latestFolder = folder;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (latestFolder == null)
+                                {
+                                    response.Add("Error", "Could not parse version from folder names");
+                                }
+                                else
+                                {
+                                    // Find .msixbundle in the folder
+                                    var msixbundleFiles = Directory.GetFiles(latestFolder, "*.msixbundle", SearchOption.AllDirectories);
+                                    if (msixbundleFiles.Length == 0)
+                                    {
+                                        response.Add("Error", $"No .msixbundle found in:\n{Path.GetFileName(latestFolder)}");
+                                    }
+                                    else
+                                    {
+                                        var msixbundlePath = msixbundleFiles[0];
+                                        Logger.Info($"Pipe: Found local update: version={latestVersionStr}, path={msixbundlePath}");
+
+                                        response.Add("LatestVersion", latestVersionStr);
+                                        response.Add("MsixbundlePath", msixbundlePath);
+                                        response.Add("FolderName", Path.GetFileName(latestFolder));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: Failed to check for local update: {ex.Message}");
+                        response.Add("Error", $"Failed: {ex.Message}");
+                    }
+                }
+                // Debug/Development: Install Update (download and install from URL or local path)
+                else if (functionValue == (int)Function.InstallUpdate)
+                {
+                    var updatePath = request.Content;
+                    Logger.Info($"Pipe: InstallUpdate request received: {updatePath}");
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+
+                    if (string.IsNullOrEmpty(updatePath))
+                    {
+                        response.Add("UpdateStatus", "Error: No URL/path provided");
+                    }
+                    else
+                    {
+                        try
+                        {
+                            string msixbundlePath;
+
+                            // Check if this is a local msixbundle path (debug mode)
+                            if (updatePath.EndsWith(".msixbundle", StringComparison.OrdinalIgnoreCase) && File.Exists(updatePath))
+                            {
+                                // Direct path to local msixbundle - skip download/extract
+                                Logger.Info($"Pipe: [DEBUG] Using local msixbundle: {updatePath}");
+                                msixbundlePath = updatePath;
+                            }
+                            else
+                            {
+                                // Download and extract from URL
+                                var tempFolder = Path.Combine(Path.GetTempPath(), "GoTweaks_Update");
+                                var zipPath = Path.Combine(tempFolder, "update.zip");
+
+                                // Clean up and create temp folder
+                                if (Directory.Exists(tempFolder))
+                                    Directory.Delete(tempFolder, true);
+                                Directory.CreateDirectory(tempFolder);
+
+                                // Download the zip file
+                                Logger.Info($"Pipe: Downloading update from {updatePath}...");
+                                using (var client = new WebClient())
+                                {
+                                    client.Headers.Add("User-Agent", "GoTweaks/1.0");
+                                    client.DownloadFile(updatePath, zipPath);
+                                }
+                                Logger.Info($"Pipe: Downloaded to {zipPath}");
+
+                                // Extract the zip
+                                var extractFolder = Path.Combine(tempFolder, "extracted");
+                                Directory.CreateDirectory(extractFolder);
+                                ZipFile.ExtractToDirectory(zipPath, extractFolder);
+                                Logger.Info($"Pipe: Extracted to {extractFolder}");
+
+                                // Find the .msixbundle file
+                                msixbundlePath = null;
+                                foreach (var file in Directory.GetFiles(extractFolder, "*.msixbundle", SearchOption.AllDirectories))
+                                {
+                                    msixbundlePath = file;
+                                    break;
+                                }
+
+                                if (string.IsNullOrEmpty(msixbundlePath))
+                                {
+                                    Logger.Error("Pipe: No .msixbundle file found in the update package");
+                                    response.Add("UpdateStatus", "Error: No .msixbundle found in update");
+                                    // Send response and return early
+                                    if (pipeServer != null && pipeServer.IsConnected)
+                                    {
+                                        var errMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                                        errMsg.RequestId = request.RequestId;
+                                        pipeServer.SendMessage(errMsg.ToJson());
+                                    }
+                                    return;
+                                }
+                            }
+
+                            Logger.Info($"Pipe: Found msixbundle: {msixbundlePath}");
+
+                            // Send response before launching installer
+                            response.Add("UpdateStatus", "Installing");
+                            if (pipeServer != null && pipeServer.IsConnected)
+                            {
+                                var successMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                                successMsg.RequestId = request.RequestId;
+                                pipeServer.SendMessage(successMsg.ToJson());
+                            }
+
+                            // Launch the msixbundle installer
+                            var startInfo = new ProcessStartInfo
+                            {
+                                FileName = msixbundlePath,
+                                UseShellExecute = true
+                            };
+
+                            Logger.Info("Pipe: Launching msixbundle installer...");
+                            var installerProcess = Process.Start(startInfo);
+
+                            // Wait for installer to fully load the package before exiting
+                            Logger.Info("Pipe: Waiting for installer to load package...");
+                            System.Threading.Thread.Sleep(5000); // 5 seconds for installer to fully open
+
+                            // Exit helper so installer can replace files
+                            Logger.Info("Pipe: Exiting helper for update installation...");
+                            Environment.Exit(0);
+                            return; // Won't reach this but for clarity
+                        }
+                        catch (WebException ex)
+                        {
+                            Logger.Error($"Pipe: Failed to download update: {ex.Message}");
+                            response.Add("UpdateStatus", $"Error: Download failed - {ex.Message}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"Pipe: Failed to install update: {ex.Message}");
+                            response.Add("UpdateStatus", $"Error: {ex.Message}");
+                        }
+                    }
+                }
+                else
+                {
+                    // Convert to ValueSet and use the existing property handling
+                    var valueSet = request.ToValueSet();
+                    response = properties.HandlePipeMessage(valueSet);
+                }
+
+                if (response != null && pipeServer != null && pipeServer.IsConnected)
+                {
+                    // Convert response to JSON and send back
+                    // Echo the RequestId so client can correlate the response
+                    var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                    responseMsg.RequestId = request.RequestId;
+                    pipeServer.SendMessage(responseMsg.ToJson());
+                    Logger.Debug($"Sent pipe response for {request.Function} (RequestId={request.RequestId})");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error handling pipe property request: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Returns true if the Named Pipe to the widget is connected.
+        /// </summary>
+        public static bool IsPipeConnected => pipeServer != null && pipeServer.IsConnected;
+
+        /// <summary>
+        /// Sends a message to the widget via Named Pipe
+        /// </summary>
+        public static bool SendPipeMessage(Shared.IPC.PipeMessage message)
+        {
+            if (pipeServer == null || !pipeServer.IsConnected)
+            {
+                Logger.Debug("Cannot send pipe message - not connected");
+                return false;
+            }
+            return pipeServer.SendMessage(message.ToJson());
+        }
+
+        /// <summary>
+        /// Handle batch get request via Named Pipe.
+        /// Returns all requested property values in a single response.
+        /// </summary>
+        private static async Task HandleBatchGetRequestViaPipe(Shared.IPC.PipeMessage request)
+        {
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                if (!request.Extra.TryGetValue("Functions", out object functionsObj) || !(functionsObj is string functionsJson))
+                {
+                    Logger.Warn("BatchGet pipe request missing Functions");
+                    return;
+                }
+
+                var functionIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(functionsJson);
+                if (functionIds == null || functionIds.Length == 0)
+                {
+                    Logger.Warn("BatchGet pipe request has empty Functions array");
+                    return;
+                }
+
+                // Build batch response with all property values
+                var batchData = new Dictionary<string, object>();
+                foreach (var funcId in functionIds)
+                {
+                    var func = (Shared.Enums.Function)funcId;
+                    if (properties.TryGetProperty(func, out var property))
+                    {
+                        try
+                        {
+                            var value = property.GetValue();
+
+                            // Structs must be serialized to XML to match individual property sync format
+                            // Otherwise they serialize as "{}" in JSON which fails XML deserialization on widget
+                            // Only serialize custom structs, not built-in value types like DateTime, TimeSpan, etc.
+                            if (value != null)
+                            {
+                                var valueType = value.GetType();
+                                if (valueType.IsValueType && !valueType.IsPrimitive && !valueType.IsEnum
+                                    && valueType.Namespace != null && valueType.Namespace.StartsWith("Shared"))
+                                {
+                                    // Special handling for RunningGame/TrackedGame - check if valid before serializing
+                                    // These structs have null strings when invalid/empty which causes XML serialization to fail
+                                    bool shouldSerialize = true;
+                                    if (value is Shared.Data.RunningGame rg)
+                                    {
+                                        // Must check ProcessId, GameId.Name AND GameId.Path - XML serializer fails on null strings
+                                        shouldSerialize = rg.IsValid() && rg.GameId.IsValid() && !string.IsNullOrEmpty(rg.GameId.Path);
+                                        if (!shouldSerialize)
+                                        {
+                                            Logger.Debug($"RunningGame not valid for XML: ProcessId={rg.ProcessId}, Name={rg.GameId.Name ?? "null"}, Path={rg.GameId.Path ?? "null"}");
+                                        }
+                                    }
+                                    else if (value is Shared.Data.TrackedGame tg)
+                                    {
+                                        shouldSerialize = !string.IsNullOrEmpty(tg.DisplayName);
+                                    }
+
+                                    if (shouldSerialize)
+                                    {
+                                        value = Shared.Utilities.XmlHelper.ToXMLStringRuntime(value, true);
+                                    }
+                                    else
+                                    {
+                                        value = ""; // Return empty string for invalid/empty structs
+                                    }
+                                }
+                            }
+
+                            var propData = new Dictionary<string, object>
+                            {
+                                { "Content", value },
+                                { "UpdatedTime", property.UpdatedTime }
+                            };
+                            batchData[funcId.ToString()] = propData;
+                        }
+                        catch (Exception propEx)
+                        {
+                            var innerMsg = propEx.InnerException?.Message ?? "no inner";
+                            Logger.Warn($"BatchGet: Failed to serialize property {func}: {propEx.Message} (Inner: {innerMsg})");
+                        }
+                    }
+                }
+
+                // Send response via pipe with the same RequestId
+                var response = new Shared.IPC.PipeMessage
+                {
+                    RequestId = request.RequestId,
+                    Command = Shared.Enums.Command.Response,
+                    Function = Shared.Enums.Function.None
+                };
+                response.Extra["BatchData"] = System.Text.Json.JsonSerializer.Serialize(batchData);
+
+                if (pipeServer != null && pipeServer.IsConnected)
+                {
+                    pipeServer.SendMessage(response.ToJson());
+                }
+
+                timer.Stop();
+                Logger.Info($"[TIMING] BatchGet via pipe {functionIds.Length} properties: {timer.ElapsedMilliseconds}ms");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"BatchGet via pipe failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Handle batch get request for fast property sync.
         /// Returns all requested property values in a single response.
         /// </summary>
@@ -2397,12 +3657,59 @@ namespace XboxGamingBarHelper
                     var func = (Shared.Enums.Function)funcId;
                     if (properties.TryGetProperty(func, out var property))
                     {
-                        var propData = new Dictionary<string, object>
+                        try
                         {
-                            { "Content", property.GetValue() },
-                            { "UpdatedTime", property.UpdatedTime }
-                        };
-                        batchData[funcId.ToString()] = propData;
+                            var value = property.GetValue();
+
+                            // Structs must be serialized to XML to match individual property sync format
+                            // Otherwise they serialize as "{}" in JSON which fails XML deserialization on widget
+                            // Only serialize custom structs, not built-in value types like DateTime, TimeSpan, etc.
+                            if (value != null)
+                            {
+                                var valueType = value.GetType();
+                                if (valueType.IsValueType && !valueType.IsPrimitive && !valueType.IsEnum
+                                    && valueType.Namespace != null && valueType.Namespace.StartsWith("Shared"))
+                                {
+                                    // Special handling for RunningGame/TrackedGame - check if valid before serializing
+                                    // These structs have null strings when invalid/empty which causes XML serialization to fail
+                                    bool shouldSerialize = true;
+                                    if (value is Shared.Data.RunningGame rg)
+                                    {
+                                        // Must check ProcessId, GameId.Name AND GameId.Path - XML serializer fails on null strings
+                                        shouldSerialize = rg.IsValid() && rg.GameId.IsValid() && !string.IsNullOrEmpty(rg.GameId.Path);
+                                        if (!shouldSerialize)
+                                        {
+                                            Logger.Debug($"RunningGame not valid for XML: ProcessId={rg.ProcessId}, Name={rg.GameId.Name ?? "null"}, Path={rg.GameId.Path ?? "null"}");
+                                        }
+                                    }
+                                    else if (value is Shared.Data.TrackedGame tg)
+                                    {
+                                        shouldSerialize = !string.IsNullOrEmpty(tg.DisplayName);
+                                    }
+
+                                    if (shouldSerialize)
+                                    {
+                                        value = Shared.Utilities.XmlHelper.ToXMLStringRuntime(value, true);
+                                    }
+                                    else
+                                    {
+                                        value = ""; // Return empty string for invalid/empty structs
+                                    }
+                                }
+                            }
+
+                            var propData = new Dictionary<string, object>
+                            {
+                                { "Content", value },
+                                { "UpdatedTime", property.UpdatedTime }
+                            };
+                            batchData[funcId.ToString()] = propData;
+                        }
+                        catch (Exception propEx)
+                        {
+                            var innerMsg = propEx.InnerException?.Message ?? "no inner";
+                            Logger.Warn($"BatchGet: Failed to serialize property {func}: {propEx.Message} (Inner: {innerMsg})");
+                        }
                     }
                 }
 
@@ -2884,37 +4191,36 @@ namespace XboxGamingBarHelper
 
         /// <summary>
         /// Load and apply Legion button remap settings from LocalSettings on startup.
+        /// Uses LocalSettingsHelper which works both inside and outside package context.
         /// </summary>
         private static void LoadLegionButtonRemapSettings()
         {
             try
             {
-                var settings = global::Windows.Storage.ApplicationData.Current.LocalSettings;
-
-                // Load Legion L settings
+                // Load Legion L settings using LocalSettingsHelper
                 // Action: 0=Disabled, 1=Xbox Guide, 2=Keyboard Shortcut, 3=Run Command, 4=Focus GoTweaks
                 int lAction = 0;
                 string lShortcut = "";
                 string lCommand = "";
 
-                if (settings.Values.TryGetValue("LegionL_Action", out object lActionObj) && lActionObj is int)
-                    lAction = (int)lActionObj;
-                if (settings.Values.TryGetValue("LegionL_Shortcut", out object lShortcutObj) && lShortcutObj is string)
-                    lShortcut = (string)lShortcutObj;
-                if (settings.Values.TryGetValue("LegionL_Command", out object lCommandObj) && lCommandObj is string)
-                    lCommand = (string)lCommandObj;
+                if (Settings.LocalSettingsHelper.TryGetValue<int>("LegionL_Action", out var lActionVal))
+                    lAction = lActionVal;
+                if (Settings.LocalSettingsHelper.TryGetValue<string>("LegionL_Shortcut", out var lShortcutVal))
+                    lShortcut = lShortcutVal;
+                if (Settings.LocalSettingsHelper.TryGetValue<string>("LegionL_Command", out var lCommandVal))
+                    lCommand = lCommandVal;
 
                 // Load Legion R settings
                 int rAction = 0;
                 string rShortcut = "";
                 string rCommand = "";
 
-                if (settings.Values.TryGetValue("LegionR_Action", out object rActionObj) && rActionObj is int)
-                    rAction = (int)rActionObj;
-                if (settings.Values.TryGetValue("LegionR_Shortcut", out object rShortcutObj) && rShortcutObj is string)
-                    rShortcut = (string)rShortcutObj;
-                if (settings.Values.TryGetValue("LegionR_Command", out object rCommandObj) && rCommandObj is string)
-                    rCommand = (string)rCommandObj;
+                if (Settings.LocalSettingsHelper.TryGetValue<int>("LegionR_Action", out var rActionVal))
+                    rAction = rActionVal;
+                if (Settings.LocalSettingsHelper.TryGetValue<string>("LegionR_Shortcut", out var rShortcutVal))
+                    rShortcut = rShortcutVal;
+                if (Settings.LocalSettingsHelper.TryGetValue<string>("LegionR_Command", out var rCommandVal))
+                    rCommand = rCommandVal;
 
                 // Apply Legion L if not disabled
                 if (lAction > 0)
@@ -2943,6 +4249,72 @@ namespace XboxGamingBarHelper
             catch (Exception ex)
             {
                 Logger.Error($"Labs: Failed to load Legion button remap settings: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Load and apply Legion scroll wheel remap settings from LocalSettings on startup.
+        /// Uses LocalSettingsHelper which works both inside and outside package context.
+        /// </summary>
+        private static void LoadLegionScrollRemapSettings()
+        {
+            try
+            {
+                // Load Scroll (unified Up/Down) settings
+                // Action: 0=Disabled, 1=Xbox Guide, 2=Keyboard Shortcut, 3=Run Command, 4=Focus GoTweaks
+                int scrollAction = 0;
+                string scrollShortcut = "";
+                string scrollCommand = "";
+
+                if (Settings.LocalSettingsHelper.TryGetValue<int>("Scroll_Action", out var scrollActionVal))
+                    scrollAction = scrollActionVal;
+                if (Settings.LocalSettingsHelper.TryGetValue<string>("Scroll_Shortcut", out var scrollShortcutVal))
+                    scrollShortcut = scrollShortcutVal;
+                if (Settings.LocalSettingsHelper.TryGetValue<string>("Scroll_Command", out var scrollCommandVal))
+                    scrollCommand = scrollCommandVal;
+
+                // Load Scroll Click settings
+                int clickAction = 0;
+                string clickShortcut = "";
+                string clickCommand = "";
+
+                if (Settings.LocalSettingsHelper.TryGetValue<int>("ScrollClick_Action", out var clickActionVal))
+                    clickAction = clickActionVal;
+                if (Settings.LocalSettingsHelper.TryGetValue<string>("ScrollClick_Shortcut", out var clickShortcutVal))
+                    clickShortcut = clickShortcutVal;
+                if (Settings.LocalSettingsHelper.TryGetValue<string>("ScrollClick_Command", out var clickCommandVal))
+                    clickCommand = clickCommandVal;
+
+                // Apply Scroll Up/Down if not disabled (unified action for both directions)
+                if (scrollAction > 0)
+                {
+                    // Map action index to actionType: 1=Xbox Guide(0), 2=Shortcut(1), 3=Command(2), 4=FocusGoTweaks(3)
+                    int actionType = scrollAction - 1;
+                    string shortcutOrCommand = actionType == 1 ? scrollShortcut : (actionType == 2 ? scrollCommand : "");
+
+                    // Apply to both Up and Down (unified scroll action)
+                    bool successUp = ConfigureLegionScrollRemap("Up", true, actionType, shortcutOrCommand);
+                    bool successDown = ConfigureLegionScrollRemap("Down", true, actionType, shortcutOrCommand);
+                    Logger.Info($"Labs: Loaded Scroll Up/Down remap from settings - Action={scrollAction}, SuccessUp={successUp}, SuccessDown={successDown}");
+                }
+
+                // Apply Scroll Click if not disabled
+                if (clickAction > 0)
+                {
+                    int actionType = clickAction - 1;
+                    string shortcutOrCommand = actionType == 1 ? clickShortcut : (actionType == 2 ? clickCommand : "");
+                    bool success = ConfigureLegionScrollRemap("Click", true, actionType, shortcutOrCommand);
+                    Logger.Info($"Labs: Loaded Scroll Click remap from settings - Action={clickAction}, Success={success}");
+                }
+
+                if (scrollAction == 0 && clickAction == 0)
+                {
+                    Logger.Info("Labs: No Legion scroll wheel remap settings found in LocalSettings");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Labs: Failed to load Legion scroll wheel remap settings: {ex.Message}");
             }
         }
 
@@ -3285,18 +4657,35 @@ namespace XboxGamingBarHelper
                 // Delay to ensure Game Bar is fully open and widget is ready
                 await Task.Delay(500);
 
-                // Send focus command to widget via AppService
-                if (connection != null && appServiceConnectionStatus == AppServiceConnectionStatus.Success)
+                // Send focus command to widget via Named Pipes (works when running elevated)
+                if (IsPipeConnected)
+                {
+                    var pipeMsg = new Shared.IPC.PipeMessage
+                    {
+                        Command = Shared.Enums.Command.Set,
+                        Function = Shared.Enums.Function.Labs_FocusWidget
+                    };
+                    if (SendPipeMessage(pipeMsg))
+                    {
+                        Logger.Info("Labs: Sent focus widget command via Named Pipe");
+                    }
+                    else
+                    {
+                        Logger.Warn("Labs: Failed to send focus widget command via Named Pipe");
+                    }
+                }
+                // Fallback to AppService if available (running in package context)
+                else if (connection != null && appServiceConnectionStatus == AppServiceConnectionStatus.Success)
                 {
                     var message = new global::Windows.Foundation.Collections.ValueSet();
                     message.Add("Command", (int)Shared.Enums.Command.Set);
                     message.Add("Function", (int)Shared.Enums.Function.Labs_FocusWidget);
                     await connection.SendMessageAsync(message);
-                    Logger.Info("Labs: Sent focus widget command to widget");
+                    Logger.Info("Labs: Sent focus widget command via AppService");
                 }
                 else
                 {
-                    Logger.Warn("Labs: Cannot send focus widget command - connection not available");
+                    Logger.Warn("Labs: Cannot send focus widget command - no connection available");
                 }
             }
             catch (Exception ex)

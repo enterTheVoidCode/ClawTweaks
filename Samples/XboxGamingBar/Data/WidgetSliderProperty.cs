@@ -91,8 +91,8 @@ namespace XboxGamingBar.Data
                     debounceTimer.Stop();
                 }
 
-                // Check if connection is available before sending
-                if (App.Connection == null)
+                // Check if connection is available before sending (supports both AppService and pipe)
+                if (!App.IsConnected)
                 {
                     Logger.Debug($"{Function} Debounce timer tick - no connection yet, skipping send.");
                     hasPendingValue = false;

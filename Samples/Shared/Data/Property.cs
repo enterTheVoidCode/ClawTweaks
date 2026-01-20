@@ -19,6 +19,15 @@ namespace Shared.Data
 
         public event PropertyChangedEventHandler PropertyChanged;
 
+        /// <summary>
+        /// Invokes the PropertyChanged event without any additional logic.
+        /// Use this when you need to fire the event but skip intermediate class overrides.
+        /// </summary>
+        protected void InvokePropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
         protected virtual async void NotifyPropertyChanged(string propertyName = "")
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

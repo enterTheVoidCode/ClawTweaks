@@ -28,6 +28,29 @@ namespace Shared.Utilities
             }
         }
 
+        /// <summary>
+        /// Serializes an object to XML using its runtime type (for when compile-time type is object)
+        /// </summary>
+        public static string ToXMLStringRuntime(object obj, bool compact = false)
+        {
+            if (obj == null) return string.Empty;
+
+            XmlWriterSettings settings = new XmlWriterSettings
+            {
+                Indent = !compact,
+                NewLineHandling = compact ? NewLineHandling.None : NewLineHandling.Replace,
+                OmitXmlDeclaration = compact
+            };
+
+            using (var stringWriter = new StringWriter())
+            using (var xmlWriter = XmlWriter.Create(stringWriter, settings))
+            {
+                var serializer = new XmlSerializer(obj.GetType());
+                serializer.Serialize(xmlWriter, obj);
+                return stringWriter.ToString();
+            }
+        }
+
         public static T FromXMLString<T>(string xmlString)
         {
             var serializer = new XmlSerializer(typeof(T));

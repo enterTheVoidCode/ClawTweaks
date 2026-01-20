@@ -1,6 +1,4 @@
-using System;
 using Shared.Enums;
-using Windows.Storage;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Settings
@@ -11,34 +9,21 @@ namespace XboxGamingBarHelper.Settings
 
         public ProfileGamesOnlyProperty(SettingsManager inManager) : base(LoadFromSettings(), null, Function.ProfileGamesOnly, inManager)
         {
-            Logger.Info($"ProfileGamesOnly loaded from LocalSettings: {Value}");
+            Logger.Info($"ProfileGamesOnly loaded: {Value}");
         }
 
         private static bool LoadFromSettings()
         {
-            try
+            if (LocalSettingsHelper.TryGetValue<bool>(SettingsKey, out var value))
             {
-                var settings = ApplicationData.Current.LocalSettings;
-                if (settings.Values.TryGetValue(SettingsKey, out var value))
-                {
-                    return !(value is bool b) || b; // Default true if not bool
-                }
+                return value;
             }
-            catch { }
             return true; // Default to true (games only)
         }
 
         private void SaveToSettings()
         {
-            try
-            {
-                var settings = ApplicationData.Current.LocalSettings;
-                settings.Values[SettingsKey] = Value;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Failed to save ProfileGamesOnly: {ex.Message}");
-            }
+            LocalSettingsHelper.SetValue(SettingsKey, Value);
         }
 
         protected override void NotifyPropertyChanged(string propertyName = "")
