@@ -218,6 +218,13 @@ namespace XboxGamingBarHelper.Windows
         private const int DM_DISPLAYFREQUENCY = 0x400000;
         private const int DM_PELSWIDTH = 0x80000;
         private const int DM_PELSHEIGHT = 0x100000;
+        private const int DM_DISPLAYORIENTATION = 0x80;
+
+        // Display orientation constants
+        public const int DMDO_DEFAULT = 0;    // Landscape (0°)
+        public const int DMDO_90 = 1;         // Portrait (90° clockwise)
+        public const int DMDO_180 = 2;        // Landscape flipped (180°)
+        public const int DMDO_270 = 3;        // Portrait flipped (270° clockwise)
 
         public static int GetCurrentRefreshRate()
         {
@@ -449,6 +456,98 @@ namespace XboxGamingBarHelper.Windows
             else
             {
                 Logger.Error($"Failed to apply {targetResolution} (error code {result}).");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get current display orientation.
+        /// Returns: 0=Landscape, 1=Portrait (90°), 2=Landscape flipped (180°), 3=Portrait flipped (270°)
+        /// </summary>
+        public static int GetCurrentOrientation()
+        {
+            DEVMODE vDevMode = new DEVMODE();
+            vDevMode.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+
+            if (EnumDisplaySettings(null, ENUM_CURRENT_SETTINGS, ref vDevMode))
+            {
+                return vDevMode.dmDisplayOrientation;
+            }
+            return 0; // Default to landscape on failure
+        }
+
+        /// <summary>
+        /// Set display orientation.
+        /// orientation: 0=Landscape, 1=Portrait (90°), 2=Landscape flipped (180°), 3=Portrait flipped (270°)
+        /// </summary>
+        public static bool SetDisplayOrientation(int orientation)
+        {
+            if (orientation < 0 || orientation > 3)
+            {
+                Logger.Error($"Invalid orientation value: {orientation}");
+                return false;
+            }
+
+            DEVMODE mode = new DEVMODE { dmSize = (short)Marshal.SizeOf(typeof(DEVMODE)) };
+
+            if (!EnumDisplaySettings(null, ENUM_CURRENT_SETTINGS, ref mode))
+            {
+                Logger.Error("Error: Could not retrieve current display settings.");
+                return false;
+            }
+
+            int currentOrientation = mode.dmDisplayOrientation;
+            if (currentOrientation == orientation)
+            {
+                Logger.Info($"Display already at orientation {orientation}");
+                return true;
+            }
+
+            // When rotating between landscape (0,2) and portrait (1,3), swap width/height
+            bool wasLandscape = (currentOrientation == DMDO_DEFAULT || currentOrientation == DMDO_180);
+            bool willBeLandscape = (orientation == DMDO_DEFAULT || orientation == DMDO_180);
+
+            if (wasLandscape != willBeLandscape)
+            {
+                // Swap width and height
+                int temp = mode.dmPelsWidth;
+                mode.dmPelsWidth = mode.dmPelsHeight;
+                mode.dmPelsHeight = temp;
+                mode.dmFields = DM_DISPLAYORIENTATION | DM_PELSWIDTH | DM_PELSHEIGHT;
+            }
+            else
+            {
+                mode.dmFields = DM_DISPLAYORIENTATION;
+            }
+
+            mode.dmDisplayOrientation = orientation;
+
+            // Test before applying
+            int testResult = ChangeDisplaySettings(ref mode, CDS_TEST);
+            if (testResult != DISP_CHANGE_SUCCESSFUL)
+            {
+                Logger.Error($"Test failed: orientation {orientation} not valid on this display (error {testResult}).");
+                return false;
+            }
+
+            // Apply permanently
+            int result = ChangeDisplaySettings(ref mode, CDS_UPDATEREGISTRY);
+            if (result == DISP_CHANGE_SUCCESSFUL)
+            {
+                string orientationName = orientation switch
+                {
+                    DMDO_DEFAULT => "Landscape",
+                    DMDO_90 => "Portrait",
+                    DMDO_180 => "Landscape (flipped)",
+                    DMDO_270 => "Portrait (flipped)",
+                    _ => "Unknown"
+                };
+                Logger.Info($"Successfully switched to {orientationName} orientation.");
+                return true;
+            }
+            else
+            {
+                Logger.Error($"Failed to apply orientation {orientation} (error code {result}).");
                 return false;
             }
         }

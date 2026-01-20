@@ -19,6 +19,7 @@
         RefreshRate,
         Resolutions,        // string[] - list of available resolutions
         Resolution,         // string - current resolution (e.g., "1920x1080")
+        DisplayOrientation, // int - display rotation (0=Landscape, 1=Portrait, 2=Landscape flipped, 3=Portrait flipped)
         HDRSupported,       // bool - whether HDR is supported
         HDREnabled,         // bool - HDR on/off
         TrackedGame,
