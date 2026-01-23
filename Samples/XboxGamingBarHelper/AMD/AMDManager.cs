@@ -248,11 +248,24 @@ namespace XboxGamingBarHelper.AMD
             try
             {
                 Logger.Info("Initializing ADLX...");
+
+                // Log DLL search path info for debugging
+                var currentDir = Environment.CurrentDirectory;
+                var exeDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+                Logger.Info($"ADLX DLL search - CurrentDir: {currentDir}, ExeDir: {exeDir}");
+
+                // Check if ADLXCSharpBind.dll exists
+                var dllPath = System.IO.Path.Combine(exeDir ?? currentDir, "ADLXCSharpBind.dll");
+                var dllExists = System.IO.File.Exists(dllPath);
+                Logger.Info($"ADLX DLL path check - {dllPath} exists: {dllExists}");
+
                 // Note: SetDllDirectory is called in Program.cs before manager initialization
                 // to ensure native DLLs are found when running elevated from deployed location
 
                 // Initialize ADLX with ADLXHelper
+                Logger.Info("Creating ADLXHelper instance...");
                 adlxHelper = new ADLXHelper();
+                Logger.Info("ADLXHelper instance created, calling Initialize()...");
                 adlxInitializeResult = adlxHelper.Initialize();
 
                 if (adlxInitializeResult != ADLX_RESULT.ADLX_OK)
@@ -289,21 +302,24 @@ namespace XboxGamingBarHelper.AMD
                 var gpuIsExternalPointer = ADLX.new_boolP();
                 gpu.IsExternal(gpuIsExternalPointer);
                 var gpuIsExternal = ADLX.boolP_value(gpuIsExternalPointer);
+
+                Logger.Info($"GPU {i}: IsExternal={gpuIsExternal}");
+
                 if (gpuIsExternal)
                 {
                     if (adlxDedicatedGPU == null)
                     {
                         adlxDedicatedGPU = gpu;
-                        Logger.Info("Found a dGPU.");
+                        Logger.Info($"Found a dGPU (external) at index {i}");
                     }
                     else if (adlxSecondDedicatedGPU == null)
                     {
                         adlxSecondDedicatedGPU = gpu;
-                        Logger.Info("Found second dGPU.");
+                        Logger.Info($"Found second dGPU at index {i}");
                     }
                     else
                     {
-                        Logger.Warn("Found too many dGPUs.");
+                        Logger.Warn($"Found too many dGPUs at index {i}");
                     }
                 }
                 else
@@ -311,13 +327,34 @@ namespace XboxGamingBarHelper.AMD
                     if (adlxInternalGPU == null)
                     {
                         adlxInternalGPU = gpu;
-                        Logger.Info("Found an iGPU.");
+                        Logger.Info($"Found an iGPU (internal) at index {i}");
                     }
                     else
                     {
-                        Logger.Warn("Found too many iGPUs.");
+                        // Store additional non-external GPUs as dedicated
+                        if (adlxDedicatedGPU == null)
+                        {
+                            adlxDedicatedGPU = gpu;
+                            Logger.Info($"Found additional GPU (storing as dGPU) at index {i}");
+                        }
+                        else
+                        {
+                            Logger.Warn($"Found too many GPUs at index {i}");
+                        }
                     }
                 }
+            }
+
+            // If no iGPU found but we have a dGPU, use dGPU for 3D settings
+            if (adlxInternalGPU == null && adlxDedicatedGPU != null)
+            {
+                Logger.Info("No iGPU found, using dGPU for 3D settings");
+                adlxInternalGPU = adlxDedicatedGPU;
+            }
+
+            if (adlxInternalGPU == null)
+            {
+                Logger.Error("No AMD GPU found! AMD features will not work.");
             }
 
             Logger.Info("Get AMD 3D Settings Services.");
@@ -342,42 +379,70 @@ namespace XboxGamingBarHelper.AMD
             amdFluidMotionFrameSupported = new AMDFluidMotionFrameSupportedProperty(amdFluidMotionFrameSetting.IsSupported(), this);
             amdFluidMotionFrameEnabled = new AMDFluidMotionFrameEnabledProperty(amdFluidMotionFrameSetting.IsEnabled(), this);
 
-            Logger.Info("Get AMD Anti-Lag.");
-            var threeDAntiLagPointer = ADLX.new_threeDAntiLagP_Ptr();
-            adlx3DSettingsServices.GetAntiLag(adlxInternalGPU, threeDAntiLagPointer);
-            var threeDAntiLag = ADLX.threeDAntiLagP_Ptr_value(threeDAntiLagPointer);
-            amdRadeonAntiLagSetting = new AMDRadeonAntiLagSetting(threeDAntiLag);
-            amdRadeonAntiLagSupported = new AMDRadeonAntiLagSupportedProperty(amdRadeonAntiLagSetting.IsSupported(), this);
-            amdRadeonAntiLagEnabled = new AMDRadeonAntiLagEnabledProperty(amdRadeonAntiLagSetting.IsEnabled(), this);
+            // GPU-specific 3D settings - only initialize if we have a GPU
+            if (adlxInternalGPU != null)
+            {
+                Logger.Info("Get AMD Anti-Lag.");
+                var threeDAntiLagPointer = ADLX.new_threeDAntiLagP_Ptr();
+                adlx3DSettingsServices.GetAntiLag(adlxInternalGPU, threeDAntiLagPointer);
+                var threeDAntiLag = ADLX.threeDAntiLagP_Ptr_value(threeDAntiLagPointer);
+                amdRadeonAntiLagSetting = new AMDRadeonAntiLagSetting(threeDAntiLag);
+                amdRadeonAntiLagSupported = new AMDRadeonAntiLagSupportedProperty(amdRadeonAntiLagSetting.IsSupported(), this);
+                amdRadeonAntiLagEnabled = new AMDRadeonAntiLagEnabledProperty(amdRadeonAntiLagSetting.IsEnabled(), this);
 
-            Logger.Info("Get AMD Radeon Boost.");
-            var threeDRadeonBoostPointer = ADLX.new_threeDBoostP_Ptr();
-            adlx3DSettingsServices.GetBoost(adlxInternalGPU, threeDRadeonBoostPointer);
-            var threeDRadeonBoost = ADLX.threeDBoostP_Ptr_value(threeDRadeonBoostPointer);
-            amdRadeonBoostSetting = new AMDRadeonBoostSetting(threeDRadeonBoost);
-            amdRadeonBoostSupported = new AMDRadeonBoostSupportedProperty(amdRadeonBoostSetting.IsSupported(), this);
-            amdRadeonBoostEnabled = new AMDRadeonBoostEnabledProperty(amdRadeonBoostSetting.IsEnabled(), this);
-            var amdRadeonBoostResolutionRange = amdRadeonBoostSetting.GetResolutionRange();
-            amdRadeonBoostResolution = new AMDRadeonBoostResolutionProperty(amdRadeonBoostSetting.GetResolution() == amdRadeonBoostResolutionRange.Item1 ? 0 : 1, this);
+                Logger.Info("Get AMD Radeon Boost.");
+                var threeDRadeonBoostPointer = ADLX.new_threeDBoostP_Ptr();
+                adlx3DSettingsServices.GetBoost(adlxInternalGPU, threeDRadeonBoostPointer);
+                var threeDRadeonBoost = ADLX.threeDBoostP_Ptr_value(threeDRadeonBoostPointer);
+                amdRadeonBoostSetting = new AMDRadeonBoostSetting(threeDRadeonBoost);
+                amdRadeonBoostSupported = new AMDRadeonBoostSupportedProperty(amdRadeonBoostSetting.IsSupported(), this);
+                amdRadeonBoostEnabled = new AMDRadeonBoostEnabledProperty(amdRadeonBoostSetting.IsEnabled(), this);
+                var amdRadeonBoostResolutionRange = amdRadeonBoostSetting.GetResolutionRange();
+                amdRadeonBoostResolution = new AMDRadeonBoostResolutionProperty(amdRadeonBoostSetting.GetResolution() == amdRadeonBoostResolutionRange.Item1 ? 0 : 1, this);
 
-            Logger.Info("Get AMD Radeon Chill.");
-            var threeDRadeonChillPointer = ADLX.new_threeDChillP_Ptr();
-            adlx3DSettingsServices.GetChill(adlxInternalGPU, threeDRadeonChillPointer);
-            var threeDRadeonChill = ADLX.threeDChillP_Ptr_value(threeDRadeonChillPointer);
-            amdRadeonChillSetting = new AMDRadeonChillSetting(threeDRadeonChill);
-            amdRadeonChillEnabled = new AMDRadeonChillEnabledProperty(amdRadeonChillSetting.IsEnabled(), this);
-            amdRadeonChillSupported = new AMDRadeonChillSupportedProperty(amdRadeonChillSetting.IsSupported(), this);
-            amdRadeonChillMinFPS = new AMDRadeonChillMinFPSProperty(amdRadeonChillSetting.GetMinFPS(), this);
-            amdRadeonChillMaxFPS = new AMDRadeonChillMaxFPSProperty(amdRadeonChillSetting.GetMaxFPS(), this);
+                Logger.Info("Get AMD Radeon Chill.");
+                var threeDRadeonChillPointer = ADLX.new_threeDChillP_Ptr();
+                adlx3DSettingsServices.GetChill(adlxInternalGPU, threeDRadeonChillPointer);
+                var threeDRadeonChill = ADLX.threeDChillP_Ptr_value(threeDRadeonChillPointer);
+                amdRadeonChillSetting = new AMDRadeonChillSetting(threeDRadeonChill);
+                amdRadeonChillEnabled = new AMDRadeonChillEnabledProperty(amdRadeonChillSetting.IsEnabled(), this);
+                amdRadeonChillSupported = new AMDRadeonChillSupportedProperty(amdRadeonChillSetting.IsSupported(), this);
+                amdRadeonChillMinFPS = new AMDRadeonChillMinFPSProperty(amdRadeonChillSetting.GetMinFPS(), this);
+                amdRadeonChillMaxFPS = new AMDRadeonChillMaxFPSProperty(amdRadeonChillSetting.GetMaxFPS(), this);
 
-            Logger.Info("Get AMD Image Sharpening.");
-            var threeDImageSharpeningPointer = ADLX.new_threeDImageSharpeningP_Ptr();
-            adlx3DSettingsServices.GetImageSharpening(adlxInternalGPU, threeDImageSharpeningPointer);
-            var threeDImageSharpening = ADLX.threeDImageSharpeningP_Ptr_value(threeDImageSharpeningPointer);
-            amdImageSharpeningSetting = new AMDImageSharpeningSetting(threeDImageSharpening);
-            amdImageSharpeningSupported = new AMDImageSharpeningSupportedProperty(amdImageSharpeningSetting.IsSupported(), this);
-            amdImageSharpeningEnabled = new AMDImageSharpeningEnabledProperty(amdImageSharpeningSetting.IsEnabled(), this);
-            amdImageSharpeningSharpness = new AMDImageSharpeningSharpnessProperty(amdImageSharpeningSetting.GetSharpness(), this);
+                Logger.Info("Get AMD Image Sharpening.");
+                var threeDImageSharpeningPointer = ADLX.new_threeDImageSharpeningP_Ptr();
+                adlx3DSettingsServices.GetImageSharpening(adlxInternalGPU, threeDImageSharpeningPointer);
+                var threeDImageSharpening = ADLX.threeDImageSharpeningP_Ptr_value(threeDImageSharpeningPointer);
+                amdImageSharpeningSetting = new AMDImageSharpeningSetting(threeDImageSharpening);
+                amdImageSharpeningSupported = new AMDImageSharpeningSupportedProperty(amdImageSharpeningSetting.IsSupported(), this);
+                amdImageSharpeningEnabled = new AMDImageSharpeningEnabledProperty(amdImageSharpeningSetting.IsEnabled(), this);
+                amdImageSharpeningSharpness = new AMDImageSharpeningSharpnessProperty(amdImageSharpeningSetting.GetSharpness(), this);
+            }
+            else
+            {
+                Logger.Warn("No GPU available - GPU-specific 3D settings will not be initialized (Anti-Lag, Boost, Chill, Image Sharpening)");
+                // Create null/default settings to avoid null reference exceptions
+                amdRadeonAntiLagSetting = new AMDRadeonAntiLagSetting(null);
+                amdRadeonAntiLagSupported = new AMDRadeonAntiLagSupportedProperty(false, this);
+                amdRadeonAntiLagEnabled = new AMDRadeonAntiLagEnabledProperty(false, this);
+
+                amdRadeonBoostSetting = new AMDRadeonBoostSetting(null);
+                amdRadeonBoostSupported = new AMDRadeonBoostSupportedProperty(false, this);
+                amdRadeonBoostEnabled = new AMDRadeonBoostEnabledProperty(false, this);
+                amdRadeonBoostResolution = new AMDRadeonBoostResolutionProperty(0, this);
+
+                amdRadeonChillSetting = new AMDRadeonChillSetting(null);
+                amdRadeonChillEnabled = new AMDRadeonChillEnabledProperty(false, this);
+                amdRadeonChillSupported = new AMDRadeonChillSupportedProperty(false, this);
+                amdRadeonChillMinFPS = new AMDRadeonChillMinFPSProperty(0, this);
+                amdRadeonChillMaxFPS = new AMDRadeonChillMaxFPSProperty(0, this);
+
+                amdImageSharpeningSetting = new AMDImageSharpeningSetting(null);
+                amdImageSharpeningSupported = new AMDImageSharpeningSupportedProperty(false, this);
+                amdImageSharpeningEnabled = new AMDImageSharpeningEnabledProperty(false, this);
+                amdImageSharpeningSharpness = new AMDImageSharpeningSharpnessProperty(0, this);
+            }
 
             Logger.Info("Get AMD Display Custom Color.");
             // Get display list and find a display that supports custom color

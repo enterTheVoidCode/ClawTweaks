@@ -955,6 +955,249 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Advanced Card (Collapsible) - Power Plan, Core Parking & Affinity -->
+                        <Border x:Name="AdvancedCard" Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with Expand/Collapse -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Advanced" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock x:Name="AdvancedSummary"
+                                                   Text="Power plans, core parking and affinity"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="AdvancedExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="AdvancedExpandButton_Click">
+                                        <FontIcon x:Name="AdvancedExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="AdvancedContent" Visibility="Collapsed" Margin="0,12,0,0">
+
+                                    <!-- Power Plan Section -->
+                                    <StackPanel Margin="0,0,0,16">
+                                        <TextBlock Text="Power Plan"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#FFFFFF"
+                                                   Margin="0,0,0,4"/>
+                                        <TextBlock Text="Configure power plans for AC and battery"
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   Margin="0,0,0,8"/>
+
+                                        <!-- AC Power Plan -->
+                                        <StackPanel Margin="0,0,0,12">
+                                            <TextBlock Text="AC Power Plan" Foreground="#FFFFFF" FontSize="13"/>
+                                            <TextBlock Text="When plugged in" Foreground="#707070" FontSize="11"/>
+                                            <ComboBox x:Name="ACPowerPlanComboBox"
+                                                      Margin="0,8,0,0"
+                                                      Style="{StaticResource ModernComboBoxStyle}"
+                                                      SelectionChanged="ACPowerPlanComboBox_SelectionChanged"
+                                                      XYFocusDown="{x:Bind DCPowerPlanComboBox}"/>
+                                        </StackPanel>
+
+                                        <!-- DC Power Plan -->
+                                        <StackPanel Margin="0,0,0,12">
+                                            <TextBlock Text="DC Power Plan" Foreground="#FFFFFF" FontSize="13"/>
+                                            <TextBlock Text="When on battery" Foreground="#707070" FontSize="11"/>
+                                            <ComboBox x:Name="DCPowerPlanComboBox"
+                                                      Margin="0,8,0,0"
+                                                      Style="{StaticResource ModernComboBoxStyle}"
+                                                      SelectionChanged="DCPowerPlanComboBox_SelectionChanged"
+                                                      XYFocusUp="{x:Bind ACPowerPlanComboBox}"
+                                                      XYFocusDown="{x:Bind PowerPlanAutoSwitchToggle}"/>
+                                        </StackPanel>
+
+                                        <!-- Auto-switch Toggle -->
+                                        <Grid Margin="0,0,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Auto-switch on power change" Foreground="#FFFFFF" FontSize="13"/>
+                                                <TextBlock Text="Automatically apply the corresponding plan" Foreground="#707070" FontSize="11"/>
+                                            </StackPanel>
+                                            <ToggleSwitch x:Name="PowerPlanAutoSwitchToggle"
+                                                          Grid.Column="1"
+                                                          IsOn="False"
+                                                          Toggled="PowerPlanAutoSwitchToggle_Toggled"
+                                                          Style="{StaticResource ModernToggleStyle}"
+                                                          XYFocusUp="{x:Bind DCPowerPlanComboBox}"/>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <!-- Separator -->
+                                    <Border Height="1" Background="#333333" Margin="0,0,0,16"/>
+
+                                    <!-- Core Parking Section (for non-hybrid CPUs only) -->
+                                    <StackPanel x:Name="CoreParkingSection">
+                                        <TextBlock Text="Core Parking"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#FFFFFF"
+                                                   Margin="0,0,0,4"/>
+                                        <TextBlock Text="Limit the number of active CPU cores system-wide"
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   Margin="0,0,0,8"/>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Active Cores"
+                                                           FontSize="14"
+                                                           Foreground="#FFFFFF"/>
+                                                <TextBlock x:Name="CoreParkingDescription"
+                                                           Text="All cores active"
+                                                           FontSize="11"
+                                                           Foreground="#888888"/>
+                                            </StackPanel>
+                                            <ComboBox x:Name="CoreParkingComboBox"
+                                                      Grid.Column="1"
+                                                      Width="100"
+                                                      SelectionChanged="CoreParkingComboBox_SelectionChanged"
+                                                      UseSystemFocusVisuals="True"
+                                                      FocusVisualPrimaryBrush="White">
+                                                <!-- Items populated dynamically based on CPU core count -->
+                                            </ComboBox>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <!-- Core Affinity Section (for hybrid CPUs - also sets parking) -->
+                                    <StackPanel x:Name="CoreAffinitySection" Visibility="Collapsed">
+                                        <TextBlock Text="Core Affinity &amp; Parking"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#FFFFFF"
+                                                   Margin="0,0,0,4"/>
+                                        <TextBlock Text="Set game affinity and park unused cores (hybrid CPU)"
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,0,0,8"/>
+
+                                        <!-- P-Core Affinity -->
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Performance Cores"
+                                                           FontSize="14"
+                                                           Foreground="#FFFFFF"/>
+                                                <TextBlock Text="Zen 5 high-performance cores"
+                                                           FontSize="11"
+                                                           Foreground="#888888"/>
+                                            </StackPanel>
+                                            <ComboBox x:Name="PCoreCountComboBox"
+                                                      Grid.Column="1"
+                                                      Width="80"
+                                                      SelectionChanged="PCoreCountComboBox_SelectionChanged"
+                                                      UseSystemFocusVisuals="True"
+                                                      FocusVisualPrimaryBrush="White">
+                                                <ComboBoxItem Content="0" Tag="0"/>
+                                                <ComboBoxItem Content="1" Tag="1"/>
+                                                <ComboBoxItem Content="2" Tag="2"/>
+                                                <ComboBoxItem Content="3" Tag="3" IsSelected="True"/>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- E-Core Affinity -->
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Efficiency Cores"
+                                                           FontSize="14"
+                                                           Foreground="#FFFFFF"/>
+                                                <TextBlock Text="Zen 5c power-efficient cores"
+                                                           FontSize="11"
+                                                           Foreground="#888888"/>
+                                            </StackPanel>
+                                            <ComboBox x:Name="ECoreCountComboBox"
+                                                      Grid.Column="1"
+                                                      Width="80"
+                                                      SelectionChanged="ECoreCountComboBox_SelectionChanged"
+                                                      UseSystemFocusVisuals="True"
+                                                      FocusVisualPrimaryBrush="White">
+                                                <ComboBoxItem Content="0" Tag="0"/>
+                                                <ComboBoxItem Content="1" Tag="1"/>
+                                                <ComboBoxItem Content="2" Tag="2"/>
+                                                <ComboBoxItem Content="3" Tag="3"/>
+                                                <ComboBoxItem Content="4" Tag="4"/>
+                                                <ComboBoxItem Content="5" Tag="5" IsSelected="True"/>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- Info text -->
+                                        <TextBlock Text="Note: Affinity is applied only to the detected running game process."
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0"/>
+                                    </StackPanel>
+
+                                    <!-- Force Park Mode (Aggressive) -->
+                                    <StackPanel Margin="0,16,0,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Force Park Mode"
+                                                           FontSize="14"
+                                                           Foreground="#FFFFFF"/>
+                                                <TextBlock Text="Force system processes to parked cores"
+                                                           FontSize="11"
+                                                           Foreground="#888888"/>
+                                            </StackPanel>
+                                            <ToggleSwitch x:Name="ForceParkModeToggle"
+                                                          Grid.Column="1"
+                                                          Style="{StaticResource ModernToggleStyle}"
+                                                          Toggled="ForceParkModeToggle_Toggled"/>
+                                        </Grid>
+                                        <Border Background="#442200"
+                                                CornerRadius="4"
+                                                Padding="8"
+                                                Margin="0,8,0,0"
+                                                Visibility="{Binding ElementName=ForceParkModeToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <StackPanel>
+                                                <TextBlock Text="⚠ Warning"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#FFAA00"/>
+                                                <TextBlock Text="This applies affinity to ALL running processes, forcing them onto selected cores. May cause system instability or slowdowns. Disable if you experience issues."
+                                                           FontSize="11"
+                                                           Foreground="#FFCC66"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                     </StackPanel>
                 </ScrollViewer>
 
@@ -2168,82 +2411,7 @@
                                             SnapsTo="Ticks"
                                             ValueChanged="TDPBoostFPPTSlider_ValueChanged"
                                             XYFocusUp="{x:Bind TDPBoostSPPTSlider}"
-                                            XYFocusDown="{x:Bind PowerPlanExpandButton}"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Power Plan Settings Card (Collapsible) -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <!-- Header with Expand/Collapse -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Power Plan Settings" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Configure power plans for AC and battery"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="PowerPlanExpandButton"
-                                                  Grid.Column="1"
-                                                  IsChecked="False"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="PowerPlanExpandButton_Click">
-                                        <FontIcon x:Name="PowerPlanExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-
-                                <!-- Collapsible Content -->
-                                <StackPanel x:Name="PowerPlanOptionsPanel" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <!-- AC Power Plan -->
-                                    <StackPanel Margin="0,0,0,12">
-                                        <TextBlock Text="AC Power Plan" Foreground="#FFFFFF" FontSize="14"/>
-                                        <TextBlock Text="When plugged in" Foreground="#707070" FontSize="11"/>
-                                        <ComboBox x:Name="ACPowerPlanComboBox"
-                                                  Margin="0,8,0,0"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  SelectionChanged="ACPowerPlanComboBox_SelectionChanged"
-                                                  XYFocusUp="{x:Bind PowerPlanExpandButton}"
-                                                  XYFocusDown="{x:Bind DCPowerPlanComboBox}"/>
-                                    </StackPanel>
-
-                                    <!-- DC Power Plan -->
-                                    <StackPanel Margin="0,0,0,12">
-                                        <TextBlock Text="DC Power Plan" Foreground="#FFFFFF" FontSize="14"/>
-                                        <TextBlock Text="When on battery" Foreground="#707070" FontSize="11"/>
-                                        <ComboBox x:Name="DCPowerPlanComboBox"
-                                                  Margin="0,8,0,0"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  SelectionChanged="DCPowerPlanComboBox_SelectionChanged"
-                                                  XYFocusUp="{x:Bind ACPowerPlanComboBox}"
-                                                  XYFocusDown="{x:Bind PowerPlanAutoSwitchToggle}"/>
-                                    </StackPanel>
-
-                                    <!-- Auto-switch Toggle -->
-                                    <Grid Margin="0,0,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Auto-switch on power change" Foreground="#FFFFFF" FontSize="14"/>
-                                            <TextBlock Text="Automatically apply the corresponding plan" Foreground="#707070" FontSize="11"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="PowerPlanAutoSwitchToggle"
-                                                      Grid.Column="1"
-                                                      IsOn="False"
-                                                      Toggled="PowerPlanAutoSwitchToggle_Toggled"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      XYFocusUp="{x:Bind DCPowerPlanComboBox}"
-                                                      XYFocusDown="{x:Bind OSDCustomizeExpandButton}"/>
-                                    </Grid>
+                                            XYFocusDown="{x:Bind OSDCustomizeExpandButton}"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -2625,8 +2793,8 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Advanced Card (Collapsible) - Core Parking & Affinity -->
-                        <Border x:Name="AdvancedCard" Style="{StaticResource CardStyle}">
+                        <!-- Hotkeys Card (Collapsible) - Xbox Controller Button Combos -->
+                        <Border x:Name="HotkeysCard" Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <!-- Header with Expand/Collapse -->
                                 <Grid>
@@ -2635,178 +2803,152 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Advanced" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock x:Name="AdvancedSummary"
-                                                   Text="Core parking and affinity settings"
+                                        <TextBlock Text="Hotkeys" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock x:Name="HotkeysSummary"
+                                                   Text="Map controller combos to keyboard shortcuts"
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    TextWrapping="Wrap"/>
                                     </StackPanel>
-                                    <ToggleButton x:Name="AdvancedExpandButton"
+                                    <ToggleButton x:Name="HotkeysExpandButton"
                                                   Grid.Column="1"
                                                   IsChecked="False"
                                                   VerticalAlignment="Center"
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
-                                                  Click="AdvancedExpandButton_Click">
-                                        <FontIcon x:Name="AdvancedExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                                  Click="HotkeysExpandButton_Click">
+                                        <FontIcon x:Name="HotkeysExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
 
                                 <!-- Collapsible Content -->
-                                <StackPanel x:Name="AdvancedContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                <StackPanel x:Name="HotkeysContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <!-- Menu+A Row -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="View + A" VerticalAlignment="Center" Foreground="#FFFFFF" FontSize="13"/>
+                                        <ComboBox x:Name="HotkeyMenuAComboBox" Grid.Column="1"
+                                                  Margin="0,0,8,0"
+                                                  SelectionChanged="HotkeyMenuA_SelectionChanged"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White">
+                                            <ComboBoxItem Content="Disabled" Tag="0"/>
+                                            <ComboBoxItem Content="Keyboard Key" Tag="1"/>
+                                            <ComboBoxItem Content="Keyboard Shortcut" Tag="2"/>
+                                            <ComboBoxItem Content="Toggle OSD" Tag="3"/>
+                                            <ComboBoxItem Content="Screenshot" Tag="4"/>
+                                            <ComboBoxItem Content="Alt+Tab" Tag="5"/>
+                                            <ComboBoxItem Content="Alt+F4" Tag="6"/>
+                                            <ComboBoxItem Content="Open Keyboard" Tag="7"/>
+                                            <ComboBoxItem Content="Ctrl+Alt+Del" Tag="8"/>
+                                            <ComboBoxItem Content="Task Manager" Tag="9"/>
+                                        </ComboBox>
+                                        <TextBox x:Name="HotkeyMenuATextBox" Grid.Column="2"
+                                                 PlaceholderText="e.g. F5 or Ctrl+Shift+S"
+                                                 Visibility="Collapsed"
+                                                 TextChanged="HotkeyMenuA_TextChanged"/>
+                                    </Grid>
 
-                                    <!-- Core Parking Section (for non-hybrid CPUs only) -->
-                                    <StackPanel x:Name="CoreParkingSection">
-                                        <TextBlock Text="Core Parking"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#FFFFFF"
-                                                   Margin="0,0,0,4"/>
-                                        <TextBlock Text="Limit the number of active CPU cores system-wide"
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   Margin="0,0,0,8"/>
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Active Cores"
-                                                           FontSize="14"
-                                                           Foreground="#FFFFFF"/>
-                                                <TextBlock x:Name="CoreParkingDescription"
-                                                           Text="All cores active"
-                                                           FontSize="11"
-                                                           Foreground="#888888"/>
-                                            </StackPanel>
-                                            <ComboBox x:Name="CoreParkingComboBox"
-                                                      Grid.Column="1"
-                                                      Width="100"
-                                                      SelectionChanged="CoreParkingComboBox_SelectionChanged"
-                                                      UseSystemFocusVisuals="True"
-                                                      FocusVisualPrimaryBrush="White">
-                                                <!-- Items populated dynamically based on CPU core count -->
-                                            </ComboBox>
-                                        </Grid>
-                                    </StackPanel>
+                                    <!-- Menu+B Row -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="View + B" VerticalAlignment="Center" Foreground="#FFFFFF" FontSize="13"/>
+                                        <ComboBox x:Name="HotkeyMenuBComboBox" Grid.Column="1"
+                                                  Margin="0,0,8,0"
+                                                  SelectionChanged="HotkeyMenuB_SelectionChanged"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White">
+                                            <ComboBoxItem Content="Disabled" Tag="0"/>
+                                            <ComboBoxItem Content="Keyboard Key" Tag="1"/>
+                                            <ComboBoxItem Content="Keyboard Shortcut" Tag="2"/>
+                                            <ComboBoxItem Content="Toggle OSD" Tag="3"/>
+                                            <ComboBoxItem Content="Screenshot" Tag="4"/>
+                                            <ComboBoxItem Content="Alt+Tab" Tag="5"/>
+                                            <ComboBoxItem Content="Alt+F4" Tag="6"/>
+                                            <ComboBoxItem Content="Open Keyboard" Tag="7"/>
+                                            <ComboBoxItem Content="Ctrl+Alt+Del" Tag="8"/>
+                                            <ComboBoxItem Content="Task Manager" Tag="9"/>
+                                        </ComboBox>
+                                        <TextBox x:Name="HotkeyMenuBTextBox" Grid.Column="2"
+                                                 PlaceholderText="e.g. F5 or Ctrl+Shift+S"
+                                                 Visibility="Collapsed"
+                                                 TextChanged="HotkeyMenuB_TextChanged"/>
+                                    </Grid>
 
-                                    <!-- Core Affinity Section (for hybrid CPUs - also sets parking) -->
-                                    <StackPanel x:Name="CoreAffinitySection" Visibility="Collapsed">
-                                        <TextBlock Text="Core Affinity &amp; Parking"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#FFFFFF"
-                                                   Margin="0,0,0,4"/>
-                                        <TextBlock Text="Set game affinity and park unused cores (hybrid CPU)"
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,0,0,8"/>
+                                    <!-- Menu+X Row -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="View + X" VerticalAlignment="Center" Foreground="#FFFFFF" FontSize="13"/>
+                                        <ComboBox x:Name="HotkeyMenuXComboBox" Grid.Column="1"
+                                                  Margin="0,0,8,0"
+                                                  SelectionChanged="HotkeyMenuX_SelectionChanged"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White">
+                                            <ComboBoxItem Content="Disabled" Tag="0"/>
+                                            <ComboBoxItem Content="Keyboard Key" Tag="1"/>
+                                            <ComboBoxItem Content="Keyboard Shortcut" Tag="2"/>
+                                            <ComboBoxItem Content="Toggle OSD" Tag="3"/>
+                                            <ComboBoxItem Content="Screenshot" Tag="4"/>
+                                            <ComboBoxItem Content="Alt+Tab" Tag="5"/>
+                                            <ComboBoxItem Content="Alt+F4" Tag="6"/>
+                                            <ComboBoxItem Content="Open Keyboard" Tag="7"/>
+                                            <ComboBoxItem Content="Ctrl+Alt+Del" Tag="8"/>
+                                            <ComboBoxItem Content="Task Manager" Tag="9"/>
+                                        </ComboBox>
+                                        <TextBox x:Name="HotkeyMenuXTextBox" Grid.Column="2"
+                                                 PlaceholderText="e.g. F5 or Ctrl+Shift+S"
+                                                 Visibility="Collapsed"
+                                                 TextChanged="HotkeyMenuX_TextChanged"/>
+                                    </Grid>
 
-                                        <!-- P-Core Affinity -->
-                                        <Grid Margin="0,0,0,12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Performance Cores"
-                                                           FontSize="14"
-                                                           Foreground="#FFFFFF"/>
-                                                <TextBlock Text="Zen 5 high-performance cores"
-                                                           FontSize="11"
-                                                           Foreground="#888888"/>
-                                            </StackPanel>
-                                            <ComboBox x:Name="PCoreCountComboBox"
-                                                      Grid.Column="1"
-                                                      Width="80"
-                                                      SelectionChanged="PCoreCountComboBox_SelectionChanged"
-                                                      UseSystemFocusVisuals="True"
-                                                      FocusVisualPrimaryBrush="White">
-                                                <ComboBoxItem Content="0" Tag="0"/>
-                                                <ComboBoxItem Content="1" Tag="1"/>
-                                                <ComboBoxItem Content="2" Tag="2"/>
-                                                <ComboBoxItem Content="3" Tag="3" IsSelected="True"/>
-                                            </ComboBox>
-                                        </Grid>
+                                    <!-- Menu+Y Row -->
+                                    <Grid Margin="0,0,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="View + Y" VerticalAlignment="Center" Foreground="#FFFFFF" FontSize="13"/>
+                                        <ComboBox x:Name="HotkeyMenuYComboBox" Grid.Column="1"
+                                                  Margin="0,0,8,0"
+                                                  SelectionChanged="HotkeyMenuY_SelectionChanged"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White">
+                                            <ComboBoxItem Content="Disabled" Tag="0"/>
+                                            <ComboBoxItem Content="Keyboard Key" Tag="1"/>
+                                            <ComboBoxItem Content="Keyboard Shortcut" Tag="2"/>
+                                            <ComboBoxItem Content="Toggle OSD" Tag="3"/>
+                                            <ComboBoxItem Content="Screenshot" Tag="4"/>
+                                            <ComboBoxItem Content="Alt+Tab" Tag="5"/>
+                                            <ComboBoxItem Content="Alt+F4" Tag="6"/>
+                                            <ComboBoxItem Content="Open Keyboard" Tag="7"/>
+                                            <ComboBoxItem Content="Ctrl+Alt+Del" Tag="8"/>
+                                            <ComboBoxItem Content="Task Manager" Tag="9"/>
+                                        </ComboBox>
+                                        <TextBox x:Name="HotkeyMenuYTextBox" Grid.Column="2"
+                                                 PlaceholderText="e.g. F5 or Ctrl+Shift+S"
+                                                 Visibility="Collapsed"
+                                                 TextChanged="HotkeyMenuY_TextChanged"/>
+                                    </Grid>
 
-                                        <!-- E-Core Affinity -->
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Efficiency Cores"
-                                                           FontSize="14"
-                                                           Foreground="#FFFFFF"/>
-                                                <TextBlock Text="Zen 5c power-efficient cores"
-                                                           FontSize="11"
-                                                           Foreground="#888888"/>
-                                            </StackPanel>
-                                            <ComboBox x:Name="ECoreCountComboBox"
-                                                      Grid.Column="1"
-                                                      Width="80"
-                                                      SelectionChanged="ECoreCountComboBox_SelectionChanged"
-                                                      UseSystemFocusVisuals="True"
-                                                      FocusVisualPrimaryBrush="White">
-                                                <ComboBoxItem Content="0" Tag="0"/>
-                                                <ComboBoxItem Content="1" Tag="1"/>
-                                                <ComboBoxItem Content="2" Tag="2"/>
-                                                <ComboBoxItem Content="3" Tag="3"/>
-                                                <ComboBoxItem Content="4" Tag="4"/>
-                                                <ComboBoxItem Content="5" Tag="5" IsSelected="True"/>
-                                            </ComboBox>
-                                        </Grid>
-
-                                        <!-- Info text -->
-                                        <TextBlock Text="Note: Affinity is applied only to the detected running game process."
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,4,0,0"/>
-                                    </StackPanel>
-
-                                    <!-- Force Park Mode (Aggressive) -->
-                                    <StackPanel Margin="0,16,0,0">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Force Park Mode"
-                                                           FontSize="14"
-                                                           Foreground="#FFFFFF"/>
-                                                <TextBlock Text="Force system processes to parked cores"
-                                                           FontSize="11"
-                                                           Foreground="#888888"/>
-                                            </StackPanel>
-                                            <ToggleSwitch x:Name="ForceParkModeToggle"
-                                                          Grid.Column="1"
-                                                          Style="{StaticResource ModernToggleStyle}"
-                                                          Toggled="ForceParkModeToggle_Toggled"/>
-                                        </Grid>
-                                        <Border Background="#442200"
-                                                CornerRadius="4"
-                                                Padding="8"
-                                                Margin="0,8,0,0"
-                                                Visibility="{Binding ElementName=ForceParkModeToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                            <StackPanel>
-                                                <TextBlock Text="⚠ Warning"
-                                                           FontSize="12"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="#FFAA00"/>
-                                                <TextBlock Text="This applies affinity to ALL running processes, forcing them onto selected cores. May cause system instability or slowdowns. Disable if you experience issues."
-                                                           FontSize="11"
-                                                           Foreground="#FFCC66"
-                                                           TextWrapping="Wrap"
-                                                           Margin="0,4,0,0"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </StackPanel>
+                                    <!-- Note about hotkeys -->
+                                    <TextBlock Text="Hotkeys work when the widget is running, even when not visible."
+                                               FontSize="11"
+                                               Foreground="#888888"
+                                               TextWrapping="Wrap"
+                                               Margin="0,12,0,0"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -2948,6 +3090,14 @@
                                             Margin="0,8,0,0"
                                             Style="{StaticResource StandaloneButtonStyle}"
                                             Click="ExportDGPsButton_Click"/>
+
+                                    <!-- Export Per-Game Profiles Button -->
+                                    <Button x:Name="ExportProfilesButton"
+                                            Content="Export Profiles (Desktop)"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Click="ExportProfilesButton_Click"/>
 
                                     <!-- Update Status Text -->
                                     <TextBlock x:Name="UpdateStatusText"

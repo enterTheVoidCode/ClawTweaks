@@ -1,4 +1,5 @@
 ﻿using Microsoft.Gaming.XboxGameBar;
+using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
 using Shared.Data;
@@ -197,6 +198,23 @@ namespace XboxGamingBar
         public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string name = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+
+    /// <summary>
+    /// Hotkey action types for Xbox controller button combos
+    /// </summary>
+    public enum HotkeyAction
+    {
+        Disabled = 0,
+        KeyboardKey = 1,
+        KeyboardShortcut = 2,
+        ToggleOSD = 3,
+        Screenshot = 4,
+        AltTab = 5,
+        AltF4 = 6,
+        OpenKeyboard = 7,
+        CtrlAltDel = 8,
+        TaskManager = 9
     }
 
     /// <summary>
@@ -545,6 +563,7 @@ namespace XboxGamingBar
         // Xbox Game Bar logic
         private XboxGameBarWidget widget = null;
         private XboxGameBarWidgetActivity widgetActivity = null;
+        private XboxGameBarWidgetNotificationManager notificationManager = null;
         public XboxGameBarWidgetActivity WidgetActivity { get { return widgetActivity; } }
         private XboxGameBarAppTargetTracker appTargetTracker = null;
 
@@ -583,6 +602,17 @@ namespace XboxGamingBar
         private const int HeartbeatStaleThresholdSeconds = 5;
         private const int ReconnectionTimeoutSeconds = 5;
         private DispatcherTimer reconnectionTimeoutTimer = null;
+
+        // Hotkey watchers for Xbox controller button combos
+        private XboxGameBarHotkeyWatcher hotkeyMenuA = null;
+        private XboxGameBarHotkeyWatcher hotkeyMenuB = null;
+        private XboxGameBarHotkeyWatcher hotkeyMenuX = null;
+        private XboxGameBarHotkeyWatcher hotkeyMenuY = null;
+        private bool isLoadingHotkeys = false;
+        private bool isHotkeysExpanded = false;
+        private readonly Dictionary<string, DateTime> hotkeyLastExecuted = new Dictionary<string, DateTime>();
+        private const int HotkeyDebounceMs = 300; // Minimum ms between hotkey executions
+        private int lastNonZeroOsdLevel = 1; // Track last OSD level for toggle (default to Basic)
 
         // Properties
         private readonly OSDProperty osd;
@@ -1470,9 +1500,7 @@ namespace XboxGamingBar
             TDPLimitsMaxSlider.GotFocus += Control_GotFocus;
             TDPLimitsMaxSlider.LostFocus += Control_LostFocus;
 
-            // System tab - Power Plan Settings card
-            PowerPlanExpandButton.GotFocus += Control_GotFocus;
-            PowerPlanExpandButton.LostFocus += Control_LostFocus;
+            // Performance tab - Advanced card (Power Plan controls)
             ACPowerPlanComboBox.GotFocus += Control_GotFocus;
             ACPowerPlanComboBox.LostFocus += Control_LostFocus;
             DCPowerPlanComboBox.GotFocus += Control_GotFocus;
@@ -2041,6 +2069,9 @@ namespace XboxGamingBar
                             Logger.Info($"Cleared per-game profile disabled preference for {currentGameName}");
                         }
                         LoadOrCreateGameProfiles();
+
+                        // Show notification for per-game profile
+                        _ = ShowProfileNotificationAsync(currentGameName, isPerGameProfile: true);
                     }
                     else
                     {
@@ -2114,6 +2145,9 @@ namespace XboxGamingBar
                     isInternalToggleDisable = true; // Flag this as internal disable
                     PerGameProfileToggle.IsOn = false;  // This triggers UpdateActiveProfileIndicator which switches to Global
                     isInternalToggleDisable = false;
+
+                    // Show notification for global profile revert
+                    _ = ShowProfileNotificationAsync("", isPerGameProfile: false);
                 }
 
                 // When game closes (going from valid game to no game), refresh display settings
@@ -2165,6 +2199,9 @@ namespace XboxGamingBar
                             {
                                 LoadOrCreateGameProfiles();
                                 UpdateActiveProfileIndicator();  // Critical: switch to the new game's profile!
+
+                                // Show notification for per-game profile
+                                _ = ShowProfileNotificationAsync(currentGameName, isPerGameProfile: true);
                             }
                             finally
                             {
@@ -2195,6 +2232,42 @@ namespace XboxGamingBar
 
                 // Update controller profile toggle and game name display
                 UpdateControllerProfileForGameChange(newGameName);
+            }
+        }
+
+        /// <summary>
+        /// Shows a Game Bar notification when a profile is applied.
+        /// </summary>
+        private async Task ShowProfileNotificationAsync(string gameName, bool isPerGameProfile)
+        {
+            if (notificationManager == null || widget == null)
+                return;
+
+            try
+            {
+                // Check if notifications are enabled
+                if (notificationManager.Setting == XboxGameBarWidgetNotificationSetting.DisabledByUser)
+                {
+                    Logger.Debug("Profile notifications disabled by user");
+                    return;
+                }
+
+                string title = isPerGameProfile ? "Profile Applied" : "Global Profile";
+                string content = isPerGameProfile
+                    ? $"Loaded settings for {gameName}"
+                    : "Reverted to global settings";
+
+                var builder = new XboxGameBarWidgetNotificationBuilder(title)
+                    .Content(content);
+
+                var notification = builder.BuildNotification();
+                var result = await notificationManager.TryShowAsync(notification);
+
+                Logger.Info($"Profile notification shown: {title} - {content} (result: {result})");
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Failed to show profile notification: {ex.Message}");
             }
         }
 
@@ -3165,7 +3238,6 @@ namespace XboxGamingBar
         private bool isProfileDetectionExpanded = false;
         private bool isProfileSettingsExpanded = false;
         private bool isTDPLimitsExpanded = false;
-        private bool isPowerPlanExpanded = false;
         private bool isColorSettingsExpanded = false;
         private bool isButtonRemappingExpanded = false;
         private bool isGyroSettingsExpanded = false;
@@ -5080,28 +5152,6 @@ namespace XboxGamingBar
 
         #endregion
 
-        private void PowerPlanExpandButton_Click(object sender, RoutedEventArgs e)
-        {
-            isPowerPlanExpanded = !isPowerPlanExpanded;
-
-            if (PowerPlanOptionsPanel != null)
-            {
-                PowerPlanOptionsPanel.Visibility = isPowerPlanExpanded ? Visibility.Visible : Visibility.Collapsed;
-            }
-
-            if (PowerPlanExpandIcon != null)
-            {
-                // E70D = ChevronDown, E70E = ChevronUp
-                PowerPlanExpandIcon.Glyph = isPowerPlanExpanded ? "\uE70E" : "\uE70D";
-            }
-
-            // Load power plans when expanding for the first time
-            if (isPowerPlanExpanded && availablePowerPlans.Count == 0)
-            {
-                LoadPowerPlans();
-            }
-        }
-
         private async void LoadPowerPlans()
         {
             isLoadingPowerPlans = true;
@@ -5768,6 +5818,12 @@ namespace XboxGamingBar
             {
                 // E70D = ChevronDown, E70E = ChevronUp
                 AdvancedExpandIcon.Glyph = isAdvancedExpanded ? "\uE70E" : "\uE70D";
+            }
+
+            // Load power plans when expanding for the first time
+            if (isAdvancedExpanded && availablePowerPlans.Count == 0)
+            {
+                LoadPowerPlans();
             }
         }
 
@@ -6777,6 +6833,57 @@ namespace XboxGamingBar
                 Logger.Error($"Failed to export DGPs: {ex.Message}");
                 ExportDGPsButton.Content = "Export DGPs (Desktop)";
                 ExportDGPsButton.IsEnabled = true;
+            }
+        }
+
+        private async void ExportProfilesButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                ExportProfilesButton.IsEnabled = false;
+                ExportProfilesButton.Content = "Exporting...";
+
+                if (!App.IsConnected)
+                {
+                    ExportProfilesButton.Content = "Helper not connected";
+                    await Task.Delay(2000);
+                    ExportProfilesButton.Content = "Export Profiles (Desktop)";
+                    ExportProfilesButton.IsEnabled = true;
+                    return;
+                }
+
+                // Send request to helper to export profiles
+                var message = new Windows.Foundation.Collections.ValueSet();
+                message.Add("Command", (int)Shared.Enums.Command.Set);
+                message.Add("Function", (int)Shared.Enums.Function.Debug_ExportProfiles);
+                var result = await App.SendMessageAsync(message);
+
+                if (result != null)
+                {
+                    if (result.TryGetValue("ExportPath", out object pathObj))
+                    {
+                        ExportProfilesButton.Content = $"Exported!";
+                        Logger.Info($"Profiles exported to: {pathObj}");
+                    }
+                    else if (result.TryGetValue("Error", out object errorObj))
+                    {
+                        ExportProfilesButton.Content = $"Error: {errorObj}";
+                    }
+                }
+                else
+                {
+                    ExportProfilesButton.Content = "Failed";
+                }
+
+                await Task.Delay(2000);
+                ExportProfilesButton.Content = "Export Profiles (Desktop)";
+                ExportProfilesButton.IsEnabled = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to export profiles: {ex.Message}");
+                ExportProfilesButton.Content = "Export Profiles (Desktop)";
+                ExportProfilesButton.IsEnabled = true;
             }
         }
 
@@ -9340,8 +9447,9 @@ namespace XboxGamingBar
                 legionLightMode?.SetValue(profile.LightMode);
 
                 // Send light color as hex string (RRGGBB format)
+                // Use SetFromProfile to mark as user-saved, preventing sync from overwriting with helper's default
                 string colorHex = $"{profile.LightColorR:X2}{profile.LightColorG:X2}{profile.LightColorB:X2}";
-                legionLightColor?.SetValue(colorHex);
+                legionLightColor?.SetFromProfile(colorHex);
 
                 // Send light speed
                 legionLightSpeed?.SetValue(profile.LightSpeed);
@@ -11805,6 +11913,10 @@ namespace XboxGamingBar
                 widget.SettingsClicked += GamingWidget_SettingsClicked;
                 Logger.Info("Widget event handlers registered.");
 
+                // Initialize notification manager for profile notifications
+                notificationManager = new XboxGameBarWidgetNotificationManager(widget);
+                Logger.Info("Widget notification manager initialized.");
+
                 // Create widget activity if we have a widget but no activity yet
                 if (widgetActivity == null)
                 {
@@ -11826,6 +11938,9 @@ namespace XboxGamingBar
                 {
                     Logger.Info("AppTargetTracker already exists, skipping creation.");
                 }
+
+                // Initialize hotkey watchers for controller button combos
+                InitializeHotkeyWatchers();
             }
             else
             {
@@ -12197,6 +12312,190 @@ namespace XboxGamingBar
 
             Logger.Info("=== CreateAppTargetTracker END ===");
         }
+
+        /// <summary>
+        /// Apply default hotkey settings if not already configured
+        /// </summary>
+        private void ApplyHotkeyDefaults()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                // Check if defaults have already been applied
+                if (settings.Values.ContainsKey("Hotkey_DefaultsApplied"))
+                    return;
+
+                // Apply defaults:
+                // View + A: Ctrl+Alt+Del (8)
+                // View + B: Open Virtual Keyboard (7)
+                // View + X: Screenshot (4)
+                // View + Y: Task Manager (9)
+                settings.Values["Hotkey_MenuA_Action"] = (int)HotkeyAction.CtrlAltDel;
+                settings.Values["Hotkey_MenuB_Action"] = (int)HotkeyAction.OpenKeyboard;
+                settings.Values["Hotkey_MenuX_Action"] = (int)HotkeyAction.Screenshot;
+                settings.Values["Hotkey_MenuY_Action"] = (int)HotkeyAction.TaskManager;
+                settings.Values["Hotkey_DefaultsApplied"] = true;
+
+                Logger.Info("Hotkey defaults applied: A=Ctrl+Alt+Del, B=OpenKeyboard, X=Screenshot, Y=TaskManager");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error applying hotkey defaults: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Initialize hotkey watchers for Xbox controller button combinations.
+        /// These work even when the widget is not visible.
+        /// </summary>
+        private void InitializeHotkeyWatchers()
+        {
+            if (widget == null)
+            {
+                Logger.Warn("Cannot initialize hotkey watchers - widget is null");
+                return;
+            }
+
+            // Apply default hotkey settings if not already set
+            ApplyHotkeyDefaults();
+
+            try
+            {
+                // Menu+A
+                var keysA = new List<VirtualKey> { VirtualKey.GamepadView, VirtualKey.GamepadA };
+                hotkeyMenuA = XboxGameBarHotkeyWatcher.CreateWatcher(widget, keysA);
+                hotkeyMenuA.HotkeySetStateChanged += HotkeyMenuA_StateChanged;
+                hotkeyMenuA.Start();
+
+                // Menu+B
+                var keysB = new List<VirtualKey> { VirtualKey.GamepadView, VirtualKey.GamepadB };
+                hotkeyMenuB = XboxGameBarHotkeyWatcher.CreateWatcher(widget, keysB);
+                hotkeyMenuB.HotkeySetStateChanged += HotkeyMenuB_StateChanged;
+                hotkeyMenuB.Start();
+
+                // Menu+X
+                var keysX = new List<VirtualKey> { VirtualKey.GamepadView, VirtualKey.GamepadX };
+                hotkeyMenuX = XboxGameBarHotkeyWatcher.CreateWatcher(widget, keysX);
+                hotkeyMenuX.HotkeySetStateChanged += HotkeyMenuX_StateChanged;
+                hotkeyMenuX.Start();
+
+                // Menu+Y
+                var keysY = new List<VirtualKey> { VirtualKey.GamepadView, VirtualKey.GamepadY };
+                hotkeyMenuY = XboxGameBarHotkeyWatcher.CreateWatcher(widget, keysY);
+                hotkeyMenuY.HotkeySetStateChanged += HotkeyMenuY_StateChanged;
+                hotkeyMenuY.Start();
+
+                Logger.Info("Hotkey watchers initialized for Menu+A, Menu+B, Menu+X, Menu+Y");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to initialize hotkey watchers: {ex.Message}");
+            }
+        }
+
+        #region Hotkey Event Handlers
+
+        private void HotkeyMenuA_StateChanged(XboxGameBarHotkeyWatcher sender, HotkeySetStateChangedArgs args)
+        {
+            if (!args.HotkeySetDown) return; // Only trigger on press, not release
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => ExecuteHotkeyAction("MenuA"));
+        }
+
+        private void HotkeyMenuB_StateChanged(XboxGameBarHotkeyWatcher sender, HotkeySetStateChangedArgs args)
+        {
+            if (!args.HotkeySetDown) return;
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => ExecuteHotkeyAction("MenuB"));
+        }
+
+        private void HotkeyMenuX_StateChanged(XboxGameBarHotkeyWatcher sender, HotkeySetStateChangedArgs args)
+        {
+            if (!args.HotkeySetDown) return;
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => ExecuteHotkeyAction("MenuX"));
+        }
+
+        private void HotkeyMenuY_StateChanged(XboxGameBarHotkeyWatcher sender, HotkeySetStateChangedArgs args)
+        {
+            if (!args.HotkeySetDown) return;
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => ExecuteHotkeyAction("MenuY"));
+        }
+
+        /// <summary>
+        /// Execute the configured action for a hotkey combo.
+        /// </summary>
+        private void ExecuteHotkeyAction(string hotkeyName)
+        {
+            try
+            {
+                // Debounce check - prevent rapid repeated execution
+                var now = DateTime.UtcNow;
+                if (hotkeyLastExecuted.TryGetValue(hotkeyName, out DateTime lastExec))
+                {
+                    var elapsed = (now - lastExec).TotalMilliseconds;
+                    if (elapsed < HotkeyDebounceMs)
+                    {
+                        return; // Skip - too soon since last execution
+                    }
+                }
+                hotkeyLastExecuted[hotkeyName] = now;
+
+                var settings = ApplicationData.Current.LocalSettings;
+                int action = (int)(settings.Values[$"Hotkey_{hotkeyName}_Action"] ?? 0);
+                string customKey = settings.Values[$"Hotkey_{hotkeyName}_Key"] as string ?? "";
+
+                Logger.Info($"Executing hotkey action: {hotkeyName}, Action={(HotkeyAction)action}, CustomKey={customKey}");
+
+                switch ((HotkeyAction)action)
+                {
+                    case HotkeyAction.Disabled:
+                        // Do nothing
+                        break;
+
+                    case HotkeyAction.KeyboardKey:
+                    case HotkeyAction.KeyboardShortcut:
+                        if (!string.IsNullOrWhiteSpace(customKey))
+                        {
+                            _ = SendKeyboardShortcutViaHelper(customKey);
+                        }
+                        break;
+
+                    case HotkeyAction.ToggleOSD:
+                        // Toggle RTSS overlay between off and last used level
+                        ToggleRTSSOsd();
+                        break;
+
+                    case HotkeyAction.Screenshot:
+                        _ = SendKeyboardShortcutViaHelper("Win+Shift+S");
+                        break;
+
+                    case HotkeyAction.AltTab:
+                        _ = SendKeyboardShortcutViaHelper("Alt+Tab");
+                        break;
+
+                    case HotkeyAction.AltF4:
+                        _ = SendKeyboardShortcutViaHelper("Alt+F4");
+                        break;
+
+                    case HotkeyAction.OpenKeyboard:
+                        _ = ToggleTouchKeyboard();
+                        break;
+
+                    case HotkeyAction.CtrlAltDel:
+                        _ = SendKeyboardShortcutViaHelper("Ctrl+Alt+Delete");
+                        break;
+
+                    case HotkeyAction.TaskManager:
+                        _ = SendKeyboardShortcutViaHelper("Ctrl+Shift+Escape");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error executing hotkey action for {hotkeyName}: {ex.Message}");
+            }
+        }
+
+        #endregion
 
         private void AppTargetTracker_TargetChanged(XboxGameBarAppTargetTracker sender, object args)
         {
@@ -17344,25 +17643,68 @@ namespace XboxGamingBar
 
         private async void TriggerOnScreenKeyboard()
         {
+            await ToggleTouchKeyboard();
+        }
+
+        /// <summary>
+        /// Toggle the Windows touch keyboard using COM interop
+        /// </summary>
+        private async Task ToggleTouchKeyboard()
+        {
             try
             {
-                // Launch the accessibility on-screen keyboard via helper
+                // Use helper to toggle touch keyboard via COM interop
                 if (App.IsConnected)
                 {
-                    var message = new Windows.Foundation.Collections.ValueSet { { "LaunchProcess", "osk.exe" } };
+                    var message = new Windows.Foundation.Collections.ValueSet { { "ToggleTouchKeyboard", true } };
                     await App.SendMessageAsync(message);
-                    Logger.Info("On-screen keyboard launched via osk.exe");
+                    Logger.Info("Touch keyboard toggle requested via helper");
                 }
                 else
                 {
-                    // Fallback to Win+Ctrl+O
+                    // Fallback to Win+Ctrl+O (accessibility keyboard shortcut)
                     QuickSettings.KeyboardShortcutHelper.SendShortcut("Win+Ctrl+O");
                     Logger.Info("On-screen keyboard triggered via Win+Ctrl+O (fallback)");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"Error triggering on-screen keyboard: {ex.Message}");
+                Logger.Error($"Error toggling touch keyboard: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Toggle RTSS OSD between off and last used level
+        /// </summary>
+        private void ToggleRTSSOsd()
+        {
+            try
+            {
+                if (osd == null)
+                {
+                    Logger.Warn("ToggleRTSSOsd: osd property is null");
+                    return;
+                }
+
+                int currentLevel = (int)osd.Value;
+
+                if (currentLevel > 0)
+                {
+                    // Currently on - save level and turn off
+                    lastNonZeroOsdLevel = currentLevel;
+                    osd.SetValue(0);
+                    Logger.Info($"RTSS OSD toggled OFF (was level {currentLevel})");
+                }
+                else
+                {
+                    // Currently off - restore to last level
+                    osd.SetValue(lastNonZeroOsdLevel);
+                    Logger.Info($"RTSS OSD toggled ON to level {lastNonZeroOsdLevel}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error toggling RTSS OSD: {ex.Message}");
             }
         }
 
@@ -18995,6 +19337,9 @@ namespace XboxGamingBar
             if (LegionLCommandGrid != null)
                 LegionLCommandGrid.Visibility = isCommand ? Visibility.Visible : Visibility.Collapsed;
 
+            // Always save settings immediately when selection changes
+            SaveLegionRemapSettings();
+
             // Apply immediately for Disabled, Xbox Guide, or Focus GoTweaks
             if (selection != 2 && selection != 3)
                 ApplyLegionButtonConfig(true);
@@ -19004,12 +19349,14 @@ namespace XboxGamingBar
 
         private void LegionLShortcutApplyButton_Click(object sender, RoutedEventArgs e)
         {
+            SaveLegionRemapSettings();
             ApplyLegionButtonConfig(true);
             UpdateLegionRemapDescription();
         }
 
         private void LegionLCommandApplyButton_Click(object sender, RoutedEventArgs e)
         {
+            SaveLegionRemapSettings();
             ApplyLegionButtonConfig(true);
             UpdateLegionRemapDescription();
         }
@@ -19028,6 +19375,9 @@ namespace XboxGamingBar
             if (LegionRCommandGrid != null)
                 LegionRCommandGrid.Visibility = isCommand ? Visibility.Visible : Visibility.Collapsed;
 
+            // Always save settings immediately when selection changes
+            SaveLegionRemapSettings();
+
             // Apply immediately for Disabled, Xbox Guide, or Focus GoTweaks
             if (selection != 2 && selection != 3)
                 ApplyLegionButtonConfig(false);
@@ -19037,12 +19387,14 @@ namespace XboxGamingBar
 
         private void LegionRShortcutApplyButton_Click(object sender, RoutedEventArgs e)
         {
+            SaveLegionRemapSettings();
             ApplyLegionButtonConfig(false);
             UpdateLegionRemapDescription();
         }
 
         private void LegionRCommandApplyButton_Click(object sender, RoutedEventArgs e)
         {
+            SaveLegionRemapSettings();
             ApplyLegionButtonConfig(false);
             UpdateLegionRemapDescription();
         }
@@ -19389,6 +19741,9 @@ namespace XboxGamingBar
             if (ScrollCommandGrid != null)
                 ScrollCommandGrid.Visibility = isCommand ? Visibility.Visible : Visibility.Collapsed;
 
+            // Always save settings immediately when selection changes
+            SaveScrollRemapSettings();
+
             // Apply immediately for Disabled, Xbox Guide, or Focus GoTweaks
             if (selection != 2 && selection != 3)
                 ApplyScrollWheelConfig("Scroll");
@@ -19398,12 +19753,14 @@ namespace XboxGamingBar
 
         private void ScrollShortcutApplyButton_Click(object sender, RoutedEventArgs e)
         {
+            SaveScrollRemapSettings();
             ApplyScrollWheelConfig("Scroll");
             UpdateScrollRemapDescription();
         }
 
         private void ScrollCommandApplyButton_Click(object sender, RoutedEventArgs e)
         {
+            SaveScrollRemapSettings();
             ApplyScrollWheelConfig("Scroll");
             UpdateScrollRemapDescription();
         }
@@ -19421,6 +19778,9 @@ namespace XboxGamingBar
             if (ScrollClickCommandGrid != null)
                 ScrollClickCommandGrid.Visibility = isCommand ? Visibility.Visible : Visibility.Collapsed;
 
+            // Always save settings immediately when selection changes
+            SaveScrollRemapSettings();
+
             if (selection != 2 && selection != 3)
                 ApplyScrollWheelConfig("Click");
 
@@ -19429,12 +19789,14 @@ namespace XboxGamingBar
 
         private void ScrollClickShortcutApplyButton_Click(object sender, RoutedEventArgs e)
         {
+            SaveScrollRemapSettings();
             ApplyScrollWheelConfig("Click");
             UpdateScrollRemapDescription();
         }
 
         private void ScrollClickCommandApplyButton_Click(object sender, RoutedEventArgs e)
         {
+            SaveScrollRemapSettings();
             ApplyScrollWheelConfig("Click");
             UpdateScrollRemapDescription();
         }
@@ -19700,6 +20062,175 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Failed to apply scroll wheel config: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region Hotkeys UI Handlers
+
+        private void HotkeysExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isHotkeysExpanded = !isHotkeysExpanded;
+
+            if (HotkeysContent != null)
+            {
+                HotkeysContent.Visibility = isHotkeysExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (HotkeysExpandIcon != null)
+            {
+                HotkeysExpandIcon.Glyph = isHotkeysExpanded ? "\uE70E" : "\uE70D";
+            }
+
+            // Load settings when expanding for the first time
+            if (isHotkeysExpanded)
+            {
+                LoadHotkeySettings();
+            }
+        }
+
+        private void LoadHotkeySettings()
+        {
+            isLoadingHotkeys = true;
+            try
+            {
+                // Ensure defaults are applied
+                ApplyHotkeyDefaults();
+
+                var settings = ApplicationData.Current.LocalSettings;
+
+                // Menu+A
+                int actionA = (int)(settings.Values["Hotkey_MenuA_Action"] ?? 0);
+                SelectHotkeyComboBoxByIndex(HotkeyMenuAComboBox, actionA);
+                if (HotkeyMenuATextBox != null)
+                {
+                    HotkeyMenuATextBox.Text = settings.Values["Hotkey_MenuA_Key"] as string ?? "";
+                    HotkeyMenuATextBox.Visibility = (actionA == 1 || actionA == 2)
+                        ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Menu+B
+                int actionB = (int)(settings.Values["Hotkey_MenuB_Action"] ?? 0);
+                SelectHotkeyComboBoxByIndex(HotkeyMenuBComboBox, actionB);
+                if (HotkeyMenuBTextBox != null)
+                {
+                    HotkeyMenuBTextBox.Text = settings.Values["Hotkey_MenuB_Key"] as string ?? "";
+                    HotkeyMenuBTextBox.Visibility = (actionB == 1 || actionB == 2)
+                        ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Menu+X
+                int actionX = (int)(settings.Values["Hotkey_MenuX_Action"] ?? 0);
+                SelectHotkeyComboBoxByIndex(HotkeyMenuXComboBox, actionX);
+                if (HotkeyMenuXTextBox != null)
+                {
+                    HotkeyMenuXTextBox.Text = settings.Values["Hotkey_MenuX_Key"] as string ?? "";
+                    HotkeyMenuXTextBox.Visibility = (actionX == 1 || actionX == 2)
+                        ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Menu+Y
+                int actionY = (int)(settings.Values["Hotkey_MenuY_Action"] ?? 0);
+                SelectHotkeyComboBoxByIndex(HotkeyMenuYComboBox, actionY);
+                if (HotkeyMenuYTextBox != null)
+                {
+                    HotkeyMenuYTextBox.Text = settings.Values["Hotkey_MenuY_Key"] as string ?? "";
+                    HotkeyMenuYTextBox.Visibility = (actionY == 1 || actionY == 2)
+                        ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                Logger.Info("Hotkey settings loaded");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error loading hotkey settings: {ex.Message}");
+            }
+            finally
+            {
+                isLoadingHotkeys = false;
+            }
+        }
+
+        private void SelectHotkeyComboBoxByIndex(ComboBox comboBox, int index)
+        {
+            if (comboBox == null) return;
+            if (index >= 0 && index < comboBox.Items.Count)
+            {
+                comboBox.SelectedIndex = index;
+            }
+            else
+            {
+                comboBox.SelectedIndex = 0;
+            }
+        }
+
+        private void HotkeyMenuA_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            HandleHotkeySelectionChanged("MenuA", HotkeyMenuAComboBox, HotkeyMenuATextBox);
+        }
+
+        private void HotkeyMenuB_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            HandleHotkeySelectionChanged("MenuB", HotkeyMenuBComboBox, HotkeyMenuBTextBox);
+        }
+
+        private void HotkeyMenuX_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            HandleHotkeySelectionChanged("MenuX", HotkeyMenuXComboBox, HotkeyMenuXTextBox);
+        }
+
+        private void HotkeyMenuY_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            HandleHotkeySelectionChanged("MenuY", HotkeyMenuYComboBox, HotkeyMenuYTextBox);
+        }
+
+        private void HandleHotkeySelectionChanged(string hotkeyName, ComboBox comboBox, TextBox textBox)
+        {
+            if (isLoadingHotkeys) return;
+            if (comboBox?.SelectedItem is ComboBoxItem selected && selected.Tag is string tagStr)
+            {
+                int action = int.Parse(tagStr);
+                ApplicationData.Current.LocalSettings.Values[$"Hotkey_{hotkeyName}_Action"] = action;
+
+                // Show/hide TextBox based on action (1=KeyboardKey, 2=KeyboardShortcut)
+                if (textBox != null)
+                {
+                    textBox.Visibility = (action == 1 || action == 2)
+                        ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                Logger.Info($"Hotkey {hotkeyName} action changed to {(HotkeyAction)action}");
+            }
+        }
+
+        private void HotkeyMenuA_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            HandleHotkeyTextChanged("MenuA", HotkeyMenuATextBox);
+        }
+
+        private void HotkeyMenuB_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            HandleHotkeyTextChanged("MenuB", HotkeyMenuBTextBox);
+        }
+
+        private void HotkeyMenuX_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            HandleHotkeyTextChanged("MenuX", HotkeyMenuXTextBox);
+        }
+
+        private void HotkeyMenuY_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            HandleHotkeyTextChanged("MenuY", HotkeyMenuYTextBox);
+        }
+
+        private void HandleHotkeyTextChanged(string hotkeyName, TextBox textBox)
+        {
+            if (isLoadingHotkeys) return;
+            if (textBox != null)
+            {
+                ApplicationData.Current.LocalSettings.Values[$"Hotkey_{hotkeyName}_Key"] = textBox.Text;
+                Logger.Info($"Hotkey {hotkeyName} key changed to: {textBox.Text}");
             }
         }
 

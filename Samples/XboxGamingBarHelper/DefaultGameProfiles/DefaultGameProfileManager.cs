@@ -164,10 +164,42 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
             _currentGamePath = gamePath;
 
             // Get AUMID from TrackedGame for Xbox/MSIXVC game matching
+            // BUT only if the running game appears to actually be from the TrackedGame
+            // (prevents using stale AUMID from a previously tracked game)
             string aumId = null;
             if (_systemManager.TrackedGame != null && _systemManager.TrackedGame.IsValid())
             {
-                aumId = _systemManager.TrackedGame.AumId;
+                var trackedAumId = _systemManager.TrackedGame.AumId;
+                var trackedDisplayName = _systemManager.TrackedGame.DisplayName;
+
+                // Only use AUMID if the running game appears to match the TrackedGame
+                // Check 1: Path contains the package family prefix from AUMID (e.g., "TeamCherry.15373CD61C66B")
+                // Check 2: Game name matches TrackedGame display name
+                bool aumIdMatchesPath = false;
+                bool nameMatches = false;
+
+                if (!string.IsNullOrEmpty(trackedAumId) && trackedAumId.Contains("_"))
+                {
+                    var packagePrefix = trackedAumId.Split('_')[0];
+                    aumIdMatchesPath = gamePath.IndexOf(packagePrefix, StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+
+                if (!string.IsNullOrEmpty(trackedDisplayName))
+                {
+                    // Check if game name contains TrackedGame display name or vice versa
+                    nameMatches = runningGame.GameId.Name.IndexOf(trackedDisplayName, StringComparison.OrdinalIgnoreCase) >= 0
+                               || trackedDisplayName.IndexOf(runningGame.GameId.Name, StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+
+                if (aumIdMatchesPath || nameMatches)
+                {
+                    aumId = trackedAumId;
+                    Logger.Debug($"DefaultGameProfileManager: Using TrackedGame AUMID (pathMatch={aumIdMatchesPath}, nameMatch={nameMatches})");
+                }
+                else
+                {
+                    Logger.Debug($"DefaultGameProfileManager: Ignoring stale TrackedGame AUMID '{trackedAumId}' - doesn't match current game '{runningGame.GameId.Name}'");
+                }
             }
 
             Logger.Info($"DefaultGameProfileManager: Game changed to {runningGame.GameId.Name} ({gamePath}){(aumId != null ? $" [AUMID: {aumId}]" : "")}");

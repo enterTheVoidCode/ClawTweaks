@@ -42,7 +42,8 @@ namespace XboxGamingBarHelper.LosslessScaling
 
         // Input injection for hotkeys
         private readonly InputInjector inputInjector;
-        private readonly InjectedInputKeyboardInfo[] toggleScalingKeyboardCombo;
+        private InjectedInputKeyboardInfo[] toggleScalingKeyboardCombo;
+        private string currentHotkeyDescription = "Ctrl+Alt+S";
 
         // Current game tracking
         private string currentGameExePath = "";
@@ -176,15 +177,9 @@ namespace XboxGamingBarHelper.LosslessScaling
             losslessScalingLaunch.PropertyChanged += LosslessScalingLaunch_PropertyChanged;
 
             inputInjector = InputInjector.TryCreate();
-            toggleScalingKeyboardCombo = new InjectedInputKeyboardInfo[]
-            {
-                new InjectedInputKeyboardInfo { VirtualKey = (ushort)VirtualKey.LeftControl, KeyOptions = InjectedInputKeyOptions.None },
-                new InjectedInputKeyboardInfo { VirtualKey = (ushort)VirtualKey.LeftMenu, KeyOptions = InjectedInputKeyOptions.None },
-                new InjectedInputKeyboardInfo { VirtualKey = (ushort)VirtualKey.S, KeyOptions = InjectedInputKeyOptions.None },
-                new InjectedInputKeyboardInfo { VirtualKey = (ushort)VirtualKey.LeftControl, KeyOptions = InjectedInputKeyOptions.KeyUp },
-                new InjectedInputKeyboardInfo { VirtualKey = (ushort)VirtualKey.LeftMenu, KeyOptions = InjectedInputKeyOptions.KeyUp },
-                new InjectedInputKeyboardInfo { VirtualKey = (ushort)VirtualKey.S, KeyOptions = InjectedInputKeyOptions.KeyUp },
-            };
+
+            // Read hotkey from Settings.xml (user may have customized it)
+            BuildToggleScalingHotkey();
 
             Logger.Info("Lossless Scaling Manager initialized successfully.");
         }
@@ -461,7 +456,7 @@ namespace XboxGamingBarHelper.LosslessScaling
 
             try
             {
-                Logger.Info("Sending Ctrl+Alt+S hotkey to toggle Lossless Scaling...");
+                Logger.Info($"Sending {currentHotkeyDescription} hotkey to toggle Lossless Scaling...");
                 inputInjector.InjectKeyboardInput(toggleScalingKeyboardCombo);
                 isScalingActive = !isScalingActive;
                 Logger.Info($"Scaling toggled to: {isScalingActive}");
@@ -470,6 +465,168 @@ namespace XboxGamingBarHelper.LosslessScaling
             {
                 Logger.Error($"Failed to send hotkey: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Reads the hotkey configuration from Settings.xml and builds the keyboard combo.
+        /// Falls back to Ctrl+Alt+S if Settings.xml cannot be read.
+        /// </summary>
+        private void BuildToggleScalingHotkey()
+        {
+            var modifiers = new System.Collections.Generic.List<VirtualKey>();
+            VirtualKey mainKey = VirtualKey.S;
+            var descParts = new System.Collections.Generic.List<string>();
+
+            try
+            {
+                if (File.Exists(SETTINGS_PATH))
+                {
+                    var doc = XDocument.Load(SETTINGS_PATH);
+
+                    // Read Hotkey element (the main key, e.g., "S", "F")
+                    string hotkeyValue = doc.Root?.Element("Hotkey")?.Value;
+                    if (!string.IsNullOrEmpty(hotkeyValue))
+                    {
+                        mainKey = ParseKeyString(hotkeyValue);
+                        Logger.Info($"Read main hotkey from Settings.xml: {hotkeyValue}");
+                    }
+
+                    // Read HotkeyModifierKeys element (e.g., "Alt Control")
+                    string modifierKeysValue = doc.Root?.Element("HotkeyModifierKeys")?.Value;
+                    if (!string.IsNullOrEmpty(modifierKeysValue))
+                    {
+                        Logger.Info($"Read modifier keys from Settings.xml: {modifierKeysValue}");
+                        var modifierParts = modifierKeysValue.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+
+                        foreach (var mod in modifierParts)
+                        {
+                            switch (mod.ToLower())
+                            {
+                                case "control":
+                                case "ctrl":
+                                    modifiers.Add(VirtualKey.LeftControl);
+                                    descParts.Add("Ctrl");
+                                    break;
+                                case "alt":
+                                case "menu":
+                                    modifiers.Add(VirtualKey.LeftMenu);
+                                    descParts.Add("Alt");
+                                    break;
+                                case "shift":
+                                    modifiers.Add(VirtualKey.LeftShift);
+                                    descParts.Add("Shift");
+                                    break;
+                                case "windows":
+                                case "win":
+                                    modifiers.Add(VirtualKey.LeftWindows);
+                                    descParts.Add("Win");
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to read hotkey from Settings.xml, using default: {ex.Message}");
+            }
+
+            // If no modifiers were read, use default Ctrl+Alt
+            if (modifiers.Count == 0)
+            {
+                modifiers.Add(VirtualKey.LeftControl);
+                modifiers.Add(VirtualKey.LeftMenu);
+                descParts.Add("Ctrl");
+                descParts.Add("Alt");
+            }
+
+            // Build description
+            descParts.Add(GetKeyDescription(mainKey));
+            currentHotkeyDescription = string.Join("+", descParts);
+
+            // Build the keyboard combo array: press modifiers, press main key, release all
+            var comboList = new System.Collections.Generic.List<InjectedInputKeyboardInfo>();
+
+            // Key down for modifiers
+            foreach (var mod in modifiers)
+            {
+                comboList.Add(new InjectedInputKeyboardInfo { VirtualKey = (ushort)mod, KeyOptions = InjectedInputKeyOptions.None });
+            }
+
+            // Key down for main key
+            comboList.Add(new InjectedInputKeyboardInfo { VirtualKey = (ushort)mainKey, KeyOptions = InjectedInputKeyOptions.None });
+
+            // Key up for modifiers (reverse order)
+            for (int i = modifiers.Count - 1; i >= 0; i--)
+            {
+                comboList.Add(new InjectedInputKeyboardInfo { VirtualKey = (ushort)modifiers[i], KeyOptions = InjectedInputKeyOptions.KeyUp });
+            }
+
+            // Key up for main key
+            comboList.Add(new InjectedInputKeyboardInfo { VirtualKey = (ushort)mainKey, KeyOptions = InjectedInputKeyOptions.KeyUp });
+
+            toggleScalingKeyboardCombo = comboList.ToArray();
+            Logger.Info($"Lossless Scaling hotkey configured: {currentHotkeyDescription}");
+        }
+
+        /// <summary>
+        /// Parses a key string (e.g., "S", "F", "F5") to a VirtualKey.
+        /// </summary>
+        private VirtualKey ParseKeyString(string keyStr)
+        {
+            if (string.IsNullOrEmpty(keyStr))
+                return VirtualKey.S;
+
+            keyStr = keyStr.Trim().ToUpper();
+
+            // Single letter keys A-Z
+            if (keyStr.Length == 1 && char.IsLetter(keyStr[0]))
+            {
+                return (VirtualKey)(65 + (keyStr[0] - 'A'));
+            }
+
+            // Number keys 0-9
+            if (keyStr.Length == 1 && char.IsDigit(keyStr[0]))
+            {
+                return (VirtualKey)(48 + (keyStr[0] - '0'));
+            }
+
+            // Function keys F1-F24
+            if (keyStr.StartsWith("F") && keyStr.Length >= 2 && int.TryParse(keyStr.Substring(1), out int fNum) && fNum >= 1 && fNum <= 24)
+            {
+                return (VirtualKey)(111 + fNum); // F1 = 112
+            }
+
+            // Try direct VirtualKey enum parse
+            if (Enum.TryParse<VirtualKey>(keyStr, true, out var vk))
+            {
+                return vk;
+            }
+
+            Logger.Warn($"Could not parse key '{keyStr}', defaulting to S");
+            return VirtualKey.S;
+        }
+
+        /// <summary>
+        /// Gets a friendly description for a VirtualKey.
+        /// </summary>
+        private string GetKeyDescription(VirtualKey key)
+        {
+            int keyVal = (int)key;
+
+            // Letters A-Z (65-90)
+            if (keyVal >= 65 && keyVal <= 90)
+                return ((char)keyVal).ToString();
+
+            // Numbers 0-9 (48-57)
+            if (keyVal >= 48 && keyVal <= 57)
+                return ((char)keyVal).ToString();
+
+            // Function keys F1-F24 (112-135)
+            if (keyVal >= 112 && keyVal <= 135)
+                return $"F{keyVal - 111}";
+
+            return key.ToString();
         }
 
         #endregion
