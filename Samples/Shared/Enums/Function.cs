@@ -225,6 +225,7 @@
         Labs_LegionScrollRemap,         // Direction (Up/Down/Click), Enabled, Action, Shortcut - back scroll wheel remap
         Labs_FocusWidget,               // Trigger: helper sends to widget to focus itself
         Debug_ExportDGPs,               // Trigger: widget requests helper to export DGPs to Desktop
+        Debug_ExportProfiles,           // Trigger: widget requests helper to export per-game profiles to Desktop
 
         // ViGEmBus Driver
         ViGEmBusInstalled,              // bool - whether ViGEmBus driver is installed

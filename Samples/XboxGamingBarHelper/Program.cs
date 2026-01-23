@@ -38,6 +38,18 @@ namespace XboxGamingBarHelper
 {
     internal class Program
     {
+        // IMPORTANT: This field initializer MUST appear BEFORE the Logger field!
+        // It ensures LogDirectory GDC is set before NLog creates the Logger.
+        // NLog resolves ${gdc:item=LogDirectory} when the logger/target is first used,
+        // so we need LogDirectory set before any logging happens.
+        private static readonly bool _logDirConfigured = InitLogDirectory();
+
+        private static bool InitLogDirectory()
+        {
+            ConfigureLogDirectory();
+            return true;
+        }
+
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private static Mutex singleInstanceMutex;
         private static AppServiceConnection connection = null;
@@ -49,6 +61,10 @@ namespace XboxGamingBarHelper
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetDllDirectory(string lpPathName);
+
+        // P/Invoke for LoadLibrary - used to explicitly preload native DLLs with full path
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr LoadLibrary(string lpFileName);
 
         // Managers
         private static PerformanceManager performanceManager;
@@ -135,10 +151,10 @@ namespace XboxGamingBarHelper
         /// </summary>
         private static void ConfigureLogDirectory()
         {
+            string logDir = null;
+
             try
             {
-                string logDir = null;
-
                 // Try to get the package's LocalCache path
                 try
                 {
@@ -170,6 +186,9 @@ namespace XboxGamingBarHelper
 
                 // Set the NLog GDC variable
                 NLog.GlobalDiagnosticsContext.Set("LogDirectory", logDir);
+
+                // Force NLog to reconfigure to pick up the new LogDirectory
+                LogManager.ReconfigExistingLoggers();
             }
             catch
             {
@@ -185,15 +204,26 @@ namespace XboxGamingBarHelper
             // This ensures logs go to the package's LocalCache/Local folder even when running elevated
             ConfigureLogDirectory();
 
+            // Log startup info
+            Logger.Info($"=== Helper starting, PID={Process.GetCurrentProcess().Id} ===");
+            LogManager.Flush();
+
             // Check for setup mode FIRST (before anything else)
             // Setup mode: deploy files, create scheduled task, run task, then EXIT
             // The task launches the elevated helper which will connect to the widget.
             if (args.Contains("--setup"))
             {
+                // Debug file for tracing setup issues (independent of NLog)
+                var setupDebugPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "setup_debug.txt");
+                void SetupDebugLog(string msg) { try { File.AppendAllText(setupDebugPath, $"{DateTime.Now}: [Main] {msg}\n"); } catch { } }
+
+                SetupDebugLog($"Setup mode entered, args={string.Join(" ", args)}");
                 Logger.Info("=== Setup Mode ===");
                 try
                 {
+                    SetupDebugLog("Calling PerformSetup...");
                     bool success = ElevationBootstrapper.PerformSetup();
+                    SetupDebugLog($"PerformSetup returned: {success}");
                     Logger.Info($"Setup completed with result: {success}");
 
                     if (success)
@@ -201,23 +231,30 @@ namespace XboxGamingBarHelper
                         // Run the scheduled task to start the elevated helper
                         // This helper will connect to the widget
                         Logger.Info("Running scheduled task to start elevated helper...");
+                        SetupDebugLog("Running scheduled task...");
+
+                        // CRITICAL: Shutdown NLog to release the log file BEFORE starting the elevated helper
+                        // Otherwise the elevated helper's Wave1 initialization logs (including AMDManager/ADLX)
+                        // will be blocked because this process still has the log file open
+                        LogManager.Shutdown();
+
                         if (Services.ScheduledTaskService.RunTaskNow())
                         {
-                            Logger.Info("Scheduled task started successfully");
+                            SetupDebugLog("Task started OK");
                         }
                         else
                         {
-                            Logger.Warn("Failed to run scheduled task - widget will need to relaunch");
+                            SetupDebugLog("Task failed to start");
                         }
                     }
 
-                    Logger.Info("Exiting setup mode");
-                    LogManager.Flush();
+                    SetupDebugLog("Exiting setup mode");
                     return;
                 }
                 catch (Exception ex)
                 {
                     Logger.Error(ex, "Setup failed with exception");
+                    SetupDebugLog($"EXCEPTION in setup: {ex.Message}\n{ex.StackTrace}");
                     LogManager.Flush();
                     return; // Exit on setup failure
                 }
@@ -267,6 +304,7 @@ namespace XboxGamingBarHelper
             }
 
             Logger.Info("Single instance mutex acquired. Starting helper.");
+            LogManager.Flush(); // Ensure mutex acquisition log is written before Initialize
 
             try
             {
@@ -939,6 +977,27 @@ del /f /q ""%~f0"" 2>nul
                     {
                         SetDllDirectory(exeDir);
                         Logger.Info($"SetDllDirectory to: {exeDir}");
+
+                        // Preload ADLXCSharpBind.dll with full path to ensure it's found
+                        // This bypasses DLL search path issues when running from deployed location
+                        var adlxDllPath = Path.Combine(exeDir, "ADLXCSharpBind.dll");
+                        if (File.Exists(adlxDllPath))
+                        {
+                            var handle = LoadLibrary(adlxDllPath);
+                            if (handle == IntPtr.Zero)
+                            {
+                                var error = Marshal.GetLastWin32Error();
+                                Logger.Error($"Failed to preload ADLXCSharpBind.dll: Win32 error {error} (0x{error:X})");
+                            }
+                            else
+                            {
+                                Logger.Info($"Preloaded ADLXCSharpBind.dll from: {adlxDllPath}");
+                            }
+                        }
+                        else
+                        {
+                            Logger.Warn($"ADLXCSharpBind.dll not found at: {adlxDllPath}");
+                        }
                     }
                 }
             }
@@ -950,10 +1009,12 @@ del /f /q ""%~f0"" 2>nul
             // PARALLEL MANAGER INITIALIZATION - Wave-based to respect dependencies
             var totalTimer = System.Diagnostics.Stopwatch.StartNew();
             Logger.Info("Initialize managers (parallel waves)...");
+            LogManager.Flush(); // Ensure this log appears before parallel tasks start
 
             // Wave 1: Independent managers (no dependencies) - run in parallel
             var wave1Timer = System.Diagnostics.Stopwatch.StartNew();
             Logger.Info("Wave 1: PerformanceManager, ProfileManager, AMDManager, LosslessScalingManager, SettingsManager, LegionManager");
+            LogManager.Flush();
 
             PerformanceManager tempPerfMgr = null;
             ProfileManager tempProfileMgr = null;
@@ -1004,6 +1065,9 @@ del /f /q ""%~f0"" 2>nul
                 throw;
             }
 
+            // Flush logs from parallel tasks to ensure they appear in order
+            LogManager.Flush();
+
             performanceManager = tempPerfMgr;
             profileManager = tempProfileMgr;
             amdManager = tempAmdMgr;
@@ -1029,6 +1093,7 @@ del /f /q ""%~f0"" 2>nul
                 Task.Run(() => { tempPowerMgr = new PowerManager(connection, performanceManager.RyzenAdjHandle); })
             };
             Task.WaitAll(wave2Tasks);
+            LogManager.Flush();
 
             rtssManager = tempRtssMgr;
             systemManager = tempSystemMgr;
@@ -2399,6 +2464,22 @@ del /f /q ""%~f0"" 2>nul
                     return;
                 }
 
+                // Handle touch keyboard toggle request
+                if (args.Request.Message.TryGetValue("ToggleTouchKeyboard", out object _toggleKeyboard))
+                {
+                    try
+                    {
+                        Logger.Info("ToggleTouchKeyboard request received");
+                        TouchKeyboardHelper.Toggle();
+                        Logger.Info("Touch keyboard toggled");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Failed to toggle touch keyboard: {ex.Message}");
+                    }
+                    return;
+                }
+
                 // Handle hibernate request
                 if (args.Request.Message.TryGetValue("Hibernate", out object _hibernate))
                 {
@@ -2996,6 +3077,22 @@ del /f /q ""%~f0"" 2>nul
                     return;
                 }
 
+                // Handle touch keyboard toggle request
+                if (pipeMsg.Extra.ContainsKey("ToggleTouchKeyboard"))
+                {
+                    try
+                    {
+                        Logger.Info("Pipe: ToggleTouchKeyboard request received");
+                        TouchKeyboardHelper.Toggle();
+                        Logger.Info("Pipe: Touch keyboard toggled");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: Failed to toggle touch keyboard: {ex.Message}");
+                    }
+                    return;
+                }
+
                 // Handle export logs request
                 if (pipeMsg.Extra.ContainsKey("ExportLogs"))
                 {
@@ -3281,6 +3378,22 @@ del /f /q ""%~f0"" 2>nul
                     {
                         response.Add("Error", ex.Message);
                         Logger.Error($"Pipe: Failed to export DGPs: {ex.Message}");
+                    }
+                }
+                // Debug: Export Per-Game Profiles
+                else if (functionValue == (int)Function.Debug_ExportProfiles)
+                {
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    try
+                    {
+                        string exportPath = ExportProfiles();
+                        response.Add("ExportPath", exportPath);
+                        Logger.Info($"Pipe: Profiles exported to {exportPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        response.Add("Error", ex.Message);
+                        Logger.Error($"Pipe: Failed to export profiles: {ex.Message}");
                     }
                 }
                 // Debug: Check for local update (AppPackages)
@@ -4191,6 +4304,78 @@ del /f /q ""%~f0"" 2>nul
         }
 
         /// <summary>
+        /// Export all per-game profiles to a folder on the Desktop.
+        /// Copies profile XML files and creates an index file.
+        /// </summary>
+        private static string ExportProfiles()
+        {
+            var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            var exportFolderName = $"GoTweaks_Profiles_{DateTime.Now:yyyy-MM-dd_HHmmss}";
+            var exportPath = Path.Combine(desktopPath, exportFolderName);
+
+            // Create export folder
+            Directory.CreateDirectory(exportPath);
+
+            // Get profiles folder path
+            var profilesFolder = XboxGamingBarHelper.Profile.ProfileManager.GetGameProfilesFolder();
+            var globalProfilePath = XboxGamingBarHelper.Profile.ProfileManager.GetGlobalProfilePath();
+
+            int copiedCount = 0;
+
+            // Copy global profile
+            if (File.Exists(globalProfilePath))
+            {
+                var destPath = Path.Combine(exportPath, Path.GetFileName(globalProfilePath));
+                File.Copy(globalProfilePath, destPath, true);
+                copiedCount++;
+            }
+
+            // Copy all per-game profile XMLs
+            if (Directory.Exists(profilesFolder))
+            {
+                var xmlFiles = Directory.GetFiles(profilesFolder, "*.xml");
+                foreach (var xmlFile in xmlFiles)
+                {
+                    var destPath = Path.Combine(exportPath, Path.GetFileName(xmlFile));
+                    File.Copy(xmlFile, destPath, true);
+                    copiedCount++;
+                }
+            }
+
+            // Create index file with summary
+            var indexPath = Path.Combine(exportPath, "_index.txt");
+            using (var writer = new StreamWriter(indexPath))
+            {
+                writer.WriteLine($"GoTweaks Per-Game Profiles Export");
+                writer.WriteLine($"Exported: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                writer.WriteLine($"========================================");
+                writer.WriteLine();
+                writer.WriteLine($"Total profiles exported: {copiedCount}");
+                writer.WriteLine();
+                writer.WriteLine("Files:");
+
+                // List global profile
+                if (File.Exists(globalProfilePath))
+                {
+                    writer.WriteLine($"  - {Path.GetFileName(globalProfilePath)} (Global)");
+                }
+
+                // List per-game profiles
+                if (Directory.Exists(profilesFolder))
+                {
+                    var xmlFiles = Directory.GetFiles(profilesFolder, "*.xml").OrderBy(f => f);
+                    foreach (var xmlFile in xmlFiles)
+                    {
+                        writer.WriteLine($"  - {Path.GetFileName(xmlFile)}");
+                    }
+                }
+            }
+
+            Logger.Info($"Exported {copiedCount} profiles to {exportPath}");
+            return exportPath;
+        }
+
+        /// <summary>
         /// Load and apply Legion button remap settings from LocalSettings on startup.
         /// Uses LocalSettingsHelper which works both inside and outside package context.
         /// </summary>
@@ -4656,7 +4841,7 @@ del /f /q ""%~f0"" 2>nul
                 Logger.Info("Labs: Sent Win+G to open Game Bar");
 
                 // Delay to ensure Game Bar is fully open and widget is ready
-                await Task.Delay(500);
+                await Task.Delay(200);
 
                 // Send focus command to widget via Named Pipes (works when running elevated)
                 if (IsPipeConnected)
@@ -4696,5 +4881,76 @@ del /f /q ""%~f0"" 2>nul
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Helper class to toggle the Windows touch keyboard via COM interop
+    /// </summary>
+    internal static class TouchKeyboardHelper
+    {
+        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
+        [System.Runtime.InteropServices.ComImport]
+        [System.Runtime.InteropServices.Guid("4ce576fa-83dc-4F88-951c-9d0782b4e376")]
+        private class UIHostNoLaunch { }
+
+        [System.Runtime.InteropServices.ComImport]
+        [System.Runtime.InteropServices.Guid("37c994e7-432b-4834-a2f7-dce1f13b834b")]
+        [System.Runtime.InteropServices.InterfaceType(System.Runtime.InteropServices.ComInterfaceType.InterfaceIsIUnknown)]
+        private interface ITipInvocation
+        {
+            void Toggle(IntPtr hwnd);
+        }
+
+        public static void Toggle()
+        {
+            try
+            {
+                var uiHostNoLaunch = new UIHostNoLaunch();
+                var tipInvocation = (ITipInvocation)uiHostNoLaunch;
+                tipInvocation.Toggle(IntPtr.Zero);
+                System.Runtime.InteropServices.Marshal.ReleaseComObject(uiHostNoLaunch);
+                Logger.Info("Touch keyboard toggle executed via COM");
+            }
+            catch (System.Runtime.InteropServices.COMException ex)
+            {
+                Logger.Error($"COM error toggling touch keyboard: {ex.Message}");
+                // Fallback: try launching TabTip.exe
+                TryLaunchTabTip();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error toggling touch keyboard: {ex.Message}");
+                TryLaunchTabTip();
+            }
+        }
+
+        private static void TryLaunchTabTip()
+        {
+            try
+            {
+                var tabtipPath = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFiles),
+                    "microsoft shared", "ink", "TabTip.exe");
+
+                if (System.IO.File.Exists(tabtipPath))
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = tabtipPath,
+                        UseShellExecute = true
+                    });
+                    Logger.Info("Launched TabTip.exe as fallback");
+                }
+                else
+                {
+                    Logger.Warn("TabTip.exe not found for fallback");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to launch TabTip.exe: {ex.Message}");
+            }
+        }
     }
 }

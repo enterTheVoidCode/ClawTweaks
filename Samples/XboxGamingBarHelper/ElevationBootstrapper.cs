@@ -241,47 +241,65 @@ namespace XboxGamingBarHelper
         /// </summary>
         public static bool PerformSetup()
         {
+            // Debug file for tracing setup issues (independent of NLog)
+            var debugPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "setup_debug.txt");
+            void DebugLog(string msg) { try { File.AppendAllText(debugPath, $"{DateTime.Now}: {msg}\n"); } catch { } }
+
             try
             {
+                DebugLog($"PerformSetup started, IsAdmin={IsRunningAsAdmin()}");
+
                 if (!IsRunningAsAdmin())
                 {
                     Logger.Error("PerformSetup called without admin privileges");
+                    DebugLog("ERROR: Not admin");
                     return false;
                 }
 
                 Logger.Info("=== Starting Setup ===");
+                DebugLog($"Source: {HelperDeploymentService.GetSourceDirectory()}");
+                DebugLog($"Target: {HelperDeploymentService.HelperFolder}");
+                DebugLog($"Version: {HelperDeploymentService.GetCurrentPackageVersion()}");
                 Logger.Info($"Source directory: {HelperDeploymentService.GetSourceDirectory()}");
                 Logger.Info($"Target directory: {HelperDeploymentService.HelperFolder}");
                 Logger.Info($"Package version: {HelperDeploymentService.GetCurrentPackageVersion()}");
 
                 // Step 1: Deploy helper files
                 Logger.Info("Step 1: Deploying helper files...");
+                DebugLog("Step 1: Deploying...");
                 if (!HelperDeploymentService.DeployHelper())
                 {
                     Logger.Error("Failed to deploy helper files");
+                    DebugLog("ERROR: DeployHelper returned false");
                     return false;
                 }
                 Logger.Info("Helper files deployed successfully");
+                DebugLog($"Deployed OK, DeployedExePath exists: {File.Exists(HelperDeploymentService.DeployedExePath)}");
 
                 // Step 2: Create scheduled task
                 Logger.Info("Step 2: Creating scheduled task...");
+                DebugLog("Step 2: Creating task...");
                 if (!ScheduledTaskService.CreateOrUpdateTask())
                 {
                     Logger.Error("Failed to create scheduled task");
+                    DebugLog("ERROR: CreateOrUpdateTask returned false");
                     return false;
                 }
                 Logger.Info("Scheduled task created successfully");
+                DebugLog("Task created OK");
 
                 // Note: After setup, we EXIT and let the widget relaunch the helper.
                 // The relaunched helper will detect setup is complete and run via scheduled task.
                 // This is cleaner than having the UAC-launched helper continue running.
                 Logger.Info("Setup complete - will exit and let widget relaunch");
                 Logger.Info("=== Setup Complete ===");
+                DebugLog("=== Setup Complete ===");
                 return true;
             }
             catch (Exception ex)
             {
                 Logger.Error(ex, "Error during setup");
+                DebugLog($"EXCEPTION: {ex.Message}\n{ex.StackTrace}");
                 return false;
             }
         }
