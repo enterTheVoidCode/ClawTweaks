@@ -10,7 +10,6 @@ using XboxGamingBarHelper.Windows;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Settings;
 using XboxGamingBarHelper.Icons;
-using Windows.ApplicationModel.AppService;
 using System.Collections.Generic;
 using Shared.Utilities;
 using Microsoft.Win32;
@@ -185,7 +184,7 @@ namespace XboxGamingBarHelper.Systems
         private Dictionary<int, ProcessWindow> ProcessWindows { get; }
         private Dictionary<int, AppEntry> AppEntries { get; }
 
-        public SystemManager(AppServiceConnection connection, IReadOnlyDictionary<GameId, GameProfile> profiles) : base(connection)
+        public SystemManager(IReadOnlyDictionary<GameId, GameProfile> profiles) : base()
         {
             Logger.Info("Create process windows.");
             ProcessWindows = new Dictionary<int, ProcessWindow>();

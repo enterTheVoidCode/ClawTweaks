@@ -2,7 +2,6 @@
 using Shared.Constants;
 using System;
 using System.Runtime.InteropServices;
-using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Windows;
 
@@ -65,7 +64,7 @@ namespace XboxGamingBarHelper.Power
         //    get { return gpuClockMax; }
         //}
 
-        public PowerManager(AppServiceConnection connection, IntPtr ryzenAdjHandle) : base(connection)
+        public PowerManager(IntPtr ryzenAdjHandle) : base()
         {
             this.ryzenAdjHandle = ryzenAdjHandle;
 

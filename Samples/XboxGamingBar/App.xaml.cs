@@ -4,13 +4,10 @@ using System;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
-using Windows.ApplicationModel.AppService;
-using Windows.ApplicationModel.Background;
 using Windows.Foundation.Collections;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
-using XboxGamingBar.Event;
 using XboxGamingBar.IPC;
 
 namespace XboxGamingBar
@@ -20,13 +17,7 @@ namespace XboxGamingBar
     /// </summary>
     sealed partial class App : Application
     {
-        public static BackgroundTaskDeferral AppServiceDeferral = null;
-        public static AppServiceConnection Connection = null;
-        public static event EventHandler AppServiceDisconnected;
-        public static event EventHandler<AppServiceTriggerDetails> AppServiceConnected;
-        public static event EventHandler<AppServiceRequestReceivedEventArgs> AppServiceRequestReceived;
-
-        // Named Pipe client for communication when elevated
+        // Named Pipe client for communication with the helper
         public static NamedPipeClient PipeClient = null;
         public static event EventHandler PipeConnected;
         public static event EventHandler PipeDisconnected;
@@ -113,91 +104,6 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Handles connection requests to the app service
-        /// </summary>
-        protected override void OnBackgroundActivated(BackgroundActivatedEventArgs args)
-        {
-            Logger.Info("=== App.OnBackgroundActivated START ===");
-            Logger.Info($"Current App.Connection is null: {Connection == null}");
-
-            base.OnBackgroundActivated(args);
-
-            if (args.TaskInstance.TriggerDetails is AppServiceTriggerDetails details)
-            {
-                Logger.Info($"AppServiceTriggerDetails found. CallerPackageFamilyName: {details.CallerPackageFamilyName}");
-                Logger.Info($"Current PackageFamilyName: {Package.Current.Id.FamilyName}");
-
-                // only accept connections from callers in the same package
-                if (details.CallerPackageFamilyName == Package.Current.Id.FamilyName)
-                {
-                    Logger.Info("Caller is from same package. Establishing connection...");
-
-                    // connection established from the fulltrust process
-                    AppServiceDeferral = args.TaskInstance.GetDeferral();
-                    Logger.Info("Got AppServiceDeferral.");
-
-                    Logger.Info("Registering TaskInstance.Canceled event handler...");
-                    args.TaskInstance.Canceled += OnTaskCanceled;
-
-                    Connection = details.AppServiceConnection;
-                    Logger.Info("App.Connection set to AppServiceConnection.");
-
-                    // Register for RequestReceived ONCE at the App level, then relay to page instances
-                    // Use -= before += to prevent duplicate registrations
-                    Logger.Info("Registering Connection.RequestReceived handler...");
-                    Connection.RequestReceived -= Connection_RequestReceived;
-                    Connection.RequestReceived += Connection_RequestReceived;
-                    Logger.Info("Connection.RequestReceived handler registered.");
-
-                    Logger.Info("Invoking AppServiceConnected event...");
-                    AppServiceConnected?.Invoke(this, args.TaskInstance.TriggerDetails as AppServiceTriggerDetails);
-                    Logger.Info("AppServiceConnected event invoked.");
-                }
-                else
-                {
-                    Logger.Warn($"Rejecting connection from different package: {details.CallerPackageFamilyName}");
-                }
-            }
-            else
-            {
-                Logger.Warn("TaskInstance.TriggerDetails is not AppServiceTriggerDetails.");
-            }
-
-            Logger.Info("=== App.OnBackgroundActivated END ===");
-        }
-
-        private void Connection_RequestReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
-        {
-            // Relay the request to all subscribed page instances
-            Logger.Info("App.Connection_RequestReceived - relaying to subscribed page instances.");
-            AppServiceRequestReceived?.Invoke(sender, args);
-        }
-
-        /// <summary>
-        /// Task canceled here means the app service client is gone
-        /// </summary>
-        private void OnTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
-        {
-            Logger.Info("=== App.OnTaskCanceled START ===");
-            Logger.Info($"Task canceled because {reason}");
-
-            Logger.Info("Completing AppServiceDeferral...");
-            AppServiceDeferral?.Complete();
-            AppServiceDeferral = null;
-            Logger.Info("AppServiceDeferral completed and cleared.");
-
-            Logger.Info("Clearing App.Connection...");
-            Connection = null;
-            Logger.Info("App.Connection cleared.");
-
-            Logger.Info("Invoking AppServiceDisconnected event...");
-            AppServiceDisconnected?.Invoke(this, new BackgroundTaskCancellationEventArgs(reason));
-            Logger.Info("AppServiceDisconnected event invoked.");
-
-            Logger.Info("=== App.OnTaskCanceled END ===");
-        }
-
-        /// <summary>
         /// Connects to the helper via Named Pipe.
         /// This works even when the helper is running elevated.
         /// </summary>
@@ -245,38 +151,21 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Whether we have an active communication channel (either pipe or AppService)
+        /// Whether we have an active communication channel via Named Pipe
         /// </summary>
-        public static bool IsConnected => (PipeClient?.IsConnected == true) || (Connection != null);
+        public static bool IsConnected => PipeClient?.IsConnected == true;
 
         /// <summary>
-        /// Sends a message and waits for a response.
-        /// Prefers pipe if connected, falls back to AppServiceConnection.
+        /// Sends a message and waits for a response via Named Pipe.
         /// </summary>
         public static async Task<ValueSet> SendMessageAsync(ValueSet message)
         {
-            // Prefer Named Pipe (works when helper is elevated)
             if (PipeClient?.IsConnected == true)
             {
                 return await PipeClient.SendRequestAsync(message);
             }
 
-            // Fall back to AppServiceConnection
-            if (Connection != null)
-            {
-                try
-                {
-                    var response = await Connection.SendMessageAsync(message);
-                    return response?.Message;
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"AppService SendMessageAsync failed: {ex.Message}");
-                    return null;
-                }
-            }
-
-            Logger.Warn("Cannot send message - no connection available");
+            Logger.Warn("Cannot send message - pipe not connected");
             return null;
         }
 

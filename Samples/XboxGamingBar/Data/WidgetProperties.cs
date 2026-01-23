@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.AppService;
 using Windows.Data.Json;
 using Windows.Foundation.Collections;
 
@@ -17,11 +16,6 @@ namespace XboxGamingBar.Data
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         public WidgetProperties(params FunctionalProperty[] inProperties) : base(inProperties) { }
-
-        protected override Task<AppServiceResponseStatus> SendResponse(AppServiceRequest request, ValueSet response)
-        {
-            return request.SendResponseAsync(response).AsTask();
-        }
 
         /// <summary>
         /// Batch sync all properties in a single message for much faster performance.

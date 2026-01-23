@@ -15,7 +15,6 @@ using System.ServiceProcess;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
-using Windows.ApplicationModel.AppService;
 using Windows.System;
 using Windows.UI.Input.Preview.Injection;
 using XboxGamingBarHelper.AMD;
@@ -52,7 +51,6 @@ namespace XboxGamingBarHelper
 
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private static Mutex singleInstanceMutex;
-        private static AppServiceConnection connection = null;
         private static CancellationToken _serviceCancellationToken;
         private static bool _isRunningAsService = false;
         private static volatile bool _isShuttingDown = false;
@@ -79,7 +77,6 @@ namespace XboxGamingBarHelper
         private static AutoTDPManager autoTDPManager;
         private static DefaultGameProfileManager defaultGameProfileManager;
         private static List<IManager> Managers;
-        private static AppServiceConnectionStatus appServiceConnectionStatus;
 
         public static OnScreenDisplayProperty onScreenDisplay;
         public static List<OnScreenDisplayManager> onScreenDisplayProviders;
@@ -395,10 +392,6 @@ namespace XboxGamingBarHelper
                     }
                 }
 
-                // Dispose connection
-                connection?.Dispose();
-                connection = null;
-
                 // Dispose hotkey manager
                 hotkeyManager?.Dispose();
                 hotkeyManager = null;
@@ -461,7 +454,7 @@ namespace XboxGamingBarHelper
                 {
                     pid = Process.GetCurrentProcess().Id,
                     timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                    connected = appServiceConnectionStatus == AppServiceConnectionStatus.Success || (pipeServer?.IsConnected ?? false),
+                    connected = pipeServer?.IsConnected ?? false,
                     elevated = ElevationBootstrapper.IsRunningAsAdmin(),
                     version = helperVersion
                 };
@@ -809,23 +802,6 @@ del /f /q ""%~f0"" 2>nul
             {
                 Logger.Error($"Failed to start Named Pipe server: {ex.Message}");
             }
-
-            // Also initialize AppServiceConnection as fallback (for non-elevated scenarios)
-            try
-            {
-                connection = new AppServiceConnection();
-                connection.AppServiceName = "XboxGamingBarService";
-                connection.PackageFamilyName = Package.Current.Id.FamilyName;
-                connection.RequestReceived += Connection_RequestReceived;
-                connection.ServiceClosed += Connection_ServiceClosed;
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"AppServiceConnection setup failed (normal if running elevated): {ex.Message}");
-                // Clear the connection so we don't try to use a broken AppServiceConnection
-                connection?.Dispose();
-                connection = null;
-            }
         }
 
         /// <summary>
@@ -840,7 +816,7 @@ del /f /q ""%~f0"" 2>nul
                 var dgpTimer = System.Diagnostics.Stopwatch.StartNew();
                 try
                 {
-                    defaultGameProfileManager = new DefaultGameProfileManager(connection, performanceManager, rtssManager, systemManager, profileManager, legionManager);
+                    defaultGameProfileManager = new DefaultGameProfileManager(performanceManager, rtssManager, systemManager, profileManager, legionManager);
 
                     if (defaultGameProfileManager != null)
                     {
@@ -885,66 +861,17 @@ del /f /q ""%~f0"" 2>nul
         }
 
         /// <summary>
-        /// Connect to the widget with optional blocking retry
+        /// Wait for the widget to connect via Named Pipe
         /// </summary>
-        private static async Task ConnectToWidget(bool blocking)
+        private static Task WaitForWidgetConnection(bool blocking)
         {
-            // If running elevated (no MSIX context), AppServiceConnection won't work
-            // In this case, we rely entirely on Named Pipes for IPC
-            if (connection == null)
+            if (blocking && pipeServer != null)
             {
-                Logger.Info("AppServiceConnection unavailable (running elevated). Using Named Pipes only.");
-                appServiceConnectionStatus = AppServiceConnectionStatus.AppServiceUnavailable;
-
-                // For blocking mode, wait for pipe connection instead
-                if (blocking && pipeServer != null)
-                {
-                    Logger.Info("Waiting for widget to connect via Named Pipe...");
-                    // Don't block forever - the main loop will handle reconnection
-                    // Just mark as "connected" so the main loop starts
-                    // The pipe server is already listening for connections
-                }
-                return;
+                Logger.Info("Waiting for widget to connect via Named Pipe...");
+                // Don't block forever - the main loop will handle reconnection
+                // The pipe server is already listening for connections
             }
-
-            if (blocking)
-            {
-                do
-                {
-                    Logger.Info("Start connecting to the widget.");
-                    try
-                    {
-                        appServiceConnectionStatus = await connection.OpenAsync();
-                    }
-                    catch (Exception exception)
-                    {
-                        Logger.Error($"Exception occurred when connecting to the widget: {exception}");
-                        appServiceConnectionStatus = AppServiceConnectionStatus.AppServiceUnavailable;
-                    }
-
-                    if (appServiceConnectionStatus != AppServiceConnectionStatus.Success)
-                    {
-                        Logger.Info("Can't connect to the widget. Try again in 1 second...");
-                        await Task.Delay(1000);
-                    }
-                } while (appServiceConnectionStatus != AppServiceConnectionStatus.Success);
-                Logger.Info("Connected to the widget.");
-            }
-            else
-            {
-                Logger.Info("Start trying to connect to the widget.");
-                try
-                {
-                    appServiceConnectionStatus = await connection.OpenAsync();
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error(ex, "Exception occurred when trying to connect to the widget.");
-                    appServiceConnectionStatus = AppServiceConnectionStatus.AppServiceUnavailable;
-                }
-
-                Logger.Info($"Try to connect to the widget: {appServiceConnectionStatus}.");
-            }
+            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -1026,27 +953,27 @@ del /f /q ""%~f0"" 2>nul
             var wave1Tasks = new[]
             {
                 Task.Run(() => {
-                    try { tempPerfMgr = new PerformanceManager(connection); Logger.Info("Wave1: PerformanceManager DONE"); }
+                    try { tempPerfMgr = new PerformanceManager(); Logger.Info("Wave1: PerformanceManager DONE"); }
                     catch (Exception ex) { Logger.Error(ex, "Wave1: PerformanceManager FAILED"); throw; }
                 }),
                 Task.Run(() => {
-                    try { tempProfileMgr = new ProfileManager(connection); Logger.Info("Wave1: ProfileManager DONE"); }
+                    try { tempProfileMgr = new ProfileManager(); Logger.Info("Wave1: ProfileManager DONE"); }
                     catch (Exception ex) { Logger.Error(ex, "Wave1: ProfileManager FAILED"); throw; }
                 }),
                 Task.Run(() => {
-                    try { tempAmdMgr = new AMDManager(connection); Logger.Info("Wave1: AMDManager DONE"); }
+                    try { tempAmdMgr = new AMDManager(); Logger.Info("Wave1: AMDManager DONE"); }
                     catch (Exception ex) { Logger.Error(ex, "Wave1: AMDManager FAILED"); throw; }
                 }),
                 Task.Run(() => {
-                    try { tempLosslessMgr = new LosslessScalingManager(connection); Logger.Info("Wave1: LosslessScalingManager DONE"); }
+                    try { tempLosslessMgr = new LosslessScalingManager(); Logger.Info("Wave1: LosslessScalingManager DONE"); }
                     catch (Exception ex) { Logger.Error(ex, "Wave1: LosslessScalingManager FAILED"); throw; }
                 }),
                 Task.Run(() => {
-                    try { tempSettingsMgr = SettingsManager.CreateInstance(connection); Logger.Info("Wave1: SettingsManager DONE"); }
+                    try { tempSettingsMgr = SettingsManager.CreateInstance(); Logger.Info("Wave1: SettingsManager DONE"); }
                     catch (Exception ex) { Logger.Error(ex, "Wave1: SettingsManager FAILED"); throw; }
                 }),
                 Task.Run(() => {
-                    try { tempLegionMgr = new LegionManager(connection); Logger.Info("Wave1: LegionManager DONE"); }
+                    try { tempLegionMgr = new LegionManager(); Logger.Info("Wave1: LegionManager DONE"); }
                     catch (Exception ex) { Logger.Error(ex, "Wave1: LegionManager FAILED"); throw; }
                 })
             };
@@ -1088,9 +1015,9 @@ del /f /q ""%~f0"" 2>nul
 
             var wave2Tasks = new[]
             {
-                Task.Run(() => { tempRtssMgr = new RTSSManager(performanceManager, connection); }),
-                Task.Run(() => { tempSystemMgr = new SystemManager(connection, profileManager.GameProfiles); }),
-                Task.Run(() => { tempPowerMgr = new PowerManager(connection, performanceManager.RyzenAdjHandle); })
+                Task.Run(() => { tempRtssMgr = new RTSSManager(performanceManager); }),
+                Task.Run(() => { tempSystemMgr = new SystemManager(profileManager.GameProfiles); }),
+                Task.Run(() => { tempPowerMgr = new PowerManager(performanceManager.RyzenAdjHandle); })
             };
             Task.WaitAll(wave2Tasks);
             LogManager.Flush();
@@ -1105,7 +1032,7 @@ del /f /q ""%~f0"" 2>nul
             // Wave 3: Managers that depend on Wave 2
             var wave3Timer = System.Diagnostics.Stopwatch.StartNew();
             Logger.Info("Wave 3: AutoTDPManager");
-            autoTDPManager = new AutoTDPManager(connection, performanceManager, systemManager);
+            autoTDPManager = new AutoTDPManager(performanceManager, systemManager);
             wave3Timer.Stop();
             Logger.Info($"[TIMING] Wave 3: {wave3Timer.ElapsedMilliseconds}ms");
 
@@ -1496,14 +1423,13 @@ del /f /q ""%~f0"" 2>nul
 
             // Initial blocking connection to widget
             var connectTimer = System.Diagnostics.Stopwatch.StartNew();
-            await ConnectToWidget(true);
+            await WaitForWidgetConnection(true);
             connectTimer.Stop();
             Logger.Info($"[TIMING] Widget connection: {connectTimer.ElapsedMilliseconds}ms");
 
-            Logger.Info($"Widget connection status: {appServiceConnectionStatus}");
+            Logger.Info($"Pipe server ready for widget connection");
 
-            // Start battery monitoring after widget connection is established
-            // (Starting before connection can cause issues with the AppService)
+            // Start battery monitoring after pipe server is ready
             if (legionManager != null)
             {
                 legionManager.StartBatteryMonitoringIfConnected();
@@ -1569,22 +1495,6 @@ del /f /q ""%~f0"" 2>nul
                 {
                     Logger.Info("Shutdown flag set, exiting main loop for version update");
                     break;
-                }
-
-                // Only try to reconnect AppServiceConnection if it's available (not running elevated)
-                // When running elevated via scheduled task, we use Named Pipes only
-                if (connection != null && appServiceConnectionStatus != AppServiceConnectionStatus.Success)
-                {
-                    Logger.Info("Try to reconnect to the widget via AppService.");
-                    await ConnectToWidget(false);
-
-                    // Force-sync RunningGame to widget after reconnection
-                    // This ensures the widget receives the current game even if it hasn't changed
-                    if (appServiceConnectionStatus == AppServiceConnectionStatus.Success && systemManager?.RunningGame != null)
-                    {
-                        Logger.Info("Widget reconnected - force-syncing RunningGame to widget");
-                        systemManager.RunningGame.ForceSetValue(systemManager.RunningGame.Value);
-                    }
                 }
 
                 await Task.Delay(1000);
@@ -2407,634 +2317,12 @@ del /f /q ""%~f0"" 2>nul
             }
         }
 
-        /// <summary>
-        /// Handles the event when the desktop process receives a request from the UWP app
-        /// </summary>
-        private static async void Connection_RequestReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
-        {
-            try
-            {
-                Logger.Info($"Helper received message {args.Request.Message.ToDebugString()} from widget.");
+        // NOTE: Connection_RequestReceived (AppService handler) was removed - using Named Pipes only
+        // See PipeServer_MessageReceived below for the pipe-based message handler
 
-                // Handle power plan change request
-                if (args.Request.Message.TryGetValue("PowerPlan", out object powerPlanValue) && powerPlanValue is string guidStr)
-                {
-                    if (Guid.TryParse(guidStr, out Guid planGuid))
-                    {
-                        Logger.Info($"Setting power plan to: {planGuid}");
-                        Power.PowerManager.SetActivePowerPlan(planGuid);
-                    }
-                    return;
-                }
+        // The following code was Connection_RequestReceived content - it has been removed
+        // since we now use PipeServer_MessageReceived for all widget communication
 
-                // Handle keyboard shortcut request (uses InputInjector for widget compatibility)
-                if (args.Request.Message.TryGetValue("SendKeyboardShortcut", out object shortcutValue) && shortcutValue is string shortcutStr)
-                {
-                    Logger.Info($"Sending keyboard shortcut via InputInjector: {shortcutStr}");
-                    SendKeyboardShortcutViaInputInjector(shortcutStr);
-                    return;
-                }
-
-                // Handle close game request - closes foreground window (not Game Bar)
-                if (args.Request.Message.TryGetValue("CloseGame", out object _))
-                {
-                    Logger.Info("CloseGame request received - attempting to close foreground window");
-                    bool success = Windows.User32.CloseForegroundWindow();
-                    Logger.Info($"CloseGame result: {success}");
-                    return;
-                }
-
-                // Handle launch process request (for TabTip.exe touch keyboard etc.)
-                if (args.Request.Message.TryGetValue("LaunchProcess", out object processValue) && processValue is string processPath)
-                {
-                    try
-                    {
-                        Logger.Info($"LaunchProcess request received: {processPath}");
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                        {
-                            FileName = processPath,
-                            UseShellExecute = true
-                        });
-                        Logger.Info($"Process launched: {processPath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Failed to launch process {processPath}: {ex.Message}");
-                    }
-                    return;
-                }
-
-                // Handle touch keyboard toggle request
-                if (args.Request.Message.TryGetValue("ToggleTouchKeyboard", out object _toggleKeyboard))
-                {
-                    try
-                    {
-                        Logger.Info("ToggleTouchKeyboard request received");
-                        TouchKeyboardHelper.Toggle();
-                        Logger.Info("Touch keyboard toggled");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Failed to toggle touch keyboard: {ex.Message}");
-                    }
-                    return;
-                }
-
-                // Handle hibernate request
-                if (args.Request.Message.TryGetValue("Hibernate", out object _hibernate))
-                {
-                    try
-                    {
-                        Logger.Info("Hibernate request received - putting system to sleep");
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                        {
-                            FileName = "shutdown.exe",
-                            Arguments = "/h",
-                            UseShellExecute = false,
-                            CreateNoWindow = true
-                        });
-                        Logger.Info("Hibernate command executed");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Failed to hibernate: {ex.Message}");
-                    }
-                    return;
-                }
-
-                // Handle launch URL request (for donate button etc. - Game Bar blocks direct URL launching)
-                if (args.Request.Message.TryGetValue("LaunchUrl", out object urlValue) && urlValue is string url)
-                {
-                    try
-                    {
-                        Logger.Info($"LaunchUrl request received: {url}");
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                        {
-                            FileName = url,
-                            UseShellExecute = true
-                        });
-                        Logger.Info($"URL launched: {url}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Failed to launch URL {url}: {ex.Message}");
-                    }
-                    return;
-                }
-
-                // Handle Energy Saver toggle request
-                if (args.Request.Message.TryGetValue("ToggleEnergySaver", out object _toggleEs))
-                {
-                    bool success = Power.PowerManager.ToggleEnergySaver();
-                    bool newState = Power.PowerManager.GetEnergySaverEnabled();
-                    var response = new global::Windows.Foundation.Collections.ValueSet();
-                    response.Add("EnergySaverEnabled", newState);
-                    response.Add("Success", success);
-                    await args.Request.SendResponseAsync(response);
-                    return;
-                }
-
-                // Handle Get Energy Saver status request
-                if (args.Request.Message.TryGetValue("GetEnergySaver", out object _getEs))
-                {
-                    bool enabled = Power.PowerManager.GetEnergySaverEnabled();
-                    var response = new global::Windows.Foundation.Collections.ValueSet();
-                    response.Add("EnergySaverEnabled", enabled);
-                    await args.Request.SendResponseAsync(response);
-                    return;
-                }
-
-                // Handle get power plans request
-                if (args.Request.Message.TryGetValue("GetPowerPlans", out object _))
-                {
-                    var plans = Power.PowerManager.GetPowerPlans();
-                    var activePlan = Power.PowerManager.GetActivePowerPlan();
-
-                    // Build response: "GUID1|Name1;GUID2|Name2;..." and active plan GUID
-                    var planStrings = new System.Collections.Generic.List<string>();
-                    foreach (var plan in plans)
-                    {
-                        planStrings.Add($"{plan.Guid}|{plan.Name}");
-                    }
-
-                    var response = new global::Windows.Foundation.Collections.ValueSet();
-                    response.Add("PowerPlans", string.Join(";", planStrings));
-                    response.Add("ActivePowerPlan", activePlan.ToString());
-
-                    await args.Request.SendResponseAsync(response);
-                    Logger.Info($"Sent {plans.Count} power plans to widget");
-                    return;
-                }
-
-                // Handle refresh display settings request (called when game closes to update resolution tile)
-                if (args.Request.Message.TryGetValue("RefreshDisplaySettings", out object _))
-                {
-                    Logger.Info("RefreshDisplaySettings request received - refreshing display settings");
-                    // Use a small delay to allow Windows to fully update display configuration
-                    await System.Threading.Tasks.Task.Delay(500);
-                    systemManager?.RefreshDisplaySettings();
-                    return;
-                }
-
-                // Handle exit helper request
-                if (args.Request.Message.TryGetValue("ExitHelper", out object _exitHelper))
-                {
-                    Logger.Info("ExitHelper request received - shutting down helper");
-                    var response = new global::Windows.Foundation.Collections.ValueSet();
-                    response.Add("Success", true);
-                    await args.Request.SendResponseAsync(response);
-
-                    // Give time for response to be sent, then exit
-                    await System.Threading.Tasks.Task.Delay(500);
-                    Environment.Exit(0);
-                    return;
-                }
-
-                // Handle export logs request
-                if (args.Request.Message.TryGetValue("ExportLogs", out object _exportLogs))
-                {
-                    Logger.Info("ExportLogs request received");
-                    try
-                    {
-                        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-                        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                        var exportFolder = Path.Combine(desktopPath, $"GoTweaks_Logs_{timestamp}");
-
-                        // Create export folder
-                        Directory.CreateDirectory(exportFolder);
-                        var helperFolder = Path.Combine(exportFolder, "Helper");
-                        var widgetFolder = Path.Combine(exportFolder, "Widget");
-                        Directory.CreateDirectory(helperFolder);
-                        Directory.CreateDirectory(widgetFolder);
-
-                        // Get log paths from app package location
-                        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                        var packageFolder = Path.Combine(localAppData, "Packages", "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg");
-                        var helperLogPath = Path.Combine(packageFolder, "LocalCache", "Local");
-                        var widgetLogPath = Path.Combine(packageFolder, "LocalState");
-
-                        // Copy helper logs (last 2)
-                        if (Directory.Exists(helperLogPath))
-                        {
-                            var helperLogs = Directory.GetFiles(helperLogPath, "helper_*.log")
-                                .OrderByDescending(f => File.GetLastWriteTime(f))
-                                .Take(2);
-
-                            foreach (var log in helperLogs)
-                            {
-                                var destPath = Path.Combine(helperFolder, Path.GetFileName(log));
-                                File.Copy(log, destPath, true);
-                                Logger.Info($"Copied: {Path.GetFileName(log)}");
-                            }
-                        }
-
-                        // Copy widget logs (last 2)
-                        if (Directory.Exists(widgetLogPath))
-                        {
-                            var widgetLogs = Directory.GetFiles(widgetLogPath, "widget_*.log")
-                                .OrderByDescending(f => File.GetLastWriteTime(f))
-                                .Take(2);
-
-                            foreach (var log in widgetLogs)
-                            {
-                                var destPath = Path.Combine(widgetFolder, Path.GetFileName(log));
-                                File.Copy(log, destPath, true);
-                                Logger.Info($"Copied: {Path.GetFileName(log)}");
-                            }
-                        }
-
-                        Logger.Info($"Logs exported to: {exportFolder}");
-                        var response = new global::Windows.Foundation.Collections.ValueSet();
-                        response.Add("Success", true);
-                        response.Add("Path", exportFolder);
-                        await args.Request.SendResponseAsync(response);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Failed to export logs: {ex.Message}");
-                        var response = new global::Windows.Foundation.Collections.ValueSet();
-                        response.Add("Success", false);
-                        response.Add("Error", ex.Message);
-                        await args.Request.SendResponseAsync(response);
-                    }
-                    return;
-                }
-
-                // Handle check for local update (debug) request
-                if (args.Request.Message.TryGetValue("CheckLocalUpdate", out object _))
-                {
-                    Logger.Info("CheckLocalUpdate request received");
-                    var response = new global::Windows.Foundation.Collections.ValueSet();
-
-                    try
-                    {
-                        const string appPackagesPath = @"C:\Users\diego\OneDrive\Desktop\Diego\projects\XboxGamingBar\Samples\XboxGamingBarPackage\AppPackages";
-
-                        if (!Directory.Exists(appPackagesPath))
-                        {
-                            response.Add("Error", $"AppPackages folder not found:\n{appPackagesPath}");
-                            await args.Request.SendResponseAsync(response);
-                            return;
-                        }
-
-                        // Get all package folders and find the latest version
-                        var packageFolders = Directory.GetDirectories(appPackagesPath)
-                            .Where(d => Path.GetFileName(d).StartsWith("XboxGamingBarPackage_"))
-                            .ToList();
-
-                        if (packageFolders.Count == 0)
-                        {
-                            response.Add("Error", "No package folders found in AppPackages");
-                            await args.Request.SendResponseAsync(response);
-                            return;
-                        }
-
-                        // Parse versions from folder names (e.g., XboxGamingBarPackage_0.3.98.0_Debug_Test)
-                        string latestFolder = null;
-                        string latestVersionStr = null;
-                        Version latestVersion = null;
-
-                        foreach (var folder in packageFolders)
-                        {
-                            var folderName = Path.GetFileName(folder);
-                            var parts = folderName.Split('_');
-                            if (parts.Length >= 2)
-                            {
-                                var versionStr = parts[1];
-                                if (Version.TryParse(versionStr, out var version))
-                                {
-                                    if (latestVersion == null || version > latestVersion)
-                                    {
-                                        latestVersion = version;
-                                        latestVersionStr = versionStr;
-                                        latestFolder = folder;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (latestFolder == null)
-                        {
-                            response.Add("Error", "Could not parse version from folder names");
-                            await args.Request.SendResponseAsync(response);
-                            return;
-                        }
-
-                        // Find .msixbundle in the folder
-                        var msixbundleFiles = Directory.GetFiles(latestFolder, "*.msixbundle", SearchOption.AllDirectories);
-                        if (msixbundleFiles.Length == 0)
-                        {
-                            response.Add("Error", $"No .msixbundle found in:\n{Path.GetFileName(latestFolder)}");
-                            await args.Request.SendResponseAsync(response);
-                            return;
-                        }
-
-                        var msixbundlePath = msixbundleFiles[0];
-                        Logger.Info($"Found local update: version={latestVersionStr}, path={msixbundlePath}");
-
-                        response.Add("LatestVersion", latestVersionStr);
-                        response.Add("MsixbundlePath", msixbundlePath);
-                        response.Add("FolderName", Path.GetFileName(latestFolder));
-                        await args.Request.SendResponseAsync(response);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Failed to check for local update: {ex.Message}");
-                        response.Add("Error", $"Failed: {ex.Message}");
-                        await args.Request.SendResponseAsync(response);
-                    }
-                    return;
-                }
-
-                // Handle download and install update request
-                if (args.Request.Message.TryGetValue("DownloadAndInstallUpdate", out object zipUrlObj))
-                {
-                    var zipUrl = zipUrlObj?.ToString();
-                    Logger.Info($"DownloadAndInstallUpdate request received: {zipUrl}");
-
-                    var response = new global::Windows.Foundation.Collections.ValueSet();
-
-                    if (string.IsNullOrEmpty(zipUrl))
-                    {
-                        response.Add("UpdateStatus", "Error: No URL provided");
-                        await args.Request.SendResponseAsync(response);
-                        return;
-                    }
-
-                    try
-                    {
-                        string msixbundlePath;
-
-                        // Check if this is a local msixbundle path (debug mode)
-                        if (zipUrl.EndsWith(".msixbundle", StringComparison.OrdinalIgnoreCase) && File.Exists(zipUrl))
-                        {
-                            // Direct path to local msixbundle - skip download/extract
-                            Logger.Info($"[DEBUG] Using local msixbundle: {zipUrl}");
-                            msixbundlePath = zipUrl;
-                        }
-                        else
-                        {
-                            // Download and extract from URL
-                            var tempFolder = Path.Combine(Path.GetTempPath(), "GoTweaks_Update");
-                            var zipPath = Path.Combine(tempFolder, "update.zip");
-
-                            // Clean up and create temp folder
-                            if (Directory.Exists(tempFolder))
-                                Directory.Delete(tempFolder, true);
-                            Directory.CreateDirectory(tempFolder);
-
-                            // Download the zip file
-                            Logger.Info($"Downloading update from {zipUrl}...");
-                            using (var client = new WebClient())
-                            {
-                                client.Headers.Add("User-Agent", "GoTweaks/1.0");
-                                client.DownloadFile(zipUrl, zipPath);
-                            }
-                            Logger.Info($"Downloaded to {zipPath}");
-
-                            // Extract the zip
-                            var extractFolder = Path.Combine(tempFolder, "extracted");
-                            Directory.CreateDirectory(extractFolder);
-                            ZipFile.ExtractToDirectory(zipPath, extractFolder);
-                            Logger.Info($"Extracted to {extractFolder}");
-
-                            // Find the .msixbundle file
-                            msixbundlePath = null;
-                            foreach (var file in Directory.GetFiles(extractFolder, "*.msixbundle", SearchOption.AllDirectories))
-                            {
-                                msixbundlePath = file;
-                                break;
-                            }
-
-                            if (string.IsNullOrEmpty(msixbundlePath))
-                            {
-                                Logger.Error("No .msixbundle file found in the update package");
-                                response.Add("UpdateStatus", "Error: No .msixbundle found in update");
-                                await args.Request.SendResponseAsync(response);
-                                return;
-                            }
-                        }
-
-                        Logger.Info($"Found msixbundle: {msixbundlePath}");
-
-                        // Launch the msixbundle installer
-                        var startInfo = new ProcessStartInfo
-                        {
-                            FileName = msixbundlePath,
-                            UseShellExecute = true
-                        };
-
-                        Logger.Info("Launching msixbundle installer...");
-                        var installerProcess = Process.Start(startInfo);
-
-                        response.Add("UpdateStatus", "Installing");
-                        await args.Request.SendResponseAsync(response);
-
-                        // Wait for installer to fully load the package before exiting
-                        // The msixbundle installer needs time to open and read the package
-                        Logger.Info("Waiting for installer to load package...");
-                        await Task.Delay(5000); // 5 seconds for installer to fully open
-
-                        // Exit helper so installer can replace files
-                        Logger.Info("Exiting helper for update installation...");
-                        Environment.Exit(0);
-                    }
-                    catch (WebException ex)
-                    {
-                        Logger.Error($"Failed to download update: {ex.Message}");
-                        response.Add("UpdateStatus", $"Error: Download failed - {ex.Message}");
-                        await args.Request.SendResponseAsync(response);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Failed to install update: {ex.Message}");
-                        response.Add("UpdateStatus", $"Error: {ex.Message}");
-                        await args.Request.SendResponseAsync(response);
-                    }
-                    return;
-                }
-
-                // Handle Labs section requests
-                if (args.Request.Message.TryGetValue("Function", out object functionObj))
-                {
-                    int functionValue = Convert.ToInt32(functionObj);
-
-                    // Labs: DAService Status request
-                    if (functionValue == (int)Function.Labs_DAServiceStatus)
-                    {
-                        int status = GetDAServiceStatus();
-                        var response = new global::Windows.Foundation.Collections.ValueSet();
-                        response.Add("Function", (int)Function.Labs_DAServiceStatus);
-                        response.Add("Value", status);
-                        await args.Request.SendResponseAsync(response);
-                        Logger.Info($"Labs: DAService status = {status} (0=Stopped, 1=Running, 2=NotFound)");
-                        return;
-                    }
-
-                    // Labs: DAService Control request (Start/Stop)
-                    if (functionValue == (int)Function.Labs_DAServiceControl)
-                    {
-                        if (args.Request.Message.TryGetValue("Value", out object actionObj))
-                        {
-                            int action = Convert.ToInt32(actionObj);
-                            ControlDAService(action);
-
-                            // Send back updated status after a short delay
-                            await Task.Delay(500);
-                            int status = GetDAServiceStatus();
-                            var response = new global::Windows.Foundation.Collections.ValueSet();
-                            response.Add("Function", (int)Function.Labs_DAServiceStatus);
-                            response.Add("Value", status);
-                            await args.Request.SendResponseAsync(response);
-                            Logger.Info($"Labs: DAService control action={action}, new status={status}");
-                        }
-                        return;
-                    }
-
-                    // Labs: Legion Button Remap (L/R to Xbox Guide or Keyboard Shortcut)
-                    if (functionValue == (int)Function.Labs_LegionButtonRemap)
-                    {
-                        string button = "L";      // "L" or "R"
-                        bool enabled = false;
-                        int actionType = 0;       // 0=Xbox Guide, 1=Keyboard Shortcut
-                        string shortcut = "";
-
-                        if (args.Request.Message.TryGetValue("Button", out object buttonObj))
-                            button = buttonObj?.ToString() ?? "L";
-                        if (args.Request.Message.TryGetValue("Enabled", out object enabledObj))
-                            enabled = Convert.ToBoolean(enabledObj);
-                        if (args.Request.Message.TryGetValue("Action", out object actionObj))
-                            actionType = Convert.ToInt32(actionObj);
-                        if (args.Request.Message.TryGetValue("Shortcut", out object shortcutObj))
-                            shortcut = shortcutObj?.ToString() ?? "";
-
-                        bool success = ConfigureLegionButtonRemap(button, enabled, actionType, shortcut);
-
-                        var response = new global::Windows.Foundation.Collections.ValueSet();
-                        response.Add("Success", success);
-                        await args.Request.SendResponseAsync(response);
-
-                        string actionName = actionType == 0 ? "Xbox Guide" : $"Shortcut: {shortcut}";
-                        Logger.Info($"Labs: Legion {button} Remap - Enabled: {enabled}, Action: {actionName}, Success: {success}");
-                        return;
-                    }
-
-                    // Labs: Scroll Wheel Remap (Up/Down/Click)
-                    if (functionValue == (int)Function.Labs_LegionScrollRemap)
-                    {
-                        string direction = "Up";  // "Up", "Down", or "Click"
-                        bool enabled = false;
-                        int actionType = 0;       // 0=Xbox Guide, 1=Keyboard Shortcut, 2=Run Command, 3=Focus GoTweaks
-                        string shortcut = "";
-
-                        if (args.Request.Message.TryGetValue("Direction", out object directionObj))
-                            direction = directionObj?.ToString() ?? "Up";
-                        if (args.Request.Message.TryGetValue("Enabled", out object enabledObj))
-                            enabled = Convert.ToBoolean(enabledObj);
-                        if (args.Request.Message.TryGetValue("Action", out object actionObj))
-                            actionType = Convert.ToInt32(actionObj);
-                        if (args.Request.Message.TryGetValue("Shortcut", out object shortcutObj))
-                            shortcut = shortcutObj?.ToString() ?? "";
-
-                        bool success = ConfigureLegionScrollRemap(direction, enabled, actionType, shortcut);
-
-                        var response = new global::Windows.Foundation.Collections.ValueSet();
-                        response.Add("Success", success);
-                        await args.Request.SendResponseAsync(response);
-
-                        string actionName = actionType == 0 ? "Xbox Guide" : $"Shortcut: {shortcut}";
-                        Logger.Info($"Labs: Scroll {direction} Remap - Enabled: {enabled}, Action: {actionName}, Success: {success}");
-                        return;
-                    }
-
-                    // ViGEmBus: Check installed status
-                    if (functionValue == (int)Function.ViGEmBusInstalled)
-                    {
-                        bool installed = XboxGamingBarHelper.Labs.ViGEmBusHelper.IsInstalled();
-                        var response = new global::Windows.Foundation.Collections.ValueSet();
-                        response.Add("Function", (int)Function.ViGEmBusInstalled);
-                        response.Add("Value", installed);
-                        await args.Request.SendResponseAsync(response);
-                        Logger.Info($"ViGEmBus installed status: {installed}");
-                        return;
-                    }
-
-                    // ViGEmBus: Install request - only install when explicitly requested with "install" content
-                    if (functionValue == (int)Function.InstallViGEmBus)
-                    {
-                        // Check if this is a Set command with "install" content
-                        bool shouldInstall = false;
-                        if (args.Request.Message.TryGetValue("Command", out object vigemCmdObj) && vigemCmdObj is int vigemCmd && vigemCmd == (int)Shared.Enums.Command.Set)
-                        {
-                            if (args.Request.Message.TryGetValue("Content", out object vigemContentObj) && vigemContentObj?.ToString() == "install")
-                            {
-                                shouldInstall = true;
-                            }
-                        }
-
-                        if (!shouldInstall)
-                        {
-                            Logger.Debug("InstallViGEmBus: Ignoring non-install request (Get or empty content)");
-                            return;
-                        }
-
-                        Logger.Info("ViGEmBus installation requested from widget");
-                        // Run installation asynchronously
-                        _ = Task.Run(async () =>
-                        {
-                            bool success = XboxGamingBarHelper.Labs.ViGEmBusHelper.Install();
-                            // After installation, send updated status to widget
-                            bool installed = XboxGamingBarHelper.Labs.ViGEmBusHelper.IsInstalled();
-                            if (connection != null)
-                            {
-                                var message = new global::Windows.Foundation.Collections.ValueSet();
-                                message.Add("Command", (int)Shared.Enums.Command.Set);
-                                message.Add("Function", (int)Function.ViGEmBusInstalled);
-                                message.Add("Content", installed);
-                                message.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
-                                await connection.SendMessageAsync(message);
-                                Logger.Info($"ViGEmBus installation complete, sent updated status: {installed}");
-                            }
-                        });
-                        return;
-                    }
-
-                    // Debug: Export Default Game Profiles to Desktop
-                    if (functionValue == (int)Function.Debug_ExportDGPs)
-                    {
-                        var response = new global::Windows.Foundation.Collections.ValueSet();
-                        try
-                        {
-                            string exportPath = ExportDefaultGameProfiles();
-                            response.Add("ExportPath", exportPath);
-                            Logger.Info($"Debug: DGPs exported to {exportPath}");
-                        }
-                        catch (Exception ex)
-                        {
-                            response.Add("Error", ex.Message);
-                            Logger.Error($"Debug: Failed to export DGPs: {ex.Message}");
-                        }
-                        await args.Request.SendResponseAsync(response);
-                        return;
-                    }
-                }
-
-                // Handle BatchGet command for fast property sync
-                if (args.Request.Message.TryGetValue("Command", out object cmdObj) &&
-                    cmdObj is int cmdInt && cmdInt == (int)Shared.Enums.Command.BatchGet)
-                {
-                    await HandleBatchGetRequest(args.Request);
-                    return;
-                }
-
-                await properties.OnRequestReceived(args.Request);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error handling request: {ex.Message}");
-                Logger.Error($"Stack trace: {ex.StackTrace}");
-            }
-        }
 
         /// <summary>
         /// Handles messages received from the widget via Named Pipe
@@ -3742,131 +3030,6 @@ del /f /q ""%~f0"" 2>nul
             }
         }
 
-        /// <summary>
-        /// Handle batch get request for fast property sync.
-        /// Returns all requested property values in a single response.
-        /// </summary>
-        private static async Task HandleBatchGetRequest(AppServiceRequest request)
-        {
-            var timer = System.Diagnostics.Stopwatch.StartNew();
-            try
-            {
-                if (!request.Message.TryGetValue("Functions", out object functionsObj) || !(functionsObj is string functionsJson))
-                {
-                    Logger.Warn("BatchGet request missing Functions");
-                    return;
-                }
-
-                var functionIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(functionsJson);
-                if (functionIds == null || functionIds.Length == 0)
-                {
-                    Logger.Warn("BatchGet request has empty Functions array");
-                    return;
-                }
-
-                // Build batch response with all property values
-                var batchData = new Dictionary<string, object>();
-                foreach (var funcId in functionIds)
-                {
-                    var func = (Shared.Enums.Function)funcId;
-                    if (properties.TryGetProperty(func, out var property))
-                    {
-                        try
-                        {
-                            var value = property.GetValue();
-
-                            // Structs must be serialized to XML to match individual property sync format
-                            // Otherwise they serialize as "{}" in JSON which fails XML deserialization on widget
-                            // Only serialize custom structs, not built-in value types like DateTime, TimeSpan, etc.
-                            if (value != null)
-                            {
-                                var valueType = value.GetType();
-                                if (valueType.IsValueType && !valueType.IsPrimitive && !valueType.IsEnum
-                                    && valueType.Namespace != null && valueType.Namespace.StartsWith("Shared"))
-                                {
-                                    // Special handling for RunningGame/TrackedGame - check if valid before serializing
-                                    // These structs have null strings when invalid/empty which causes XML serialization to fail
-                                    bool shouldSerialize = true;
-                                    if (value is Shared.Data.RunningGame rg)
-                                    {
-                                        // Must check ProcessId, GameId.Name AND GameId.Path - XML serializer fails on null strings
-                                        shouldSerialize = rg.IsValid() && rg.GameId.IsValid() && !string.IsNullOrEmpty(rg.GameId.Path);
-                                        if (!shouldSerialize)
-                                        {
-                                            Logger.Debug($"RunningGame not valid for XML: ProcessId={rg.ProcessId}, Name={rg.GameId.Name ?? "null"}, Path={rg.GameId.Path ?? "null"}");
-                                        }
-                                    }
-                                    else if (value is Shared.Data.TrackedGame tg)
-                                    {
-                                        shouldSerialize = !string.IsNullOrEmpty(tg.DisplayName);
-                                    }
-
-                                    if (shouldSerialize)
-                                    {
-                                        value = Shared.Utilities.XmlHelper.ToXMLStringRuntime(value, true);
-                                    }
-                                    else
-                                    {
-                                        value = ""; // Return empty string for invalid/empty structs
-                                    }
-                                }
-                            }
-
-                            var propData = new Dictionary<string, object>
-                            {
-                                { "Content", value },
-                                { "UpdatedTime", property.UpdatedTime }
-                            };
-                            batchData[funcId.ToString()] = propData;
-                        }
-                        catch (Exception propEx)
-                        {
-                            var innerMsg = propEx.InnerException?.Message ?? "no inner";
-                            Logger.Warn($"BatchGet: Failed to serialize property {func}: {propEx.Message} (Inner: {innerMsg})");
-                        }
-                    }
-                }
-
-                var response = new global::Windows.Foundation.Collections.ValueSet();
-                response.Add("BatchData", System.Text.Json.JsonSerializer.Serialize(batchData));
-                await request.SendResponseAsync(response);
-
-                timer.Stop();
-                Logger.Info($"[TIMING] BatchGet {functionIds.Length} properties: {timer.ElapsedMilliseconds}ms");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"BatchGet failed: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Handles the event when the app service connection is closed
-        /// </summary>
-        private static void Connection_ServiceClosed(AppServiceConnection sender, AppServiceClosedEventArgs args)
-        {
-            Logger.Info("Lost connection to the widget.");
-            appServiceConnectionStatus = AppServiceConnectionStatus.AppServiceUnavailable;
-
-            Logger.Info("Prepare to re-connect to the widget.");
-            try
-            {
-                connection?.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Exception occurred when disposing the connection: {ex}");
-            }
-
-            // Recreate connection
-            InitializeConnection();
-
-            // Update all manager connection references
-            foreach (var manager in Managers)
-            {
-                manager.Connection = connection;
-            }
-        }
 
         /// <summary>
         /// Parse and send a keyboard shortcut using InputInjector (works in widget context unlike SendInput)
@@ -4860,18 +4023,9 @@ del /f /q ""%~f0"" 2>nul
                         Logger.Warn("Labs: Failed to send focus widget command via Named Pipe");
                     }
                 }
-                // Fallback to AppService if available (running in package context)
-                else if (connection != null && appServiceConnectionStatus == AppServiceConnectionStatus.Success)
-                {
-                    var message = new global::Windows.Foundation.Collections.ValueSet();
-                    message.Add("Command", (int)Shared.Enums.Command.Set);
-                    message.Add("Function", (int)Shared.Enums.Function.Labs_FocusWidget);
-                    await connection.SendMessageAsync(message);
-                    Logger.Info("Labs: Sent focus widget command via AppService");
-                }
                 else
                 {
-                    Logger.Warn("Labs: Cannot send focus widget command - no connection available");
+                    Logger.Warn("Labs: Cannot send focus widget command - no pipe connection available");
                 }
             }
             catch (Exception ex)

@@ -5,7 +5,6 @@ using Shared.Enums;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.AppService;
 using Windows.Storage;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Performance;
@@ -205,7 +204,7 @@ namespace XboxGamingBarHelper.Legion
             Logger.Info($"PerformanceManager reference set, CPUTemperature sensor available: {manager?.CPUTemperature != null}");
         }
 
-        public LegionManager(AppServiceConnection connection) : base(connection)
+        public LegionManager() : base()
         {
             Logger.Info("Initializing Legion Manager...");
             var constructorTimer = System.Diagnostics.Stopwatch.StartNew();
