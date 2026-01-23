@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using NLog;
 using Shared.Data;
 using Shared.Utilities;
-using Windows.ApplicationModel.AppService;
 using Windows.System.Power;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Legion;
@@ -63,12 +62,11 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         public DefaultGameProfileService GetService() => _service;
 
         public DefaultGameProfileManager(
-            AppServiceConnection connection,
             PerformanceManager performanceManager,
             RTSSManager rtssManager,
             SystemManager systemManager,
             ProfileManager profileManager,
-            LegionManager legionManager) : base(connection)
+            LegionManager legionManager) : base()
         {
             _performanceManager = performanceManager;
             _rtssManager = rtssManager;

@@ -4,7 +4,6 @@ using Shared.Utilities;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Windows.ApplicationModel.AppService;
 using Windows.Storage;
 using XboxGamingBarHelper.Core;
 
@@ -79,7 +78,7 @@ namespace XboxGamingBarHelper.Profile
             get { return deleteGameProfile; }
         }
 
-        public ProfileManager(AppServiceConnection connection) : base(connection)
+        public ProfileManager() : base()
         {
             gameProfiles = new Dictionary<GameId, GameProfile>();
 

@@ -9,7 +9,6 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.AppService;
 using Windows.System.Power;
 using Shared.Enums;
 using XboxGamingBarHelper.Core;
@@ -347,7 +346,7 @@ namespace XboxGamingBarHelper.Performance
         // Flag to indicate if hardware detection is complete
         private volatile bool hardwareInitialized = false;
 
-        internal PerformanceManager(AppServiceConnection connection) : base(connection)
+        internal PerformanceManager() : base()
         {
             // Initialize the computer sensors
             // Only enable hardware types actually used - others can cause hangs:

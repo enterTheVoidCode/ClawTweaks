@@ -3,7 +3,6 @@ using System;
 using System.Diagnostics;
 //using XboxGamingBarHelper.Windows;
 //using System.Windows.Forms;
-using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.AMD.Properties;
 using XboxGamingBarHelper.AMD.Settings;
 using XboxGamingBarHelper.OnScreenDisplay;
@@ -243,7 +242,7 @@ namespace XboxGamingBarHelper.AMD
 
         private long lastUpdate;
 
-        public AMDManager(AppServiceConnection connection) : base(connection)
+        public AMDManager() : base()
         {
             try
             {

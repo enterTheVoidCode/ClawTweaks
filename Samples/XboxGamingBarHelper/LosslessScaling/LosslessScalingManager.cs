@@ -7,7 +7,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Xml.Linq;
-using Windows.ApplicationModel.AppService;
 using Windows.System;
 using Windows.UI.Input.Preview.Injection;
 using XboxGamingBarHelper.Core;
@@ -131,7 +130,7 @@ namespace XboxGamingBarHelper.LosslessScaling
         // State tracking
         private bool isScalingActive = false;
 
-        public LosslessScalingManager(AppServiceConnection connection) : base(connection)
+        public LosslessScalingManager() : base()
         {
             Logger.Info("Initializing Lossless Scaling Manager...");
 

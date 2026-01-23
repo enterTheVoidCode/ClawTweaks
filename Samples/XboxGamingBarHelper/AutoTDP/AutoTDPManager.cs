@@ -5,7 +5,6 @@ using Shared.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Performance;
 using XboxGamingBarHelper.Systems;
@@ -99,7 +98,7 @@ namespace XboxGamingBarHelper.AutoTDP
         public int SweetSpotTDP => sweetSpotTDP;
         public int SweetSpotConfidence => sweetSpotConfidence;
 
-        public AutoTDPManager(AppServiceConnection connection, PerformanceManager performanceManager, SystemManager systemManager) : base(connection)
+        public AutoTDPManager(PerformanceManager performanceManager, SystemManager systemManager) : base()
         {
             this.performanceManager = performanceManager;
             this.systemManager = systemManager;

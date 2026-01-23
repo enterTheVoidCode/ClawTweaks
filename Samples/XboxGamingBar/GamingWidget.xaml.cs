@@ -16,8 +16,6 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
-using Windows.ApplicationModel.AppService;
-using Windows.ApplicationModel.Background;
 using Windows.Foundation;
 using Windows.Foundation.Metadata;
 using Windows.UI.Core;
@@ -1654,7 +1652,7 @@ namespace XboxGamingBar
 
         private void GamingWidget_Loaded(object sender, RoutedEventArgs e)
         {
-            Logger.Info($"GamingWidget_Loaded called. Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, App.Connection is null: {App.Connection == null}");
+            Logger.Info($"GamingWidget_Loaded called. Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, Pipe connected: {App.IsConnected}");
 
             // Set initial navigation selection
             if (MainNavigationView.MenuItems.Count > 0)
@@ -6445,22 +6443,13 @@ namespace XboxGamingBar
                 // Send exit command to helper using all available methods
                 bool exitSent = false;
 
-                // Try via Named Pipe first (primary method)
+                // Try via Named Pipe
                 if (App.PipeClient?.IsConnected == true)
                 {
                     var message = new Windows.Foundation.Collections.ValueSet();
                     message.Add("ExitHelper", true);
                     Logger.Info("Sending ExitHelper via Named Pipe");
                     await App.SendMessageAsync(message);
-                    exitSent = true;
-                }
-                // Try via AppServiceConnection
-                else if (App.Connection != null && App.IsConnected)
-                {
-                    var message = new Windows.Foundation.Collections.ValueSet();
-                    message.Add("ExitHelper", true);
-                    Logger.Info("Sending ExitHelper via AppServiceConnection");
-                    await App.Connection.SendMessageAsync(message);
                     exitSent = true;
                 }
                 // Not connected - try temporary pipe connection
@@ -11733,7 +11722,7 @@ namespace XboxGamingBar
             // Set flag immediately to prevent any pending async operations from updating UI
             isUnloading = true;
 
-            Logger.Info($"GamingWidget_Unloaded called. Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, App.Connection is null: {App.Connection == null}");
+            Logger.Info($"GamingWidget_Unloaded called. Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, Pipe connected: {App.IsConnected}");
 
             // Unsubscribe from power source changes
             PowerManager.PowerSupplyStatusChanged -= PowerManager_PowerSourceChanged;
@@ -11764,12 +11753,6 @@ namespace XboxGamingBar
             Logger.Info("Unregistering this GamingWidget instance as the active widget.");
             App.UnregisterActiveGamingWidget(this);
             Logger.Info("GamingWidget instance unregistered.");
-
-            // Unregister from static events to prevent memory leaks and duplicate handlers
-            Logger.Info("Unregistering event handlers...");
-            App.AppServiceConnected -= GamingWidget_AppServiceConnected;
-            App.AppServiceDisconnected -= GamingWidget_AppServiceDisconnected;
-            App.AppServiceRequestReceived -= AppServiceConnection_RequestReceived;
 
             // Unsubscribe from Lossless Scaling property changes
             if (losslessScalingInstalled != null)
@@ -11819,17 +11802,11 @@ namespace XboxGamingBar
 
         public void OnDeactivated()
         {
-            Logger.Info("GamingWidget being deactivated - stopping pending updates and unsubscribing from events.");
+            Logger.Info("GamingWidget being deactivated - stopping pending updates.");
             try
             {
                 properties.StopPendingUpdates();
                 Logger.Info("Pending updates stopped.");
-
-                // Unsubscribe from AppService events to prevent this deactivated instance from receiving messages
-                App.AppServiceConnected -= GamingWidget_AppServiceConnected;
-                App.AppServiceDisconnected -= GamingWidget_AppServiceDisconnected;
-                App.AppServiceRequestReceived -= AppServiceConnection_RequestReceived;
-                Logger.Info("Event handlers unsubscribed.");
             }
             catch (Exception ex)
             {
@@ -11872,7 +11849,7 @@ namespace XboxGamingBar
         {
             Logger.Info("=== OnNavigatedTo START ===");
             Logger.Info($"Parameter type: {e.Parameter?.GetType().FullName ?? "null"}");
-            Logger.Info($"Current state - Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, App.Connection is null: {App.Connection == null}");
+            Logger.Info($"Current state - Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, Pipe connected: {App.IsConnected}");
 
             base.OnNavigatedTo(e);
 
@@ -11949,12 +11926,7 @@ namespace XboxGamingBar
 
             if (!App.IsConnected && ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0))
             {
-                Logger.Info("Not connected to helper. Registering event handlers and launching full trust process.");
-                // Use -= before += to ensure we don't register duplicate handlers
-                App.AppServiceConnected -= GamingWidget_AppServiceConnected;
-                App.AppServiceDisconnected -= GamingWidget_AppServiceDisconnected;
-                App.AppServiceConnected += GamingWidget_AppServiceConnected;
-                App.AppServiceDisconnected += GamingWidget_AppServiceDisconnected;
+                Logger.Info("Not connected to helper. Launching full trust process.");
 
                 // Launch helper with guards (checks heartbeat, enforces rate limiting)
                 await LaunchHelperWithGuardsAsync("OnNavigatedTo - initial connection");
@@ -11963,26 +11935,14 @@ namespace XboxGamingBar
             {
                 Logger.Info($"Not launching full trust process. App.IsConnected: {App.IsConnected}, FullTrustAppContract present: {ApiInformation.IsApiContractPresent("Windows.ApplicationModel.FullTrustAppContract", 1, 0)}");
 
-                // If connection already exists, register event handlers and sync properties
+                // If connection already exists, sync properties
                 if (App.IsConnected)
                 {
-                    Logger.Info("Already connected to helper. Ensuring event handlers are registered.");
+                    Logger.Info("Already connected to helper via pipe.");
 
                     // Hide connection status banner since we're connected
                     HideConnectionBanner();
                     Logger.Info("Connection status banner hidden - already connected.");
-
-                    // Use -= before += to ensure we don't register duplicate handlers
-                    Logger.Info("Unregistering existing event handlers (if any)...");
-                    App.AppServiceConnected -= GamingWidget_AppServiceConnected;
-                    App.AppServiceDisconnected -= GamingWidget_AppServiceDisconnected;
-                    App.AppServiceRequestReceived -= AppServiceConnection_RequestReceived;
-
-                    Logger.Info("Registering event handlers...");
-                    App.AppServiceConnected += GamingWidget_AppServiceConnected;
-                    App.AppServiceDisconnected += GamingWidget_AppServiceDisconnected;
-                    App.AppServiceRequestReceived += AppServiceConnection_RequestReceived;
-                    Logger.Info("Event handlers registered.");
 
                     // Sync properties since we're already connected
                     Logger.Info("Syncing properties with helper since connection already exists...");
@@ -12086,7 +12046,7 @@ namespace XboxGamingBar
 
         public async Task GamingWidget_LeavingBackground(object sender, LeavingBackgroundEventArgs e)
         {
-            Logger.Info($"GamingWidget_LeavingBackground called. Widget is null: {widget == null}, App.Connection is null: {App.Connection == null}, WidgetActivity is null: {widgetActivity == null}");
+            Logger.Info($"GamingWidget_LeavingBackground called. Widget is null: {widget == null}, Pipe connected: {App.IsConnected}, WidgetActivity is null: {widgetActivity == null}");
 
             if (widget != null)
             {
@@ -12528,204 +12488,6 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// When the desktop process is connected, get ready to send/receive requests
-        /// </summary>
-        private async void GamingWidget_AppServiceConnected(object sender, AppServiceTriggerDetails e)
-        {
-            Logger.Info("=== GamingWidget_AppServiceConnected START ===");
-
-            // Stop reconnection timeout timer - connection established
-            StopReconnectionTimeoutTimer();
-
-            Logger.Info($"Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}");
-
-            if (widget != null)
-            {
-                Logger.Info($"Widget state - RequestedTheme: {widget.RequestedTheme}");
-
-                // Create widget activity if needed
-                Logger.Info("Checking if widget activity needs to be created...");
-                await CreateWidgetActivity();
-
-                // Create app target tracker if needed
-                Logger.Info("Checking if app target tracker needs to be created...");
-                await CreateAppTargetTracker();
-            }
-            else
-            {
-                Logger.Info("Widget is null in AppServiceConnected - likely running as standalone app.");
-            }
-
-            // Register for request received events via the App-level relay
-            Logger.Info("Registering for AppServiceRequestReceived events...");
-            App.AppServiceRequestReceived -= AppServiceConnection_RequestReceived;
-            App.AppServiceRequestReceived += AppServiceConnection_RequestReceived;
-            Logger.Info("AppServiceRequestReceived handler registered.");
-
-            Logger.Info("Starting property sync with helper...");
-            try
-            {
-                // Set flag to prevent Sticky TDP target from updating during sync
-                isApplyingHelperUpdate = true;
-
-                // Suppress LegionPerformanceMode value updates during sync - we'll apply profile mode afterward
-                // This prevents the helper's cached mode (e.g., Custom) from overwriting the profile's mode
-                if (legionPerformanceMode != null)
-                {
-                    legionPerformanceMode.SuppressUpdates = true;
-                }
-
-                // Skip TDP sync if profile uses a preset mode (not Custom)
-                // This prevents the TDP sync from triggering Custom mode on the hardware LED
-                try
-                {
-                    var profile = GetProfile(currentProfileName);
-                    if (profile != null)
-                    {
-                        bool isPresetMode = profile.LegionPerformanceMode != 255; // Not Custom
-                        if (tdp != null && isPresetMode)
-                        {
-                            tdp.SkipSync = true;
-                            Logger.Info($"TDP sync will be skipped - profile uses {GetLegionModeShortName(profile.LegionPerformanceMode)} mode");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Warn($"Could not check profile for TDP sync skip: {ex.Message}");
-                }
-
-                // Skip OS Power Mode sync if profile has it saved
-                // This prevents sync from overwriting profile-loaded OS Power Mode with hardware state
-                if (SaveOSPowerMode && osPowerMode != null)
-                {
-                    osPowerMode.SkipSync = true;
-                    Logger.Info("OSPowerMode sync will be skipped - profile has OS Power Mode saved");
-                }
-
-                await properties.Sync();
-                Logger.Info("Property sync completed successfully.");
-
-                // Register Chill FPS handlers after first sync to prevent crash
-                RegisterChillFPSHandlers();
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error during property sync: {ex}");
-                Logger.Error($"Exception Type: {ex.GetType().FullName}");
-                Logger.Error($"Stack Trace: {ex.StackTrace}");
-            }
-            finally
-            {
-                isApplyingHelperUpdate = false;
-            }
-
-            try
-            {
-                // Stop any pending slider updates from the sync - we'll apply profile values instead
-                // Must run on UI thread since DispatcherTimer is UI-bound
-                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-                {
-                    properties.StopPendingUpdates();
-                });
-                Logger.Info("Stopped pending updates after sync.");
-
-                // Re-enable updates for LegionPerformanceMode BEFORE applying profile
-                // so the profile's mode correctly updates the UI and internal value
-                if (legionPerformanceMode != null)
-                {
-                    legionPerformanceMode.SuppressUpdates = false;
-                }
-
-                // Re-enable TDP sync for future syncs
-                if (tdp != null)
-                {
-                    tdp.SkipSync = false;
-                }
-
-                // Re-enable OS Power Mode sync for future syncs
-                if (osPowerMode != null)
-                {
-                    osPowerMode.SkipSync = false;
-                }
-
-                // Send OSD config to helper now that connection is established
-                SendOSDConfigToHelper();
-
-                // Apply profile TDP to helper now that connection is established
-                // Profile was loaded in constructor before connection, so TDP wasn't actually applied
-                await ApplyProfileTDPToHelper();
-
-                // Clear initial sync flag - profile is loaded and applied, user changes should now save
-                // Add a small delay to let any pending ValueChanged events settle first
-                await Task.Delay(200);
-                isInitialSync = false;
-                Logger.Info("Initial sync complete - profile saves are now enabled");
-
-                // On clean install, initialize profile with current system values instead of defaults
-                // This prevents overwriting user's current CPU Boost and EPP settings with defaults
-                if (isCleanInstall)
-                {
-                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-                    {
-                        // Get current system values from helper
-                        bool currentCPUBoost = cpuBoost?.Value ?? true;
-                        double currentCPUEPP = cpuEPP?.Value ?? 50;
-
-                        Logger.Info($"Clean install: initializing profiles with current system values - CPUBoost={currentCPUBoost}, CPUEPP={currentCPUEPP}");
-
-                        // Update all profiles with current values
-                        globalProfile.CPUBoost = currentCPUBoost;
-                        globalProfile.CPUEPP = currentCPUEPP;
-                        acProfile.CPUBoost = currentCPUBoost;
-                        acProfile.CPUEPP = currentCPUEPP;
-                        dcProfile.CPUBoost = currentCPUBoost;
-                        dcProfile.CPUEPP = currentCPUEPP;
-
-                        // Save the profiles with current values
-                        SaveProfileToStorage("Global", globalProfile);
-                        SaveProfileToStorage("AC", acProfile);
-                        SaveProfileToStorage("DC", dcProfile);
-
-                        // Update UI to reflect current values
-                        CPUBoostToggle.IsOn = currentCPUBoost;
-                        CPUEPPSlider.Value = currentCPUEPP;
-
-                        isCleanInstall = false; // Only do this once
-                        Logger.Info("Clean install initialization complete - profiles saved with current system values");
-                    });
-                }
-
-                // Hide connection status banner and update profile display now that we're connected
-                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-                {
-                    // Verify connection still exists (could have been cleared by disconnect during sync)
-                    if (!App.IsConnected)
-                    {
-                        Logger.Warn("Connection was cleared during sync - keeping banner visible");
-                        return;
-                    }
-
-                    HideConnectionBanner();
-                    Logger.Info("Connection status banner hidden - connected to helper.");
-
-                    // Update profile display now that legionGoDetected has been synced from helper
-                    // This ensures TDP Mode shows in Profiles tab on fresh start
-                    UpdateProfileDisplay();
-                    Logger.Info("Profile display updated after sync - legionGoDetected=" + (legionGoDetected?.Value.ToString() ?? "null"));
-                });
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error in post-sync initialization: {ex}");
-                Logger.Error($"Exception Type: {ex.GetType().FullName}");
-                Logger.Error($"Stack Trace: {ex.StackTrace}");
-            }
-
-            Logger.Info("=== GamingWidget_AppServiceConnected END ===");
-        }
-
-        /// <summary>
         /// Banner state types for different connection status messages.
         /// </summary>
         private enum BannerState
@@ -13052,22 +12814,13 @@ namespace XboxGamingBar
             {
                 bool exitSent = false;
 
-                // Try via Named Pipe first
+                // Try via Named Pipe
                 if (App.PipeClient?.IsConnected == true)
                 {
                     var request = new Windows.Foundation.Collections.ValueSet();
                     request.Add("ExitHelper", true);
                     await App.SendMessageAsync(request);
-                    Logger.Info("Sent ExitHelper via Named Pipe (already connected)");
-                    exitSent = true;
-                }
-                // Fall back to AppServiceConnection
-                else if (App.Connection != null)
-                {
-                    var request = new Windows.Foundation.Collections.ValueSet();
-                    request.Add("ExitHelper", true);
-                    await App.Connection.SendMessageAsync(request);
-                    Logger.Info("Sent ExitHelper via AppServiceConnection");
+                    Logger.Info("Sent ExitHelper via Named Pipe");
                     exitSent = true;
                 }
                 // Not connected - try to establish a temporary pipe connection just to send ExitHelper
@@ -13439,12 +13192,8 @@ namespace XboxGamingBar
                     App.PipeDisconnected -= PipeClient_Disconnected;
                     App.PipeDisconnected += PipeClient_Disconnected;
 
-                    // Trigger connection success flow if AppService hasn't connected
-                    if (App.Connection == null)
-                    {
-                        Logger.Info("Pipe connected before AppService - using pipe as primary connection");
-                        await OnPipeConnectedAsync();
-                    }
+                    // Trigger connection success flow
+                    await OnPipeConnectedAsync();
                     return;
                 }
 
@@ -13516,102 +13265,6 @@ namespace XboxGamingBar
 
             Logger.Info("Reconnection timeout fired - force launching helper");
             await LaunchHelperWithGuardsAsync("Reconnection timeout", forceLaunch: true);
-        }
-
-        /// <summary>
-        /// When the desktop process is disconnected, reconnect if needed
-        /// </summary>
-        private async void GamingWidget_AppServiceDisconnected(object sender, EventArgs e)
-        {
-            var eventArgs = e as BackgroundTaskCancellationEventArgs;
-            Logger.Info($"GamingWidget_AppServiceDisconnected called. Reason: {eventArgs?.Reason.ToString() ?? "Unknown"}. WidgetActivity is null: {widgetActivity == null}, Widget is null: {widget == null}");
-
-            // Unregister as active widget
-            Logger.Info("Unregistering this widget as active due to disconnect.");
-            App.UnregisterActiveGamingWidget(this);
-
-            // Clean up properties on UI thread to avoid RPC_E_WRONG_THREAD error
-            Logger.Info("Cleaning up properties during disconnect...");
-            try
-            {
-                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-                {
-                    try
-                    {
-                        properties.Cleanup();
-                        Logger.Info("Properties cleaned up.");
-
-                        // Show connection status banner since we're disconnected
-                        ShowConnectionBanner(BannerState.Disconnected);
-                        Logger.Info("Connection status banner shown - disconnected from helper.");
-                    }
-                    catch (Exception cleanupEx)
-                    {
-                        Logger.Error($"Error in properties cleanup: {cleanupEx.Message}");
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error dispatching properties cleanup: {ex.Message}");
-            }
-
-            // Clean up widget activity - capture to local var to avoid race condition
-            var activity = widgetActivity;
-            if (activity != null)
-            {
-                Logger.Info("Completing and disposing widget activity.");
-                try
-                {
-                    activity.Complete();
-                    Logger.Info("Widget activity stopped successfully.");
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"Error completing widget activity: {ex.Message}");
-                }
-                finally
-                {
-                    widgetActivity = null;
-                }
-            }
-            else
-            {
-                Logger.Info("WidgetActivity was already null during disconnect.");
-            }
-
-            // Relaunch if we're running as a widget (not standalone app)
-            // AND we don't already have a connection (prevents duplicate launches)
-            // Accept any disconnection reason since helper may exit gracefully (e.g., PawnIO install, restart)
-            bool shouldRelaunch = widget != null && !App.IsConnected;
-
-            if (shouldRelaunch)
-            {
-                Logger.Info($"Widget disconnected (reason: {eventArgs?.Reason.ToString() ?? "Unknown"}), waiting for helper reconnection...");
-
-                // Wait for helper to reconnect naturally (it has a 1-second retry loop)
-                // This avoids triggering unnecessary UAC prompts when helper is still running
-                await Task.Delay(3000);
-
-                // Check if reconnected during the wait
-                if (App.IsConnected)
-                {
-                    Logger.Info("Helper reconnected during wait period, no relaunch needed.");
-                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-                    {
-                        HideConnectionBanner();
-                    });
-                    return;
-                }
-
-                // Force launch helper since we waited and connection didn't recover
-                // Helper has mutex protection so it will restart cleanly
-                await LaunchHelperWithGuardsAsync("AppServiceDisconnected - reconnection timeout", forceLaunch: true);
-            }
-            else
-            {
-                Logger.Info($"Skipping relaunch. Widget is null: {widget == null}, Reason: {eventArgs?.Reason.ToString() ?? "Unknown"}, Connection exists: {App.Connection != null}");
-            }
         }
 
         private async void GamingWidget_RequestedThemeChanged(XboxGameBarWidget sender, object args)
@@ -13701,75 +13354,6 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Handle calculation request from desktop process
-        /// (dummy scenario to show that connection is bi-directional)
-        /// </summary>
-        private async void AppServiceConnection_RequestReceived(object sender, AppServiceRequestReceivedEventArgs args)
-        {
-            try
-            {
-                // Only process messages if this is the active widget instance
-                // This prevents multiple instances from handling the same message
-                var activeWidget = App.GetActiveGamingWidget();
-                if (activeWidget != null && activeWidget != this)
-                {
-                    Logger.Info($"Widget received message {args.Request.Message.ToDebugString()} from helper, but this is NOT the active instance. Ignoring.");
-                    return;
-                }
-
-                Logger.Info($"Widget received message {args.Request.Message.ToDebugString()} from helper.");
-
-                // Check for focus widget request from helper
-                if (args.Request.Message.TryGetValue("Function", out object funcObj) &&
-                    (int)funcObj == (int)Shared.Enums.Function.Labs_FocusWidget)
-                {
-                    Logger.Info("Focus widget request received from helper");
-                    await FocusThisWidgetAsync();
-                    return;
-                }
-
-                // Skip TDP and CurrentTDP updates during Sticky TDP reapply to prevent flicker and race conditions
-                if (isStickyTDPReapplying && args.Request.Message.ContainsKey("Function"))
-                {
-                    var function = (int)args.Request.Message["Function"];
-                    if (function == (int)Shared.Enums.Function.TDP)
-                    {
-                        Logger.Info("Skipping TDP slider update during Sticky TDP reapply to prevent flicker.");
-                        return;
-                    }
-                    if (function == (int)Shared.Enums.Function.CurrentTDP)
-                    {
-                        Logger.Info("Skipping CurrentTDP update during Sticky TDP reapply to prevent race condition.");
-                        return;
-                    }
-                }
-
-                // Set flag to prevent auto-save when helper updates slider values
-                isApplyingHelperUpdate = true;
-                try
-                {
-                    await properties.OnRequestReceived(args.Request);
-
-                    // Wait a bit for async ValueChanged events to complete before clearing the flag
-                    // This prevents race condition where ValueChanged fires after flag is cleared
-                    await Task.Delay(50);
-                }
-                finally
-                {
-                    isApplyingHelperUpdate = false;
-                }
-
-                Logger.Info($"Widget finished processing message {args.Request.Message.ToDebugString()}.");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error processing message from helper: {ex.Message}");
-                Logger.Error($"Exception Type: {ex.GetType().FullName}");
-                Logger.Error($"Stack Trace: {ex.StackTrace}");
-            }
-        }
-
-        /// <summary>
         /// Focus this widget using XboxGameBarWidgetControl API.
         /// Called when helper sends Labs_FocusWidget command.
         /// </summary>
@@ -13797,7 +13381,6 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Handles messages received from helper via Named Pipe.
-        /// Similar to AppServiceConnection_RequestReceived but for pipe communication.
         /// </summary>
         private async void PipeClient_MessageReceived(object sender, IPC.PipeMessageEventArgs e)
         {
@@ -13937,19 +13520,15 @@ namespace XboxGamingBar
             App.PipeMessageReceived -= PipeClient_MessageReceived;
             App.PipeDisconnected -= PipeClient_Disconnected;
 
-            // If AppService is also disconnected, show disconnected banner
-            if (App.Connection == null)
+            // Show disconnected banner
+            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
             {
-                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-                {
-                    ShowConnectionBanner(BannerState.Disconnected);
-                });
-            }
+                ShowConnectionBanner(BannerState.Disconnected);
+            });
         }
 
         /// <summary>
-        /// Called when pipe connection is established (when AppService hasn't connected yet).
-        /// This handles the case when the helper is running elevated and can't use AppService.
+        /// Called when pipe connection is established.
         /// </summary>
         private async Task OnPipeConnectedAsync()
         {

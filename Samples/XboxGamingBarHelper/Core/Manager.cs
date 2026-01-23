@@ -1,6 +1,5 @@
 ﻿using System;
 using NLog;
-using Windows.ApplicationModel.AppService;
 
 namespace XboxGamingBarHelper.Core
 {
@@ -9,12 +8,9 @@ namespace XboxGamingBarHelper.Core
         protected static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private bool disposed = false;
 
-        protected Manager(AppServiceConnection connection)
+        protected Manager()
         {
-            Connection = connection;
         }
-
-        public AppServiceConnection Connection { get; set; }
 
         public virtual void Update()
         {

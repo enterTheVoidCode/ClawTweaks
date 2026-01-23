@@ -3,12 +3,11 @@ using Shared.Enums;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
 
 namespace Shared.Data
 {
-    public abstract class FunctionalProperties
+    public class FunctionalProperties
     {
         protected static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
@@ -58,53 +57,6 @@ namespace Shared.Data
                     Logger.Warn($"Property {property.Function} already exists, skipping");
                 }
             }
-        }
-
-        public async Task OnRequestReceived(AppServiceRequest request)
-        {
-            var function = (Function)request.Message[nameof(Function)];
-            if (function == Function.None)
-            {
-                return;
-            }
-
-            FunctionalProperty property;
-            lock (properties)
-            {
-                if (!properties.TryGetValue(function, out property))
-                {
-                    Logger.Error($"Property {function} not found.");
-                    return;
-                }
-            }
-
-            var command = (Command)request.Message[nameof(Command)];
-            var response = new ValueSet();
-            switch (command)
-            {
-                case Command.Get:
-                    response = property.AddValueSetContent(response);
-                    break;
-                case Command.Set:
-                    // Suppress remote sync to prevent echoing values back to sender
-                    // This prevents message ping-pong loops between widget and helper
-                    property.SuppressRemoteSync = true;
-                    try
-                    {
-                        property.SetValue(request.Message[nameof(Content)], (long)request.Message[nameof(UpdatedTime)]);
-                    }
-                    finally
-                    {
-                        property.SuppressRemoteSync = false;
-                    }
-                    response.Add(nameof(Content), "Success");
-                    break;
-                default:
-                    Logger.Error($"Can't process command {command}");
-                    break;
-            }
-            var sendResponseResult = await SendResponse(request, response);
-            Logger.Debug($"Sent response {function} {sendResponseResult}.");
         }
 
         /// <summary>
@@ -200,7 +152,5 @@ namespace Shared.Data
 
             return response;
         }
-
-        protected abstract Task<AppServiceResponseStatus> SendResponse(AppServiceRequest request, ValueSet response);
     }
 }

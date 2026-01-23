@@ -1,5 +1,4 @@
-﻿using Windows.ApplicationModel.AppService;
-using XboxGamingBarHelper.Core;
+﻿using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.OnScreenDisplay
 {
@@ -7,7 +6,7 @@ namespace XboxGamingBarHelper.OnScreenDisplay
     {
         protected int onScreenDisplayLevel;
 
-        protected OnScreenDisplayManager(AppServiceConnection connection) : base(connection)
+        protected OnScreenDisplayManager()
         {
             onScreenDisplayLevel = 0;
         }

@@ -2,7 +2,6 @@
 using Shared.Enums;
 using System;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
 
 namespace XboxGamingBarHelper.Core
@@ -36,9 +35,9 @@ namespace XboxGamingBarHelper.Core
             get { return manager; }
         }
 
-        protected override Task<AppServiceResponse> SendMessageAsync(ValueSet request)
+        protected override Task<object> SendMessageAsync(ValueSet request)
         {
-            // First try Named Pipes (works when running via scheduled task)
+            // Send via Named Pipe
             if (Program.IsPipeConnected)
             {
                 try
@@ -47,8 +46,7 @@ namespace XboxGamingBarHelper.Core
                     if (Program.SendPipeMessage(pipeMsg))
                     {
                         Logger.Debug($"Property {Function} sent update via Named Pipe.");
-                        // Return a completed task - pipe doesn't return AppServiceResponse
-                        return Task.FromResult<AppServiceResponse>(null);
+                        return Task.FromResult<object>(null);
                     }
                 }
                 catch (Exception ex)
@@ -57,20 +55,8 @@ namespace XboxGamingBarHelper.Core
                 }
             }
 
-            // Fall back to AppService (works when running in package context)
-            if (Manager == null)
-            {
-                Logger.Debug($"Property {Function}'s manager is null, skipping AppService send.");
-                return null;
-            }
-
-            if (Manager.Connection == null)
-            {
-                Logger.Debug($"Property {Function}'s manager doesn't have connection, skipping AppService send.");
-                return null;
-            }
-
-            return Manager.Connection.SendMessageAsync(request).AsTask();
+            Logger.Debug($"Property {Function} not sent - pipe not connected.");
+            return null;
         }
     }
 }

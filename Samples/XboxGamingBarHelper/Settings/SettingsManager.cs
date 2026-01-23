@@ -1,16 +1,15 @@
-﻿using Windows.ApplicationModel.AppService;
-using XboxGamingBarHelper.Core;
+﻿using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Settings
 {
     internal class SettingsManager : Manager
     {
         private static SettingsManager instance;
-        public static SettingsManager CreateInstance(AppServiceConnection connection)
+        public static SettingsManager CreateInstance()
         {
             if (instance == null)
             {
-                instance = new SettingsManager(connection);
+                instance = new SettingsManager();
             }
             return instance;
         }
@@ -78,7 +77,7 @@ namespace XboxGamingBarHelper.Settings
             get { return profileBlacklistPaths; }
         }
 
-        protected SettingsManager(AppServiceConnection connection) : base(connection)
+        protected SettingsManager() : base()
         {
             autoStartRTSS = new AutoStartRTSSProperty(this);
             onScreenDisplayProvider = new OnScreenDisplayProviderProperty(this);

@@ -2,7 +2,6 @@
 using Shared.Data;
 using Shared.Enums;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
 
 namespace XboxGamingBar.Data
@@ -14,7 +13,7 @@ namespace XboxGamingBar.Data
         }
 
         /// <summary>
-        /// Override Sync to use the unified App.SendMessageAsync which works with both pipe and AppService.
+        /// Override Sync to use the unified App.SendMessageAsync for Named Pipe communication.
         /// </summary>
         public override async Task Sync()
         {
@@ -63,27 +62,24 @@ namespace XboxGamingBar.Data
             }
         }
 
-        protected override Task<AppServiceResponse> SendMessageAsync(ValueSet request)
+        protected override async Task<object> SendMessageAsync(ValueSet request)
         {
-            // This method is only used by the base class when AppService is available
-            if (App.Connection == null)
+            if (!App.IsConnected)
             {
-                Logger.Warn($"Widget property {function} doesn't have connection.");
+                Logger.Debug($"Widget property {function} - not connected.");
                 return null;
             }
 
-            return App.Connection.SendMessageAsync(request).AsTask();
+            return await App.SendMessageAsync(request);
         }
 
         /// <summary>
-        /// Override NotifyPropertyChanged to use App.SendMessageAsync which handles both pipe and AppService.
-        /// We call InvokePropertyChanged directly to fire the INotifyPropertyChanged event
-        /// without going through FunctionalProperty.NotifyPropertyChanged which uses AppServiceConnection.
+        /// Override NotifyPropertyChanged to use App.SendMessageAsync for Named Pipe communication.
+        /// We call InvokePropertyChanged directly to fire the INotifyPropertyChanged event.
         /// </summary>
         protected override async void NotifyPropertyChanged(string propertyName = "")
         {
             // Call InvokePropertyChanged directly to trigger INotifyPropertyChanged events
-            // This bypasses FunctionalProperty.NotifyPropertyChanged which uses AppService
             InvokePropertyChanged(propertyName);
 
             // Skip sending to remote if suppressed (e.g., during batch sync)
@@ -92,7 +88,6 @@ namespace XboxGamingBar.Data
                 return;
             }
 
-            // Use App.IsConnected which checks both pipe and AppService
             if (!App.IsConnected)
             {
                 Logger.Debug($"Widget property {function} - skipping remote sync (not connected).");
@@ -129,7 +124,7 @@ namespace XboxGamingBar.Data
                 }
                 else
                 {
-                    Logger.Warn($"Got no response when notifying property {function}.");
+                    Logger.Debug($"Got no response when notifying property {function}.");
                 }
             }
             catch (Exception ex)

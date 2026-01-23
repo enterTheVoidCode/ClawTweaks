@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
-using Windows.ApplicationModel.AppService;
 using XboxGamingBarHelper.AutoTDP;
 using XboxGamingBarHelper.Legion;
 using XboxGamingBarHelper.OnScreenDisplay;
@@ -144,7 +143,7 @@ namespace XboxGamingBarHelper.RTSS
             { 3, new Dictionary<string, string>() }
         };
 
-        public RTSSManager(PerformanceManager performanceManager, AppServiceConnection connection) : base(connection)
+        public RTSSManager(PerformanceManager performanceManager) : base()
         {
             rtssInstalled = new RTSSInstalledProperty(this);
             osdConfig = new OSDConfigProperty(this);
