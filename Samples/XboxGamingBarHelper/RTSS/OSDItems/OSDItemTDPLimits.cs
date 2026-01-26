@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Drawing;
-using XboxGamingBarHelper.Legion;
+using XboxGamingBarHelper.Devices.Libraries.Legion;
 using XboxGamingBarHelper.Performance;
 
 namespace XboxGamingBarHelper.RTSS.OSDItems

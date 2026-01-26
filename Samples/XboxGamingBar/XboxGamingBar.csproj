@@ -153,6 +153,11 @@
     <Compile Include="Data\LosslessScalingBringToForegroundProperty.cs" />
     <Compile Include="Data\LosslessScalingLaunchProperty.cs" />
     <Compile Include="Data\LegionGoDetectedProperty.cs" />
+    <Compile Include="Data\GPDDetectedProperty.cs" />
+    <Compile Include="Data\GPDWin5ConnectedProperty.cs" />
+    <Compile Include="Data\GPDFanSpeedProperty.cs" />
+    <Compile Include="Data\GPDFanRPMProperty.cs" />
+    <Compile Include="Data\GPDFanModeProperty.cs" />
     <Compile Include="Data\LegionTouchpadEnabledProperty.cs" />
     <Compile Include="Data\LegionLightModeProperty.cs" />
     <Compile Include="Data\LegionLightColorProperty.cs" />

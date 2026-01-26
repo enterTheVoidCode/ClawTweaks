@@ -60,6 +60,16 @@ namespace XboxGamingBarHelper.Core
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
+        // UIPI (User Interface Privilege Isolation) - allow WM_HOTKEY through elevation boundary
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool ChangeWindowMessageFilterEx(IntPtr hwnd, uint message, uint action, IntPtr changeFilterStruct);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool ChangeWindowMessageFilter(uint message, uint dwFlag);
+
+        private const uint MSGFLT_ALLOW = 1;
+        private const uint MSGFLT_ADD = 1; // For ChangeWindowMessageFilter (process-wide)
+
         [StructLayout(LayoutKind.Sequential)]
         private struct MSG
         {
@@ -139,6 +149,19 @@ namespace XboxGamingBarHelper.Core
                 }
 
                 Logger.Info($"HotkeyManager: Message window created (hwnd: {_hwnd})");
+
+                // Allow WM_HOTKEY messages through UIPI (required for elevated processes)
+                // WM_HOTKEY is posted to the thread's message queue, so use process-wide filter
+                if (!ChangeWindowMessageFilter(WM_HOTKEY, MSGFLT_ADD))
+                {
+                    int error = Marshal.GetLastWin32Error();
+                    Logger.Warn($"HotkeyManager: ChangeWindowMessageFilter failed. Error: {error}");
+                }
+                else
+                {
+                    Logger.Info("HotkeyManager: UIPI filter enabled for WM_HOTKEY (process-wide)");
+                }
+
                 _windowCreatedEvent.Set();
 
                 // Message pump

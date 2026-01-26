@@ -758,7 +758,8 @@ namespace XboxGamingBarHelper.Windows
         private static extern short VkKeyScan(char ch);
 
         /// <summary>
-        /// Parse and send a keyboard shortcut string (e.g., "Ctrl+Shift+S", "Alt+F4", "Win+G")
+        /// Parse and send a keyboard shortcut string (e.g., "Ctrl+Shift+S", "Alt+F4", "Win+G", "A+B+C")
+        /// Supports multiple non-modifier keys for macro-style shortcuts
         /// </summary>
         public static bool SendKeyboardShortcut(string shortcut)
         {
@@ -772,7 +773,7 @@ namespace XboxGamingBarHelper.Windows
             {
                 var parts = shortcut.Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
                 var modifiers = new List<int>();
-                int mainKey = 0;
+                var mainKeys = new List<int>(); // Support multiple non-modifier keys
 
                 foreach (var part in parts)
                 {
@@ -801,16 +802,17 @@ namespace XboxGamingBarHelper.Windows
                     }
                     else
                     {
-                        mainKey = GetVirtualKeyCode(trimmed);
-                        if (mainKey == 0)
+                        int keyCode = GetVirtualKeyCode(trimmed);
+                        if (keyCode == 0)
                         {
                             Logger.Warn($"Unknown key in shortcut: {trimmed}");
                             return false;
                         }
+                        mainKeys.Add(keyCode); // Add to list instead of overwriting
                     }
                 }
 
-                if (mainKey == 0 && modifiers.Count == 0)
+                if (mainKeys.Count == 0 && modifiers.Count == 0)
                 {
                     Logger.Warn($"No valid keys found in shortcut: {shortcut}");
                     return false;
@@ -823,12 +825,17 @@ namespace XboxGamingBarHelper.Windows
                     Sleep(10);
                 }
 
-                // Press and release main key
-                if (mainKey != 0)
+                // Press all main keys
+                foreach (var key in mainKeys)
                 {
-                    SendSingleKey((ushort)mainKey, false);
+                    SendSingleKey((ushort)key, false);
                     Sleep(10);
-                    SendSingleKey((ushort)mainKey, true);
+                }
+
+                // Release all main keys in reverse order
+                for (int i = mainKeys.Count - 1; i >= 0; i--)
+                {
+                    SendSingleKey((ushort)mainKeys[i], true);
                     Sleep(10);
                 }
 
@@ -841,7 +848,7 @@ namespace XboxGamingBarHelper.Windows
 
                 Sleep(50);
 
-                Logger.Info($"Sent keyboard shortcut: {shortcut}");
+                Logger.Info($"Sent keyboard shortcut: {shortcut} (modifiers: {modifiers.Count}, keys: {mainKeys.Count})");
                 return true;
             }
             catch (Exception ex)
@@ -866,6 +873,11 @@ namespace XboxGamingBarHelper.Windows
             inputs[0].u.ki.dwFlags = flags;
 
             var result = SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+            if (result != 1)
+            {
+                var error = Marshal.GetLastWin32Error();
+                Logger.Warn($"SendInput failed for VK=0x{vk:X2} keyUp={keyUp}: result={result}, error={error}");
+            }
             return result == 1;
         }
 

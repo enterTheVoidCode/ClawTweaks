@@ -52,7 +52,7 @@ namespace XboxGamingBarHelper.Profile
             return _localFolderPath;
         }
 
-        public readonly GameProfile GlobalProfile;
+        public GameProfile GlobalProfile;
 
         private readonly Dictionary<GameId, GameProfile> gameProfiles;
         public IReadOnlyDictionary<GameId, GameProfile> GameProfiles

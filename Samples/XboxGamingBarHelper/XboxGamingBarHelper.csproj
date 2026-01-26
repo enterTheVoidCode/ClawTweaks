@@ -377,6 +377,7 @@
     <Compile Include="Core\HelperProperties.cs" />
     <Compile Include="Core\HelperProperty.cs" />
     <Compile Include="Core\HotkeyManager.cs" />
+    <Compile Include="Core\ControllerHotkeyMonitor.cs" />
     <Compile Include="Core\IManager.cs" />
     <Compile Include="Core\Manager.cs" />
     <Compile Include="OnScreenDisplay\IOnScreenDisplayProvider.cs" />
@@ -472,12 +473,6 @@
     <Compile Include="Settings\LocalSettingsHelper.cs" />
     <Compile Include="Settings\SettingsManager.cs" />
     <Compile Include="Systems\ForegroundAppProperty.cs" />
-    <Compile Include="Legion\LegionGoLibrary.cs" />
-    <Compile Include="Legion\LegionManager.cs" />
-    <Compile Include="Legion\LegionProperties.cs" />
-    <Compile Include="..\..\LegionGoController.cs">
-      <Link>Legion\LegionGoController.cs</Link>
-    </Compile>
     <Compile Include="PawnIO\PawnIOWrapper.cs" />
     <Compile Include="PawnIO\RyzenSmuService.cs" />
     <Compile Include="AutoTDP\AutoTDPManager.cs" />
@@ -501,6 +496,25 @@
     <Compile Include="Windows\ProcessWindow.cs" />
     <Compile Include="Windows\User32.cs" />
     <Compile Include="Systems\SystemManager.cs" />
+    <Compile Include="Devices\DeviceConfig.cs" />
+    <Compile Include="Devices\DeviceDetector.cs" />
+    <Compile Include="Devices\DeviceRegistry.cs" />
+    <Compile Include="Devices\LegionGo\LegionGoConfig.cs" />
+    <Compile Include="Devices\LegionGo2\LegionGo2Config.cs" />
+    <Compile Include="Devices\LegionGoS\LegionGoSConfig.cs" />
+    <Compile Include="Devices\GPD\GPDWinMiniConfig.cs" />
+    <Compile Include="Devices\GPD\GPDWin4Config.cs" />
+    <Compile Include="Devices\GPD\GPDWin5Config.cs" />
+    <Compile Include="Devices\Libraries\Legion\LegionGoController.cs" />
+    <Compile Include="Devices\Libraries\Legion\LegionGoLibrary.cs" />
+    <Compile Include="Devices\Libraries\Legion\LegionManager.cs" />
+    <Compile Include="Devices\Libraries\Legion\LegionProperties.cs" />
+    <Compile Include="Devices\EC\EcController.cs" />
+    <Compile Include="Devices\Libraries\GPD\GPDManager.cs" />
+    <Compile Include="Devices\Libraries\GPD\GPDProperties.cs" />
+    <Compile Include="Devices\Libraries\GPD\GPDFanController.cs" />
+    <Compile Include="Devices\Libraries\GPD\GPDWin5Controller.cs" />
+    <Compile Include="Devices\Libraries\GPD\GPDWin5Keycodes.cs" />
     <Compile Include="DefaultGameProfiles\CpuDetector.cs" />
     <Compile Include="DefaultGameProfiles\ProfileParser.cs" />
     <Compile Include="DefaultGameProfiles\DefaultGameProfileService.cs" />

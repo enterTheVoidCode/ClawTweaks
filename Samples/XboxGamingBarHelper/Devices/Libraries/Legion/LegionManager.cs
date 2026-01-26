@@ -1,15 +1,15 @@
-using LegionGo;
-using LegionGoLibrary;
 using NLog;
+using Shared.Data;
 using Shared.Enums;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Windows.Storage;
 using XboxGamingBarHelper.Core;
+using XboxGamingBarHelper.Devices;
 using XboxGamingBarHelper.Performance;
 
-namespace XboxGamingBarHelper.Legion
+namespace XboxGamingBarHelper.Devices.Libraries.Legion
 {
     /// <summary>
     /// Manager for Legion Go hardware features including controller RGB, touchpad, and performance modes.
@@ -23,6 +23,7 @@ namespace XboxGamingBarHelper.Legion
         private LenovoWMIService wmiService;
 
         // Device detection
+        private DeviceInfo deviceInfo;
         private bool isLegionGoDetected = false;
         private bool isControllerConnected = false;
 
@@ -111,6 +112,11 @@ namespace XboxGamingBarHelper.Legion
         private const int PERFORMANCE_MODE_DEBOUNCE_MS = 150;
 
         // Properties
+        /// <summary>
+        /// Gets the detected device information (manufacturer, model, features)
+        /// </summary>
+        public DeviceInfo DetectedDevice => deviceInfo ?? new DeviceInfo();
+
         public readonly LegionGoDetectedProperty LegionGoDetected;
         public readonly LegionTouchpadEnabledProperty LegionTouchpadEnabled;
         public readonly LegionLightModeProperty LegionLightMode;
@@ -437,46 +443,82 @@ namespace XboxGamingBarHelper.Legion
             {
                 var stepTimer = System.Diagnostics.Stopwatch.StartNew();
 
-                // Try WMI detection first (works even without controllers attached)
-                // Instead of slow ListWMIClasses (1000ms+), directly try a known WMI method
-                wmiService = new LenovoWMIService();
-                Logger.Info($"[TIMING] LenovoWMIService created: {stepTimer.ElapsedMilliseconds}ms");
+                // Step 1: Use DeviceDetector to get device info from WMI (Manufacturer, Model)
+                deviceInfo = DeviceDetector.DetectDevice();
+                Logger.Info($"[TIMING] DeviceDetector.DetectDevice: {stepTimer.ElapsedMilliseconds}ms");
                 stepTimer.Restart();
 
-                // Try GetSmartFanMode - if it works, this is a Legion device with GAMEZONE WMI
-                var fanModeResult = wmiService.GetSmartFanMode();
-                Logger.Info($"[TIMING] GetSmartFanMode (WMI check): {stepTimer.ElapsedMilliseconds}ms");
-                stepTimer.Restart();
-
-                if (fanModeResult.Success)
+                // Check if device is a known Legion model
+                if (deviceInfo.IsLegionDevice)
                 {
                     isLegionGoDetected = true;
-                    Logger.Info($"Legion Go detected via WMI (SmartFanMode={fanModeResult.Result})");
+                    Logger.Info($"Legion device detected via DeviceDetector: {deviceInfo.DeviceType} ({deviceInfo.Model})");
                 }
 
-                // Try to connect to controller service
-                controllerService = new LegionControllerService();
-                Logger.Info($"[TIMING] LegionControllerService created: {stepTimer.ElapsedMilliseconds}ms");
-                stepTimer.Restart();
-
-                var connectResult = controllerService.Connect();
-                Logger.Info($"[TIMING] Controller Connect: {stepTimer.ElapsedMilliseconds}ms");
-
-                if (connectResult.Success)
+                // If debug mode is active and device is NOT Legion, skip hardware fallback checks
+                // This allows testing non-Legion devices on actual Legion hardware
+                bool skipHardwareFallbacks = DeviceDetector.IsDebugModeActive && !deviceInfo.IsLegionDevice;
+                if (skipHardwareFallbacks)
                 {
-                    isControllerConnected = true;
-                    isLegionGoDetected = true;
-                    Logger.Info($"Legion Go controller connected: {connectResult.Message}");
+                    Logger.Warn("DEBUG MODE: Skipping Legion hardware fallback checks (non-Legion device override active)");
+                    deviceInfo.SupportsWmiTdp = false;
+                    deviceInfo.SupportsControllerRemap = false;
                 }
                 else
                 {
-                    Logger.Info($"Legion Go controller not connected: {connectResult.Message}");
+                    // Step 2: Validate WMI capability (even if model matches, verify GAMEZONE WMI works)
+                    wmiService = new LenovoWMIService();
+                    Logger.Info($"[TIMING] LenovoWMIService created: {stepTimer.ElapsedMilliseconds}ms");
+                    stepTimer.Restart();
+
+                    // Try GetSmartFanMode - if it works, this device supports Legion WMI TDP control
+                    var fanModeResult = wmiService.GetSmartFanMode();
+                    Logger.Info($"[TIMING] GetSmartFanMode (WMI check): {stepTimer.ElapsedMilliseconds}ms");
+                    stepTimer.Restart();
+
+                    if (fanModeResult.Success)
+                    {
+                        isLegionGoDetected = true;
+                        deviceInfo.SupportsWmiTdp = true;
+                        Logger.Info($"Legion WMI TDP control confirmed (SmartFanMode={fanModeResult.Result})");
+                    }
+                    else if (deviceInfo.IsLegionDevice)
+                    {
+                        // Model matches but WMI failed - log warning but keep detected
+                        Logger.Warn($"Legion device model detected but WMI TDP control unavailable");
+                        deviceInfo.SupportsWmiTdp = false;
+                    }
+
+                    // Step 3: Try to connect to controller service (for button remapping, RGB, etc.)
+                    controllerService = new LegionControllerService();
+                    Logger.Info($"[TIMING] LegionControllerService created: {stepTimer.ElapsedMilliseconds}ms");
+                    stepTimer.Restart();
+
+                    var connectResult = controllerService.Connect();
+                    Logger.Info($"[TIMING] Controller Connect: {stepTimer.ElapsedMilliseconds}ms");
+
+                    if (connectResult.Success)
+                    {
+                        isControllerConnected = true;
+                        isLegionGoDetected = true;
+                        deviceInfo.SupportsControllerRemap = true;
+                        Logger.Info($"Legion Go controller connected: {connectResult.Message}");
+                    }
+                    else
+                    {
+                        deviceInfo.SupportsControllerRemap = false;
+                        Logger.Info($"Legion Go controller not connected: {connectResult.Message}");
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error detecting Legion Go: {ex.Message}");
                 isLegionGoDetected = false;
+                if (deviceInfo == null)
+                {
+                    deviceInfo = new DeviceInfo();
+                }
             }
         }
 
@@ -1280,7 +1322,7 @@ namespace XboxGamingBarHelper.Legion
 
             try
             {
-                var vibLevel = (LegionGoLibrary.ControllerVibrationLevel)level;
+                var vibLevel = (ControllerVibrationLevel)level;
                 var result = controllerService.SetBothControllersVibration(vibLevel);
                 if (result.Success)
                 {
@@ -1373,7 +1415,7 @@ namespace XboxGamingBarHelper.Legion
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot set button mapping: controller not connected");
@@ -1381,19 +1423,19 @@ namespace XboxGamingBarHelper.Legion
                 }
 
                 // Map button index to RemappableButton enum
-                LegionGo.RemappableButton remapButton = buttonIndex switch
+                RemappableButton remapButton = buttonIndex switch
                 {
-                    0 => LegionGo.RemappableButton.Y1,
-                    1 => LegionGo.RemappableButton.Y2,
-                    2 => LegionGo.RemappableButton.Y3,
-                    3 => LegionGo.RemappableButton.M1,
-                    4 => LegionGo.RemappableButton.M2,
-                    5 => LegionGo.RemappableButton.M3,
+                    0 => RemappableButton.Y1,
+                    1 => RemappableButton.Y2,
+                    2 => RemappableButton.Y3,
+                    3 => RemappableButton.M1,
+                    4 => RemappableButton.M2,
+                    5 => RemappableButton.M3,
                     _ => throw new ArgumentException($"Invalid button index: {buttonIndex}")
                 };
 
                 // Log the button details for debugging
-                var ctrl = LegionGo.LegionGoController.GetControllerForButton(remapButton);
+                var ctrl = LegionGoController.GetControllerForButton(remapButton);
                 Logger.Info($"SetButtonMappingAdvanced: buttonIndex={buttonIndex}, button={remapButton}(0x{(byte)remapButton:X2}), controller={ctrl}(0x{(byte)ctrl:X2}), mappingType={mappingType}, values=[{string.Join(",", values ?? Array.Empty<int>())}]");
 
                 bool success;
@@ -1406,13 +1448,13 @@ namespace XboxGamingBarHelper.Legion
                 else
                 {
                     // Set mapping with type
-                    var type = (LegionGo.MappingType)(mappingType + 1);  // 0→1, 1→2, 2→3
+                    var type = (MappingType)(mappingType + 1);  // 0→1, 1→2, 2→3
                     byte[] mappings;
 
                     if (mappingType == 0)
                     {
                         // Gamepad: use RemapAction
-                        var action = LegionGo.RemapActionHelper.GetByIndex(values[0]);
+                        var action = RemapActionHelper.GetByIndex(values[0]);
                         mappings = new byte[] { (byte)action };
                     }
                     else
@@ -1446,18 +1488,18 @@ namespace XboxGamingBarHelper.Legion
         /// <param name="button">The GamepadButton to map (DesktopButton=0x25, PageButton=0x26)</param>
         /// <param name="mappingType">0=Gamepad, 1=Keyboard, 2=Mouse</param>
         /// <param name="values">Mapping values (key codes, button codes, etc.)</param>
-        public void SetLegionButtonMapping(LegionGo.GamepadButton button, int mappingType, int[] values)
+        public void SetLegionButtonMapping(GamepadButton button, int mappingType, int[] values)
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn($"Cannot set {button} mapping: controller not connected");
                     return;
                 }
 
-                var type = (LegionGo.MappingType)(mappingType + 1); // 0->Gamepad(1), 1->Keyboard(2), 2->Mouse(3)
+                var type = (MappingType)(mappingType + 1); // 0->Gamepad(1), 1->Keyboard(2), 2->Mouse(3)
                 byte[] mappings;
 
                 if (mappingType == 0)
@@ -1470,7 +1512,7 @@ namespace XboxGamingBarHelper.Legion
                         Logger.Info($"{button} mapping cleared (disabled)");
                         return;
                     }
-                    var action = LegionGo.RemapActionHelper.GetByIndex(values.Length > 0 ? values[0] : 0);
+                    var action = RemapActionHelper.GetByIndex(values.Length > 0 ? values[0] : 0);
                     mappings = new byte[] { (byte)action };
                 }
                 else
@@ -1503,7 +1545,7 @@ namespace XboxGamingBarHelper.Legion
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot set Nintendo layout: controller not connected");
@@ -1535,14 +1577,14 @@ namespace XboxGamingBarHelper.Legion
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot set vibration mode: controller not connected");
                     return;
                 }
 
-                LegionGo.VibrationMode vibMode = (LegionGo.VibrationMode)mode;
+                VibrationMode vibMode = (VibrationMode)mode;
                 bool success = controller.SetVibrationMode(vibMode);
                 if (success)
                 {
@@ -1581,7 +1623,7 @@ namespace XboxGamingBarHelper.Legion
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot set gyro target: controller not connected");
@@ -1589,13 +1631,13 @@ namespace XboxGamingBarHelper.Legion
                 }
 
                 // Map index to GyroTarget enum (0=Disabled maps to 0x01, etc.)
-                LegionGo.GyroTarget gyroTargetValue = target switch
+                GyroTarget gyroTargetValue = target switch
                 {
-                    0 => LegionGo.GyroTarget.Disabled,
-                    1 => LegionGo.GyroTarget.LeftStick,
-                    2 => LegionGo.GyroTarget.RightStick,
-                    3 => LegionGo.GyroTarget.Mouse,
-                    _ => LegionGo.GyroTarget.Disabled
+                    0 => GyroTarget.Disabled,
+                    1 => GyroTarget.LeftStick,
+                    2 => GyroTarget.RightStick,
+                    3 => GyroTarget.Mouse,
+                    _ => GyroTarget.Disabled
                 };
 
                 bool success = controller.SetGyroTarget(gyroTargetValue);
@@ -1667,18 +1709,18 @@ namespace XboxGamingBarHelper.Legion
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot apply gyro settings: controller not connected");
                     return;
                 }
 
-                LegionGo.GyroMappingType mappingTypeValue = gyroMappingType switch
+                GyroMappingType mappingTypeValue = gyroMappingType switch
                 {
-                    0 => LegionGo.GyroMappingType.Instant,
-                    1 => LegionGo.GyroMappingType.Continuous,
-                    _ => LegionGo.GyroMappingType.Instant
+                    0 => GyroMappingType.Instant,
+                    1 => GyroMappingType.Continuous,
+                    _ => GyroMappingType.Instant
                 };
 
                 bool success = controller.SetGyroSettings(mappingTypeValue, gyroSensitivityX, gyroSensitivityY, gyroInvertX, gyroInvertY);
@@ -1722,7 +1764,7 @@ namespace XboxGamingBarHelper.Legion
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot apply gyro activation: controller not connected");
@@ -1745,26 +1787,26 @@ namespace XboxGamingBarHelper.Legion
                 }
 
                 // Map index to GyroActivationMode
-                LegionGo.GyroActivationMode modeValue = gyroActivationMode switch
+                GyroActivationMode modeValue = gyroActivationMode switch
                 {
-                    0 => LegionGo.GyroActivationMode.Hold,
-                    1 => LegionGo.GyroActivationMode.Toggle,
-                    _ => LegionGo.GyroActivationMode.Hold
+                    0 => GyroActivationMode.Hold,
+                    1 => GyroActivationMode.Toggle,
+                    _ => GyroActivationMode.Hold
                 };
 
                 // Map index to GyroActivationButton (0=None is handled above)
                 // 1=LB, 2=LT, 3=RB, 4=RT, 5=Y1, 6=Y2, 7=M2, 8=M3
-                LegionGo.GyroActivationButton buttonValue = gyroActivationButton switch
+                GyroActivationButton buttonValue = gyroActivationButton switch
                 {
-                    1 => LegionGo.GyroActivationButton.LB,
-                    2 => LegionGo.GyroActivationButton.LT,
-                    3 => LegionGo.GyroActivationButton.RB,
-                    4 => LegionGo.GyroActivationButton.RT,
-                    5 => LegionGo.GyroActivationButton.Y1,
-                    6 => LegionGo.GyroActivationButton.Y2,
-                    7 => LegionGo.GyroActivationButton.M2,
-                    8 => LegionGo.GyroActivationButton.M3,
-                    _ => LegionGo.GyroActivationButton.None
+                    1 => GyroActivationButton.LB,
+                    2 => GyroActivationButton.LT,
+                    3 => GyroActivationButton.RB,
+                    4 => GyroActivationButton.RT,
+                    5 => GyroActivationButton.Y1,
+                    6 => GyroActivationButton.Y2,
+                    7 => GyroActivationButton.M2,
+                    8 => GyroActivationButton.M3,
+                    _ => GyroActivationButton.None
                 };
 
                 bool success = controller.SetGyroActivationButtons(modeValue, buttonValue);
@@ -1795,11 +1837,11 @@ namespace XboxGamingBarHelper.Legion
         /// <summary>
         /// Helper to apply advanced gyro settings with common logging/error handling.
         /// </summary>
-        private void ApplyAdvancedGyroSetting(string settingName, int value, Func<LegionGo.LegionGoController, bool> applyAction)
+        private void ApplyAdvancedGyroSetting(string settingName, int value, Func<LegionGoController, bool> applyAction)
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn($"Cannot apply gyro {settingName}: controller not connected");
@@ -1836,14 +1878,14 @@ namespace XboxGamingBarHelper.Legion
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot set left stick deadzone: controller not connected");
                     return;
                 }
 
-                bool success = controller.SetStickDeadzone(LegionGo.Controller.Left, percent);
+                bool success = controller.SetStickDeadzone(Controller.Left, percent);
                 if (success)
                 {
                     leftStickDeadzone = percent;
@@ -1867,14 +1909,14 @@ namespace XboxGamingBarHelper.Legion
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot set right stick deadzone: controller not connected");
                     return;
                 }
 
-                bool success = controller.SetStickDeadzone(LegionGo.Controller.Right, percent);
+                bool success = controller.SetStickDeadzone(Controller.Right, percent);
                 if (success)
                 {
                     rightStickDeadzone = percent;
@@ -1909,14 +1951,14 @@ namespace XboxGamingBarHelper.Legion
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot set left trigger travel: controller not connected");
                     return;
                 }
 
-                bool success = controller.SetTriggerTravel(LegionGo.Controller.Left, start, end);
+                bool success = controller.SetTriggerTravel(Controller.Left, start, end);
                 if (success)
                 {
                     leftTriggerStart = start;
@@ -1943,14 +1985,14 @@ namespace XboxGamingBarHelper.Legion
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot set right trigger travel: controller not connected");
                     return;
                 }
 
-                bool success = controller.SetTriggerTravel(LegionGo.Controller.Right, start, end);
+                bool success = controller.SetTriggerTravel(Controller.Right, start, end);
                 if (success)
                 {
                     rightTriggerStart = start;
@@ -1989,14 +2031,14 @@ namespace XboxGamingBarHelper.Legion
                     return;
                 }
 
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot set touchpad vibration: controller not connected");
                     return;
                 }
 
-                var vibLevel = (LegionGo.TouchpadVibrationLevel)level;
+                var vibLevel = (TouchpadVibrationLevel)level;
                 bool success = controller.SetTouchpadVibration(vibLevel);
                 if (success)
                 {
@@ -2082,14 +2124,14 @@ namespace XboxGamingBarHelper.Legion
         {
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot set joystick as mouse: controller not connected");
                     return;
                 }
 
-                var ctrl = isLeft ? LegionGo.Controller.Left : LegionGo.Controller.Right;
+                var ctrl = isLeft ? Controller.Left : Controller.Right;
                 bool success = controller.SetJoystickAsMouse(ctrl, enabled, sensitivity);
                 if (success)
                 {
@@ -2120,7 +2162,7 @@ namespace XboxGamingBarHelper.Legion
 
             try
             {
-                using var controller = new LegionGo.LegionGoController();
+                using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {
                     Logger.Warn("Cannot apply gamepad button mappings: controller not connected");
@@ -2137,7 +2179,7 @@ namespace XboxGamingBarHelper.Legion
                     string mappingJson = match.Groups[2].Value;
 
                     // Try to parse the button name to GamepadButton enum
-                    if (!Enum.TryParse<LegionGo.GamepadButton>(buttonName, out var button))
+                    if (!Enum.TryParse<GamepadButton>(buttonName, out var button))
                     {
                         Logger.Warn($"Unknown gamepad button: {buttonName}");
                         continue;
@@ -2156,19 +2198,19 @@ namespace XboxGamingBarHelper.Legion
 
                         // Step 2: Map button to itself (default behavior)
                         // This is needed for all buttons including sticks to restore axis properly
-                        controller.SetGamepadButtonMappingAdvanced(button, LegionGo.MappingType.Gamepad, new byte[] { (byte)button });
+                        controller.SetGamepadButtonMappingAdvanced(button, MappingType.Gamepad, new byte[] { (byte)button });
                         System.Threading.Thread.Sleep(HID_COMMAND_DELAY_MS); // Delay after remap before next button (fixes stick range issues)
                         Logger.Info($"Reset gamepad button {buttonName} to default (cleared then mapped to self: 0x{(byte)button:X2})");
                     }
                     else
                     {
-                        var mappingType = (LegionGo.MappingType)(type + 1); // 0->Gamepad(1), 1->Keyboard(2), 2->Mouse(3)
+                        var mappingType = (MappingType)(type + 1); // 0->Gamepad(1), 1->Keyboard(2), 2->Mouse(3)
                         byte[] mappings;
 
                         if (type == 0)
                         {
                             // Gamepad: use RemapActionHelper to convert dropdown index to HID button code
-                            var action = LegionGo.RemapActionHelper.GetByIndex(gamepadAction);
+                            var action = RemapActionHelper.GetByIndex(gamepadAction);
                             mappings = new byte[] { (byte)action };
                         }
                         else if (type == 1)
@@ -2259,7 +2301,7 @@ namespace XboxGamingBarHelper.Legion
         /// <summary>
         /// Handler for battery updates from the controller.
         /// </summary>
-        private void OnControllerBatteryUpdated(object sender, LegionGoLibrary.ControllerServiceBatteryEventArgs e)
+        private void OnControllerBatteryUpdated(object sender, ControllerServiceBatteryEventArgs e)
         {
             Logger.Debug($"Battery update received: L={e.LeftBattery}% ({(e.LeftCharging ? "charging" : "discharging")}), R={e.RightBattery}% ({(e.RightCharging ? "charging" : "discharging")})");
 

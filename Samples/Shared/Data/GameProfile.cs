@@ -456,6 +456,42 @@ namespace Shared.Data
             }
         }
 
+        /// <summary>
+        /// Performance overlay level (0=Off, 1=Basic, 2=Detailed, 3=Full for RTSS; 1-4 for AMD)
+        /// </summary>
+        [XmlElement("OverlayLevel")]
+        private int? overlayLevel;
+        public int? OverlayLevel
+        {
+            get { return overlayLevel; }
+            set
+            {
+                if (overlayLevel != value)
+                {
+                    overlayLevel = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
+        /// CPU Affinity configuration as "activePCores,activeECores" string
+        /// </summary>
+        [XmlElement("CPUAffinity")]
+        private string cpuAffinity;
+        public string CPUAffinity
+        {
+            get { return cpuAffinity; }
+            set
+            {
+                if (cpuAffinity != value)
+                {
+                    cpuAffinity = value;
+                    Save();
+                }
+            }
+        }
+
         // ========== Legion Controller Remapping ==========
 
         [XmlElement("LegionButtonY1")]
@@ -1086,6 +1122,9 @@ namespace Shared.Data
             hdrEnabled = false;
             resolution = null;
             stickyTDP = false;
+            // Overlay and CPU affinity
+            overlayLevel = null;
+            cpuAffinity = null;
             // Legion controller remapping (shared AC/DC)
             legionButtonY1 = null;
             legionButtonY2 = null;
@@ -1137,12 +1176,6 @@ namespace Shared.Data
 
         public static bool operator ==(GameProfile g1, GameProfile g2)
         {
-            if (ReferenceEquals(g1, g2))
-                return true;
-
-            if (ReferenceEquals(g1, null) || ReferenceEquals(g2, null))
-                return false;
-
             return g1.GameId == g2.GameId;
         }
 
