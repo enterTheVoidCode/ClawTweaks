@@ -6,7 +6,7 @@ using Shared.Data;
 using Shared.Utilities;
 using Windows.System.Power;
 using XboxGamingBarHelper.Core;
-using XboxGamingBarHelper.Legion;
+using XboxGamingBarHelper.Devices.Libraries.Legion;
 using XboxGamingBarHelper.Performance;
 using XboxGamingBarHelper.Profile;
 using XboxGamingBarHelper.RTSS;

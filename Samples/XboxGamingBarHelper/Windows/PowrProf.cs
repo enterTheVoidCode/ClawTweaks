@@ -75,5 +75,15 @@ namespace XboxGamingBarHelper.Windows
             ref Guid SubGroupOfPowerSettingsGuid,
             ref Guid PowerSettingGuid,
             uint DcValueIndex);
+
+        /// <summary>
+        /// Suspends or hibernates the system.
+        /// </summary>
+        /// <param name="bHibernate">If true, hibernates. If false, sleeps.</param>
+        /// <param name="bForce">If true, forces the suspension even if apps refuse.</param>
+        /// <param name="bWakeupEventsDisabled">If true, disables wake events.</param>
+        /// <returns>True if successful, false otherwise.</returns>
+        [DllImport("powrprof.dll", SetLastError = true)]
+        public static extern bool SetSuspendState(bool bHibernate, bool bForce, bool bWakeupEventsDisabled);
     }
 }

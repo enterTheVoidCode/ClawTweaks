@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using XboxGamingBarHelper.AutoTDP;
-using XboxGamingBarHelper.Legion;
+using XboxGamingBarHelper.Devices.Libraries.Legion;
 using XboxGamingBarHelper.OnScreenDisplay;
 using XboxGamingBarHelper.Performance;
 using XboxGamingBarHelper.RTSS.OSDItems;
@@ -608,6 +608,44 @@ namespace XboxGamingBarHelper.RTSS
         {
             displayOSDConfig = new DisplayOSDConfigProperty(this, setAdaptiveBrightness);
             Logger.Info("DisplayOSDConfig property initialized");
+        }
+
+        /// <summary>
+        /// Resets the RTSS connection after hibernate/suspend resume.
+        /// The OSD connection can become stale after hibernation, causing stale values.
+        /// This forces the OSD to be recreated on the next Update() cycle.
+        /// </summary>
+        public void ResetRTSSConnection()
+        {
+            Logger.Info("ResetRTSSConnection: Resetting RTSS OSD connection after hibernate resume");
+
+            lock (osdUpdateLock)
+            {
+                // Clear cached state
+                cachedOsdString = "";
+                cachedForegroundPid = 0;
+
+                // Dispose existing OSD connection
+                if (rtssOSD != null)
+                {
+                    try
+                    {
+                        rtssOSD.Update(string.Empty); // Clear OSD content first
+                        rtssOSD.Dispose();
+                        Logger.Info("ResetRTSSConnection: Disposed stale RTSS OSD");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"ResetRTSSConnection: Error disposing RTSS OSD: {ex.Message}");
+                    }
+                    rtssOSD = null;
+                }
+
+                // Reset state so OSD will be recreated
+                rtssState = RivatunerStatisticsServerState.NotRunning;
+            }
+
+            Logger.Info("ResetRTSSConnection: RTSS connection reset complete, OSD will be recreated on next update");
         }
 
         public override void Update()

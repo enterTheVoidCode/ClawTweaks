@@ -86,8 +86,14 @@
         TdpMethod_PawnIOInstalled,      // bool - whether PawnIO driver is installed (driver present, may not work for TDP yet)
         TdpMethod_InstallPawnIO,        // string - trigger to install PawnIO (write "install" to trigger)
 
+        // Device detection (agnostic, works for any device)
+        DeviceType,                 // int (DeviceType enum) - detected device type (Generic=0, LegionGo=1, LegionGoS=2)
+        DeviceManufacturer,         // string - device manufacturer (e.g., "LENOVO", "ASUS", "Valve")
+        DeviceModel,                // string - device model identifier (e.g., "83E1", "83N0")
+        DeviceSupportsWmiTdp,       // bool - whether device supports WMI-based TDP control
+
         // Legion Go specific functions
-        LegionGoDetected,           // bool - whether a Legion Go device is detected
+        LegionGoDetected,           // bool - whether a Legion Go device is detected (kept for backwards compatibility)
         LegionTouchpadEnabled,      // bool - touchpad on/off
         LegionLightMode,            // int - RGB mode (Off=0, Solid=1, Pulse=2, Dynamic=3, Spiral=4)
         LegionLightColor,           // string - hex color "#RRGGBB"
@@ -157,6 +163,31 @@
 
         // Legion Go Touchpad Vibration (GLOBAL setting)
         LegionTouchpadVibration,        // bool - on/off toggle for touchpad haptics
+
+        // GPD specific functions
+        GPDDetected,                    // bool - whether a GPD device is detected (Win Mini, Win 4, etc.)
+        GPDWin5Connected,               // bool - whether GPD Win 5 HID controller is connected
+        GPDRestoreDefaults,             // bool - trigger to restore default button mappings on Win 5
+        GPDFanSpeed,                    // int - fan speed percentage (0 = auto, 30-100 = manual)
+        GPDFanRPM,                      // int - current fan RPM (read-only, helper to widget)
+        GPDFanMode,                     // int - fan mode (0 = auto, 1 = manual)
+
+        // GPD Win 5 Button Remapping (ushort keycodes using GPDWin5Keycodes values)
+        GPDButtonA,                     // ushort - A button keycode
+        GPDButtonB,                     // ushort - B button keycode
+        GPDButtonX,                     // ushort - X button keycode
+        GPDButtonY,                     // ushort - Y button keycode
+        GPDButtonDPadUp,                // ushort - D-Pad Up keycode
+        GPDButtonDPadDown,              // ushort - D-Pad Down keycode
+        GPDButtonDPadLeft,              // ushort - D-Pad Left keycode
+        GPDButtonDPadRight,             // ushort - D-Pad Right keycode
+        GPDButtonL3,                    // ushort - L3 (left stick click) keycode
+        GPDButtonR3,                    // ushort - R3 (right stick click) keycode
+        GPDButtonR4,                    // ushort - R4 back paddle keycode
+        GPDButtonLSUp,                  // ushort - Left stick Up keycode
+        GPDButtonLSDown,                // ushort - Left stick Down keycode
+        GPDButtonLSLeft,                // ushort - Left stick Left keycode
+        GPDButtonLSRight,               // ushort - Left stick Right keycode
 
         // Controller Battery (read-only, from HID input reports)
         ControllerBatteryLeft,          // int - left controller battery (1-100, or -1 if unavailable)
@@ -230,6 +261,9 @@
         // ViGEmBus Driver
         ViGEmBusInstalled,              // bool - whether ViGEmBus driver is installed
         InstallViGEmBus,                // string - trigger to install ViGEmBus (write "install" to trigger)
+
+        // Controller Hotkey Settings (synced from widget to helper for XInput monitoring)
+        ControllerHotkeyConfig,         // string - JSON config for controller button combos (Menu+DPad, View+ABXY)
 
         // Debug/Development
         CheckLocalUpdate,               // Trigger: check for local AppPackages update (Debug)

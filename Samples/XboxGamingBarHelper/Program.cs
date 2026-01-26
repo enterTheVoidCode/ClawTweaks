@@ -19,7 +19,8 @@ using Windows.System;
 using Windows.UI.Input.Preview.Injection;
 using XboxGamingBarHelper.AMD;
 using XboxGamingBarHelper.Core;
-using XboxGamingBarHelper.Legion;
+using XboxGamingBarHelper.Devices.Libraries.GPD;
+using XboxGamingBarHelper.Devices.Libraries.Legion;
 using XboxGamingBarHelper.LosslessScaling;
 using XboxGamingBarHelper.OnScreenDisplay;
 using XboxGamingBarHelper.Performance;
@@ -74,6 +75,7 @@ namespace XboxGamingBarHelper
         private static LosslessScalingManager losslessScalingManager;
         private static SettingsManager settingsManager;
         private static LegionManager legionManager;
+        private static GPDManager gpdManager;
         private static AutoTDPManager autoTDPManager;
         private static DefaultGameProfileManager defaultGameProfileManager;
         private static List<IManager> Managers;
@@ -111,6 +113,12 @@ namespace XboxGamingBarHelper
         /// Hotkey manager for global keyboard shortcuts (Ctrl+Shift+D for Desktop Controls)
         /// </summary>
         private static HotkeyManager hotkeyManager;
+
+        /// <summary>
+        /// Controller hotkey monitor for gamepad button combos (Menu+DPad, View+ABXY)
+        /// Uses XInput to detect combos system-wide, including in games
+        /// </summary>
+        private static ControllerHotkeyMonitor controllerHotkeyMonitor;
 
         /// <summary>
         /// Named Pipe server for IPC with the widget (works when elevated via scheduled task)
@@ -940,7 +948,7 @@ del /f /q ""%~f0"" 2>nul
 
             // Wave 1: Independent managers (no dependencies) - run in parallel
             var wave1Timer = System.Diagnostics.Stopwatch.StartNew();
-            Logger.Info("Wave 1: PerformanceManager, ProfileManager, AMDManager, LosslessScalingManager, SettingsManager, LegionManager");
+            Logger.Info("Wave 1: PerformanceManager, ProfileManager, AMDManager, LosslessScalingManager, SettingsManager, LegionManager, GPDManager");
             LogManager.Flush();
 
             PerformanceManager tempPerfMgr = null;
@@ -949,6 +957,7 @@ del /f /q ""%~f0"" 2>nul
             LosslessScalingManager tempLosslessMgr = null;
             SettingsManager tempSettingsMgr = null;
             LegionManager tempLegionMgr = null;
+            GPDManager tempGpdMgr = null;
 
             var wave1Tasks = new[]
             {
@@ -975,6 +984,10 @@ del /f /q ""%~f0"" 2>nul
                 Task.Run(() => {
                     try { tempLegionMgr = new LegionManager(); Logger.Info("Wave1: LegionManager DONE"); }
                     catch (Exception ex) { Logger.Error(ex, "Wave1: LegionManager FAILED"); throw; }
+                }),
+                Task.Run(() => {
+                    try { tempGpdMgr = new GPDManager(); Logger.Info("Wave1: GPDManager DONE"); }
+                    catch (Exception ex) { Logger.Error(ex, "Wave1: GPDManager FAILED"); throw; }
                 })
             };
 
@@ -1001,6 +1014,7 @@ del /f /q ""%~f0"" 2>nul
             losslessScalingManager = tempLosslessMgr;
             settingsManager = tempSettingsMgr;
             legionManager = tempLegionMgr;
+            gpdManager = tempGpdMgr;
 
             wave1Timer.Stop();
             Logger.Info($"[TIMING] Wave 1 (parallel): {wave1Timer.ElapsedMilliseconds}ms");
@@ -1248,6 +1262,31 @@ del /f /q ""%~f0"" 2>nul
                 settingsManager.ProfileGamesOnly,
                 settingsManager.ProfileBlacklistPaths,
                 systemManager.ForegroundApp,
+                // GPD specific properties
+                gpdManager.GPDDetected,
+                gpdManager.Win5Connected,
+                gpdManager.RestoreDefaults,
+                // GPD Win 5 button remapping properties
+                gpdManager.ButtonA,
+                gpdManager.ButtonB,
+                gpdManager.ButtonX,
+                gpdManager.ButtonY,
+                gpdManager.ButtonDPadUp,
+                gpdManager.ButtonDPadDown,
+                gpdManager.ButtonDPadLeft,
+                gpdManager.ButtonDPadRight,
+                gpdManager.ButtonL3,
+                gpdManager.ButtonR3,
+                gpdManager.ButtonR4,
+                gpdManager.ButtonLSUp,
+                gpdManager.ButtonLSDown,
+                gpdManager.ButtonLSLeft,
+                gpdManager.ButtonLSRight,
+                // GPD fan control properties
+                gpdManager.FanSpeed,
+                gpdManager.FanRPM,
+                gpdManager.FanMode,
+                // Legion Go specific properties
                 legionManager.LegionGoDetected,
                 legionManager.LegionTouchpadEnabled,
                 legionManager.LegionLightMode,
@@ -1534,6 +1573,9 @@ del /f /q ""%~f0"" 2>nul
         private static void SystemManager_ResumeFromSleep(object sender)
         {
             Logger.Info("System resumed from sleep/hibernation, refreshing hardware sensors and re-applying profile.");
+
+            // Reset RTSS OSD connection (can become stale after hibernation, causing frozen OSD values)
+            rtssManager?.ResetRTSSConnection();
 
             // Force refresh hardware sensors (battery values can be stale after hibernation)
             performanceManager?.ForceRefreshHardware();
@@ -1994,12 +2036,8 @@ del /f /q ""%~f0"" 2>nul
                 legionManager.LegionVibrationMode.SetValue(profile.LegionVibrationMode.Value);
             }
 
-            // Lighting settings
-            if (profile.LegionLightMode.HasValue)
-            {
-                Logger.Debug($"Applying LegionLightMode: {profile.LegionLightMode.Value}");
-                legionManager.LegionLightMode.SetValue(profile.LegionLightMode.Value);
-            }
+            // Lighting settings - apply color, brightness, and speed BEFORE mode
+            // to prevent flash to white when mode is applied with old/default color
             if (!string.IsNullOrEmpty(profile.LegionLightColor))
             {
                 Logger.Debug($"Applying LegionLightColor: {profile.LegionLightColor}");
@@ -2014,6 +2052,12 @@ del /f /q ""%~f0"" 2>nul
             {
                 Logger.Debug($"Applying LegionLightSpeed: {profile.LegionLightSpeed.Value}");
                 legionManager.LegionLightSpeed.SetValue(profile.LegionLightSpeed.Value);
+            }
+            // Apply mode last so it uses the updated color/brightness/speed
+            if (profile.LegionLightMode.HasValue)
+            {
+                Logger.Debug($"Applying LegionLightMode: {profile.LegionLightMode.Value}");
+                legionManager.LegionLightMode.SetValue(profile.LegionLightMode.Value);
             }
             if (profile.LegionPowerLight.HasValue)
             {
@@ -2143,6 +2187,14 @@ del /f /q ""%~f0"" 2>nul
                 GameProfile gameProfile;
                 if (profileManager.PerGameProfile)
                 {
+                    // Don't enable per-game profile if there's no valid game running
+                    // This prevents race conditions when game closes and stale PerGameProfile=true arrives
+                    if (!systemManager.RunningGame.Value.IsValid())
+                    {
+                        Logger.Info("Ignoring PerGameProfile=true - no valid game running (stale message)");
+                        return;
+                    }
+
                     if (!profileManager.TryGetProfile(systemManager.RunningGame.Value.GameId, out gameProfile))
                     {
                         gameProfile = profileManager.AddNewProfile(systemManager.RunningGame.Value.GameId);
@@ -2381,6 +2433,54 @@ del /f /q ""%~f0"" 2>nul
                     return;
                 }
 
+                // Handle LaunchUrl request (for Donate button, etc.)
+                if (pipeMsg.Extra.TryGetValue("LaunchUrl", out object urlValue) && urlValue is string url)
+                {
+                    try
+                    {
+                        Logger.Info($"Pipe: LaunchUrl request received: {url}");
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = url,
+                            UseShellExecute = true
+                        });
+                        Logger.Info("Pipe: URL launched successfully");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: Failed to launch URL: {ex.Message}");
+                    }
+                    return;
+                }
+
+                // Handle hibernate request
+                if (pipeMsg.Extra.ContainsKey("Hibernate"))
+                {
+                    try
+                    {
+                        Logger.Info("Pipe: Hibernate request received - initiating system hibernation");
+                        bool success = Windows.PowrProf.SetSuspendState(
+                            bHibernate: true,      // Hibernate, not sleep
+                            bForce: false,         // Don't force - let apps save work
+                            bWakeupEventsDisabled: false);  // Allow wake events
+
+                        if (success)
+                        {
+                            Logger.Info("Pipe: Hibernate initiated successfully");
+                        }
+                        else
+                        {
+                            int error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+                            Logger.Error($"Pipe: Failed to initiate hibernate, Win32 error: {error}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: Failed to hibernate: {ex.Message}");
+                    }
+                    return;
+                }
+
                 // Handle export logs request
                 if (pipeMsg.Extra.ContainsKey("ExportLogs"))
                 {
@@ -2445,6 +2545,214 @@ del /f /q ""%~f0"" 2>nul
                     catch (Exception ex)
                     {
                         Logger.Error($"Pipe: Failed to export logs: {ex.Message}");
+                        response.Add("Success", false);
+                        response.Add("Error", ex.Message);
+                    }
+
+                    // Send response
+                    if (pipeServer != null && pipeServer.IsConnected)
+                    {
+                        var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                        responseMsg.RequestId = pipeMsg.RequestId;
+                        pipeServer.SendMessage(responseMsg.ToJson());
+                    }
+                    return;
+                }
+
+                // Handle export profiles request
+                if (pipeMsg.Extra.ContainsKey("ExportProfiles"))
+                {
+                    Logger.Info("Pipe: ExportProfiles request received");
+                    var response = new global::Windows.Foundation.Collections.ValueSet();
+                    try
+                    {
+                        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                        var exportPath = Path.Combine(desktopPath, $"GoTweaks_Profiles_{timestamp}.xml");
+
+                        // Collect all profiles for export
+                        var gameProfilesList = new List<Shared.Data.GameProfile>();
+                        foreach (var kvp in profileManager.GameProfiles)
+                        {
+                            gameProfilesList.Add(kvp.Value);
+                        }
+
+                        // Get app version from assembly
+                        var appVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown";
+
+                        // Parse global widget settings from message (sent by widget as serialized GlobalWidgetSettings)
+                        Shared.Data.GlobalWidgetSettings globalSettings = null;
+                        if (pipeMsg.Extra.TryGetValue("GlobalSettings", out object gsXml) && gsXml is string gsXmlStr)
+                        {
+                            try
+                            {
+                                // Deserialize the GlobalWidgetSettings directly
+                                globalSettings = Shared.Utilities.XmlHelper.FromXMLString<Shared.Data.GlobalWidgetSettings>(gsXmlStr);
+                                if (globalSettings != null)
+                                {
+                                    Logger.Info("Pipe: Global widget settings included in export");
+                                    Logger.Info($"  TDP Limits: Min={globalSettings.DeviceTDPMin}, Max={globalSettings.DeviceTDPMax}");
+                                }
+                            }
+                            catch (Exception gsEx)
+                            {
+                                Logger.Warn($"Pipe: Failed to parse global settings: {gsEx.Message}");
+                            }
+                        }
+
+                        // Create export container
+                        var export = new Shared.Data.ProfileExport(
+                            profileManager.GlobalProfile,
+                            gameProfilesList,
+                            appVersion,
+                            globalSettings
+                        );
+
+                        // Serialize to XML file
+                        if (Shared.Utilities.XmlHelper.ToXMLFile(export, exportPath))
+                        {
+                            Logger.Info($"Pipe: Profiles exported to: {exportPath}");
+                            Logger.Info($"  Global profile + {gameProfilesList.Count} game profile(s) exported");
+                            if (globalSettings != null)
+                                Logger.Info("  Global widget settings (Legion buttons, scroll wheel, TDP limits, OSD) included");
+                            response.Add("Success", true);
+                            response.Add("Path", exportPath);
+                            response.Add("ProfileCount", gameProfilesList.Count + 1); // +1 for global
+                        }
+                        else
+                        {
+                            throw new Exception("Failed to write XML file");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: Failed to export profiles: {ex.Message}");
+                        response.Add("Success", false);
+                        response.Add("Error", ex.Message);
+                    }
+
+                    // Send response
+                    if (pipeServer != null && pipeServer.IsConnected)
+                    {
+                        var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                        responseMsg.RequestId = pipeMsg.RequestId;
+                        pipeServer.SendMessage(responseMsg.ToJson());
+                    }
+                    return;
+                }
+
+                // Handle import profiles request
+                if (pipeMsg.Extra.ContainsKey("ImportProfiles"))
+                {
+                    Logger.Info("Pipe: ImportProfiles request received");
+                    var response = new global::Windows.Foundation.Collections.ValueSet();
+                    try
+                    {
+                        // Get import path from message
+                        var importPath = pipeMsg.Extra["ImportProfiles"] as string;
+                        if (string.IsNullOrEmpty(importPath) || !File.Exists(importPath))
+                        {
+                            throw new Exception($"Import file not found: {importPath}");
+                        }
+
+                        Logger.Info($"Pipe: Importing profiles from: {importPath}");
+
+                        // Deserialize the export file
+                        var import = Shared.Utilities.XmlHelper.FromXMLFile<Shared.Data.ProfileExport>(importPath);
+                        if (import == null)
+                        {
+                            throw new Exception("Failed to parse import file");
+                        }
+
+                        Logger.Info($"Pipe: Import file version {import.Version}, created {import.ExportDate} by app v{import.AppVersion}");
+
+                        int importedCount = 0;
+                        int skippedCount = 0;
+
+                        // Import global profile settings (merge into existing global)
+                        var globalProfile = profileManager.GlobalProfile;
+                        globalProfile.TDP = import.GlobalProfile.TDP;
+                        globalProfile.CPUBoost = import.GlobalProfile.CPUBoost;
+                        globalProfile.CPUEPP = import.GlobalProfile.CPUEPP;
+                        globalProfile.MaxCPUState = import.GlobalProfile.MaxCPUState;
+                        globalProfile.MinCPUState = import.GlobalProfile.MinCPUState;
+                        globalProfile.TDPBoostEnabled = import.GlobalProfile.TDPBoostEnabled;
+                        globalProfile.TDP_DC = import.GlobalProfile.TDP_DC;
+                        globalProfile.CPUBoost_DC = import.GlobalProfile.CPUBoost_DC;
+                        globalProfile.CPUEPP_DC = import.GlobalProfile.CPUEPP_DC;
+                        globalProfile.MaxCPUState_DC = import.GlobalProfile.MaxCPUState_DC;
+                        globalProfile.MinCPUState_DC = import.GlobalProfile.MinCPUState_DC;
+                        globalProfile.FPSLimit = import.GlobalProfile.FPSLimit;
+                        globalProfile.FPSLimit_DC = import.GlobalProfile.FPSLimit_DC;
+                        globalProfile.OSPowerMode = import.GlobalProfile.OSPowerMode;
+                        globalProfile.OSPowerMode_DC = import.GlobalProfile.OSPowerMode_DC;
+                        Logger.Info("Global profile settings imported");
+                        importedCount++;
+
+                        // Import game profiles
+                        var profilesFolder = Profile.ProfileManager.GetGameProfilesFolder();
+                        foreach (var gameProfile in import.GameProfiles)
+                        {
+                            try
+                            {
+                                // Generate profile path from game executable name
+                                var exeName = Path.GetFileNameWithoutExtension(gameProfile.GameId.Path);
+                                if (string.IsNullOrEmpty(exeName))
+                                {
+                                    Logger.Warn($"Skipping profile with empty path: {gameProfile.GameId.Name}");
+                                    skippedCount++;
+                                    continue;
+                                }
+
+                                var profilePath = Path.Combine(profilesFolder, $"{exeName}.xml");
+
+                                // Create a copy with the correct path set
+                                var importedProfile = gameProfile;
+                                importedProfile.Path = profilePath;
+
+                                // Serialize directly to file
+                                if (Shared.Utilities.XmlHelper.ToXMLFile(importedProfile, profilePath))
+                                {
+                                    Logger.Info($"Imported profile for: {gameProfile.GameId.Name}");
+                                    importedCount++;
+                                }
+                                else
+                                {
+                                    Logger.Warn($"Failed to save profile for: {gameProfile.GameId.Name}");
+                                    skippedCount++;
+                                }
+                            }
+                            catch (Exception profileEx)
+                            {
+                                Logger.Warn($"Failed to import profile {gameProfile.GameId.Name}: {profileEx.Message}");
+                                skippedCount++;
+                            }
+                        }
+
+                        Logger.Info($"Pipe: Import complete - {importedCount} profile(s) imported, {skippedCount} skipped");
+                        response.Add("Success", true);
+                        response.Add("ImportedCount", importedCount);
+                        response.Add("SkippedCount", skippedCount);
+                        response.Add("Message", $"Imported {importedCount} profile(s). Restart the helper to load imported game profiles.");
+
+                        // Return global widget settings to widget for restoration
+                        if (import.GlobalSettings != null)
+                        {
+                            try
+                            {
+                                var globalSettingsXml = Shared.Utilities.XmlHelper.ToXMLString(import.GlobalSettings, true);
+                                response.Add("GlobalSettings", globalSettingsXml);
+                                Logger.Info("Pipe: Global widget settings returned to widget for restoration");
+                            }
+                            catch (Exception gsEx)
+                            {
+                                Logger.Warn($"Pipe: Failed to serialize global settings for response: {gsEx.Message}");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: Failed to import profiles: {ex.Message}");
                         response.Add("Success", false);
                         response.Add("Error", ex.Message);
                     }
@@ -2611,6 +2919,15 @@ del /f /q ""%~f0"" 2>nul
                     response = new global::Windows.Foundation.Collections.ValueSet();
                     response.Add("Content", success);
                     Logger.Info($"Pipe: Scroll {direction} Remap - Enabled: {enabled}, Success: {success}");
+                }
+                // Controller Hotkey Config: Receive hotkey settings from widget for XInput monitoring
+                else if (functionValue == (int)Function.ControllerHotkeyConfig)
+                {
+                    if (request.Content != null)
+                    {
+                        string configJson = request.Content.ToString();
+                        ApplyControllerHotkeyConfig(configJson);
+                    }
                 }
                 // ViGEmBus: Check installed status
                 else if (functionValue == (int)Function.ViGEmBusInstalled)
@@ -3054,7 +3371,7 @@ del /f /q ""%~f0"" 2>nul
                 var parts = shortcut.Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
                 var keyInfos = new List<InjectedInputKeyboardInfo>();
                 var modifierKeys = new List<ushort>();
-                ushort mainKey = 0;
+                var mainKeys = new List<ushort>(); // Support multiple non-modifier keys
 
                 foreach (var part in parts)
                 {
@@ -3080,6 +3397,38 @@ del /f /q ""%~f0"" 2>nul
                         vk = (ushort)VirtualKey.Escape;
                     else if (upper == "SPACE")
                         vk = (ushort)VirtualKey.Space;
+                    else if (upper == "BACKSPACE" || upper == "BACK")
+                        vk = (ushort)VirtualKey.Back;
+                    else if (upper == "DELETE" || upper == "DEL")
+                        vk = (ushort)VirtualKey.Delete;
+                    else if (upper == "HOME")
+                        vk = (ushort)VirtualKey.Home;
+                    else if (upper == "END")
+                        vk = (ushort)VirtualKey.End;
+                    else if (upper == "PGUP" || upper == "PAGEUP")
+                        vk = (ushort)VirtualKey.PageUp;
+                    else if (upper == "PGDN" || upper == "PAGEDOWN")
+                        vk = (ushort)VirtualKey.PageDown;
+                    else if (upper == "INSERT" || upper == "INS")
+                        vk = (ushort)VirtualKey.Insert;
+                    else if (upper == "UP")
+                        vk = (ushort)VirtualKey.Up;
+                    else if (upper == "DOWN")
+                        vk = (ushort)VirtualKey.Down;
+                    else if (upper == "LEFT")
+                        vk = (ushort)VirtualKey.Left;
+                    else if (upper == "RIGHT")
+                        vk = (ushort)VirtualKey.Right;
+                    else if (upper == "PAUSE")
+                        vk = (ushort)VirtualKey.Pause;
+                    else if (upper == "PRINTSCREEN" || upper == "PRTSC")
+                        vk = (ushort)VirtualKey.Snapshot;
+                    else if (upper == "VOLUME_UP" || upper == "VOLUMEUP")
+                        vk = 0xAF; // VK_VOLUME_UP
+                    else if (upper == "VOLUME_DOWN" || upper == "VOLUMEDOWN")
+                        vk = 0xAE; // VK_VOLUME_DOWN
+                    else if (upper == "VOLUME_MUTE" || upper == "VOLUMEMUTE" || upper == "MUTE")
+                        vk = 0xAD; // VK_VOLUME_MUTE
                     else if (upper.Length == 1)
                     {
                         char c = upper[0];
@@ -3109,23 +3458,27 @@ del /f /q ""%~f0"" 2>nul
                     }
                     else
                     {
-                        mainKey = vk;
+                        mainKeys.Add(vk); // Add to list instead of overwriting
                     }
                 }
 
-                // Build key sequence: press modifiers, press+release main key, release modifiers
+                // Build key sequence: press modifiers, press all main keys, release all main keys in reverse, release modifiers
                 // Press modifiers
                 foreach (var mod in modifierKeys)
                 {
                     keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mod, KeyOptions = InjectedInputKeyOptions.None });
                 }
 
-                // Press main key
-                if (mainKey != 0)
+                // Press all main keys
+                foreach (var key in mainKeys)
                 {
-                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mainKey, KeyOptions = InjectedInputKeyOptions.None });
-                    // Release main key
-                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mainKey, KeyOptions = InjectedInputKeyOptions.KeyUp });
+                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = key, KeyOptions = InjectedInputKeyOptions.None });
+                }
+
+                // Release all main keys in reverse order
+                for (int i = mainKeys.Count - 1; i >= 0; i--)
+                {
+                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mainKeys[i], KeyOptions = InjectedInputKeyOptions.KeyUp });
                 }
 
                 // Release modifiers in reverse order
@@ -3135,7 +3488,7 @@ del /f /q ""%~f0"" 2>nul
                 }
 
                 inputInjector.InjectKeyboardInput(keyInfos);
-                Logger.Info($"Sent keyboard shortcut via InputInjector: {shortcut}");
+                Logger.Info($"Sent keyboard shortcut via InputInjector: {shortcut} (modifiers: {modifierKeys.Count}, keys: {mainKeys.Count})");
             }
             catch (Exception ex)
             {
@@ -3233,7 +3586,227 @@ del /f /q ""%~f0"" 2>nul
             {
                 Logger.Error($"Failed to initialize hotkey manager: {ex.Message}");
             }
+
+            // Initialize controller hotkey monitor for XInput-based button combos
+            InitializeControllerHotkeyMonitor();
         }
+
+        /// <summary>
+        /// Initializes the controller hotkey monitor for XInput-based button combos.
+        /// This allows detection of Menu+DPad and View+ABXY combos in games.
+        /// </summary>
+        private static void InitializeControllerHotkeyMonitor()
+        {
+            try
+            {
+                controllerHotkeyMonitor = new ControllerHotkeyMonitor();
+                controllerHotkeyMonitor.LoadSettings();
+
+                // Set up callbacks for each combo
+                // These will execute the same actions as the Xbox Game Bar hotkey watchers
+                controllerHotkeyMonitor.OnMenuDPadUp = () => ExecuteControllerHotkeyAction("SelectDPadUp");
+                controllerHotkeyMonitor.OnMenuDPadDown = () => ExecuteControllerHotkeyAction("SelectDPadDown");
+                controllerHotkeyMonitor.OnMenuDPadLeft = () => ExecuteControllerHotkeyAction("SelectDPadLeft");
+                controllerHotkeyMonitor.OnMenuDPadRight = () => ExecuteControllerHotkeyAction("SelectDPadRight");
+                controllerHotkeyMonitor.OnViewA = () => ExecuteControllerHotkeyAction("MenuA");
+                controllerHotkeyMonitor.OnViewB = () => ExecuteControllerHotkeyAction("MenuB");
+                controllerHotkeyMonitor.OnViewX = () => ExecuteControllerHotkeyAction("MenuX");
+                controllerHotkeyMonitor.OnViewY = () => ExecuteControllerHotkeyAction("MenuY");
+
+                controllerHotkeyMonitor.Start();
+                Logger.Info("Controller hotkey monitor initialized for XInput-based button combos");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to initialize controller hotkey monitor: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Executes the configured action for a controller hotkey combo.
+        /// Uses cached config received from widget via Named Pipe.
+        /// </summary>
+        private static void ExecuteControllerHotkeyAction(string hotkeyName)
+        {
+            try
+            {
+                int action = 0;
+                string keyParam = "";
+
+                // Get action and key from cached config (received from widget via pipe)
+                if (_controllerHotkeyConfig != null)
+                {
+                    if (_controllerHotkeyConfig.TryGetValue($"{hotkeyName}_Action", out var actionElement))
+                        action = actionElement.GetInt32();
+                    if (_controllerHotkeyConfig.TryGetValue($"{hotkeyName}_Key", out var keyElement))
+                        keyParam = keyElement.GetString() ?? "";
+                }
+
+                Logger.Info($"ExecuteControllerHotkeyAction: {hotkeyName} action={action} key={keyParam}");
+
+                // HotkeyAction enum from widget:
+                // 0=Disabled, 1=KeyboardKey, 2=KeyboardShortcut, 3=ToggleOSD, 4=Screenshot,
+                // 5=AltTab, 6=AltF4, 7=OpenKeyboard, 8=CtrlAltDel, 9=TaskManager
+                switch (action)
+                {
+                    case 0: // Disabled
+                        break;
+                    case 1: // KeyboardKey - single key press
+                        if (!string.IsNullOrEmpty(keyParam))
+                        {
+                            ExecuteKeyboardShortcut(keyParam);
+                        }
+                        break;
+                    case 2: // KeyboardShortcut - combo like Ctrl+Alt+X
+                        if (!string.IsNullOrEmpty(keyParam))
+                        {
+                            ExecuteKeyboardShortcut(keyParam);
+                        }
+                        break;
+                    case 3: // Toggle OSD
+                        ToggleOSD();
+                        break;
+                    case 4: // Screenshot (Win+Shift+S)
+                        ExecuteKeyboardShortcut("Win+Shift+S");
+                        break;
+                    case 5: // Alt+Tab
+                        ExecuteKeyboardShortcut("Alt+Tab");
+                        break;
+                    case 6: // Alt+F4
+                        ExecuteKeyboardShortcut("Alt+F4");
+                        break;
+                    case 7: // Open On-Screen Keyboard
+                        OpenOnScreenKeyboard();
+                        break;
+                    case 8: // Ctrl+Alt+Del
+                        ExecuteKeyboardShortcut("Ctrl+Alt+Delete");
+                        break;
+                    case 9: // Task Manager (Ctrl+Shift+Esc)
+                        ExecuteKeyboardShortcut("Ctrl+Shift+Escape");
+                        break;
+                    default:
+                        Logger.Warn($"ExecuteControllerHotkeyAction: Unknown action {action} for {hotkeyName}");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ExecuteControllerHotkeyAction: Error executing {hotkeyName}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Executes a keyboard shortcut string (e.g., "Ctrl+Alt+Delete")
+        /// Uses InputInjector which works properly from elevated helper context
+        /// </summary>
+        private static void ExecuteKeyboardShortcut(string shortcut)
+        {
+            try
+            {
+                Logger.Info($"ExecuteKeyboardShortcut: {shortcut}");
+                // Use InputInjector (same as widget's SendKeyboardShortcutViaHelper)
+                SendKeyboardShortcutViaInputInjector(shortcut);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ExecuteKeyboardShortcut: Failed to send {shortcut}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Opens the Windows on-screen keyboard using TouchKeyboardHelper
+        /// </summary>
+        private static void OpenOnScreenKeyboard()
+        {
+            try
+            {
+                Logger.Info("OpenOnScreenKeyboard: Toggling touch keyboard");
+                TouchKeyboardHelper.Toggle();
+                Logger.Info("OpenOnScreenKeyboard: Touch keyboard toggled");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"OpenOnScreenKeyboard: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Toggles OSD visibility by cycling through OSD levels (0=Off, 1, 2, 3)
+        /// </summary>
+        private static void ToggleOSD()
+        {
+            try
+            {
+                if (onScreenDisplay == null)
+                {
+                    Logger.Warn("ToggleOSD: OSD property not initialized");
+                    return;
+                }
+
+                // Cycle through levels: 0 -> 1 -> 2 -> 3 -> 0
+                int currentLevel = onScreenDisplay.Value;
+                int newLevel = (currentLevel + 1) % 4;  // 0, 1, 2, 3, then back to 0
+
+                onScreenDisplay.SetValue(newLevel);
+                Logger.Info($"ToggleOSD: OSD level changed from {currentLevel} to {newLevel}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ToggleOSD: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Apply controller hotkey configuration received from the widget.
+        /// Enables/disables XInput-based button combo detection.
+        /// </summary>
+        private static void ApplyControllerHotkeyConfig(string configJson)
+        {
+            try
+            {
+                Logger.Info($"Applying controller hotkey config from widget");
+
+                var config = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(configJson);
+                if (config == null || controllerHotkeyMonitor == null)
+                {
+                    Logger.Warn("ApplyControllerHotkeyConfig: Config is null or monitor not initialized");
+                    return;
+                }
+
+                // Apply Menu + ABXY settings (View button combos in XInput terms)
+                if (config.TryGetValue("MenuA_Action", out var menuAAction))
+                    controllerHotkeyMonitor.ViewAEnabled = menuAAction.GetInt32() > 0;
+                if (config.TryGetValue("MenuB_Action", out var menuBAction))
+                    controllerHotkeyMonitor.ViewBEnabled = menuBAction.GetInt32() > 0;
+                if (config.TryGetValue("MenuX_Action", out var menuXAction))
+                    controllerHotkeyMonitor.ViewXEnabled = menuXAction.GetInt32() > 0;
+                if (config.TryGetValue("MenuY_Action", out var menuYAction))
+                    controllerHotkeyMonitor.ViewYEnabled = menuYAction.GetInt32() > 0;
+
+                // Apply Select + DPad settings (Menu button combos in XInput terms)
+                if (config.TryGetValue("SelectDPadUp_Action", out var selectUpAction))
+                    controllerHotkeyMonitor.MenuDPadUpEnabled = selectUpAction.GetInt32() > 0;
+                if (config.TryGetValue("SelectDPadDown_Action", out var selectDownAction))
+                    controllerHotkeyMonitor.MenuDPadDownEnabled = selectDownAction.GetInt32() > 0;
+                if (config.TryGetValue("SelectDPadLeft_Action", out var selectLeftAction))
+                    controllerHotkeyMonitor.MenuDPadLeftEnabled = selectLeftAction.GetInt32() > 0;
+                if (config.TryGetValue("SelectDPadRight_Action", out var selectRightAction))
+                    controllerHotkeyMonitor.MenuDPadRightEnabled = selectRightAction.GetInt32() > 0;
+
+                // Store config for action execution
+                _controllerHotkeyConfig = config;
+
+                Logger.Info($"Controller hotkey config applied - Menu+DPad: Up={controllerHotkeyMonitor.MenuDPadUpEnabled}, Down={controllerHotkeyMonitor.MenuDPadDownEnabled}, Left={controllerHotkeyMonitor.MenuDPadLeftEnabled}, Right={controllerHotkeyMonitor.MenuDPadRightEnabled}");
+                Logger.Info($"Controller hotkey config applied - View+ABXY: A={controllerHotkeyMonitor.ViewAEnabled}, B={controllerHotkeyMonitor.ViewBEnabled}, X={controllerHotkeyMonitor.ViewXEnabled}, Y={controllerHotkeyMonitor.ViewYEnabled}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ApplyControllerHotkeyConfig: {ex.Message}");
+            }
+        }
+
+        // Cached controller hotkey config for action execution
+        private static Dictionary<string, System.Text.Json.JsonElement> _controllerHotkeyConfig;
 
         /// <summary>
         /// Toggles Desktop Controls preset via global hotkey (Ctrl+Shift+D)
@@ -3464,6 +4037,95 @@ del /f /q ""%~f0"" 2>nul
             }
 
             return exportPath;
+        }
+
+        /// <summary>
+        /// Parses global widget settings from a serialized ValueSet XML string.
+        /// The widget sends settings as a ValueSet serialized to XML.
+        /// </summary>
+        private static Shared.Data.GlobalWidgetSettings ParseGlobalSettingsFromValueSet(string valueSetXml)
+        {
+            // The widget sends a compact XML representation of a ValueSet
+            // We need to extract the key-value pairs and build a GlobalWidgetSettings object
+            var gs = new Shared.Data.GlobalWidgetSettings();
+
+            try
+            {
+                // Parse the XML to extract values
+                var doc = new System.Xml.XmlDocument();
+                doc.LoadXml(valueSetXml);
+
+                // Helper to get int value
+                int? GetInt(string key)
+                {
+                    var node = doc.SelectSingleNode($"//*[local-name()='{key}']");
+                    if (node != null && int.TryParse(node.InnerText, out int val))
+                        return val;
+                    return null;
+                }
+
+                // Helper to get string value
+                string GetString(string key)
+                {
+                    var node = doc.SelectSingleNode($"//*[local-name()='{key}']");
+                    return node?.InnerText;
+                }
+
+                // Legion Button Remapping
+                gs.LegionL_Action = GetInt("LegionL_Action");
+                gs.LegionL_Shortcut = GetString("LegionL_Shortcut");
+                gs.LegionL_Command = GetString("LegionL_Command");
+                gs.LegionR_Action = GetInt("LegionR_Action");
+                gs.LegionR_Shortcut = GetString("LegionR_Shortcut");
+                gs.LegionR_Command = GetString("LegionR_Command");
+
+                // Scroll Wheel Remapping
+                gs.Scroll_Action = GetInt("Scroll_Action");
+                gs.Scroll_Shortcut = GetString("Scroll_Shortcut");
+                gs.Scroll_Command = GetString("Scroll_Command");
+                gs.ScrollClick_Action = GetInt("ScrollClick_Action");
+                gs.ScrollClick_Shortcut = GetString("ScrollClick_Shortcut");
+                gs.ScrollClick_Command = GetString("ScrollClick_Command");
+
+                // Device TDP Limits
+                gs.DeviceTDPMin = GetInt("DeviceTDPMin");
+                gs.DeviceTDPMax = GetInt("DeviceTDPMax");
+
+                // OSD Customization
+                gs.OSD_TextSize = GetInt("OSD_TextSize");
+                gs.OSD_TextColor = GetString("OSD_TextColor");
+                gs.OSD_LabelColor = GetString("OSD_LabelColor");
+                gs.OSD_Opacity = GetInt("OSD_Opacity");
+
+                // OSD Level Configuration - Order
+                gs.OSD_L1_Order = GetString("OSD_L1_Order");
+                gs.OSD_L2_Order = GetString("OSD_L2_Order");
+                gs.OSD_L3_Order = GetString("OSD_L3_Order");
+
+                // OSD Level Configuration - Enabled items
+                gs.OSD_L1_Enabled = GetString("OSD_L1_Enabled");
+                gs.OSD_L2_Enabled = GetString("OSD_L2_Enabled");
+                gs.OSD_L3_Enabled = GetString("OSD_L3_Enabled");
+
+                // OSD Level Configuration - Per-item colors
+                gs.OSD_L1_ItemColors = GetString("OSD_L1_ItemColors");
+                gs.OSD_L2_ItemColors = GetString("OSD_L2_ItemColors");
+                gs.OSD_L3_ItemColors = GetString("OSD_L3_ItemColors");
+
+                // OSD Level Configuration - Columns
+                gs.OSD_L1_Columns = GetInt("OSD_L1_Columns");
+                gs.OSD_L2_Columns = GetInt("OSD_L2_Columns");
+                gs.OSD_L3_Columns = GetInt("OSD_L3_Columns");
+
+                Logger.Info($"Parsed global settings: TDPMin={gs.DeviceTDPMin}, TDPMax={gs.DeviceTDPMax}, " +
+                           $"LegionL={gs.LegionL_Action}, LegionR={gs.LegionR_Action}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Error parsing global settings XML: {ex.Message}");
+            }
+
+            return gs;
         }
 
         /// <summary>

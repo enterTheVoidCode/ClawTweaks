@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using XboxGamingBarHelper.Core;
 
-namespace XboxGamingBarHelper.Legion
+namespace XboxGamingBarHelper.Devices.Libraries.Legion
 {
     /// <summary>
     /// Helper class to parse ButtonMapping JSON format
@@ -642,7 +642,7 @@ namespace XboxGamingBarHelper.Legion
             }
             Logger.Info($"LegionButtonDesktop applying mapping: {Value}");
             var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
-            Manager?.SetLegionButtonMapping(LegionGo.GamepadButton.DesktopButton, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
+            Manager?.SetLegionButtonMapping(GamepadButton.DesktopButton, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
     }
 
@@ -666,7 +666,7 @@ namespace XboxGamingBarHelper.Legion
             }
             Logger.Info($"LegionButtonPage applying mapping: {Value}");
             var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
-            Manager?.SetLegionButtonMapping(LegionGo.GamepadButton.PageButton, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
+            Manager?.SetLegionButtonMapping(GamepadButton.PageButton, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
         }
     }
 

@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 using Windows.System.Power;
 using Shared.Enums;
 using XboxGamingBarHelper.Core;
-using XboxGamingBarHelper.Legion;
+using XboxGamingBarHelper.Devices.Libraries.Legion;
 using XboxGamingBarHelper.PawnIO;
 using XboxGamingBarHelper.Performance.Sensors;
 using XboxGamingBarHelper.Settings;
@@ -1122,7 +1122,7 @@ namespace XboxGamingBarHelper.Performance
                     int performanceMode = legionManager.CurrentPerformanceMode;
                     if (performanceMode != 255) // Not Custom mode
                     {
-                        string modeName = Legion.LegionManager.GetPerformanceModeName(performanceMode);
+                        string modeName = LegionManager.GetPerformanceModeName(performanceMode);
                         if (modeName != lastTdpString)
                         {
                             Logger.Info($"UpdateCurrentTDP: Mode changed to '{modeName}', sending update");

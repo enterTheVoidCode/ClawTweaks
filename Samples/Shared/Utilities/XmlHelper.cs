@@ -53,6 +53,12 @@ namespace Shared.Utilities
 
         public static T FromXMLString<T>(string xmlString)
         {
+            // Handle null or empty strings gracefully - return default instead of throwing
+            if (string.IsNullOrWhiteSpace(xmlString))
+            {
+                return default;
+            }
+
             var serializer = new XmlSerializer(typeof(T));
             var reader = new StringReader(xmlString);
             try

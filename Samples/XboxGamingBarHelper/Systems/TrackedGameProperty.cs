@@ -14,8 +14,9 @@ namespace XboxGamingBarHelper.Systems
         /// <summary>
         /// Timeout in seconds after which a TrackedGame with no matching window will be cleared.
         /// This prevents the TrackedGame from persisting indefinitely after the game closes.
+        /// Reduced from 15s to 5s to improve detection responsiveness when switching games.
         /// </summary>
-        private const int NoWindowMatchTimeoutSeconds = 15;
+        private const int NoWindowMatchTimeoutSeconds = 5;
 
         /// <summary>
         /// Timestamp when we first detected no window match for the current TrackedGame.
