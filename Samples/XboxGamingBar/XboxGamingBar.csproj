@@ -86,6 +86,7 @@
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
     <Compile Include="Converter\BooleanToVisibilityConverter.cs" />
+    <Compile Include="Converter\InverseBooleanToVisibilityConverter.cs" />
     <Compile Include="Converter\RadeonBoostResolutionStringConverter.cs" />
     <Compile Include="Converter\SharpnessPercentStringConverter.cs" />
     <Compile Include="Data\AMDRadeonAntiLagEnabledProperty.cs" />

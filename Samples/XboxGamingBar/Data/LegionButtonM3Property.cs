@@ -18,10 +18,11 @@ namespace XboxGamingBar.Data
 
         /// <summary>
         /// Sends the button mapping JSON to the helper.
+        /// Sends even for "Disabled" state to clear the button mapping.
         /// </summary>
         public void SendMapping(string json)
         {
-            if (!string.IsNullOrEmpty(json) && json != Value)
+            if (json != null && json != Value)
             {
                 Logger.Info($"{Function} sending mapping: {json}");
                 SetValue(json);

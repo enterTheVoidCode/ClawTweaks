@@ -167,15 +167,15 @@ namespace XboxGamingBarHelper.Core
         private void MonitorLoop()
         {
             var state = new XINPUT_STATE();
-            int activeController = -1;
             bool[] wasConnected = new bool[4];
+            uint[] lastPacketNumbers = new uint[4];
 
             while (_running)
             {
                 try
                 {
-                    // Poll all 4 possible controller slots
-                    bool anyConnected = false;
+                    // Poll all 4 possible controller slots and process input from any with button activity
+                    // This handles cases where ViGEmController is on a different slot than the real controller
                     for (uint i = 0; i < 4; i++)
                     {
                         uint result = XInputGetState(i, ref state);
@@ -188,17 +188,16 @@ namespace XboxGamingBarHelper.Core
                                 wasConnected[i] = true;
                             }
 
-                            // Use first connected controller for combo detection
-                            if (activeController == -1 || activeController == (int)i)
+                            // Process if state changed for this controller
+                            if (state.dwPacketNumber != lastPacketNumbers[i])
                             {
-                                activeController = (int)i;
-                                anyConnected = true;
+                                lastPacketNumbers[i] = state.dwPacketNumber;
 
-                                // Only process if state changed
-                                if (state.dwPacketNumber != _lastPacketNumber)
+                                // Only process if there are actual button presses
+                                // This filters out virtual controllers with no input
+                                if (state.Gamepad.wButtons != 0 || _lastButtons != 0)
                                 {
                                     ProcessButtonState(state.Gamepad.wButtons);
-                                    _lastPacketNumber = state.dwPacketNumber;
                                 }
                             }
                         }
@@ -206,13 +205,7 @@ namespace XboxGamingBarHelper.Core
                         {
                             Logger.Info($"ControllerHotkeyMonitor: Controller {i} disconnected");
                             wasConnected[i] = false;
-                            if (activeController == (int)i)
-                            {
-                                activeController = -1;
-                                _lastButtons = 0;
-                                _comboModifier = 0;
-                                _comboButton = 0;
-                            }
+                            lastPacketNumbers[i] = 0;
                         }
                     }
                 }
@@ -323,20 +316,22 @@ namespace XboxGamingBarHelper.Core
         {
             try
             {
-                // Menu + DPad combos (named "Select+DPad" in widget UI)
-                if (LocalSettingsHelper.TryGetValue<int>("Hotkey_SelectDPadUp_Action", out var actionUp))
+                // Menu + DPad combos (Menu button = Start/three-lines button)
+                // Widget saves as "Hotkey_MenuDpadUp_Action", etc.
+                if (LocalSettingsHelper.TryGetValue<int>("Hotkey_MenuDpadUp_Action", out var actionUp))
                     MenuDPadUpEnabled = actionUp > 0;
 
-                if (LocalSettingsHelper.TryGetValue<int>("Hotkey_SelectDPadDown_Action", out var actionDown))
+                if (LocalSettingsHelper.TryGetValue<int>("Hotkey_MenuDpadDown_Action", out var actionDown))
                     MenuDPadDownEnabled = actionDown > 0;
 
-                if (LocalSettingsHelper.TryGetValue<int>("Hotkey_SelectDPadLeft_Action", out var actionLeft))
+                if (LocalSettingsHelper.TryGetValue<int>("Hotkey_MenuDpadLeft_Action", out var actionLeft))
                     MenuDPadLeftEnabled = actionLeft > 0;
 
-                if (LocalSettingsHelper.TryGetValue<int>("Hotkey_SelectDPadRight_Action", out var actionRight))
+                if (LocalSettingsHelper.TryGetValue<int>("Hotkey_MenuDpadRight_Action", out var actionRight))
                     MenuDPadRightEnabled = actionRight > 0;
 
-                // View + ABXY combos (named "Menu+ABXY" in widget UI)
+                // View + ABXY combos (View button = Back/two-squares button)
+                // Widget saves as "Hotkey_MenuA_Action", etc. (confusingly named, but View+ABXY in code)
                 if (LocalSettingsHelper.TryGetValue<int>("Hotkey_MenuA_Action", out var actionA))
                     ViewAEnabled = actionA > 0;
 

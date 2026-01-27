@@ -2397,6 +2397,7 @@ del /f /q ""%~f0"" 2>nul
                         Logger.Info($"Setting power plan to: {planGuid}");
                         Power.PowerManager.SetActivePowerPlan(planGuid);
                     }
+                    SendPipeAck(pipeMsg.RequestId);
                     return;
                 }
 
@@ -2405,6 +2406,7 @@ del /f /q ""%~f0"" 2>nul
                 {
                     Logger.Info($"Sending keyboard shortcut via InputInjector: {shortcutStr}");
                     SendKeyboardShortcutViaInputInjector(shortcutStr);
+                    SendPipeAck(pipeMsg.RequestId);
                     return;
                 }
 
@@ -2414,6 +2416,7 @@ del /f /q ""%~f0"" 2>nul
                     Logger.Info("CloseGame request received - attempting to close foreground window");
                     bool success = Windows.User32.CloseForegroundWindow();
                     Logger.Info($"CloseGame result: {success}");
+                    SendPipeAck(pipeMsg.RequestId, success);
                     return;
                 }
 
@@ -2425,10 +2428,12 @@ del /f /q ""%~f0"" 2>nul
                         Logger.Info("Pipe: ToggleTouchKeyboard request received");
                         TouchKeyboardHelper.Toggle();
                         Logger.Info("Pipe: Touch keyboard toggled");
+                        SendPipeAck(pipeMsg.RequestId);
                     }
                     catch (Exception ex)
                     {
                         Logger.Error($"Pipe: Failed to toggle touch keyboard: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
                     }
                     return;
                 }
@@ -2445,10 +2450,12 @@ del /f /q ""%~f0"" 2>nul
                             UseShellExecute = true
                         });
                         Logger.Info("Pipe: URL launched successfully");
+                        SendPipeAck(pipeMsg.RequestId);
                     }
                     catch (Exception ex)
                     {
                         Logger.Error($"Pipe: Failed to launch URL: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
                     }
                     return;
                 }
@@ -2473,10 +2480,12 @@ del /f /q ""%~f0"" 2>nul
                             int error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
                             Logger.Error($"Pipe: Failed to initiate hibernate, Win32 error: {error}");
                         }
+                        SendPipeAck(pipeMsg.RequestId, success);
                     }
                     catch (Exception ex)
                     {
                         Logger.Error($"Pipe: Failed to hibernate: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
                     }
                     return;
                 }
@@ -2771,6 +2780,7 @@ del /f /q ""%~f0"" 2>nul
                 if (pipeMsg.Extra.ContainsKey("ExitHelper"))
                 {
                     Logger.Info("Pipe: ExitHelper request received - shutting down helper for version update");
+                    SendPipeAck(pipeMsg.RequestId);
                     _isShuttingDown = true;
 
                     // Schedule a forced exit in case the main loop doesn't exit quickly
@@ -2794,6 +2804,7 @@ del /f /q ""%~f0"" 2>nul
                     if (!string.IsNullOrEmpty(msixSourcePath))
                     {
                         Logger.Info($"Pipe: UpgradeHelper request received - source: {msixSourcePath}");
+                        SendPipeAck(pipeMsg.RequestId);
 
                         // Launch upgrade script that will copy files and restart after we exit
                         LaunchUpgradeScript(msixSourcePath);
@@ -2814,6 +2825,7 @@ del /f /q ""%~f0"" 2>nul
                     else
                     {
                         Logger.Warn("Pipe: UpgradeHelper request missing source path");
+                        SendPipeAck(pipeMsg.RequestId, false);
                     }
                     return;
                 }
@@ -3349,6 +3361,30 @@ del /f /q ""%~f0"" 2>nul
 
 
         /// <summary>
+        /// Sends a simple acknowledgment response to the widget via Named Pipe.
+        /// Used for fire-and-forget messages that still need a response to avoid timeout.
+        /// </summary>
+        private static void SendPipeAck(int requestId, bool success = true)
+        {
+            try
+            {
+                if (pipeServer != null && pipeServer.IsConnected && requestId > 0)
+                {
+                    var response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Success", success);
+                    var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                    responseMsg.RequestId = requestId;
+                    pipeServer.SendMessage(responseMsg.ToJson());
+                    Logger.Debug($"Sent pipe ack for RequestId={requestId}, Success={success}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to send pipe ack: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Parse and send a keyboard shortcut using InputInjector (works in widget context unlike SendInput)
         /// </summary>
         private static void SendKeyboardShortcutViaInputInjector(string shortcut)
@@ -3604,10 +3640,11 @@ del /f /q ""%~f0"" 2>nul
 
                 // Set up callbacks for each combo
                 // These will execute the same actions as the Xbox Game Bar hotkey watchers
-                controllerHotkeyMonitor.OnMenuDPadUp = () => ExecuteControllerHotkeyAction("SelectDPadUp");
-                controllerHotkeyMonitor.OnMenuDPadDown = () => ExecuteControllerHotkeyAction("SelectDPadDown");
-                controllerHotkeyMonitor.OnMenuDPadLeft = () => ExecuteControllerHotkeyAction("SelectDPadLeft");
-                controllerHotkeyMonitor.OnMenuDPadRight = () => ExecuteControllerHotkeyAction("SelectDPadRight");
+                // Names must match widget's LocalSettings keys (without "Hotkey_" prefix)
+                controllerHotkeyMonitor.OnMenuDPadUp = () => ExecuteControllerHotkeyAction("MenuDpadUp");
+                controllerHotkeyMonitor.OnMenuDPadDown = () => ExecuteControllerHotkeyAction("MenuDpadDown");
+                controllerHotkeyMonitor.OnMenuDPadLeft = () => ExecuteControllerHotkeyAction("MenuDpadLeft");
+                controllerHotkeyMonitor.OnMenuDPadRight = () => ExecuteControllerHotkeyAction("MenuDpadRight");
                 controllerHotkeyMonitor.OnViewA = () => ExecuteControllerHotkeyAction("MenuA");
                 controllerHotkeyMonitor.OnViewB = () => ExecuteControllerHotkeyAction("MenuB");
                 controllerHotkeyMonitor.OnViewX = () => ExecuteControllerHotkeyAction("MenuX");
@@ -3624,7 +3661,7 @@ del /f /q ""%~f0"" 2>nul
 
         /// <summary>
         /// Executes the configured action for a controller hotkey combo.
-        /// Uses cached config received from widget via Named Pipe.
+        /// Uses cached config from Named Pipe, falls back to LocalSettings.
         /// </summary>
         private static void ExecuteControllerHotkeyAction(string hotkeyName)
         {
@@ -3632,14 +3669,29 @@ del /f /q ""%~f0"" 2>nul
             {
                 int action = 0;
                 string keyParam = "";
+                bool foundInConfig = false;
 
-                // Get action and key from cached config (received from widget via pipe)
+                // Try cached config first (received from widget via pipe)
                 if (_controllerHotkeyConfig != null)
                 {
                     if (_controllerHotkeyConfig.TryGetValue($"{hotkeyName}_Action", out var actionElement))
+                    {
                         action = actionElement.GetInt32();
+                        foundInConfig = true;
+                    }
                     if (_controllerHotkeyConfig.TryGetValue($"{hotkeyName}_Key", out var keyElement))
                         keyParam = keyElement.GetString() ?? "";
+                }
+
+                // Fallback to LocalSettings if not in cached config
+                // Widget saves as "Hotkey_{hotkeyName}_Action" and "Hotkey_{hotkeyName}_Key"
+                if (!foundInConfig)
+                {
+                    if (LocalSettingsHelper.TryGetValue<int>($"Hotkey_{hotkeyName}_Action", out var localAction))
+                        action = localAction;
+                    if (LocalSettingsHelper.TryGetValue<string>($"Hotkey_{hotkeyName}_Key", out var localKey))
+                        keyParam = localKey ?? "";
+                    Logger.Debug($"ExecuteControllerHotkeyAction: Using LocalSettings fallback for {hotkeyName}");
                 }
 
                 Logger.Info($"ExecuteControllerHotkeyAction: {hotkeyName} action={action} key={keyParam}");
@@ -3773,7 +3825,8 @@ del /f /q ""%~f0"" 2>nul
                     return;
                 }
 
-                // Apply Menu + ABXY settings (View button combos in XInput terms)
+                // Apply View + ABXY settings (View button = Back/two-squares button in XInput)
+                // Widget saves as "Hotkey_MenuA_Action", etc.
                 if (config.TryGetValue("MenuA_Action", out var menuAAction))
                     controllerHotkeyMonitor.ViewAEnabled = menuAAction.GetInt32() > 0;
                 if (config.TryGetValue("MenuB_Action", out var menuBAction))
@@ -3783,15 +3836,16 @@ del /f /q ""%~f0"" 2>nul
                 if (config.TryGetValue("MenuY_Action", out var menuYAction))
                     controllerHotkeyMonitor.ViewYEnabled = menuYAction.GetInt32() > 0;
 
-                // Apply Select + DPad settings (Menu button combos in XInput terms)
-                if (config.TryGetValue("SelectDPadUp_Action", out var selectUpAction))
-                    controllerHotkeyMonitor.MenuDPadUpEnabled = selectUpAction.GetInt32() > 0;
-                if (config.TryGetValue("SelectDPadDown_Action", out var selectDownAction))
-                    controllerHotkeyMonitor.MenuDPadDownEnabled = selectDownAction.GetInt32() > 0;
-                if (config.TryGetValue("SelectDPadLeft_Action", out var selectLeftAction))
-                    controllerHotkeyMonitor.MenuDPadLeftEnabled = selectLeftAction.GetInt32() > 0;
-                if (config.TryGetValue("SelectDPadRight_Action", out var selectRightAction))
-                    controllerHotkeyMonitor.MenuDPadRightEnabled = selectRightAction.GetInt32() > 0;
+                // Apply Menu + DPad settings (Menu button = Start/three-lines button in XInput)
+                // Widget saves as "Hotkey_MenuDpadUp_Action", etc.
+                if (config.TryGetValue("MenuDpadUp_Action", out var dpadUpAction))
+                    controllerHotkeyMonitor.MenuDPadUpEnabled = dpadUpAction.GetInt32() > 0;
+                if (config.TryGetValue("MenuDpadDown_Action", out var dpadDownAction))
+                    controllerHotkeyMonitor.MenuDPadDownEnabled = dpadDownAction.GetInt32() > 0;
+                if (config.TryGetValue("MenuDpadLeft_Action", out var dpadLeftAction))
+                    controllerHotkeyMonitor.MenuDPadLeftEnabled = dpadLeftAction.GetInt32() > 0;
+                if (config.TryGetValue("MenuDpadRight_Action", out var dpadRightAction))
+                    controllerHotkeyMonitor.MenuDPadRightEnabled = dpadRightAction.GetInt32() > 0;
 
                 // Store config for action execution
                 _controllerHotkeyConfig = config;
