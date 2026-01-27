@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
+using Microsoft.Win32;
 using NLog;
 using Shared.Data;
 
@@ -175,8 +175,8 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         }
 
         /// <summary>
-        /// Builds a cache of Steam install directories to App IDs by parsing appmanifest files.
-        /// This is more reliable than steam_appid.txt which not all games have.
+        /// Builds a cache of Steam install directories to App IDs using Windows registry.
+        /// Steam creates uninstall entries at HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App {AppID}
         /// </summary>
         private static Dictionary<string, string> BuildSteamInstallCache()
         {
@@ -185,44 +185,37 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
 
             try
             {
-                // Get all Steam library folders
-                var libraryFolders = GetSteamLibraryFolders();
-                Logger.Debug($"BuildSteamInstallCache: Found {libraryFolders.Count} library folders in {sw.ElapsedMilliseconds}ms");
-
-                foreach (var libraryPath in libraryFolders)
+                using (var uninstallKey = Registry.LocalMachine.OpenSubKey(
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"))
                 {
-                    var steamAppsPath = Path.Combine(libraryPath, "steamapps");
-                    if (!Directory.Exists(steamAppsPath))
-                        continue;
-
-                    // Parse each appmanifest_*.acf file
-                    var manifestFiles = Directory.GetFiles(steamAppsPath, "appmanifest_*.acf");
-                    foreach (var manifestFile in manifestFiles)
+                    if (uninstallKey == null)
                     {
+                        Logger.Debug("BuildSteamInstallCache: Uninstall registry key not found");
+                        return cache;
+                    }
+
+                    foreach (var subKeyName in uninstallKey.GetSubKeyNames())
+                    {
+                        // Steam apps have keys like "Steam App 1551360"
+                        if (!subKeyName.StartsWith("Steam App ", StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        var appId = subKeyName.Substring(10); // Extract AppID after "Steam App "
+
                         try
                         {
-                            var content = File.ReadAllText(manifestFile);
-
-                            // Parse AppID
-                            var appIdMatch = Regex.Match(content, @"""appid""\s+""(\d+)""");
-                            if (!appIdMatch.Success) continue;
-                            var appId = appIdMatch.Groups[1].Value;
-
-                            // Parse install directory name
-                            var installDirMatch = Regex.Match(content, @"""installdir""\s+""([^""]+)""");
-                            if (!installDirMatch.Success) continue;
-                            var installDir = installDirMatch.Groups[1].Value;
-
-                            // Build full path to game install
-                            var fullPath = Path.Combine(steamAppsPath, "common", installDir);
-                            if (Directory.Exists(fullPath))
+                            using (var appKey = uninstallKey.OpenSubKey(subKeyName))
                             {
-                                cache[fullPath] = appId;
+                                var installLocation = appKey?.GetValue("InstallLocation") as string;
+                                if (!string.IsNullOrEmpty(installLocation))
+                                {
+                                    cache[installLocation] = appId;
+                                }
                             }
                         }
                         catch (Exception ex)
                         {
-                            Logger.Debug($"Failed to parse manifest {manifestFile}: {ex.Message}");
+                            Logger.Debug($"Failed to read Steam app {appId}: {ex.Message}");
                         }
                     }
                 }
@@ -235,69 +228,6 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
             sw.Stop();
             Logger.Debug($"BuildSteamInstallCache: Completed in {sw.ElapsedMilliseconds}ms with {cache.Count} games");
             return cache;
-        }
-
-        /// <summary>
-        /// Gets all Steam library folder paths from libraryfolders.vdf.
-        /// </summary>
-        private static List<string> GetSteamLibraryFolders()
-        {
-            var folders = new List<string>();
-
-            // Common Steam install locations
-            var steamPaths = new[]
-            {
-                @"C:\Program Files (x86)\Steam",
-                @"C:\Program Files\Steam",
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Steam")
-            };
-
-            string steamPath = null;
-            foreach (var path in steamPaths)
-            {
-                if (Directory.Exists(path))
-                {
-                    steamPath = path;
-                    break;
-                }
-            }
-
-            if (steamPath == null)
-            {
-                Logger.Debug("Steam installation not found");
-                return folders;
-            }
-
-            // Add the main Steam folder
-            folders.Add(steamPath);
-
-            // Parse libraryfolders.vdf for additional library locations
-            var libraryFoldersPath = Path.Combine(steamPath, "steamapps", "libraryfolders.vdf");
-            if (File.Exists(libraryFoldersPath))
-            {
-                try
-                {
-                    var content = File.ReadAllText(libraryFoldersPath);
-                    // Match "path" entries like: "path"		"D:\\SteamLibrary"
-                    var pathMatches = Regex.Matches(content, @"""path""\s+""([^""]+)""");
-                    foreach (Match match in pathMatches)
-                    {
-                        var libraryPath = match.Groups[1].Value.Replace(@"\\", @"\");
-                        if (Directory.Exists(libraryPath) && !folders.Contains(libraryPath, StringComparer.OrdinalIgnoreCase))
-                        {
-                            folders.Add(libraryPath);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Debug($"Failed to parse libraryfolders.vdf: {ex.Message}");
-                }
-            }
-
-            Logger.Debug($"Found {folders.Count} Steam library folders");
-            return folders;
         }
 
         /// <summary>
@@ -347,6 +277,15 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
             // Try partial matching for common patterns
             foreach (var kvp in _profiles)
             {
+                // Skip non-exe keys (PFNs and Steam keys) - only match against exe name keys
+                // PFNs like "microsoft.624f8b84b80_8wekyb3d8bbwe" would incorrectly extract to just "microsoft"
+                // via Path.GetFileNameWithoutExtension, causing false matches
+                if (kvp.Key.StartsWith("steam:", StringComparison.OrdinalIgnoreCase) ||
+                    (kvp.Key.Contains("_") && !kvp.Key.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
                 var profileExeName = Path.GetFileNameWithoutExtension(kvp.Key).ToLowerInvariant();
 
                 // Special case: exe name starts with short profile name (acronym matching)

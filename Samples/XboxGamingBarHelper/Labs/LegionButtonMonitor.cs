@@ -92,6 +92,10 @@ namespace XboxGamingBarHelper.Labs
 
         // Scroll wheel click state tracking
         private bool lastScrollClickState = false;
+        private DateTime lastScrollClickActionTime = DateTime.MinValue;
+        private DateTime scrollClickPressTime = DateTime.MinValue; // Track when scroll click was pressed for minimum hold time
+        private const int SCROLL_CLICK_COOLDOWN_MS = 400; // Minimum time between scroll click actions for Game Bar toggle
+        private const int SCROLL_CLICK_MIN_HOLD_MS = 150; // Minimum time to hold Xbox Guide button for Game Bar to register
 
         // Scroll wheel Raw Input monitor thread
         // Uses Raw Input API to capture mouse events from Legion Go mi_01/col02 interface
@@ -491,11 +495,22 @@ namespace XboxGamingBarHelper.Labs
         [DllImport("user32.dll")]
         private static extern IntPtr DefWindowProcW(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
 
+        [DllImport("user32.dll")]
+        private static extern bool IsWindow(IntPtr hWnd);
+
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
         // Scroll wheel Raw Input window handle
         private IntPtr scrollWheelWindowHandle = IntPtr.Zero;
+
+        // Diagnostic tracking for Raw Input thread
+        private DateTime lastScrollHeartbeat = DateTime.MinValue;
+        private DateTime lastScrollInputReceived = DateTime.MinValue;
+        private int scrollInputCount = 0;
+        private bool hasReceivedScrollInput = false; // Track if we've ever received input
+        private const int HEARTBEAT_INTERVAL_MS = 30000; // Log heartbeat every 30 seconds
+        private const int NO_INPUT_REREGISTER_MS = 15000; // Re-register Raw Input if no input for 15 seconds (after previously receiving input)
 
         /// <summary>
         /// Initialize the unified monitor for both Legion L and R buttons.
@@ -1348,6 +1363,12 @@ namespace XboxGamingBarHelper.Labs
 
                 Logger.Info("LegionButtonMonitor: Scroll wheel Raw Input initialized, listening for Legion Go mi_01/col02 events");
 
+                // Initialize diagnostic tracking
+                lastScrollHeartbeat = DateTime.Now;
+                lastScrollInputReceived = DateTime.Now;
+                scrollInputCount = 0;
+                hasReceivedScrollInput = false;
+
                 // Message loop
                 while (scrollWheelRunning)
                 {
@@ -1355,11 +1376,41 @@ namespace XboxGamingBarHelper.Labs
                     {
                         if (msg.message == WM_INPUT)
                         {
+                            hasReceivedScrollInput = true;
+                            lastScrollInputReceived = DateTime.Now;
+                            scrollInputCount++;
                             ProcessScrollWheelRawInput(msg.lParam);
                         }
                         TranslateMessage(ref msg);
                         DispatchMessage(ref msg);
                     }
+
+                    // Periodic heartbeat logging
+                    var now = DateTime.Now;
+                    if ((now - lastScrollHeartbeat).TotalMilliseconds >= HEARTBEAT_INTERVAL_MS)
+                    {
+                        var timeSinceLastInput = (now - lastScrollInputReceived).TotalSeconds;
+                        bool windowValid = IsWindow(scrollWheelWindowHandle);
+                        Logger.Info($"LegionButtonMonitor: Scroll thread heartbeat - inputCount={scrollInputCount}, lastInputAge={timeSinceLastInput:F1}s, windowValid={windowValid}, hasReceivedInput={hasReceivedScrollInput}");
+                        lastScrollHeartbeat = now;
+
+                        // Self-healing: Re-register Raw Input if we previously received input but stopped getting any
+                        // This can help recover if Game Bar or another app disrupts Raw Input registration
+                        if (hasReceivedScrollInput && timeSinceLastInput > (NO_INPUT_REREGISTER_MS / 1000.0) && windowValid)
+                        {
+                            Logger.Warn($"LegionButtonMonitor: No scroll input for {timeSinceLastInput:F1}s after previously receiving input, re-registering Raw Input");
+                            if (InitializeScrollWheelRawInput(scrollWheelWindowHandle))
+                            {
+                                Logger.Info("LegionButtonMonitor: Raw Input re-registration successful");
+                                lastScrollInputReceived = now; // Reset timer after re-registration
+                            }
+                            else
+                            {
+                                Logger.Error("LegionButtonMonitor: Raw Input re-registration failed");
+                            }
+                        }
+                    }
+
                     Thread.Sleep(10);
                 }
             }
@@ -1414,16 +1465,36 @@ namespace XboxGamingBarHelper.Labs
                         if (header.dwType == RIM_TYPEMOUSE)
                         {
                             var mouse = Marshal.PtrToStructure<RAWINPUT_MOUSE>(buffer);
+                            ushort buttonFlags = mouse.mouse.usButtonFlags;
                             ushort buttonData = mouse.mouse.usButtonData;
 
-                            // Process scroll wheel events
+                            // Debug: log raw values to understand Legion Go's data format
+                            if (buttonFlags != 0 || buttonData != 0)
+                            {
+                                Logger.Debug($"LegionButtonMonitor: Scroll Raw Input - buttonFlags=0x{buttonFlags:X4}, buttonData=0x{buttonData:X4}");
+                            }
+
+                            // Legion Go sends scroll click in usButtonData (non-standard)
+                            // 0x0010 = click pressed, 0x0020 = click released, 0x0400 = wheel scroll
                             switch (buttonData)
                             {
                                 case 0x0010: // Scroll click pressed
                                     if (scrollClickEnabled && !lastScrollClickState)
                                     {
+                                        // Apply cooldown for XboxGuide action to ensure Game Bar has time to process
+                                        var timeSinceLastAction = (DateTime.Now - lastScrollClickActionTime).TotalMilliseconds;
+                                        if (scrollClickActionType == LegionButtonAction.XboxGuide &&
+                                            timeSinceLastAction < SCROLL_CLICK_COOLDOWN_MS)
+                                        {
+                                            Logger.Debug($"LegionButtonMonitor: Scroll Click PRESSED skipped (cooldown: {timeSinceLastAction:F0}ms < {SCROLL_CLICK_COOLDOWN_MS}ms)");
+                                            // Don't set lastScrollClickState - ignore this press entirely
+                                            break;
+                                        }
+
                                         lastScrollClickState = true;
-                                        Logger.Debug("LegionButtonMonitor: Scroll Click PRESSED (Raw Input)");
+                                        lastScrollClickActionTime = DateTime.Now;
+                                        scrollClickPressTime = DateTime.Now; // Track press time for minimum hold
+                                        Logger.Info("LegionButtonMonitor: Scroll Click PRESSED (Raw Input)");
                                         ProcessButtonAction("Scroll Click", true, scrollClickActionType,
                                             scrollClickShortcutKeys, scrollClickCommandPath);
                                     }
@@ -1433,7 +1504,21 @@ namespace XboxGamingBarHelper.Labs
                                     if (scrollClickEnabled && lastScrollClickState)
                                     {
                                         lastScrollClickState = false;
-                                        Logger.Debug("LegionButtonMonitor: Scroll Click RELEASED (Raw Input)");
+
+                                        // Enforce minimum hold time for Xbox Guide action
+                                        // Game Bar needs the button held for a minimum duration to register properly
+                                        if (scrollClickActionType == LegionButtonAction.XboxGuide)
+                                        {
+                                            var holdDuration = (DateTime.Now - scrollClickPressTime).TotalMilliseconds;
+                                            if (holdDuration < SCROLL_CLICK_MIN_HOLD_MS)
+                                            {
+                                                int waitTime = SCROLL_CLICK_MIN_HOLD_MS - (int)holdDuration;
+                                                Logger.Debug($"LegionButtonMonitor: Scroll Click hold too short ({holdDuration:F0}ms), waiting {waitTime}ms before release");
+                                                Thread.Sleep(waitTime);
+                                            }
+                                        }
+
+                                        Logger.Info("LegionButtonMonitor: Scroll Click RELEASED (Raw Input)");
                                         ProcessButtonAction("Scroll Click", false, scrollClickActionType,
                                             scrollClickShortcutKeys, scrollClickCommandPath);
                                     }

@@ -84,6 +84,10 @@ namespace XboxGamingBar
         // Sticky TDP settings (per-profile)
         public bool StickyTDPEnabled { get; set; } = true;
         public int StickyTDPInterval { get; set; } = 5;
+        // Overlay Level (0=Off, 1-4 for RTSS/AMD)
+        public int OverlayLevel { get; set; } = 0;
+        // CPU Affinity as "pCores,eCores" string
+        public string CPUAffinity { get; set; } = "";
 
         public PerformanceProfile Clone()
         {
@@ -117,7 +121,9 @@ namespace XboxGamingBar
                 HDREnabled = this.HDREnabled,
                 Resolution = this.Resolution,
                 StickyTDPEnabled = this.StickyTDPEnabled,
-                StickyTDPInterval = this.StickyTDPInterval
+                StickyTDPInterval = this.StickyTDPInterval,
+                OverlayLevel = this.OverlayLevel,
+                CPUAffinity = this.CPUAffinity
             };
         }
     }
@@ -606,6 +612,10 @@ namespace XboxGamingBar
         private XboxGameBarHotkeyWatcher hotkeyMenuB = null;
         private XboxGameBarHotkeyWatcher hotkeyMenuX = null;
         private XboxGameBarHotkeyWatcher hotkeyMenuY = null;
+        private XboxGameBarHotkeyWatcher hotkeyMenuDpadUp = null;
+        private XboxGameBarHotkeyWatcher hotkeyMenuDpadDown = null;
+        private XboxGameBarHotkeyWatcher hotkeyMenuDpadLeft = null;
+        private XboxGameBarHotkeyWatcher hotkeyMenuDpadRight = null;
         private bool isLoadingHotkeys = false;
         private bool isHotkeysExpanded = false;
         private readonly Dictionary<string, DateTime> hotkeyLastExecuted = new Dictionary<string, DateTime>();
@@ -890,6 +900,8 @@ namespace XboxGamingBar
         private bool _saveHDR = false;
         private bool _saveResolution = false;
         private bool _saveStickyTDP = false;
+        private bool _saveOverlayLevel = false;
+        private bool _saveCPUAffinity = false;
 
         private bool SaveTDP => _saveTDP;
         private bool SaveCPUBoost => _saveCPUBoost;
@@ -902,6 +914,8 @@ namespace XboxGamingBar
         private bool SaveHDR => _saveHDR;
         private bool SaveResolution => _saveResolution;
         private bool SaveStickyTDP => _saveStickyTDP;
+        private bool SaveOverlayLevel => _saveOverlayLevel;
+        private bool SaveCPUAffinity => _saveCPUAffinity;
 
         private bool isLoadingProfileSettings = false;
 
@@ -1490,9 +1504,9 @@ namespace XboxGamingBar
             TdpMethodComboBox.GotFocus += Control_GotFocus;
             TdpMethodComboBox.LostFocus += Control_LostFocus;
 
-            // System tab - Device TDP Limits card
-            TDPLimitsExpandButton.GotFocus += Control_GotFocus;
-            TDPLimitsExpandButton.LostFocus += Control_LostFocus;
+            // System tab - TDP Settings card
+            TDPSettingsExpandButton.GotFocus += Control_GotFocus;
+            TDPSettingsExpandButton.LostFocus += Control_LostFocus;
             TDPLimitsMinSlider.GotFocus += Control_GotFocus;
             TDPLimitsMinSlider.LostFocus += Control_LostFocus;
             TDPLimitsMaxSlider.GotFocus += Control_GotFocus;
@@ -1662,6 +1676,9 @@ namespace XboxGamingBar
 
             // Load profile customization settings
             LoadProfileCustomizationSettings();
+
+            // Load TDP preset customization settings
+            LoadTdpPresetsSettings();
 
             // Initialize CPU State comboboxes with percentage values
             InitializeCPUStateComboBoxes();
@@ -3235,11 +3252,12 @@ namespace XboxGamingBar
         private bool isOSDCustomizeExpanded = false;
         private bool isProfileDetectionExpanded = false;
         private bool isProfileSettingsExpanded = false;
-        private bool isTDPLimitsExpanded = false;
+        private bool isTDPSettingsExpanded = false;
         private bool isColorSettingsExpanded = false;
         private bool isButtonRemappingExpanded = false;
         private bool isGyroSettingsExpanded = false;
         private bool isSavedProfilesExpanded = false;
+        private bool isSpecialRemappingExpanded = false;
         private bool isStickDeadzonesExpanded = false;
         private bool isTouchpadVibrationExpanded = false;
         private bool isLightingExpanded = false;
@@ -3291,6 +3309,12 @@ namespace XboxGamingBar
         private int deviceTDPMax = 35;
         private DispatcherTimer tdpLimitsDebounceTimer;
         private const int TDP_LIMITS_DEBOUNCE_MS = 300;
+
+        // TDP Custom Presets
+        private bool useCustomTDPPresets = false;
+        private List<Shared.Data.TdpPreset> tdpPresets = new List<Shared.Data.TdpPreset>();
+        private Shared.Data.TdpPreset editingPreset = null;
+        private int editingPresetIndex = -1;
 
         private bool isLoadingOSDConfig = false;
 
@@ -4425,6 +4449,26 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Toggles the Legion Fan Full Speed mode on/off.
+        /// </summary>
+        private void ToggleLegionFanFullSpeed()
+        {
+            if (legionFanFullSpeed == null) return;
+
+            // Toggle the current state
+            bool newState = !legionFanFullSpeed.Value;
+            legionFanFullSpeed.SetValue(newState);
+
+            // Also update the toggle switch if it exists
+            if (LegionFanFullSpeedToggle != null)
+            {
+                LegionFanFullSpeedToggle.IsOn = newState;
+            }
+
+            Logger.Info($"Fan Full Speed toggled: {(newState ? "On" : "Off")}");
+        }
+
+        /// <summary>
         /// Puts the system into hibernation via helper.
         /// </summary>
         private async void ExecuteHibernate()
@@ -4921,6 +4965,408 @@ namespace XboxGamingBar
             }
         }
 
+        #region TDP Custom Presets
+
+        private void UseCustomTDPPresetsToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (UseCustomTDPPresetsToggle == null) return;
+
+            useCustomTDPPresets = UseCustomTDPPresetsToggle.IsOn;
+
+            // Show/hide the presets list panel
+            if (TDPPresetsListPanel != null)
+            {
+                TDPPresetsListPanel.Visibility = useCustomTDPPresets ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            // Save the setting
+            SaveTdpPresetsSettings();
+
+            // Rebuild the TDP Mode ComboBox with the appropriate items
+            PopulateTdpModeComboBox();
+
+            Logger.Info($"Custom TDP Presets: {(useCustomTDPPresets ? "enabled" : "disabled")}");
+        }
+
+        private void LoadTdpPresetsSettings()
+        {
+            try
+            {
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+
+                // Load the use custom presets flag
+                if (settings.Values.TryGetValue("TdpPresets_UseCustom", out object useCustomObj))
+                {
+                    useCustomTDPPresets = (bool)useCustomObj;
+                }
+                else
+                {
+                    useCustomTDPPresets = false;
+                }
+
+                // Load the presets data
+                if (settings.Values.TryGetValue("TdpPresets_Data", out object presetsJson) && presetsJson is string json)
+                {
+                    tdpPresets = Shared.Data.TdpPreset.FromJson(json);
+                }
+
+                // If no presets loaded or empty, use defaults
+                if (tdpPresets == null || tdpPresets.Count == 0)
+                {
+                    tdpPresets = Shared.Data.TdpPreset.GetDefaultPresets();
+                }
+
+                // Update UI
+                if (UseCustomTDPPresetsToggle != null)
+                {
+                    UseCustomTDPPresetsToggle.IsOn = useCustomTDPPresets;
+                }
+
+                if (TDPPresetsListPanel != null)
+                {
+                    TDPPresetsListPanel.Visibility = useCustomTDPPresets ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Update the presets list display
+                RefreshTdpPresetsList();
+
+                Logger.Info($"Loaded TDP presets settings: useCustom={useCustomTDPPresets}, presetCount={tdpPresets.Count}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error loading TDP presets settings: {ex.Message}");
+                tdpPresets = Shared.Data.TdpPreset.GetDefaultPresets();
+            }
+        }
+
+        private void SaveTdpPresetsSettings()
+        {
+            try
+            {
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+
+                settings.Values["TdpPresets_UseCustom"] = useCustomTDPPresets;
+                settings.Values["TdpPresets_Data"] = Shared.Data.TdpPreset.ToJson(tdpPresets);
+
+                Logger.Info($"Saved TDP presets settings: useCustom={useCustomTDPPresets}, presetCount={tdpPresets.Count}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error saving TDP presets settings: {ex.Message}");
+            }
+        }
+
+        private void RefreshTdpPresetsList()
+        {
+            if (TDPPresetsItemsControl != null)
+            {
+                TDPPresetsItemsControl.ItemsSource = null;
+                TDPPresetsItemsControl.ItemsSource = tdpPresets;
+            }
+        }
+
+        private void PopulateTdpModeComboBox()
+        {
+            if (TDPModeComboBox == null) return;
+
+            // Remember current selection if possible
+            int previousIndex = TDPModeComboBox.SelectedIndex;
+            string previousName = null;
+            if (previousIndex >= 0 && previousIndex < TDPModeComboBox.Items.Count)
+            {
+                var item = TDPModeComboBox.Items[previousIndex] as ComboBoxItem;
+                previousName = item?.Content?.ToString();
+            }
+
+            TDPModeComboBox.Items.Clear();
+
+            if (useCustomTDPPresets && tdpPresets != null && tdpPresets.Count > 0)
+            {
+                // Use custom presets
+                for (int i = 0; i < tdpPresets.Count; i++)
+                {
+                    var preset = tdpPresets[i];
+                    var item = new ComboBoxItem
+                    {
+                        Content = $"{preset.Name} ({preset.TdpWatts}W)",
+                        Tag = i // Store index as tag for lookup
+                    };
+                    TDPModeComboBox.Items.Add(item);
+                }
+
+                // Add Custom mode at the end
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Custom", Tag = -1 });
+            }
+            else
+            {
+                // Use default hardcoded items
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Quiet", Tag = "1" });
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Balanced", Tag = "2" });
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Performance", Tag = "3" });
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Custom", Tag = "255" });
+            }
+
+            // Try to restore previous selection
+            int newIndex = -1;
+            if (!string.IsNullOrEmpty(previousName))
+            {
+                for (int i = 0; i < TDPModeComboBox.Items.Count; i++)
+                {
+                    var item = TDPModeComboBox.Items[i] as ComboBoxItem;
+                    if (item?.Content?.ToString()?.StartsWith(previousName.Split(' ')[0]) == true)
+                    {
+                        newIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            // Default to Balanced (index 1) if no previous or couldn't find
+            TDPModeComboBox.SelectedIndex = newIndex >= 0 ? newIndex : 1;
+        }
+
+        private void TDPPresetEditButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is Shared.Data.TdpPreset preset)
+            {
+                editingPreset = preset;
+                editingPresetIndex = tdpPresets.IndexOf(preset);
+
+                // Populate edit dialog
+                if (EditPresetNameTextBox != null)
+                {
+                    EditPresetNameTextBox.Text = preset.Name;
+                    EditPresetNameTextBox.IsEnabled = !preset.IsBuiltIn; // Can't rename built-in presets
+                }
+
+                if (EditPresetTDPNumberBox != null)
+                {
+                    EditPresetTDPNumberBox.Value = preset.TdpWatts;
+                    EditPresetTDPNumberBox.Minimum = deviceTDPMin;
+                    EditPresetTDPNumberBox.Maximum = deviceTDPMax;
+                }
+
+                // Show edit dialog
+                if (EditPresetDialog != null)
+                {
+                    EditPresetDialog.Visibility = Visibility.Visible;
+                }
+
+                Logger.Info($"Editing preset: {preset.Name} ({preset.TdpWatts}W)");
+            }
+        }
+
+        private void TDPPresetDeleteButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is Shared.Data.TdpPreset preset)
+            {
+                if (preset.IsBuiltIn)
+                {
+                    Logger.Warn($"Cannot delete built-in preset: {preset.Name}");
+                    return;
+                }
+
+                tdpPresets.Remove(preset);
+                SaveTdpPresetsSettings();
+                RefreshTdpPresetsList();
+                PopulateTdpModeComboBox();
+
+                Logger.Info($"Deleted preset: {preset.Name}");
+            }
+        }
+
+        private void AddPresetButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (NewPresetNameTextBox == null || NewPresetTDPNumberBox == null) return;
+
+            string name = NewPresetNameTextBox.Text?.Trim();
+            if (string.IsNullOrEmpty(name))
+            {
+                Logger.Warn("Cannot add preset: name is empty");
+                return;
+            }
+
+            // Check for duplicate names
+            string baseName = name;
+            int suffix = 2;
+            while (tdpPresets.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            {
+                name = $"{baseName} {suffix}";
+                suffix++;
+            }
+
+            int tdpWatts = (int)NewPresetTDPNumberBox.Value;
+
+            // Clamp to device limits
+            tdpWatts = Math.Max(deviceTDPMin, Math.Min(deviceTDPMax, tdpWatts));
+
+            var newPreset = new Shared.Data.TdpPreset(name, tdpWatts, null, false);
+            tdpPresets.Add(newPreset);
+
+            SaveTdpPresetsSettings();
+            RefreshTdpPresetsList();
+            PopulateTdpModeComboBox();
+
+            // Clear the input fields
+            NewPresetNameTextBox.Text = "";
+            NewPresetTDPNumberBox.Value = 30;
+
+            Logger.Info($"Added new preset: {name} ({tdpWatts}W)");
+        }
+
+        private void EditPresetCancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            editingPreset = null;
+            editingPresetIndex = -1;
+
+            if (EditPresetDialog != null)
+            {
+                EditPresetDialog.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void EditPresetSaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (editingPreset == null || editingPresetIndex < 0 || editingPresetIndex >= tdpPresets.Count)
+            {
+                EditPresetCancelButton_Click(sender, e);
+                return;
+            }
+
+            string newName = EditPresetNameTextBox?.Text?.Trim();
+            int newTdp = (int)(EditPresetTDPNumberBox?.Value ?? editingPreset.TdpWatts);
+
+            // Clamp to device limits
+            newTdp = Math.Max(deviceTDPMin, Math.Min(deviceTDPMax, newTdp));
+
+            // Update the preset
+            var updatedPreset = tdpPresets[editingPresetIndex];
+            if (!updatedPreset.IsBuiltIn && !string.IsNullOrEmpty(newName))
+            {
+                updatedPreset.Name = newName;
+            }
+            updatedPreset.TdpWatts = newTdp;
+            tdpPresets[editingPresetIndex] = updatedPreset;
+
+            SaveTdpPresetsSettings();
+            RefreshTdpPresetsList();
+            PopulateTdpModeComboBox();
+
+            Logger.Info($"Updated preset: {updatedPreset.Name} ({updatedPreset.TdpWatts}W)");
+
+            // Close dialog
+            EditPresetCancelButton_Click(sender, e);
+        }
+
+        private void ResetTDPPresetsButton_Click(object sender, RoutedEventArgs e)
+        {
+            tdpPresets = Shared.Data.TdpPreset.GetDefaultPresets();
+            SaveTdpPresetsSettings();
+            RefreshTdpPresetsList();
+            PopulateTdpModeComboBox();
+
+            Logger.Info("Reset TDP presets to defaults");
+        }
+
+        /// <summary>
+        /// Gets the TDP value for the currently selected preset mode.
+        /// Returns -1 if in Custom mode (slider controlled).
+        /// </summary>
+        private int GetCurrentPresetTdpValue()
+        {
+            if (TDPModeComboBox == null) return -1;
+
+            int selectedIndex = TDPModeComboBox.SelectedIndex;
+            if (selectedIndex < 0) return -1;
+
+            if (useCustomTDPPresets && tdpPresets != null)
+            {
+                // Last item is always "Custom" mode
+                if (selectedIndex >= tdpPresets.Count)
+                {
+                    return -1; // Custom mode
+                }
+
+                if (selectedIndex < tdpPresets.Count)
+                {
+                    return tdpPresets[selectedIndex].TdpWatts;
+                }
+            }
+            else
+            {
+                // Default hardcoded values
+                int[] defaultTdpValues = { 8, 15, 25 }; // Quiet, Balanced, Performance
+                if (selectedIndex < defaultTdpValues.Length)
+                {
+                    return defaultTdpValues[selectedIndex];
+                }
+            }
+
+            return -1; // Custom mode
+        }
+
+        /// <summary>
+        /// Gets the Legion hardware mode value for the currently selected preset.
+        /// Returns 255 (Custom) if no hardware mode mapping exists.
+        /// </summary>
+        private int GetCurrentPresetLegionMode()
+        {
+            if (TDPModeComboBox == null) return 255;
+
+            int selectedIndex = TDPModeComboBox.SelectedIndex;
+            if (selectedIndex < 0) return 255;
+
+            if (useCustomTDPPresets && tdpPresets != null)
+            {
+                // Last item is always "Custom" mode
+                if (selectedIndex >= tdpPresets.Count)
+                {
+                    return 255; // Custom mode
+                }
+
+                if (selectedIndex < tdpPresets.Count)
+                {
+                    var preset = tdpPresets[selectedIndex];
+                    return preset.LegionModeValue ?? 255;
+                }
+            }
+            else
+            {
+                // Default hardcoded Legion mode values
+                int[] defaultLegionModes = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
+                if (selectedIndex < defaultLegionModes.Length)
+                {
+                    return defaultLegionModes[selectedIndex];
+                }
+            }
+
+            return 255; // Custom mode
+        }
+
+        /// <summary>
+        /// Checks if the current TDP Mode selection is "Custom" (slider-controlled).
+        /// </summary>
+        private bool IsCustomTdpModeSelected()
+        {
+            if (TDPModeComboBox == null) return true;
+
+            int selectedIndex = TDPModeComboBox.SelectedIndex;
+            if (selectedIndex < 0) return true;
+
+            if (useCustomTDPPresets && tdpPresets != null)
+            {
+                // Last item is always "Custom" mode
+                return selectedIndex >= tdpPresets.Count;
+            }
+            else
+            {
+                // Custom is the last item (index 3)
+                return selectedIndex == 3;
+            }
+        }
+
+        #endregion TDP Custom Presets
+
         private void CPUExtrasExpandToggle_Click(object sender, RoutedEventArgs e)
         {
             isCPUExtrasExpanded = !isCPUExtrasExpanded;
@@ -4937,39 +5383,39 @@ namespace XboxGamingBar
             }
         }
 
-        private void TDPLimitsExpandButton_Click(object sender, RoutedEventArgs e)
+        private void TDPSettingsExpandButton_Click(object sender, RoutedEventArgs e)
         {
-            isTDPLimitsExpanded = !isTDPLimitsExpanded;
+            isTDPSettingsExpanded = !isTDPSettingsExpanded;
 
-            if (TDPLimitsContent != null)
+            if (TDPSettingsContent != null)
             {
-                TDPLimitsContent.Visibility = isTDPLimitsExpanded ? Visibility.Visible : Visibility.Collapsed;
+                TDPSettingsContent.Visibility = isTDPSettingsExpanded ? Visibility.Visible : Visibility.Collapsed;
             }
 
-            if (TDPLimitsExpandIcon != null)
+            if (TDPSettingsExpandIcon != null)
             {
                 // E70D = ChevronDown, E70E = ChevronUp
-                TDPLimitsExpandIcon.Glyph = isTDPLimitsExpanded ? "\uE70E" : "\uE70D";
+                TDPSettingsExpandIcon.Glyph = isTDPSettingsExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void SpecialRemappingExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isSpecialRemappingExpanded = !isSpecialRemappingExpanded;
+
+            if (SpecialRemappingContent != null)
+            {
+                SpecialRemappingContent.Visibility = isSpecialRemappingExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (SpecialRemappingExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                SpecialRemappingExpandIcon.Glyph = isSpecialRemappingExpanded ? "\uE70E" : "\uE70D";
             }
         }
 
         #region TDP Boost Handlers
-
-        private void TDPBoostExpandButton_Click(object sender, RoutedEventArgs e)
-        {
-            isTDPBoostExpanded = !isTDPBoostExpanded;
-
-            if (TDPBoostContent != null)
-            {
-                TDPBoostContent.Visibility = isTDPBoostExpanded ? Visibility.Visible : Visibility.Collapsed;
-            }
-
-            if (TDPBoostExpandIcon != null)
-            {
-                // E70D = ChevronDown, E70E = ChevronUp
-                TDPBoostExpandIcon.Glyph = isTDPBoostExpanded ? "\uE70E" : "\uE70D";
-            }
-        }
 
         private void TDPBoostToggle_Toggled(object sender, RoutedEventArgs e)
         {
@@ -7703,30 +8149,24 @@ namespace XboxGamingBar
             var profile = GetProfile(profileName);
 
             // Save only enabled settings
-            if (SaveTDP && TDPSlider != null)
+            if (SaveTDP && TDPSlider != null && TDPModeComboBox != null)
             {
-                // Save TDP Mode for Legion devices
-                if (legionGoDetected?.Value == true && TDPModeComboBox != null)
+                // Save TDP Mode for all devices (Legion uses hardware presets, generic uses TDP values)
+                int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
+                int selectedIndex = TDPModeComboBox.SelectedIndex;
+                if (selectedIndex >= 0 && selectedIndex < modeValues.Length)
                 {
-                    int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
-                    int selectedIndex = TDPModeComboBox.SelectedIndex;
-                    if (selectedIndex >= 0 && selectedIndex < modeValues.Length)
-                    {
-                        profile.LegionPerformanceMode = modeValues[selectedIndex];
+                    profile.LegionPerformanceMode = modeValues[selectedIndex];
 
-                        // Only save TDP slider value if in Custom mode (255)
-                        // Preset modes (Quiet/Balanced/Performance) use hardware-defined TDP values
-                        if (modeValues[selectedIndex] == 255)
-                        {
-                            profile.TDP = TDPSlider.Value;
-                        }
-                        // For preset modes, keep the profile's existing TDP value for when Custom mode is used later
+                    // Only save TDP slider value if in Custom mode (255)
+                    // This preserves the custom TDP value when switching between preset modes
+                    if (modeValues[selectedIndex] == 255)
+                    {
+                        profile.TDP = TDPSlider.Value;
+                        // Also update savedCustomTDP for consistency
+                        savedCustomTDP = TDPSlider.Value;
                     }
-                }
-                else
-                {
-                    // Non-Legion devices: always save TDP
-                    profile.TDP = TDPSlider.Value;
+                    // For preset modes, keep the profile's existing TDP value for when Custom mode is used later
                 }
             }
             if (SaveCPUBoost && CPUBoostToggle != null)
@@ -7793,6 +8233,16 @@ namespace XboxGamingBar
                 profile.StickyTDPEnabled = StickyTDPToggle.IsOn;
                 profile.StickyTDPInterval = (int)(StickyTDPIntervalSlider?.Value ?? 5);
             }
+            // Overlay Level
+            if (SaveOverlayLevel && PerformanceOverlayComboBox != null)
+            {
+                profile.OverlayLevel = PerformanceOverlayComboBox.SelectedIndex;
+            }
+            // CPU Affinity
+            if (SaveCPUAffinity)
+            {
+                profile.CPUAffinity = $"{activePCores},{activeECores}";
+            }
 
             // Persist to storage
             Logger.Info($"Saving profile {profileName}: TDP={profile.TDP}W");
@@ -7832,6 +8282,11 @@ namespace XboxGamingBar
                 if (SaveTDP && defaultGameProfileEnabled?.Value != true)
                 {
                     TDPSlider.Value = profile.TDP;
+                    // Initialize savedCustomTDP from profile's TDP value
+                    // This ensures we have the correct custom TDP value when switching to Custom mode
+                    savedCustomTDP = profile.TDP;
+                    Logger.Debug($"Initialized savedCustomTDP from profile: {savedCustomTDP}W");
+
                     // For Legion devices: TDP value will be sent AFTER TDP mode is applied (see Legion-specific handling below)
                     // This prevents TDP from being ignored when switching from preset mode to Custom mode
                     // For non-Legion devices: send TDP value immediately
@@ -8192,6 +8647,41 @@ namespace XboxGamingBar
                     // Update TDP slider enabled state based on mode
                     UpdateTDPSliderEnabledState();
                 }
+                // Generic device TDP Mode handling
+                else if (legionGoDetected?.Value != true && TDPModeComboBox != null && defaultGameProfileEnabled?.Value != true && !isInitialSync)
+                {
+                    // Load TDP Mode from profile for generic devices
+                    int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
+                    int profileMode = profile.LegionPerformanceMode;
+                    int modeIndex = Array.IndexOf(modeValues, profileMode);
+
+                    // Default to Balanced (index 1) if profile doesn't have a valid mode
+                    if (modeIndex < 0) modeIndex = 1;
+
+                    if (SaveTDP && TDPModeComboBox.SelectedIndex != modeIndex)
+                    {
+                        lastTDPModeIndex = modeIndex;
+                        TDPModeComboBox.SelectedIndex = modeIndex;
+                        Logger.Info($"Applied generic device TDP Mode: index {modeIndex} (mode {profileMode}) for {profileName}");
+
+                        // For Custom mode, the TDP slider value was already set above
+                        // For preset modes, apply the preset TDP value
+                        if (profileMode != 255)
+                        {
+                            int[] genericTDPValues = { 8, 15, 25 }; // Quiet, Balanced, Performance TDP values
+                            if (modeIndex >= 0 && modeIndex < genericTDPValues.Length)
+                            {
+                                int presetTDP = genericTDPValues[modeIndex];
+                                TDPSlider.Value = presetTDP;
+                                tdp?.ForceSetValue(presetTDP);
+                                Logger.Info($"Applied generic device preset TDP: {presetTDP}W");
+                            }
+                        }
+                    }
+
+                    // Update TDP slider enabled state based on mode
+                    UpdateTDPSliderEnabledState();
+                }
 
                 // HDR
                 if (SaveHDR)
@@ -8278,6 +8768,38 @@ namespace XboxGamingBar
                     }
                 }
 
+                // Overlay Level
+                if (SaveOverlayLevel && PerformanceOverlayComboBox != null)
+                {
+                    int level = profile.OverlayLevel;
+                    if (level >= 0 && level < PerformanceOverlayComboBox.Items.Count)
+                    {
+                        PerformanceOverlayComboBox.SelectedIndex = level;
+                        // The SelectionChanged handler will update PerformanceOverlaySlider and send to system
+                    }
+                }
+
+                // CPU Affinity
+                if (SaveCPUAffinity && !string.IsNullOrEmpty(profile.CPUAffinity))
+                {
+                    var parts = profile.CPUAffinity.Split(',');
+                    if (parts.Length == 2 && int.TryParse(parts[0], out int pCores) && int.TryParse(parts[1], out int eCores))
+                    {
+                        // Validate that at least one core type is active
+                        if (pCores > 0 || eCores > 0)
+                        {
+                            activePCores = pCores;
+                            activeECores = eCores;
+                            // Update UI controls
+                            UpdatePCoreComboBox();
+                            UpdateECoreComboBox();
+                            // Send to helper
+                            SendCPUCoreConfigToHelper();
+                            Logger.Info($"Applied CPU Affinity from profile: P={pCores}, E={eCores}");
+                        }
+                    }
+                }
+
                 // Update profile display to show correct TDP mode in Profiles tab
                 UpdateProfileDisplay();
             }
@@ -8357,6 +8879,8 @@ namespace XboxGamingBar
             container.Values["Resolution"] = profile.Resolution;
             container.Values["StickyTDPEnabled"] = profile.StickyTDPEnabled;
             container.Values["StickyTDPInterval"] = profile.StickyTDPInterval;
+            container.Values["OverlayLevel"] = profile.OverlayLevel;
+            container.Values["CPUAffinity"] = profile.CPUAffinity;
         }
 
         private void LoadProfileFromStorage(string profileName, PerformanceProfile profile)
@@ -8401,6 +8925,8 @@ namespace XboxGamingBar
                 profile.Resolution = container.Values.ContainsKey("Resolution") ? (string)container.Values["Resolution"] : "";
                 profile.StickyTDPEnabled = container.Values.ContainsKey("StickyTDPEnabled") ? (bool)container.Values["StickyTDPEnabled"] : true;
                 profile.StickyTDPInterval = container.Values.ContainsKey("StickyTDPInterval") ? (int)container.Values["StickyTDPInterval"] : 5;
+                profile.OverlayLevel = container.Values.ContainsKey("OverlayLevel") ? (int)container.Values["OverlayLevel"] : 0;
+                profile.CPUAffinity = container.Values.ContainsKey("CPUAffinity") ? (string)container.Values["CPUAffinity"] : "";
 
                 Logger.Info($"Loaded {profileName} profile from storage");
             }
@@ -9371,30 +9897,32 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Sends all button mappings to the helper via IPC.
-        /// Only sends mappings that have actual values (not default/disabled).
+        /// Always sends mappings, including "Disabled" (default) state to clear buttons.
+        /// This method is only called from user-initiated changes (ControllerSettingChanged
+        /// already has guards for profile loading), so we always want to send.
         /// </summary>
         private void SendButtonMappingsToHelper(ControllerProfile profile)
         {
             try
             {
-                // Only send button mappings that are not default (Type=0, GamepadAction=0)
-                // Sending default mappings causes the helper to clear existing button mappings,
-                // which is not desired when loading profiles that don't have explicit mappings set.
-                if (profile.ButtonY1 != null && !profile.ButtonY1.IsDefault)
+                // Always send button mappings, including "Disabled" (Type=0, GamepadAction=0)
+                // When user explicitly sets a button to Disabled, we need to send that to
+                // the helper so it clears the button mapping on the controller.
+                if (profile.ButtonY1 != null)
                     legionButtonY1?.SendMapping(profile.ButtonY1.ToJson());
-                if (profile.ButtonY2 != null && !profile.ButtonY2.IsDefault)
+                if (profile.ButtonY2 != null)
                     legionButtonY2?.SendMapping(profile.ButtonY2.ToJson());
-                if (profile.ButtonY3 != null && !profile.ButtonY3.IsDefault)
+                if (profile.ButtonY3 != null)
                     legionButtonY3?.SendMapping(profile.ButtonY3.ToJson());
-                if (profile.ButtonM1 != null && !profile.ButtonM1.IsDefault)
+                if (profile.ButtonM1 != null)
                     legionButtonM1?.SendMapping(profile.ButtonM1.ToJson());
-                if (profile.ButtonM2 != null && !profile.ButtonM2.IsDefault)
+                if (profile.ButtonM2 != null)
                     legionButtonM2?.SendMapping(profile.ButtonM2.ToJson());
-                if (profile.ButtonM3 != null && !profile.ButtonM3.IsDefault)
+                if (profile.ButtonM3 != null)
                     legionButtonM3?.SendMapping(profile.ButtonM3.ToJson());
-                if (profile.ButtonDesktop != null && !profile.ButtonDesktop.IsDefault)
+                if (profile.ButtonDesktop != null)
                     legionButtonDesktop?.SendMapping(profile.ButtonDesktop.ToJson());
-                if (profile.ButtonPage != null && !profile.ButtonPage.IsDefault)
+                if (profile.ButtonPage != null)
                     legionButtonPage?.SendMapping(profile.ButtonPage.ToJson());
 
                 // Send gamepad button mappings as JSON dictionary
@@ -11437,6 +11965,8 @@ namespace XboxGamingBar
                 }
 
                 _saveStickyTDP = settings.Values.ContainsKey("ProfileSaveStickyTDP") ? (bool)settings.Values["ProfileSaveStickyTDP"] : false;
+                _saveOverlayLevel = settings.Values.ContainsKey("ProfileSaveOverlayLevel") ? (bool)settings.Values["ProfileSaveOverlayLevel"] : false;
+                _saveCPUAffinity = settings.Values.ContainsKey("ProfileSaveCPUAffinity") ? (bool)settings.Values["ProfileSaveCPUAffinity"] : false;
 
                 // Update UI checkboxes
                 if (ProfileSaveTDPCheckBox != null) ProfileSaveTDPCheckBox.IsChecked = _saveTDP;
@@ -11450,6 +11980,8 @@ namespace XboxGamingBar
                 if (ProfileSaveHDRCheckBox != null) ProfileSaveHDRCheckBox.IsChecked = _saveHDR;
                 if (ProfileSaveResolutionCheckBox != null) ProfileSaveResolutionCheckBox.IsChecked = _saveResolution;
                 if (ProfileSaveStickyTDPCheckBox != null) ProfileSaveStickyTDPCheckBox.IsChecked = _saveStickyTDP;
+                if (ProfileSaveOverlayLevelCheckBox != null) ProfileSaveOverlayLevelCheckBox.IsChecked = _saveOverlayLevel;
+                if (ProfileSaveCPUAffinityCheckBox != null) ProfileSaveCPUAffinityCheckBox.IsChecked = _saveCPUAffinity;
             }
             finally
             {
@@ -11473,6 +12005,8 @@ namespace XboxGamingBar
             settings.Values["ProfileSaveHDR"] = ProfileSaveHDRCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveResolution"] = ProfileSaveResolutionCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveStickyTDP"] = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveOverlayLevel"] = ProfileSaveOverlayLevelCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveCPUAffinity"] = ProfileSaveCPUAffinityCheckBox?.IsChecked ?? false;
         }
 
         private void ProfileSettingCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -11512,6 +12046,8 @@ namespace XboxGamingBar
             _saveHDR = ProfileSaveHDRCheckBox?.IsChecked ?? false;
             _saveResolution = ProfileSaveResolutionCheckBox?.IsChecked ?? false;
             _saveStickyTDP = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
+            _saveOverlayLevel = ProfileSaveOverlayLevelCheckBox?.IsChecked ?? false;
+            _saveCPUAffinity = ProfileSaveCPUAffinityCheckBox?.IsChecked ?? false;
         }
 
         private void MainNavigationView_SelectionChanged(object sender, object args)
@@ -11805,8 +12341,19 @@ namespace XboxGamingBar
             Logger.Info("GamingWidget being deactivated - stopping pending updates.");
             try
             {
-                properties.StopPendingUpdates();
-                Logger.Info("Pending updates stopped.");
+                // Must run on UI thread since DispatcherTimer is UI-bound
+                _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    try
+                    {
+                        properties.StopPendingUpdates();
+                        Logger.Info("Pending updates stopped.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error stopping pending updates: {ex.Message}");
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -11876,7 +12423,12 @@ namespace XboxGamingBar
             // Load saved theme preference
             LoadThemeSetting();
 
-            widget = e.Parameter as XboxGameBarWidget;
+            // Only update widget if new parameter is an XboxGameBarWidget, preserve existing otherwise
+            if (e.Parameter is XboxGameBarWidget newWidget)
+            {
+                widget = newWidget;
+            }
+
             if (widget != null)
             {
                 Logger.Info($"Running as a Xbox Game Bar widget. Widget type: {widget.GetType().FullName}");
@@ -12317,6 +12869,13 @@ namespace XboxGamingBar
                 return;
             }
 
+            // Skip if already initialized
+            if (hotkeyMenuA != null)
+            {
+                Logger.Info("Hotkey watchers already initialized, skipping");
+                return;
+            }
+
             // Apply default hotkey settings if not already set
             ApplyHotkeyDefaults();
 
@@ -12346,7 +12905,31 @@ namespace XboxGamingBar
                 hotkeyMenuY.HotkeySetStateChanged += HotkeyMenuY_StateChanged;
                 hotkeyMenuY.Start();
 
-                Logger.Info("Hotkey watchers initialized for Menu+A, Menu+B, Menu+X, Menu+Y");
+                // Menu+DpadUp
+                var keysDpadUp = new List<VirtualKey> { VirtualKey.GamepadMenu, VirtualKey.GamepadDPadUp };
+                hotkeyMenuDpadUp = XboxGameBarHotkeyWatcher.CreateWatcher(widget, keysDpadUp);
+                hotkeyMenuDpadUp.HotkeySetStateChanged += HotkeyMenuDpadUp_StateChanged;
+                hotkeyMenuDpadUp.Start();
+
+                // Menu+DpadDown
+                var keysDpadDown = new List<VirtualKey> { VirtualKey.GamepadMenu, VirtualKey.GamepadDPadDown };
+                hotkeyMenuDpadDown = XboxGameBarHotkeyWatcher.CreateWatcher(widget, keysDpadDown);
+                hotkeyMenuDpadDown.HotkeySetStateChanged += HotkeyMenuDpadDown_StateChanged;
+                hotkeyMenuDpadDown.Start();
+
+                // Menu+DpadLeft
+                var keysDpadLeft = new List<VirtualKey> { VirtualKey.GamepadMenu, VirtualKey.GamepadDPadLeft };
+                hotkeyMenuDpadLeft = XboxGameBarHotkeyWatcher.CreateWatcher(widget, keysDpadLeft);
+                hotkeyMenuDpadLeft.HotkeySetStateChanged += HotkeyMenuDpadLeft_StateChanged;
+                hotkeyMenuDpadLeft.Start();
+
+                // Menu+DpadRight
+                var keysDpadRight = new List<VirtualKey> { VirtualKey.GamepadMenu, VirtualKey.GamepadDPadRight };
+                hotkeyMenuDpadRight = XboxGameBarHotkeyWatcher.CreateWatcher(widget, keysDpadRight);
+                hotkeyMenuDpadRight.HotkeySetStateChanged += HotkeyMenuDpadRight_StateChanged;
+                hotkeyMenuDpadRight.Start();
+
+                Logger.Info("Hotkey watchers initialized for View+A/B/X/Y and Menu+Dpad");
             }
             catch (Exception ex)
             {
@@ -12378,6 +12961,30 @@ namespace XboxGamingBar
         {
             if (!args.HotkeySetDown) return;
             _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => ExecuteHotkeyAction("MenuY"));
+        }
+
+        private void HotkeyMenuDpadUp_StateChanged(XboxGameBarHotkeyWatcher sender, HotkeySetStateChangedArgs args)
+        {
+            if (!args.HotkeySetDown) return;
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => ExecuteHotkeyAction("MenuDpadUp"));
+        }
+
+        private void HotkeyMenuDpadDown_StateChanged(XboxGameBarHotkeyWatcher sender, HotkeySetStateChangedArgs args)
+        {
+            if (!args.HotkeySetDown) return;
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => ExecuteHotkeyAction("MenuDpadDown"));
+        }
+
+        private void HotkeyMenuDpadLeft_StateChanged(XboxGameBarHotkeyWatcher sender, HotkeySetStateChangedArgs args)
+        {
+            if (!args.HotkeySetDown) return;
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => ExecuteHotkeyAction("MenuDpadLeft"));
+        }
+
+        private void HotkeyMenuDpadRight_StateChanged(XboxGameBarHotkeyWatcher sender, HotkeySetStateChangedArgs args)
+        {
+            if (!args.HotkeySetDown) return;
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => ExecuteHotkeyAction("MenuDpadRight"));
         }
 
         /// <summary>
@@ -14220,16 +14827,18 @@ namespace XboxGamingBar
                 Logger.Info($"Legion tab visibility set to: {visible}");
             }
 
-            // Show/hide TDP Mode card in Performance tab for Legion devices
+            // TDP Mode card is always visible for all devices
+            // Legion devices: uses hardware presets (Quiet/Balanced/Performance/Custom)
+            // Generic devices: uses TDP value presets (8W/15W/25W/Custom)
             if (TDPModeCard != null)
             {
-                TDPModeCard.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-                Logger.Info($"TDP Mode card visibility set to: {visible}");
+                TDPModeCard.Visibility = Visibility.Visible;
+                Logger.Info($"TDP Mode card visibility set to: Visible (Legion={visible})");
 
-                // Update XY focus bindings based on Legion detection
-                UpdatePerformanceTabXYFocus(visible);
+                // Update XY focus bindings - TDP Mode card is always present now
+                UpdatePerformanceTabXYFocus(true);
 
-                // Sync TDP Mode with Legion Performance Mode if visible
+                // Sync TDP Mode with Legion Performance Mode if Legion device
                 // Skip during initial sync - ApplyProfileTDPToHelper will set the correct value
                 if (visible && LegionPerformanceModeComboBox != null && TDPModeComboBox != null && !isInitialSync)
                 {
@@ -14847,17 +15456,17 @@ namespace XboxGamingBar
                 Logger.Info($"PawnIO install button updated: installed={installed}");
 
                 // Update XY navigation to skip disabled button
-                if (TdpMethodComboBox != null && TDPLimitsExpandButton != null)
+                if (TdpMethodComboBox != null && TDPSettingsExpandButton != null)
                 {
                     if (installed)
                     {
-                        TdpMethodComboBox.XYFocusDown = TDPLimitsExpandButton;
-                        TDPLimitsExpandButton.XYFocusUp = TdpMethodComboBox;
+                        TdpMethodComboBox.XYFocusDown = TDPSettingsExpandButton;
+                        TDPSettingsExpandButton.XYFocusUp = TdpMethodComboBox;
                     }
                     else
                     {
                         TdpMethodComboBox.XYFocusDown = InstallPawnIOButton;
-                        TDPLimitsExpandButton.XYFocusUp = InstallPawnIOButton;
+                        TDPSettingsExpandButton.XYFocusUp = InstallPawnIOButton;
                     }
                 }
             }
@@ -15200,6 +15809,7 @@ namespace XboxGamingBar
         /// Handles TDP Mode ComboBox selection in Performance tab (Legion devices only)
         /// </summary>
         private int lastTDPModeIndex = 1; // Track last index to avoid redundant updates (init to XAML default: Balanced)
+        private double savedCustomTDP = 15; // Saved custom TDP value when switching away from Custom mode
         private void TDPModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (TDPModeComboBox == null) return;
@@ -15207,28 +15817,90 @@ namespace XboxGamingBar
             // Skip during initialization or profile loading to prevent cycling
             if (isInitialSync || isLoadingProfile) return;
 
-            // Get the selected mode value from tag
-            int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
             int selectedIndex = TDPModeComboBox.SelectedIndex;
-            if (selectedIndex < 0 || selectedIndex >= modeValues.Length) return;
+            if (selectedIndex < 0) return;
 
             // Skip if this is the same index as last time (avoid redundant processing)
             if (selectedIndex == lastTDPModeIndex) return;
-            lastTDPModeIndex = selectedIndex;
 
-            int modeValue = modeValues[selectedIndex];
-            Logger.Info($"TDP Mode selection changed to index {selectedIndex} (value {modeValue})");
-
-            // Sync with Legion Performance Mode ComboBox and property
-            if (LegionPerformanceModeComboBox != null && LegionPerformanceModeComboBox.SelectedIndex != selectedIndex)
+            // Check if switching away from Custom mode (to save slider value)
+            bool wasCustomMode = IsCustomTdpModeSelected() && lastTDPModeIndex >= 0;
+            if (wasCustomMode && TDPSlider != null)
             {
-                LegionPerformanceModeComboBox.SelectedIndex = selectedIndex;
+                savedCustomTDP = TDPSlider.Value;
+                Logger.Info($"Saved custom TDP value: {savedCustomTDP}W before switching to preset mode");
             }
 
-            // Send to helper via the Legion Performance Mode property (only if value changed)
-            if (legionPerformanceMode != null && legionPerformanceMode.Value != modeValue)
+            lastTDPModeIndex = selectedIndex;
+
+            // Use the new preset system to get TDP and Legion mode values
+            bool isCustomMode = IsCustomTdpModeSelected();
+            int presetTdpValue = GetCurrentPresetTdpValue();
+            int legionModeValue = GetCurrentPresetLegionMode();
+
+            Logger.Info($"TDP Mode selection changed to index {selectedIndex}: isCustom={isCustomMode}, presetTDP={presetTdpValue}W, legionMode={legionModeValue}");
+
+            bool isLegion = legionGoDetected?.Value == true;
+
+            if (isLegion)
             {
-                legionPerformanceMode.SetValue(modeValue);
+                // Legion device: use hardware presets via WMI
+                // For built-in presets with LegionModeValue (1/2/3), use hardware mode
+                // For custom presets (LegionModeValue == 255), use Custom mode + software TDP
+
+                // Sync with Legion Performance Mode ComboBox if using default mode (not custom presets)
+                if (!useCustomTDPPresets && LegionPerformanceModeComboBox != null && LegionPerformanceModeComboBox.SelectedIndex != selectedIndex)
+                {
+                    LegionPerformanceModeComboBox.SelectedIndex = selectedIndex;
+                }
+
+                // Send Legion mode to helper
+                if (legionPerformanceMode != null && legionPerformanceMode.Value != legionModeValue)
+                {
+                    legionPerformanceMode.SetValue(legionModeValue);
+                }
+
+                // For custom presets without hardware mode (255), also apply TDP via software
+                if (legionModeValue == 255 && !isCustomMode && presetTdpValue > 0)
+                {
+                    // Custom preset on Legion: apply TDP value via software
+                    if (TDPSlider != null)
+                    {
+                        TDPSlider.Value = presetTdpValue;
+                    }
+                    if (tdp != null)
+                    {
+                        tdp.SetValue(presetTdpValue);
+                        Logger.Info($"Legion device: Applied custom preset TDP {presetTdpValue}W via software");
+                    }
+                }
+            }
+            else
+            {
+                // Generic device: apply TDP value directly based on preset
+                if (isCustomMode)
+                {
+                    // Custom mode: restore saved custom TDP value to slider
+                    if (TDPSlider != null)
+                    {
+                        TDPSlider.Value = savedCustomTDP;
+                        Logger.Info($"Restored custom TDP value to slider: {savedCustomTDP}W");
+                    }
+                }
+                else
+                {
+                    // Preset mode: set TDP directly and update slider to show the value
+                    int targetTDP = presetTdpValue > 0 ? presetTdpValue : 15; // Default to 15W if something goes wrong
+                    if (TDPSlider != null)
+                    {
+                        TDPSlider.Value = targetTDP;
+                    }
+                    if (tdp != null)
+                    {
+                        tdp.SetValue(targetTDP);
+                        Logger.Info($"Generic device: Applied TDP preset {targetTDP}W (mode index {selectedIndex})");
+                    }
+                }
             }
 
             // Update TDP slider enabled state based on mode
@@ -15249,15 +15921,13 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Updates TDP slider enabled state based on TDP Mode (Legion only: disabled when not Custom)
+        /// Updates TDP slider enabled state based on TDP Mode
+        /// For all devices: slider disabled in preset modes (Quiet/Balanced/Performance), enabled in Custom mode
         /// Also updates XY focus bindings to skip disabled TDP slider
         /// </summary>
         private void UpdateTDPSliderEnabledState()
         {
             if (TDPSlider == null) return;
-
-            // Only apply this logic for Legion devices
-            if (legionGoDetected?.Value != true) return;
 
             // If Default Game Profile is active, keep TDP controls disabled
             if (defaultGameProfileEnabled?.Value == true)
@@ -15266,14 +15936,40 @@ namespace XboxGamingBar
                 return;
             }
 
-            // Check if in Custom mode (index 3 = Custom = 255)
-            bool isCustomMode = TDPModeComboBox?.SelectedIndex == 3;
+            // Check if in Custom mode (uses preset system for proper detection)
+            bool isCustomMode = IsCustomTdpModeSelected();
+            bool isLegion = legionGoDetected?.Value == true;
 
-            // TDP slider, TDP Boost, and AutoTDP should only be enabled in Custom mode for Legion devices
+            // TDP slider, TDP Boost, and AutoTDP should only be enabled in Custom mode
             // Note: TDP slider also requires tdp property to be ready (IsEnabled is set elsewhere too)
             if (!isCustomMode)
             {
                 TDPSlider.IsEnabled = false;
+
+                // Update display to show preset name and TDP value
+                int modeIndex = TDPModeComboBox?.SelectedIndex ?? 1;
+                string modeName = "Balanced";
+                int presetTdp = GetCurrentPresetTdpValue();
+
+                if (useCustomTDPPresets && tdpPresets != null && modeIndex >= 0 && modeIndex < tdpPresets.Count)
+                {
+                    modeName = tdpPresets[modeIndex].Name;
+                }
+                else
+                {
+                    string[] defaultModeNames = { "Quiet", "Balanced", "Performance" };
+                    modeName = (modeIndex >= 0 && modeIndex < defaultModeNames.Length) ? defaultModeNames[modeIndex] : "Balanced";
+                }
+
+                if (TDPValueText != null)
+                {
+                    // Show TDP value for custom presets, mode name for defaults
+                    TDPValueText.Text = (useCustomTDPPresets && presetTdp > 0) ? $"{presetTdp}W" : $"{modeName} mode";
+                }
+                if (CurrentTDPValueText != null)
+                {
+                    CurrentTDPValueText.Text = (useCustomTDPPresets && presetTdp > 0) ? $"{modeName} ({presetTdp}W)" : $"{modeName} mode";
+                }
 
                 // Set flag to prevent toggle handlers from saving forced-off state to LocalSettings
                 isUpdatingTDPMode = true;
@@ -15283,11 +15979,7 @@ namespace XboxGamingBar
                     if (TDPBoostToggle != null)
                     {
                         TDPBoostToggle.IsEnabled = false;
-                        TDPBoostToggle.IsOn = false; // Turn off when switching to preset mode
-                    }
-                    if (TDPBoostContent != null)
-                    {
-                        TDPBoostContent.Visibility = Visibility.Collapsed;
+                        TDPBoostToggle.IsOn = false; // Turn off when switching to preset mode (binding handles slider visibility)
                     }
                     if (AutoTDPToggle != null)
                     {
@@ -15317,7 +16009,7 @@ namespace XboxGamingBar
                     OSPowerModeComboBox.XYFocusUp = TDPModeComboBox;
                 }
 
-                Logger.Debug("TDP slider, TDP Boost, AutoTDP, and Sticky TDP disabled - not in Custom mode");
+                Logger.Debug($"TDP slider disabled - using {modeName} mode");
             }
             else
             {
@@ -15342,12 +16034,8 @@ namespace XboxGamingBar
 
                     if (TDPBoostToggle != null && settings.Values.TryGetValue("TDPBoostEnabled", out object tdpBoostVal) && tdpBoostVal is bool tdpBoostEnabledVal)
                     {
-                        TDPBoostToggle.IsOn = tdpBoostEnabledVal;
+                        TDPBoostToggle.IsOn = tdpBoostEnabledVal; // Data binding handles slider visibility
                         this.tdpBoostEnabled?.SetValue(tdpBoostEnabledVal); // Send to helper
-                        if (tdpBoostEnabledVal && TDPBoostContent != null)
-                        {
-                            TDPBoostContent.Visibility = Visibility.Visible;
-                        }
                         Logger.Debug($"Restored TDP Boost toggle state from LocalSettings: {tdpBoostEnabledVal}");
                     }
 
@@ -15389,6 +16077,9 @@ namespace XboxGamingBar
                 }
 
                 Logger.Debug($"TDP slider, TDP Boost, AutoTDP, and Sticky TDP enabled in Custom mode: {TDPSlider.IsEnabled}");
+
+                // Update display to show wattage in Custom mode
+                UpdateTDPDisplayText();
 
                 // CRITICAL FIX: Sync TDPProperty.Value with the slider's current visual value
                 // When TDP sync is skipped (preset modes), TDPProperty.Value stays at initial value (4).
@@ -15452,6 +16143,33 @@ namespace XboxGamingBar
             {
                 Logger.Error($"Error in LegionCustomTDPSlider_ValueChanged: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Updates the TDP display text when slider value changes (Custom mode only)
+        /// </summary>
+        private void TDPSlider_ValueChanged_UpdateDisplay(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            // Only update display if in Custom mode
+            if (TDPModeComboBox?.SelectedIndex == 3)
+            {
+                UpdateTDPDisplayText();
+            }
+        }
+
+        /// <summary>
+        /// Updates TDP display text to show current wattage (for Custom mode)
+        /// </summary>
+        private void UpdateTDPDisplayText()
+        {
+            if (TDPSlider == null) return;
+
+            int tdpValue = (int)TDPSlider.Value;
+            if (TDPValueText != null)
+            {
+                TDPValueText.Text = $"{tdpValue}W";
+            }
+            // Note: CurrentTDPValueText is updated by the helper with actual hardware limits
         }
 
         #endregion
@@ -15594,46 +16312,55 @@ namespace XboxGamingBar
 
             int order = 0;
 
-            // Core tiles
+            // Row 1 - Performance Core (most used)
             AddTileDefinition("TDPMode", "TDP Mode", "\uE945", order: order++);
-            AddTileDefinition("Profile", "Profile", "\uE77B", order: order++);
-            AddTileDefinition("Overlay", "Overlay", "\uE7B3", order: order++);
-            AddTileDefinition("PowerMode", "Power Mode", "\uE945", order: order++);
-            AddTileDefinition("FPSLimit", "FPS Limit", "\uE916", order: order++);
             AddTileDefinition("AutoTDP", "AutoTDP", "\uE9F5", order: order++);
+            AddTileDefinition("PowerMode", "Power Mode", "\uE945", order: order++);
+            AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4", order: order++);
+
+            // Row 2 - Performance Fine-tuning
+            AddTileDefinition("EPP", "EPP", "\uE83E", order: order++);
+            AddTileDefinition("FPSLimit", "FPS Limit", "\uE916", order: order++);
+            AddTileDefinition("RadeonChill", "Chill", "\uE9CA", order: order++);
+            AddTileDefinition("Profile", "Profile", "\uE77B", order: order++);
+
+            // Row 3 - Display
             AddTileDefinition("Resolution", "Resolution", "\uE7F8", order: order++);
             AddTileDefinition("Rotation", "Rotation", "\uE7AD", order: order++);
             AddTileDefinition("HDR", "HDR", "\uE706", order: order++);
-            AddTileDefinition("LosslessScaling", "Lossless", "\uE740", order: order++);
+            AddTileDefinition("Fullscreen", "Fullscreen", "\uE740", order: order++);
+
+            // Row 4 - AMD Graphics Features
+            AddTileDefinition("RSR", "RSR", "\uE8B3", order: order++);
             AddTileDefinition("RIS", "RIS", "\uE8B3", order: order++);
             AddTileDefinition("AFMF", "AFMF", "\uE916", order: order++);
-            AddTileDefinition("RSR", "RSR", "\uE8B3", order: order++);
             AddTileDefinition("AntiLag", "Anti-Lag", "\uE916", order: order++);
-            AddTileDefinition("RadeonChill", "Chill", "\uE9CA", order: order++);
-            AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4", order: order++);
-            AddTileDefinition("EPP", "EPP", "\uE83E", order: order++);
 
-            // Keyboard trigger tile
+            // Row 5 - Scaling/Quality
+            AddTileDefinition("LosslessScaling", "Lossless", "\uE740", order: order++);
+            AddTileDefinition("Overlay", "Overlay", "\uE7B3", order: order++);
+
+            // Row 6 - Input & Interaction
             AddTileDefinition("Keyboard", "Keyboard", "\uE765", isTrigger: true, order: order++);
-
-            // Legion-specific tiles (will be hidden if Legion not detected)
             AddTileDefinition("LegionTouchpad", "Touchpad", "\uE962", order: order++);
-            AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);
-            AddTileDefinition("LegionDesktopControls", "Desktop", "\uE7F4", order: order++);
             AddTileDefinition("LegionRemapControls", "Remap", "\uE7FC", order: order++);
-            AddTileDefinition("LegionChargeLimit", "Charge Limit", "\uE83F", order: order++);
+            AddTileDefinition("LegionDesktopControls", "Desktop", "\uE7F4", order: order++);
+
+            // Row 7 - System/Device
+            AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);
             AddTileDefinition("LegionPowerLight", "Power Light", "\uE7E8", order: order++);
+            AddTileDefinition("LegionChargeLimit", "Charge Limit", "\uE83F", order: order++);
+            AddTileDefinition("LegionFanFullSpeed", "Fan Max", "\uE9CA", order: order++);
             AddTileDefinition("Battery", "Battery", "\uE83F", order: order++);
 
             // Load custom shortcut tiles from storage
             LoadCustomShortcutTiles();
 
-            // Action tiles at the bottom (high order numbers)
-            int actionOrder = 1000;  // Start action tiles at high order to keep them at bottom
+            // Row 8 - Quick Actions (high order numbers to keep at bottom)
+            int actionOrder = 1000;
             AddTileDefinition("ActionTaskManager", "Task Mgr", "\uE7EF", isAction: true, order: actionOrder++);
             AddTileDefinition("ActionExplorer", "Explorer", "\uEC50", isAction: true, order: actionOrder++);
             AddTileDefinition("ActionEndTask", "End Task", "\uE711", isAction: true, order: actionOrder++);
-            AddTileDefinition("ActionFullscreen", "Fullscreen", "\uE740", isAction: true, order: actionOrder++);
             AddTileDefinition("ActionHibernate", "Hibernate", "\uE708", isAction: true, order: actionOrder++);
         }
 
@@ -16273,11 +17000,7 @@ namespace XboxGamingBar
                 return true;
             }
 
-            // Skip TDP Mode if Legion not detected
-            if (tile.Id == "TDPMode" && (legionGoDetected?.Value != true))
-            {
-                return true;
-            }
+            // TDP Mode tile is now available for all devices (Legion uses hardware presets, generic uses TDP values)
 
             // Skip Lossless Scaling tile if not installed
             if (tile.Id == "LosslessScaling" && (losslessScalingInstalled?.Value != true))
@@ -16529,42 +17252,91 @@ namespace XboxGamingBar
                 var accentForeground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 200, 255));
                 var offForeground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
 
-                // TDP Mode tile - color-coded backgrounds: Quiet=Blue, Balanced=White/Grey, Performance=Red, Custom=Purple
+                // TDP Mode tile - color-coded backgrounds based on preset or mode
                 if (qsTileMap.TryGetValue("TDPMode", out var tdpTile) && tdpTile.TileButton != null)
                 {
-                    if (legionGoDetected?.Value == true && legionPerformanceMode != null)
+                    bool isLegion = legionGoDetected?.Value == true;
+                    int selectedIndex = TDPModeComboBox?.SelectedIndex ?? 0;
+                    string modeText;
+                    SolidColorBrush tdpModeBrush;
+
+                    // Use custom presets if enabled
+                    if (useCustomTDPPresets && tdpPresets != null && tdpPresets.Count > 0)
                     {
-                        int mode = legionPerformanceMode.Value;
-                        string modeText;
-                        SolidColorBrush tdpModeBrush;
+                        if (selectedIndex < tdpPresets.Count)
+                        {
+                            var preset = tdpPresets[selectedIndex];
+                            modeText = $"{preset.Name} ({preset.TdpWatts}W)";
+
+                            // Color based on LegionModeValue or default to purple for custom
+                            switch (preset.LegionModeValue)
+                            {
+                                case 1: // Quiet - Desaturated Blue
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 35, 45, 60));
+                                    break;
+                                case 2: // Balanced - Grey
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 55));
+                                    break;
+                                case 3: // Performance - Desaturated Red
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 40, 40));
+                                    break;
+                                default: // Custom preset (no LegionModeValue) - Purple
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 42, 58));
+                                    break;
+                            }
+                        }
+                        else
+                        {
+                            // Custom mode (last item, slider-controlled)
+                            int currentTdp = (int)(TDPSlider?.Value ?? 15);
+                            modeText = $"Custom ({currentTdp}W)";
+                            tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 42, 58));
+                        }
+                    }
+                    else
+                    {
+                        // Default hardcoded mode display
+                        int mode;
+                        if (isLegion && legionPerformanceMode != null)
+                        {
+                            mode = legionPerformanceMode.Value;
+                        }
+                        else
+                        {
+                            int[] modeValues = { 1, 2, 3, 255 };
+                            mode = (selectedIndex >= 0 && selectedIndex < modeValues.Length) ? modeValues[selectedIndex] : 2;
+                        }
+
+                        int[] genericTDPValues = { 8, 15, 25 }; // Quiet, Balanced, Performance TDP values
                         switch (mode)
                         {
                             case 1: // Quiet - Desaturated Blue
-                                modeText = "Quiet";
+                                modeText = isLegion ? "Quiet" : $"Quiet ({genericTDPValues[0]}W)";
                                 tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 35, 45, 60));
                                 break;
                             case 2: // Balanced - Grey
-                                modeText = "Balanced";
+                                modeText = isLegion ? "Balanced" : $"Balanced ({genericTDPValues[1]}W)";
                                 tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 55));
                                 break;
                             case 3: // Performance - Desaturated Red
-                                modeText = "Performance";
+                                modeText = isLegion ? "Performance" : $"Perf ({genericTDPValues[2]}W)";
                                 tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 40, 40));
                                 break;
                             case 255: // Custom - Desaturated Purple
-                                int currentTdp = (int)(tdp?.Value ?? 15);
+                                int currentTdp = (int)(TDPSlider?.Value ?? 15);
                                 modeText = $"Custom ({currentTdp}W)";
                                 tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 42, 58));
                                 break;
                             default:
-                                modeText = "Balanced";
+                                modeText = isLegion ? "Balanced" : $"Balanced ({genericTDPValues[1]}W)";
                                 tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 55));
                                 break;
                         }
-                        tdpTile.StateText.Text = modeText;
-                        tdpTile.StateText.Foreground = accentForeground;
-                        tdpTile.TileButton.Background = tdpModeBrush;
                     }
+
+                    tdpTile.StateText.Text = modeText;
+                    tdpTile.StateText.Foreground = accentForeground;
+                    tdpTile.TileButton.Background = tdpModeBrush;
                 }
 
                 // AutoTDP tile
@@ -16873,6 +17645,18 @@ namespace XboxGamingBar
                     }
                 }
 
+                // Legion Fan Full Speed tile
+                if (qsTileMap.TryGetValue("LegionFanFullSpeed", out var fanFullSpeedTile) && fanFullSpeedTile.TileButton != null)
+                {
+                    if (legionGoDetected?.Value == true)
+                    {
+                        bool enabled = legionFanFullSpeed?.Value ?? false;
+                        fanFullSpeedTile.StateText.Text = enabled ? "On" : "Off";
+                        fanFullSpeedTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                        fanFullSpeedTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                    }
+                }
+
                 // Battery tile - device battery in title, controllers in state text
                 if (qsTileMap.TryGetValue("Battery", out var batteryTile) && batteryTile.TileButton != null)
                 {
@@ -17077,7 +17861,7 @@ namespace XboxGamingBar
                             case "ActionEndTask":
                                 SendAltF4();
                                 break;
-                            case "ActionFullscreen":
+                            case "Fullscreen":
                                 ToggleFullscreen();
                                 break;
                             case "ActionHibernate":
@@ -17085,6 +17869,9 @@ namespace XboxGamingBar
                                 break;
                             case "LegionPowerLight":
                                 ToggleLegionPowerLight();
+                                break;
+                            case "LegionFanFullSpeed":
+                                ToggleLegionFanFullSpeed();
                                 break;
                         }
                     }
@@ -17109,9 +17896,82 @@ namespace XboxGamingBar
                 // The toggle change will trigger OnDefaultProfileEnabledChanged which re-enables controls
             }
 
-            if (legionGoDetected?.Value == true && legionPerformanceMode != null)
+            bool isLegion = legionGoDetected?.Value == true;
+            int currentIndex = TDPModeComboBox?.SelectedIndex ?? 0;
+
+            // Use custom presets if enabled
+            if (useCustomTDPPresets && tdpPresets != null && tdpPresets.Count > 0)
             {
-                int currentMode = legionPerformanceMode.Value;
+                // Total items = presets + Custom mode
+                int totalItems = tdpPresets.Count + 1;
+                int nextIndex = (currentIndex + 1) % totalItems;
+
+                // Update combobox
+                if (TDPModeComboBox != null)
+                {
+                    isUserInitiatedTDPModeChange = true;
+                    TDPModeComboBox.SelectedIndex = nextIndex;
+                    isUserInitiatedTDPModeChange = false;
+                }
+
+                // Determine the Legion mode and TDP to apply
+                int nextLegionMode;
+                int? nextTdp = null;
+                string presetName;
+
+                if (nextIndex < tdpPresets.Count)
+                {
+                    var preset = tdpPresets[nextIndex];
+                    nextLegionMode = preset.LegionModeValue ?? 255;
+                    nextTdp = preset.TdpWatts;
+                    presetName = preset.Name;
+                }
+                else
+                {
+                    // Custom mode (last item)
+                    nextLegionMode = 255;
+                    presetName = "Custom";
+                }
+
+                // For Legion devices, set the hardware mode
+                if (isLegion && legionPerformanceMode != null)
+                {
+                    legionPerformanceMode.SetValue(nextLegionMode);
+                }
+
+                // Apply TDP for software-controlled presets (no LegionModeValue or Custom mode)
+                if (nextLegionMode == 255 && nextTdp.HasValue)
+                {
+                    // Apply the preset's TDP via the TDP slider/property
+                    if (TDPSlider != null)
+                    {
+                        TDPSlider.Value = nextTdp.Value;
+                    }
+                    ScheduleQsTdpReapply();
+                }
+                else if (nextLegionMode == 255)
+                {
+                    // Pure Custom mode - schedule reapply for current slider value
+                    ScheduleQsTdpReapply();
+                }
+
+                Logger.Info($"TDP Mode cycled to preset '{presetName}' (index={nextIndex}, legionMode={nextLegionMode}, tdp={nextTdp})");
+            }
+            else
+            {
+                // Default hardcoded mode cycling: Quiet(1) -> Balanced(2) -> Performance(3) -> Custom(255)
+                int[] modeValues = { 1, 2, 3, 255 };
+                int currentMode;
+                if (isLegion && legionPerformanceMode != null)
+                {
+                    currentMode = legionPerformanceMode.Value;
+                }
+                else
+                {
+                    currentMode = (currentIndex >= 0 && currentIndex < modeValues.Length) ? modeValues[currentIndex] : 2;
+                }
+
+                // Calculate next mode
                 int nextMode;
                 switch (currentMode)
                 {
@@ -17121,24 +17981,29 @@ namespace XboxGamingBar
                     case 255: nextMode = 1; break;   // Custom -> Quiet
                     default: nextMode = 2; break;
                 }
-                legionPerformanceMode.SetValue(nextMode);
 
-                // Update TDPModeComboBox to match - set flag so SelectionChanged handler saves properly
-                int nextIndex = Array.IndexOf(new int[] { 1, 2, 3, 255 }, nextMode);
+                // For Legion devices, update the Legion property
+                if (isLegion && legionPerformanceMode != null)
+                {
+                    legionPerformanceMode.SetValue(nextMode);
+                }
+
+                // Update TDPModeComboBox
+                int nextIndex = Array.IndexOf(modeValues, nextMode);
                 if (nextIndex >= 0 && TDPModeComboBox != null)
                 {
-                    isUserInitiatedTDPModeChange = true; // Flag this as user-initiated
+                    isUserInitiatedTDPModeChange = true;
                     TDPModeComboBox.SelectedIndex = nextIndex;
                     isUserInitiatedTDPModeChange = false;
                 }
 
-                // If switching to Custom mode, schedule TDP reapply after 5 seconds
-                if (nextMode == 255)
+                // If switching to Custom mode on Legion, schedule TDP reapply
+                if (isLegion && nextMode == 255)
                 {
                     ScheduleQsTdpReapply();
                 }
 
-                Logger.Info($"TDP Mode cycled from {currentMode} to {nextMode}");
+                Logger.Info($"TDP Mode cycled from {currentMode} to {nextMode} (isLegion={isLegion})");
             }
         }
 
@@ -17168,7 +18033,8 @@ namespace XboxGamingBar
                 {
                     qsTdpReapplyTimer.Stop();
                     // Reapply TDP - still in Custom mode?
-                    if (legionPerformanceMode?.Value == 255)
+                    bool isCustomMode = TDPModeComboBox?.SelectedIndex == 3;
+                    if (isCustomMode)
                     {
                         // Read TDP value NOW (at timer fire time), not when scheduled
                         // This ensures we use the current profile's TDP if profile switched
@@ -18229,7 +19095,7 @@ namespace XboxGamingBar
         private void AddCustomShortcut_Click(object sender, RoutedEventArgs e)
         {
             string name = CustomShortcutNameBox?.Text?.Trim();
-            string shortcut = CustomShortcutKeyBox?.Text?.Trim();
+            string shortcut = GetCustomShortcutKeysString();
 
             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(shortcut))
             {
@@ -18239,9 +19105,10 @@ namespace XboxGamingBar
 
             AddCustomShortcutTile(name, shortcut);
 
-            // Clear input boxes
+            // Clear inputs
             if (CustomShortcutNameBox != null) CustomShortcutNameBox.Text = "";
-            if (CustomShortcutKeyBox != null) CustomShortcutKeyBox.Text = "";
+            _customShortcutKeys.Clear();
+            UpdateCustomShortcutKeyTags();
 
             UpdateQuickSettingsTileStates();
         }
@@ -18877,17 +19744,18 @@ namespace XboxGamingBar
                 DAServiceStatusText.Text = daServiceIsRunning ? "Disabling service..." : "Enabling service...";
 
                 // Send start/stop command to helper
-                // Value: 0 = Stop, 1 = Start
+                // Content: 0 = Stop and Disable, 1 = Enable and Start
                 int action = daServiceIsRunning ? 0 : 1;
                 var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("Command", (int)Command.Set);
                 request.Add("Function", (int)Function.Labs_DAServiceControl);
-                request.Add("Value", action);
+                request.Add("Content", action);
                 var response = await App.SendMessageAsync(request);
 
-                // Handle response - helper sends back updated status
+                // Handle response - helper sends back updated status in Content
                 if (response != null)
                 {
-                    if (response.TryGetValue("Value", out object statusObj))
+                    if (response.TryGetValue("Content", out object statusObj))
                     {
                         int status = Convert.ToInt32(statusObj);
                         OnDAServiceStatusReceived(status);
@@ -18911,8 +19779,8 @@ namespace XboxGamingBar
             // 0=Disabled, 1=Xbox Guide, 2=Keyboard Shortcut, 3=Run Command, 4=Focus GoTweaks
             bool isShortcut = selection == 2;
             bool isCommand = selection == 3;
-            if (LegionLShortcutGrid != null)
-                LegionLShortcutGrid.Visibility = isShortcut ? Visibility.Visible : Visibility.Collapsed;
+            if (LegionLShortcutPanel != null)
+                LegionLShortcutPanel.Visibility = isShortcut ? Visibility.Visible : Visibility.Collapsed;
             if (LegionLCommandGrid != null)
                 LegionLCommandGrid.Visibility = isCommand ? Visibility.Visible : Visibility.Collapsed;
 
@@ -18949,8 +19817,8 @@ namespace XboxGamingBar
             // 0=Disabled, 1=Xbox Guide, 2=Keyboard Shortcut, 3=Run Command, 4=Focus GoTweaks
             bool isShortcut = selection == 2;
             bool isCommand = selection == 3;
-            if (LegionRShortcutGrid != null)
-                LegionRShortcutGrid.Visibility = isShortcut ? Visibility.Visible : Visibility.Collapsed;
+            if (LegionRShortcutPanel != null)
+                LegionRShortcutPanel.Visibility = isShortcut ? Visibility.Visible : Visibility.Collapsed;
             if (LegionRCommandGrid != null)
                 LegionRCommandGrid.Visibility = isCommand ? Visibility.Visible : Visibility.Collapsed;
 
@@ -18980,33 +19848,7 @@ namespace XboxGamingBar
 
         private void UpdateLegionRemapDescription()
         {
-            if (LegionRemapDescription == null) return;
-
-            int lSelection = LegionLActionComboBox?.SelectedIndex ?? 0;
-            int rSelection = LegionRActionComboBox?.SelectedIndex ?? 0;
-
-            // 0=Disabled, 1=Xbox Guide, 2=Keyboard Shortcut, 3=Run Command, 4=Focus GoTweaks
-            string lAction = lSelection == 0 ? null :
-                             lSelection == 1 ? "Xbox Guide" :
-                             lSelection == 2 ? LegionLShortcutTextBox?.Text?.Trim() :
-                             lSelection == 3 ? GetCommandDisplayName(LegionLCommandTextBox?.Text?.Trim()) :
-                             "GoTweaks";
-            string rAction = rSelection == 0 ? null :
-                             rSelection == 1 ? "Xbox Guide" :
-                             rSelection == 2 ? LegionRShortcutTextBox?.Text?.Trim() :
-                             rSelection == 3 ? GetCommandDisplayName(LegionRCommandTextBox?.Text?.Trim()) :
-                             "GoTweaks";
-
-            var parts = new System.Collections.Generic.List<string>();
-            if (!string.IsNullOrEmpty(lAction))
-                parts.Add($"L → {lAction}");
-            if (!string.IsNullOrEmpty(rAction))
-                parts.Add($"R → {rAction}");
-
-            if (parts.Count > 0)
-                LegionRemapDescription.Text = string.Join(", ", parts);
-            else
-                LegionRemapDescription.Text = "Requires ViGEmBus for Xbox Guide";
+            // Description text removed in consolidated Special Remapping card
         }
 
         private string GetCommandDisplayName(string commandPath)
@@ -19091,10 +19933,10 @@ namespace XboxGamingBar
             {
                 var settings = ApplicationData.Current.LocalSettings;
                 int lAction = LegionLActionComboBox?.SelectedIndex ?? 0;
-                string lShortcut = LegionLShortcutTextBox?.Text ?? "";
+                string lShortcut = GetKeysAsString("LegionL");
                 string lCommand = LegionLCommandTextBox?.Text ?? "";
                 int rAction = LegionRActionComboBox?.SelectedIndex ?? 0;
-                string rShortcut = LegionRShortcutTextBox?.Text ?? "";
+                string rShortcut = GetKeysAsString("LegionR");
                 string rCommand = LegionRCommandTextBox?.Text ?? "";
 
                 settings.Values["LegionL_Action"] = lAction;
@@ -19137,8 +19979,7 @@ namespace XboxGamingBar
                 }
                 if (settings.Values.TryGetValue("LegionL_Shortcut", out var lShortcut) && lShortcut is string lShortcutStr)
                 {
-                    if (LegionLShortcutTextBox != null)
-                        LegionLShortcutTextBox.Text = lShortcutStr;
+                    LoadKeysFromString("LegionL", lShortcutStr, LegionLKeyTags);
                 }
                 if (settings.Values.TryGetValue("LegionL_Command", out var lCommand) && lCommand is string lCommandStr)
                 {
@@ -19154,8 +19995,7 @@ namespace XboxGamingBar
                 }
                 if (settings.Values.TryGetValue("LegionR_Shortcut", out var rShortcut) && rShortcut is string rShortcutStr)
                 {
-                    if (LegionRShortcutTextBox != null)
-                        LegionRShortcutTextBox.Text = rShortcutStr;
+                    LoadKeysFromString("LegionR", rShortcutStr, LegionRKeyTags);
                 }
                 if (settings.Values.TryGetValue("LegionR_Command", out var rCommand) && rCommand is string rCommandStr)
                 {
@@ -19167,12 +20007,12 @@ namespace XboxGamingBar
                 UpdateLegionRemapDescription();
                 int lSelectionLoaded = LegionLActionComboBox?.SelectedIndex ?? 0;
                 int rSelectionLoaded = LegionRActionComboBox?.SelectedIndex ?? 0;
-                if (LegionLShortcutGrid != null)
-                    LegionLShortcutGrid.Visibility = (lSelectionLoaded == 2) ? Visibility.Visible : Visibility.Collapsed;
+                if (LegionLShortcutPanel != null)
+                    LegionLShortcutPanel.Visibility = (lSelectionLoaded == 2) ? Visibility.Visible : Visibility.Collapsed;
                 if (LegionLCommandGrid != null)
                     LegionLCommandGrid.Visibility = (lSelectionLoaded == 3) ? Visibility.Visible : Visibility.Collapsed;
-                if (LegionRShortcutGrid != null)
-                    LegionRShortcutGrid.Visibility = (rSelectionLoaded == 2) ? Visibility.Visible : Visibility.Collapsed;
+                if (LegionRShortcutPanel != null)
+                    LegionRShortcutPanel.Visibility = (rSelectionLoaded == 2) ? Visibility.Visible : Visibility.Collapsed;
                 if (LegionRCommandGrid != null)
                     LegionRCommandGrid.Visibility = (rSelectionLoaded == 3) ? Visibility.Visible : Visibility.Collapsed;
 
@@ -19180,10 +20020,10 @@ namespace XboxGamingBar
                 SaveToFallbackSettingsFile(new Dictionary<string, object>
                 {
                     { "LegionL_Action", LegionLActionComboBox?.SelectedIndex ?? 0 },
-                    { "LegionL_Shortcut", LegionLShortcutTextBox?.Text ?? "" },
+                    { "LegionL_Shortcut", GetKeysAsString("LegionL") },
                     { "LegionL_Command", LegionLCommandTextBox?.Text ?? "" },
                     { "LegionR_Action", LegionRActionComboBox?.SelectedIndex ?? 0 },
-                    { "LegionR_Shortcut", LegionRShortcutTextBox?.Text ?? "" },
+                    { "LegionR_Shortcut", GetKeysAsString("LegionR") },
                     { "LegionR_Command", LegionRCommandTextBox?.Text ?? "" }
                 });
 
@@ -19216,7 +20056,7 @@ namespace XboxGamingBar
             try
             {
                 ComboBox actionComboBox = isLegionL ? LegionLActionComboBox : LegionRActionComboBox;
-                TextBox shortcutTextBox = isLegionL ? LegionLShortcutTextBox : LegionRShortcutTextBox;
+                string shortcutKeyName = isLegionL ? "LegionL" : "LegionR";
                 TextBox commandTextBox = isLegionL ? LegionLCommandTextBox : LegionRCommandTextBox;
                 string buttonName = isLegionL ? "Legion L" : "Legion R";
 
@@ -19228,14 +20068,14 @@ namespace XboxGamingBar
                 int actionType = selection == 1 ? 0 : selection == 2 ? 1 : selection == 3 ? 2 : selection == 4 ? 3 : 0;
 
                 string shortcutOrCommand = "";
-                if (selection == 2 && shortcutTextBox != null)
+                if (selection == 2)
                 {
-                    shortcutOrCommand = shortcutTextBox.Text?.Trim() ?? "";
+                    shortcutOrCommand = GetKeysAsString(shortcutKeyName);
                     if (string.IsNullOrEmpty(shortcutOrCommand))
                     {
                         if (LegionRemapStatusText != null)
                         {
-                            LegionRemapStatusText.Text = $"{buttonName}: Please enter a shortcut";
+                            LegionRemapStatusText.Text = $"{buttonName}: Please select keys";
                             LegionRemapStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 200, 100));
                         }
                         return;
@@ -19315,8 +20155,8 @@ namespace XboxGamingBar
             // 0=Disabled, 1=Xbox Guide, 2=Keyboard Shortcut, 3=Run Command, 4=Focus GoTweaks
             bool isShortcut = selection == 2;
             bool isCommand = selection == 3;
-            if (ScrollShortcutGrid != null)
-                ScrollShortcutGrid.Visibility = isShortcut ? Visibility.Visible : Visibility.Collapsed;
+            if (ScrollShortcutPanel != null)
+                ScrollShortcutPanel.Visibility = isShortcut ? Visibility.Visible : Visibility.Collapsed;
             if (ScrollCommandGrid != null)
                 ScrollCommandGrid.Visibility = isCommand ? Visibility.Visible : Visibility.Collapsed;
 
@@ -19352,8 +20192,8 @@ namespace XboxGamingBar
             int selection = ScrollClickActionComboBox?.SelectedIndex ?? 0;
             bool isShortcut = selection == 2;
             bool isCommand = selection == 3;
-            if (ScrollClickShortcutGrid != null)
-                ScrollClickShortcutGrid.Visibility = isShortcut ? Visibility.Visible : Visibility.Collapsed;
+            if (ScrollClickShortcutPanel != null)
+                ScrollClickShortcutPanel.Visibility = isShortcut ? Visibility.Visible : Visibility.Collapsed;
             if (ScrollClickCommandGrid != null)
                 ScrollClickCommandGrid.Visibility = isCommand ? Visibility.Visible : Visibility.Collapsed;
 
@@ -19382,32 +20222,7 @@ namespace XboxGamingBar
 
         private void UpdateScrollRemapDescription()
         {
-            if (ScrollRemapDescription == null) return;
-
-            int scrollSelection = ScrollActionComboBox?.SelectedIndex ?? 0;
-            int clickSelection = ScrollClickActionComboBox?.SelectedIndex ?? 0;
-
-            string scrollAction = scrollSelection == 0 ? null :
-                             scrollSelection == 1 ? "Guide" :
-                             scrollSelection == 2 ? ScrollShortcutTextBox?.Text?.Trim() :
-                             scrollSelection == 3 ? GetCommandDisplayName(ScrollCommandTextBox?.Text?.Trim()) :
-                             "GoTweaks";
-            string clickAction = clickSelection == 0 ? null :
-                             clickSelection == 1 ? "Guide" :
-                             clickSelection == 2 ? ScrollClickShortcutTextBox?.Text?.Trim() :
-                             clickSelection == 3 ? GetCommandDisplayName(ScrollClickCommandTextBox?.Text?.Trim()) :
-                             "GoTweaks";
-
-            var parts = new System.Collections.Generic.List<string>();
-            if (!string.IsNullOrEmpty(scrollAction))
-                parts.Add($"⟳{scrollAction}");
-            if (!string.IsNullOrEmpty(clickAction))
-                parts.Add($"●{clickAction}");
-
-            if (parts.Count > 0)
-                ScrollRemapDescription.Text = string.Join(" ", parts);
-            else
-                ScrollRemapDescription.Text = "Map back scroll wheel actions (direction not available via Raw Input)";
+            // Description text removed in consolidated Special Remapping card
         }
 
         private void SaveScrollRemapSettings()
@@ -19416,10 +20231,10 @@ namespace XboxGamingBar
             {
                 var settings = ApplicationData.Current.LocalSettings;
                 int scrollAction = ScrollActionComboBox?.SelectedIndex ?? 0;
-                string scrollShortcut = ScrollShortcutTextBox?.Text ?? "";
+                string scrollShortcut = GetKeysAsString("Scroll");
                 string scrollCommand = ScrollCommandTextBox?.Text ?? "";
                 int clickAction = ScrollClickActionComboBox?.SelectedIndex ?? 0;
-                string clickShortcut = ScrollClickShortcutTextBox?.Text ?? "";
+                string clickShortcut = GetKeysAsString("ScrollClick");
                 string clickCommand = ScrollClickCommandTextBox?.Text ?? "";
 
                 settings.Values["Scroll_Action"] = scrollAction;
@@ -19462,8 +20277,7 @@ namespace XboxGamingBar
                 }
                 if (settings.Values.TryGetValue("Scroll_Shortcut", out var scrollShortcut) && scrollShortcut is string scrollShortcutStr)
                 {
-                    if (ScrollShortcutTextBox != null)
-                        ScrollShortcutTextBox.Text = scrollShortcutStr;
+                    LoadKeysFromString("Scroll", scrollShortcutStr, ScrollKeyTags);
                 }
                 if (settings.Values.TryGetValue("Scroll_Command", out var scrollCommand) && scrollCommand is string scrollCommandStr)
                 {
@@ -19479,8 +20293,7 @@ namespace XboxGamingBar
                 }
                 if (settings.Values.TryGetValue("ScrollClick_Shortcut", out var clickShortcut) && clickShortcut is string clickShortcutStr)
                 {
-                    if (ScrollClickShortcutTextBox != null)
-                        ScrollClickShortcutTextBox.Text = clickShortcutStr;
+                    LoadKeysFromString("ScrollClick", clickShortcutStr, ScrollClickKeyTags);
                 }
                 if (settings.Values.TryGetValue("ScrollClick_Command", out var clickCommand) && clickCommand is string clickCommandStr)
                 {
@@ -19493,10 +20306,10 @@ namespace XboxGamingBar
 
                 // Also sync to JSON fallback file for elevated helper
                 int scrollActionLoaded = ScrollActionComboBox?.SelectedIndex ?? 0;
-                string scrollShortcutLoaded = ScrollShortcutTextBox?.Text ?? "";
+                string scrollShortcutLoaded = GetKeysAsString("Scroll");
                 string scrollCommandLoaded = ScrollCommandTextBox?.Text ?? "";
                 int clickActionLoaded = ScrollClickActionComboBox?.SelectedIndex ?? 0;
-                string clickShortcutLoaded = ScrollClickShortcutTextBox?.Text ?? "";
+                string clickShortcutLoaded = GetKeysAsString("ScrollClick");
                 string clickCommandLoaded = ScrollClickCommandTextBox?.Text ?? "";
 
                 SaveToFallbackSettingsFile(new Dictionary<string, object>
@@ -19520,14 +20333,14 @@ namespace XboxGamingBar
         private void UpdateScrollGridVisibility()
         {
             int scrollSelection = ScrollActionComboBox?.SelectedIndex ?? 0;
-            if (ScrollShortcutGrid != null)
-                ScrollShortcutGrid.Visibility = scrollSelection == 2 ? Visibility.Visible : Visibility.Collapsed;
+            if (ScrollShortcutPanel != null)
+                ScrollShortcutPanel.Visibility = scrollSelection == 2 ? Visibility.Visible : Visibility.Collapsed;
             if (ScrollCommandGrid != null)
                 ScrollCommandGrid.Visibility = scrollSelection == 3 ? Visibility.Visible : Visibility.Collapsed;
 
             int clickSelection = ScrollClickActionComboBox?.SelectedIndex ?? 0;
-            if (ScrollClickShortcutGrid != null)
-                ScrollClickShortcutGrid.Visibility = clickSelection == 2 ? Visibility.Visible : Visibility.Collapsed;
+            if (ScrollClickShortcutPanel != null)
+                ScrollClickShortcutPanel.Visibility = clickSelection == 2 ? Visibility.Visible : Visibility.Collapsed;
             if (ScrollClickCommandGrid != null)
                 ScrollClickCommandGrid.Visibility = clickSelection == 3 ? Visibility.Visible : Visibility.Collapsed;
         }
@@ -19554,9 +20367,9 @@ namespace XboxGamingBar
                 ComboBox actionComboBox = direction == "Scroll" ? ScrollActionComboBox :
                                           direction == "Click" ? ScrollClickActionComboBox :
                                           ScrollClickActionComboBox;
-                TextBox shortcutTextBox = direction == "Scroll" ? ScrollShortcutTextBox :
-                                          direction == "Click" ? ScrollClickShortcutTextBox :
-                                          ScrollClickShortcutTextBox;
+                string shortcutKeyName = direction == "Scroll" ? "Scroll" :
+                                         direction == "Click" ? "ScrollClick" :
+                                         "ScrollClick";
                 TextBox commandTextBox = direction == "Scroll" ? ScrollCommandTextBox :
                                          direction == "Click" ? ScrollClickCommandTextBox :
                                          ScrollClickCommandTextBox;
@@ -19570,14 +20383,14 @@ namespace XboxGamingBar
                 int actionType = selection == 1 ? 0 : selection == 2 ? 1 : selection == 3 ? 2 : selection == 4 ? 3 : 0;
 
                 string shortcutOrCommand = "";
-                if (selection == 2 && shortcutTextBox != null)
+                if (selection == 2)
                 {
-                    shortcutOrCommand = shortcutTextBox.Text?.Trim() ?? "";
+                    shortcutOrCommand = GetKeysAsString(shortcutKeyName);
                     if (string.IsNullOrEmpty(shortcutOrCommand))
                     {
                         if (ScrollRemapStatusText != null)
                         {
-                            ScrollRemapStatusText.Text = $"{actionName}: Please enter a shortcut";
+                            ScrollRemapStatusText.Text = $"{actionName}: Please select keys";
                             ScrollRemapStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 200, 100));
                         }
                         return;
@@ -19681,43 +20494,72 @@ namespace XboxGamingBar
 
                 // Menu+A
                 int actionA = (int)(settings.Values["Hotkey_MenuA_Action"] ?? 0);
-                SelectHotkeyComboBoxByIndex(HotkeyMenuAComboBox, actionA);
-                if (HotkeyMenuATextBox != null)
-                {
-                    HotkeyMenuATextBox.Text = settings.Values["Hotkey_MenuA_Key"] as string ?? "";
-                    HotkeyMenuATextBox.Visibility = (actionA == 1 || actionA == 2)
-                        ? Visibility.Visible : Visibility.Collapsed;
-                }
+                SelectHotkeyComboBoxByTag(HotkeyMenuAComboBox, actionA);
+                LoadKeysFromString("HotkeyMenuA", settings.Values["Hotkey_MenuA_Key"] as string ?? "", HotkeyMenuAKeyTags);
+                if (HotkeyMenuAKeyPanel != null)
+                    HotkeyMenuAKeyPanel.Visibility = (actionA == 1) ? Visibility.Visible : Visibility.Collapsed;
 
                 // Menu+B
                 int actionB = (int)(settings.Values["Hotkey_MenuB_Action"] ?? 0);
-                SelectHotkeyComboBoxByIndex(HotkeyMenuBComboBox, actionB);
-                if (HotkeyMenuBTextBox != null)
-                {
-                    HotkeyMenuBTextBox.Text = settings.Values["Hotkey_MenuB_Key"] as string ?? "";
-                    HotkeyMenuBTextBox.Visibility = (actionB == 1 || actionB == 2)
-                        ? Visibility.Visible : Visibility.Collapsed;
-                }
+                SelectHotkeyComboBoxByTag(HotkeyMenuBComboBox, actionB);
+                LoadKeysFromString("HotkeyMenuB", settings.Values["Hotkey_MenuB_Key"] as string ?? "", HotkeyMenuBKeyTags);
+                if (HotkeyMenuBKeyPanel != null)
+                    HotkeyMenuBKeyPanel.Visibility = (actionB == 1) ? Visibility.Visible : Visibility.Collapsed;
 
                 // Menu+X
                 int actionX = (int)(settings.Values["Hotkey_MenuX_Action"] ?? 0);
-                SelectHotkeyComboBoxByIndex(HotkeyMenuXComboBox, actionX);
-                if (HotkeyMenuXTextBox != null)
-                {
-                    HotkeyMenuXTextBox.Text = settings.Values["Hotkey_MenuX_Key"] as string ?? "";
-                    HotkeyMenuXTextBox.Visibility = (actionX == 1 || actionX == 2)
-                        ? Visibility.Visible : Visibility.Collapsed;
-                }
+                SelectHotkeyComboBoxByTag(HotkeyMenuXComboBox, actionX);
+                LoadKeysFromString("HotkeyMenuX", settings.Values["Hotkey_MenuX_Key"] as string ?? "", HotkeyMenuXKeyTags);
+                if (HotkeyMenuXKeyPanel != null)
+                    HotkeyMenuXKeyPanel.Visibility = (actionX == 1) ? Visibility.Visible : Visibility.Collapsed;
 
                 // Menu+Y
                 int actionY = (int)(settings.Values["Hotkey_MenuY_Action"] ?? 0);
-                SelectHotkeyComboBoxByIndex(HotkeyMenuYComboBox, actionY);
-                if (HotkeyMenuYTextBox != null)
+                SelectHotkeyComboBoxByTag(HotkeyMenuYComboBox, actionY);
+                LoadKeysFromString("HotkeyMenuY", settings.Values["Hotkey_MenuY_Key"] as string ?? "", HotkeyMenuYKeyTags);
+                if (HotkeyMenuYKeyPanel != null)
+                    HotkeyMenuYKeyPanel.Visibility = (actionY == 1) ? Visibility.Visible : Visibility.Collapsed;
+
+                // Menu+DpadUp
+                int actionDpadUp = (int)(settings.Values["Hotkey_MenuDpadUp_Action"] ?? 0);
+                SelectHotkeyComboBoxByTag(HotkeyMenuDpadUpComboBox, actionDpadUp);
+                LoadKeysFromString("HotkeyMenuDpadUp", settings.Values["Hotkey_MenuDpadUp_Key"] as string ?? "", HotkeyMenuDpadUpKeyTags);
+                if (HotkeyMenuDpadUpKeyPanel != null)
+                    HotkeyMenuDpadUpKeyPanel.Visibility = (actionDpadUp == 1) ? Visibility.Visible : Visibility.Collapsed;
+
+                // Menu+DpadDown
+                int actionDpadDown = (int)(settings.Values["Hotkey_MenuDpadDown_Action"] ?? 0);
+                SelectHotkeyComboBoxByTag(HotkeyMenuDpadDownComboBox, actionDpadDown);
+                LoadKeysFromString("HotkeyMenuDpadDown", settings.Values["Hotkey_MenuDpadDown_Key"] as string ?? "", HotkeyMenuDpadDownKeyTags);
+                if (HotkeyMenuDpadDownKeyPanel != null)
+                    HotkeyMenuDpadDownKeyPanel.Visibility = (actionDpadDown == 1) ? Visibility.Visible : Visibility.Collapsed;
+
+                // Menu+DpadLeft
+                int actionDpadLeft = (int)(settings.Values["Hotkey_MenuDpadLeft_Action"] ?? 0);
+                SelectHotkeyComboBoxByTag(HotkeyMenuDpadLeftComboBox, actionDpadLeft);
+                LoadKeysFromString("HotkeyMenuDpadLeft", settings.Values["Hotkey_MenuDpadLeft_Key"] as string ?? "", HotkeyMenuDpadLeftKeyTags);
+                if (HotkeyMenuDpadLeftKeyPanel != null)
+                    HotkeyMenuDpadLeftKeyPanel.Visibility = (actionDpadLeft == 1) ? Visibility.Visible : Visibility.Collapsed;
+
+                // Menu+DpadRight
+                int actionDpadRight = (int)(settings.Values["Hotkey_MenuDpadRight_Action"] ?? 0);
+                SelectHotkeyComboBoxByTag(HotkeyMenuDpadRightComboBox, actionDpadRight);
+                LoadKeysFromString("HotkeyMenuDpadRight", settings.Values["Hotkey_MenuDpadRight_Key"] as string ?? "", HotkeyMenuDpadRightKeyTags);
+                if (HotkeyMenuDpadRightKeyPanel != null)
+                    HotkeyMenuDpadRightKeyPanel.Visibility = (actionDpadRight == 1) ? Visibility.Visible : Visibility.Collapsed;
+
+                // Sync all hotkey settings to fallback file for elevated helper
+                SaveToFallbackSettingsFile(new Dictionary<string, object>
                 {
-                    HotkeyMenuYTextBox.Text = settings.Values["Hotkey_MenuY_Key"] as string ?? "";
-                    HotkeyMenuYTextBox.Visibility = (actionY == 1 || actionY == 2)
-                        ? Visibility.Visible : Visibility.Collapsed;
-                }
+                    { "Hotkey_MenuA_Action", actionA },
+                    { "Hotkey_MenuB_Action", actionB },
+                    { "Hotkey_MenuX_Action", actionX },
+                    { "Hotkey_MenuY_Action", actionY },
+                    { "Hotkey_MenuDpadUp_Action", actionDpadUp },
+                    { "Hotkey_MenuDpadDown_Action", actionDpadDown },
+                    { "Hotkey_MenuDpadLeft_Action", actionDpadLeft },
+                    { "Hotkey_MenuDpadRight_Action", actionDpadRight }
+                });
 
                 Logger.Info("Hotkey settings loaded");
             }
@@ -19731,40 +20573,68 @@ namespace XboxGamingBar
             }
         }
 
-        private void SelectHotkeyComboBoxByIndex(ComboBox comboBox, int index)
+        private void SelectHotkeyComboBoxByTag(ComboBox comboBox, int tagValue)
         {
             if (comboBox == null) return;
-            if (index >= 0 && index < comboBox.Items.Count)
+
+            // Find the item with matching Tag value
+            for (int i = 0; i < comboBox.Items.Count; i++)
             {
-                comboBox.SelectedIndex = index;
+                if (comboBox.Items[i] is ComboBoxItem item && item.Tag is string tagStr)
+                {
+                    if (int.TryParse(tagStr, out int itemTag) && itemTag == tagValue)
+                    {
+                        comboBox.SelectedIndex = i;
+                        return;
+                    }
+                }
             }
-            else
-            {
-                comboBox.SelectedIndex = 0;
-            }
+
+            // Default to first item if tag not found
+            comboBox.SelectedIndex = 0;
         }
 
         private void HotkeyMenuA_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            HandleHotkeySelectionChanged("MenuA", HotkeyMenuAComboBox, HotkeyMenuATextBox);
+            HandleHotkeySelectionChanged("MenuA", HotkeyMenuAComboBox, HotkeyMenuAKeyPanel);
         }
 
         private void HotkeyMenuB_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            HandleHotkeySelectionChanged("MenuB", HotkeyMenuBComboBox, HotkeyMenuBTextBox);
+            HandleHotkeySelectionChanged("MenuB", HotkeyMenuBComboBox, HotkeyMenuBKeyPanel);
         }
 
         private void HotkeyMenuX_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            HandleHotkeySelectionChanged("MenuX", HotkeyMenuXComboBox, HotkeyMenuXTextBox);
+            HandleHotkeySelectionChanged("MenuX", HotkeyMenuXComboBox, HotkeyMenuXKeyPanel);
         }
 
         private void HotkeyMenuY_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            HandleHotkeySelectionChanged("MenuY", HotkeyMenuYComboBox, HotkeyMenuYTextBox);
+            HandleHotkeySelectionChanged("MenuY", HotkeyMenuYComboBox, HotkeyMenuYKeyPanel);
         }
 
-        private void HandleHotkeySelectionChanged(string hotkeyName, ComboBox comboBox, TextBox textBox)
+        private void HotkeyMenuDpadUp_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            HandleHotkeySelectionChanged("MenuDpadUp", HotkeyMenuDpadUpComboBox, HotkeyMenuDpadUpKeyPanel);
+        }
+
+        private void HotkeyMenuDpadDown_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            HandleHotkeySelectionChanged("MenuDpadDown", HotkeyMenuDpadDownComboBox, HotkeyMenuDpadDownKeyPanel);
+        }
+
+        private void HotkeyMenuDpadLeft_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            HandleHotkeySelectionChanged("MenuDpadLeft", HotkeyMenuDpadLeftComboBox, HotkeyMenuDpadLeftKeyPanel);
+        }
+
+        private void HotkeyMenuDpadRight_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            HandleHotkeySelectionChanged("MenuDpadRight", HotkeyMenuDpadRightComboBox, HotkeyMenuDpadRightKeyPanel);
+        }
+
+        private void HandleHotkeySelectionChanged(string hotkeyName, ComboBox comboBox, StackPanel keyPanel)
         {
             if (isLoadingHotkeys) return;
             if (comboBox?.SelectedItem is ComboBoxItem selected && selected.Tag is string tagStr)
@@ -19772,46 +20642,338 @@ namespace XboxGamingBar
                 int action = int.Parse(tagStr);
                 ApplicationData.Current.LocalSettings.Values[$"Hotkey_{hotkeyName}_Action"] = action;
 
-                // Show/hide TextBox based on action (1=KeyboardKey, 2=KeyboardShortcut)
-                if (textBox != null)
+                // Also save to JSON fallback file for elevated helper
+                SaveToFallbackSettingsFile(new Dictionary<string, object>
                 {
-                    textBox.Visibility = (action == 1 || action == 2)
-                        ? Visibility.Visible : Visibility.Collapsed;
+                    { $"Hotkey_{hotkeyName}_Action", action }
+                });
+
+                // Show/hide key panel based on action (1=Keyboard Shortcut)
+                if (keyPanel != null)
+                {
+                    keyPanel.Visibility = (action == 1) ? Visibility.Visible : Visibility.Collapsed;
                 }
 
                 Logger.Info($"Hotkey {hotkeyName} action changed to {(HotkeyAction)action}");
             }
         }
 
-        private void HotkeyMenuA_TextChanged(object sender, TextChangedEventArgs e)
+        #region Generic Key Dropdown Handling
+
+        // Storage for selected keys (used for hotkeys, Legion buttons, scroll wheel, custom shortcuts)
+        private Dictionary<string, List<int>> _selectedKeys = new Dictionary<string, List<int>>();
+        private List<int> _customShortcutKeys = new List<int>();
+
+        private List<int> GetSelectedKeys(string keyName)
         {
-            HandleHotkeyTextChanged("MenuA", HotkeyMenuATextBox);
+            if (!_selectedKeys.ContainsKey(keyName))
+                _selectedKeys[keyName] = new List<int>();
+            return _selectedKeys[keyName];
         }
 
-        private void HotkeyMenuB_TextChanged(object sender, TextChangedEventArgs e)
+        private void AddKeyToSelection(string keyName, int keyCode, ItemsControl keyTags, ComboBox keyComboBox, Action onKeysChanged = null)
         {
-            HandleHotkeyTextChanged("MenuB", HotkeyMenuBTextBox);
-        }
-
-        private void HotkeyMenuX_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            HandleHotkeyTextChanged("MenuX", HotkeyMenuXTextBox);
-        }
-
-        private void HotkeyMenuY_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            HandleHotkeyTextChanged("MenuY", HotkeyMenuYTextBox);
-        }
-
-        private void HandleHotkeyTextChanged(string hotkeyName, TextBox textBox)
-        {
-            if (isLoadingHotkeys) return;
-            if (textBox != null)
+            var keys = GetSelectedKeys(keyName);
+            if (keys.Count >= 5) return; // Max 5 keys
+            if (!keys.Contains(keyCode) && keyCode > 0)
             {
-                ApplicationData.Current.LocalSettings.Values[$"Hotkey_{hotkeyName}_Key"] = textBox.Text;
-                Logger.Info($"Hotkey {hotkeyName} key changed to: {textBox.Text}");
+                keys.Add(keyCode);
+                UpdateKeyTagsDisplay(keyName, keyTags, onKeysChanged);
+                onKeysChanged?.Invoke();
+            }
+            if (keyComboBox != null)
+                keyComboBox.SelectedIndex = 0;
+        }
+
+        private void RemoveKeyFromSelection(string keyName, int keyCode, ItemsControl keyTags, Action onKeysChanged = null)
+        {
+            var keys = GetSelectedKeys(keyName);
+            keys.Remove(keyCode);
+            UpdateKeyTagsDisplay(keyName, keyTags, onKeysChanged);
+            onKeysChanged?.Invoke();
+        }
+
+        private void UpdateKeyTagsDisplay(string keyName, ItemsControl keyTags, Action onKeysChanged = null)
+        {
+            if (keyTags == null) return;
+            keyTags.Items.Clear();
+            var keys = GetSelectedKeys(keyName);
+            foreach (var key in keys)
+            {
+                var tagBorder = new Border
+                {
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 60, 60)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(6, 2, 6, 2),
+                    Margin = new Thickness(0, 0, 4, 0)
+                };
+                var tagPanel = new StackPanel { Orientation = Orientation.Horizontal };
+                var keyText = new TextBlock
+                {
+                    Text = GetKeyDisplayName(key),
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                var removeButton = new Button
+                {
+                    Content = "×",
+                    FontSize = 10,
+                    Padding = new Thickness(4, 0, 0, 0),
+                    Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    BorderThickness = new Thickness(0),
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    MinWidth = 0,
+                    MinHeight = 0
+                };
+                int keyCode = key;
+                removeButton.Click += (s, e) => RemoveKeyFromSelection(keyName, keyCode, keyTags, onKeysChanged);
+                tagPanel.Children.Add(keyText);
+                tagPanel.Children.Add(removeButton);
+                tagBorder.Child = tagPanel;
+                keyTags.Items.Add(tagBorder);
             }
         }
+
+        private string GetKeysAsString(string keyName)
+        {
+            var keys = GetSelectedKeys(keyName);
+            if (keys.Count == 0) return "";
+            return string.Join("+", keys.Select(k => GetKeyDisplayName(k)));
+        }
+
+        private void LoadKeysFromString(string keyName, string keysString, ItemsControl keyTags)
+        {
+            var keys = GetSelectedKeys(keyName);
+            keys.Clear();
+            if (!string.IsNullOrEmpty(keysString))
+            {
+                var parts = keysString.Split('+');
+                foreach (var part in parts)
+                {
+                    int keyCode = GetKeyCodeFromDisplayName(part.Trim());
+                    if (keyCode > 0)
+                        keys.Add(keyCode);
+                }
+            }
+            UpdateKeyTagsDisplay(keyName, keyTags);
+        }
+
+        private int GetKeyCodeFromDisplayName(string name)
+        {
+            var keyNames = new Dictionary<string, int>
+            {
+                { "A", 0x04 }, { "B", 0x05 }, { "C", 0x06 }, { "D", 0x07 }, { "E", 0x08 },
+                { "F", 0x09 }, { "G", 0x0A }, { "H", 0x0B }, { "I", 0x0C }, { "J", 0x0D },
+                { "K", 0x0E }, { "L", 0x0F }, { "M", 0x10 }, { "N", 0x11 }, { "O", 0x12 },
+                { "P", 0x13 }, { "Q", 0x14 }, { "R", 0x15 }, { "S", 0x16 }, { "T", 0x17 },
+                { "U", 0x18 }, { "V", 0x19 }, { "W", 0x1A }, { "X", 0x1B }, { "Y", 0x1C },
+                { "Z", 0x1D }, { "1", 0x1E }, { "2", 0x1F }, { "3", 0x20 }, { "4", 0x21 },
+                { "5", 0x22 }, { "6", 0x23 }, { "7", 0x24 }, { "8", 0x25 }, { "9", 0x26 },
+                { "0", 0x27 }, { "Enter", 0x28 }, { "Esc", 0x29 }, { "Backspace", 0x2A },
+                { "Tab", 0x2B }, { "Space", 0x2C },
+                { "F1", 0x3A }, { "F2", 0x3B }, { "F3", 0x3C }, { "F4", 0x3D }, { "F5", 0x3E },
+                { "F6", 0x3F }, { "F7", 0x40 }, { "F8", 0x41 }, { "F9", 0x42 }, { "F10", 0x43 },
+                { "F11", 0x44 }, { "F12", 0x45 },
+                { "Right", 0x4F }, { "Left", 0x50 }, { "Down", 0x51 }, { "Up", 0x52 },
+                { "Home", 0x4A }, { "PgUp", 0x4B }, { "Delete", 0x4C }, { "End", 0x4D },
+                { "PgDn", 0x4E }, { "Insert", 0x49 }, { "PrintScr", 0x46 }, { "Pause", 0x48 },
+                { "LCtrl", 0xE0 }, { "LShift", 0xE1 }, { "LAlt", 0xE2 }, { "LWin", 0xE3 },
+                { "RCtrl", 0xE4 }, { "RShift", 0xE5 }, { "RAlt", 0xE6 }, { "RWin", 0xE7 },
+                { "VolMute", 0x7F }, { "VolUp", 0x80 }, { "VolDown", 0x81 }
+            };
+            return keyNames.TryGetValue(name, out int code) ? code : 0;
+        }
+
+        // Hotkey key selection handlers
+        private void HotkeyMenuAKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingHotkeys || HotkeyMenuAKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuAKeyComboBox.SelectedIndex);
+            AddKeyToSelection("HotkeyMenuA", keyCode, HotkeyMenuAKeyTags, HotkeyMenuAKeyComboBox, () => SaveHotkeyKeys("MenuA", "HotkeyMenuA"));
+        }
+
+        private void HotkeyMenuBKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingHotkeys || HotkeyMenuBKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuBKeyComboBox.SelectedIndex);
+            AddKeyToSelection("HotkeyMenuB", keyCode, HotkeyMenuBKeyTags, HotkeyMenuBKeyComboBox, () => SaveHotkeyKeys("MenuB", "HotkeyMenuB"));
+        }
+
+        private void HotkeyMenuXKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingHotkeys || HotkeyMenuXKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuXKeyComboBox.SelectedIndex);
+            AddKeyToSelection("HotkeyMenuX", keyCode, HotkeyMenuXKeyTags, HotkeyMenuXKeyComboBox, () => SaveHotkeyKeys("MenuX", "HotkeyMenuX"));
+        }
+
+        private void HotkeyMenuYKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingHotkeys || HotkeyMenuYKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuYKeyComboBox.SelectedIndex);
+            AddKeyToSelection("HotkeyMenuY", keyCode, HotkeyMenuYKeyTags, HotkeyMenuYKeyComboBox, () => SaveHotkeyKeys("MenuY", "HotkeyMenuY"));
+        }
+
+        private void HotkeyMenuDpadUpKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingHotkeys || HotkeyMenuDpadUpKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuDpadUpKeyComboBox.SelectedIndex);
+            AddKeyToSelection("HotkeyMenuDpadUp", keyCode, HotkeyMenuDpadUpKeyTags, HotkeyMenuDpadUpKeyComboBox, () => SaveHotkeyKeys("MenuDpadUp", "HotkeyMenuDpadUp"));
+        }
+
+        private void HotkeyMenuDpadDownKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingHotkeys || HotkeyMenuDpadDownKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuDpadDownKeyComboBox.SelectedIndex);
+            AddKeyToSelection("HotkeyMenuDpadDown", keyCode, HotkeyMenuDpadDownKeyTags, HotkeyMenuDpadDownKeyComboBox, () => SaveHotkeyKeys("MenuDpadDown", "HotkeyMenuDpadDown"));
+        }
+
+        private void HotkeyMenuDpadLeftKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingHotkeys || HotkeyMenuDpadLeftKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuDpadLeftKeyComboBox.SelectedIndex);
+            AddKeyToSelection("HotkeyMenuDpadLeft", keyCode, HotkeyMenuDpadLeftKeyTags, HotkeyMenuDpadLeftKeyComboBox, () => SaveHotkeyKeys("MenuDpadLeft", "HotkeyMenuDpadLeft"));
+        }
+
+        private void HotkeyMenuDpadRightKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingHotkeys || HotkeyMenuDpadRightKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuDpadRightKeyComboBox.SelectedIndex);
+            AddKeyToSelection("HotkeyMenuDpadRight", keyCode, HotkeyMenuDpadRightKeyTags, HotkeyMenuDpadRightKeyComboBox, () => SaveHotkeyKeys("MenuDpadRight", "HotkeyMenuDpadRight"));
+        }
+
+        private void SaveHotkeyKeys(string hotkeyName, string keyStorageName)
+        {
+            var keysString = GetKeysAsString(keyStorageName);
+            ApplicationData.Current.LocalSettings.Values[$"Hotkey_{hotkeyName}_Key"] = keysString;
+            Logger.Info($"Hotkey {hotkeyName} keys saved: {keysString}");
+        }
+
+        // Legion L/R key selection handlers
+        private void LegionLKeyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (LegionLKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(LegionLKeyComboBox.SelectedIndex);
+            AddKeyToSelection("LegionL", keyCode, LegionLKeyTags, LegionLKeyComboBox, SaveLegionLKeys);
+        }
+
+        private void LegionRKeyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (LegionRKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(LegionRKeyComboBox.SelectedIndex);
+            AddKeyToSelection("LegionR", keyCode, LegionRKeyTags, LegionRKeyComboBox, SaveLegionRKeys);
+        }
+
+        private void SaveLegionLKeys()
+        {
+            var keysString = GetKeysAsString("LegionL");
+            ApplicationData.Current.LocalSettings.Values["LegionL_Shortcut"] = keysString;
+            SaveLegionRemapSettings();
+            ApplyLegionButtonConfig(true);
+        }
+
+        private void SaveLegionRKeys()
+        {
+            var keysString = GetKeysAsString("LegionR");
+            ApplicationData.Current.LocalSettings.Values["LegionR_Shortcut"] = keysString;
+            SaveLegionRemapSettings();
+            ApplyLegionButtonConfig(false);
+        }
+
+        // Scroll wheel key selection handlers
+        private void ScrollKeyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (ScrollKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(ScrollKeyComboBox.SelectedIndex);
+            AddKeyToSelection("Scroll", keyCode, ScrollKeyTags, ScrollKeyComboBox, SaveScrollKeys);
+        }
+
+        private void ScrollClickKeyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (ScrollClickKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(ScrollClickKeyComboBox.SelectedIndex);
+            AddKeyToSelection("ScrollClick", keyCode, ScrollClickKeyTags, ScrollClickKeyComboBox, SaveScrollClickKeys);
+        }
+
+        private void SaveScrollKeys()
+        {
+            var keysString = GetKeysAsString("Scroll");
+            ApplicationData.Current.LocalSettings.Values["Scroll_Shortcut"] = keysString;
+            SaveScrollRemapSettings();
+            ApplyScrollWheelConfig("Scroll");
+        }
+
+        private void SaveScrollClickKeys()
+        {
+            var keysString = GetKeysAsString("ScrollClick");
+            ApplicationData.Current.LocalSettings.Values["ScrollClick_Shortcut"] = keysString;
+            SaveScrollRemapSettings();
+            ApplyScrollWheelConfig("Click");
+        }
+
+        // Custom shortcut key selection handler
+        private void CustomShortcutKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (CustomShortcutKeyComboBox?.SelectedIndex <= 0) return;
+            int keyCode = GetKeyCodeFromDropdownIndex(CustomShortcutKeyComboBox.SelectedIndex);
+            if (_customShortcutKeys.Count < 5 && !_customShortcutKeys.Contains(keyCode) && keyCode > 0)
+            {
+                _customShortcutKeys.Add(keyCode);
+                UpdateCustomShortcutKeyTags();
+            }
+            CustomShortcutKeyComboBox.SelectedIndex = 0;
+        }
+
+        private void UpdateCustomShortcutKeyTags()
+        {
+            if (CustomShortcutKeyTags == null) return;
+            CustomShortcutKeyTags.Items.Clear();
+            foreach (var key in _customShortcutKeys)
+            {
+                var tagBorder = new Border
+                {
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 60, 60)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(6, 2, 6, 2),
+                    Margin = new Thickness(0, 0, 4, 0)
+                };
+                var tagPanel = new StackPanel { Orientation = Orientation.Horizontal };
+                var keyText = new TextBlock
+                {
+                    Text = GetKeyDisplayName(key),
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                var removeButton = new Button
+                {
+                    Content = "×",
+                    FontSize = 10,
+                    Padding = new Thickness(4, 0, 0, 0),
+                    Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    BorderThickness = new Thickness(0),
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    MinWidth = 0,
+                    MinHeight = 0
+                };
+                int keyCode = key;
+                removeButton.Click += (s, args) => { _customShortcutKeys.Remove(keyCode); UpdateCustomShortcutKeyTags(); };
+                tagPanel.Children.Add(keyText);
+                tagPanel.Children.Add(removeButton);
+                tagBorder.Child = tagPanel;
+                CustomShortcutKeyTags.Items.Add(tagBorder);
+            }
+        }
+
+        private string GetCustomShortcutKeysString()
+        {
+            if (_customShortcutKeys.Count == 0) return "";
+            return string.Join("+", _customShortcutKeys.Select(k => GetKeyDisplayName(k)));
+        }
+
+        #endregion
 
         #endregion
     }
