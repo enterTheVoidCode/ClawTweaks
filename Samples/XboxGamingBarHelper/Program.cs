@@ -1797,6 +1797,13 @@ del /f /q ""%~f0"" 2>nul
             {
                 Logger.Info($"Saving LegionPerformanceMode to profile {profileName}");
                 profileManager.CurrentProfile.LegionPerformanceMode = legionManager.LegionPerformanceMode.Value;
+                // Also save directly to GlobalProfile to ensure it's always in sync
+                // This fixes an issue where the restore reads from GlobalProfile but save goes to CurrentProfile
+                if (profileManager.CurrentProfile.IsGlobalProfile)
+                {
+                    profileManager.GlobalProfile.LegionPerformanceMode = legionManager.LegionPerformanceMode.Value;
+                    Logger.Debug($"Also saved LegionPerformanceMode to GlobalProfile directly: {legionManager.LegionPerformanceMode.Value}");
+                }
             }
             // Lighting settings
             else if (sender == legionManager?.LegionLightMode)

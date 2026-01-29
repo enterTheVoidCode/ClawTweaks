@@ -2436,6 +2436,23 @@
 
                                     <!-- Presets List (shown when custom presets enabled) -->
                                     <StackPanel x:Name="TDPPresetsListPanel" Spacing="8" Visibility="Collapsed" Margin="0,12,0,0">
+                                        <!-- Use Lenovo Modes checkbox (Legion devices only) -->
+                                        <Grid x:Name="UseLenovoModesPanel" Visibility="Collapsed" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Use Lenovo Modes" FontSize="13" Foreground="#FFFFFF"/>
+                                                <TextBlock Text="Use hardware modes for Quiet/Balanced/Performance"
+                                                           FontSize="11" Foreground="#888888"/>
+                                            </StackPanel>
+                                            <ToggleSwitch x:Name="UseLenovoModesToggle"
+                                                          Grid.Column="1"
+                                                          IsOn="True"
+                                                          Style="{StaticResource ModernToggleStyle}"
+                                                          Toggled="UseLenovoModesToggle_Toggled"/>
+                                        </Grid>
                                         <!-- Preset items will be dynamically generated -->
                                         <ItemsControl x:Name="TDPPresetsItemsControl">
                                             <ItemsControl.ItemTemplate>
@@ -2495,13 +2512,12 @@
 
                                         <!-- Add Preset Section -->
                                         <Border Background="#1A1A1A" CornerRadius="4" Padding="12" Margin="0,8,0,0">
-                                            <StackPanel>
-                                                <TextBlock Text="Add New Preset" FontSize="13" Foreground="#A0A0A0" Margin="0,0,0,8"/>
+                                            <StackPanel Spacing="8">
+                                                <TextBlock Text="Add New Preset" FontSize="13" Foreground="#A0A0A0"/>
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
                                                         <ColumnDefinition Width="80"/>
-                                                        <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
                                                     <TextBox x:Name="NewPresetNameTextBox"
                                                              Grid.Column="0"
@@ -2515,17 +2531,20 @@
                                                                Minimum="4"
                                                                Maximum="100"
                                                                SpinButtonPlacementMode="Compact"
-                                                               FontSize="13"
-                                                               Margin="0,0,8,0"/>
-                                                    <Button x:Name="AddPresetButton"
-                                                            Grid.Column="2"
-                                                            Content="Add"
-                                                            FontSize="13"
-                                                            Padding="16,6"
-                                                            Background="#4CAF50"
-                                                            Foreground="#FFFFFF"
-                                                            Click="AddPresetButton_Click"/>
+                                                               FontSize="13"/>
                                                 </Grid>
+                                                <CheckBox x:Name="NewPresetTDPBoostCheckBox"
+                                                          Content="Enable TDP Boost"
+                                                          FontSize="13"
+                                                          Foreground="#FFFFFF"/>
+                                                <Button x:Name="AddPresetButton"
+                                                        Content="Add Preset"
+                                                        FontSize="13"
+                                                        Padding="16,6"
+                                                        HorizontalAlignment="Left"
+                                                        Background="#4CAF50"
+                                                        Foreground="#FFFFFF"
+                                                        Click="AddPresetButton_Click"/>
                                             </StackPanel>
                                         </Border>
 
@@ -2560,7 +2579,7 @@
                                                          FontSize="13"
                                                          Padding="8,6"/>
                                             </Grid>
-                                            <Grid>
+                                            <Grid x:Name="EditPresetTDPPanel">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="80"/>
                                                     <ColumnDefinition Width="*"/>
@@ -2572,6 +2591,18 @@
                                                            Maximum="100"
                                                            SpinButtonPlacementMode="Compact"
                                                            FontSize="13"/>
+                                            </Grid>
+                                            <Grid x:Name="EditPresetTDPBoostPanel">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="80"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="TDP Boost:" FontSize="14" Foreground="#A0A0A0" VerticalAlignment="Center"/>
+                                                <CheckBox x:Name="EditPresetTDPBoostCheckBox"
+                                                          Grid.Column="1"
+                                                          Content="Enable TDP Boost"
+                                                          FontSize="13"
+                                                          Foreground="#FFFFFF"/>
                                             </Grid>
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
                                                 <Button Content="Cancel"
