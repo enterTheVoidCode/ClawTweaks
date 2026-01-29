@@ -52,11 +52,12 @@ namespace XboxGamingBar.Data
             Logger.Info($"[TIMING] Individual sync {count} properties: {syncTimer.ElapsedMilliseconds}ms ({syncTimer.ElapsedMilliseconds / Math.Max(1, count)}ms avg)");
         }
 
-        // Properties that should NOT be synced from helper during initial startup.
-        // Widget loads these from saved profiles first, so helper's values would be stale/defaults.
+        // Properties that should NOT be synced from helper during initial startup only.
+        // Widget loads these from profiles first, so helper's values would be stale/defaults.
         // After initial sync, these ARE synced (e.g., when reconnecting, helper has current state).
-        private static readonly HashSet<Function> LightingProperties = new HashSet<Function>
+        private static readonly HashSet<Function> WidgetOwnedPropertiesInitial = new HashSet<Function>
         {
+            // Lighting - loaded from controller profiles
             Function.LegionLightMode,
             Function.LegionLightColor,
             Function.LegionLightBrightness,
@@ -64,9 +65,17 @@ namespace XboxGamingBar.Data
             Function.LegionPowerLight
         };
 
-        // Set to true during initial startup to skip lighting sync (widget loaded from profiles)
-        // After first sync, this is cleared so subsequent syncs include lighting from helper
-        public bool SkipLightingSyncOnce { get; set; } = true;
+        // Properties that should NEVER be synced from helper - widget is always the source of truth.
+        // These are stored in LocalSettings and helper should only receive values, not send them back.
+        private static readonly HashSet<Function> NeverSyncFromHelper = new HashSet<Function>
+        {
+            // OSD level - loaded from LocalSettings (PerformanceOverlayLevel)
+            Function.OSD
+        };
+
+        // Set to true during initial startup to skip widget-owned property sync (widget loaded from profiles/settings)
+        // After first sync, this is cleared so subsequent syncs include these from helper
+        public bool SkipWidgetOwnedSyncOnce { get; set; } = true;
 
         /// <summary>
         /// Attempt to sync all properties in a single batch request.
@@ -83,17 +92,22 @@ namespace XboxGamingBar.Data
 
                 // Build list of function IDs to request as JSON array
                 var jsonArray = new JsonArray();
-                bool skipLighting = SkipLightingSyncOnce;
-                if (skipLighting)
+                bool skipWidgetOwnedInitial = SkipWidgetOwnedSyncOnce;
+                if (skipWidgetOwnedInitial)
                 {
-                    Logger.Info("Skipping lighting properties in batch sync (initial startup - widget loaded from profiles)");
+                    Logger.Info("Skipping widget-owned properties in batch sync (initial startup - widget loaded from settings/profiles)");
                 }
 
                 foreach (var prop in properties.Values)
                 {
-                    // Skip lighting on initial sync only (widget is source of truth from profiles)
-                    // Subsequent syncs include lighting (helper may have applied game profiles)
-                    if (skipLighting && LightingProperties.Contains(prop.Function))
+                    // Always skip properties that should never be synced from helper
+                    if (NeverSyncFromHelper.Contains(prop.Function))
+                    {
+                        continue;
+                    }
+                    // Skip widget-owned properties on initial sync only (widget is source of truth from profiles)
+                    // Subsequent syncs include them (helper may have applied game profiles)
+                    if (skipWidgetOwnedInitial && WidgetOwnedPropertiesInitial.Contains(prop.Function))
                     {
                         continue;
                     }
@@ -101,7 +115,7 @@ namespace XboxGamingBar.Data
                 }
 
                 // Clear the skip flag after this sync
-                SkipLightingSyncOnce = false;
+                SkipWidgetOwnedSyncOnce = false;
 
                 // Create batch request
                 var request = new ValueSet

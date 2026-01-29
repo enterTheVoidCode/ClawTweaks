@@ -28,14 +28,20 @@ namespace Shared.Data
         /// </summary>
         public bool IsBuiltIn { get; set; }
 
+        /// <summary>
+        /// Whether TDP Boost is enabled for this preset
+        /// </summary>
+        public bool TdpBoostEnabled { get; set; }
+
         public TdpPreset() { }
 
-        public TdpPreset(string name, int tdpWatts, int? legionModeValue = null, bool isBuiltIn = false)
+        public TdpPreset(string name, int tdpWatts, int? legionModeValue = null, bool isBuiltIn = false, bool tdpBoostEnabled = false)
         {
             Name = name;
             TdpWatts = tdpWatts;
             LegionModeValue = legionModeValue;
             IsBuiltIn = isBuiltIn;
+            TdpBoostEnabled = tdpBoostEnabled;
         }
 
         /// <summary>
@@ -68,7 +74,8 @@ namespace Shared.Data
                 sb.AppendFormat("\"Name\":\"{0}\",", EscapeJsonString(p.Name ?? ""));
                 sb.AppendFormat("\"TdpWatts\":{0},", p.TdpWatts);
                 sb.AppendFormat("\"LegionModeValue\":{0},", p.LegionModeValue.HasValue ? p.LegionModeValue.Value.ToString() : "null");
-                sb.AppendFormat("\"IsBuiltIn\":{0}", p.IsBuiltIn ? "true" : "false");
+                sb.AppendFormat("\"IsBuiltIn\":{0},", p.IsBuiltIn ? "true" : "false");
+                sb.AppendFormat("\"TdpBoostEnabled\":{0}", p.TdpBoostEnabled ? "true" : "false");
                 sb.Append("}");
                 if (i < presets.Count - 1) sb.Append(",");
             }
@@ -143,6 +150,11 @@ namespace Shared.Data
             var builtInMatch = System.Text.RegularExpressions.Regex.Match(objStr, @"""IsBuiltIn""\s*:\s*(true|false)");
             if (builtInMatch.Success)
                 preset.IsBuiltIn = builtInMatch.Groups[1].Value == "true";
+
+            // Parse TdpBoostEnabled
+            var boostMatch = System.Text.RegularExpressions.Regex.Match(objStr, @"""TdpBoostEnabled""\s*:\s*(true|false)");
+            if (boostMatch.Success)
+                preset.TdpBoostEnabled = boostMatch.Groups[1].Value == "true";
 
             return preset;
         }

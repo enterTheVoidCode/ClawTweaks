@@ -76,6 +76,9 @@ namespace XboxGamingBar
         public int OSPowerMode { get; set; } = 1;
         // Legion Performance Mode (1=Quiet, 2=Balanced, 3=Performance, 255=Custom)
         public int LegionPerformanceMode { get; set; } = 2;
+        // TDP Mode Index in the TDPModeComboBox (for user-made presets)
+        // -1 means use LegionPerformanceMode to determine index (backwards compatibility)
+        public int TDPModeIndex { get; set; } = -1;
         // TDP Boost toggle state (per-profile)
         public bool TDPBoostEnabled { get; set; } = false;
         // HDR and Resolution settings (per-profile)
@@ -117,6 +120,7 @@ namespace XboxGamingBar
                 AutoTDPMaxTDP = this.AutoTDPMaxTDP,
                 OSPowerMode = this.OSPowerMode,
                 LegionPerformanceMode = this.LegionPerformanceMode,
+                TDPModeIndex = this.TDPModeIndex,
                 TDPBoostEnabled = this.TDPBoostEnabled,
                 HDREnabled = this.HDREnabled,
                 Resolution = this.Resolution,
@@ -2605,8 +2609,11 @@ namespace XboxGamingBar
                     {
                         PerformanceOverlaySlider.Value = index;
                     }
-                    // Save the setting
-                    SavePerformanceOverlaySetting();
+                    // Save the setting (but not during initial load)
+                    if (!isLoadingPerformanceOverlaySetting)
+                    {
+                        SavePerformanceOverlaySetting();
+                    }
                 }
             }
         }
@@ -2616,18 +2623,30 @@ namespace XboxGamingBar
             try
             {
                 if (PerformanceOverlayComboBox == null) return;
+                isLoadingPerformanceOverlaySetting = true;
                 var settings = ApplicationData.Current.LocalSettings;
                 if (settings.Values.TryGetValue("PerformanceOverlayLevel", out object val) && val is int level)
                 {
                     if (level >= 0 && level < PerformanceOverlayComboBox.Items.Count)
                     {
                         PerformanceOverlayComboBox.SelectedIndex = level;
+                        // Also set the osd property value directly to avoid debounce delay
+                        // This ensures Quick Settings and helper have the correct value immediately
+                        if (osd != null)
+                        {
+                            osd.SetValue(level);
+                        }
+                        Logger.Debug($"Loaded PerformanceOverlayLevel: {level}");
                     }
                 }
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error loading PerformanceOverlay setting: {ex.Message}");
+            }
+            finally
+            {
+                isLoadingPerformanceOverlaySetting = false;
             }
         }
 
@@ -2637,7 +2656,9 @@ namespace XboxGamingBar
             {
                 if (PerformanceOverlayComboBox == null) return;
                 var settings = ApplicationData.Current.LocalSettings;
-                settings.Values["PerformanceOverlayLevel"] = PerformanceOverlayComboBox.SelectedIndex;
+                int level = PerformanceOverlayComboBox.SelectedIndex;
+                settings.Values["PerformanceOverlayLevel"] = level;
+                Logger.Debug($"Saved PerformanceOverlayLevel: {level}");
             }
             catch (Exception ex)
             {
@@ -3269,6 +3290,7 @@ namespace XboxGamingBar
         private bool osdPositionShiftEnabled = false;
         private int osdOpacity = 100; // percentage 10-100
         private bool isLoadingOLEDSettings = false;
+        private bool isLoadingPerformanceOverlaySetting = false;
         private readonly Windows.UI.Xaml.Shapes.Ellipse[] fanCurvePoints = new Windows.UI.Xaml.Shapes.Ellipse[10];
         private int[] currentFanCurveValues = new int[10];
         private int draggedPointIndex = -1;
@@ -3312,6 +3334,7 @@ namespace XboxGamingBar
 
         // TDP Custom Presets
         private bool useCustomTDPPresets = false;
+        private bool useLenovoModes = true; // Default to using Lenovo hardware modes for built-in presets
         private List<Shared.Data.TdpPreset> tdpPresets = new List<Shared.Data.TdpPreset>();
         private Shared.Data.TdpPreset editingPreset = null;
         private int editingPresetIndex = -1;
@@ -4979,6 +5002,9 @@ namespace XboxGamingBar
                 TDPPresetsListPanel.Visibility = useCustomTDPPresets ? Visibility.Visible : Visibility.Collapsed;
             }
 
+            // Update Lenovo modes panel visibility (only visible on Legion when custom presets enabled)
+            UpdateUseLenovoModesPanelVisibility();
+
             // Save the setting
             SaveTdpPresetsSettings();
 
@@ -4986,6 +5012,63 @@ namespace XboxGamingBar
             PopulateTdpModeComboBox();
 
             Logger.Info($"Custom TDP Presets: {(useCustomTDPPresets ? "enabled" : "disabled")}");
+        }
+
+        private void UseLenovoModesToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (UseLenovoModesToggle == null) return;
+
+            useLenovoModes = UseLenovoModesToggle.IsOn;
+
+            // Update built-in presets' LegionModeValue based on toggle
+            // When "Use Lenovo modes" is ON: built-in presets use hardware modes (1, 2, 3)
+            // When OFF: built-in presets use software TDP control (LegionModeValue = null)
+            for (int i = 0; i < tdpPresets.Count; i++)
+            {
+                var preset = tdpPresets[i];
+                if (preset.IsBuiltIn)
+                {
+                    if (useLenovoModes)
+                    {
+                        // Restore hardware mode values for built-in presets
+                        // Quiet=1, Balanced=2, Performance=3
+                        if (preset.Name == "Quiet") preset.LegionModeValue = 1;
+                        else if (preset.Name == "Balanced") preset.LegionModeValue = 2;
+                        else if (preset.Name == "Performance") preset.LegionModeValue = 3;
+                    }
+                    else
+                    {
+                        // Clear hardware mode - use software TDP control
+                        preset.LegionModeValue = null;
+                    }
+                    tdpPresets[i] = preset;
+                }
+            }
+
+            // Save the setting
+            SaveTdpPresetsSettings();
+
+            // Refresh the presets list to update edit button availability
+            RefreshTdpPresetsList();
+
+            // Rebuild the TDP Mode ComboBox
+            PopulateTdpModeComboBox();
+
+            Logger.Info($"Use Lenovo Modes: {(useLenovoModes ? "enabled" : "disabled")}");
+        }
+
+        /// <summary>
+        /// Shows or hides the "Use Lenovo Modes" panel based on device type.
+        /// Should be called after legionGoDetected is set.
+        /// </summary>
+        private void UpdateUseLenovoModesPanelVisibility()
+        {
+            if (UseLenovoModesPanel != null)
+            {
+                // Only show on Legion devices when custom presets are enabled
+                bool isLegion = legionGoDetected?.Value == true;
+                UseLenovoModesPanel.Visibility = isLegion && useCustomTDPPresets ? Visibility.Visible : Visibility.Collapsed;
+            }
         }
 
         private void LoadTdpPresetsSettings()
@@ -5002,6 +5085,16 @@ namespace XboxGamingBar
                 else
                 {
                     useCustomTDPPresets = false;
+                }
+
+                // Load the use Lenovo modes flag (default: true for Legion devices)
+                if (settings.Values.TryGetValue("TdpPresets_UseLenovoModes", out object useLenovoObj))
+                {
+                    useLenovoModes = (bool)useLenovoObj;
+                }
+                else
+                {
+                    useLenovoModes = true; // Default to using hardware modes
                 }
 
                 // Load the presets data
@@ -5022,15 +5115,23 @@ namespace XboxGamingBar
                     UseCustomTDPPresetsToggle.IsOn = useCustomTDPPresets;
                 }
 
+                if (UseLenovoModesToggle != null)
+                {
+                    UseLenovoModesToggle.IsOn = useLenovoModes;
+                }
+
                 if (TDPPresetsListPanel != null)
                 {
                     TDPPresetsListPanel.Visibility = useCustomTDPPresets ? Visibility.Visible : Visibility.Collapsed;
                 }
 
+                // Update Lenovo modes panel visibility
+                UpdateUseLenovoModesPanelVisibility();
+
                 // Update the presets list display
                 RefreshTdpPresetsList();
 
-                Logger.Info($"Loaded TDP presets settings: useCustom={useCustomTDPPresets}, presetCount={tdpPresets.Count}");
+                Logger.Info($"Loaded TDP presets settings: useCustom={useCustomTDPPresets}, useLenovoModes={useLenovoModes}, presetCount={tdpPresets.Count}");
             }
             catch (Exception ex)
             {
@@ -5046,9 +5147,10 @@ namespace XboxGamingBar
                 var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
 
                 settings.Values["TdpPresets_UseCustom"] = useCustomTDPPresets;
+                settings.Values["TdpPresets_UseLenovoModes"] = useLenovoModes;
                 settings.Values["TdpPresets_Data"] = Shared.Data.TdpPreset.ToJson(tdpPresets);
 
-                Logger.Info($"Saved TDP presets settings: useCustom={useCustomTDPPresets}, presetCount={tdpPresets.Count}");
+                Logger.Info($"Saved TDP presets settings: useCustom={useCustomTDPPresets}, useLenovoModes={useLenovoModes}, presetCount={tdpPresets.Count}");
             }
             catch (Exception ex)
             {
@@ -5132,6 +5234,12 @@ namespace XboxGamingBar
                 editingPreset = preset;
                 editingPresetIndex = tdpPresets.IndexOf(preset);
 
+                // Determine if TDP editing should be allowed
+                // On Legion devices with "Use Lenovo modes" enabled, built-in presets use hardware modes
+                // and TDP cannot be edited (hardware controls the TDP)
+                bool isLegion = legionGoDetected?.Value == true;
+                bool tdpEditingDisabled = isLegion && useLenovoModes && preset.IsBuiltIn;
+
                 // Populate edit dialog
                 if (EditPresetNameTextBox != null)
                 {
@@ -5144,6 +5252,27 @@ namespace XboxGamingBar
                     EditPresetTDPNumberBox.Value = preset.TdpWatts;
                     EditPresetTDPNumberBox.Minimum = deviceTDPMin;
                     EditPresetTDPNumberBox.Maximum = deviceTDPMax;
+                    EditPresetTDPNumberBox.IsEnabled = !tdpEditingDisabled;
+                }
+
+                // Show/hide TDP panel based on whether editing is allowed
+                if (EditPresetTDPPanel != null)
+                {
+                    EditPresetTDPPanel.Visibility = tdpEditingDisabled ? Visibility.Collapsed : Visibility.Visible;
+                }
+
+                // TDP Boost checkbox
+                if (EditPresetTDPBoostCheckBox != null)
+                {
+                    EditPresetTDPBoostCheckBox.IsChecked = preset.TdpBoostEnabled;
+                    // TDP Boost only available when TDP is editable (software control)
+                    EditPresetTDPBoostCheckBox.IsEnabled = !tdpEditingDisabled;
+                }
+
+                // Show/hide TDP Boost panel
+                if (EditPresetTDPBoostPanel != null)
+                {
+                    EditPresetTDPBoostPanel.Visibility = tdpEditingDisabled ? Visibility.Collapsed : Visibility.Visible;
                 }
 
                 // Show edit dialog
@@ -5152,7 +5281,7 @@ namespace XboxGamingBar
                     EditPresetDialog.Visibility = Visibility.Visible;
                 }
 
-                Logger.Info($"Editing preset: {preset.Name} ({preset.TdpWatts}W)");
+                Logger.Info($"Editing preset: {preset.Name} ({preset.TdpWatts}W, Boost={preset.TdpBoostEnabled}, TDPEditable={!tdpEditingDisabled})");
             }
         }
 
@@ -5200,7 +5329,10 @@ namespace XboxGamingBar
             // Clamp to device limits
             tdpWatts = Math.Max(deviceTDPMin, Math.Min(deviceTDPMax, tdpWatts));
 
-            var newPreset = new Shared.Data.TdpPreset(name, tdpWatts, null, false);
+            // Get TDP Boost setting
+            bool tdpBoostEnabled = NewPresetTDPBoostCheckBox?.IsChecked ?? false;
+
+            var newPreset = new Shared.Data.TdpPreset(name, tdpWatts, null, false, tdpBoostEnabled);
             tdpPresets.Add(newPreset);
 
             SaveTdpPresetsSettings();
@@ -5210,8 +5342,12 @@ namespace XboxGamingBar
             // Clear the input fields
             NewPresetNameTextBox.Text = "";
             NewPresetTDPNumberBox.Value = 30;
+            if (NewPresetTDPBoostCheckBox != null)
+            {
+                NewPresetTDPBoostCheckBox.IsChecked = false;
+            }
 
-            Logger.Info($"Added new preset: {name} ({tdpWatts}W)");
+            Logger.Info($"Added new preset: {name} ({tdpWatts}W, Boost={tdpBoostEnabled})");
         }
 
         private void EditPresetCancelButton_Click(object sender, RoutedEventArgs e)
@@ -5245,14 +5381,23 @@ namespace XboxGamingBar
             {
                 updatedPreset.Name = newName;
             }
-            updatedPreset.TdpWatts = newTdp;
+
+            // Only update TDP and Boost if editing was enabled (not using Lenovo hardware modes for built-in)
+            bool isLegion = legionGoDetected?.Value == true;
+            bool tdpEditingDisabled = isLegion && useLenovoModes && updatedPreset.IsBuiltIn;
+            if (!tdpEditingDisabled)
+            {
+                updatedPreset.TdpWatts = newTdp;
+                updatedPreset.TdpBoostEnabled = EditPresetTDPBoostCheckBox?.IsChecked ?? false;
+            }
+
             tdpPresets[editingPresetIndex] = updatedPreset;
 
             SaveTdpPresetsSettings();
             RefreshTdpPresetsList();
             PopulateTdpModeComboBox();
 
-            Logger.Info($"Updated preset: {updatedPreset.Name} ({updatedPreset.TdpWatts}W)");
+            Logger.Info($"Updated preset: {updatedPreset.Name} ({updatedPreset.TdpWatts}W, Boost={updatedPreset.TdpBoostEnabled})");
 
             // Close dialog
             EditPresetCancelButton_Click(sender, e);
@@ -5344,24 +5489,59 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Gets the TDP Boost setting for the currently selected preset.
+        /// Returns null if in Custom mode (user controls TDP Boost toggle directly).
+        /// </summary>
+        private bool? GetCurrentPresetTdpBoost()
+        {
+            if (TDPModeComboBox == null) return null;
+
+            int selectedIndex = TDPModeComboBox.SelectedIndex;
+            if (selectedIndex < 0) return null;
+
+            if (useCustomTDPPresets && tdpPresets != null)
+            {
+                // Last item is always "Custom" mode
+                if (selectedIndex >= tdpPresets.Count)
+                {
+                    return null; // Custom mode - user controls TDP Boost directly
+                }
+
+                if (selectedIndex < tdpPresets.Count)
+                {
+                    return tdpPresets[selectedIndex].TdpBoostEnabled;
+                }
+            }
+
+            // Default presets don't have TDP Boost setting
+            return null;
+        }
+
+        /// <summary>
         /// Checks if the current TDP Mode selection is "Custom" (slider-controlled).
         /// </summary>
         private bool IsCustomTdpModeSelected()
         {
             if (TDPModeComboBox == null) return true;
+            return IsCustomTdpModeIndex(TDPModeComboBox.SelectedIndex);
+        }
 
-            int selectedIndex = TDPModeComboBox.SelectedIndex;
-            if (selectedIndex < 0) return true;
+        /// <summary>
+        /// Checks if a given TDP mode index is "Custom" (slider-controlled).
+        /// </summary>
+        private bool IsCustomTdpModeIndex(int index)
+        {
+            if (index < 0) return true;
 
             if (useCustomTDPPresets && tdpPresets != null)
             {
                 // Last item is always "Custom" mode
-                return selectedIndex >= tdpPresets.Count;
+                return index >= tdpPresets.Count;
             }
             else
             {
                 // Custom is the last item (index 3)
-                return selectedIndex == 3;
+                return index == 3;
             }
         }
 
@@ -8151,22 +8331,25 @@ namespace XboxGamingBar
             // Save only enabled settings
             if (SaveTDP && TDPSlider != null && TDPModeComboBox != null)
             {
-                // Save TDP Mode for all devices (Legion uses hardware presets, generic uses TDP values)
-                int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
                 int selectedIndex = TDPModeComboBox.SelectedIndex;
-                if (selectedIndex >= 0 && selectedIndex < modeValues.Length)
+                if (selectedIndex >= 0)
                 {
-                    profile.LegionPerformanceMode = modeValues[selectedIndex];
+                    // Always save the TDP mode index for proper restoration with custom presets
+                    profile.TDPModeIndex = selectedIndex;
 
-                    // Only save TDP slider value if in Custom mode (255)
-                    // This preserves the custom TDP value when switching between preset modes
-                    if (modeValues[selectedIndex] == 255)
+                    // Get the Legion mode value from the current selection
+                    int legionModeValue = GetCurrentPresetLegionMode();
+                    profile.LegionPerformanceMode = legionModeValue;
+
+                    // Only save TDP slider value if in actual Custom mode (slider-controlled)
+                    // Not for user-made presets (which also have legionModeValue=255 but aren't Custom)
+                    if (IsCustomTdpModeSelected())
                     {
                         profile.TDP = TDPSlider.Value;
                         // Also update savedCustomTDP for consistency
                         savedCustomTDP = TDPSlider.Value;
                     }
-                    // For preset modes, keep the profile's existing TDP value for when Custom mode is used later
+                    // For preset modes (including user-made), keep the profile's existing TDP value
                 }
             }
             if (SaveCPUBoost && CPUBoostToggle != null)
@@ -8267,9 +8450,8 @@ namespace XboxGamingBar
                 bool legionSwitchingToCustom = false;
                 if (legionGoDetected?.Value == true && defaultGameProfileEnabled?.Value != true && !isInitialSync)
                 {
-                    int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
                     int profileMode = profile.LegionPerformanceMode;
-                    int modeIndex = Array.IndexOf(modeValues, profileMode);
+                    int modeIndex = GetProfileTDPModeIndex(profile);
                     if (modeIndex >= 0 && legionPerformanceMode?.Value != profileMode)
                     {
                         legionNeedsModeChange = true;
@@ -8282,10 +8464,13 @@ namespace XboxGamingBar
                 if (SaveTDP && defaultGameProfileEnabled?.Value != true)
                 {
                     TDPSlider.Value = profile.TDP;
-                    // Initialize savedCustomTDP from profile's TDP value
-                    // This ensures we have the correct custom TDP value when switching to Custom mode
-                    savedCustomTDP = profile.TDP;
-                    Logger.Debug($"Initialized savedCustomTDP from profile: {savedCustomTDP}W");
+                    // Only initialize savedCustomTDP from profile's TDP value if the profile was saved in Custom mode
+                    // Otherwise we'd be saving a preset's TDP value as the custom TDP value
+                    if (profile.LegionPerformanceMode == 255)
+                    {
+                        savedCustomTDP = profile.TDP;
+                        Logger.Debug($"Initialized savedCustomTDP from profile (Custom mode): {savedCustomTDP}W");
+                    }
 
                     // For Legion devices: TDP value will be sent AFTER TDP mode is applied (see Legion-specific handling below)
                     // This prevents TDP from being ignored when switching from preset mode to Custom mode
@@ -8478,7 +8663,7 @@ namespace XboxGamingBar
                         if (SaveTDP)
                         {
                             int profileMode = profile.LegionPerformanceMode;
-                            int modeIndex = Array.IndexOf(modeValues, profileMode);
+                            int modeIndex = GetProfileTDPModeIndex(profile);
                             if (modeIndex >= 0 && (legionPerformanceMode.Value != profileMode || TDPModeComboBox.SelectedIndex != modeIndex))
                             {
                                 // Update lastTDPModeIndex FIRST to prevent TDPModeComboBox_SelectionChanged
@@ -8594,7 +8779,7 @@ namespace XboxGamingBar
                     {
                         // Loading Global profile directly (not returning from game) - apply profile's TDP Mode
                         int profileMode = profile.LegionPerformanceMode;
-                        int modeIndex = Array.IndexOf(modeValues, profileMode);
+                        int modeIndex = GetProfileTDPModeIndex(profile);
                         Logger.Info($"LoadProfileSettings: profileMode={profileMode}, modeIndex={modeIndex}, legionPerformanceMode.Value={legionPerformanceMode?.Value}, TDPModeComboBox.SelectedIndex={TDPModeComboBox?.SelectedIndex}");
 
                         // Always update UI to match profile when loading Global profile
@@ -8651,12 +8836,8 @@ namespace XboxGamingBar
                 else if (legionGoDetected?.Value != true && TDPModeComboBox != null && defaultGameProfileEnabled?.Value != true && !isInitialSync)
                 {
                     // Load TDP Mode from profile for generic devices
-                    int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
                     int profileMode = profile.LegionPerformanceMode;
-                    int modeIndex = Array.IndexOf(modeValues, profileMode);
-
-                    // Default to Balanced (index 1) if profile doesn't have a valid mode
-                    if (modeIndex < 0) modeIndex = 1;
+                    int modeIndex = GetProfileTDPModeIndex(profile); // Already defaults to Balanced if not found
 
                     if (SaveTDP && TDPModeComboBox.SelectedIndex != modeIndex)
                     {
@@ -8874,6 +9055,7 @@ namespace XboxGamingBar
             container.Values["AutoTDPMaxTDP"] = profile.AutoTDPMaxTDP;
             container.Values["OSPowerMode"] = profile.OSPowerMode;
             container.Values["LegionPerformanceMode"] = profile.LegionPerformanceMode;
+            container.Values["TDPModeIndex"] = profile.TDPModeIndex;
             container.Values["TDPBoostEnabled"] = profile.TDPBoostEnabled;
             container.Values["HDREnabled"] = profile.HDREnabled;
             container.Values["Resolution"] = profile.Resolution;
@@ -8920,6 +9102,8 @@ namespace XboxGamingBar
                 {
                     profile.LegionPerformanceMode = (int)container.Values["LegionPerformanceMode"];
                 }
+                // Load TDPModeIndex for custom presets (-1 means use LegionPerformanceMode to determine index)
+                profile.TDPModeIndex = container.Values.ContainsKey("TDPModeIndex") ? (int)container.Values["TDPModeIndex"] : -1;
                 profile.TDPBoostEnabled = container.Values.ContainsKey("TDPBoostEnabled") ? (bool)container.Values["TDPBoostEnabled"] : false;
                 profile.HDREnabled = container.Values.ContainsKey("HDREnabled") ? (bool)container.Values["HDREnabled"] : false;
                 profile.Resolution = container.Values.ContainsKey("Resolution") ? (string)container.Values["Resolution"] : "";
@@ -10892,7 +11076,7 @@ namespace XboxGamingBar
             // Update Global profile display (simple mode)
             GlobalProfileTDPModeLabel.Visibility = tdpModeVisibility;
             GlobalProfileTDPModeText.Visibility = tdpModeVisibility;
-            GlobalProfileTDPModeText.Text = GetLegionModeShortName(globalProfile.LegionPerformanceMode);
+            GlobalProfileTDPModeText.Text = GetProfileTDPModeName(globalProfile);
 
             GlobalProfileTDPLabel.Visibility = tdpVisibility;
             GlobalProfileTDPText.Visibility = tdpVisibility;
@@ -10943,8 +11127,8 @@ namespace XboxGamingBar
             ACDCProfileTDPModeLabel.Visibility = tdpModeVisibility;
             ACProfileTDPModeText.Visibility = tdpModeVisibility;
             DCProfileTDPModeText.Visibility = tdpModeVisibility;
-            ACProfileTDPModeText.Text = GetLegionModeShortName(acProfile.LegionPerformanceMode);
-            DCProfileTDPModeText.Text = GetLegionModeShortName(dcProfile.LegionPerformanceMode);
+            ACProfileTDPModeText.Text = GetProfileTDPModeName(acProfile);
+            DCProfileTDPModeText.Text = GetProfileTDPModeName(dcProfile);
 
             ACDCProfileTDPLabel.Visibility = tdpVisibility;
             ACProfileTDPText.Visibility = tdpVisibility;
@@ -11023,8 +11207,8 @@ namespace XboxGamingBar
                     GameACDCProfileTDPModeLabel.Visibility = tdpModeVisibility;
                     GameACProfileTDPModeText.Visibility = tdpModeVisibility;
                     GameDCProfileTDPModeText.Visibility = tdpModeVisibility;
-                    GameACProfileTDPModeText.Text = GetLegionModeShortName(gameACProfile.LegionPerformanceMode);
-                    GameDCProfileTDPModeText.Text = GetLegionModeShortName(gameDCProfile.LegionPerformanceMode);
+                    GameACProfileTDPModeText.Text = GetProfileTDPModeName(gameACProfile);
+                    GameDCProfileTDPModeText.Text = GetProfileTDPModeName(gameDCProfile);
 
                     // TDP
                     GameACDCProfileTDPLabel.Visibility = tdpVisibility;
@@ -11110,7 +11294,7 @@ namespace XboxGamingBar
                     // Show single game profile - TDP Mode (Legion only)
                     GameProfileTDPModeLabel.Visibility = tdpModeVisibility;
                     GameProfileTDPModeText.Visibility = tdpModeVisibility;
-                    GameProfileTDPModeText.Text = GetLegionModeShortName(gameProfile.LegionPerformanceMode);
+                    GameProfileTDPModeText.Text = GetProfileTDPModeName(gameProfile);
 
                     // TDP
                     GameProfileTDPLabel.Visibility = tdpVisibility;
@@ -11200,6 +11384,49 @@ namespace XboxGamingBar
                 case 255: return "Custom";
                 default: return "Balanced";
             }
+        }
+
+        /// <summary>
+        /// Gets the TDP mode display name from a profile, accounting for custom presets.
+        /// </summary>
+        private string GetProfileTDPModeName(PerformanceProfile profile)
+        {
+            // If TDPModeIndex is set and we have custom presets, use the preset name
+            if (profile.TDPModeIndex >= 0 && useCustomTDPPresets && tdpPresets != null)
+            {
+                if (profile.TDPModeIndex < tdpPresets.Count)
+                {
+                    return tdpPresets[profile.TDPModeIndex].Name;
+                }
+                else if (profile.TDPModeIndex == tdpPresets.Count)
+                {
+                    return "Custom"; // The actual Custom mode after all presets
+                }
+            }
+            // Fall back to legacy mode name
+            return GetLegionModeShortName(profile.LegionPerformanceMode);
+        }
+
+        /// <summary>
+        /// Gets the TDPModeComboBox index from a profile, accounting for custom presets.
+        /// Returns the index to use for TDPModeComboBox.SelectedIndex.
+        /// </summary>
+        private int GetProfileTDPModeIndex(PerformanceProfile profile)
+        {
+            // If TDPModeIndex is set, use it directly (for custom presets)
+            if (profile.TDPModeIndex >= 0)
+            {
+                // Validate the index is still valid with current preset configuration
+                int maxIndex = useCustomTDPPresets && tdpPresets != null ? tdpPresets.Count : 3;
+                if (profile.TDPModeIndex <= maxIndex)
+                {
+                    return profile.TDPModeIndex;
+                }
+            }
+            // Fall back to legacy: convert LegionPerformanceMode to index
+            int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
+            int index = Array.IndexOf(modeValues, profile.LegionPerformanceMode);
+            return index >= 0 ? index : 1; // Default to Balanced if not found
         }
 
         /// <summary>
@@ -11562,8 +11789,8 @@ namespace XboxGamingBar
                     if (legionGoDetected?.Value == true && SaveTDP)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "Mode", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, GetLegionModeShortName(gameAC.LegionPerformanceMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, GetLegionModeShortName(gameDC.LegionPerformanceMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, GetProfileTDPModeName(gameAC), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, GetProfileTDPModeName(gameDC), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
 
@@ -11701,7 +11928,7 @@ namespace XboxGamingBar
                     if (legionGoDetected?.Value == true && SaveTDP)
                     {
                         AddTextBlock(singleGrid, rowIndex, 0, "TDP Mode", 10, "#AAAAAA");
-                        AddTextBlock(singleGrid, rowIndex, 1, GetLegionModeShortName(game.LegionPerformanceMode), 10, "#FFFFFF");
+                        AddTextBlock(singleGrid, rowIndex, 1, GetProfileTDPModeName(game), 10, "#FFFFFF");
                         rowIndex++;
                     }
 
@@ -13201,8 +13428,7 @@ namespace XboxGamingBar
                     if (legionGoDetected?.Value == true && legionPerformanceMode != null)
                     {
                         int profileMode = profile.LegionPerformanceMode;
-                        int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
-                        int modeIndex = Array.IndexOf(modeValues, profileMode);
+                        int modeIndex = GetProfileTDPModeIndex(profile);
 
                         if (modeIndex >= 0)
                         {
@@ -15824,7 +16050,8 @@ namespace XboxGamingBar
             if (selectedIndex == lastTDPModeIndex) return;
 
             // Check if switching away from Custom mode (to save slider value)
-            bool wasCustomMode = IsCustomTdpModeSelected() && lastTDPModeIndex >= 0;
+            // Use lastTDPModeIndex to check the PREVIOUS selection, not the new one
+            bool wasCustomMode = lastTDPModeIndex >= 0 && IsCustomTdpModeIndex(lastTDPModeIndex);
             if (wasCustomMode && TDPSlider != null)
             {
                 savedCustomTDP = TDPSlider.Value;
@@ -15837,8 +16064,9 @@ namespace XboxGamingBar
             bool isCustomMode = IsCustomTdpModeSelected();
             int presetTdpValue = GetCurrentPresetTdpValue();
             int legionModeValue = GetCurrentPresetLegionMode();
+            bool? presetTdpBoost = GetCurrentPresetTdpBoost();
 
-            Logger.Info($"TDP Mode selection changed to index {selectedIndex}: isCustom={isCustomMode}, presetTDP={presetTdpValue}W, legionMode={legionModeValue}");
+            Logger.Info($"TDP Mode selection changed to index {selectedIndex}: isCustom={isCustomMode}, presetTDP={presetTdpValue}W, legionMode={legionModeValue}, boost={presetTdpBoost}");
 
             bool isLegion = legionGoDetected?.Value == true;
 
@@ -15874,6 +16102,15 @@ namespace XboxGamingBar
                         Logger.Info($"Legion device: Applied custom preset TDP {presetTdpValue}W via software");
                     }
                 }
+                // For actual Custom mode on Legion, restore saved custom TDP value
+                else if (isCustomMode)
+                {
+                    if (TDPSlider != null)
+                    {
+                        TDPSlider.Value = savedCustomTDP;
+                        Logger.Info($"Legion device: Restored custom TDP value to slider: {savedCustomTDP}W");
+                    }
+                }
             }
             else
             {
@@ -15905,6 +16142,27 @@ namespace XboxGamingBar
 
             // Update TDP slider enabled state based on mode
             UpdateTDPSliderEnabledState();
+
+            // Apply TDP Boost setting from preset (only for custom presets with TdpBoostEnabled set)
+            // This should use software TDP control, so only apply when not using Lenovo hardware modes
+            if (presetTdpBoost.HasValue && !isCustomMode)
+            {
+                bool shouldEnableTdpBoost = presetTdpBoost.Value;
+                // Only apply if we're using software TDP control (not Lenovo hardware modes)
+                // For Legion devices using hardware modes (legionModeValue != 255), TDP Boost is controlled by hardware
+                if (legionModeValue == 255 || !(legionGoDetected?.Value == true))
+                {
+                    if (TDPBoostToggle != null)
+                    {
+                        TDPBoostToggle.IsOn = shouldEnableTdpBoost;
+                    }
+                    if (tdpBoostEnabled != null && tdpBoostEnabled.Value != shouldEnableTdpBoost)
+                    {
+                        tdpBoostEnabled.SetValue(shouldEnableTdpBoost);
+                        Logger.Info($"Applied preset TDP Boost: {shouldEnableTdpBoost}");
+                    }
+                }
+            }
 
             // Save profile when TDP Mode changes (if not during initialization or helper update)
             // Allow save if user-initiated from Quick Tab tile (bypasses isApplyingHelperUpdate)
@@ -16150,8 +16408,8 @@ namespace XboxGamingBar
         /// </summary>
         private void TDPSlider_ValueChanged_UpdateDisplay(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
-            // Only update display if in Custom mode
-            if (TDPModeComboBox?.SelectedIndex == 3)
+            // Only update display if in Custom mode (accounts for custom TDP presets)
+            if (IsCustomTdpModeSelected())
             {
                 UpdateTDPDisplayText();
             }
