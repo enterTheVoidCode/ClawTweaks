@@ -227,10 +227,17 @@ To ReAdd:
 - Windows 10/11
 - Xbox Game Bar
 - **Optional:**
-  - RivaTuner Statistics Server (for OSD overlay)
+  - [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) (required for OSD overlay)
+  - [PawnIO](https://github.com/SuporteTI/PawnIO) (required for extended sensors like fan speed, GPU power draw on some devices)
   - AMD GPU (for Radeon features)
   - Legion Go/Go S (for device-specific features)
   - Lossless Scaling (for scaling integration)
+
+### Smart App Control
+
+**Important:** Windows Smart App Control may interfere with this application. If you experience issues with the app not working correctly, you may need to disable Smart App Control in Windows Security settings.
+
+Note: Other gaming software like ASUS Armoury Crate (for ROG Ally) also faces similar compatibility issues with Smart App Control.
 
 ---
 

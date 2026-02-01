@@ -126,6 +126,12 @@ namespace XboxGamingBarHelper
         private static IPC.NamedPipeServer pipeServer;
 
         /// <summary>
+        /// Flag indicating whether all managers are initialized and ready to handle requests.
+        /// When false, BatchGet requests will return a "NotReady" response.
+        /// </summary>
+        private static volatile bool _managersReady = false;
+
+        /// <summary>
         /// Heartbeat file path for widget to detect if helper is running
         /// </summary>
         private static string heartbeatFilePath;
@@ -889,9 +895,6 @@ del /f /q ""%~f0"" 2>nul
         {
             var initTimer = System.Diagnostics.Stopwatch.StartNew();
 
-            // NOTE: InitializeConnection() (pipe server) is now called AFTER all managers are initialized
-            // to prevent the widget from connecting before we're ready to handle BatchGet requests.
-
             // Initialize package data folder path for uninstall detection
             InitializePackageDataFolder();
 
@@ -940,6 +943,20 @@ del /f /q ""%~f0"" 2>nul
             {
                 Logger.Warn($"Could not set DLL directory: {ex.Message}");
             }
+
+            // START PIPE SERVER EARLY - Widget can connect while managers initialize
+            // BatchGet requests will return "NotReady" until _managersReady is true
+            var pipeTimer = System.Diagnostics.Stopwatch.StartNew();
+            InitializeConnection();
+            pipeTimer.Stop();
+            Logger.Info($"[TIMING] Pipe server started early: {pipeTimer.ElapsedMilliseconds}ms");
+
+            // PRE-POPULATE DeviceDetector cache BEFORE parallel initialization
+            // This avoids duplicate WMI queries when LegionManager and GPDManager both call DetectDevice()
+            var deviceTimer = System.Diagnostics.Stopwatch.StartNew();
+            var deviceInfo = Devices.DeviceDetector.DetectDevice();
+            deviceTimer.Stop();
+            Logger.Info($"[TIMING] DeviceDetector pre-cached: {deviceTimer.ElapsedMilliseconds}ms (Device: {deviceInfo.Manufacturer} {deviceInfo.Model})");
 
             // PARALLEL MANAGER INITIALIZATION - Wave-based to respect dependencies
             var totalTimer = System.Diagnostics.Stopwatch.StartNew();
@@ -1453,20 +1470,18 @@ del /f /q ""%~f0"" 2>nul
             }
 
             initTimer.Stop();
-            Logger.Info($"[TIMING] Helper initialization (before connect): {initTimer.ElapsedMilliseconds}ms");
+            Logger.Info($"[TIMING] Helper initialization (managers + properties): {initTimer.ElapsedMilliseconds}ms");
 
-            // Start pipe server AFTER all managers are initialized
-            // This ensures BatchGet requests can be handled immediately when widget connects
-            InitializeConnection();
-            Logger.Info("Pipe server started - helper ready for widget connections");
+            // Mark managers as ready - BatchGet requests will now be processed
+            // Pipe server was started earlier, widget may already be connected and waiting
+            _managersReady = true;
+            Logger.Info("Managers ready - BatchGet requests will now be processed");
 
-            // Initial blocking connection to widget
+            // Wait for widget connection (non-blocking if already connected)
             var connectTimer = System.Diagnostics.Stopwatch.StartNew();
             await WaitForWidgetConnection(true);
             connectTimer.Stop();
             Logger.Info($"[TIMING] Widget connection: {connectTimer.ElapsedMilliseconds}ms");
-
-            Logger.Info($"Pipe server ready for widget connection");
 
             // Start battery monitoring after pipe server is ready
             if (legionManager != null)
@@ -3261,12 +3276,31 @@ del /f /q ""%~f0"" 2>nul
         /// <summary>
         /// Handle batch get request via Named Pipe.
         /// Returns all requested property values in a single response.
+        /// If managers aren't ready yet, returns a NotReady response so widget can retry.
         /// </summary>
         private static async Task HandleBatchGetRequestViaPipe(Shared.IPC.PipeMessage request)
         {
             var timer = System.Diagnostics.Stopwatch.StartNew();
             try
             {
+                // Check if managers are ready - if not, tell widget to wait and retry
+                if (!_managersReady)
+                {
+                    Logger.Info("BatchGet request received but managers not ready yet - sending NotReady response");
+                    var notReadyResponse = new Shared.IPC.PipeMessage
+                    {
+                        Command = Shared.Enums.Command.BatchGet,
+                        RequestId = request.RequestId,
+                        Extra = new Dictionary<string, object>
+                        {
+                            ["NotReady"] = true,
+                            ["Message"] = "Helper managers are still initializing, please retry"
+                        }
+                    };
+                    pipeServer?.SendMessage(notReadyResponse.ToJson());
+                    return;
+                }
+
                 if (!request.Extra.TryGetValue("Functions", out object functionsObj) || !(functionsObj is string functionsJson))
                 {
                     Logger.Warn("BatchGet pipe request missing Functions");
@@ -3428,9 +3462,9 @@ del /f /q ""%~f0"" 2>nul
                         vk = (ushort)VirtualKey.LeftMenu;
                     else if (upper == "SHIFT")
                         vk = (ushort)VirtualKey.LeftShift;
-                    else if (upper == "WIN" || upper == "WINDOWS" || upper == "LWIN")
+                    else if (upper == "WIN" || upper == "WINDOWS" || upper == "LWIN" || upper == "LMETA" || upper == "META")
                         vk = (ushort)VirtualKey.LeftWindows;
-                    else if (upper == "RWIN")
+                    else if (upper == "RWIN" || upper == "RMETA")
                         vk = (ushort)VirtualKey.RightWindows;
                     else if (upper == "TAB")
                         vk = (ushort)VirtualKey.Tab;
@@ -3495,7 +3529,8 @@ del /f /q ""%~f0"" 2>nul
                     // Check if modifier
                     if (upper == "CTRL" || upper == "CONTROL" || upper == "ALT" ||
                         upper == "SHIFT" || upper == "WIN" || upper == "WINDOWS" ||
-                        upper == "LWIN" || upper == "RWIN")
+                        upper == "LWIN" || upper == "RWIN" || upper == "LMETA" ||
+                        upper == "RMETA" || upper == "META")
                     {
                         modifierKeys.Add(vk);
                     }

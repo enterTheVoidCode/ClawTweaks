@@ -441,6 +441,21 @@ namespace Shared.Data
             }
         }
 
+        [XmlElement("RefreshRate")]
+        private int? refreshRate;
+        public int? RefreshRate
+        {
+            get { return refreshRate; }
+            set
+            {
+                if (refreshRate != value)
+                {
+                    refreshRate = value;
+                    Save();
+                }
+            }
+        }
+
         [XmlElement("StickyTDP")]
         private bool stickyTDP;
         public bool StickyTDP
@@ -1121,6 +1136,7 @@ namespace Shared.Data
             // Display settings (shared AC/DC)
             hdrEnabled = false;
             resolution = null;
+            refreshRate = null;
             stickyTDP = false;
             // Overlay and CPU affinity
             overlayLevel = null;
