@@ -13144,17 +13144,17 @@ namespace XboxGamingBar
                     return;
 
                 // Apply defaults:
-                // View + A: Ctrl+Alt+Del (8)
+                // View + A: Disabled (0) - was Ctrl+Alt+Del but that cannot be simulated
                 // View + B: Open Virtual Keyboard (7)
                 // View + X: Screenshot (4)
                 // View + Y: Task Manager (9)
-                settings.Values["Hotkey_MenuA_Action"] = (int)HotkeyAction.CtrlAltDel;
+                settings.Values["Hotkey_MenuA_Action"] = (int)HotkeyAction.Disabled;
                 settings.Values["Hotkey_MenuB_Action"] = (int)HotkeyAction.OpenKeyboard;
                 settings.Values["Hotkey_MenuX_Action"] = (int)HotkeyAction.Screenshot;
                 settings.Values["Hotkey_MenuY_Action"] = (int)HotkeyAction.TaskManager;
                 settings.Values["Hotkey_DefaultsApplied"] = true;
 
-                Logger.Info("Hotkey defaults applied: A=Ctrl+Alt+Del, B=OpenKeyboard, X=Screenshot, Y=TaskManager");
+                Logger.Info("Hotkey defaults applied: A=Disabled, B=OpenKeyboard, X=Screenshot, Y=TaskManager");
             }
             catch (Exception ex)
             {
@@ -21113,10 +21113,10 @@ namespace XboxGamingBar
                 { "F6", 0x3F }, { "F7", 0x40 }, { "F8", 0x41 }, { "F9", 0x42 }, { "F10", 0x43 },
                 { "F11", 0x44 }, { "F12", 0x45 },
                 { "Right", 0x4F }, { "Left", 0x50 }, { "Down", 0x51 }, { "Up", 0x52 },
-                { "Home", 0x4A }, { "PgUp", 0x4B }, { "Delete", 0x4C }, { "End", 0x4D },
-                { "PgDn", 0x4E }, { "Insert", 0x49 }, { "PrintScr", 0x46 }, { "Pause", 0x48 },
-                { "LCtrl", 0xE0 }, { "LShift", 0xE1 }, { "LAlt", 0xE2 }, { "LWin", 0xE3 },
-                { "RCtrl", 0xE4 }, { "RShift", 0xE5 }, { "RAlt", 0xE6 }, { "RWin", 0xE7 },
+                { "Home", 0x4A }, { "PgUp", 0x4B }, { "Delete", 0x4C }, { "Del", 0x4C }, { "End", 0x4D },
+                { "PgDn", 0x4E }, { "Insert", 0x49 }, { "Ins", 0x49 }, { "PrintScr", 0x46 }, { "PrtSc", 0x46 }, { "Pause", 0x48 },
+                { "LCtrl", 0xE0 }, { "LShift", 0xE1 }, { "LAlt", 0xE2 }, { "LWin", 0xE3 }, { "LMeta", 0xE3 },
+                { "RCtrl", 0xE4 }, { "RShift", 0xE5 }, { "RAlt", 0xE6 }, { "RWin", 0xE7 }, { "RMeta", 0xE7 },
                 { "VolMute", 0x7F }, { "VolUp", 0x80 }, { "VolDown", 0x81 }
             };
             return keyNames.TryGetValue(name, out int code) ? code : 0;

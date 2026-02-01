@@ -3074,7 +3074,6 @@
                                                 <ComboBoxItem Content="Alt+Tab" Tag="5"/>
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
-                                                <ComboBoxItem Content="Ctrl+Alt+Del" Tag="8"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
                                             </ComboBox>
                                         </Grid>
@@ -3110,7 +3109,6 @@
                                                 <ComboBoxItem Content="Alt+Tab" Tag="5"/>
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
-                                                <ComboBoxItem Content="Ctrl+Alt+Del" Tag="8"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
                                             </ComboBox>
                                         </Grid>
@@ -3146,7 +3144,6 @@
                                                 <ComboBoxItem Content="Alt+Tab" Tag="5"/>
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
-                                                <ComboBoxItem Content="Ctrl+Alt+Del" Tag="8"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
                                             </ComboBox>
                                         </Grid>
@@ -3182,7 +3179,6 @@
                                                 <ComboBoxItem Content="Alt+Tab" Tag="5"/>
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
-                                                <ComboBoxItem Content="Ctrl+Alt+Del" Tag="8"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
                                             </ComboBox>
                                         </Grid>
@@ -3218,7 +3214,6 @@
                                                 <ComboBoxItem Content="Alt+Tab" Tag="5"/>
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
-                                                <ComboBoxItem Content="Ctrl+Alt+Del" Tag="8"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
                                             </ComboBox>
                                         </Grid>
@@ -3254,7 +3249,6 @@
                                                 <ComboBoxItem Content="Alt+Tab" Tag="5"/>
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
-                                                <ComboBoxItem Content="Ctrl+Alt+Del" Tag="8"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
                                             </ComboBox>
                                         </Grid>
@@ -3290,7 +3284,6 @@
                                                 <ComboBoxItem Content="Alt+Tab" Tag="5"/>
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
-                                                <ComboBoxItem Content="Ctrl+Alt+Del" Tag="8"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
                                             </ComboBox>
                                         </Grid>
@@ -3326,7 +3319,6 @@
                                                 <ComboBoxItem Content="Alt+Tab" Tag="5"/>
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
-                                                <ComboBoxItem Content="Ctrl+Alt+Del" Tag="8"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
                                             </ComboBox>
                                         </Grid>
