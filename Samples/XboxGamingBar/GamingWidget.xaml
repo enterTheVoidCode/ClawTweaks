@@ -1465,6 +1465,14 @@
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveRefreshRateCheckBox"
+                                              Content="Refresh Rate"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
                                     <CheckBox x:Name="ProfileSaveStickyTDPCheckBox"
                                               Content="Sticky TDP"
                                               IsChecked="False"
@@ -2915,6 +2923,22 @@
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernToggleStyle}"
                                                       Toggled="OSDPositionShiftToggle_Toggled"/>
+                                    </Grid>
+
+                                    <!-- Frametime Graph Pinned Toggle -->
+                                    <Grid Margin="0,4,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Pin Frametime Graph" Foreground="#AAAAAA" FontSize="13"/>
+                                            <TextBlock Text="Always display graph on its own row at bottom" Foreground="#707070" FontSize="11"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="FrametimeGraphPinnedToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="FrametimeGraphPinnedToggle_Toggled"/>
                                     </Grid>
 
                                         <!-- Items Section -->

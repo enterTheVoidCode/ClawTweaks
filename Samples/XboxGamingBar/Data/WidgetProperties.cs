@@ -79,20 +79,60 @@ namespace XboxGamingBar.Data
 
         /// <summary>
         /// Attempt to sync all properties in a single batch request.
+        /// Retries if helper returns NotReady (managers still initializing).
         /// </summary>
         private async Task<bool> TryBatchSync()
+        {
+            const int maxNotReadyRetries = 30;  // 30 retries x 500ms = 15 seconds max wait
+            const int notReadyRetryDelayMs = 500;
+
+            for (int attempt = 0; attempt < maxNotReadyRetries; attempt++)
+            {
+                var result = await TryBatchSyncOnce(attempt > 0);
+                if (result == BatchSyncResult.Success)
+                {
+                    return true;
+                }
+                else if (result == BatchSyncResult.NotReady)
+                {
+                    Logger.Info($"Batch sync: Helper not ready (attempt {attempt + 1}/{maxNotReadyRetries}), retrying in {notReadyRetryDelayMs}ms...");
+                    await Task.Delay(notReadyRetryDelayMs);
+                    continue;
+                }
+                else
+                {
+                    // Other failure - don't retry
+                    return false;
+                }
+            }
+
+            Logger.Warn($"Batch sync: Helper still not ready after {maxNotReadyRetries} attempts");
+            return false;
+        }
+
+        private enum BatchSyncResult
+        {
+            Success,
+            NotReady,
+            Failed
+        }
+
+        /// <summary>
+        /// Single attempt at batch sync.
+        /// </summary>
+        private async Task<BatchSyncResult> TryBatchSyncOnce(bool isRetry)
         {
             try
             {
                 if (!App.IsConnected)
                 {
                     Logger.Warn("Cannot batch sync - no connection");
-                    return false;
+                    return BatchSyncResult.Failed;
                 }
 
                 // Build list of function IDs to request as JSON array
                 var jsonArray = new JsonArray();
-                bool skipWidgetOwnedInitial = SkipWidgetOwnedSyncOnce;
+                bool skipWidgetOwnedInitial = SkipWidgetOwnedSyncOnce && !isRetry;
                 if (skipWidgetOwnedInitial)
                 {
                     Logger.Info("Skipping widget-owned properties in batch sync (initial startup - widget loaded from settings/profiles)");
@@ -114,8 +154,8 @@ namespace XboxGamingBar.Data
                     jsonArray.Add(JsonValue.CreateNumberValue((int)prop.Function));
                 }
 
-                // Clear the skip flag after this sync
-                SkipWidgetOwnedSyncOnce = false;
+                // Clear the skip flag after successful sync (not during NotReady retries)
+                // Moved to after success check below
 
                 // Create batch request
                 var request = new ValueSet
@@ -128,20 +168,29 @@ namespace XboxGamingBar.Data
                 if (response == null)
                 {
                     Logger.Warn("Batch sync got null response");
-                    return false;
+                    return BatchSyncResult.Failed;
+                }
+
+                // Check if helper returned NotReady (managers still initializing)
+                if (response.TryGetValue("NotReady", out object notReadyObj) && notReadyObj is bool notReady && notReady)
+                {
+                    return BatchSyncResult.NotReady;
                 }
 
                 if (!response.TryGetValue("BatchData", out object batchDataObj) || !(batchDataObj is string batchDataJson))
                 {
                     Logger.Warn("Batch sync response missing BatchData");
-                    return false;
+                    return BatchSyncResult.Failed;
                 }
+
+                // Clear the skip flag after first successful sync
+                SkipWidgetOwnedSyncOnce = false;
 
                 // Parse batch response - format: { "functionId": { "Content": value, "UpdatedTime": time }, ... }
                 if (!JsonObject.TryParse(batchDataJson, out JsonObject batchData))
                 {
                     Logger.Warn("Failed to parse batch data JSON");
-                    return false;
+                    return BatchSyncResult.Failed;
                 }
 
                 int updated = 0;
@@ -184,12 +233,12 @@ namespace XboxGamingBar.Data
                 }
 
                 Logger.Info($"Batch sync updated {updated}/{properties.Count} properties");
-                return true;
+                return BatchSyncResult.Success;
             }
             catch (Exception ex)
             {
                 Logger.Error($"Batch sync failed: {ex.Message}");
-                return false;
+                return BatchSyncResult.Failed;
             }
         }
 

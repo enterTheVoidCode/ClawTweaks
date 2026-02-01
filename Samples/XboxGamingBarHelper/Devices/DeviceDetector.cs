@@ -5,6 +5,7 @@ using System;
 using System.IO;
 using System.Management;
 using System.Text.Json;
+using System.Threading;
 
 namespace XboxGamingBarHelper.Devices
 {
@@ -22,6 +23,11 @@ namespace XboxGamingBarHelper.Devices
         private static DeviceInfo _cachedDeviceInfo = null;
 
         /// <summary>
+        /// Lock object for thread-safe cache access
+        /// </summary>
+        private static readonly object _cacheLock = new object();
+
+        /// <summary>
         /// Whether debug mode is active (debug.json override applied)
         /// </summary>
         private static bool _isDebugModeActive = false;
@@ -37,61 +43,92 @@ namespace XboxGamingBarHelper.Devices
         private const string DebugFileName = "debug.json";
 
         /// <summary>
+        /// Device cache file name for fast startup
+        /// </summary>
+        private const string CacheFileName = "device_cache.json";
+
+        /// <summary>
         /// Returns true if debug mode is active (device info was overridden via debug.json)
         /// </summary>
         public static bool IsDebugModeActive => _isDebugModeActive;
 
         /// <summary>
         /// Detects device information from WMI and determines device type.
-        /// Results are cached after first call.
+        /// Results are cached in memory and on disk for fast startup.
+        /// Thread-safe - only one WMI query will be made even if called from multiple threads.
         /// </summary>
         public static DeviceInfo DetectDevice()
         {
+            // Fast path: return cached result if available
             if (_cachedDeviceInfo != null)
             {
                 return _cachedDeviceInfo;
             }
 
-            var deviceInfo = new DeviceInfo();
-            var timer = System.Diagnostics.Stopwatch.StartNew();
-
-            try
+            // Thread-safe initialization - only one thread does the work
+            lock (_cacheLock)
             {
-                // Step 1: Query WMI for device information
-                QueryComputerSystemProduct(deviceInfo);
-                QueryComputerSystem(deviceInfo);
-
-                // Step 2: Check for debug override file
-                ApplyDebugOverrides(deviceInfo);
-
-                // Step 3: Match against registered device configurations
-                var matchedConfig = DeviceRegistry.FindMatchingDevice(deviceInfo);
-
-                if (matchedConfig != null)
+                // Double-check after acquiring lock
+                if (_cachedDeviceInfo != null)
                 {
-                    // Apply the matched device's features
-                    matchedConfig.ApplyFeatures(deviceInfo);
-                    Logger.Info($"Device detected: {matchedConfig.DisplayName}");
+                    return _cachedDeviceInfo;
                 }
-                else
+
+                var deviceInfo = new DeviceInfo();
+                var timer = System.Diagnostics.Stopwatch.StartNew();
+
+                try
                 {
-                    // No match - use generic device type
+                    // Step 1: Try to load from disk cache (instant startup)
+                    if (TryLoadFromDiskCache(out var cachedInfo))
+                    {
+                        deviceInfo = cachedInfo;
+                        timer.Stop();
+                        Logger.Info($"[TIMING] Device detection from disk cache: {timer.ElapsedMilliseconds}ms");
+                    }
+                    else
+                    {
+                        // Step 2: Query WMI for device information (single combined query)
+                        QueryDeviceInfoCombined(deviceInfo);
+
+                        timer.Stop();
+                        Logger.Info($"[TIMING] Device detection from WMI: {timer.ElapsedMilliseconds}ms");
+
+                        // Save to disk cache for next startup
+                        SaveToDiskCache(deviceInfo);
+                    }
+
+                    // Step 3: Check for debug override file (always check, even with cache)
+                    ApplyDebugOverrides(deviceInfo);
+
+                    // Step 4: Match against registered device configurations
+                    var matchedConfig = DeviceRegistry.FindMatchingDevice(deviceInfo);
+
+                    if (matchedConfig != null)
+                    {
+                        // Apply the matched device's features
+                        matchedConfig.ApplyFeatures(deviceInfo);
+                        Logger.Info($"Device detected: {matchedConfig.DisplayName}");
+                    }
+                    else
+                    {
+                        // No match - use generic device type
+                        deviceInfo.DeviceType = DeviceType.Generic;
+                        Logger.Info("Device type: Generic (no specific device matched)");
+                    }
+
+                    LogDeviceInfo(deviceInfo, timer.ElapsedMilliseconds);
+                }
+                catch (Exception ex)
+                {
+                    timer.Stop();
+                    Logger.Error($"Device detection failed after {timer.ElapsedMilliseconds}ms: {ex.Message}");
                     deviceInfo.DeviceType = DeviceType.Generic;
-                    Logger.Info("Device type: Generic (no specific device matched)");
                 }
 
-                timer.Stop();
-                LogDeviceInfo(deviceInfo, timer.ElapsedMilliseconds);
+                _cachedDeviceInfo = deviceInfo;
+                return deviceInfo;
             }
-            catch (Exception ex)
-            {
-                timer.Stop();
-                Logger.Error($"Device detection failed after {timer.ElapsedMilliseconds}ms: {ex.Message}");
-                deviceInfo.DeviceType = DeviceType.Generic;
-            }
-
-            _cachedDeviceInfo = deviceInfo;
-            return deviceInfo;
         }
 
         /// <summary>
@@ -104,8 +141,53 @@ namespace XboxGamingBarHelper.Devices
         }
 
         /// <summary>
+        /// Queries both Win32_ComputerSystemProduct and Win32_ComputerSystem in a single WMI connection.
+        /// This is faster than two separate queries (~500ms vs ~1000ms).
+        /// </summary>
+        private static void QueryDeviceInfoCombined(DeviceInfo deviceInfo)
+        {
+            try
+            {
+                // Use a single ManagementScope for both queries (reuses connection)
+                var scope = new ManagementScope(@"\\.\root\cimv2");
+                scope.Connect();
+
+                // Query 1: Win32_ComputerSystemProduct for Vendor, Name, Version
+                using (var searcher1 = new ManagementObjectSearcher(scope, new ObjectQuery("SELECT Vendor, Name, Version FROM Win32_ComputerSystemProduct")))
+                {
+                    searcher1.Options.Timeout = TimeSpan.FromSeconds(3);
+                    foreach (var obj in searcher1.Get())
+                    {
+                        deviceInfo.Manufacturer = obj["Vendor"]?.ToString()?.Trim() ?? "Unknown";
+                        deviceInfo.Model = obj["Name"]?.ToString()?.Trim() ?? "Unknown";
+                        deviceInfo.Version = obj["Version"]?.ToString()?.Trim() ?? "Unknown";
+                        break;
+                    }
+                }
+
+                // Query 2: Win32_ComputerSystem for SystemFamily (same connection)
+                using (var searcher2 = new ManagementObjectSearcher(scope, new ObjectQuery("SELECT SystemFamily FROM Win32_ComputerSystem")))
+                {
+                    searcher2.Options.Timeout = TimeSpan.FromSeconds(3);
+                    foreach (var obj in searcher2.Get())
+                    {
+                        deviceInfo.SystemFamily = obj["SystemFamily"]?.ToString()?.Trim() ?? "Unknown";
+                        break;
+                    }
+                }
+
+                Logger.Debug($"WMI Combined Query: Vendor={deviceInfo.Manufacturer}, Name={deviceInfo.Model}, Version={deviceInfo.Version}, SystemFamily={deviceInfo.SystemFamily}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to query WMI: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Queries Win32_ComputerSystemProduct for Vendor, Name, and Version
         /// </summary>
+        [Obsolete("Use QueryDeviceInfoCombined instead for better performance")]
         private static void QueryComputerSystemProduct(DeviceInfo deviceInfo)
         {
             try
@@ -239,6 +321,7 @@ namespace XboxGamingBarHelper.Devices
         /// <summary>
         /// Queries Win32_ComputerSystem for SystemFamily
         /// </summary>
+        [Obsolete("Use QueryDeviceInfoCombined instead for better performance")]
         private static void QueryComputerSystem(DeviceInfo deviceInfo)
         {
             try
@@ -295,6 +378,150 @@ namespace XboxGamingBarHelper.Devices
             var device = DetectDevice();
             var config = DeviceRegistry.GetByType(device.DeviceType);
             return config?.DisplayName ?? "Generic Device";
+        }
+
+        /// <summary>
+        /// Tries to load device info from disk cache for fast startup.
+        /// Returns false if cache doesn't exist or is invalid.
+        /// </summary>
+        private static bool TryLoadFromDiskCache(out DeviceInfo deviceInfo)
+        {
+            deviceInfo = null;
+
+            try
+            {
+                var cachePath = GetCacheFilePath();
+                if (string.IsNullOrEmpty(cachePath) || !File.Exists(cachePath))
+                {
+                    return false;
+                }
+
+                var json = File.ReadAllText(cachePath);
+                using (var doc = JsonDocument.Parse(json))
+                {
+                    var root = doc.RootElement;
+
+                    // Validate cache version
+                    if (!root.TryGetProperty("cacheVersion", out var versionProp) || versionProp.GetInt32() != 1)
+                    {
+                        Logger.Debug("Device cache version mismatch, will refresh from WMI");
+                        return false;
+                    }
+
+                    deviceInfo = new DeviceInfo
+                    {
+                        Manufacturer = root.GetProperty("manufacturer").GetString() ?? "Unknown",
+                        Model = root.GetProperty("model").GetString() ?? "Unknown",
+                        Version = root.GetProperty("version").GetString() ?? "Unknown",
+                        SystemFamily = root.GetProperty("systemFamily").GetString() ?? "Unknown"
+                    };
+
+                    Logger.Debug($"Loaded device info from disk cache: {deviceInfo.Manufacturer} {deviceInfo.Model}");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Failed to load device cache: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Saves device info to disk cache for fast startup next time.
+        /// </summary>
+        private static void SaveToDiskCache(DeviceInfo deviceInfo)
+        {
+            try
+            {
+                var cachePath = GetCacheFilePath();
+                if (string.IsNullOrEmpty(cachePath))
+                {
+                    return;
+                }
+
+                var cacheData = new
+                {
+                    cacheVersion = 1,
+                    manufacturer = deviceInfo.Manufacturer,
+                    model = deviceInfo.Model,
+                    version = deviceInfo.Version,
+                    systemFamily = deviceInfo.SystemFamily,
+                    savedAt = DateTime.UtcNow.ToString("o")
+                };
+
+                var json = JsonSerializer.Serialize(cacheData, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(cachePath, json);
+
+                Logger.Debug($"Saved device info to disk cache: {cachePath}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Failed to save device cache: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Gets the path to the device cache file in LocalCache folder.
+        /// Uses LocalCache (not LocalState) because this is transient data.
+        /// </summary>
+        private static string GetCacheFilePath()
+        {
+            try
+            {
+                // Try to get LocalCache from package API
+                try
+                {
+                    var localCache = global::Windows.Storage.ApplicationData.Current.LocalCacheFolder;
+                    return Path.Combine(localCache.Path, CacheFileName);
+                }
+                catch
+                {
+                    // API may not be available when running outside package context
+                }
+
+                // Fallback: derive from exe path (helper runs from LocalCache/GoTweaks/Helper/)
+                var exePath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+                if (exePath.Contains("LocalCache"))
+                {
+                    int idx = exePath.IndexOf("LocalCache", StringComparison.OrdinalIgnoreCase);
+                    if (idx > 0)
+                    {
+                        var packageBase = exePath.Substring(0, idx);
+                        return Path.Combine(packageBase, "LocalCache", CacheFileName);
+                    }
+                }
+
+                // Last resort: construct from environment
+                var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                return Path.Combine(localAppData, "Packages", PackageFamilyName, "LocalCache", CacheFileName);
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Failed to get cache file path: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Invalidates the disk cache, forcing a WMI refresh on next detection.
+        /// Call this when hardware configuration might have changed.
+        /// </summary>
+        public static void InvalidateDiskCache()
+        {
+            try
+            {
+                var cachePath = GetCacheFilePath();
+                if (!string.IsNullOrEmpty(cachePath) && File.Exists(cachePath))
+                {
+                    File.Delete(cachePath);
+                    Logger.Info("Device disk cache invalidated");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Failed to invalidate disk cache: {ex.Message}");
+            }
         }
     }
 }

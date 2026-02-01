@@ -84,6 +84,7 @@ namespace XboxGamingBar
         // HDR and Resolution settings (per-profile)
         public bool HDREnabled { get; set; } = false;
         public string Resolution { get; set; } = "";
+        public int? RefreshRate { get; set; } = null;
         // Sticky TDP settings (per-profile)
         public bool StickyTDPEnabled { get; set; } = true;
         public int StickyTDPInterval { get; set; } = 5;
@@ -124,6 +125,7 @@ namespace XboxGamingBar
                 TDPBoostEnabled = this.TDPBoostEnabled,
                 HDREnabled = this.HDREnabled,
                 Resolution = this.Resolution,
+                RefreshRate = this.RefreshRate,
                 StickyTDPEnabled = this.StickyTDPEnabled,
                 StickyTDPInterval = this.StickyTDPInterval,
                 OverlayLevel = this.OverlayLevel,
@@ -903,6 +905,7 @@ namespace XboxGamingBar
         private bool _saveOSPowerMode = true;
         private bool _saveHDR = false;
         private bool _saveResolution = false;
+        private bool _saveRefreshRate = false;
         private bool _saveStickyTDP = false;
         private bool _saveOverlayLevel = false;
         private bool _saveCPUAffinity = false;
@@ -917,6 +920,7 @@ namespace XboxGamingBar
         private bool SaveOSPowerMode => _saveOSPowerMode;
         private bool SaveHDR => _saveHDR;
         private bool SaveResolution => _saveResolution;
+        private bool SaveRefreshRate => _saveRefreshRate;
         private bool SaveStickyTDP => _saveStickyTDP;
         private bool SaveOverlayLevel => _saveOverlayLevel;
         private bool SaveCPUAffinity => _saveCPUAffinity;
@@ -2613,6 +2617,19 @@ namespace XboxGamingBar
                     if (!isLoadingPerformanceOverlaySetting)
                     {
                         SavePerformanceOverlaySetting();
+
+                        // Also update current profile's OverlayLevel if SaveOverlayLevel is enabled
+                        // This ensures the profile stays in sync with the user's selection
+                        if (SaveOverlayLevel && !string.IsNullOrEmpty(currentProfileName))
+                        {
+                            var profile = GetProfile(currentProfileName);
+                            if (profile != null)
+                            {
+                                profile.OverlayLevel = index;
+                                SaveProfileToStorage(currentProfileName, profile);
+                                Logger.Debug($"Updated profile '{currentProfileName}' OverlayLevel to {index}");
+                            }
+                        }
                     }
                 }
             }
@@ -3288,6 +3305,7 @@ namespace XboxGamingBar
         // Display and OSD settings
         private bool adaptiveBrightnessEnabled = false;
         private bool osdPositionShiftEnabled = false;
+        private bool frametimeGraphPinned = false;
         private int osdOpacity = 100; // percentage 10-100
         private bool isLoadingOLEDSettings = false;
         private bool isLoadingPerformanceOverlaySetting = false;
@@ -3693,6 +3711,7 @@ namespace XboxGamingBar
                 settings.Values["OSD_TextColor"] = osdTextColor;
                 settings.Values["OSD_LabelColor"] = osdLabelColor;
                 settings.Values["OSD_Opacity"] = osdOpacity;
+                settings.Values["OSD_FrametimeGraphPinned"] = frametimeGraphPinned;
 
                 Logger.Info($"OSD configuration saved to storage (resolution: {currentRes}, text size: {osdTextSize}, opacity: {osdOpacity})");
             }
@@ -3790,6 +3809,12 @@ namespace XboxGamingBar
                 {
                     osdOpacity = opacity;
                 }
+                if (settings.Values.TryGetValue("OSD_FrametimeGraphPinned", out object pinnedVal) && pinnedVal is bool pinned)
+                {
+                    frametimeGraphPinned = pinned;
+                    if (FrametimeGraphPinnedToggle != null)
+                        FrametimeGraphPinnedToggle.IsOn = frametimeGraphPinned;
+                }
                 if (settings.Values.TryGetValue("OSD_Provider", out object providerVal) && providerVal is int provider)
                 {
                     osdProvider = provider;
@@ -3824,6 +3849,7 @@ namespace XboxGamingBar
                 configParts.Add($"TextColor:{osdTextColor}");
                 configParts.Add($"LabelColor:{osdLabelColor}");
                 configParts.Add($"Opacity:{osdOpacity}");
+                configParts.Add($"FrametimeGraphPinned:{(frametimeGraphPinned ? "1" : "0")}");
 
                 // Add per-level item configuration
                 foreach (var level in osdLevelConfig.Keys)
@@ -3927,6 +3953,14 @@ namespace XboxGamingBar
             osdPositionShiftEnabled = OSDPositionShiftToggle.IsOn;
             SaveDisplayOSDSettingsToStorage();
             await SendDisplayOSDConfigToHelper();
+        }
+
+        private void FrametimeGraphPinnedToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (isLoadingOSDConfig) return;
+            frametimeGraphPinned = FrametimeGraphPinnedToggle.IsOn;
+            SaveOSDConfigToStorage();
+            SendOSDConfigToHelper();
         }
 
         private void SaveDisplayOSDSettingsToStorage()
@@ -8410,6 +8444,11 @@ namespace XboxGamingBar
             {
                 profile.Resolution = ResolutionComboBox?.SelectedItem?.ToString() ?? "";
             }
+            // Refresh Rate
+            if (SaveRefreshRate)
+            {
+                profile.RefreshRate = refreshRate?.Value;
+            }
             // Sticky TDP
             if (SaveStickyTDP && StickyTDPToggle != null)
             {
@@ -8916,6 +8955,36 @@ namespace XboxGamingBar
                     }
                 }
 
+                // Refresh Rate
+                if (SaveRefreshRate)
+                {
+                    // Only apply Refresh Rate if:
+                    // 1. This is an explicit profile switch (game detected/closed), OR
+                    // 2. No game is currently running (returning to desktop)
+                    bool shouldApplyRefreshRate = isExplicitSwitch || !HasValidGame(currentGameName);
+
+                    if (shouldApplyRefreshRate)
+                    {
+                        if (RefreshRatesComboBox != null && profile.RefreshRate.HasValue)
+                        {
+                            // Find and select matching refresh rate
+                            for (int i = 0; i < RefreshRatesComboBox.Items.Count; i++)
+                            {
+                                if (RefreshRatesComboBox.Items[i] is int rate && rate == profile.RefreshRate.Value)
+                                {
+                                    RefreshRatesComboBox.SelectedIndex = i;
+                                    refreshRate?.SetValue(profile.RefreshRate.Value);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Logger.Info($"Skipping RefreshRate application - game is running and not an explicit switch");
+                    }
+                }
+
                 // Sticky TDP
                 if (SaveStickyTDP && StickyTDPToggle != null)
                 {
@@ -9059,6 +9128,10 @@ namespace XboxGamingBar
             container.Values["TDPBoostEnabled"] = profile.TDPBoostEnabled;
             container.Values["HDREnabled"] = profile.HDREnabled;
             container.Values["Resolution"] = profile.Resolution;
+            if (profile.RefreshRate.HasValue)
+                container.Values["RefreshRate"] = profile.RefreshRate.Value;
+            else
+                container.Values.Remove("RefreshRate");
             container.Values["StickyTDPEnabled"] = profile.StickyTDPEnabled;
             container.Values["StickyTDPInterval"] = profile.StickyTDPInterval;
             container.Values["OverlayLevel"] = profile.OverlayLevel;
@@ -9107,6 +9180,7 @@ namespace XboxGamingBar
                 profile.TDPBoostEnabled = container.Values.ContainsKey("TDPBoostEnabled") ? (bool)container.Values["TDPBoostEnabled"] : false;
                 profile.HDREnabled = container.Values.ContainsKey("HDREnabled") ? (bool)container.Values["HDREnabled"] : false;
                 profile.Resolution = container.Values.ContainsKey("Resolution") ? (string)container.Values["Resolution"] : "";
+                profile.RefreshRate = container.Values.ContainsKey("RefreshRate") ? (int?)container.Values["RefreshRate"] : null;
                 profile.StickyTDPEnabled = container.Values.ContainsKey("StickyTDPEnabled") ? (bool)container.Values["StickyTDPEnabled"] : true;
                 profile.StickyTDPInterval = container.Values.ContainsKey("StickyTDPInterval") ? (int)container.Values["StickyTDPInterval"] : 5;
                 profile.OverlayLevel = container.Values.ContainsKey("OverlayLevel") ? (int)container.Values["OverlayLevel"] : 0;
@@ -12191,6 +12265,7 @@ namespace XboxGamingBar
                     _saveResolution = false;
                 }
 
+                _saveRefreshRate = settings.Values.ContainsKey("ProfileSaveRefreshRate") ? (bool)settings.Values["ProfileSaveRefreshRate"] : false;
                 _saveStickyTDP = settings.Values.ContainsKey("ProfileSaveStickyTDP") ? (bool)settings.Values["ProfileSaveStickyTDP"] : false;
                 _saveOverlayLevel = settings.Values.ContainsKey("ProfileSaveOverlayLevel") ? (bool)settings.Values["ProfileSaveOverlayLevel"] : false;
                 _saveCPUAffinity = settings.Values.ContainsKey("ProfileSaveCPUAffinity") ? (bool)settings.Values["ProfileSaveCPUAffinity"] : false;
@@ -12206,6 +12281,7 @@ namespace XboxGamingBar
                 if (ProfileSaveOSPowerModeCheckBox != null) ProfileSaveOSPowerModeCheckBox.IsChecked = _saveOSPowerMode;
                 if (ProfileSaveHDRCheckBox != null) ProfileSaveHDRCheckBox.IsChecked = _saveHDR;
                 if (ProfileSaveResolutionCheckBox != null) ProfileSaveResolutionCheckBox.IsChecked = _saveResolution;
+                if (ProfileSaveRefreshRateCheckBox != null) ProfileSaveRefreshRateCheckBox.IsChecked = _saveRefreshRate;
                 if (ProfileSaveStickyTDPCheckBox != null) ProfileSaveStickyTDPCheckBox.IsChecked = _saveStickyTDP;
                 if (ProfileSaveOverlayLevelCheckBox != null) ProfileSaveOverlayLevelCheckBox.IsChecked = _saveOverlayLevel;
                 if (ProfileSaveCPUAffinityCheckBox != null) ProfileSaveCPUAffinityCheckBox.IsChecked = _saveCPUAffinity;
@@ -12231,6 +12307,7 @@ namespace XboxGamingBar
             settings.Values["ProfileSaveOSPowerMode"] = ProfileSaveOSPowerModeCheckBox?.IsChecked ?? true;
             settings.Values["ProfileSaveHDR"] = ProfileSaveHDRCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveResolution"] = ProfileSaveResolutionCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveRefreshRate"] = ProfileSaveRefreshRateCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveStickyTDP"] = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveOverlayLevel"] = ProfileSaveOverlayLevelCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveCPUAffinity"] = ProfileSaveCPUAffinityCheckBox?.IsChecked ?? false;
@@ -12272,6 +12349,7 @@ namespace XboxGamingBar
             _saveOSPowerMode = ProfileSaveOSPowerModeCheckBox?.IsChecked ?? true;
             _saveHDR = ProfileSaveHDRCheckBox?.IsChecked ?? false;
             _saveResolution = ProfileSaveResolutionCheckBox?.IsChecked ?? false;
+            _saveRefreshRate = ProfileSaveRefreshRateCheckBox?.IsChecked ?? false;
             _saveStickyTDP = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
             _saveOverlayLevel = ProfileSaveOverlayLevelCheckBox?.IsChecked ?? false;
             _saveCPUAffinity = ProfileSaveCPUAffinityCheckBox?.IsChecked ?? false;
