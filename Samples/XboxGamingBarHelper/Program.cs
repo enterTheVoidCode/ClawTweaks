@@ -3456,12 +3456,18 @@ del /f /q ""%~f0"" 2>nul
                     var upper = trimmed.ToUpperInvariant();
                     ushort vk = 0;
 
-                    if (upper == "CTRL" || upper == "CONTROL")
+                    if (upper == "CTRL" || upper == "CONTROL" || upper == "LCTRL" || upper == "LCONTROL")
                         vk = (ushort)VirtualKey.LeftControl;
-                    else if (upper == "ALT")
+                    else if (upper == "RCTRL" || upper == "RCONTROL")
+                        vk = (ushort)VirtualKey.RightControl;
+                    else if (upper == "ALT" || upper == "LALT")
                         vk = (ushort)VirtualKey.LeftMenu;
-                    else if (upper == "SHIFT")
+                    else if (upper == "RALT")
+                        vk = (ushort)VirtualKey.RightMenu;
+                    else if (upper == "SHIFT" || upper == "LSHIFT")
                         vk = (ushort)VirtualKey.LeftShift;
+                    else if (upper == "RSHIFT")
+                        vk = (ushort)VirtualKey.RightShift;
                     else if (upper == "WIN" || upper == "WINDOWS" || upper == "LWIN" || upper == "LMETA" || upper == "META")
                         vk = (ushort)VirtualKey.LeftWindows;
                     else if (upper == "RWIN" || upper == "RMETA")
@@ -3527,10 +3533,12 @@ del /f /q ""%~f0"" 2>nul
                     }
 
                     // Check if modifier
-                    if (upper == "CTRL" || upper == "CONTROL" || upper == "ALT" ||
-                        upper == "SHIFT" || upper == "WIN" || upper == "WINDOWS" ||
-                        upper == "LWIN" || upper == "RWIN" || upper == "LMETA" ||
-                        upper == "RMETA" || upper == "META")
+                    if (upper == "CTRL" || upper == "CONTROL" || upper == "LCTRL" || upper == "LCONTROL" ||
+                        upper == "RCTRL" || upper == "RCONTROL" ||
+                        upper == "ALT" || upper == "LALT" || upper == "RALT" ||
+                        upper == "SHIFT" || upper == "LSHIFT" || upper == "RSHIFT" ||
+                        upper == "WIN" || upper == "WINDOWS" || upper == "LWIN" || upper == "RWIN" ||
+                        upper == "LMETA" || upper == "RMETA" || upper == "META")
                     {
                         modifierKeys.Add(vk);
                     }

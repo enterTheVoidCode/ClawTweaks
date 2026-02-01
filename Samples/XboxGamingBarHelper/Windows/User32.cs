@@ -780,23 +780,35 @@ namespace XboxGamingBarHelper.Windows
                     var trimmed = part.Trim();
                     var upper = trimmed.ToUpperInvariant();
 
-                    if (upper == "CTRL" || upper == "CONTROL")
+                    if (upper == "CTRL" || upper == "CONTROL" || upper == "LCTRL" || upper == "LCONTROL")
                     {
                         modifiers.Add(VK_CONTROL);
                     }
-                    else if (upper == "ALT")
+                    else if (upper == "RCTRL" || upper == "RCONTROL")
+                    {
+                        modifiers.Add(0xA3); // VK_RCONTROL
+                    }
+                    else if (upper == "ALT" || upper == "LALT")
                     {
                         modifiers.Add(VK_ALT);
                     }
-                    else if (upper == "SHIFT")
+                    else if (upper == "RALT")
+                    {
+                        modifiers.Add(0xA5); // VK_RMENU
+                    }
+                    else if (upper == "SHIFT" || upper == "LSHIFT")
                     {
                         modifiers.Add(VK_SHIFT);
                     }
-                    else if (upper == "WIN" || upper == "WINDOWS" || upper == "LWIN")
+                    else if (upper == "RSHIFT")
+                    {
+                        modifiers.Add(0xA1); // VK_RSHIFT
+                    }
+                    else if (upper == "WIN" || upper == "WINDOWS" || upper == "LWIN" || upper == "LMETA" || upper == "META")
                     {
                         modifiers.Add(0x5B); // VK_LWIN
                     }
-                    else if (upper == "RWIN")
+                    else if (upper == "RWIN" || upper == "RMETA")
                     {
                         modifiers.Add(0x5C); // VK_RWIN
                     }
