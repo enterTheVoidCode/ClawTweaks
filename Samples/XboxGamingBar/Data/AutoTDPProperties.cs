@@ -99,4 +99,33 @@ namespace XboxGamingBar.Data
         {
         }
     }
+
+    // ML Mode properties for AutoTDP
+    internal class AutoTDPUseMLModeProperty : WidgetProperty<bool>
+    {
+        public AutoTDPUseMLModeProperty(bool inValue) : base(inValue, null, Function.AutoTDPUseMLMode)
+        {
+        }
+    }
+
+    internal class AutoTDPMLStatusProperty : WidgetProperty<string>
+    {
+        public AutoTDPMLStatusProperty(string inValue) : base(inValue, null, Function.AutoTDPMLStatus)
+        {
+        }
+    }
+
+    internal class AutoTDPResetMLProperty : WidgetProperty<bool>
+    {
+        public AutoTDPResetMLProperty(bool inValue) : base(inValue, null, Function.AutoTDPResetML)
+        {
+        }
+    }
+
+    internal class AutoTDPPauseWhenUnfocusedProperty : WidgetProperty<bool>
+    {
+        public AutoTDPPauseWhenUnfocusedProperty(bool inValue) : base(inValue, null, Function.AutoTDPPauseWhenUnfocused)
+        {
+        }
+    }
 }

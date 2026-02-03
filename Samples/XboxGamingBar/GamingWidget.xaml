@@ -443,7 +443,7 @@
                                     </ItemsControl>
                                     <ComboBox x:Name="CustomShortcutKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                               SelectedIndex="0" SelectionChanged="CustomShortcutKey_SelectionChanged">
-                                        <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                        <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                     </ComboBox>
                                 </StackPanel>
                                 <Button x:Name="AddCustomShortcutButton"
@@ -761,6 +761,57 @@
                                             <TextBlock x:Name="AutoTDPMaxValue" Text="30W" FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold" HorizontalAlignment="Right"/>
                                         </Grid>
                                         <Slider x:Name="AutoTDPMaxSlider" Style="{StaticResource ModernSliderStyle}" Minimum="4" Maximum="85" StepFrequency="1" Value="30" ValueChanged="AutoTDPMaxSlider_ValueChanged"/>
+
+                                        <!-- Pause when game not focused -->
+                                        <CheckBox x:Name="AutoTDPPauseWhenUnfocusedCheckBox"
+                                                  Content="Pause when game not focused"
+                                                  IsChecked="True"
+                                                  Margin="0,12,0,0"
+                                                  Foreground="#A0A0A0"
+                                                  FontSize="13"
+                                                  Checked="AutoTDPPauseWhenUnfocusedCheckBox_Changed"
+                                                  Unchecked="AutoTDPPauseWhenUnfocusedCheckBox_Changed"/>
+
+                                        <!-- Sync FPS Limit with Target -->
+                                        <CheckBox x:Name="AutoTDPSyncFPSLimitCheckBox"
+                                                  Content="Sync FPS Limit with Target"
+                                                  IsChecked="False"
+                                                  Margin="0,8,0,0"
+                                                  Foreground="#A0A0A0"
+                                                  FontSize="13"
+                                                  Checked="AutoTDPSyncFPSLimitCheckBox_Changed"
+                                                  Unchecked="AutoTDPSyncFPSLimitCheckBox_Changed"/>
+
+                                        <!-- Controller Mode Selection -->
+                                        <Grid Margin="0,12,0,0">
+                                            <TextBlock Text="Controller" FontSize="14" Foreground="#A0A0A0" VerticalAlignment="Center"/>
+                                            <ComboBox x:Name="AutoTDPControllerModeComboBox"
+                                                      HorizontalAlignment="Right"
+                                                      Width="140"
+                                                      Style="{StaticResource ModernComboBoxStyle}"
+                                                      SelectionChanged="AutoTDPControllerModeComboBox_SelectionChanged">
+                                                <ComboBoxItem Content="PID Controller" IsSelected="True"/>
+                                                <ComboBoxItem Content="ML Learning"/>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- ML Mode Info Panel (visible when ML selected) -->
+                                        <StackPanel x:Name="AutoTDPMLInfoPanel" Visibility="Collapsed" Margin="0,8,0,0">
+                                            <Border Background="#1A4A148C" CornerRadius="4" Padding="8">
+                                                <StackPanel>
+                                                    <TextBlock Text="ML Learning Mode (Experimental)" FontSize="12" Foreground="#9C27B0" FontWeight="SemiBold"/>
+                                                    <TextBlock x:Name="AutoTDPMLStatusText" Text="Updates: 0 | Avg: 0.0 | Exploration: 30%" FontSize="11" Foreground="#888888" Margin="0,4,0,0"/>
+                                                    <Button x:Name="AutoTDPResetMLButton"
+                                                            Content="Reset Learning Data"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            Margin="0,8,0,0"
+                                                            Padding="8,4"
+                                                            FontSize="11"
+                                                            HorizontalAlignment="Left"
+                                                            Click="AutoTDPResetMLButton_Click"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
                                     </StackPanel>
 
                                     <!-- Sticky TDP -->
@@ -3085,7 +3136,7 @@
                                             </ItemsControl>
                                             <ComboBox x:Name="HotkeyMenuAKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                                       SelectedIndex="0" SelectionChanged="HotkeyMenuAKey_SelectionChanged">
-                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                             </ComboBox>
                                         </StackPanel>
                                     </StackPanel>
@@ -3120,7 +3171,7 @@
                                             </ItemsControl>
                                             <ComboBox x:Name="HotkeyMenuBKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                                       SelectedIndex="0" SelectionChanged="HotkeyMenuBKey_SelectionChanged">
-                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                             </ComboBox>
                                         </StackPanel>
                                     </StackPanel>
@@ -3155,7 +3206,7 @@
                                             </ItemsControl>
                                             <ComboBox x:Name="HotkeyMenuXKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                                       SelectedIndex="0" SelectionChanged="HotkeyMenuXKey_SelectionChanged">
-                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                             </ComboBox>
                                         </StackPanel>
                                     </StackPanel>
@@ -3190,7 +3241,7 @@
                                             </ItemsControl>
                                             <ComboBox x:Name="HotkeyMenuYKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                                       SelectedIndex="0" SelectionChanged="HotkeyMenuYKey_SelectionChanged">
-                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                             </ComboBox>
                                         </StackPanel>
                                     </StackPanel>
@@ -3225,7 +3276,7 @@
                                             </ItemsControl>
                                             <ComboBox x:Name="HotkeyMenuDpadUpKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                                       SelectedIndex="0" SelectionChanged="HotkeyMenuDpadUpKey_SelectionChanged">
-                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                             </ComboBox>
                                         </StackPanel>
                                     </StackPanel>
@@ -3260,7 +3311,7 @@
                                             </ItemsControl>
                                             <ComboBox x:Name="HotkeyMenuDpadDownKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                                       SelectedIndex="0" SelectionChanged="HotkeyMenuDpadDownKey_SelectionChanged">
-                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                             </ComboBox>
                                         </StackPanel>
                                     </StackPanel>
@@ -3295,7 +3346,7 @@
                                             </ItemsControl>
                                             <ComboBox x:Name="HotkeyMenuDpadLeftKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                                       SelectedIndex="0" SelectionChanged="HotkeyMenuDpadLeftKey_SelectionChanged">
-                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                             </ComboBox>
                                         </StackPanel>
                                     </StackPanel>
@@ -3330,7 +3381,7 @@
                                             </ItemsControl>
                                             <ComboBox x:Name="HotkeyMenuDpadRightKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                                       SelectedIndex="0" SelectionChanged="HotkeyMenuDpadRightKey_SelectionChanged">
-                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                                <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                             </ComboBox>
                                         </StackPanel>
                                     </StackPanel>
@@ -3436,12 +3487,26 @@
                                         </ComboBox>
                                     </Grid>
 
-                                    <!-- Restart Helper Button -->
-                                    <Button x:Name="RestartHelperButton"
-                                            Content="Restart Helper"
-                                            HorizontalAlignment="Stretch"
-                                            Style="{StaticResource StandaloneButtonStyle}"
-                                            Click="RestartHelperButton_Click"/>
+                                    <!-- Restart Helper / Kill GoTweaks Buttons (side by side) -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="RestartHelperButton"
+                                                Grid.Column="0"
+                                                Content="Restart Helper"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="RestartHelperButton_Click"/>
+                                        <Button x:Name="KillGoTweaksButton"
+                                                Grid.Column="2"
+                                                Content="Kill GoTweaks"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="KillGoTweaksButton_Click"/>
+                                    </Grid>
 
                                     <!-- Export Logs Button -->
                                     <Button x:Name="ExportLogsButton"
@@ -3451,29 +3516,26 @@
                                             Style="{StaticResource StandaloneButtonStyle}"
                                             Click="ExportLogsButton_Click"/>
 
-                                    <!-- Kill GoTweaks Button -->
-                                    <Button x:Name="KillGoTweaksButton"
-                                            Content="Kill GoTweaks"
-                                            HorizontalAlignment="Stretch"
-                                            Margin="0,8,0,0"
-                                            Style="{StaticResource StandaloneButtonStyle}"
-                                            Click="KillGoTweaksButton_Click"/>
-
-                                    <!-- Check for Update Button -->
-                                    <Button x:Name="CheckForUpdateButton"
-                                            Content="Check for Update"
-                                            HorizontalAlignment="Stretch"
-                                            Margin="0,8,0,0"
-                                            Style="{StaticResource StandaloneButtonStyle}"
-                                            Click="CheckForUpdateButton_Click"/>
-
-                                    <!-- Check for Update (Debug) Button - checks local AppPackages folder -->
-                                    <Button x:Name="CheckForUpdateDebugButton"
-                                            Content="Check for Update (Debug)"
-                                            HorizontalAlignment="Stretch"
-                                            Margin="0,8,0,0"
-                                            Style="{StaticResource StandaloneButtonStyle}"
-                                            Click="CheckForUpdateDebugButton_Click"/>
+                                    <!-- Check for Update Buttons (side by side) -->
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="CheckForUpdateButton"
+                                                Grid.Column="0"
+                                                Content="Check for Update"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="CheckForUpdateButton_Click"/>
+                                        <Button x:Name="CheckForUpdateDebugButton"
+                                                Grid.Column="2"
+                                                Content="Update (Debug)"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="CheckForUpdateDebugButton_Click"/>
+                                    </Grid>
 
                                     <!-- Export Default Game Profiles Button -->
                                     <Button x:Name="ExportDGPsButton"
@@ -3483,13 +3545,34 @@
                                             Style="{StaticResource StandaloneButtonStyle}"
                                             Click="ExportDGPsButton_Click"/>
 
-                                    <!-- Export Per-Game Profiles Button -->
-                                    <Button x:Name="ExportProfilesButton"
-                                            Content="Export Profiles (Desktop)"
+                                    <!-- Export/Import All Data Buttons (side by side) -->
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="ExportAllDataButton"
+                                                Grid.Column="0"
+                                                Content="Export All Data"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="ExportAllDataButton_Click"/>
+                                        <Button x:Name="ImportAllDataButton"
+                                                Grid.Column="2"
+                                                Content="Import All Data"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="ImportAllDataButton_Click"/>
+                                    </Grid>
+
+                                    <!-- Prepare for Uninstall Button -->
+                                    <Button x:Name="PrepareForUninstallButton"
+                                            Content="Prepare for Uninstall"
                                             HorizontalAlignment="Stretch"
                                             Margin="0,8,0,0"
                                             Style="{StaticResource StandaloneButtonStyle}"
-                                            Click="ExportProfilesButton_Click"/>
+                                            Click="PrepareForUninstallButton_Click"/>
 
                                     <!-- Update Status Text -->
                                     <TextBlock x:Name="UpdateStatusText"
@@ -3579,6 +3662,27 @@
                                                    FontSize="14"
                                                    Foreground="#B0B0B0"
                                                    HorizontalAlignment="Right"/>
+                                    </Grid>
+
+                                    <!-- Check for updates on startup toggle -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Check for updates on startup"
+                                                       FontSize="14"
+                                                       Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Automatically check GitHub for new versions"
+                                                       FontSize="11"
+                                                       Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="AutoUpdateCheckToggle"
+                                                      Grid.Column="1"
+                                                      IsOn="True"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="AutoUpdateCheckToggle_Toggled"/>
                                     </Grid>
 
                                     <!-- Donate Button -->
@@ -5159,7 +5263,7 @@
                                         </ItemsControl>
                                         <ComboBox x:Name="LegionLKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                                   SelectedIndex="0" SelectionChanged="LegionLKeyComboBox_SelectionChanged">
-                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                         </ComboBox>
                                     </StackPanel>
 
@@ -5213,7 +5317,7 @@
                                         </ItemsControl>
                                         <ComboBox x:Name="LegionRKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                                   SelectedIndex="0" SelectionChanged="LegionRKeyComboBox_SelectionChanged">
-                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                         </ComboBox>
                                     </StackPanel>
 
@@ -5281,7 +5385,7 @@
                                         </ItemsControl>
                                         <ComboBox x:Name="ScrollKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                                   SelectedIndex="0" SelectionChanged="ScrollKeyComboBox_SelectionChanged">
-                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                         </ComboBox>
                                     </StackPanel>
 
@@ -5336,7 +5440,7 @@
                                         </ItemsControl>
                                         <ComboBox x:Name="ScrollClickKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
                                                   SelectedIndex="0" SelectionChanged="ScrollClickKeyComboBox_SelectionChanged">
-                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
+                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
                                         </ComboBox>
                                     </StackPanel>
 
@@ -5864,6 +5968,49 @@
                                Foreground="White"
                                FontSize="12"
                                HorizontalAlignment="Center"/>
+                </Border>
+
+                <!-- Update Available Banner - appears below connection banner when update is found -->
+                <Border x:Name="UpdateAvailableBanner"
+                        Background="#2D7D2D"
+                        Padding="8,6"
+                        VerticalAlignment="Top"
+                        Visibility="Collapsed"
+                        CornerRadius="0"
+                        Margin="0,24,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="UpdateAvailableText"
+                                   Text="Update Available: v0.0.0"
+                                   Foreground="White"
+                                   FontSize="12"
+                                   VerticalAlignment="Center"
+                                   Grid.Column="0"
+                                   Margin="8,0,0,0"/>
+                        <Button x:Name="UpdateBannerButton"
+                                Content="Update"
+                                Grid.Column="1"
+                                Padding="12,2"
+                                FontSize="11"
+                                Background="#3D9D3D"
+                                Foreground="White"
+                                Margin="8,0,0,0"
+                                Click="UpdateBannerButton_Click"/>
+                        <Button x:Name="DismissUpdateBannerButton"
+                                Content="&#xE711;"
+                                FontFamily="Segoe MDL2 Assets"
+                                Grid.Column="2"
+                                Padding="6,2"
+                                FontSize="10"
+                                Background="Transparent"
+                                Foreground="#AAFFAA"
+                                Margin="4,0,4,0"
+                                Click="DismissUpdateBannerButton_Click"/>
+                    </Grid>
                 </Border>
 
             </Grid>

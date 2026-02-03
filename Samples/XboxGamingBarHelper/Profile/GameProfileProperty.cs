@@ -600,5 +600,17 @@ namespace XboxGamingBarHelper.Profile
                 }
             }
         }
+
+        public bool AutoTDPUseMLMode
+        {
+            get { return value.AutoTDPUseMLMode; }
+            set
+            {
+                if (this.value.AutoTDPUseMLMode != value)
+                {
+                    this.value.AutoTDPUseMLMode = value;
+                }
+            }
+        }
     }
 }

@@ -381,6 +381,21 @@ namespace Shared.Data
             }
         }
 
+        [XmlElement("AutoTDPUseMLMode")]
+        private bool autoTDPUseMLMode;
+        public bool AutoTDPUseMLMode
+        {
+            get { return autoTDPUseMLMode; }
+            set
+            {
+                if (autoTDPUseMLMode != value)
+                {
+                    autoTDPUseMLMode = value;
+                    Save();
+                }
+            }
+        }
+
         [XmlElement("OSPowerMode")]
         private string osPowerMode;
         public string OSPowerMode
@@ -1127,6 +1142,7 @@ namespace Shared.Data
             autoTDPTargetFPS = 60;
             autoTDPMinTDP = 8;
             autoTDPMaxTDP = 30;
+            autoTDPUseMLMode = false;
             osPowerMode = null;
             // Additional profile settings (DC overrides)
             fpsLimitDC = null;

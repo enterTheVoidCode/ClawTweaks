@@ -4,6 +4,7 @@ using Shared.Data;
 using Shared.Enums;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Performance;
@@ -35,6 +36,23 @@ namespace XboxGamingBarHelper.AutoTDP
         private readonly TDPLimitsProperty tdpLimits;
         public TDPLimitsProperty TDPLimits => tdpLimits;
 
+        // ML Mode properties
+        private readonly AutoTDPUseMLModeProperty useMLMode;
+        public AutoTDPUseMLModeProperty UseMLMode => useMLMode;
+
+        private readonly AutoTDPMLStatusProperty mlStatus;
+        public AutoTDPMLStatusProperty MLStatus => mlStatus;
+
+        private readonly AutoTDPResetMLProperty resetML;
+        public AutoTDPResetMLProperty ResetML => resetML;
+
+        private readonly AutoTDPPauseWhenUnfocusedProperty pauseWhenUnfocused;
+        public AutoTDPPauseWhenUnfocusedProperty PauseWhenUnfocused => pauseWhenUnfocused;
+
+        // Q-Learning controller for ML mode
+        private QLearningController qLearningController;
+        private bool isMLFallbackActive = false;  // True when ML has fallen back to PID
+
         // Controller state
         private double integral = 0;
         private double previousError = 0;
@@ -57,7 +75,7 @@ namespace XboxGamingBarHelper.AutoTDP
         private int maxTDP = 35;
 
         // Update interval
-        private const double MinUpdateIntervalMs = 1000; // Faster updates for quicker response
+        private const double MinUpdateIntervalMs = 500; // 0.5s updates for faster ML learning and quicker response
 
         // Smoothing - shorter history for faster response
         private double[] fpsHistory = new double[5];
@@ -89,6 +107,31 @@ namespace XboxGamingBarHelper.AutoTDP
         private int sweetSpotConfidence = 0;  // How confident we are (0-100)
         private const int SweetSpotThreshold = 60;  // Confidence needed to use sweet spot
 
+        // Ceiling detection - handles unreachable FPS targets
+        private double achievableFPS = 0;          // EWMA estimate of max achievable FPS
+        private double lockedAchievableFPS = 0;    // Locked ceiling FPS (doesn't drift down)
+        private int effectiveTarget = 60;          // Adjusted target (min of user target and achievable)
+        private bool isCeilingDetected = false;    // True when target is unreachable
+        private int consecutiveCeilingFrames = 0;  // Counter for steady-state below target
+        private int consecutiveAboveCeilingFrames = 0;  // Counter for hysteresis when exiting ceiling mode
+        private const int CeilingDetectionThreshold = 12;  // Frames at ceiling before detection (stricter: 12 frames at max TDP)
+        private const int CeilingExitHysteresis = 3;      // Frames above target before exiting ceiling mode (faster exit)
+        private const double CeilingGpuUtilThreshold = 95.0;  // GPU util below this at max TDP = CPU bound
+        private const double AchievableFPSAlpha = 0.15;  // EWMA smoothing factor for achievable FPS
+        private const int CeilingMargin = 3;  // FPS margin below achievable for effective target
+
+        // Diminishing returns tracking
+        private double[] tdpIncreaseFPSGains = new double[4];  // Track FPS gain from last 4 TDP increases
+        private int tdpGainIndex = 0;
+        private int tdpGainCount = 0;
+        private double lastFPSBeforeTDPIncrease = 0;  // FPS before most recent TDP increase
+        private int lastTDPBeforeIncrease = 0;  // TDP before most recent increase
+        private bool pendingTDPGainMeasurement = false;  // True when waiting to measure FPS gain
+
+        // Power optimization mode - minimize TDP while maintaining FPS when ceiling hit
+        private bool isPowerOptimizationMode = false;
+        private int optimalCeilingTDP = 0;  // TDP that achieves max FPS with minimal power
+
         // OSD Status
         public string StatusText { get; private set; } = "";
         public string TrendText { get; private set; } = "";
@@ -97,6 +140,31 @@ namespace XboxGamingBarHelper.AutoTDP
         public bool IsProbing { get; private set; } = false;  // Are we currently probing lower TDP?
         public int SweetSpotTDP => sweetSpotTDP;
         public int SweetSpotConfidence => sweetSpotConfidence;
+        public bool IsCeilingDetected => isCeilingDetected;
+        public int EffectiveTarget => effectiveTarget;
+        public double AchievableFPS => achievableFPS;
+        public bool IsPowerOptimizationMode => isPowerOptimizationMode;
+
+        // ML Mode OSD Status
+        public bool IsMLModeActive => useMLMode.Value && qLearningController != null && !isMLFallbackActive;
+        public double LastMLReward { get; private set; } = 0;
+        public long MLUpdateCount => qLearningController?.TotalUpdates ?? 0;
+        public int MLExplorationPercent => qLearningController != null ? (int)(qLearningController.ExplorationRate * 100) : 0;
+        public double MLCumulativeReward => qLearningController?.CumulativeReward ?? 0;
+        public double MLAverageReward => qLearningController?.AverageRecentReward ?? 0;
+
+        /// <summary>
+        /// Gets the average FPS gained per watt from recent TDP increases.
+        /// Returns -1 if no data available yet.
+        /// </summary>
+        public double GetAverageFpsPerWatt()
+        {
+            if (tdpGainCount == 0) return -1;
+            double sum = 0;
+            for (int i = 0; i < tdpGainCount; i++)
+                sum += tdpIncreaseFPSGains[i];
+            return sum / tdpGainCount;
+        }
 
         public AutoTDPManager(PerformanceManager performanceManager, SystemManager systemManager) : base()
         {
@@ -110,11 +178,89 @@ namespace XboxGamingBarHelper.AutoTDP
             maxTDPProperty = new AutoTDPMaxTDPProperty(30, this); // Default 30W
             tdpLimits = new TDPLimitsProperty(this);
 
+            // ML Mode properties
+            useMLMode = new AutoTDPUseMLModeProperty(false, this);
+            mlStatus = new AutoTDPMLStatusProperty("", this);
+            resetML = new AutoTDPResetMLProperty(false, this);
+
+            // Pause when unfocused (default: true)
+            pauseWhenUnfocused = new AutoTDPPauseWhenUnfocusedProperty(true, this);
+
+            // Initialize Q-Learning controller
+            InitializeQLearning();
+
             // Initialize limits from properties
             minTDP = minTDPProperty.Value;
             maxTDP = maxTDPProperty.Value;
 
-            Logger.Info("AutoTDPManager initialized with conservative tuning");
+            Logger.Info("AutoTDPManager initialized with conservative tuning and ML support");
+        }
+
+        private void InitializeQLearning()
+        {
+            try
+            {
+                // Get the LocalState path for storing Q-table
+                string localStatePath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Packages",
+                    "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg",
+                    "LocalState"
+                );
+
+                qLearningController = new QLearningController(localStatePath);
+                UpdateMLStatusProperty();
+                Logger.Info("Q-Learning controller initialized");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to initialize Q-Learning controller: {ex.Message}");
+                qLearningController = null;
+            }
+        }
+
+        private void UpdateMLStatusProperty()
+        {
+            if (qLearningController != null && mlStatus != null)
+            {
+                mlStatus.SetValue(qLearningController.GetStatusString());
+            }
+        }
+
+        /// <summary>
+        /// Resets the ML learning data (called when user clicks Reset button).
+        /// </summary>
+        public void ResetMLLearning()
+        {
+            if (qLearningController != null)
+            {
+                Logger.Info("Resetting ML learning data");
+                qLearningController.Reset();
+                isMLFallbackActive = false;
+                UpdateMLStatusProperty();
+            }
+        }
+
+        /// <summary>
+        /// Reloads the Q-learning model from disk (called after importing backup).
+        /// </summary>
+        public void ReloadQLearningModel()
+        {
+            try
+            {
+                Logger.Info("Reloading Q-learning model from disk");
+                if (qLearningController != null)
+                {
+                    qLearningController.Load();
+                    isMLFallbackActive = false;
+                    UpdateMLStatusProperty();
+                    Logger.Info("Q-learning model reloaded successfully");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to reload Q-learning model: {ex.Message}");
+            }
         }
 
         public void UpdateTDPLimits(int min, int max)
@@ -191,9 +337,11 @@ namespace XboxGamingBarHelper.AutoTDP
                 return;
             }
 
-            // Check if the game is in the foreground - pause AutoTDP if game is in background
-            if (!runningGame.IsForeground)
+            // Check if the game is in the foreground - pause AutoTDP if game is in background (if enabled)
+            // Note: pauseWhenUnfocused.Value defaults to true, user can disable via checkbox
+            if (!runningGame.IsForeground && pauseWhenUnfocused.Value)
             {
+                Logger.Debug($"AutoTDP: Game not focused, pauseWhenUnfocused={pauseWhenUnfocused.Value}, pausing");
                 // Restore profile TDP when game goes to background
                 if (wasActivelyManaging && performanceManager.TDP != null)
                 {
@@ -208,6 +356,12 @@ namespace XboxGamingBarHelper.AutoTDP
                 StatusText = "Game not focused";
                 TrendText = "";
                 return;
+            }
+
+            // If game is not focused but pauseWhenUnfocused is disabled, continue managing
+            if (!runningGame.IsForeground && !pauseWhenUnfocused.Value)
+            {
+                Logger.Debug($"AutoTDP: Game not focused but pauseWhenUnfocused=false, continuing to manage TDP");
             }
 
             // Now we're actively managing TDP - block widget changes
@@ -301,29 +455,86 @@ namespace XboxGamingBarHelper.AutoTDP
             else
                 TrendText = "Falling";
 
-            // Run conservative controller
             // Use lastAppliedTDP as source of truth since SetTDP debounces and TDP.Value may be stale
             int currentTDP = lastAppliedTDP;
-            int newTDP = CalculateConservativeTDP(smoothedFPS, predictedFPS, trend, currentTDP);
+            int newTDP;
+
+            // Get GPU utilization for ceiling detection
+            double gpuUtil = performanceManager.GPUUsage?.Value ?? 50.0;
+
+            // Update ceiling detection (handles unreachable FPS targets)
+            UpdateCeilingDetection(smoothedFPS, currentTDP, gpuUtil);
+
+            // Check for ML fallback recovery (must be before routing decision)
+            // Recovery happens in PID mode when FPS stabilizes
+            double fpsError = targetFPS.Value - smoothedFPS;
+            if (isMLFallbackActive && useMLMode.Value && qLearningController != null)
+            {
+                // Allow recovery if FPS is reasonably close to target
+                if (Math.Abs(fpsError) <= 10.0)
+                {
+                    Logger.Info($"FPS stabilized ({smoothedFPS:F1}/{targetFPS.Value}) - resuming ML mode");
+                    isMLFallbackActive = false;
+                    qLearningController.ResetFallbackCounter();
+                }
+            }
+
+            // Route to ML or PID controller based on mode
+            bool useML = useMLMode.Value && qLearningController != null && !isMLFallbackActive;
+
+            // Cliff detection: If actual FPS drops significantly below smoothed FPS,
+            // immediately increase TDP to recover (don't wait for smoothed FPS to catch up)
+            bool cliffDetected = false;
+            if (useML && measuredFPS < smoothedFPS - 15 && measuredFPS < targetFPS.Value - 10)
+            {
+                // Actual FPS dropped more than 15 below smoothed and is below target
+                // This indicates we hit a cliff - TDP is too low
+                cliffDetected = true;
+                newTDP = Math.Min(maxTDP, currentTDP + 2);  // Emergency +2W
+                Logger.Info($"AutoTDP [ML]: Cliff detected! Actual={measuredFPS}, Smooth={smoothedFPS:F1}, Target={targetFPS.Value}. Emergency TDP: {currentTDP}W -> {newTDP}W");
+            }
+            else if (useML)
+            {
+                // ML Mode: Use Q-Learning controller
+                newTDP = CalculateMLTDP(smoothedFPS, trend, currentTDP, gpuUtil);
+            }
+            else
+            {
+                // PID Mode: Use conservative PID controller
+                newTDP = CalculateConservativeTDP(smoothedFPS, predictedFPS, trend, currentTDP, gpuUtil);
+            }
 
             // Update TDP values for OSD display
             CurrentTDPValue = currentTDP;
             NewTDPValue = newTDP;
 
-            // Track TDP history for sweet spot detection
-            UpdateTDPHistory(newTDP);
-            AnalyzeSweetSpot();
+            // Track TDP history for sweet spot detection (PID mode only)
+            if (!useML)
+            {
+                UpdateTDPHistory(newTDP);
+                AnalyzeSweetSpot();
+            }
 
             // Apply new TDP if different
             if (newTDP != currentTDP)
             {
+                // Track TDP increases for diminishing returns detection
+                if (newTDP > currentTDP)
+                {
+                    RecordTDPIncrease(smoothedFPS, currentTDP);
+                }
+
                 string action = newTDP > currentTDP ? "Increasing" : "Decreasing";
-                StatusText = action;
-                if (sweetSpotConfidence >= SweetSpotThreshold)
+                string modePrefix = useML ? "[ML] " : "";
+                string ceilingPrefix = isCeilingDetected ? "[Ceiling] " : "";
+                string powerOptPrefix = isPowerOptimizationMode ? "[PwrOpt] " : "";
+                StatusText = ceilingPrefix + powerOptPrefix + modePrefix + action;
+                if (!useML && sweetSpotConfidence >= SweetSpotThreshold)
                 {
                     StatusText += $" (sweet:{sweetSpotTDP}W)";
                 }
-                Logger.Info($"AutoTDP: FPS={measuredFPS} (smooth={smoothedFPS:F1}, pred={predictedFPS:F1}), Trend={trend:F2}, Target={targetFPS.Value}, TDP: {currentTDP}W -> {newTDP}W, SweetSpot={sweetSpotTDP}W@{sweetSpotConfidence}%");
+                string ceilingInfo = isCeilingDetected ? $", Ceiling(eff={effectiveTarget}, achv≈{achievableFPS:F0})" : "";
+                Logger.Info($"AutoTDP{(useML ? " [ML]" : "")}: FPS={measuredFPS} (smooth={smoothedFPS:F1}, pred={predictedFPS:F1}), Trend={trend:F2}, Target={targetFPS.Value}, TDP: {currentTDP}W -> {newTDP}W{ceilingInfo}{(useML ? "" : $", SweetSpot={sweetSpotTDP}W@{sweetSpotConfidence}%")}");
                 performanceManager.SetTDP(newTDP);
                 // Note: Removed duplicate SetValue call that was causing double hardware apply
                 // SetTDP already applies to hardware; the widget will sync via IPC
@@ -332,28 +543,55 @@ namespace XboxGamingBarHelper.AutoTDP
             }
             else
             {
-                double error = targetFPS.Value - smoothedFPS;
+                // Use effective target (ceiling-adjusted) for status
+                double error = effectiveTarget - smoothedFPS;
+                double userError = targetFPS.Value - smoothedFPS;
+                string modePrefix = useML ? "[ML] " : "";
+                string ceilingPrefix = isCeilingDetected ? "[Ceiling] " : "";
+                string powerOptPrefix = isPowerOptimizationMode ? "[PwrOpt] " : "";
+
                 if (Math.Abs(error) <= DeadZone)
                 {
-                    if (sweetSpotConfidence >= SweetSpotThreshold)
+                    if (isPowerOptimizationMode)
+                    {
+                        StatusText = $"{ceilingPrefix}Optimized {currentTDP}W";
+                    }
+                    else if (isCeilingDetected)
+                    {
+                        StatusText = $"{ceilingPrefix}At limit ({achievableFPS:F0} FPS)";
+                    }
+                    else if (!useML && sweetSpotConfidence >= SweetSpotThreshold)
                     {
                         StatusText = $"Locked {sweetSpotTDP}W";
                     }
                     else
                     {
-                        StatusText = "On target";
+                        StatusText = modePrefix + "On target";
                     }
                     consecutiveStableReadings++;
                 }
                 else if (error > 0)
                 {
-                    StatusText = "Below target";
+                    if (isCeilingDetected && userError > DeadZone)
+                    {
+                        StatusText = $"{ceilingPrefix}Target unreachable";
+                    }
+                    else
+                    {
+                        StatusText = ceilingPrefix + powerOptPrefix + modePrefix + "Below target";
+                    }
                 }
                 else
                 {
-                    StatusText = "Above target";
+                    StatusText = ceilingPrefix + powerOptPrefix + modePrefix + "Above target";
                     consecutiveStableReadings++;
                 }
+            }
+
+            // Update ML status periodically
+            if (useMLMode.Value && qLearningController != null)
+            {
+                UpdateMLStatusProperty();
             }
         }
 
@@ -474,11 +712,49 @@ namespace XboxGamingBarHelper.AutoTDP
             return 0;
         }
 
-        private int CalculateConservativeTDP(double smoothedFPS, double predictedFPS, double trend, int currentTDP)
+        private int CalculateConservativeTDP(double smoothedFPS, double predictedFPS, double trend, int currentTDP, double gpuUtil)
         {
-            int target = targetFPS.Value;
+            // Use effective target when ceiling is detected, otherwise use user target
+            int target = isCeilingDetected ? effectiveTarget : targetFPS.Value;
             double error = target - smoothedFPS;
             double predictedError = target - predictedFPS;
+
+            // Power optimization mode: minimize TDP while maintaining achievable FPS
+            if (isPowerOptimizationMode && isCeilingDetected)
+            {
+                double achError = achievableFPS - smoothedFPS;
+
+                // If FPS is stable at achievable level, try reducing TDP
+                if (Math.Abs(achError) <= 2.0 && currentTDP > minTDP)
+                {
+                    // Check if GPU is underutilized (could save power)
+                    if (gpuUtil < 90)
+                    {
+                        // Try reducing TDP by 1W
+                        Logger.Debug($"AutoTDP [PwrOpt]: GPU={gpuUtil:F0}%, trying to reduce TDP from {currentTDP}W");
+                        return currentTDP - 1;
+                    }
+                }
+                // If FPS dropped significantly, we went too low - restore
+                else if (achError > 3.0 && currentTDP < optimalCeilingTDP)
+                {
+                    Logger.Debug($"AutoTDP [PwrOpt]: FPS dropped ({smoothedFPS:F1} < {achievableFPS:F1}), restoring TDP");
+                    return Math.Min(maxTDP, currentTDP + 1);
+                }
+
+                // Update optimal ceiling TDP if current is better
+                if (Math.Abs(achError) <= 1.5 && currentTDP < optimalCeilingTDP)
+                {
+                    optimalCeilingTDP = currentTDP;
+                    Logger.Debug($"AutoTDP [PwrOpt]: New optimal ceiling TDP: {optimalCeilingTDP}W");
+                }
+
+                // Maintain current TDP in power optimization mode unless FPS is dropping
+                if (Math.Abs(achError) <= 3.0)
+                {
+                    return currentTDP;
+                }
+            }
 
             // Detect if we're at or above FPS target (potential FPS cap scenario)
             // FPS at or above target with stable trend means we might be able to reduce TDP
@@ -636,6 +912,112 @@ namespace XboxGamingBarHelper.AutoTDP
             return newTDP;
         }
 
+        /// <summary>
+        /// Calculates TDP using Q-Learning ML controller.
+        /// </summary>
+        private int CalculateMLTDP(double smoothedFPS, double trend, int currentTDP, double gpuUtil)
+        {
+            if (qLearningController == null)
+            {
+                // Fallback to PID if Q-learning is unavailable
+                return currentTDP;
+            }
+
+            // Use effective target when ceiling is detected, otherwise use user target
+            int target = isCeilingDetected ? effectiveTarget : targetFPS.Value;
+            double fpsError = target - smoothedFPS;
+
+            // Also track error from user's actual target for ceiling-aware decisions
+            double userTargetError = targetFPS.Value - smoothedFPS;
+            bool atMaxTDP = currentTDP >= maxTDP - 1;
+            bool headroomExhausted = isCeilingDetected || (atMaxTDP && gpuUtil < CeilingGpuUtilThreshold && userTargetError > DeadZone);
+
+            // Encode current state (with headroom exhausted info embedded via GPU util)
+            int state = qLearningController.EncodeState(fpsError, trend, currentTDP, minTDP, maxTDP, gpuUtil);
+
+            // Check if we should fall back to PID due to poor ML performance
+            // Don't trigger fallback if ceiling is detected (FPS deviation is expected)
+            if (!isCeilingDetected && qLearningController.ShouldFallbackToPID(fpsError))
+            {
+                Logger.Warn("ML performance poor - temporarily falling back to PID controller");
+                isMLFallbackActive = true;
+                StatusText = "[ML->PID] Fallback";
+                // Will use PID on next update
+                return currentTDP;
+            }
+
+            // Calculate TDP percentage for action selection override logic
+            int tdpRange = maxTDP - minTDP;
+            double currentTdpPercent = tdpRange > 0 ? (double)(currentTDP - minTDP) / tdpRange : 0.5;
+
+            // Select action using epsilon-greedy policy with safety overrides
+            // Pass FPS error and TDP percentage so the model can make smart overrides
+            int tdpDelta = qLearningController.SelectAction(state, fpsError, currentTdpPercent);
+
+            // Safety: Limit aggressive decreases at low TDP to prevent oscillation
+            // At low TDP (below 30% of range), only allow -1W decrease max
+            if (tdpDelta <= -2 && currentTdpPercent < 0.30)
+            {
+                tdpDelta = -1;  // Limit to -1W at low TDP
+                Logger.Debug($"AutoTDP [ML]: Limited -2W to -1W at low TDP ({currentTdpPercent:P0})");
+            }
+
+            // Ceiling mode safeguards
+            if (headroomExhausted && optimalCeilingTDP > 0)
+            {
+                // Don't let TDP drop more than 3W below where ceiling was detected
+                // This prevents the death spiral where TDP reduction causes FPS to drop,
+                // which updates achievable FPS downward, which confirms the "ceiling"
+                int minCeilingTDP = Math.Max(minTDP, optimalCeilingTDP - 3);
+                int proposedTDP = currentTDP + tdpDelta;
+
+                if (proposedTDP < minCeilingTDP)
+                {
+                    int originalDelta = tdpDelta;
+                    tdpDelta = minCeilingTDP - currentTDP;
+                    if (tdpDelta != originalDelta)
+                    {
+                        Logger.Debug($"AutoTDP [ML]: Limiting TDP decrease at ceiling (optimalCeilingTDP={optimalCeilingTDP}W, min={minCeilingTDP}W)");
+                    }
+                }
+
+                // Also, if FPS dropped significantly below locked achievable, increase TDP to recover
+                // Use lockedAchievableFPS to prevent the death spiral
+                double effectiveAchievable = lockedAchievableFPS > 0 ? lockedAchievableFPS : achievableFPS;
+                double fpsFromCeiling = smoothedFPS - effectiveAchievable;
+                if (fpsFromCeiling < -5 && tdpDelta <= 0)
+                {
+                    // FPS dropped too much - override and increase TDP to recover
+                    tdpDelta = Math.Max(1, tdpDelta + 2);
+                    Logger.Debug($"AutoTDP [ML]: FPS {fpsFromCeiling:F1} below locked ceiling ({effectiveAchievable:F0}), forcing TDP increase to recover");
+                }
+            }
+
+            // Calculate new TDP
+            int newTDP = currentTDP + tdpDelta;
+
+            // Clamp to valid range
+            newTDP = Math.Max(minTDP, Math.Min(maxTDP, newTDP));
+
+            // Calculate reward with ceiling awareness, efficiency tracking, and oscillation tracking
+            int prevTdpChange = qLearningController.PreviousTdpChange;
+            double avgFpsPerWatt = GetAverageFpsPerWatt();  // Get actual FPS/W efficiency from recent data
+            double reward = qLearningController.CalculateReward(fpsError, currentTDP, newTDP, headroomExhausted, gpuUtil, achievableFPS, smoothedFPS, minTDP, maxTDP, prevTdpChange, avgFpsPerWatt);
+            LastMLReward = reward;  // Store for OSD display
+
+            // Get next state for Q-learning update
+            int nextState = qLearningController.EncodeState(fpsError, trend, newTDP, minTDP, maxTDP, gpuUtil);
+
+            // Update Q-values
+            qLearningController.Update(nextState, reward);
+
+            string ceilingStr = headroomExhausted ? ", CEILING" : "";
+            Logger.Debug($"AutoTDP [ML]: state={state}, action={tdpDelta:+#;-#;0}W, reward={reward:F2}, " +
+                        $"FPS={smoothedFPS:F1}, GPU={gpuUtil:F0}%, TDP: {currentTDP}W -> {newTDP}W{ceilingStr}");
+
+            return newTDP;
+        }
+
         private void ResetState()
         {
             integral = 0;
@@ -655,7 +1037,196 @@ namespace XboxGamingBarHelper.AutoTDP
             tdpHistoryIndex = 0;
             sweetSpotTDP = 0;
             sweetSpotConfidence = 0;
+            // Reset ML fallback state
+            isMLFallbackActive = false;
+            qLearningController?.ResetFallbackCounter();
+            // Reset ceiling detection state
+            achievableFPS = 0;
+            lockedAchievableFPS = 0;
+            effectiveTarget = targetFPS.Value;
+            isCeilingDetected = false;
+            consecutiveCeilingFrames = 0;
+            consecutiveAboveCeilingFrames = 0;
+            isPowerOptimizationMode = false;
+            optimalCeilingTDP = 0;
+            tdpGainCount = 0;
+            tdpGainIndex = 0;
+            pendingTDPGainMeasurement = false;
             Logger.Debug("AutoTDP: State reset");
+        }
+
+        /// <summary>
+        /// Detects and handles unreachable FPS targets (ceiling detection).
+        /// Returns true if we're in a ceiling state and should use power optimization.
+        /// </summary>
+        private void UpdateCeilingDetection(double smoothedFPS, int currentTDP, double gpuUtil)
+        {
+            int userTarget = targetFPS.Value;
+            double fpsError = userTarget - smoothedFPS;
+            bool atMaxTDP = currentTDP >= maxTDP - 1;
+            bool gpuNotSaturated = gpuUtil < CeilingGpuUtilThreshold;
+
+            // Measure FPS gain from previous TDP increase
+            if (pendingTDPGainMeasurement && fpsHistoryCount >= 3)
+            {
+                double fpsGain = smoothedFPS - lastFPSBeforeTDPIncrease;
+                int tdpIncrease = currentTDP - lastTDPBeforeIncrease;
+
+                if (tdpIncrease > 0)
+                {
+                    double gainPerWatt = fpsGain / tdpIncrease;
+                    tdpIncreaseFPSGains[tdpGainIndex] = gainPerWatt;
+                    tdpGainIndex = (tdpGainIndex + 1) % tdpIncreaseFPSGains.Length;
+                    if (tdpGainCount < tdpIncreaseFPSGains.Length)
+                        tdpGainCount++;
+
+                    Logger.Debug($"AutoTDP Ceiling: TDP +{tdpIncrease}W yielded {fpsGain:F1} FPS ({gainPerWatt:F2} FPS/W)");
+                }
+                pendingTDPGainMeasurement = false;
+            }
+
+            // Check for ceiling conditions
+            bool ceilingConditionMet = false;
+
+            // Minimum TDP threshold for ceiling detection: must be at 75% of TDP range or higher
+            // This prevents false ceiling detection at low TDP values
+            int tdpRange = maxTDP - minTDP;
+            int minCeilingDetectionTDP = minTDP + (int)(tdpRange * 0.75);
+            bool atHighTDP = currentTDP >= minCeilingDetectionTDP;
+
+            // IMPORTANT: If FPS is at or above user target, we should NOT detect/maintain ceiling
+            // This prevents false ceiling detection when FPS just dips temporarily
+            if (fpsError <= 0)
+            {
+                // FPS >= target - definitely not at a ceiling
+                consecutiveCeilingFrames = 0;
+                // Don't set ceilingConditionMet
+            }
+            else
+            {
+                // FPS is below target - check ceiling conditions
+
+                // Condition 1: At max TDP but GPU not saturated (CPU-bound or other bottleneck)
+                // STRICTER: Must be at actual max TDP, not just "high"
+                if (atMaxTDP && gpuNotSaturated && fpsError > DeadZone)
+                {
+                    ceilingConditionMet = true;
+                    Logger.Debug($"AutoTDP Ceiling: CPU-bound detected (GPU={gpuUtil:F0}% at max TDP={maxTDP}W, FPS error={fpsError:F1})");
+                }
+
+                // Condition 2: Diminishing returns - last TDP increases yielded minimal FPS gains
+                // STRICTER: Only check if at MAX TDP (not just high TDP) to avoid false positives
+                if (atMaxTDP && fpsError > DeadZone && tdpGainCount >= 3)
+                {
+                    double avgGainPerWatt = 0;
+                    for (int i = 0; i < tdpGainCount; i++)
+                        avgGainPerWatt += tdpIncreaseFPSGains[i];
+                    avgGainPerWatt /= tdpGainCount;
+
+                    if (avgGainPerWatt < 0.3)  // Stricter: Less than 0.3 FPS per watt = diminishing returns
+                    {
+                        ceilingConditionMet = true;
+                        Logger.Debug($"AutoTDP Ceiling: Diminishing returns at {currentTDP}W (avg {avgGainPerWatt:F2} FPS/W)");
+                    }
+                }
+
+                // Condition 3: Steady state below target at MAX TDP (not just high TDP)
+                // STRICTER: Must be at actual max TDP
+                if (fpsError > DeadZone && atMaxTDP)
+                {
+                    consecutiveCeilingFrames++;
+                }
+                else
+                {
+                    // Not at max TDP or within dead zone - reset counter
+                    consecutiveCeilingFrames = 0;
+                }
+            }
+
+            if (consecutiveCeilingFrames >= CeilingDetectionThreshold)
+            {
+                ceilingConditionMet = true;
+                Logger.Debug($"AutoTDP Ceiling: Steady-state below target for {consecutiveCeilingFrames} frames");
+            }
+
+            // If ceiling detected, update achievable FPS and effective target
+            if (ceilingConditionMet && !isCeilingDetected)
+            {
+                // First time detecting ceiling
+                isCeilingDetected = true;
+                achievableFPS = smoothedFPS;
+                lockedAchievableFPS = smoothedFPS;  // Lock the initial ceiling value
+                effectiveTarget = Math.Max(30, (int)(smoothedFPS - CeilingMargin));
+                optimalCeilingTDP = currentTDP;
+                consecutiveAboveCeilingFrames = 0;
+                Logger.Info($"AutoTDP: Ceiling detected! User target={userTarget}, achievable FPS≈{achievableFPS:F0}, effective target={effectiveTarget}");
+            }
+            else if (isCeilingDetected)
+            {
+                // Update achievable FPS estimate using EWMA, but ONLY allow it to increase
+                // This prevents the death spiral where TDP reduction causes FPS to drop,
+                // which updates achievable FPS downward, which "confirms" the lower ceiling
+                double newAchievable = (AchievableFPSAlpha * smoothedFPS) + ((1 - AchievableFPSAlpha) * achievableFPS);
+                if (newAchievable > achievableFPS)
+                {
+                    achievableFPS = newAchievable;
+                    // Also update locked value if we found a higher ceiling
+                    if (achievableFPS > lockedAchievableFPS)
+                    {
+                        lockedAchievableFPS = achievableFPS;
+                        Logger.Debug($"AutoTDP Ceiling: Updated locked achievable FPS to {lockedAchievableFPS:F0}");
+                    }
+                }
+                // Use locked value for decisions to prevent downward drift
+                double effectiveAchievable = lockedAchievableFPS;
+
+                // Update effective target if achievable FPS has improved
+                int newEffectiveTarget = Math.Max(30, (int)(effectiveAchievable - CeilingMargin));
+                if (newEffectiveTarget > effectiveTarget)
+                {
+                    effectiveTarget = newEffectiveTarget;
+                    Logger.Debug($"AutoTDP Ceiling: Updated effective target to {effectiveTarget} (achievable≈{effectiveAchievable:F0})");
+                }
+
+                // Check if we should enter power optimization mode
+                // (at ceiling, FPS stable - now minimize TDP while maintaining FPS)
+                double errorFromAchievable = effectiveAchievable - smoothedFPS;
+                if (Math.Abs(errorFromAchievable) <= 2.0 && !isPowerOptimizationMode)
+                {
+                    isPowerOptimizationMode = true;
+                    optimalCeilingTDP = currentTDP;
+                    Logger.Info($"AutoTDP: Entering power optimization mode at {currentTDP}W (FPS≈{smoothedFPS:F0})");
+                }
+
+                // Hysteresis for exiting ceiling mode: require sustained above-ceiling performance
+                if (smoothedFPS >= userTarget - DeadZone)
+                {
+                    consecutiveAboveCeilingFrames++;
+                    if (consecutiveAboveCeilingFrames >= CeilingExitHysteresis)
+                    {
+                        Logger.Info($"AutoTDP: Target now reachable (sustained {consecutiveAboveCeilingFrames} frames), exiting ceiling mode");
+                        isCeilingDetected = false;
+                        isPowerOptimizationMode = false;
+                        effectiveTarget = userTarget;
+                        lockedAchievableFPS = 0;
+                        consecutiveAboveCeilingFrames = 0;
+                    }
+                }
+                else
+                {
+                    consecutiveAboveCeilingFrames = 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Records a TDP increase for diminishing returns tracking.
+        /// </summary>
+        private void RecordTDPIncrease(double currentFPS, int currentTDP)
+        {
+            lastFPSBeforeTDPIncrease = currentFPS;
+            lastTDPBeforeIncrease = currentTDP;
+            pendingTDPGainMeasurement = true;
         }
 
         protected override void Dispose(bool disposing)
@@ -663,6 +1234,12 @@ namespace XboxGamingBarHelper.AutoTDP
             if (disposing)
             {
                 Logger.Info("AutoTDPManager: Disposing");
+                // Save Q-table on shutdown
+                if (qLearningController != null)
+                {
+                    Logger.Info("AutoTDPManager: Saving Q-table on shutdown");
+                    qLearningController.Save();
+                }
             }
             base.Dispose(disposing);
         }
@@ -735,6 +1312,65 @@ namespace XboxGamingBarHelper.AutoTDP
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"AutoTDP max TDP: {Value}W");
             Manager.UpdateTDPLimits(Manager.MinTDP.Value, Value);
+        }
+    }
+
+    internal class AutoTDPUseMLModeProperty : HelperProperty<bool, AutoTDPManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public AutoTDPUseMLModeProperty(bool inValue, AutoTDPManager inManager) : base(inValue, null, Function.AutoTDPUseMLMode, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"AutoTDP ML Mode: {(Value ? "Enabled" : "Disabled")}");
+        }
+    }
+
+    internal class AutoTDPMLStatusProperty : HelperProperty<string, AutoTDPManager>
+    {
+        public AutoTDPMLStatusProperty(string inValue, AutoTDPManager inManager) : base(inValue, null, Function.AutoTDPMLStatus, inManager)
+        {
+        }
+    }
+
+    internal class AutoTDPResetMLProperty : HelperProperty<bool, AutoTDPManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public AutoTDPResetMLProperty(bool inValue, AutoTDPManager inManager) : base(inValue, null, Function.AutoTDPResetML, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            // When set to true, trigger reset
+            if (Value)
+            {
+                Logger.Info("AutoTDP ML Reset triggered");
+                Manager.ResetMLLearning();
+                // Reset the property back to false
+                SetValue(false);
+            }
+        }
+    }
+
+    internal class AutoTDPPauseWhenUnfocusedProperty : HelperProperty<bool, AutoTDPManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public AutoTDPPauseWhenUnfocusedProperty(bool inValue, AutoTDPManager inManager) : base(inValue, null, Function.AutoTDPPauseWhenUnfocused, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"AutoTDP pause when unfocused: {Value}");
         }
     }
 }

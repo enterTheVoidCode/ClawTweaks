@@ -132,7 +132,10 @@ namespace XboxGamingBar.Data
 
                 // Build list of function IDs to request as JSON array
                 var jsonArray = new JsonArray();
-                bool skipWidgetOwnedInitial = SkipWidgetOwnedSyncOnce && !isRetry;
+                // Always skip widget-owned properties during initial startup, even on retry
+                // The issue was that retries would include these properties, causing the helper's
+                // default values (e.g., #FFFFFF for lighting) to overwrite profile values
+                bool skipWidgetOwnedInitial = SkipWidgetOwnedSyncOnce;
                 if (skipWidgetOwnedInitial)
                 {
                     Logger.Info("Skipping widget-owned properties in batch sync (initial startup - widget loaded from settings/profiles)");

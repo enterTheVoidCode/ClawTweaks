@@ -434,6 +434,7 @@
     <Compile Include="GoTweaksService.cs" />
     <Compile Include="Services\HelperDeploymentService.cs" />
     <Compile Include="Services\ScheduledTaskService.cs" />
+    <Compile Include="Services\SystemRestoreService.cs" />
     <Compile Include="IPC\NamedPipeServer.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -476,6 +477,7 @@
     <Compile Include="PawnIO\PawnIOWrapper.cs" />
     <Compile Include="PawnIO\RyzenSmuService.cs" />
     <Compile Include="AutoTDP\AutoTDPManager.cs" />
+    <Compile Include="AutoTDP\QLearningController.cs" />
     <Compile Include="AutoTDP\TDPLimitsProperty.cs" />
     <Compile Include="RTSS\DisplayOSDConfigProperty.cs" />
     <Compile Include="Systems\HDREnabledProperty.cs" />
@@ -517,6 +519,7 @@
     <Compile Include="Devices\Libraries\GPD\GPDWin5Keycodes.cs" />
     <Compile Include="DefaultGameProfiles\CpuDetector.cs" />
     <Compile Include="DefaultGameProfiles\ProfileParser.cs" />
+    <Compile Include="DefaultGameProfiles\BundledProfileExporter.cs" />
     <Compile Include="DefaultGameProfiles\DefaultGameProfileService.cs" />
     <Compile Include="DefaultGameProfiles\DefaultGameProfileProperties.cs" />
     <Compile Include="DefaultGameProfiles\DefaultGameProfileManager.cs" />
@@ -590,6 +593,8 @@
   <ItemGroup>
     <!-- PawnIO modules embedded as resources (like ZenStates-Core) -->
     <EmbeddedResource Include="Resources\PawnIO\RyzenSMU.bin" />
+    <!-- Bundled default game profiles for systems without Xbox FSE -->
+    <EmbeddedResource Include="Resources\DefaultGameProfiles\bundled_profiles.json" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

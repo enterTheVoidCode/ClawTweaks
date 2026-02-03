@@ -863,6 +863,30 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 {
                     // Mode was already set optimistically, just log success
                     Logger.Info($"Performance mode set to {tdpMode}");
+
+                    // When switching to a preset mode (not Custom), reset the fan curve
+                    // to default values so the hardware uses its built-in preset fan curves.
+                    // Without this, a previously-set custom fan curve would persist and
+                    // the fans would run louder/differently than expected for the preset.
+                    if (mode != 255 && wmiService.HasCustomFanCurve())
+                    {
+                        Logger.Info($"Resetting fan curve to default for preset mode {tdpMode}");
+                        var defaultCurve = LenovoWMIService.DefaultFanCurve;
+                        var resetResult = wmiService.SetFanCurve(defaultCurve);
+                        if (resetResult.Success)
+                        {
+                            // Update internal state
+                            fanCurve = (ushort[])defaultCurve.Clone();
+                            // Update property to sync with widget (silently to avoid triggering re-apply)
+                            string defaultCurveString = string.Join(",", fanCurve.Select(v => (int)v));
+                            LegionFanCurveData?.SetValueSilent(defaultCurveString);
+                            Logger.Info($"Fan curve reset to default: [{string.Join(", ", fanCurve)}]%");
+                        }
+                        else
+                        {
+                            Logger.Warn($"Failed to reset fan curve: {resetResult.Message}");
+                        }
+                    }
                 }
                 else
                 {
