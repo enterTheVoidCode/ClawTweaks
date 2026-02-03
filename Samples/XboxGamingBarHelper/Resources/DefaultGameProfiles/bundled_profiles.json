@@ -1,0 +1,3256 @@
+﻿{
+  "version": 1,
+  "exportedAt": "2026-02-02T20:38:37.9784433Z",
+  "exportedFrom": "DESKTOP-L7H3D95",
+  "games": [
+    {
+      "gameName": "Forza Horizon 5",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Microsoft.624F8B84B80_8wekyb3d8bbwe"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1551360"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Helldivers 2",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "553850"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 25,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Dead Cells",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "MotionTwin.DeadCellsWin10_rtjy889c6zgtg"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "588650"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 8,
+          "frameCap": 120,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 8,
+          "frameCap": 120,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Balatro",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "PlayStack.Balatro_3wcqaesafpzfy"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2379780"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 6,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 8,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Hollow Knight",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "TeamCherry.15373CD61C66B_y4jvztpgccj42"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "367520"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 12,
+          "frameCap": 120,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 12,
+          "frameCap": 120,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Among Us",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Innersloth.AmongUs_fw5x688tam7rm"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "945360"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 90,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Age of Empires IV: Anniversary Editon",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Microsoft.Cardinal_8wekyb3d8bbwe"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1466860"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "APEX Legends",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "ElectronicArtsMobile.R5_q5ha1ztykcgvj"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1172470"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Avowed: Premium Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Microsoft.Avowed_8wekyb3d8bbwe"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2457220"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Blue Prince",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "RawFury.BluePrince_9s0pnehqffj7t"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1569580"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Deep Rock Galactic: Survivor Gold Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "GhostShipPublishing.DeepRockGalacticSurvivor_ea2gzvszrg5sg"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2321470"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Destiny 2",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Bungie.Destiny2PCbasegame_8xb1a0vv8ay84"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1085660"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Diablo IV PC",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "BlizzardEntertainmentInc.DiabloIVPC_kdg5n7x41qwkg"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2344520"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Doom Eternal Deluxe Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "BethesdaSoftworks.DOOMEternal-PC_3275kfvn8vcwc"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "782330"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Far Cry 6",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "2369390"
+        },
+        {
+          "platform": "Ubisoft",
+          "gameUid": "5266"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Gears 5 Game of the Year Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Microsoft.HalifaxBaseGame_8wekyb3d8bbwe"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1097840"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Gears Tactics",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Microsoft.GanderBaseGame_8wekyb3d8bbwe"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1184050"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 13,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Grand Theft Auto V Legacy (PC)",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "RockstarGamesInc.3605912C1822C_k2ss7vbb13xte"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "271590"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Hollow Knight - Silksong",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "TeamCherry.HollowKnightSilksong_y4jvztpgccj42"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1030300"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 12,
+          "frameCap": 120,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 12,
+          "frameCap": 120,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Indiana Jones and the Great Circle Digital Premium Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "BethesdaSoftworks.ProjectRelic_3275kfvn8vcwc"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2677660"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Lies of P Overture Bundle",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Neowiz.3616725F496B_r4z3116tdh636"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1627720"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Overwatch 2 PC",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "BlizzardEntertainmentInc.33009785B62F9_kdg5n7x41qwkg"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2357570"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Sniper Elite: Resistance Deluxe Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Rebellion.SniperEliteResistance_2vbwqmt31j4mr"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2169200"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 19,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "South of Midnight Premium Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Microsoft.XGSMidnight_8wekyb3d8bbwe"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1934570"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 16,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "The Sims 4",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "ElectronicArtsMobile.RosebudTheSims4plusEP1_q5ha1ztykcgvj"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1222670"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "THPS 3\u002B4",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "38985CA0.4324137313BB0_5bkah9njm3e9g"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2545710"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Vampire Survivors",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "poncle.VampireSurvivors_9pv5cyp4vwdsr"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1794680"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 6,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 10,
+          "frameCap": 120,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Hogwarts Legacy",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "WarnerBros.Interactive.PHX_ktmk1xygcecda"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "990080"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Dead Space:Remastered",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "ElectronicArtsMobile.43679F9D4A6E9_q5ha1ztykcgvj"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1693980"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Prince of Persia: The Lost Crown",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "2751000"
+        },
+        {
+          "platform": "Ubisoft",
+          "gameUid": "6145"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Gears of War: Reloaded",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Microsoft.Pender_8wekyb3d8bbwe"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2523720"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Assassin\u0027s Creed Shadows",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Ubisoft.PCAssassinsCreedShadows_ngz4m417e0mpw"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "3159330"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Doom the Dark Age Premium Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "BethesdaSoftworks.ProjectTitan_3275kfvn8vcwc"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "3017860"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 16,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 22,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Final Fantasy VII Remake Intergrade",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "39EA002F.EXED1_n746a19ndrrjg"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1462040"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Clair Obscur: Expedition 33: Deluxe Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "KeplerInteractive.Expedition33_ymj30pw7xe604"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1903340"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "The Elder Scrolls IV: Oblivion Remastered",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "BethesdaSoftworks.ProjectAltar_3275kfvn8vcwc"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2623190"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 22,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Assassin\u0027s Creed Valhalla",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Ubisoft.PCNostromo_ngz4m417e0mpw"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2208920"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Persona 3 Reload Digital Premium Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "SEGAofAmericaInc.L0cb6b3aea_s751p9cej88mt"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2161700"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Persona 5 Royal",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "SEGAofAmericaInc.F0cb6b3aer_s751p9cej88mt"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1687950"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 16,
+          "frameCap": 90,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Brotato",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "19886SeavenStudio.Brotato_fahzzgrzfd3xc"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1942280"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 6,
+          "frameCap": 90,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 8,
+          "frameCap": 90,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Crab Game",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "1782210"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Cult of the Lamb The One Who Waits",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "1313140"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 12,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Cyberpunk 2077",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "1091500"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 25,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Dave the Diver Deluxe Edition",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "1868140"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "DayZ",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "221100"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Delta Force",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "2507950"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "DOTA 2",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "570"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Elder Scrolls Online",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "306130"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Euro Truck Simulator 2",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "227300"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Factorio",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "427520"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Hades II",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "1145350"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 8,
+          "frameCap": 90,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 10,
+          "frameCap": 120,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Hearts of Iron IV Ultimate Bundle",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "394360"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 19,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Kingdom Come: Deliverance 2",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "1771300"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 22,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Liar\u0027s Bar",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "3097560"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Metaphor:Refantazio Atlus 35th Digital Anniversary Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "SEGAofAmericaInc.Pae22b02y_s751p9cej88mt"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2679460"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Metro Exodus",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "DeepSilver.ProjectWindfall_hmv7qcest37me"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "412020"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Path of Exile",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "238960"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Resident Evil 3",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "F024294D.1052923506B93_8fty0by30jkny"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "952060"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "720P",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Rimworld",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "294100"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Sekiro: Shadows Die Twice GOTY Edition",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "814380"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 24,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Slay the Spire",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "HumbleBundle.SlayTheSpire_q2mcdwmzx4qja"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "646570"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 8,
+          "frameCap": 90,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Street Fighter 6",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "1364780"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Terraria",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "105600"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 12,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "The Elder Scrolls V: Skyrim Special Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "BethesdaSoftworks.SkyrimSE-PC_3275kfvn8vcwc"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "489830"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Triangle Strategy Deluxe Edition",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "1850510"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 16,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Warframe 1999 Complete Collection",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "230410"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "World of Tanks Blitz",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "7458BE2C.WorldofTanksBlitz_x4tje2y229k00"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "444200"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "7 Days to Die",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "TheFunPimps.7DaystoDiePC_yapmrbwff4apt"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "251570"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Binding of Issac: Rebirth",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "250900"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Borderlands 3",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "2K-Gearbox.Borderlands3WindowsPC_5c2m1mad6jpnr"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "397540"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 14,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Dark Souls 3",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "374320"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Fallout 4",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "BethesdaSoftworks.Fallout4-CoreGame_3275kfvn8vcwc"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "377160"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Fallout New Vegas",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "BethesdaSoftworks.FalloutNewVegas_3275kfvn8vcwc"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "22380"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Farming Simulator 25",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "GIANTSSoftware.FarmingSimulator25PC_fa8jxm5fj0esw"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2300320"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 16,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Football Manager 2024",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "SportsInteractive.FootballManager2024_5w3tn6tb6stnm"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2252570"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 7,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Forza Motorsport",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Microsoft.ForzaMotorsport_8wekyb3d8bbwe"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2440510"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Hades",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "SupergiantGamesLLC.Hades_q53c1yqmx7pha"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1145360"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 8,
+          "frameCap": 120,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 8,
+          "frameCap": 120,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Left 4 Dead 2",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "550"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 14,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 120,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Lethal Company",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "1966720"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Monster Hunter Rise",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "F024294D.50755C2F12831_8fty0by30jkny"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1446780"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 16,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Mortal Kombat 11",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "WarnerBros.Interactive.a86c0be2-cf8b-45cf-8cf8-76d_ktmk1xygcecda"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "976310"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Ninja Gaiden 4",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Microsoft.TOROretail_8wekyb3d8bbwe"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2627260"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Once Human",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "2139460"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 19,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Path of Exile 2",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "2694490"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 22,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Phasmophobia",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "739630"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Rocket League",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "252950"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 14,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 19,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Rust",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "252490"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Satisfactory",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "526870"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 16,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Sea of Thieves",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Microsoft.SeaofThieves_8wekyb3d8bbwe"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1172620"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Sid Meier\u0027s CIV VII",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "1295660"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Silent Hill F",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "KonamiDigitalEntertainmen.SILENTHILLf_168atcksx2mfc"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2947440"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 22,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Stalker 2: Heart of Chornobyl",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "GSCGameWorld.S.T.A.L.K.E.R.2HeartofChernobyl_6fr1t1rwfarwt"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1643320"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 25,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Starfield",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "BethesdaSoftworks.ProjectGold_3275kfvn8vcwc"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1716740"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 17,
+          "frameCap": 30,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "State of Decay 2: Juggernaut Edition",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Microsoft.Dayton_8wekyb3d8bbwe"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "495420"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Team Fortress 2",
+      "identifiers": [
+        {
+          "platform": "Steam",
+          "gameUid": "440"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 16,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "The Finals",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Embark.THEFINALS_kd876xf6dde24"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "2073850"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 18,
+          "frameCap": 40,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Tom Clancy\u0027s Rainbow Six Siege X",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "Ubisoft.PCRainbowSixSiege-Game_ngz4m417e0mpw"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "359550"
+        },
+        {
+          "platform": "Ubisoft",
+          "gameUid": "635"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 16,
+          "frameCap": 90,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "War Thunder",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "GaijinDistributionKft.61164cd5-5ded-41a2-9410-6bd1_b4dq0bbj0gjtp"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "236390"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 15,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    },
+    {
+      "gameName": "Call of Duty",
+      "identifiers": [
+        {
+          "platform": "MSIXVC",
+          "gameUid": "38985CA0.COREBase_5bkah9njm3e9g"
+        },
+        {
+          "platform": "Steam",
+          "gameUid": "1962663"
+        }
+      ],
+      "profiles": [
+        {
+          "hardwareModel": "OMNI",
+          "provider": "ArmouryCrate",
+          "tdp": 20,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "HORSEM4N",
+          "provider": "ArmouryCrate",
+          "tdp": 22,
+          "frameCap": 60,
+          "resolutionCap": null,
+          "controlMode": "Gamepad"
+        },
+        {
+          "hardwareModel": "OMNI",
+          "provider": "GamingServices",
+          "tdp": 0,
+          "frameCap": null,
+          "resolutionCap": "Default",
+          "controlMode": null
+        }
+      ]
+    }
+  ]
+}

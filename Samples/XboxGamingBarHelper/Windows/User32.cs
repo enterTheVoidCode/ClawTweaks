@@ -748,7 +748,7 @@ namespace XboxGamingBarHelper.Windows
 
             // Symbols
             { "Plus", 0xBB }, { "Minus", 0xBD }, { "Equals", 0xBB },
-            { "LeftBracket", 0xDB }, { "RightBracket", 0xDD },
+            { "LeftBracket", 0xDB }, { "[", 0xDB }, { "RightBracket", 0xDD }, { "]", 0xDD },
             { "Backslash", 0xDC }, { "Semicolon", 0xBA }, { "Quote", 0xDE },
             { "Comma", 0xBC }, { "Period", 0xBE }, { "Slash", 0xBF },
             { "Backtick", 0xC0 }, { "Tilde", 0xC0 },

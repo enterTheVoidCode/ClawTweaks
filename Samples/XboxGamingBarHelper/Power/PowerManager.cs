@@ -3,6 +3,7 @@ using Shared.Constants;
 using System;
 using System.Runtime.InteropServices;
 using XboxGamingBarHelper.Core;
+using XboxGamingBarHelper.Services;
 using XboxGamingBarHelper.Windows;
 
 namespace XboxGamingBarHelper.Power
@@ -127,6 +128,18 @@ namespace XboxGamingBarHelper.Power
 
         public static void SetCpuBoostMode(bool isAC, bool enabled)
         {
+            // Save original values before first modification (for clean uninstall)
+            try
+            {
+                bool currentAC = GetCpuBoostMode(true);
+                bool currentDC = GetCpuBoostMode(false);
+                SystemRestoreService.SaveOriginalCpuBoost(currentAC, currentDC);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to save original CPU Boost values: {ex.Message}");
+            }
+
             var scheme = GetActiveScheme();
             var subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
             var setting = PowerGuids.GUID_PROCESSOR_PERFBOOST_MODE;
@@ -170,6 +183,18 @@ namespace XboxGamingBarHelper.Power
         public static void SetEppValue(bool isAC, uint value)
         {
             if (value > 100) value = 100; // clamp to valid range
+
+            // Save original values before first modification (for clean uninstall)
+            try
+            {
+                int currentAC = (int)GetEppValue(true);
+                int currentDC = (int)GetEppValue(false);
+                SystemRestoreService.SaveOriginalEpp(currentAC, currentDC);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to save original EPP values: {ex.Message}");
+            }
 
             Guid scheme = GetActiveScheme();
             Guid subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;

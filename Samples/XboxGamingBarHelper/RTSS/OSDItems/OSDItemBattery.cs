@@ -2,6 +2,7 @@ using Shared.Constants;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using Windows.System.Power;
 using XboxGamingBarHelper.Performance;
 
 namespace XboxGamingBarHelper.RTSS.OSDItems
@@ -14,7 +15,7 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         private HardwareSensor batteryRemainTimeSensor;
         private Func<float> getTimeToFull;
 
-        public OSDItemBattery(HardwareSensor batteryPercentSensor, HardwareSensor batteryDischargeRateSensor, HardwareSensor batteryChargeRateSensor, HardwareSensor batteryRemainTimeSensor, Func<float> getTimeToFull = null) : base("BATTERY", "Battery", Color.DarkCyan)
+        public OSDItemBattery(HardwareSensor batteryPercentSensor, HardwareSensor batteryDischargeRateSensor, HardwareSensor batteryChargeRateSensor, HardwareSensor batteryRemainTimeSensor, Func<float> getTimeToFull = null) : base("BATT", "Battery", Color.DarkCyan)
         {
             this.batteryPercentSensor = batteryPercentSensor;
             this.batteryDischargeRateSensor = batteryDischargeRateSensor;
@@ -30,19 +31,36 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             // Always show battery info when enabled (inverted % - green when full, red when low)
             osdItems.Add(new OSDItemValue(batteryPercentSensor.Value, "%", OSDValueType.PercentageInv));
 
-            if (batteryDischargeRateSensor.Value > 0)
+            bool isDischarging = batteryDischargeRateSensor.Value > 0;
+            bool isCharging = batteryChargeRateSensor.Value > 0;
+
+            if (isDischarging)
             {
                 osdItems.Add(new OSDItemValue(batteryDischargeRateSensor.Value, "W/H", "-", OSDValueType.Wattage));
             }
-
-            if (batteryChargeRateSensor.Value > 0)
+            else if (isCharging)
             {
                 osdItems.Add(new OSDItemValue(batteryChargeRateSensor.Value, "W/H", "+", OSDValueType.None));
             }
+            else
+            {
+                // Not charging or discharging - check if on AC power
+                try
+                {
+                    var powerSupply = PowerManager.PowerSupplyStatus;
+                    if (powerSupply == PowerSupplyStatus.Adequate || powerSupply == PowerSupplyStatus.Inadequate)
+                    {
+                        // On AC power but not actively charging (battery full or trickle charging)
+                        osdItems.Add(new OSDItemValue(0, "", "AC", OSDValueType.None));
+                    }
+                }
+                catch
+                {
+                    // Fallback if PowerManager unavailable
+                }
+            }
 
             // Show time remaining (discharge) or time to full (charging)
-            bool isCharging = batteryChargeRateSensor.Value > 0;
-
             if (isCharging && getTimeToFull != null)
             {
                 // When charging, show time to full
@@ -57,13 +75,8 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
                     }
                     osdItems.Add(new OSDItemValue((float)minutes, "M", "~", OSDValueType.None)); // ~ indicates estimate to full
                 }
-                else if (timeToFull == 0)
-                {
-                    // Fully charged
-                    osdItems.Add(new OSDItemValue(0, "", "FULL", OSDValueType.None));
-                }
             }
-            else if (batteryRemainTimeSensor.Value > 0)
+            else if (isDischarging && batteryRemainTimeSensor.Value > 0)
             {
                 // When discharging, show time remaining
                 var hours = Math.Floor(batteryRemainTimeSensor.Value / MathConstants.SECONDS_PER_HOUR);

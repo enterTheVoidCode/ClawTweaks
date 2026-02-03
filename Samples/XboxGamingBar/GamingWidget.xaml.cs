@@ -72,6 +72,7 @@ namespace XboxGamingBar
         public int AutoTDPTargetFPS { get; set; } = 60;
         public int AutoTDPMinTDP { get; set; } = 8;
         public int AutoTDPMaxTDP { get; set; } = 30;
+        public bool AutoTDPUseMLMode { get; set; } = false;
         // OS Power Mode (0=Best Power Efficiency, 1=Balanced, 2=Best Performance)
         public int OSPowerMode { get; set; } = 1;
         // Legion Performance Mode (1=Quiet, 2=Balanced, 3=Performance, 255=Custom)
@@ -119,6 +120,7 @@ namespace XboxGamingBar
                 AutoTDPTargetFPS = this.AutoTDPTargetFPS,
                 AutoTDPMinTDP = this.AutoTDPMinTDP,
                 AutoTDPMaxTDP = this.AutoTDPMaxTDP,
+                AutoTDPUseMLMode = this.AutoTDPUseMLMode,
                 OSPowerMode = this.OSPowerMode,
                 LegionPerformanceMode = this.LegionPerformanceMode,
                 TDPModeIndex = this.TDPModeIndex,
@@ -808,6 +810,10 @@ namespace XboxGamingBar
         private readonly AutoTDPCurrentFPSProperty autoTDPCurrentFPS;
         private readonly AutoTDPMinTDPProperty autoTDPMinTDP;
         private readonly AutoTDPMaxTDPProperty autoTDPMaxTDP;
+        private readonly AutoTDPUseMLModeProperty autoTDPUseMLMode;
+        private readonly AutoTDPMLStatusProperty autoTDPMLStatus;
+        private readonly AutoTDPResetMLProperty autoTDPResetML;
+        private readonly AutoTDPPauseWhenUnfocusedProperty autoTDPPauseWhenUnfocused;
         private readonly TDPLimitsProperty tdpLimits;
         private readonly CPUCoreConfigProperty cpuCoreConfig;
         private readonly CPUCoreActiveConfigProperty cpuCoreActiveConfig;
@@ -1181,6 +1187,10 @@ namespace XboxGamingBar
             autoTDPCurrentFPS = new AutoTDPCurrentFPSProperty(0);
             autoTDPMinTDP = new AutoTDPMinTDPProperty(8);
             autoTDPMaxTDP = new AutoTDPMaxTDPProperty(30);
+            autoTDPUseMLMode = new AutoTDPUseMLModeProperty(false);
+            autoTDPMLStatus = new AutoTDPMLStatusProperty("");
+            autoTDPResetML = new AutoTDPResetMLProperty(false);
+            autoTDPPauseWhenUnfocused = new AutoTDPPauseWhenUnfocusedProperty(true); // Default: enabled
             tdpLimits = new TDPLimitsProperty("4,35");
             cpuCoreConfig = new CPUCoreConfigProperty("");
             cpuCoreActiveConfig = new CPUCoreActiveConfigProperty("");
@@ -1327,6 +1337,9 @@ namespace XboxGamingBar
                 autoTDPCurrentFPS,
                 autoTDPMinTDP,
                 autoTDPMaxTDP,
+                autoTDPUseMLMode,
+                autoTDPMLStatus,
+                autoTDPResetML,
                 fpsLimit,
                 osPowerMode,
                 tdpLimits,
@@ -1789,6 +1802,14 @@ namespace XboxGamingBar
             LoadAutoTDPSettings();
             if (autoTDPCurrentFPS != null)
                 autoTDPCurrentFPS.PropertyChanged += AutoTDPCurrentFPS_PropertyChanged;
+            if (autoTDPMLStatus != null)
+                autoTDPMLStatus.PropertyChanged += AutoTDPMLStatus_PropertyChanged;
+            if (autoTDPUseMLMode != null)
+                autoTDPUseMLMode.PropertyChanged += AutoTDPUseMLMode_PropertyChanged;
+            if (autoTDPEnabled != null)
+                autoTDPEnabled.PropertyChanged += AutoTDPEnabled_PropertyChanged;
+            if (autoTDPTargetFPS != null)
+                autoTDPTargetFPS.PropertyChanged += AutoTDPTargetFPS_PropertyChanged;
 
             // Load TDP Boost settings (SPPT/FPPT from LocalSettings)
             LoadTDPBoostSettings();
@@ -2955,6 +2976,8 @@ namespace XboxGamingBar
         #region AutoTDP
 
         private bool isLoadingAutoTDPSettings = false;
+        private int previousFPSLimitBeforeSync = 0;  // Store FPS limit before sync was enabled
+        private bool wasFPSLimitEnabledBeforeSync = false;  // Track if FPS limit toggle was on
 
         private void AutoTDPToggle_Toggled(object sender, RoutedEventArgs e)
         {
@@ -2983,6 +3006,33 @@ namespace XboxGamingBar
 
             // Update XY focus navigation based on toggle state
             UpdateAutoTDPFocusNavigation();
+
+            // Update TDP limits display to show AutoTDP range or restore normal display
+            UpdateAutoTDPLimitsDisplay();
+
+            // Handle FPS limit sync
+            if (AutoTDPToggle.IsOn)
+            {
+                // Apply FPS limit sync if enabled
+                if (AutoTDPSyncFPSLimitCheckBox?.IsChecked == true)
+                {
+                    // Store current FPS limit state before syncing (if not already stored)
+                    if (!wasFPSLimitEnabledBeforeSync && previousFPSLimitBeforeSync == 0)
+                    {
+                        wasFPSLimitEnabledBeforeSync = FPSLimitToggle?.IsOn ?? false;
+                        previousFPSLimitBeforeSync = (int)(FPSLimitSlider?.Value ?? 60);
+                    }
+                    ApplyAutoTDPFPSLimit();
+                }
+            }
+            else
+            {
+                // Restore FPS limit when AutoTDP is turned off (if sync was enabled)
+                if (AutoTDPSyncFPSLimitCheckBox?.IsChecked == true)
+                {
+                    RestorePreviousFPSLimit();
+                }
+            }
 
             // Send to helper
             autoTDPEnabled?.SetValue(AutoTDPToggle.IsOn);
@@ -3014,6 +3064,36 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Updates the TDP display when AutoTDP is active - shows "AutoTDP" in main text
+        /// and the min/max range in the limits area.
+        /// </summary>
+        private void UpdateAutoTDPLimitsDisplay()
+        {
+            if (AutoTDPToggle?.IsOn == true)
+            {
+                // Show "AutoTDP" in the main TDP value text
+                if (TDPValueText != null)
+                {
+                    TDPValueText.Text = "AutoTDP";
+                }
+
+                // Show AutoTDP min/max range in limits area
+                if (CurrentTDPValueText != null)
+                {
+                    int minTdp = (int)(AutoTDPMinSlider?.Value ?? 8);
+                    int maxTdp = (int)(AutoTDPMaxSlider?.Value ?? 30);
+                    CurrentTDPValueText.Text = $"{minTdp}W - {maxTdp}W";
+                }
+            }
+            else
+            {
+                // When AutoTDP is off, restore normal display
+                UpdateTDPDisplayText();
+                // Helper will update CurrentTDPValueText with actual hardware limits
+            }
+        }
+
         private void AutoTDPTargetFPSSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
             // Guard against early XAML initialization calls
@@ -3029,6 +3109,9 @@ namespace XboxGamingBar
             {
                 AutoTDPTargetFPSValue.Text = $"{targetFPS} FPS";
             }
+
+            // Sync FPS limit if enabled
+            ApplyAutoTDPFPSLimit();
 
             // Send to helper
             autoTDPTargetFPS?.SetValue(targetFPS);
@@ -3069,6 +3152,9 @@ namespace XboxGamingBar
                 AutoTDPMinValue.Text = $"{minTDP}W";
             }
 
+            // Update TDP limits display if AutoTDP is active
+            UpdateAutoTDPLimitsDisplay();
+
             // Send to helper
             autoTDPMinTDP?.SetValue(minTDP);
 
@@ -3108,6 +3194,9 @@ namespace XboxGamingBar
                 AutoTDPMaxValue.Text = $"{maxTDP}W";
             }
 
+            // Update TDP limits display if AutoTDP is active
+            UpdateAutoTDPLimitsDisplay();
+
             // Send to helper
             autoTDPMaxTDP?.SetValue(maxTDP);
 
@@ -3143,24 +3232,81 @@ namespace XboxGamingBar
                 if (settings.Values.TryGetValue("AutoTDPTargetFPS", out object targetObj) && targetObj is int target)
                 {
                     AutoTDPTargetFPSSlider.Value = target;
-                    AutoTDPTargetFPSValue.Text = $"{target} FPS";
+                }
+                // Always sync text with slider value (handles both saved and default cases)
+                if (AutoTDPTargetFPSValue != null && AutoTDPTargetFPSSlider != null)
+                {
+                    AutoTDPTargetFPSValue.Text = $"{(int)AutoTDPTargetFPSSlider.Value} FPS";
                 }
 
                 // Load min TDP
                 if (settings.Values.TryGetValue("AutoTDPMinTDP", out object minObj) && minObj is int minTDP)
                 {
                     AutoTDPMinSlider.Value = minTDP;
-                    AutoTDPMinValue.Text = $"{minTDP}W";
                     autoTDPMinTDP?.SetValue(minTDP);
+                }
+                // Always sync text with slider value
+                if (AutoTDPMinValue != null && AutoTDPMinSlider != null)
+                {
+                    AutoTDPMinValue.Text = $"{(int)AutoTDPMinSlider.Value}W";
                 }
 
                 // Load max TDP
                 if (settings.Values.TryGetValue("AutoTDPMaxTDP", out object maxObj) && maxObj is int maxTDP)
                 {
                     AutoTDPMaxSlider.Value = maxTDP;
-                    AutoTDPMaxValue.Text = $"{maxTDP}W";
                     autoTDPMaxTDP?.SetValue(maxTDP);
                 }
+                // Always sync text with slider value
+                if (AutoTDPMaxValue != null && AutoTDPMaxSlider != null)
+                {
+                    AutoTDPMaxValue.Text = $"{(int)AutoTDPMaxSlider.Value}W";
+                }
+
+                // Load ML mode setting
+                if (settings.Values.TryGetValue("AutoTDPUseMLMode", out object mlModeObj) && mlModeObj is bool useMLMode)
+                {
+                    if (AutoTDPControllerModeComboBox != null)
+                    {
+                        AutoTDPControllerModeComboBox.SelectedIndex = useMLMode ? 1 : 0;
+                    }
+                    autoTDPUseMLMode?.SetValue(useMLMode);
+                    UpdateAutoTDPMLInfoPanelVisibility();
+                }
+
+                // Load pause when unfocused setting (default: true)
+                if (AutoTDPPauseWhenUnfocusedCheckBox != null)
+                {
+                    bool pauseWhenUnfocused = true; // Default to enabled
+                    if (settings.Values.TryGetValue("AutoTDPPauseWhenUnfocused", out object pauseObj) && pauseObj is bool pauseVal)
+                    {
+                        pauseWhenUnfocused = pauseVal;
+                    }
+                    AutoTDPPauseWhenUnfocusedCheckBox.IsChecked = pauseWhenUnfocused;
+                    autoTDPPauseWhenUnfocused?.SetValue(pauseWhenUnfocused);
+                }
+
+                // Load sync FPS limit setting (default: false)
+                if (AutoTDPSyncFPSLimitCheckBox != null)
+                {
+                    bool syncFPSLimit = false; // Default to disabled
+                    if (settings.Values.TryGetValue("AutoTDPSyncFPSLimit", out object syncObj) && syncObj is bool syncVal)
+                    {
+                        syncFPSLimit = syncVal;
+                    }
+                    AutoTDPSyncFPSLimitCheckBox.IsChecked = syncFPSLimit;
+
+                    // If sync is enabled and AutoTDP is on, store current FPS limit and apply sync
+                    if (syncFPSLimit && AutoTDPToggle?.IsOn == true)
+                    {
+                        wasFPSLimitEnabledBeforeSync = FPSLimitToggle?.IsOn ?? false;
+                        previousFPSLimitBeforeSync = (int)(FPSLimitSlider?.Value ?? 60);
+                        // Don't apply immediately during load - will be applied after FPS limit is loaded
+                    }
+                }
+
+                // Update TDP limits display if AutoTDP is enabled
+                UpdateAutoTDPLimitsDisplay();
 
                 // Update focus navigation after loading settings
                 UpdateAutoTDPFocusNavigation();
@@ -3169,6 +3315,263 @@ namespace XboxGamingBar
             {
                 isLoadingAutoTDPSettings = false;
             }
+        }
+
+        private void UpdateAutoTDPMLInfoPanelVisibility()
+        {
+            if (AutoTDPMLInfoPanel != null)
+            {
+                bool showMLPanel = AutoTDPControllerModeComboBox?.SelectedIndex == 1;
+                AutoTDPMLInfoPanel.Visibility = showMLPanel ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
+        private void AutoTDPControllerModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (AutoTDPControllerModeComboBox == null) return;
+            if (isLoadingAutoTDPSettings) return;
+            if (isApplyingHelperUpdate) return;
+
+            bool useMLMode = AutoTDPControllerModeComboBox.SelectedIndex == 1;
+            Logger.Info($"AutoTDP controller mode changed to: {(useMLMode ? "ML Learning" : "PID Controller")}");
+
+            // Update visibility of ML info panel
+            UpdateAutoTDPMLInfoPanelVisibility();
+
+            // Send to helper
+            autoTDPUseMLMode?.SetValue(useMLMode);
+
+            // Save setting
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["AutoTDPUseMLMode"] = useMLMode;
+
+            // Save to profile if AutoTDP saving is enabled
+            if (SaveAutoTDP && !isLoadingProfile && !isSwitchingProfile)
+            {
+                SaveCurrentSettingsToProfile(currentProfileName);
+            }
+        }
+
+        private void AutoTDPPauseWhenUnfocusedCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (AutoTDPPauseWhenUnfocusedCheckBox == null) return;
+            if (isLoadingAutoTDPSettings) return;
+            if (isApplyingHelperUpdate) return;
+
+            bool pauseWhenUnfocused = AutoTDPPauseWhenUnfocusedCheckBox.IsChecked == true;
+            Logger.Info($"AutoTDP pause when unfocused changed to: {pauseWhenUnfocused}");
+
+            // Send to helper
+            autoTDPPauseWhenUnfocused?.SetValue(pauseWhenUnfocused);
+
+            // Save setting
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["AutoTDPPauseWhenUnfocused"] = pauseWhenUnfocused;
+        }
+
+        private void AutoTDPSyncFPSLimitCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (AutoTDPSyncFPSLimitCheckBox == null) return;
+            if (isLoadingAutoTDPSettings) return;
+            if (isApplyingHelperUpdate) return;
+
+            bool syncEnabled = AutoTDPSyncFPSLimitCheckBox.IsChecked == true;
+            Logger.Info($"AutoTDP sync FPS limit changed to: {syncEnabled}");
+
+            if (syncEnabled)
+            {
+                // Store current FPS limit state before syncing
+                wasFPSLimitEnabledBeforeSync = FPSLimitToggle?.IsOn ?? false;
+                previousFPSLimitBeforeSync = (int)(FPSLimitSlider?.Value ?? 60);
+                Logger.Info($"Stored previous FPS limit: enabled={wasFPSLimitEnabledBeforeSync}, value={previousFPSLimitBeforeSync}");
+
+                // Apply AutoTDP target as FPS limit
+                ApplyAutoTDPFPSLimit();
+            }
+            else
+            {
+                // Restore previous FPS limit state
+                RestorePreviousFPSLimit();
+            }
+
+            // Save setting
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values["AutoTDPSyncFPSLimit"] = syncEnabled;
+        }
+
+        /// <summary>
+        /// Applies the AutoTDP target FPS as the RTSS FPS limit.
+        /// </summary>
+        private void ApplyAutoTDPFPSLimit()
+        {
+            if (AutoTDPSyncFPSLimitCheckBox?.IsChecked != true) return;
+            if (AutoTDPToggle?.IsOn != true) return;
+            if (fpsLimit == null) return;
+
+            int targetFPS = (int)(AutoTDPTargetFPSSlider?.Value ?? 60);
+
+            // Enable FPS limit toggle if not already on
+            if (FPSLimitToggle != null && !FPSLimitToggle.IsOn)
+            {
+                FPSLimitToggle.IsOn = true;
+            }
+
+            // Set FPS limit slider to target FPS
+            if (FPSLimitSlider != null)
+            {
+                FPSLimitSlider.Value = targetFPS;
+            }
+
+            // Apply to RTSS
+            fpsLimit.SetValue(targetFPS);
+            Logger.Info($"AutoTDP: Synced FPS limit to target: {targetFPS} FPS");
+        }
+
+        /// <summary>
+        /// Restores the FPS limit to its state before sync was enabled.
+        /// </summary>
+        private void RestorePreviousFPSLimit()
+        {
+            if (fpsLimit == null) return;
+
+            if (wasFPSLimitEnabledBeforeSync)
+            {
+                // Restore previous FPS limit value
+                if (FPSLimitSlider != null)
+                {
+                    FPSLimitSlider.Value = previousFPSLimitBeforeSync;
+                }
+                fpsLimit.SetValue(previousFPSLimitBeforeSync);
+                Logger.Info($"AutoTDP: Restored previous FPS limit: {previousFPSLimitBeforeSync} FPS");
+            }
+            else
+            {
+                // FPS limit was off before sync, turn it off
+                if (FPSLimitToggle != null)
+                {
+                    FPSLimitToggle.IsOn = false;
+                }
+                fpsLimit.SetValue(0);
+                Logger.Info("AutoTDP: Restored FPS limit to off (was disabled before sync)");
+            }
+        }
+
+        private async void AutoTDPResetMLButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Show confirmation dialog
+            var dialog = new ContentDialog
+            {
+                Title = "Reset ML Learning Data",
+                Content = "This will erase all learned behavior and start from scratch. The ML controller will need time to re-learn optimal TDP values.\n\nAre you sure?",
+                PrimaryButtonText = "Reset",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Close
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                Logger.Info("User confirmed ML reset");
+                // Trigger reset via property
+                autoTDPResetML?.SetValue(true);
+
+                // Update status display
+                if (AutoTDPMLStatusText != null)
+                {
+                    AutoTDPMLStatusText.Text = "Updates: 0 | Avg: 0.0 | Exploration: 30%";
+                }
+            }
+        }
+
+        private void AutoTDPMLStatus_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                if (AutoTDPMLStatusText != null && autoTDPMLStatus != null)
+                {
+                    AutoTDPMLStatusText.Text = autoTDPMLStatus.Value;
+                }
+            });
+        }
+
+        private void AutoTDPUseMLMode_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                if (AutoTDPControllerModeComboBox != null && autoTDPUseMLMode != null)
+                {
+                    // Sync combobox with helper's value (from profile)
+                    int expectedIndex = autoTDPUseMLMode.Value ? 1 : 0;
+                    if (AutoTDPControllerModeComboBox.SelectedIndex != expectedIndex)
+                    {
+                        isApplyingHelperUpdate = true;
+                        try
+                        {
+                            AutoTDPControllerModeComboBox.SelectedIndex = expectedIndex;
+                            UpdateAutoTDPMLInfoPanelVisibility();
+                            Logger.Info($"AutoTDP controller mode synced from helper: {(autoTDPUseMLMode.Value ? "ML Learning" : "PID Controller")}");
+                        }
+                        finally
+                        {
+                            isApplyingHelperUpdate = false;
+                        }
+                    }
+                }
+            });
+        }
+
+        private void AutoTDPEnabled_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                if (AutoTDPToggle != null && autoTDPEnabled != null)
+                {
+                    // Sync toggle with helper's value (from profile)
+                    if (AutoTDPToggle.IsOn != autoTDPEnabled.Value)
+                    {
+                        isApplyingHelperUpdate = true;
+                        try
+                        {
+                            AutoTDPToggle.IsOn = autoTDPEnabled.Value;
+                            Logger.Info($"AutoTDP enabled synced from helper: {autoTDPEnabled.Value}");
+                        }
+                        finally
+                        {
+                            isApplyingHelperUpdate = false;
+                        }
+                    }
+                    // Always update the display when enabled state changes
+                    UpdateAutoTDPLimitsDisplay();
+                }
+            });
+        }
+
+        private void AutoTDPTargetFPS_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                if (autoTDPTargetFPS != null)
+                {
+                    isApplyingHelperUpdate = true;
+                    try
+                    {
+                        // Sync slider and text with helper's value (from profile)
+                        if (AutoTDPTargetFPSSlider != null && (int)AutoTDPTargetFPSSlider.Value != autoTDPTargetFPS.Value)
+                        {
+                            AutoTDPTargetFPSSlider.Value = autoTDPTargetFPS.Value;
+                        }
+                        if (AutoTDPTargetFPSValue != null)
+                        {
+                            AutoTDPTargetFPSValue.Text = $"{autoTDPTargetFPS.Value} FPS";
+                        }
+                        Logger.Info($"AutoTDP target FPS synced from helper: {autoTDPTargetFPS.Value}");
+                    }
+                    finally
+                    {
+                        isApplyingHelperUpdate = false;
+                    }
+                }
+            });
         }
 
         private void LoadStickyTDPSettings()
@@ -7345,6 +7748,209 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Automatically checks for updates on startup if the setting is enabled.
+        /// Shows a banner if an update is available.
+        /// </summary>
+        private async Task CheckForUpdatesOnStartupAsync()
+        {
+            try
+            {
+                // Check if auto-update check is enabled (default: true)
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                bool autoCheckEnabled = true;
+                if (settings.Values.TryGetValue("AutoUpdateCheckEnabled", out object val) && val is bool b)
+                {
+                    autoCheckEnabled = b;
+                }
+
+                // Update the toggle to match saved setting
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    if (AutoUpdateCheckToggle != null)
+                    {
+                        AutoUpdateCheckToggle.IsOn = autoCheckEnabled;
+                    }
+                });
+
+                if (!autoCheckEnabled)
+                {
+                    Logger.Info("Auto-update check is disabled, skipping startup check");
+                    return;
+                }
+
+                Logger.Info("Checking for updates on startup...");
+
+                // Small delay to let the UI settle first
+                await Task.Delay(2000);
+
+                using (var httpClient = new HttpClient())
+                {
+                    httpClient.DefaultRequestHeaders.Add("User-Agent", "GoTweaks-UpdateChecker");
+                    var response = await httpClient.GetStringAsync("https://api.github.com/repos/corando98/GoTweaks/releases/latest");
+
+                    // Parse JSON response
+                    var jsonObject = Windows.Data.Json.JsonObject.Parse(response);
+                    var latestVersion = jsonObject.GetNamedString("tag_name", "");
+
+                    // Get current version
+                    var packageVersion = Package.Current.Id.Version;
+                    var currentVersion = $"v{packageVersion.Major}.{packageVersion.Minor}.{packageVersion.Build}.{packageVersion.Revision}";
+
+                    Logger.Info($"Startup update check: current={currentVersion}, latest={latestVersion}");
+
+                    if (!string.IsNullOrEmpty(latestVersion) && IsNewerVersion(latestVersion, currentVersion))
+                    {
+                        // Find the .zip asset download URL
+                        string zipUrl = null;
+                        if (jsonObject.ContainsKey("assets"))
+                        {
+                            var assets = jsonObject.GetNamedArray("assets");
+                            foreach (var asset in assets)
+                            {
+                                var assetObj = asset.GetObject();
+                                var name = assetObj.GetNamedString("name", "");
+                                if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    zipUrl = assetObj.GetNamedString("browser_download_url", "");
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Show update banner
+                        await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                        {
+                            _pendingUpdateZipUrl = zipUrl;
+                            _pendingUpdateVersion = latestVersion;
+                            ShowUpdateBanner(latestVersion);
+                        });
+
+                        Logger.Info($"Update available: {latestVersion}, zip URL: {zipUrl ?? "not found"}");
+                    }
+                    else
+                    {
+                        Logger.Info("No update available");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to check for updates on startup: {ex.Message}");
+                // Silently fail - don't show error to user for automatic check
+            }
+        }
+
+        /// <summary>
+        /// Shows the update available banner with the new version.
+        /// </summary>
+        private void ShowUpdateBanner(string newVersion)
+        {
+            if (UpdateAvailableBanner != null && UpdateAvailableText != null)
+            {
+                UpdateAvailableText.Text = $"Update Available: {newVersion}";
+                UpdateAvailableBanner.Visibility = Visibility.Visible;
+            }
+        }
+
+        /// <summary>
+        /// Hides the update available banner.
+        /// </summary>
+        private void HideUpdateBanner()
+        {
+            if (UpdateAvailableBanner != null)
+            {
+                UpdateAvailableBanner.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        /// <summary>
+        /// Handles the Update button click on the update banner.
+        /// </summary>
+        private async void UpdateBannerButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_pendingUpdateZipUrl))
+            {
+                Logger.Warn("Update banner clicked but no pending update URL");
+                return;
+            }
+
+            try
+            {
+                UpdateBannerButton.IsEnabled = false;
+                UpdateBannerButton.Content = "Updating...";
+
+                if (App.IsConnected)
+                {
+                    var message = new Windows.Foundation.Collections.ValueSet();
+                    message.Add("Command", (int)Shared.Enums.Command.Set);
+                    message.Add("Function", (int)Shared.Enums.Function.InstallUpdate);
+                    message.Add("Content", _pendingUpdateZipUrl);
+                    var result = await App.SendMessageAsync(message);
+
+                    if (result != null && result.TryGetValue("UpdateStatus", out object status))
+                    {
+                        var statusStr = status?.ToString() ?? "";
+                        if (statusStr == "Installing")
+                        {
+                            UpdateBannerButton.Content = "Installing...";
+                            Logger.Info("Update installation started from banner");
+                        }
+                        else if (statusStr.StartsWith("Error"))
+                        {
+                            Logger.Error($"Update failed: {statusStr}");
+                            UpdateBannerButton.Content = "Failed";
+                            await Task.Delay(2000);
+                            UpdateBannerButton.Content = "Update";
+                            UpdateBannerButton.IsEnabled = true;
+                        }
+                    }
+                    else
+                    {
+                        UpdateBannerButton.Content = "Failed";
+                        await Task.Delay(2000);
+                        UpdateBannerButton.Content = "Update";
+                        UpdateBannerButton.IsEnabled = true;
+                    }
+                }
+                else
+                {
+                    Logger.Warn("Helper not connected for update");
+                    UpdateBannerButton.Content = "No Helper";
+                    await Task.Delay(2000);
+                    UpdateBannerButton.Content = "Update";
+                    UpdateBannerButton.IsEnabled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to start update from banner: {ex.Message}");
+                UpdateBannerButton.Content = "Update";
+                UpdateBannerButton.IsEnabled = true;
+            }
+        }
+
+        /// <summary>
+        /// Handles the dismiss button click on the update banner.
+        /// </summary>
+        private void DismissUpdateBannerButton_Click(object sender, RoutedEventArgs e)
+        {
+            HideUpdateBanner();
+        }
+
+        /// <summary>
+        /// Handles the auto-update check toggle change.
+        /// </summary>
+        private void AutoUpdateCheckToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (AutoUpdateCheckToggle == null)
+                return;
+
+            var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+            settings.Values["AutoUpdateCheckEnabled"] = AutoUpdateCheckToggle.IsOn;
+            Logger.Info($"Auto-update check setting changed to: {AutoUpdateCheckToggle.IsOn}");
+        }
+
         private async void CheckForUpdateDebugButton_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -7485,54 +8091,354 @@ namespace XboxGamingBar
             }
         }
 
-        private async void ExportProfilesButton_Click(object sender, RoutedEventArgs e)
+        private async void ExportAllDataButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                ExportProfilesButton.IsEnabled = false;
-                ExportProfilesButton.Content = "Exporting...";
+                ExportAllDataButton.IsEnabled = false;
+                ExportAllDataButton.Content = "Exporting...";
 
                 if (!App.IsConnected)
                 {
-                    ExportProfilesButton.Content = "Helper not connected";
+                    ExportAllDataButton.Content = "Helper not connected";
                     await Task.Delay(2000);
-                    ExportProfilesButton.Content = "Export Profiles (Desktop)";
-                    ExportProfilesButton.IsEnabled = true;
+                    ExportAllDataButton.Content = "Export All Data";
+                    ExportAllDataButton.IsEnabled = true;
                     return;
                 }
 
-                // Send request to helper to export profiles
+                // Gather widget LocalSettings to include in export
+                string widgetSettingsJson = GatherWidgetSettingsForExport();
+
+                // Send request to helper to export all data
                 var message = new Windows.Foundation.Collections.ValueSet();
                 message.Add("Command", (int)Shared.Enums.Command.Set);
-                message.Add("Function", (int)Shared.Enums.Function.Debug_ExportProfiles);
+                message.Add("Function", (int)Shared.Enums.Function.ExportAllData);
+                message.Add("Content", widgetSettingsJson);
                 var result = await App.SendMessageAsync(message);
 
-                if (result != null)
+                if (result != null && result.TryGetValue("Content", out object contentObj))
                 {
-                    if (result.TryGetValue("ExportPath", out object pathObj))
+                    string resultText = contentObj?.ToString() ?? "";
+                    if (resultText.StartsWith("Error:"))
                     {
-                        ExportProfilesButton.Content = $"Exported!";
-                        Logger.Info($"Profiles exported to: {pathObj}");
+                        ExportAllDataButton.Content = "Failed";
+                        Logger.Error($"Export failed: {resultText}");
                     }
-                    else if (result.TryGetValue("Error", out object errorObj))
+                    else
                     {
-                        ExportProfilesButton.Content = $"Error: {errorObj}";
+                        ExportAllDataButton.Content = "Exported!";
+                        Logger.Info($"All data exported to: {resultText}");
                     }
                 }
                 else
                 {
-                    ExportProfilesButton.Content = "Failed";
+                    ExportAllDataButton.Content = "Failed";
                 }
 
                 await Task.Delay(2000);
-                ExportProfilesButton.Content = "Export Profiles (Desktop)";
-                ExportProfilesButton.IsEnabled = true;
+                ExportAllDataButton.Content = "Export All Data";
+                ExportAllDataButton.IsEnabled = true;
             }
             catch (Exception ex)
             {
-                Logger.Error($"Failed to export profiles: {ex.Message}");
-                ExportProfilesButton.Content = "Export Profiles (Desktop)";
-                ExportProfilesButton.IsEnabled = true;
+                Logger.Error($"Failed to export all data: {ex.Message}");
+                ExportAllDataButton.Content = "Export All Data";
+                ExportAllDataButton.IsEnabled = true;
+            }
+        }
+
+        private async void ImportAllDataButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Open folder picker to select backup folder
+                var folderPicker = new Windows.Storage.Pickers.FolderPicker();
+                folderPicker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.Desktop;
+                folderPicker.FileTypeFilter.Add("*");
+
+                var folder = await folderPicker.PickSingleFolderAsync();
+                if (folder == null)
+                    return; // User cancelled
+
+                // Check if this looks like a valid backup folder
+                var manifestFile = await folder.TryGetItemAsync("manifest.json");
+                if (manifestFile == null)
+                {
+                    var warningDialog = new Windows.UI.Popups.MessageDialog(
+                        "The selected folder doesn't appear to be a valid GoTweaks backup.\n\n" +
+                        "Please select a folder created by 'Export All Data' (e.g., GoTweaks_Backup_2024-...).",
+                        "Invalid Backup Folder");
+                    await warningDialog.ShowAsync();
+                    return;
+                }
+
+                // Show confirmation dialog
+                var dialog = new Windows.UI.Popups.MessageDialog(
+                    $"Import data from:\n{folder.Name}\n\n" +
+                    "This will:\n" +
+                    "• Import all per-game profiles\n" +
+                    "• Import global settings\n" +
+                    "• Import AutoTDP Q-learning model\n" +
+                    "• Import helper settings\n" +
+                    "• Apply widget settings\n\n" +
+                    "Existing data will be overwritten. Continue?",
+                    "Import All Data");
+
+                dialog.Commands.Add(new Windows.UI.Popups.UICommand("Import"));
+                dialog.Commands.Add(new Windows.UI.Popups.UICommand("Cancel"));
+                dialog.DefaultCommandIndex = 1;
+                dialog.CancelCommandIndex = 1;
+
+                var confirmResult = await dialog.ShowAsync();
+                if (confirmResult.Label == "Cancel")
+                    return;
+
+                ImportAllDataButton.IsEnabled = false;
+                ImportAllDataButton.Content = "Importing...";
+
+                if (!App.IsConnected)
+                {
+                    ImportAllDataButton.Content = "Helper not connected";
+                    await Task.Delay(2000);
+                    ImportAllDataButton.Content = "Import All Data";
+                    ImportAllDataButton.IsEnabled = true;
+                    return;
+                }
+
+                // Send request to helper to import all data
+                var message = new Windows.Foundation.Collections.ValueSet();
+                message.Add("Command", (int)Shared.Enums.Command.Set);
+                message.Add("Function", (int)Shared.Enums.Function.ImportAllData);
+                message.Add("Content", folder.Path);
+                var result = await App.SendMessageAsync(message);
+
+                if (result != null && result.TryGetValue("Content", out object contentObj))
+                {
+                    string summary = contentObj?.ToString() ?? "Import completed";
+
+                    // Check if widget settings were returned
+                    if (result.TryGetValue("WidgetSettings", out object widgetSettingsObj))
+                    {
+                        string widgetSettingsJson = widgetSettingsObj?.ToString();
+                        if (!string.IsNullOrEmpty(widgetSettingsJson))
+                        {
+                            ApplyImportedWidgetSettings(widgetSettingsJson);
+                            summary += "\n\nWidget settings have been applied.";
+                        }
+                    }
+
+                    // Show result dialog
+                    var resultDialog = new Windows.UI.Popups.MessageDialog(summary, "Import Complete");
+                    await resultDialog.ShowAsync();
+
+                    ImportAllDataButton.Content = "Imported!";
+                }
+                else
+                {
+                    ImportAllDataButton.Content = "Failed";
+                }
+
+                await Task.Delay(2000);
+                ImportAllDataButton.Content = "Import All Data";
+                ImportAllDataButton.IsEnabled = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to import all data: {ex.Message}");
+                ImportAllDataButton.Content = "Import All Data";
+                ImportAllDataButton.IsEnabled = true;
+            }
+        }
+
+        /// <summary>
+        /// Gathers widget LocalSettings as JSON for export.
+        /// </summary>
+        private string GatherWidgetSettingsForExport()
+        {
+            try
+            {
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                var jsonObj = new Windows.Data.Json.JsonObject();
+
+                // Export all known settings keys
+                var keysToExport = new[]
+                {
+                    // AutoTDP settings
+                    "AutoTDPEnabled", "AutoTDPTargetFPS", "AutoTDPMinTDP", "AutoTDPMaxTDP",
+                    "AutoTDPUseMLMode", "AutoTDPPauseWhenUnfocused",
+                    // TDP Boost settings
+                    "TDPBoostEnabled", "TDPBoostSPPT", "TDPBoostFPPT",
+                    // OSD settings
+                    "OSDConfig", "OLEDConfig",
+                    // Profile settings
+                    "ProfileMatchByExe", "ProfileGamesOnly", "ProfileCustomGamePath", "ProfileBlacklistPaths",
+                    // Legion settings
+                    "LegionL_Action", "LegionL_Shortcut", "LegionL_Command",
+                    "LegionR_Action", "LegionR_Shortcut", "LegionR_Command",
+                    "LegionTouchpadVibration", "LegionDesktopControls",
+                    // Controller hotkey settings
+                    "ControllerHotkeyConfig",
+                    // Display settings
+                    "RefreshRateProfile",
+                    // Other settings
+                    "TdpMethod", "ForceDefaultGameProfile"
+                };
+
+                foreach (var key in keysToExport)
+                {
+                    if (settings.Values.ContainsKey(key))
+                    {
+                        var value = settings.Values[key];
+                        if (value is bool boolVal)
+                            jsonObj[key] = Windows.Data.Json.JsonValue.CreateBooleanValue(boolVal);
+                        else if (value is int intVal)
+                            jsonObj[key] = Windows.Data.Json.JsonValue.CreateNumberValue(intVal);
+                        else if (value is double doubleVal)
+                            jsonObj[key] = Windows.Data.Json.JsonValue.CreateNumberValue(doubleVal);
+                        else if (value is string strVal)
+                            jsonObj[key] = Windows.Data.Json.JsonValue.CreateStringValue(strVal);
+                    }
+                }
+
+                return jsonObj.Stringify();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to gather widget settings for export: {ex.Message}");
+                return "{}";
+            }
+        }
+
+        /// <summary>
+        /// Applies imported widget settings from JSON.
+        /// </summary>
+        private void ApplyImportedWidgetSettings(string json)
+        {
+            try
+            {
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+
+                if (!Windows.Data.Json.JsonObject.TryParse(json, out Windows.Data.Json.JsonObject jsonObj))
+                {
+                    Logger.Error("Failed to parse imported widget settings JSON");
+                    return;
+                }
+
+                int importedCount = 0;
+                foreach (var key in jsonObj.Keys)
+                {
+                    try
+                    {
+                        var jsonValue = jsonObj[key];
+                        object value = null;
+
+                        switch (jsonValue.ValueType)
+                        {
+                            case Windows.Data.Json.JsonValueType.Boolean:
+                                value = jsonValue.GetBoolean();
+                                break;
+                            case Windows.Data.Json.JsonValueType.Number:
+                                // Try to preserve int vs double
+                                double numVal = jsonValue.GetNumber();
+                                if (numVal == Math.Floor(numVal) && numVal >= int.MinValue && numVal <= int.MaxValue)
+                                    value = (int)numVal;
+                                else
+                                    value = numVal;
+                                break;
+                            case Windows.Data.Json.JsonValueType.String:
+                                value = jsonValue.GetString();
+                                break;
+                        }
+
+                        if (value != null)
+                        {
+                            settings.Values[key] = value;
+                            importedCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Failed to import setting '{key}': {ex.Message}");
+                    }
+                }
+
+                Logger.Info($"Applied {importedCount} widget settings from import");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to apply imported widget settings: {ex.Message}");
+            }
+        }
+
+        private async void PrepareForUninstallButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Show confirmation dialog
+                var dialog = new Windows.UI.Popups.MessageDialog(
+                    "This will:\n\n" +
+                    "• Remove the scheduled task\n" +
+                    "• Restore original CPU Boost settings\n" +
+                    "• Restore original EPP settings\n" +
+                    "• Re-enable Legion Space service (if disabled)\n\n" +
+                    "After this, you can safely uninstall the app.",
+                    "Prepare for Uninstall");
+
+                dialog.Commands.Add(new Windows.UI.Popups.UICommand("Continue"));
+                dialog.Commands.Add(new Windows.UI.Popups.UICommand("Cancel"));
+                dialog.DefaultCommandIndex = 1;
+                dialog.CancelCommandIndex = 1;
+
+                var result = await dialog.ShowAsync();
+                if (result.Label == "Cancel")
+                    return;
+
+                PrepareForUninstallButton.IsEnabled = false;
+                PrepareForUninstallButton.Content = "Restoring...";
+
+                if (!App.IsConnected)
+                {
+                    PrepareForUninstallButton.Content = "Helper not connected";
+                    await Task.Delay(2000);
+                    PrepareForUninstallButton.Content = "Prepare for Uninstall";
+                    PrepareForUninstallButton.IsEnabled = true;
+                    return;
+                }
+
+                // Send request to helper to prepare for uninstall
+                var message = new Windows.Foundation.Collections.ValueSet();
+                message.Add("Command", (int)Shared.Enums.Command.Set);
+                message.Add("Function", (int)Shared.Enums.Function.PrepareForUninstall);
+                var response = await App.SendMessageAsync(message);
+
+                if (response != null && response.TryGetValue("Content", out object contentObj))
+                {
+                    string resultText = contentObj?.ToString() ?? "Completed";
+                    Logger.Info($"PrepareForUninstall result:\n{resultText}");
+
+                    // Show result in a dialog
+                    var resultDialog = new Windows.UI.Popups.MessageDialog(
+                        resultText,
+                        "Uninstall Preparation Complete");
+                    await resultDialog.ShowAsync();
+
+                    PrepareForUninstallButton.Content = "Done!";
+                }
+                else
+                {
+                    PrepareForUninstallButton.Content = "Failed";
+                }
+
+                await Task.Delay(2000);
+                PrepareForUninstallButton.Content = "Prepare for Uninstall";
+                PrepareForUninstallButton.IsEnabled = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to prepare for uninstall: {ex.Message}");
+                PrepareForUninstallButton.Content = "Prepare for Uninstall";
+                PrepareForUninstallButton.IsEnabled = true;
             }
         }
 
@@ -8424,6 +9330,7 @@ namespace XboxGamingBar
                 profile.AutoTDPTargetFPS = (int)AutoTDPTargetFPSSlider.Value;
                 profile.AutoTDPMinTDP = (int)AutoTDPMinSlider.Value;
                 profile.AutoTDPMaxTDP = (int)AutoTDPMaxSlider.Value;
+                profile.AutoTDPUseMLMode = AutoTDPControllerModeComboBox?.SelectedIndex == 1;
             }
             if (SaveOSPowerMode && OSPowerModeComboBox != null)
             {
@@ -8641,6 +9548,12 @@ namespace XboxGamingBar
                         if (AutoTDPMaxValue != null)
                         {
                             AutoTDPMaxValue.Text = $"{profile.AutoTDPMaxTDP}W";
+                        }
+                        // Update ML mode selection
+                        if (AutoTDPControllerModeComboBox != null)
+                        {
+                            AutoTDPControllerModeComboBox.SelectedIndex = profile.AutoTDPUseMLMode ? 1 : 0;
+                            UpdateAutoTDPMLInfoPanelVisibility();
                         }
                         // NOTE: Do NOT send to helper here - helper is source of truth for profile values
                         // Helper will apply profile values and sync back to widget
@@ -9122,6 +10035,7 @@ namespace XboxGamingBar
             container.Values["AutoTDPTargetFPS"] = profile.AutoTDPTargetFPS;
             container.Values["AutoTDPMinTDP"] = profile.AutoTDPMinTDP;
             container.Values["AutoTDPMaxTDP"] = profile.AutoTDPMaxTDP;
+            container.Values["AutoTDPUseMLMode"] = profile.AutoTDPUseMLMode;
             container.Values["OSPowerMode"] = profile.OSPowerMode;
             container.Values["LegionPerformanceMode"] = profile.LegionPerformanceMode;
             container.Values["TDPModeIndex"] = profile.TDPModeIndex;
@@ -9168,6 +10082,7 @@ namespace XboxGamingBar
                 profile.AutoTDPTargetFPS = container.Values.ContainsKey("AutoTDPTargetFPS") ? (int)container.Values["AutoTDPTargetFPS"] : 60;
                 profile.AutoTDPMinTDP = container.Values.ContainsKey("AutoTDPMinTDP") ? (int)container.Values["AutoTDPMinTDP"] : 8;
                 profile.AutoTDPMaxTDP = container.Values.ContainsKey("AutoTDPMaxTDP") ? (int)container.Values["AutoTDPMaxTDP"] : 30;
+                profile.AutoTDPUseMLMode = container.Values.ContainsKey("AutoTDPUseMLMode") ? (bool)container.Values["AutoTDPUseMLMode"] : false;
                 profile.OSPowerMode = container.Values.ContainsKey("OSPowerMode") ? (int)container.Values["OSPowerMode"] : 1;
                 // Only load LegionPerformanceMode if it exists in storage - keep profile's existing value otherwise
                 // This preserves the default (Balanced=2) for new profiles but doesn't override if storage key is missing
@@ -9497,6 +10412,8 @@ namespace XboxGamingBar
             // Index 49-53 are Enter, Esc, Space, Tab, Backspace (0x28-0x2C)
             // Index 54-57 are Up, Down, Left, Right (0x52, 0x51, 0x50, 0x4F)
             // Index 58-65 are modifier keys (0xE0-0xE7)
+            // Index 66-76 are navigation/media keys
+            // Index 77-78 are bracket keys
 
             if (index <= 0) return 0;
             if (index <= 26) return 0x04 + (index - 1);   // A-Z: indices 1-26 → 0x04-0x1D
@@ -9520,6 +10437,22 @@ namespace XboxGamingBar
             if (index == 63) return 0xE5;  // RShift
             if (index == 64) return 0xE6;  // RAlt
             if (index == 65) return 0xE7;  // RMeta
+            // Navigation keys
+            if (index == 66) return 0x4A;  // Home
+            if (index == 67) return 0x4D;  // End
+            if (index == 68) return 0x4B;  // PgUp
+            if (index == 69) return 0x4E;  // PgDn
+            if (index == 70) return 0x49;  // Insert
+            if (index == 71) return 0x4C;  // Delete
+            if (index == 72) return 0x46;  // PrintScr
+            if (index == 73) return 0x48;  // Pause
+            // Media keys (HID Keyboard page)
+            if (index == 74) return 0x80;  // VolUp
+            if (index == 75) return 0x81;  // VolDown
+            if (index == 76) return 0x7F;  // VolMute
+            // Bracket keys
+            if (index == 77) return 0x2F;  // [ LeftBracket
+            if (index == 78) return 0x30;  // ] RightBracket
 
             return 0;
         }
@@ -9663,7 +10596,9 @@ namespace XboxGamingBar
                 { 0x50, "Left" }, { 0x51, "Down" }, { 0x52, "Up" },
                 // Modifier keys
                 { 0xE0, "LCtrl" }, { 0xE1, "LShift" }, { 0xE2, "LAlt" }, { 0xE3, "LMeta" },
-                { 0xE4, "RCtrl" }, { 0xE5, "RShift" }, { 0xE6, "RAlt" }, { 0xE7, "RMeta" }
+                { 0xE4, "RCtrl" }, { 0xE5, "RShift" }, { 0xE6, "RAlt" }, { 0xE7, "RMeta" },
+                // Media keys
+                { 0x7F, "VolMute" }, { 0x80, "VolUp" }, { 0x81, "VolDown" }
             };
             return keyNames.TryGetValue(keyCode, out var name) ? name : $"0x{keyCode:X2}";
         }
@@ -9980,6 +10915,17 @@ namespace XboxGamingBar
 
         private ControllerProfile GetCurrentControllerProfileFromUI()
         {
+            // Get the current profile to preserve lighting if color picker isn't available
+            // This prevents the color from resetting to white when saving from non-Legion tabs
+            var currentProfile = (LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName))
+                ? gameControllerProfile
+                : globalControllerProfile;
+
+            // Use color picker value if available, otherwise preserve existing color
+            byte colorR = LegionColorPicker != null ? LegionColorPicker.Color.R : currentProfile.LightColorR;
+            byte colorG = LegionColorPicker != null ? LegionColorPicker.Color.G : currentProfile.LightColorG;
+            byte colorB = LegionColorPicker != null ? LegionColorPicker.Color.B : currentProfile.LightColorB;
+
             return new ControllerProfile
             {
                 ButtonY1 = GetButtonMappingFromUI("Y1"),
@@ -10022,14 +10968,14 @@ namespace XboxGamingBar
                     kvp => kvp.Value.Clone()),
                 // Desktop Controls preset
                 DesktopControlsEnabled = LegionDesktopControlsToggle?.IsOn ?? false,
-                // Lighting
-                LightMode = LegionLightModeComboBox?.SelectedIndex ?? 1,
-                LightColorR = LegionColorPicker?.Color.R ?? 255,
-                LightColorG = LegionColorPicker?.Color.G ?? 255,
-                LightColorB = LegionColorPicker?.Color.B ?? 255,
-                LightSpeed = (int)(LegionSpeedSlider?.Value ?? 50),
-                LightBrightness = (int)(LegionBrightnessSlider?.Value ?? 50),
-                PowerLight = LegionPowerLightToggle?.IsOn ?? true,
+                // Lighting - preserve existing color if color picker not available
+                LightMode = LegionLightModeComboBox?.SelectedIndex ?? currentProfile.LightMode,
+                LightColorR = colorR,
+                LightColorG = colorG,
+                LightColorB = colorB,
+                LightSpeed = (int)(LegionSpeedSlider?.Value ?? currentProfile.LightSpeed),
+                LightBrightness = (int)(LegionBrightnessSlider?.Value ?? currentProfile.LightBrightness),
+                PowerLight = LegionPowerLightToggle?.IsOn ?? currentProfile.PowerLight,
                 HasExplicitLighting = true  // Mark as having explicit lighting since we're capturing from UI
             };
         }
@@ -12897,6 +13843,9 @@ namespace XboxGamingBar
                     Logger.Info("Initial sync complete - profile saves are now enabled");
                 }
             }
+
+            // Auto-check for updates on startup (if enabled)
+            _ = CheckForUpdatesOnStartupAsync();
 
             Logger.Info("=== OnNavigatedTo END ===");
         }
@@ -20038,7 +20987,7 @@ namespace XboxGamingBar
 
         private void OnDAServiceStatusReceived(int status)
         {
-            // Status: 0 = Stopped/Disabled, 1 = Running, 2 = Not Found
+            // Status: 0 = Stopped/Disabled, 1 = Running, 2 = Not Found, 3 = Stopping, 4 = Starting
             _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 if (DAServiceStatusText == null || ToggleDAServiceButton == null)
@@ -20051,17 +21000,33 @@ namespace XboxGamingBar
                         DAServiceStatusText.Text = "Service disabled - Legion L/R buttons disabled";
                         DAServiceStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 200, 83)); // Green
                         ToggleDAServiceButton.Content = "Enable";
+                        ToggleDAServiceButton.IsEnabled = true;
                         break;
                     case 1: // Running
                         daServiceIsRunning = true;
                         DAServiceStatusText.Text = "Service running - Legion Space controls buttons";
                         DAServiceStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 170, 0)); // Orange
                         ToggleDAServiceButton.Content = "Disable";
+                        ToggleDAServiceButton.IsEnabled = true;
                         break;
                     case 2: // Not Found
                         daServiceIsRunning = false;
                         DAServiceStatusText.Text = "DAService not found on this system";
                         DAServiceStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 128, 128, 128)); // Gray
+                        ToggleDAServiceButton.IsEnabled = false;
+                        break;
+                    case 3: // Stopping
+                        daServiceIsRunning = true; // Still technically running
+                        DAServiceStatusText.Text = "Service stopping... please wait";
+                        DAServiceStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 200, 0)); // Yellow
+                        ToggleDAServiceButton.Content = "...";
+                        ToggleDAServiceButton.IsEnabled = false;
+                        break;
+                    case 4: // Starting
+                        daServiceIsRunning = false; // Still technically stopped
+                        DAServiceStatusText.Text = "Service starting... please wait";
+                        DAServiceStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 200, 0)); // Yellow
+                        ToggleDAServiceButton.Content = "...";
                         ToggleDAServiceButton.IsEnabled = false;
                         break;
                 }
@@ -21117,7 +22082,8 @@ namespace XboxGamingBar
                 { "PgDn", 0x4E }, { "Insert", 0x49 }, { "Ins", 0x49 }, { "PrintScr", 0x46 }, { "PrtSc", 0x46 }, { "Pause", 0x48 },
                 { "LCtrl", 0xE0 }, { "LShift", 0xE1 }, { "LAlt", 0xE2 }, { "LWin", 0xE3 }, { "LMeta", 0xE3 },
                 { "RCtrl", 0xE4 }, { "RShift", 0xE5 }, { "RAlt", 0xE6 }, { "RWin", 0xE7 }, { "RMeta", 0xE7 },
-                { "VolMute", 0x7F }, { "VolUp", 0x80 }, { "VolDown", 0x81 }
+                { "VolMute", 0x7F }, { "VolUp", 0x80 }, { "VolDown", 0x81 },
+                { "[", 0x2F }, { "]", 0x30 }
             };
             return keyNames.TryGetValue(name, out int code) ? code : 0;
         }

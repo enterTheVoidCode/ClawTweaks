@@ -204,6 +204,10 @@
         AutoTDPCurrentFPS,          // int - current FPS reading (read-only)
         AutoTDPMinTDP,              // int - minimum TDP for AutoTDP range (4-85)
         AutoTDPMaxTDP,              // int - maximum TDP for AutoTDP range (4-85)
+        AutoTDPUseMLMode,           // bool - use ML learning mode instead of PID controller
+        AutoTDPMLStatus,            // string - ML mode status (read-only: "Updates: N | Exploration: X%")
+        AutoTDPResetML,             // bool - trigger to reset ML learning data (write true to trigger)
+        AutoTDPPauseWhenUnfocused,  // bool - pause AutoTDP when game window is not focused (default: true)
 
         // OSD Customization
         OSDConfig,                  // string - OSD configuration per level (L1:items;L2:items;L3:items)
@@ -268,5 +272,13 @@
         // Debug/Development
         CheckLocalUpdate,               // Trigger: check for local AppPackages update (Debug)
         InstallUpdate,                  // Trigger: download and install update (Content = URL or local path)
+
+        // System Restore (for clean uninstall)
+        PrepareForUninstall,            // Trigger: restore original system values and remove scheduled task
+        SystemRestoreStatus,            // string - status of saved original values (read-only)
+
+        // Import/Export (comprehensive backup/restore)
+        ExportAllData,                  // Trigger: export profiles, settings, Q-learning model to Desktop folder
+        ImportAllData,                  // string - path to import folder; imports all data from it
     }
 }

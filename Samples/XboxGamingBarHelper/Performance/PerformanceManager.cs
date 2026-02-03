@@ -174,6 +174,72 @@ namespace XboxGamingBarHelper.Performance
             }
         }
 
+        /// <summary>
+        /// Calculated time remaining on battery in seconds. Returns -1 if not discharging or cannot calculate.
+        /// Uses Windows API for battery percentage (more reliable after sleep/hibernate) combined with
+        /// full charge capacity to get accurate remaining capacity.
+        /// </summary>
+        public float BatteryTimeRemaining
+        {
+            get
+            {
+                // Only calculate when discharging (discharge rate > 0)
+                if (BatteryDischargeRate.Value <= 0)
+                    return -1;
+
+                // Sanity check: discharge rate should be reasonable (under 100W for a laptop)
+                // Stale values after hibernate can be very high from gaming sessions
+                if (BatteryDischargeRate.Value > 100)
+                {
+                    Logger.Debug($"BatteryTimeRemaining: Discharge rate too high ({BatteryDischargeRate.Value}W), likely stale");
+                    return -1;
+                }
+
+                // Try to use Windows API percentage combined with full charge capacity
+                // This is more reliable than LibreHardwareMonitor's remaining capacity after sleep/hibernate
+                float remainingCapacityWh = -1;
+                try
+                {
+                    int windowsBatteryPercent = PowerManager.RemainingChargePercent;
+                    if (windowsBatteryPercent >= 0 && windowsBatteryPercent <= 100 && BatteryFullChargeCapacity.Value > 0)
+                    {
+                        // Calculate remaining from Windows % and full capacity
+                        // Full capacity is in mWh, convert to Wh
+                        float fullCapacityWh = BatteryFullChargeCapacity.Value / 1000f;
+                        remainingCapacityWh = fullCapacityWh * windowsBatteryPercent / 100f;
+                    }
+                }
+                catch
+                {
+                    // Windows API not available, fall through to LibreHardwareMonitor
+                }
+
+                // Fallback to LibreHardwareMonitor remaining capacity if Windows API failed
+                if (remainingCapacityWh < 0)
+                {
+                    if (BatteryRemainingCapacity.Value <= 0)
+                    {
+                        Logger.Debug($"BatteryTimeRemaining: Missing capacity value - Remaining={BatteryRemainingCapacity.Value}");
+                        return -1;
+                    }
+                    remainingCapacityWh = BatteryRemainingCapacity.Value / 1000f;
+                }
+
+                // Time Remaining (hours) = Remaining Capacity Wh / Discharge Rate W
+                float timeHours = remainingCapacityWh / BatteryDischargeRate.Value;
+
+                // Sanity check: time should be reasonable (under 24 hours)
+                if (timeHours > 24)
+                {
+                    Logger.Debug($"BatteryTimeRemaining: Calculated time too high ({timeHours:F1}h), likely stale values");
+                    return -1;
+                }
+
+                // Return in seconds
+                return timeHours * 3600;
+            }
+        }
+
         public NetworkDownloadSensor NetworkDownload { get; }
         public NetworkUploadSensor NetworkUpload { get; }
 
@@ -753,42 +819,13 @@ namespace XboxGamingBarHelper.Performance
             computer.Accept(updateVisitor);
             foreach (IHardware hardware in computer.Hardware)
             {
-                foreach (ISensor sensor in hardware.Sensors)
+                // Process sensors for this hardware
+                ProcessHardwareSensors(hardware);
+
+                // Also process sub-hardware sensors (some sensors like GPU temp are nested)
+                foreach (IHardware subHardware in hardware.SubHardware)
                 {
-                    //Logger.Info("[2] Hardware {3} Sensor: {0}, value: {1}, type: {2}", sensor.Name, sensor.Value, sensor.SensorType.ToString(), hardware.Name);
-
-                    HardwareSensor hardwareSensorFound = null;
-                    foreach (var hardwareSensor in hardwareSensors)
-                    {
-                        if (hardwareSensor.MatchesHardwareType(hardware.HardwareType) &&
-                            hardwareSensor.SensorType == sensor.SensorType &&
-                            hardwareSensor.MatchesSensorName(sensor.Name))
-                        {
-                            hardwareSensorFound = hardwareSensor;
-                            break;
-                        }
-                    }
-                    if (hardwareSensorFound != null)
-                    {
-                        float newValue = sensor.Value ?? -1;
-
-                        // Prefer non-zero valid values over zero or invalid values
-                        // This handles dual-GPU scenarios (iGPU + dGPU) where iGPU may report 0W
-                        // while dGPU has the actual power reading
-                        bool currentIsValid = hardwareSensorFound.Value >= 0;
-                        bool currentIsNonZero = hardwareSensorFound.Value > 0;
-                        bool newIsValid = newValue >= 0;
-                        bool newIsNonZero = newValue > 0;
-
-                        // Update if:
-                        // 1. Current value is invalid (-1), OR
-                        // 2. New value is non-zero (prefer actual readings over 0)
-                        // Don't overwrite a non-zero valid value with zero
-                        if (!currentIsValid || newIsNonZero || (!currentIsNonZero && newIsValid))
-                        {
-                            hardwareSensorFound.Value = newValue;
-                        }
-                    }
+                    ProcessHardwareSensors(subHardware);
                 }
             }
 
@@ -806,6 +843,51 @@ namespace XboxGamingBarHelper.Performance
             catch
             {
                 // Fallback to LibreHardwareMonitor value if Windows API fails
+            }
+
+            // Calculate battery remaining time from capacity and discharge rate
+            // LibreHardwareMonitor doesn't always report the "Remaining Time (Estimated)" sensor
+            float calculatedTimeRemaining = BatteryTimeRemaining;
+            if (calculatedTimeRemaining >= 0)
+            {
+                BatteryRemainingTime.Value = calculatedTimeRemaining;
+            }
+        }
+
+        /// <summary>
+        /// Processes sensors for a given hardware device and updates matching HardwareSensor values.
+        /// </summary>
+        private void ProcessHardwareSensors(IHardware hardware)
+        {
+            foreach (ISensor sensor in hardware.Sensors)
+            {
+                // Match ALL sensors that match this hardware sensor (don't break on first)
+                // This allows sensors like GPUTemperature and VRMTemperature to share the same reading
+                float newValue = sensor.Value ?? -1;
+                foreach (var hardwareSensor in hardwareSensors)
+                {
+                    if (hardwareSensor.MatchesHardwareType(hardware.HardwareType) &&
+                        hardwareSensor.SensorType == sensor.SensorType &&
+                        hardwareSensor.MatchesSensorName(sensor.Name))
+                    {
+                        // Prefer non-zero valid values over zero or invalid values
+                        // This handles dual-GPU scenarios (iGPU + dGPU) where iGPU may report 0W
+                        // while dGPU has the actual power reading
+                        bool currentIsValid = hardwareSensor.Value >= 0;
+                        bool currentIsNonZero = hardwareSensor.Value > 0;
+                        bool newIsValid = newValue >= 0;
+                        bool newIsNonZero = newValue > 0;
+
+                        // Update if:
+                        // 1. Current value is invalid (-1), OR
+                        // 2. New value is non-zero (prefer actual readings over 0)
+                        // Don't overwrite a non-zero valid value with zero
+                        if (!currentIsValid || newIsNonZero || (!currentIsNonZero && newIsValid))
+                        {
+                            hardwareSensor.Value = newValue;
+                        }
+                    }
+                }
             }
         }
 

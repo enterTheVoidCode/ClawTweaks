@@ -1467,15 +1467,20 @@ namespace XboxGamingBarHelper.Labs
                             var mouse = Marshal.PtrToStructure<RAWINPUT_MOUSE>(buffer);
                             ushort buttonFlags = mouse.mouse.usButtonFlags;
                             ushort buttonData = mouse.mouse.usButtonData;
+                            uint rawButtons = mouse.mouse.ulRawButtons;
 
-                            // Debug: log raw values to understand Legion Go's data format
-                            if (buttonFlags != 0 || buttonData != 0)
+                            // Log ALL raw values to diagnose Legion Go 2 scroll wheel
+                            // This helps identify what values LG2 sends (may differ from LG1)
+                            if (buttonFlags != 0 || buttonData != 0 || rawButtons != 0)
                             {
-                                Logger.Debug($"LegionButtonMonitor: Scroll Raw Input - buttonFlags=0x{buttonFlags:X4}, buttonData=0x{buttonData:X4}");
+                                Logger.Info($"LegionButtonMonitor: Scroll Raw Input - buttonFlags=0x{buttonFlags:X4}, buttonData=0x{buttonData:X4}, rawButtons=0x{rawButtons:X8}");
                             }
 
-                            // Legion Go sends scroll click in usButtonData (non-standard)
+                            // Legion Go 1 sends scroll click in usButtonData (non-standard)
                             // 0x0010 = click pressed, 0x0020 = click released, 0x0400 = wheel scroll
+                            // Legion Go 2 may use different values - check buttonFlags and rawButtons too
+
+                            // First try buttonData (LG1 style)
                             switch (buttonData)
                             {
                                 case 0x0010: // Scroll click pressed
@@ -1534,6 +1539,57 @@ namespace XboxGamingBarHelper.Labs
                                         ProcessScrollAction("Scroll", scrollActionType, scrollShortcutKeys, scrollCommandPath);
                                     }
                                     break;
+                            }
+
+                            // Also check buttonFlags for standard mouse wheel events (Legion Go 2 may use this)
+                            // RI_MOUSE_WHEEL = 0x0400
+                            const ushort RI_MOUSE_WHEEL = 0x0400;
+                            const ushort RI_MOUSE_HWHEEL = 0x0800;
+                            const ushort RI_MOUSE_MIDDLE_BUTTON_DOWN = 0x0010;
+                            const ushort RI_MOUSE_MIDDLE_BUTTON_UP = 0x0020;
+
+                            if ((buttonFlags & RI_MOUSE_WHEEL) != 0 || (buttonFlags & RI_MOUSE_HWHEEL) != 0)
+                            {
+                                // Standard mouse wheel event via buttonFlags
+                                short wheelDelta = (short)buttonData; // Signed wheel delta
+                                Logger.Info($"LegionButtonMonitor: Scroll Wheel via buttonFlags - delta={wheelDelta}");
+
+                                if (wheelDelta > 0 && scrollUpEnabled)
+                                {
+                                    ProcessScrollAction("Scroll Up", scrollUpActionType, scrollUpShortcutKeys, scrollUpCommandPath);
+                                }
+                                else if (wheelDelta < 0 && scrollDownEnabled)
+                                {
+                                    ProcessScrollAction("Scroll Down", scrollDownActionType, scrollDownShortcutKeys, scrollDownCommandPath);
+                                }
+                                else if (scrollEnabled)
+                                {
+                                    ProcessScrollAction("Scroll", scrollActionType, scrollShortcutKeys, scrollCommandPath);
+                                }
+                            }
+
+                            if ((buttonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN) != 0)
+                            {
+                                if (scrollClickEnabled && !lastScrollClickState)
+                                {
+                                    lastScrollClickState = true;
+                                    lastScrollClickActionTime = DateTime.Now;
+                                    scrollClickPressTime = DateTime.Now;
+                                    Logger.Info("LegionButtonMonitor: Scroll Click PRESSED via buttonFlags");
+                                    ProcessButtonAction("Scroll Click", true, scrollClickActionType,
+                                        scrollClickShortcutKeys, scrollClickCommandPath);
+                                }
+                            }
+
+                            if ((buttonFlags & RI_MOUSE_MIDDLE_BUTTON_UP) != 0)
+                            {
+                                if (scrollClickEnabled && lastScrollClickState)
+                                {
+                                    lastScrollClickState = false;
+                                    Logger.Info("LegionButtonMonitor: Scroll Click RELEASED via buttonFlags");
+                                    ProcessButtonAction("Scroll Click", false, scrollClickActionType,
+                                        scrollClickShortcutKeys, scrollClickCommandPath);
+                                }
                             }
                         }
                     }

@@ -126,14 +126,32 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
     internal class LegionLightModeProperty : HelperProperty<int, LegionManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private bool _hasUserModified = false;
+        private int _initialValue;
 
         public LegionLightModeProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionLightMode, inManager)
         {
+            _initialValue = initialValue;
         }
 
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
+
+            // Only apply to device if user has explicitly changed the value
+            if (!_hasUserModified)
+            {
+                if (Value != _initialValue)
+                {
+                    _hasUserModified = true;
+                }
+                else
+                {
+                    Logger.Debug($"LegionLightMode: Skipping device write - value unchanged from initial ({Value})");
+                    return;
+                }
+            }
+
             Logger.Info($"LegionLightMode changed to {Value}");
             Manager?.SetLightMode(Value);
         }
@@ -143,14 +161,32 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
     internal class LegionLightColorProperty : HelperProperty<string, LegionManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private bool _hasUserModified = false;
+        private string _initialValue;
 
         public LegionLightColorProperty(string initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionLightColor, inManager)
         {
+            _initialValue = initialValue;
         }
 
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
+
+            // Only apply to device if user has explicitly changed the value
+            if (!_hasUserModified)
+            {
+                if (Value != _initialValue)
+                {
+                    _hasUserModified = true;
+                }
+                else
+                {
+                    Logger.Debug($"LegionLightColor: Skipping device write - value unchanged from initial ({Value})");
+                    return;
+                }
+            }
+
             Logger.Info($"LegionLightColor changed to {Value}");
             Manager?.SetLightColor(Value);
         }
@@ -160,14 +196,32 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
     internal class LegionLightBrightnessProperty : HelperProperty<int, LegionManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private bool _hasUserModified = false;
+        private int _initialValue;
 
         public LegionLightBrightnessProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionLightBrightness, inManager)
         {
+            _initialValue = initialValue;
         }
 
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
+
+            // Only apply to device if user has explicitly changed the value
+            if (!_hasUserModified)
+            {
+                if (Value != _initialValue)
+                {
+                    _hasUserModified = true;
+                }
+                else
+                {
+                    Logger.Debug($"LegionLightBrightness: Skipping device write - value unchanged from initial ({Value})");
+                    return;
+                }
+            }
+
             Logger.Info($"LegionLightBrightness changed to {Value}");
             Manager?.SetLightBrightness(Value);
         }
@@ -177,14 +231,32 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
     internal class LegionLightSpeedProperty : HelperProperty<int, LegionManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private bool _hasUserModified = false;
+        private int _initialValue;
 
         public LegionLightSpeedProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionLightSpeed, inManager)
         {
+            _initialValue = initialValue;
         }
 
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
+
+            // Only apply to device if user has explicitly changed the value
+            if (!_hasUserModified)
+            {
+                if (Value != _initialValue)
+                {
+                    _hasUserModified = true;
+                }
+                else
+                {
+                    Logger.Debug($"LegionLightSpeed: Skipping device write - value unchanged from initial ({Value})");
+                    return;
+                }
+            }
+
             Logger.Info($"LegionLightSpeed changed to {Value}");
             Manager?.SetLightSpeed(Value);
         }

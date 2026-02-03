@@ -219,6 +219,22 @@ namespace XboxGamingBarHelper
             Logger.Info($"=== Helper starting, PID={Process.GetCurrentProcess().Id} ===");
             LogManager.Flush();
 
+            // Check for export-profiles mode - exports registry game profiles to bundled JSON
+            // Run this on a system with Xbox FSE enabled to generate bundled_profiles.json
+            if (args.Contains("--export-profiles"))
+            {
+                Logger.Info("=== Export Profiles Mode ===");
+                var outputPath = args.SkipWhile(a => a != "--export-profiles").Skip(1).FirstOrDefault()
+                    ?? Path.Combine(Environment.CurrentDirectory, "bundled_profiles.json");
+
+                Logger.Info($"Exporting profiles to: {outputPath}");
+                var count = BundledProfileExporter.ExportToJson(outputPath);
+                Logger.Info($"Exported {count} game profiles");
+                Console.WriteLine($"Exported {count} game profiles to: {outputPath}");
+                LogManager.Flush();
+                return;
+            }
+
             // Check for setup mode FIRST (before anything else)
             // Setup mode: deploy files, create scheduled task, run task, then EXIT
             // The task launches the elevated helper which will connect to the widget.
@@ -1378,6 +1394,10 @@ del /f /q ""%~f0"" 2>nul
                 autoTDPManager.MinTDP,
                 autoTDPManager.MaxTDP,
                 autoTDPManager.TDPLimits,
+                autoTDPManager.UseMLMode,
+                autoTDPManager.MLStatus,
+                autoTDPManager.ResetML,
+                autoTDPManager.PauseWhenUnfocused,
                 systemManager.ForceParkMode,
                 performanceManager.TDPBoostEnabled,
                 performanceManager.TDPBoostSPPT,
@@ -1467,6 +1487,7 @@ del /f /q ""%~f0"" 2>nul
                 autoTDPManager.TargetFPS.PropertyChanged += AutoTDPSetting_PropertyChanged;
                 autoTDPManager.MinTDP.PropertyChanged += AutoTDPSetting_PropertyChanged;
                 autoTDPManager.MaxTDP.PropertyChanged += AutoTDPSetting_PropertyChanged;
+                autoTDPManager.UseMLMode.PropertyChanged += AutoTDPSetting_PropertyChanged;
             }
 
             initTimer.Stop();
@@ -1883,6 +1904,11 @@ del /f /q ""%~f0"" 2>nul
                 Logger.Info($"Saving AutoTDPMaxTDP to profile {profileName}");
                 profileManager.CurrentProfile.AutoTDPMaxTDP = autoTDPManager.MaxTDP.Value;
             }
+            else if (sender == autoTDPManager.UseMLMode)
+            {
+                Logger.Info($"Saving AutoTDPUseMLMode to profile {profileName}");
+                profileManager.CurrentProfile.AutoTDPUseMLMode = autoTDPManager.UseMLMode.Value;
+            }
         }
 
         private static void ApplyLegionControllerSettingsFromProfile()
@@ -2110,6 +2136,9 @@ del /f /q ""%~f0"" 2>nul
 
             Logger.Debug($"Applying AutoTDPMaxTDP: {profile.AutoTDPMaxTDP}");
             autoTDPManager.MaxTDP.SetValue(profile.AutoTDPMaxTDP);
+
+            Logger.Debug($"Applying AutoTDPUseMLMode: {profile.AutoTDPUseMLMode}");
+            autoTDPManager.UseMLMode.SetValue(profile.AutoTDPUseMLMode);
         }
 
         private static void CurrentProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -3232,6 +3261,90 @@ del /f /q ""%~f0"" 2>nul
                         }
                     }
                 }
+                // System Restore: Prepare for Uninstall
+                else if (functionValue == (int)Function.PrepareForUninstall)
+                {
+                    Logger.Info("Pipe: PrepareForUninstall request received");
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+
+                    try
+                    {
+                        string result = Services.SystemRestoreService.PrepareForUninstall();
+                        response.Add(nameof(Function), functionValue);
+                        response.Add("Content", result);
+                        response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                        Logger.Info("Pipe: PrepareForUninstall completed successfully");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: PrepareForUninstall failed: {ex.Message}");
+                        response.Add("Content", $"Error: {ex.Message}");
+                    }
+                }
+                // System Restore: Get status of saved original values
+                else if (functionValue == (int)Function.SystemRestoreStatus)
+                {
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    string status = Services.SystemRestoreService.GetSavedValuesStatus();
+                    response.Add(nameof(Function), functionValue);
+                    response.Add("Content", status);
+                    response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                    Logger.Info($"Pipe: SystemRestoreStatus requested");
+                }
+                // Export All Data (comprehensive backup)
+                else if (functionValue == (int)Function.ExportAllData)
+                {
+                    Logger.Info("Pipe: ExportAllData request received");
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+
+                    try
+                    {
+                        // Widget settings may be passed in Content
+                        string widgetSettings = request.Content;
+                        string exportPath = ExportAllData(widgetSettings);
+                        response.Add(nameof(Function), functionValue);
+                        response.Add("Content", exportPath);
+                        response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                        Logger.Info($"Pipe: ExportAllData completed: {exportPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: ExportAllData failed: {ex.Message}");
+                        response.Add("Content", $"Error: {ex.Message}");
+                    }
+                }
+                // Import All Data (restore from backup)
+                else if (functionValue == (int)Function.ImportAllData)
+                {
+                    Logger.Info("Pipe: ImportAllData request received");
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+
+                    try
+                    {
+                        string importPath = request.Content;
+                        if (string.IsNullOrEmpty(importPath))
+                        {
+                            response.Add("Content", "Error: No import path provided");
+                        }
+                        else
+                        {
+                            var (summary, widgetSettings) = ImportAllData(importPath);
+                            response.Add(nameof(Function), functionValue);
+                            response.Add("Content", summary);
+                            if (!string.IsNullOrEmpty(widgetSettings))
+                            {
+                                response.Add("WidgetSettings", widgetSettings);
+                            }
+                            response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                            Logger.Info($"Pipe: ImportAllData completed from {importPath}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: ImportAllData failed: {ex.Message}");
+                        response.Add("Content", $"Error: {ex.Message}");
+                    }
+                }
                 else
                 {
                     // Convert to ValueSet and use the existing property handling
@@ -3512,6 +3625,10 @@ del /f /q ""%~f0"" 2>nul
                         vk = 0xAE; // VK_VOLUME_DOWN
                     else if (upper == "VOLUME_MUTE" || upper == "VOLUMEMUTE" || upper == "MUTE")
                         vk = 0xAD; // VK_VOLUME_MUTE
+                    else if (trimmed == "[" || upper == "LEFTBRACKET")
+                        vk = 0xDB; // VK_OEM_4 (left bracket)
+                    else if (trimmed == "]" || upper == "RIGHTBRACKET")
+                        vk = 0xDD; // VK_OEM_6 (right bracket)
                     else if (upper.Length == 1)
                     {
                         char c = upper[0];
@@ -3992,7 +4109,7 @@ del /f /q ""%~f0"" 2>nul
 
         /// <summary>
         /// Get the current status of DAService (Legion Space service).
-        /// Returns: 0 = Stopped, 1 = Running, 2 = Not Found
+        /// Returns: 0 = Stopped, 1 = Running, 2 = Not Found, 3 = Stopping, 4 = Starting
         /// </summary>
         private static int GetDAServiceStatus()
         {
@@ -4001,7 +4118,18 @@ del /f /q ""%~f0"" 2>nul
                 using (var sc = new ServiceController("DAService"))
                 {
                     var status = sc.Status;
-                    return status == ServiceControllerStatus.Running ? 1 : 0;
+                    Logger.Debug($"Labs: DAService status = {status}");
+                    switch (status)
+                    {
+                        case ServiceControllerStatus.Running:
+                            return 1;
+                        case ServiceControllerStatus.StopPending:
+                            return 3; // Stopping
+                        case ServiceControllerStatus.StartPending:
+                            return 4; // Starting
+                        default:
+                            return 0; // Stopped or other
+                    }
                 }
             }
             catch (InvalidOperationException)
@@ -4026,6 +4154,20 @@ del /f /q ""%~f0"" 2>nul
             {
                 if (action == 0) // Stop and Disable
                 {
+                    // Save original state before first modification (for clean uninstall)
+                    try
+                    {
+                        using (var sc = new ServiceController("DAService"))
+                        {
+                            bool wasEnabled = sc.Status == ServiceControllerStatus.Running;
+                            Services.SystemRestoreService.SaveOriginalDAServiceState(wasEnabled);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Failed to save original DAService state: {ex.Message}");
+                    }
+
                     // First stop the service
                     using (var sc = new ServiceController("DAService"))
                     {
@@ -4302,6 +4444,283 @@ del /f /q ""%~f0"" 2>nul
 
             Logger.Info($"Exported {copiedCount} profiles to {exportPath}");
             return exportPath;
+        }
+
+        /// <summary>
+        /// Export all GoTweaks data: profiles, settings, Q-learning model, OSD config.
+        /// Creates a comprehensive backup folder on the Desktop.
+        /// </summary>
+        /// <param name="widgetSettings">JSON string of widget LocalSettings to include in export</param>
+        /// <returns>Path to the export folder</returns>
+        private static string ExportAllData(string widgetSettings = null)
+        {
+            var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            var exportFolderName = $"GoTweaks_Backup_{DateTime.Now:yyyy-MM-dd_HHmmss}";
+            var exportPath = Path.Combine(desktopPath, exportFolderName);
+
+            // Create export folder structure
+            Directory.CreateDirectory(exportPath);
+            var profilesFolder = Path.Combine(exportPath, "profiles");
+            Directory.CreateDirectory(profilesFolder);
+
+            int itemCount = 0;
+            var manifest = new System.Text.StringBuilder();
+            manifest.AppendLine("{");
+            manifest.AppendLine($"  \"exportDate\": \"{DateTime.Now:O}\",");
+            manifest.AppendLine($"  \"version\": \"1.0\",");
+            manifest.AppendLine($"  \"appVersion\": \"{typeof(Program).Assembly.GetName().Version}\",");
+
+            // 1. Export per-game profiles
+            var srcProfilesFolder = XboxGamingBarHelper.Profile.ProfileManager.GetGameProfilesFolder();
+            var profileNames = new List<string>();
+            if (Directory.Exists(srcProfilesFolder))
+            {
+                var xmlFiles = Directory.GetFiles(srcProfilesFolder, "*.xml");
+                foreach (var xmlFile in xmlFiles)
+                {
+                    var destPath = Path.Combine(profilesFolder, Path.GetFileName(xmlFile));
+                    File.Copy(xmlFile, destPath, true);
+                    profileNames.Add(Path.GetFileNameWithoutExtension(xmlFile));
+                    itemCount++;
+                }
+            }
+
+            // 2. Export global profile
+            var globalProfilePath = XboxGamingBarHelper.Profile.ProfileManager.GetGlobalProfilePath();
+            if (File.Exists(globalProfilePath))
+            {
+                var destPath = Path.Combine(exportPath, "global.xml");
+                File.Copy(globalProfilePath, destPath, true);
+                itemCount++;
+            }
+
+            // 3. Export Q-learning model (AutoTDP)
+            var localStatePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Packages", "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg", "LocalState"
+            );
+            var qTablePath = Path.Combine(localStatePath, "autotdp_qtable.json");
+            if (File.Exists(qTablePath))
+            {
+                var destPath = Path.Combine(exportPath, "autotdp_qtable.json");
+                File.Copy(qTablePath, destPath, true);
+                itemCount++;
+                Logger.Info("Exported Q-learning model");
+            }
+
+            // 4. Export helper settings (from LocalCache/settings.json)
+            var localCachePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Packages", "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg", "LocalCache"
+            );
+            var helperSettingsPath = Path.Combine(localCachePath, "settings.json");
+            if (File.Exists(helperSettingsPath))
+            {
+                var destPath = Path.Combine(exportPath, "helper_settings.json");
+                File.Copy(helperSettingsPath, destPath, true);
+                itemCount++;
+                Logger.Info("Exported helper settings");
+            }
+
+            // 5. Export widget settings (passed from widget)
+            if (!string.IsNullOrEmpty(widgetSettings))
+            {
+                var destPath = Path.Combine(exportPath, "widget_settings.json");
+                File.WriteAllText(destPath, widgetSettings);
+                itemCount++;
+                Logger.Info("Exported widget settings");
+            }
+
+            // 6. Export system restore data
+            var systemRestorePath = Path.Combine(localStatePath, "system_restore_data.json");
+            if (File.Exists(systemRestorePath))
+            {
+                var destPath = Path.Combine(exportPath, "system_restore_data.json");
+                File.Copy(systemRestorePath, destPath, true);
+                itemCount++;
+            }
+
+            // Build manifest
+            manifest.AppendLine($"  \"profileCount\": {profileNames.Count},");
+            manifest.AppendLine($"  \"profiles\": [{string.Join(", ", profileNames.Select(p => $"\"{p}\""))}],");
+            manifest.AppendLine($"  \"hasGlobalProfile\": {(File.Exists(globalProfilePath) ? "true" : "false")},");
+            manifest.AppendLine($"  \"hasQTable\": {(File.Exists(qTablePath) ? "true" : "false")},");
+            manifest.AppendLine($"  \"hasHelperSettings\": {(File.Exists(helperSettingsPath) ? "true" : "false")},");
+            manifest.AppendLine($"  \"hasWidgetSettings\": {(!string.IsNullOrEmpty(widgetSettings) ? "true" : "false")},");
+            manifest.AppendLine($"  \"totalItems\": {itemCount}");
+            manifest.AppendLine("}");
+
+            File.WriteAllText(Path.Combine(exportPath, "manifest.json"), manifest.ToString());
+
+            Logger.Info($"Exported {itemCount} items to {exportPath}");
+            return exportPath;
+        }
+
+        /// <summary>
+        /// Import all GoTweaks data from a backup folder.
+        /// </summary>
+        /// <param name="importPath">Path to the backup folder</param>
+        /// <returns>Summary of imported items and widget settings JSON to apply</returns>
+        private static (string summary, string widgetSettings) ImportAllData(string importPath)
+        {
+            if (!Directory.Exists(importPath))
+            {
+                throw new DirectoryNotFoundException($"Import folder not found: {importPath}");
+            }
+
+            var summary = new System.Text.StringBuilder();
+            summary.AppendLine("=== Import Results ===");
+            summary.AppendLine();
+
+            int importedCount = 0;
+            int skippedCount = 0;
+            string widgetSettings = null;
+
+            // 1. Import per-game profiles
+            var srcProfilesFolder = Path.Combine(importPath, "profiles");
+            var destProfilesFolder = XboxGamingBarHelper.Profile.ProfileManager.GetGameProfilesFolder();
+            Directory.CreateDirectory(destProfilesFolder);
+
+            if (Directory.Exists(srcProfilesFolder))
+            {
+                var xmlFiles = Directory.GetFiles(srcProfilesFolder, "*.xml");
+                foreach (var xmlFile in xmlFiles)
+                {
+                    try
+                    {
+                        var destPath = Path.Combine(destProfilesFolder, Path.GetFileName(xmlFile));
+                        File.Copy(xmlFile, destPath, true);
+                        importedCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Failed to import profile {Path.GetFileName(xmlFile)}: {ex.Message}");
+                        skippedCount++;
+                    }
+                }
+                summary.AppendLine($"✓ Imported {xmlFiles.Length} per-game profiles");
+            }
+
+            // 2. Import global profile
+            var srcGlobalProfile = Path.Combine(importPath, "global.xml");
+            if (File.Exists(srcGlobalProfile))
+            {
+                try
+                {
+                    var destPath = XboxGamingBarHelper.Profile.ProfileManager.GetGlobalProfilePath();
+                    var destDir = Path.GetDirectoryName(destPath);
+                    if (!string.IsNullOrEmpty(destDir))
+                        Directory.CreateDirectory(destDir);
+                    File.Copy(srcGlobalProfile, destPath, true);
+                    importedCount++;
+                    summary.AppendLine("✓ Imported global profile");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Failed to import global profile: {ex.Message}");
+                    summary.AppendLine($"✗ Failed to import global profile: {ex.Message}");
+                }
+            }
+
+            // 3. Import Q-learning model
+            var srcQTable = Path.Combine(importPath, "autotdp_qtable.json");
+            if (File.Exists(srcQTable))
+            {
+                try
+                {
+                    var localStatePath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "Packages", "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg", "LocalState"
+                    );
+                    Directory.CreateDirectory(localStatePath);
+                    var destPath = Path.Combine(localStatePath, "autotdp_qtable.json");
+                    File.Copy(srcQTable, destPath, true);
+                    importedCount++;
+                    summary.AppendLine("✓ Imported AutoTDP Q-learning model");
+
+                    // Notify AutoTDPManager to reload if active
+                    if (autoTDPManager != null)
+                    {
+                        autoTDPManager.ReloadQLearningModel();
+                        summary.AppendLine("  (Q-learning model reloaded)");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Failed to import Q-learning model: {ex.Message}");
+                    summary.AppendLine($"✗ Failed to import Q-learning model: {ex.Message}");
+                }
+            }
+
+            // 4. Import helper settings
+            var srcHelperSettings = Path.Combine(importPath, "helper_settings.json");
+            if (File.Exists(srcHelperSettings))
+            {
+                try
+                {
+                    var localCachePath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "Packages", "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg", "LocalCache"
+                    );
+                    Directory.CreateDirectory(localCachePath);
+                    var destPath = Path.Combine(localCachePath, "settings.json");
+                    File.Copy(srcHelperSettings, destPath, true);
+                    importedCount++;
+                    summary.AppendLine("✓ Imported helper settings");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Failed to import helper settings: {ex.Message}");
+                    summary.AppendLine($"✗ Failed to import helper settings: {ex.Message}");
+                }
+            }
+
+            // 5. Read widget settings (to be applied by widget)
+            var srcWidgetSettings = Path.Combine(importPath, "widget_settings.json");
+            if (File.Exists(srcWidgetSettings))
+            {
+                try
+                {
+                    widgetSettings = File.ReadAllText(srcWidgetSettings);
+                    importedCount++;
+                    summary.AppendLine("✓ Widget settings loaded (will be applied)");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Failed to read widget settings: {ex.Message}");
+                    summary.AppendLine($"✗ Failed to read widget settings: {ex.Message}");
+                }
+            }
+
+            // 6. Import system restore data
+            var srcSystemRestore = Path.Combine(importPath, "system_restore_data.json");
+            if (File.Exists(srcSystemRestore))
+            {
+                try
+                {
+                    var localStatePath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "Packages", "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg", "LocalState"
+                    );
+                    Directory.CreateDirectory(localStatePath);
+                    var destPath = Path.Combine(localStatePath, "system_restore_data.json");
+                    File.Copy(srcSystemRestore, destPath, true);
+                    importedCount++;
+                    summary.AppendLine("✓ Imported system restore data");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Failed to import system restore data: {ex.Message}");
+                }
+            }
+
+            summary.AppendLine();
+            summary.AppendLine($"Total: {importedCount} imported, {skippedCount} skipped");
+            summary.AppendLine();
+            summary.AppendLine("Note: Restart the widget to apply all changes.");
+
+            Logger.Info($"Import complete: {importedCount} imported, {skippedCount} skipped");
+            return (summary.ToString(), widgetSettings);
         }
 
         /// <summary>

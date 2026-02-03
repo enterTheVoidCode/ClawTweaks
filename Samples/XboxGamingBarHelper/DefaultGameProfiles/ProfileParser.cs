@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Win32;
@@ -13,6 +14,7 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
     /// <summary>
     /// Parses Microsoft Default Game Profiles from Windows registry.
     /// Handles MSIXVC, Steam, and Ubisoft profile sources.
+    /// Falls back to bundled profiles when registry keys don't exist (Xbox FSE never enabled).
     /// </summary>
     internal static class ProfileParser
     {
@@ -24,14 +26,27 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         private const string STEAM_PATH = REGISTRY_BASE + @"\Steam";
         private const string UBISOFT_PATH = REGISTRY_BASE + @"\Ubisoft";
 
+        // Embedded resource name for bundled profiles
+        private const string BUNDLED_PROFILES_RESOURCE = "XboxGamingBarHelper.Resources.DefaultGameProfiles.bundled_profiles.json";
+
         /// <summary>
         /// Loads all game profiles from registry into a lookup dictionary.
+        /// Falls back to bundled profiles if registry keys don't exist.
         /// Key: lowercase exe name, Value: GameProfileEntry with all hardware variants.
         /// </summary>
         public static Dictionary<string, GameProfileEntry> LoadAllProfiles()
         {
             var profiles = new Dictionary<string, GameProfileEntry>(StringComparer.OrdinalIgnoreCase);
             int totalLoaded = 0;
+
+            // Check if registry keys exist (Xbox FSE has been enabled)
+            bool registryExists = RegistryProfilesExist();
+
+            if (!registryExists)
+            {
+                Logger.Info("Registry game profile keys not found (Xbox FSE never enabled). Loading bundled profiles...");
+                return LoadBundledProfiles();
+            }
 
             try
             {
@@ -66,8 +81,219 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
                 Logger.Warn($"Failed to load Ubisoft profiles: {ex.Message}");
             }
 
-            Logger.Info($"Total default game profiles loaded: {totalLoaded} games");
+            // If registry exists but no profiles found, fall back to bundled
+            if (totalLoaded == 0)
+            {
+                Logger.Info("No profiles found in registry. Falling back to bundled profiles...");
+                return LoadBundledProfiles();
+            }
+
+            Logger.Info($"Total default game profiles loaded from registry: {totalLoaded} games");
             return profiles;
+        }
+
+        /// <summary>
+        /// Checks if the registry base path for game profiles exists.
+        /// </summary>
+        private static bool RegistryProfilesExist()
+        {
+            try
+            {
+                using (var key = Registry.LocalMachine.OpenSubKey(REGISTRY_BASE))
+                {
+                    return key != null;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Loads profiles from the bundled embedded resource JSON file.
+        /// </summary>
+        private static Dictionary<string, GameProfileEntry> LoadBundledProfiles()
+        {
+            var profiles = new Dictionary<string, GameProfileEntry>(StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                var assembly = Assembly.GetExecutingAssembly();
+                using (var stream = assembly.GetManifestResourceStream(BUNDLED_PROFILES_RESOURCE))
+                {
+                    if (stream == null)
+                    {
+                        Logger.Warn($"Bundled profiles resource not found: {BUNDLED_PROFILES_RESOURCE}");
+                        return profiles;
+                    }
+
+                    using (var reader = new StreamReader(stream, Encoding.UTF8))
+                    {
+                        var json = reader.ReadToEnd();
+                        using (var doc = JsonDocument.Parse(json))
+                        {
+                            var root = doc.RootElement;
+
+                            // Check version
+                            if (root.TryGetProperty("version", out var versionProp))
+                            {
+                                var version = versionProp.GetInt32();
+                                Logger.Debug($"Bundled profiles version: {version}");
+                            }
+
+                            // Parse games array
+                            if (root.TryGetProperty("games", out var gamesArray))
+                            {
+                                foreach (var gameElement in gamesArray.EnumerateArray())
+                                {
+                                    try
+                                    {
+                                        var entry = ParseBundledGameEntry(gameElement);
+                                        if (entry.HasValue && entry.Value.IsValid())
+                                        {
+                                            AddProfileEntry(profiles, entry.Value);
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Logger.Debug($"Failed to parse bundled game entry: {ex.Message}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Logger.Info($"Loaded {profiles.Count} game profiles from bundled resource");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to load bundled profiles: {ex.Message}");
+            }
+
+            return profiles;
+        }
+
+        /// <summary>
+        /// Parses a game entry from the bundled JSON format.
+        /// </summary>
+        private static GameProfileEntry? ParseBundledGameEntry(JsonElement element)
+        {
+            var entry = new GameProfileEntry
+            {
+                Identifiers = new List<GameIdentifier>(),
+                Profiles = new Dictionary<string, DefaultGameProfile>(StringComparer.OrdinalIgnoreCase)
+            };
+
+            // Get game name
+            if (element.TryGetProperty("gameName", out var gameNameProp))
+            {
+                entry.GameName = gameNameProp.GetString();
+            }
+
+            if (string.IsNullOrEmpty(entry.GameName))
+            {
+                return null;
+            }
+
+            // Parse identifiers
+            if (element.TryGetProperty("identifiers", out var identifiersProp))
+            {
+                foreach (var idElement in identifiersProp.EnumerateArray())
+                {
+                    var identifier = new GameIdentifier();
+
+                    if (idElement.TryGetProperty("platform", out var platformProp))
+                    {
+                        identifier.Platform = platformProp.GetString();
+                    }
+
+                    if (idElement.TryGetProperty("gameUid", out var uidProp))
+                    {
+                        identifier.GameUid = uidProp.GetString();
+                    }
+
+                    entry.Identifiers.Add(identifier);
+                }
+            }
+
+            // Extract Steam App ID from identifiers
+            string steamAppId = null;
+            foreach (var id in entry.Identifiers)
+            {
+                if (id.Platform == "Steam" && !string.IsNullOrEmpty(id.GameUid))
+                {
+                    steamAppId = id.GameUid;
+                    break;
+                }
+            }
+
+            // Parse profiles
+            if (element.TryGetProperty("profiles", out var profilesProp))
+            {
+                foreach (var profileElement in profilesProp.EnumerateArray())
+                {
+                    try
+                    {
+                        var profile = new DefaultGameProfile
+                        {
+                            GameName = entry.GameName,
+                            SteamAppId = steamAppId
+                        };
+
+                        if (profileElement.TryGetProperty("hardwareModel", out var hwModelProp))
+                        {
+                            profile.HardwareModel = hwModelProp.GetString();
+                        }
+
+                        if (profileElement.TryGetProperty("provider", out var providerProp))
+                        {
+                            profile.Provider = providerProp.GetString();
+                        }
+
+                        if (profileElement.TryGetProperty("tdp", out var tdpProp))
+                        {
+                            profile.TDP = tdpProp.GetInt32();
+                        }
+
+                        if (profileElement.TryGetProperty("frameCap", out var frameCapProp))
+                        {
+                            if (frameCapProp.ValueKind == JsonValueKind.Number)
+                            {
+                                profile.FrameCap = frameCapProp.GetInt32();
+                            }
+                            else if (frameCapProp.ValueKind == JsonValueKind.Null)
+                            {
+                                profile.FrameCap = null;
+                            }
+                        }
+
+                        if (profileElement.TryGetProperty("resolutionCap", out var resCapProp))
+                        {
+                            profile.ResolutionCap = resCapProp.GetString();
+                        }
+
+                        if (profileElement.TryGetProperty("controlMode", out var controlProp))
+                        {
+                            profile.ControlMode = controlProp.GetString();
+                        }
+
+                        // Add profile using hardware model as key
+                        var hwModel = profile.HardwareModel ?? profile.Provider ?? "Default";
+                        if (profile.TDP > 0 || !entry.Profiles.ContainsKey(hwModel))
+                        {
+                            entry.Profiles[hwModel] = profile;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"Failed to parse bundled profile for {entry.GameName}: {ex.Message}");
+                    }
+                }
+            }
+
+            return entry;
         }
 
         /// <summary>
