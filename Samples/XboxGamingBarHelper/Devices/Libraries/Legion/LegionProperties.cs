@@ -396,8 +396,16 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             // Only write to device if:
             // 1. Initialized (not during startup sync)
             // 2. Value is different from last sent (avoid redundant WMI calls)
+            // 3. Currently in Custom mode (255) - preset modes have their own built-in fan curves
             if (_initialized && Value != _lastSentValue)
             {
+                int currentMode = Manager?.CurrentPerformanceMode ?? 2;
+                if (currentMode != 255)
+                {
+                    Logger.Info($"Fan curve change ignored - not in Custom mode (current mode: {currentMode}). Preset modes use hardware fan curves.");
+                    return;
+                }
+
                 _lastSentValue = Value;
                 Manager?.SetFanCurveFromString(Value);
             }

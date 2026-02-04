@@ -17425,6 +17425,23 @@ namespace XboxGamingBar
                     LegionFanFullSpeedToggle.XYFocusUp = LegionPerformanceModeComboBox;
                 }
             }
+
+            // Enable/disable fan curve card based on Custom mode
+            // Preset modes (Quiet, Balanced, Performance) have built-in fan curves managed by hardware
+            // Custom fan curves should only be editable in Custom mode
+            if (LegionFanCurveCard != null)
+            {
+                // Don't hide the card, just disable interaction when not in Custom mode
+                LegionFanCurveCard.IsHitTestVisible = visible;
+                LegionFanCurveCard.Opacity = visible ? 1.0 : 0.5;
+                Logger.Info($"Fan curve card enabled: {visible} (Custom mode: {visible})");
+            }
+
+            // Update the fan curve preset dropdown to show the mode restriction
+            if (FanCurvePresetComboBox != null)
+            {
+                FanCurvePresetComboBox.IsEnabled = visible;
+            }
         }
 
         /// <summary>
