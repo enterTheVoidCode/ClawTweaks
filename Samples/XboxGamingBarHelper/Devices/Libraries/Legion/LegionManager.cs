@@ -253,12 +253,12 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             {
                 var fanCurveTimer = System.Diagnostics.Stopwatch.StartNew();
 
-                // First, try to load saved fan curve from LocalSettings
+                // First, try to load saved fan curve from settings
+                // Uses LocalSettingsHelper which falls back to file-based storage when running outside package context
                 bool loadedFromSettings = false;
                 try
                 {
-                    var settings = ApplicationData.Current.LocalSettings;
-                    if (settings.Values.TryGetValue("LegionFanCurve", out object savedCurve) && savedCurve is string savedCurveString)
+                    if (Settings.LocalSettingsHelper.TryGetValue<string>("LegionFanCurve", out string savedCurveString))
                     {
                         var parts = savedCurveString.Split(',');
                         if (parts.Length == 10)
@@ -271,13 +271,13 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                                 }
                             }
                             loadedFromSettings = true;
-                            Logger.Info($"Fan curve loaded from LocalSettings: {string.Join(",", fanCurve)}");
+                            Logger.Info($"Fan curve loaded from settings: {string.Join(",", fanCurve)}");
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Logger.Warn($"Failed to load fan curve from LocalSettings: {ex.Message}");
+                    Logger.Warn($"Failed to load fan curve from settings: {ex.Message}");
                 }
 
                 // If no saved curve, read from device
@@ -1513,20 +1513,20 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         }
 
         /// <summary>
-        /// Saves the current fan curve to LocalSettings for persistence.
+        /// Saves the current fan curve to settings for persistence.
+        /// Uses LocalSettingsHelper which falls back to file-based storage when running outside package context.
         /// </summary>
         private void SaveFanCurveToSettings()
         {
             try
             {
-                var settings = ApplicationData.Current.LocalSettings;
                 string curveString = string.Join(",", fanCurve.Select(v => (int)v));
-                settings.Values["LegionFanCurve"] = curveString;
-                Logger.Info($"Fan curve saved to LocalSettings: {curveString}");
+                Settings.LocalSettingsHelper.SetValue("LegionFanCurve", curveString);
+                Logger.Info($"Fan curve saved: {curveString}");
             }
             catch (Exception ex)
             {
-                Logger.Warn($"Failed to save fan curve to LocalSettings: {ex.Message}");
+                Logger.Warn($"Failed to save fan curve: {ex.Message}");
             }
         }
 

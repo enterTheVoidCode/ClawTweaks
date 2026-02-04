@@ -130,6 +130,9 @@ namespace XboxGamingBarHelper.Labs
         private ushort _detectedVid = 0;
         private ushort _detectedPid = 0;
 
+        // Flag to prevent spamming "controller not found" log (only log once until found)
+        private bool _loggedControllerNotFound = false;
+
         // Cached device path for faster reconnection (persisted to settings)
         private static string _cachedDevicePath = null;
         private static readonly object _cacheLock = new object();
@@ -1031,6 +1034,9 @@ namespace XboxGamingBarHelper.Labs
                                                 // Cache the successful device path for faster startup next time
                                                 CachedDevicePath = devicePath;
                                                 Logger.Info($"LegionButtonMonitor: Cached device path for future use");
+
+                                                // Reset the "not found" log flag so we'll log again if disconnected
+                                                _loggedControllerNotFound = false;
                                                 return true;
                                             }
                                             else
@@ -1061,7 +1067,12 @@ namespace XboxGamingBarHelper.Labs
                     SetupDiDestroyDeviceInfoList(deviceInfoSet);
                 }
 
-                Logger.Warn("LegionButtonMonitor: Legion controller not found");
+                // Only log once to prevent spam - reset when controller is found
+                if (!_loggedControllerNotFound)
+                {
+                    Logger.Warn("LegionButtonMonitor: Legion controller not found");
+                    _loggedControllerNotFound = true;
+                }
                 return false;
             }
             catch (Exception ex)
@@ -1398,7 +1409,7 @@ namespace XboxGamingBarHelper.Labs
                         // This can help recover if Game Bar or another app disrupts Raw Input registration
                         if (hasReceivedScrollInput && timeSinceLastInput > (NO_INPUT_REREGISTER_MS / 1000.0) && windowValid)
                         {
-                            Logger.Warn($"LegionButtonMonitor: No scroll input for {timeSinceLastInput:F1}s after previously receiving input, re-registering Raw Input");
+                            Logger.Debug($"LegionButtonMonitor: Re-registering Raw Input (no scroll input for {timeSinceLastInput:F1}s)");
                             if (InitializeScrollWheelRawInput(scrollWheelWindowHandle))
                             {
                                 Logger.Info("LegionButtonMonitor: Raw Input re-registration successful");
