@@ -68,6 +68,11 @@ namespace Shared.Data
         public bool HasScrollWheel { get; set; } = false;
 
         /// <summary>
+        /// Whether this device has detachable left/right controllers (Legion Go/Go2 yes, Go S no)
+        /// </summary>
+        public bool HasDetachableControllers { get; set; } = false;
+
+        /// <summary>
         /// Whether this device supports fan control (e.g., GPD devices)
         /// </summary>
         public bool SupportsFanControl { get; set; } = false;

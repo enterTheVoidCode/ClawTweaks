@@ -28,6 +28,7 @@ namespace XboxGamingBarHelper.Devices.GPD
         public override bool SupportsGyro => false;
         public override bool HasTouchpad => false;
         public override bool HasScrollWheel => false;
+        public override bool HasDetachableControllers => false;
         public override bool SupportsFanControl => true;
 
         /// <summary>

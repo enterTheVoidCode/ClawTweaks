@@ -1239,4 +1239,102 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             SyncToRemote();
         }
     }
+
+    // Device Display Name (read-only, e.g., "Legion Go", "Legion Go 2", "Legion Go S")
+    internal class DeviceDisplayNameProperty : HelperProperty<string, LegionManager>
+    {
+        public DeviceDisplayNameProperty(string initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceDisplayName, inManager)
+        {
+        }
+
+        public void SetValueAndSync(string value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Device Supports Controller Remap (read-only, based on device capabilities)
+    internal class DeviceSupportsControllerRemapProperty : HelperProperty<bool, LegionManager>
+    {
+        public DeviceSupportsControllerRemapProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceSupportsControllerRemap, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Device Supports RGB Lighting (read-only, based on device capabilities)
+    internal class DeviceSupportsRgbLightingProperty : HelperProperty<bool, LegionManager>
+    {
+        public DeviceSupportsRgbLightingProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceSupportsRgbLighting, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Device Supports Gyro (read-only, based on device capabilities)
+    internal class DeviceSupportsGyroProperty : HelperProperty<bool, LegionManager>
+    {
+        public DeviceSupportsGyroProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceSupportsGyro, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Device Has Scroll Wheel (read-only, based on device capabilities)
+    internal class DeviceHasScrollWheelProperty : HelperProperty<bool, LegionManager>
+    {
+        public DeviceHasScrollWheelProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceHasScrollWheel, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Device Has Detachable Controllers (read-only, based on device capabilities)
+    internal class DeviceHasDetachableControllersProperty : HelperProperty<bool, LegionManager>
+    {
+        public DeviceHasDetachableControllersProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceHasDetachableControllers, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Device Has Touchpad (read-only, based on device capabilities - uses HID)
+    internal class DeviceHasTouchpadProperty : HelperProperty<bool, LegionManager>
+    {
+        public DeviceHasTouchpadProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceHasTouchpad, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
 }

@@ -18,12 +18,14 @@ namespace XboxGamingBarHelper.Devices.LegionGoS
             "83L3",           // Legion Go S
         };
 
-        // Features
-        public override bool SupportsWmiTdp => true;
-        public override bool SupportsControllerRemap => true;
-        public override bool SupportsRgbLighting => true;
-        public override bool SupportsGyro => true;
-        public override bool HasTouchpad => true;
-        public override bool HasScrollWheel => false;  // Go S does not have scroll wheel
+        // Features - Go S has different HID structure (VID 0x1A86 vs 0x17EF)
+        // Most controller features don't work, but RGB lighting uses a different protocol that works
+        public override bool SupportsWmiTdp => true;           // Same WMI - works
+        public override bool SupportsControllerRemap => false; // Different HID - doesn't work
+        public override bool SupportsRgbLighting => true;      // Different HID but lighting protocol implemented
+        public override bool SupportsGyro => false;            // Different HID - doesn't work
+        public override bool HasTouchpad => false;             // Touchpad settings use HID - not tested/working
+        public override bool HasScrollWheel => false;          // Go S does not have scroll wheel
+        public override bool HasDetachableControllers => false; // Go S has integrated controllers (not detachable)
     }
 }

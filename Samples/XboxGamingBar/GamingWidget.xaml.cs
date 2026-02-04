@@ -791,6 +791,24 @@ namespace XboxGamingBar
         private readonly ControllerConnectedRightProperty controllerConnectedRight;
         private readonly ControllerVidPidProperty controllerVidPid;
 
+        // Device capability properties (for UI visibility based on device features)
+        private readonly DeviceDisplayNameProperty deviceDisplayName;
+        private readonly DeviceSupportsControllerRemapProperty deviceSupportsControllerRemap;
+        private readonly DeviceSupportsRgbLightingProperty deviceSupportsRgbLighting;
+        private readonly DeviceSupportsGyroProperty deviceSupportsGyro;
+        private readonly DeviceHasScrollWheelProperty deviceHasScrollWheel;
+        private readonly DeviceHasDetachableControllersProperty deviceHasDetachableControllers;
+        private readonly DeviceHasTouchpadProperty deviceHasTouchpad;
+
+        // GPD properties
+        private readonly GPDDetectedProperty gpdDetected;
+        private readonly GPDWin5ConnectedProperty gpdWin5Connected;
+        private readonly GPDFanSpeedProperty gpdFanSpeed;
+        private readonly GPDFanRPMProperty gpdFanRPM;
+        private readonly GPDFanModeProperty gpdFanMode;
+        private readonly GPDButtonL4Property gpdButtonL4;
+        private readonly GPDButtonR4Property gpdButtonR4;
+
         // Default Game Profile properties (Microsoft Gaming Services profiles)
         private readonly DefaultGameProfileAvailableProperty defaultGameProfileAvailable;
         private readonly DefaultGameProfileDataProperty defaultGameProfileData;
@@ -810,7 +828,8 @@ namespace XboxGamingBar
         private readonly AutoTDPCurrentFPSProperty autoTDPCurrentFPS;
         private readonly AutoTDPMinTDPProperty autoTDPMinTDP;
         private readonly AutoTDPMaxTDPProperty autoTDPMaxTDP;
-        private readonly AutoTDPUseMLModeProperty autoTDPUseMLMode;
+        private readonly AutoTDPUseMLModeProperty autoTDPUseMLMode;  // DEPRECATED: use autoTDPControllerType
+        private readonly AutoTDPControllerTypeProperty autoTDPControllerType;  // 0=PID, 1=Q-Learning, 2=SARSA
         private readonly AutoTDPMLStatusProperty autoTDPMLStatus;
         private readonly AutoTDPResetMLProperty autoTDPResetML;
         private readonly AutoTDPPauseWhenUnfocusedProperty autoTDPPauseWhenUnfocused;
@@ -1157,6 +1176,24 @@ namespace XboxGamingBar
             controllerConnectedRight = new ControllerConnectedRightProperty();
             controllerVidPid = new ControllerVidPidProperty();
 
+            // Device capability properties (for UI visibility)
+            deviceDisplayName = new DeviceDisplayNameProperty(this);
+            deviceSupportsControllerRemap = new DeviceSupportsControllerRemapProperty(this);
+            deviceSupportsRgbLighting = new DeviceSupportsRgbLightingProperty(this);
+            deviceSupportsGyro = new DeviceSupportsGyroProperty(this);
+            deviceHasScrollWheel = new DeviceHasScrollWheelProperty(this);
+            deviceHasDetachableControllers = new DeviceHasDetachableControllersProperty(this);
+            deviceHasTouchpad = new DeviceHasTouchpadProperty(this);
+
+            // GPD properties
+            gpdDetected = new GPDDetectedProperty(this);
+            gpdWin5Connected = new GPDWin5ConnectedProperty(this);
+            gpdFanSpeed = new GPDFanSpeedProperty(this);
+            gpdFanRPM = new GPDFanRPMProperty(this);
+            gpdFanMode = new GPDFanModeProperty(this);
+            gpdButtonL4 = new GPDButtonL4Property(this);
+            gpdButtonR4 = new GPDButtonR4Property(this);
+
             // Default Game Profile properties
             defaultGameProfileAvailable = new DefaultGameProfileAvailableProperty(this);
             defaultGameProfileData = new DefaultGameProfileDataProperty(this);
@@ -1188,6 +1225,7 @@ namespace XboxGamingBar
             autoTDPMinTDP = new AutoTDPMinTDPProperty(8);
             autoTDPMaxTDP = new AutoTDPMaxTDPProperty(30);
             autoTDPUseMLMode = new AutoTDPUseMLModeProperty(false);
+            autoTDPControllerType = new AutoTDPControllerTypeProperty(0);  // 0=PID
             autoTDPMLStatus = new AutoTDPMLStatusProperty("");
             autoTDPResetML = new AutoTDPResetMLProperty(false);
             autoTDPPauseWhenUnfocused = new AutoTDPPauseWhenUnfocusedProperty(true); // Default: enabled
@@ -1226,6 +1264,21 @@ namespace XboxGamingBar
 
             // Set up custom TDP visibility callback
             legionPerformanceMode.SetCustomTDPVisibilityCallback(SetCustomTDPVisibility);
+
+            // Set up device capability callbacks for Legion tab section visibility
+            deviceDisplayName.SetDisplayNameCallback(SetLegionDeviceName);
+            deviceSupportsControllerRemap.SetVisibilityCallback(SetControllerRemappingSectionVisibility);
+            deviceSupportsRgbLighting.SetVisibilityCallback(SetLightingSectionVisibility);
+            deviceSupportsGyro.SetVisibilityCallback(SetGyroSectionVisibility);
+            deviceHasScrollWheel.SetVisibilityCallback(SetScrollWheelSectionVisibility);
+            deviceHasDetachableControllers.SetVisibilityCallback(SetControllerBatterySectionVisibility);
+            deviceHasTouchpad.SetVisibilityCallback(SetTouchpadVibrationSectionVisibility);
+
+            // GPD tab callbacks
+            gpdDetected.SetVisibilityCallback(SetGPDTabVisibility);
+            gpdWin5Connected.SetConnectionCallback(SetGPDWin5Visibility);
+            gpdFanRPM.SetRPMCallback(UpdateGPDFanRPM);
+            gpdFanMode.SetModeCallback(UpdateGPDFanMode);
 
             // NOTE: Event handlers for Chill FPS will be registered AFTER first sync
             // to avoid crash when binding evaluates RadeonChillOnText before both values are ready
@@ -1338,6 +1391,7 @@ namespace XboxGamingBar
                 autoTDPMinTDP,
                 autoTDPMaxTDP,
                 autoTDPUseMLMode,
+                autoTDPControllerType,
                 autoTDPMLStatus,
                 autoTDPResetML,
                 fpsLimit,
@@ -1360,6 +1414,22 @@ namespace XboxGamingBar
                 controllerConnectedLeft,
                 controllerConnectedRight,
                 controllerVidPid,
+                // Device capability properties (for UI visibility)
+                deviceDisplayName,
+                deviceSupportsControllerRemap,
+                deviceSupportsRgbLighting,
+                deviceSupportsGyro,
+                deviceHasScrollWheel,
+                deviceHasDetachableControllers,
+                deviceHasTouchpad,
+                // GPD properties
+                gpdDetected,
+                gpdWin5Connected,
+                gpdFanSpeed,
+                gpdFanRPM,
+                gpdFanMode,
+                gpdButtonL4,
+                gpdButtonR4,
                 defaultGameProfileAvailable,
                 defaultGameProfileData,
                 defaultGameProfileEnabled,
@@ -1806,6 +1876,8 @@ namespace XboxGamingBar
                 autoTDPMLStatus.PropertyChanged += AutoTDPMLStatus_PropertyChanged;
             if (autoTDPUseMLMode != null)
                 autoTDPUseMLMode.PropertyChanged += AutoTDPUseMLMode_PropertyChanged;
+            if (autoTDPControllerType != null)
+                autoTDPControllerType.PropertyChanged += AutoTDPControllerType_PropertyChanged;
             if (autoTDPEnabled != null)
                 autoTDPEnabled.PropertyChanged += AutoTDPEnabled_PropertyChanged;
             if (autoTDPTargetFPS != null)
@@ -3263,16 +3335,26 @@ namespace XboxGamingBar
                     AutoTDPMaxValue.Text = $"{(int)AutoTDPMaxSlider.Value}W";
                 }
 
-                // Load ML mode setting
-                if (settings.Values.TryGetValue("AutoTDPUseMLMode", out object mlModeObj) && mlModeObj is bool useMLMode)
+                // Load controller type setting (0=PID, 1=Q-Learning, 2=SARSA)
+                // Try new setting first, fall back to legacy UseMLMode
+                int controllerType = 0;
+                if (settings.Values.TryGetValue("AutoTDPControllerType", out object ctObj) && ctObj is int ct)
                 {
-                    if (AutoTDPControllerModeComboBox != null)
-                    {
-                        AutoTDPControllerModeComboBox.SelectedIndex = useMLMode ? 1 : 0;
-                    }
-                    autoTDPUseMLMode?.SetValue(useMLMode);
-                    UpdateAutoTDPMLInfoPanelVisibility();
+                    controllerType = ct;
                 }
+                else if (settings.Values.TryGetValue("AutoTDPUseMLMode", out object mlModeObj) && mlModeObj is bool useMLMode)
+                {
+                    // Legacy migration: true -> Q-Learning (1), false -> PID (0)
+                    controllerType = useMLMode ? 1 : 0;
+                }
+
+                if (AutoTDPControllerModeComboBox != null)
+                {
+                    AutoTDPControllerModeComboBox.SelectedIndex = Math.Max(0, Math.Min(2, controllerType));
+                }
+                autoTDPControllerType?.SetValue(controllerType);
+                autoTDPUseMLMode?.SetValue(controllerType > 0);  // Legacy sync
+                UpdateAutoTDPMLInfoPanelVisibility();
 
                 // Load pause when unfocused setting (default: true)
                 if (AutoTDPPauseWhenUnfocusedCheckBox != null)
@@ -3321,7 +3403,9 @@ namespace XboxGamingBar
         {
             if (AutoTDPMLInfoPanel != null)
             {
-                bool showMLPanel = AutoTDPControllerModeComboBox?.SelectedIndex == 1;
+                // Show ML panel for both Q-Learning (1) and SARSA (2)
+                int controllerType = AutoTDPControllerModeComboBox?.SelectedIndex ?? 0;
+                bool showMLPanel = controllerType > 0;
                 AutoTDPMLInfoPanel.Visibility = showMLPanel ? Visibility.Visible : Visibility.Collapsed;
             }
         }
@@ -3332,18 +3416,25 @@ namespace XboxGamingBar
             if (isLoadingAutoTDPSettings) return;
             if (isApplyingHelperUpdate) return;
 
-            bool useMLMode = AutoTDPControllerModeComboBox.SelectedIndex == 1;
-            Logger.Info($"AutoTDP controller mode changed to: {(useMLMode ? "ML Learning" : "PID Controller")}");
+            int controllerType = AutoTDPControllerModeComboBox.SelectedIndex;
+            string[] controllerNames = { "PID Controller", "Q-Learning", "SARSA" };
+            string name = controllerType >= 0 && controllerType < controllerNames.Length ? controllerNames[controllerType] : "Unknown";
+            Logger.Info($"AutoTDP controller mode changed to: {name} ({controllerType})");
 
             // Update visibility of ML info panel
             UpdateAutoTDPMLInfoPanelVisibility();
 
-            // Send to helper
-            autoTDPUseMLMode?.SetValue(useMLMode);
+            // Send to helper using new controller type property
+            autoTDPControllerType?.SetValue(controllerType);
+
+            // Also update legacy property for backwards compatibility
+            autoTDPUseMLMode?.SetValue(controllerType > 0);
 
             // Save setting
             var settings = ApplicationData.Current.LocalSettings;
-            settings.Values["AutoTDPUseMLMode"] = useMLMode;
+            settings.Values["AutoTDPControllerType"] = controllerType;
+            // Keep legacy setting for backwards compatibility
+            settings.Values["AutoTDPUseMLMode"] = controllerType > 0;
 
             // Save to profile if AutoTDP saving is enabled
             if (SaveAutoTDP && !isLoadingProfile && !isSwitchingProfile)
@@ -3496,12 +3587,48 @@ namespace XboxGamingBar
 
         private void AutoTDPUseMLMode_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
+            // DEPRECATED: This handler is kept for backwards compatibility.
+            // The new AutoTDPControllerType_PropertyChanged handler is preferred.
+            // Only handle if autoTDPControllerType hasn't been updated yet (legacy profile)
             _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
-                if (AutoTDPControllerModeComboBox != null && autoTDPUseMLMode != null)
+                if (AutoTDPControllerModeComboBox != null && autoTDPUseMLMode != null && autoTDPControllerType != null)
+                {
+                    // Only sync from legacy property if controller type is still at default (0)
+                    // This ensures new profiles using ControllerType take precedence
+                    if (autoTDPControllerType.Value == 0 && autoTDPUseMLMode.Value)
+                    {
+                        int expectedIndex = 1;  // Q-Learning for legacy ML mode
+                        if (AutoTDPControllerModeComboBox.SelectedIndex != expectedIndex)
+                        {
+                            isApplyingHelperUpdate = true;
+                            try
+                            {
+                                AutoTDPControllerModeComboBox.SelectedIndex = expectedIndex;
+                                UpdateAutoTDPMLInfoPanelVisibility();
+                                Logger.Info($"AutoTDP controller mode synced from legacy UseMLMode: Q-Learning");
+                            }
+                            finally
+                            {
+                                isApplyingHelperUpdate = false;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        private void AutoTDPControllerType_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                if (AutoTDPControllerModeComboBox != null && autoTDPControllerType != null)
                 {
                     // Sync combobox with helper's value (from profile)
-                    int expectedIndex = autoTDPUseMLMode.Value ? 1 : 0;
+                    int expectedIndex = autoTDPControllerType.Value;
+                    if (expectedIndex < 0) expectedIndex = 0;
+                    if (expectedIndex > 2) expectedIndex = 2;
+
                     if (AutoTDPControllerModeComboBox.SelectedIndex != expectedIndex)
                     {
                         isApplyingHelperUpdate = true;
@@ -3509,7 +3636,8 @@ namespace XboxGamingBar
                         {
                             AutoTDPControllerModeComboBox.SelectedIndex = expectedIndex;
                             UpdateAutoTDPMLInfoPanelVisibility();
-                            Logger.Info($"AutoTDP controller mode synced from helper: {(autoTDPUseMLMode.Value ? "ML Learning" : "PID Controller")}");
+                            string[] names = { "PID Controller", "Q-Learning", "SARSA" };
+                            Logger.Info($"AutoTDP controller mode synced from helper: {names[expectedIndex]}");
                         }
                         finally
                         {
@@ -7410,17 +7538,30 @@ namespace XboxGamingBar
                     {
                         Logger.Info("Helper acknowledged exit command");
                     }
+
+                    // Disconnect the pipe so we can detect when helper is truly gone
+                    App.PipeClient?.Disconnect();
                 }
 
                 // Wait for helper to exit and release mutex
-                await Task.Delay(1500);
+                // Helper waits 3 seconds before force-killing, so we wait 4 seconds to be safe
+                Logger.Info("Waiting for helper to exit...");
+                await Task.Delay(4000);
+
+                // Verify helper has disconnected
+                if (App.IsConnected)
+                {
+                    Logger.Warn("Helper still connected after exit command - forcing disconnect");
+                    App.PipeClient?.Disconnect();
+                    await Task.Delay(1000);
+                }
 
                 // Launch new helper instance
                 Logger.Info("Launching new helper instance");
                 await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
 
                 // Give the helper a moment to start its pipe server, then try to reconnect
-                await Task.Delay(500);
+                await Task.Delay(1000);
                 Logger.Info("Attempting to reconnect to helper via Named Pipe");
                 _ = TryConnectPipeAsync();
 
@@ -7544,8 +7685,9 @@ namespace XboxGamingBar
 
                 if (exitSent)
                 {
-                    // Give helper time to exit
-                    await Task.Delay(1000);
+                    // Give helper time to exit (helper waits 3 seconds before force-killing)
+                    Logger.Info("Waiting for helper to exit...");
+                    await Task.Delay(4000);
                 }
                 else
                 {
@@ -13314,6 +13456,7 @@ namespace XboxGamingBar
                 AMDScrollViewer.Visibility = Visibility.Collapsed;
                 ScalingScrollViewer.Visibility = Visibility.Collapsed;
                 LegionScrollViewer.Visibility = Visibility.Collapsed;
+                GPDScrollViewer.Visibility = Visibility.Collapsed;
                 SystemScrollViewer.Visibility = Visibility.Collapsed;
 
                 // Stop fan curve updates when leaving Legion tab (will be re-enabled if Legion is selected)
@@ -13360,6 +13503,10 @@ namespace XboxGamingBar
                         }
                         // Request ViGEmBus status for button remap section
                         RequestViGEmBusStatus();
+                        break;
+                    case "GPD":
+                        GPDScrollViewer.Visibility = Visibility.Visible;
+                        GPDScrollViewer.ChangeView(null, 0, null, true);
                         break;
                     case "System":
                         SystemScrollViewer.Visibility = Visibility.Visible;
@@ -13444,6 +13591,7 @@ namespace XboxGamingBar
             if (GraphicsNavItem.FocusState != FocusState.Unfocused) return true;
             if (ScalingNavItem.FocusState != FocusState.Unfocused) return true;
             if (LegionNavItem.FocusState != FocusState.Unfocused) return true;
+            if (GPDNavItem.FocusState != FocusState.Unfocused) return true;
             if (SystemNavItem.FocusState != FocusState.Unfocused) return true;
 
             // Fallback: walk visual tree for other nav-related elements
@@ -15713,6 +15861,9 @@ namespace XboxGamingBar
                         // Load the game icon for the Profiles tab
                         // Use helper-extracted icon if available, otherwise fall back to Steam lookup
                         LoadCurrentGameIcon(exePath, iconPath);
+
+                        // Also update the Default Game Profile icon (may have been empty during initial sync)
+                        UpdateDefaultProfileGameIcon();
                     }
                     else
                     {
@@ -16147,6 +16298,350 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Updates the device name display in the Legion tab header.
+        /// </summary>
+        private void SetLegionDeviceName(string name)
+        {
+            if (LegionDeviceNameText != null && !string.IsNullOrEmpty(name))
+            {
+                LegionDeviceNameText.Text = name;
+                Logger.Info($"Legion device name set to: {name}");
+            }
+        }
+
+        /// <summary>
+        /// Shows or hides the Controller Remapping section based on device support.
+        /// Legion Go S has a different HID structure, so controller remapping doesn't work.
+        /// </summary>
+        private void SetControllerRemappingSectionVisibility(bool visible)
+        {
+            if (ControllerRemappingSection != null)
+            {
+                ControllerRemappingSection.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Controller Remapping section visibility set to: {visible}");
+            }
+        }
+
+        /// <summary>
+        /// Shows or hides the Lighting section based on device support.
+        /// Legion Go S has a different HID structure, so RGB lighting control doesn't work.
+        /// </summary>
+        private void SetLightingSectionVisibility(bool visible)
+        {
+            if (LightingSection != null)
+            {
+                LightingSection.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Lighting section visibility set to: {visible}");
+            }
+        }
+
+        /// <summary>
+        /// Shows or hides the Gyro Settings card based on device support.
+        /// Legion Go S has a different HID structure, so gyro configuration doesn't work.
+        /// </summary>
+        private void SetGyroSectionVisibility(bool visible)
+        {
+            if (GyroSection != null)
+            {
+                GyroSection.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Gyro section visibility set to: {visible}");
+            }
+        }
+
+        private void SetScrollWheelSectionVisibility(bool visible)
+        {
+            if (ScrollWheelSection != null)
+            {
+                ScrollWheelSection.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Scroll wheel section visibility set to: {visible}");
+            }
+        }
+
+        private void SetControllerBatterySectionVisibility(bool visible)
+        {
+            if (ControllerBatterySection != null)
+            {
+                ControllerBatterySection.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Controller battery section visibility set to: {visible}");
+            }
+        }
+
+        private void SetTouchpadVibrationSectionVisibility(bool visible)
+        {
+            if (TouchpadVibrationSection != null)
+            {
+                TouchpadVibrationSection.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Touchpad & Vibration section visibility set to: {visible}");
+            }
+        }
+
+        #region GPD Tab Callbacks
+
+        /// <summary>
+        /// Sets GPD tab visibility based on device detection.
+        /// </summary>
+        private void SetGPDTabVisibility(bool visible)
+        {
+            if (GPDNavItem != null)
+            {
+                GPDNavItem.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"GPD tab visibility set to: {visible}");
+            }
+
+            // Update connection status text
+            if (GPDConnectionStatusText != null)
+            {
+                GPDConnectionStatusText.Text = visible ? "Connected" : "Detecting...";
+                GPDConnectionStatusText.Foreground = new SolidColorBrush(visible ?
+                    Windows.UI.Color.FromArgb(255, 76, 175, 80) :  // Green
+                    Windows.UI.Color.FromArgb(255, 136, 136, 136)); // Gray
+            }
+        }
+
+        /// <summary>
+        /// Sets visibility of Win 5 specific sections based on HID controller connection.
+        /// </summary>
+        private void SetGPDWin5Visibility(bool connected)
+        {
+            if (GPDFanControlSection != null)
+            {
+                GPDFanControlSection.Visibility = connected ? Visibility.Visible : Visibility.Collapsed;
+            }
+            if (GPDButtonRemapSection != null)
+            {
+                GPDButtonRemapSection.Visibility = connected ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            // Update device name for Win 5
+            if (GPDDeviceNameText != null && connected)
+            {
+                GPDDeviceNameText.Text = "GPD Win 5";
+            }
+
+            Logger.Info($"GPD Win 5 sections visibility set to: {connected}");
+        }
+
+        /// <summary>
+        /// Updates the fan RPM display.
+        /// </summary>
+        private void UpdateGPDFanRPM(int rpm)
+        {
+            if (GPDFanRPMText != null)
+            {
+                GPDFanRPMText.Text = rpm > 0 ? $"{rpm} RPM" : "-- RPM";
+            }
+        }
+
+        /// <summary>
+        /// Updates the fan mode UI.
+        /// </summary>
+        private void UpdateGPDFanMode(int mode)
+        {
+            bool isManual = mode == 1;
+
+            if (GPDFanModeToggle != null)
+            {
+                // Temporarily remove handler to avoid triggering property update
+                GPDFanModeToggle.Toggled -= GPDFanModeToggle_Toggled;
+                GPDFanModeToggle.IsOn = isManual;
+                GPDFanModeToggle.Toggled += GPDFanModeToggle_Toggled;
+            }
+
+            if (GPDFanModeText != null)
+            {
+                GPDFanModeText.Text = isManual ? "Manual" : "Auto";
+            }
+
+            if (GPDFanSpeedSection != null)
+            {
+                GPDFanSpeedSection.Visibility = isManual ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
+        #endregion
+
+        #region GPD Tab Event Handlers
+
+        private void GPDFanModeToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (GPDFanModeToggle != null && gpdFanMode != null)
+            {
+                int mode = GPDFanModeToggle.IsOn ? 1 : 0;
+                gpdFanMode.SetMode(mode);
+
+                // Update mode text
+                if (GPDFanModeText != null)
+                {
+                    GPDFanModeText.Text = GPDFanModeToggle.IsOn ? "Manual" : "Auto";
+                }
+
+                // Show/hide speed slider
+                if (GPDFanSpeedSection != null)
+                {
+                    GPDFanSpeedSection.Visibility = GPDFanModeToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // If switching to auto, send 0 for auto speed
+                if (!GPDFanModeToggle.IsOn && gpdFanSpeed != null)
+                {
+                    gpdFanSpeed.SetSpeed(0);
+                }
+
+                Logger.Info($"GPD fan mode toggled to: {(GPDFanModeToggle.IsOn ? "Manual" : "Auto")}");
+            }
+        }
+
+        private void GPDFanSpeedSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (GPDFanSpeedSlider != null && gpdFanSpeed != null)
+            {
+                int speed = (int)GPDFanSpeedSlider.Value;
+                gpdFanSpeed.SetSpeed(speed);
+
+                // Update value text
+                if (GPDFanSpeedValueText != null)
+                {
+                    GPDFanSpeedValueText.Text = $"{speed}%";
+                }
+
+                Logger.Info($"GPD fan speed set to: {speed}%");
+            }
+        }
+
+        private void GPDButtonRemapExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            if (GPDButtonRemapExpandToggle != null && GPDButtonRemapContent != null && GPDButtonRemapExpandIcon != null)
+            {
+                bool isExpanded = GPDButtonRemapExpandToggle.IsChecked == true;
+                GPDButtonRemapContent.Visibility = isExpanded ? Visibility.Visible : Visibility.Collapsed;
+                GPDButtonRemapExpandIcon.Glyph = isExpanded ? "\uE70E" : "\uE70D"; // Down or Right chevron
+            }
+        }
+
+        private void GPDL4PaddleComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (GPDL4PaddleComboBox?.SelectedItem == null) return;
+
+            string selected = GPDL4PaddleComboBox.SelectedItem.ToString();
+            ushort keycode = MapGPDKeyNameToKeycode(selected);
+
+            Logger.Info($"GPD L4 paddle remapped to: {selected} (keycode: 0x{keycode:X4})");
+
+            if (gpdButtonL4 != null)
+            {
+                gpdButtonL4.SetKeycode(keycode);
+            }
+        }
+
+        private void GPDR4PaddleComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (GPDR4PaddleComboBox?.SelectedItem == null) return;
+
+            string selected = GPDR4PaddleComboBox.SelectedItem.ToString();
+            ushort keycode = MapGPDKeyNameToKeycode(selected);
+
+            Logger.Info($"GPD R4 paddle remapped to: {selected} (keycode: 0x{keycode:X4})");
+
+            if (gpdButtonR4 != null)
+            {
+                gpdButtonR4.SetKeycode(keycode);
+            }
+        }
+
+        /// <summary>
+        /// Maps a key name to a GPD Win 5 USB HID keycode.
+        /// </summary>
+        private ushort MapGPDKeyNameToKeycode(string keyName)
+        {
+            switch (keyName)
+            {
+                // Disabled
+                case "Disabled": return 0x0000;
+
+                // Function keys F1-F12
+                case "F1": return 0x003A;
+                case "F2": return 0x003B;
+                case "F3": return 0x003C;
+                case "F4": return 0x003D;
+                case "F5": return 0x003E;
+                case "F6": return 0x003F;
+                case "F7": return 0x0040;
+                case "F8": return 0x0041;
+                case "F9": return 0x0042;
+                case "F10": return 0x0043;
+                case "F11": return 0x0044;
+                case "F12": return 0x0045;
+
+                // Function keys F13-F17 (extended)
+                case "F13": return 0x0068;
+                case "F14": return 0x0069;
+                case "F15": return 0x006A;
+                case "F16": return 0x006B;
+                case "F17": return 0x006C;
+
+                // Control keys
+                case "Enter": return 0x0028;
+                case "Escape": return 0x0029;
+                case "Space": return 0x002C;
+                case "Tab": return 0x002B;
+                case "Backspace": return 0x002A;
+
+                // Arrow keys
+                case "Up": return 0x0052;
+                case "Down": return 0x0051;
+                case "Left": return 0x0050;
+                case "Right": return 0x004F;
+
+                // Navigation keys
+                case "Home": return 0x004A;
+                case "End": return 0x004D;
+                case "PageUp": return 0x004B;
+                case "PageDown": return 0x004E;
+                case "Insert": return 0x0049;
+                case "Delete": return 0x004C;
+
+                // Modifier keys
+                case "Left Ctrl": return 0x00E0;
+                case "Left Shift": return 0x00E1;
+                case "Left Alt": return 0x00E2;
+                case "Left Win": return 0x00E3;
+                case "Right Ctrl": return 0x00E4;
+                case "Right Shift": return 0x00E5;
+                case "Right Alt": return 0x00E6;
+
+                // Mouse buttons (GPD custom codes)
+                case "Mouse Left": return 0x00EA;
+                case "Mouse Right": return 0x00EB;
+                case "Mouse Middle": return 0x00EC;
+                case "Mouse Wheel Up": return 0x00E8;
+                case "Mouse Wheel Down": return 0x00E9;
+
+                default: return 0x0000; // Disabled
+            }
+        }
+
+        private void GPDRestoreDefaultsButton_Click(object sender, RoutedEventArgs e)
+        {
+            Logger.Info("GPD restore defaults button clicked");
+
+            // Reset paddles to default (Disabled)
+            if (GPDL4PaddleComboBox != null)
+            {
+                GPDL4PaddleComboBox.SelectedIndex = 0; // Disabled
+            }
+            if (GPDR4PaddleComboBox != null)
+            {
+                GPDR4PaddleComboBox.SelectedIndex = 0; // Disabled
+            }
+
+            // Send disabled keycodes
+            gpdButtonL4?.SetKeycode(0);
+            gpdButtonR4?.SetKeycode(0);
+        }
+
+        #endregion
+
+        /// <summary>
         /// Updates XY focus bindings in Performance tab based on Legion detection
         /// </summary>
         private void UpdatePerformanceTabXYFocus(bool isLegion)
@@ -16340,40 +16835,80 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Updates the game icon in the Default Game Profile card.
-        /// Loads icon from Steam's local cache for Steam games.
+        /// First tries helper-cached icons, then Steam's local cache.
         /// </summary>
         private async void UpdateDefaultProfileGameIcon()
         {
-            if (DefaultProfileGameIcon == null)
-                return;
-
-            // Try to load Steam icon if we have a Steam App ID
-            if (currentDefaultGameProfile.HasValue)
+            // Ensure we're on the UI thread
+            if (!Dispatcher.HasThreadAccess)
             {
-                var iconPath = currentDefaultGameProfile.Value.GetSteamIconPath();
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () => UpdateDefaultProfileGameIcon());
+                return;
+            }
+
+            if (DefaultProfileGameIcon == null)
+            {
+                Logger.Info("UpdateDefaultProfileGameIcon: DefaultProfileGameIcon element is null");
+                return;
+            }
+
+            Logger.Info($"UpdateDefaultProfileGameIcon: Starting, currentGameExePath={currentGameExePath ?? "null"}");
+
+            string iconPath = null;
+
+            // First, try to use the helper-cached icon for the current running game
+            // (Default profiles are shown when a matching game is detected)
+            if (!string.IsNullOrEmpty(currentGameExePath))
+            {
+                iconPath = GetCachedIconPath(currentGameExePath);
                 if (!string.IsNullOrEmpty(iconPath))
                 {
-                    try
-                    {
-                        // Load from local file using StorageFile for UWP compatibility
-                        var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(iconPath);
-                        using (var stream = await file.OpenReadAsync())
-                        {
-                            var bitmap = new Windows.UI.Xaml.Media.Imaging.BitmapImage();
-                            await bitmap.SetSourceAsync(stream);
-                            DefaultProfileGameIcon.Source = bitmap;
-                            DefaultProfileGameIcon.Visibility = Visibility.Visible;
-                            return;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Debug($"Failed to load Steam icon from {iconPath}: {ex.Message}");
-                    }
+                    Logger.Info($"UpdateDefaultProfileGameIcon: Using helper-cached icon: {iconPath}");
+                }
+                else
+                {
+                    Logger.Info($"UpdateDefaultProfileGameIcon: No cached icon found for {currentGameExePath}");
                 }
             }
 
-            // Hide the icon if no Steam icon available
+            // Fall back to Steam icon if we have a Steam App ID
+            if (string.IsNullOrEmpty(iconPath) && currentDefaultGameProfile.HasValue)
+            {
+                iconPath = currentDefaultGameProfile.Value.GetSteamIconPath();
+                if (!string.IsNullOrEmpty(iconPath))
+                {
+                    Logger.Info($"UpdateDefaultProfileGameIcon: Using Steam icon: {iconPath}");
+                }
+            }
+
+            // Try to load the icon
+            if (!string.IsNullOrEmpty(iconPath))
+            {
+                try
+                {
+                    // Load from local file using StorageFile for UWP compatibility
+                    var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(iconPath);
+                    using (var stream = await file.OpenReadAsync())
+                    {
+                        var bitmap = new Windows.UI.Xaml.Media.Imaging.BitmapImage();
+                        await bitmap.SetSourceAsync(stream);
+                        DefaultProfileGameIcon.Source = bitmap;
+                        DefaultProfileGameIcon.Visibility = Visibility.Visible;
+                        Logger.Info($"UpdateDefaultProfileGameIcon: Icon loaded successfully");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"UpdateDefaultProfileGameIcon: Failed to load icon from {iconPath}: {ex.Message}");
+                }
+            }
+            else
+            {
+                Logger.Info("UpdateDefaultProfileGameIcon: No icon path available");
+            }
+
+            // Hide the icon if no icon available
             DefaultProfileGameIcon.Visibility = Visibility.Collapsed;
         }
 
@@ -20841,9 +21376,9 @@ namespace XboxGamingBar
 
             try
             {
-                // Get the icon cache folder (same as helper uses)
+                // Get the icon cache folder - helper stores icons in LocalCache, not LocalState
                 var cacheFolder = Path.Combine(
-                    Windows.Storage.ApplicationData.Current.LocalFolder.Path,
+                    Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path,
                     "icons");
 
                 if (!Directory.Exists(cacheFolder))
