@@ -324,6 +324,7 @@
                 <muxc:NavigationViewItem x:Name="GraphicsNavItem" Content="Display" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem x:Name="ScalingNavItem" Content="Scale" Tag="Scaling" Style="{StaticResource NavItemStyle}"/>
                 <muxc:NavigationViewItem x:Name="LegionNavItem" Content="Legion" Tag="Legion" Style="{StaticResource NavItemStyle}" Visibility="Collapsed"/>
+                <muxc:NavigationViewItem x:Name="GPDNavItem" Content="GPD" Tag="GPD" Style="{StaticResource NavItemStyle}" Visibility="Collapsed"/>
                 <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"/>
             </muxc:NavigationView.MenuItems>
 
@@ -790,8 +791,9 @@
                                                       Width="140"
                                                       Style="{StaticResource ModernComboBoxStyle}"
                                                       SelectionChanged="AutoTDPControllerModeComboBox_SelectionChanged">
-                                                <ComboBoxItem Content="PID Controller" IsSelected="True"/>
-                                                <ComboBoxItem Content="ML Learning"/>
+                                                <ComboBoxItem Content="PID Controller" Tag="0" IsSelected="True"/>
+                                                <ComboBoxItem Content="Q-Learning (ML)" Tag="1"/>
+                                                <ComboBoxItem Content="SARSA (ML)" Tag="2"/>
                                             </ComboBox>
                                         </Grid>
 
@@ -4115,66 +4117,68 @@
                         <!-- Controller Status Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <TextBlock Text="Legion Go Controller" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock x:Name="LegionDeviceNameText" Text="Legion Go Controller" Style="{StaticResource CardTitleStyle}"/>
                                 <TextBlock x:Name="LegionControllerStatusText"
                                            Text="Connected"
                                            FontSize="14"
                                            Foreground="#4CAF50"
                                            Margin="0,4,0,0"/>
 
-                                <!-- Controller Battery Info -->
-                                <Grid Margin="0,12,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
+                                <!-- Controller Battery Info (hidden on devices without detachable controllers) -->
+                                <StackPanel x:Name="ControllerBatterySection">
+                                    <Grid Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
 
-                                    <!-- Left Controller -->
-                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                        <TextBlock Text="Left Controller" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <FontIcon Glyph="&#xE83F;" FontSize="14" Foreground="#AAAAAA" Margin="0,0,6,0"/>
-                                            <TextBlock x:Name="LeftControllerBatteryText"
-                                                       Text="--%"
-                                                       FontSize="14"
-                                                       Foreground="#FFFFFF"/>
-                                            <FontIcon x:Name="LeftControllerChargingIcon"
-                                                      Glyph="&#xE945;"
-                                                      FontSize="12"
-                                                      Foreground="#4CAF50"
-                                                      Margin="6,0,0,0"
-                                                      Visibility="Collapsed"/>
+                                        <!-- Left Controller -->
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <TextBlock Text="Left Controller" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <FontIcon Glyph="&#xE83F;" FontSize="14" Foreground="#AAAAAA" Margin="0,0,6,0"/>
+                                                <TextBlock x:Name="LeftControllerBatteryText"
+                                                           Text="--%"
+                                                           FontSize="14"
+                                                           Foreground="#FFFFFF"/>
+                                                <FontIcon x:Name="LeftControllerChargingIcon"
+                                                          Glyph="&#xE945;"
+                                                          FontSize="12"
+                                                          Foreground="#4CAF50"
+                                                          Margin="6,0,0,0"
+                                                          Visibility="Collapsed"/>
+                                            </StackPanel>
+                                            <TextBlock x:Name="LeftControllerConnectionText"
+                                                       Text="--"
+                                                       FontSize="11"
+                                                       Foreground="#888888"
+                                                       Margin="0,2,0,0"/>
                                         </StackPanel>
-                                        <TextBlock x:Name="LeftControllerConnectionText"
-                                                   Text="--"
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   Margin="0,2,0,0"/>
-                                    </StackPanel>
 
-                                    <!-- Right Controller -->
-                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                        <TextBlock Text="Right Controller" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <FontIcon Glyph="&#xE83F;" FontSize="14" Foreground="#AAAAAA" Margin="0,0,6,0"/>
-                                            <TextBlock x:Name="RightControllerBatteryText"
-                                                       Text="--%"
-                                                       FontSize="14"
-                                                       Foreground="#FFFFFF"/>
-                                            <FontIcon x:Name="RightControllerChargingIcon"
-                                                      Glyph="&#xE945;"
-                                                      FontSize="12"
-                                                      Foreground="#4CAF50"
-                                                      Margin="6,0,0,0"
-                                                      Visibility="Collapsed"/>
+                                        <!-- Right Controller -->
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                            <TextBlock Text="Right Controller" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <FontIcon Glyph="&#xE83F;" FontSize="14" Foreground="#AAAAAA" Margin="0,0,6,0"/>
+                                                <TextBlock x:Name="RightControllerBatteryText"
+                                                           Text="--%"
+                                                           FontSize="14"
+                                                           Foreground="#FFFFFF"/>
+                                                <FontIcon x:Name="RightControllerChargingIcon"
+                                                          Glyph="&#xE945;"
+                                                          FontSize="12"
+                                                          Foreground="#4CAF50"
+                                                          Margin="6,0,0,0"
+                                                          Visibility="Collapsed"/>
+                                            </StackPanel>
+                                            <TextBlock x:Name="RightControllerConnectionText"
+                                                       Text="--"
+                                                       FontSize="11"
+                                                       Foreground="#888888"
+                                                       Margin="0,2,0,0"/>
                                         </StackPanel>
-                                        <TextBlock x:Name="RightControllerConnectionText"
-                                                   Text="--"
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   Margin="0,2,0,0"/>
-                                    </StackPanel>
-                                </Grid>
+                                    </Grid>
+                                </StackPanel>
 
                                 <!-- Device Info -->
                                 <TextBlock x:Name="LegionControllerPidVidText"
@@ -4185,20 +4189,21 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Touchpad & Vibration Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Touchpad &amp; Vibration" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Touchpad and haptic feedback settings"
-                                                   Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="TouchpadVibrationExpandToggle"
+                        <!-- Touchpad & Vibration Card (hidden on devices without HID touchpad support) -->
+                        <StackPanel x:Name="TouchpadVibrationSection">
+                            <Border Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Touchpad &amp; Vibration" Style="{StaticResource CardTitleStyle}"/>
+                                            <TextBlock Text="Touchpad and haptic feedback settings"
+                                                       Style="{StaticResource CardCaptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleButton x:Name="TouchpadVibrationExpandToggle"
                                                   Grid.Column="1"
                                                   IsChecked="False"
                                                   VerticalAlignment="Center"
@@ -4282,10 +4287,13 @@
                                             <x:String>High</x:String>
                                         </ComboBox>
                                     </Grid>
+                                    </StackPanel>
                                 </StackPanel>
-                            </StackPanel>
-                        </Border>
+                            </Border>
+                        </StackPanel>
 
+                        <!-- Controller Remapping Section (hidden on devices without HID controller remap support) -->
+                        <StackPanel x:Name="ControllerRemappingSection">
                         <!-- Controller Remapping Section Header -->
                         <TextBlock Text="CONTROLLER REMAPPING" Style="{StaticResource SectionHeaderStyle}"/>
 
@@ -4953,7 +4961,11 @@
                                 </StackPanel>
                             </StackPanel>
                         </Border>
+                        </StackPanel>
+                        <!-- End Controller Remapping Section -->
 
+                        <!-- Gyro Settings Section (hidden on devices without HID gyro support) -->
+                        <StackPanel x:Name="GyroSection">
                         <!-- Gyro Settings Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -5119,6 +5131,8 @@
                                 </StackPanel>
                             </StackPanel>
                         </Border>
+                        </StackPanel>
+                        <!-- End Gyro Section -->
 
                         <!-- Saved Profiles Card -->
                         <Border Style="{StaticResource CardStyle}">
@@ -5345,11 +5359,13 @@
                                                Foreground="#A0A0A0"
                                                Margin="0,8,0,0"/>
 
-                                    <!-- Divider -->
-                                    <Border Background="#333333" Height="1" Margin="0,16,0,16"/>
+                                    <!-- Scroll Wheel Section (hidden on devices without scroll wheel) -->
+                                    <StackPanel x:Name="ScrollWheelSection">
+                                        <!-- Divider -->
+                                        <Border Background="#333333" Height="1" Margin="0,16,0,16"/>
 
-                                    <!-- Scroll Wheel Section -->
-                                    <TextBlock Text="SCROLL WHEEL" FontSize="11" FontWeight="SemiBold" Foreground="#888888" Margin="0,0,0,8"/>
+                                        <!-- Scroll Wheel Header -->
+                                        <TextBlock Text="SCROLL WHEEL" FontSize="11" FontWeight="SemiBold" Foreground="#888888" Margin="0,0,0,8"/>
 
                                     <!-- Scroll Wheel Row (unified - direction not available) -->
                                     <Grid>
@@ -5461,12 +5477,13 @@
                                                 Click="ScrollClickCommandApplyButton_Click"/>
                                     </Grid>
 
-                                    <!-- Status Text for Scroll wheel -->
-                                    <TextBlock x:Name="ScrollRemapStatusText"
-                                               Text=""
-                                               FontSize="12"
-                                               Foreground="#A0A0A0"
-                                               Margin="0,8,0,0"/>
+                                        <!-- Status Text for Scroll wheel -->
+                                        <TextBlock x:Name="ScrollRemapStatusText"
+                                                   Text=""
+                                                   FontSize="12"
+                                                   Foreground="#A0A0A0"
+                                                   Margin="0,8,0,0"/>
+                                    </StackPanel>
 
                                     <!-- ViGEmBus Note -->
                                     <Border Background="#1A1A2E" CornerRadius="4" Padding="10" Margin="0,16,0,0">
@@ -5487,6 +5504,8 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Lighting Section (hidden on devices without HID RGB lighting support) -->
+                        <StackPanel x:Name="LightingSection">
                         <!-- Lighting Section Header -->
                         <TextBlock Text="LIGHTING" Style="{StaticResource SectionHeaderStyle}"/>
 
@@ -5618,6 +5637,8 @@
                                 </StackPanel>
                             </StackPanel>
                         </Border>
+                        </StackPanel>
+                        <!-- End Lighting Section -->
 
                         <!-- Performance Mode Section Header -->
                         <TextBlock Text="PERFORMANCE MODE" Style="{StaticResource SectionHeaderStyle}"/>
@@ -5950,6 +5971,186 @@
                                            Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- GPD TAB -->
+                <ScrollViewer x:Name="GPDScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
+
+                        <!-- Device Status Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock x:Name="GPDDeviceNameText" Text="GPD Device" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock x:Name="GPDConnectionStatusText"
+                                           Text="Detecting..."
+                                           FontSize="14"
+                                           Foreground="#888888"
+                                           Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Fan Control Card (Win 5 specific) -->
+                        <StackPanel x:Name="GPDFanControlSection" Visibility="Collapsed">
+                            <TextBlock Text="FAN CONTROL" Style="{StaticResource SectionHeaderStyle}"/>
+
+                            <Border Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="Fan Settings" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Control fan speed and monitor RPM"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+
+                                    <!-- Fan Mode Toggle -->
+                                    <Grid Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Fan Mode" Foreground="#FFFFFF" FontSize="14"/>
+                                            <TextBlock x:Name="GPDFanModeText"
+                                                       Text="Auto"
+                                                       FontSize="12"
+                                                       Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="GPDFanModeToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      IsOn="False"
+                                                      Toggled="GPDFanModeToggle_Toggled"/>
+                                    </Grid>
+
+                                    <!-- Fan Speed Slider (visible only in manual mode) -->
+                                    <StackPanel x:Name="GPDFanSpeedSection" Margin="0,16,0,0" Visibility="Collapsed">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Fan Speed" Grid.Column="0" Foreground="#FFFFFF" FontSize="14" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="GPDFanSpeedValueText"
+                                                       Grid.Column="1"
+                                                       Text="50%"
+                                                       FontSize="14"
+                                                       Foreground="#00C8FF"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Slider x:Name="GPDFanSpeedSlider"
+                                                Style="{StaticResource ModernSliderStyle}"
+                                                Minimum="30"
+                                                Maximum="100"
+                                                Value="50"
+                                                ValueChanged="GPDFanSpeedSlider_ValueChanged"/>
+                                    </StackPanel>
+
+                                    <!-- Current RPM Display -->
+                                    <Grid Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Current RPM" Grid.Column="0" Foreground="#AAAAAA" FontSize="14" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="GPDFanRPMText"
+                                                   Grid.Column="1"
+                                                   Text="-- RPM"
+                                                   FontSize="14"
+                                                   Foreground="#00C8FF"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Button Remapping Card (Win 5 specific) -->
+                        <StackPanel x:Name="GPDButtonRemapSection" Visibility="Collapsed">
+                            <TextBlock Text="BACK PADDLES" Style="{StaticResource SectionHeaderStyle}"/>
+
+                            <Border Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Paddle Remapping" Style="{StaticResource CardTitleStyle}"/>
+                                            <TextBlock Text="Remap L4 and R4 back paddle buttons"
+                                                       Style="{StaticResource CardCaptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleButton x:Name="GPDButtonRemapExpandToggle"
+                                                      Grid.Column="1"
+                                                      IsChecked="False"
+                                                      VerticalAlignment="Center"
+                                                      Background="Transparent"
+                                                      BorderThickness="0"
+                                                      Padding="8,4"
+                                                      Click="GPDButtonRemapExpandToggle_Click">
+                                            <FontIcon x:Name="GPDButtonRemapExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                        </ToggleButton>
+                                    </Grid>
+
+                                    <StackPanel x:Name="GPDButtonRemapContent" Spacing="12" Margin="0,12,0,0" Visibility="Collapsed">
+                                        <!-- L4 Paddle Mapping -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="L4 Paddle" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDL4PaddleComboBox"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernComboBoxStyle}"
+                                                      SelectionChanged="GPDL4PaddleComboBox_SelectionChanged">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- R4 Paddle Mapping -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="R4 Paddle" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDR4PaddleComboBox"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernComboBoxStyle}"
+                                                      SelectionChanged="GPDR4PaddleComboBox_SelectionChanged">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- Restore Defaults Button -->
+                                        <Button x:Name="GPDRestoreDefaultsButton"
+                                                Content="Restore Defaults"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Margin="0,8,0,0"
+                                                Click="GPDRestoreDefaultsButton_Click"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
 
                     </StackPanel>
                 </ScrollViewer>

@@ -59,6 +59,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         public readonly GPDButtonDPadRightProperty ButtonDPadRight;
         public readonly GPDButtonL3Property ButtonL3;
         public readonly GPDButtonR3Property ButtonR3;
+        public readonly GPDButtonL4Property ButtonL4;
         public readonly GPDButtonR4Property ButtonR4;
         public readonly GPDButtonLSUpProperty ButtonLSUp;
         public readonly GPDButtonLSDownProperty ButtonLSDown;
@@ -91,6 +92,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 yield return ButtonDPadRight;
                 yield return ButtonL3;
                 yield return ButtonR3;
+                yield return ButtonL4;
                 yield return ButtonR4;
                 yield return ButtonLSUp;
                 yield return ButtonLSDown;
@@ -148,6 +150,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             ButtonDPadRight = new GPDButtonDPadRightProperty(this);
             ButtonL3 = new GPDButtonL3Property(this);
             ButtonR3 = new GPDButtonR3Property(this);
+            ButtonL4 = new GPDButtonL4Property(this);
             ButtonR4 = new GPDButtonR4Property(this);
             ButtonLSUp = new GPDButtonLSUpProperty(this);
             ButtonLSDown = new GPDButtonLSDownProperty(this);
@@ -208,8 +211,16 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 {
                     Logger.Warn("[GPDWin5] Win 5 HID device not found - may be in different mode or driver issue");
                     Logger.Info($"[GPDWin5] Expected: VID=0x{GPDWin5Controller.VendorId:X4}, PID=0x{GPDWin5Controller.ProductId:X4}");
+
+                    // In debug mode, show Win 5 UI even without actual hardware
+                    if (DeviceDetector.IsDebugModeActive)
+                    {
+                        Logger.Info("[GPDWin5] Debug mode active - enabling Win 5 UI without hardware");
+                        Win5Connected.SetConnected(true);
+                        return;
+                    }
+
                     // Notify widget this is a Win 5 device (even though HID not available)
-                    // This allows showing the UI in debug/spoof mode
                     Win5Connected.SetConnected(false);
                     return;
                 }

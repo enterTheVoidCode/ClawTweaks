@@ -159,6 +159,8 @@
     <Compile Include="Data\GPDFanSpeedProperty.cs" />
     <Compile Include="Data\GPDFanRPMProperty.cs" />
     <Compile Include="Data\GPDFanModeProperty.cs" />
+    <Compile Include="Data\GPDButtonL4Property.cs" />
+    <Compile Include="Data\GPDButtonR4Property.cs" />
     <Compile Include="Data\LegionTouchpadEnabledProperty.cs" />
     <Compile Include="Data\LegionLightModeProperty.cs" />
     <Compile Include="Data\LegionLightColorProperty.cs" />
@@ -211,6 +213,13 @@
     <Compile Include="Data\ControllerConnectedLeftProperty.cs" />
     <Compile Include="Data\ControllerConnectedRightProperty.cs" />
     <Compile Include="Data\ControllerVidPidProperty.cs" />
+    <Compile Include="Data\DeviceDisplayNameProperty.cs" />
+    <Compile Include="Data\DeviceSupportsControllerRemapProperty.cs" />
+    <Compile Include="Data\DeviceSupportsRgbLightingProperty.cs" />
+    <Compile Include="Data\DeviceSupportsGyroProperty.cs" />
+    <Compile Include="Data\DeviceHasScrollWheelProperty.cs" />
+    <Compile Include="Data\DeviceHasDetachableControllersProperty.cs" />
+    <Compile Include="Data\DeviceHasTouchpadProperty.cs" />
     <Compile Include="Data\DefaultGameProfileAvailableProperty.cs" />
     <Compile Include="Data\DefaultGameProfileDataProperty.cs" />
     <Compile Include="Data\DefaultGameProfileEnabledProperty.cs" />

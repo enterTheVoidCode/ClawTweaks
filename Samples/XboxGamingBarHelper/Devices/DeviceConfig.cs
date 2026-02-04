@@ -42,6 +42,7 @@ namespace XboxGamingBarHelper.Devices
         public abstract bool SupportsGyro { get; }
         public abstract bool HasTouchpad { get; }
         public abstract bool HasScrollWheel { get; }
+        public abstract bool HasDetachableControllers { get; }
         public virtual bool SupportsFanControl => false;
 
         /// <summary>
@@ -56,6 +57,7 @@ namespace XboxGamingBarHelper.Devices
             deviceInfo.SupportsGyro = SupportsGyro;
             deviceInfo.HasTouchpad = HasTouchpad;
             deviceInfo.HasScrollWheel = HasScrollWheel;
+            deviceInfo.HasDetachableControllers = HasDetachableControllers;
             deviceInfo.SupportsFanControl = SupportsFanControl;
         }
 

@@ -26,5 +26,6 @@ namespace XboxGamingBarHelper.Devices.LegionGo
         public override bool SupportsGyro => true;
         public override bool HasTouchpad => true;
         public override bool HasScrollWheel => true;
+        public override bool HasDetachableControllers => true;
     }
 }

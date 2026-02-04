@@ -20,12 +20,14 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
 
         // Legion Go services
         private LegionControllerService controllerService;
+        private LegionGoSController goSController;  // Legion Go S uses different HID protocol
         private LenovoWMIService wmiService;
 
         // Device detection
         private DeviceInfo deviceInfo;
         private bool isLegionGoDetected = false;
         private bool isControllerConnected = false;
+        private bool isGoSControllerConnected = false;  // Tracks Go S RGB controller connection
 
         // Current settings state (cached)
         private bool touchpadEnabled = true;
@@ -196,6 +198,15 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         public readonly ControllerConnectedLeftProperty ControllerConnectedLeft;
         public readonly ControllerConnectedRightProperty ControllerConnectedRight;
         public readonly ControllerVidPidProperty ControllerVidPid;
+
+        // Device capability properties (for widget UI visibility)
+        public readonly DeviceDisplayNameProperty DeviceDisplayName;
+        public readonly DeviceSupportsControllerRemapProperty DeviceSupportsControllerRemap;
+        public readonly DeviceSupportsRgbLightingProperty DeviceSupportsRgbLighting;
+        public readonly DeviceSupportsGyroProperty DeviceSupportsGyro;
+        public readonly DeviceHasScrollWheelProperty DeviceHasScrollWheel;
+        public readonly DeviceHasDetachableControllersProperty DeviceHasDetachableControllers;
+        public readonly DeviceHasTouchpadProperty DeviceHasTouchpad;
 
         // Reference to PerformanceManager for LibreHardwareMonitor sensor access
         private PerformanceManager performanceManager;
@@ -379,6 +390,27 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             ControllerConnectedRight = new ControllerConnectedRightProperty(false, this);
             ControllerVidPid = new ControllerVidPidProperty("", this);
 
+            // Initialize device capability properties (for widget UI visibility)
+            // Get display name and capabilities from the detected device config
+            var deviceConfig = DeviceRegistry.GetByType(deviceInfo?.DeviceType ?? Shared.Enums.DeviceType.Generic);
+            string displayName = deviceConfig?.DisplayName ?? "Legion Go Controller";
+            bool supportsControllerRemap = deviceInfo?.SupportsControllerRemap ?? true;
+            bool supportsRgbLighting = deviceInfo?.SupportsRgbLighting ?? true;
+            bool supportsGyro = deviceInfo?.SupportsGyro ?? true;
+            bool hasScrollWheel = deviceInfo?.HasScrollWheel ?? true;
+            bool hasDetachableControllers = deviceInfo?.HasDetachableControllers ?? true;
+            bool hasTouchpad = deviceInfo?.HasTouchpad ?? true;
+
+            DeviceDisplayName = new DeviceDisplayNameProperty(displayName, this);
+            DeviceSupportsControllerRemap = new DeviceSupportsControllerRemapProperty(supportsControllerRemap, this);
+            DeviceSupportsRgbLighting = new DeviceSupportsRgbLightingProperty(supportsRgbLighting, this);
+            DeviceSupportsGyro = new DeviceSupportsGyroProperty(supportsGyro, this);
+            DeviceHasScrollWheel = new DeviceHasScrollWheelProperty(hasScrollWheel, this);
+            DeviceHasDetachableControllers = new DeviceHasDetachableControllersProperty(hasDetachableControllers, this);
+            DeviceHasTouchpad = new DeviceHasTouchpadProperty(hasTouchpad, this);
+
+            Logger.Info($"Device capabilities - Name: {displayName}, ControllerRemap: {supportsControllerRemap}, RGB: {supportsRgbLighting}, Gyro: {supportsGyro}, ScrollWheel: {hasScrollWheel}, DetachableControllers: {hasDetachableControllers}, Touchpad: {hasTouchpad}");
+
             // NOTE: Battery monitoring is started from Program.cs AFTER widget connection
             // is established. Starting it here blocks the AppService connection.
 
@@ -501,13 +533,68 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                     {
                         isControllerConnected = true;
                         isLegionGoDetected = true;
-                        deviceInfo.SupportsControllerRemap = true;
-                        Logger.Info($"Legion Go controller connected: {connectResult.Message}");
+                        // Don't override SupportsControllerRemap here - respect the DeviceConfig value
+                        // Legion Go S has different HID structure that doesn't support remapping even if controller connects
+                        if (deviceInfo.SupportsControllerRemap)
+                        {
+                            Logger.Info($"Legion Go controller connected: {connectResult.Message}");
+                        }
+                        else
+                        {
+                            Logger.Info($"Legion Go controller connected but remapping not supported for this device variant: {connectResult.Message}");
+                        }
                     }
                     else
                     {
-                        deviceInfo.SupportsControllerRemap = false;
-                        Logger.Info($"Legion Go controller not connected: {connectResult.Message}");
+                        // Only disable if it was expected to be supported
+                        if (deviceInfo.SupportsControllerRemap)
+                        {
+                            deviceInfo.SupportsControllerRemap = false;
+                            Logger.Info($"Legion Go controller not connected: {connectResult.Message}");
+                        }
+                        else
+                        {
+                            Logger.Info($"Legion Go controller not connected (not supported for this device): {connectResult.Message}");
+                        }
+                    }
+
+                    // Step 4: For Legion Go S, try to connect to the RGB controller (uses different HID protocol)
+                    if (deviceInfo.DeviceType == Shared.Enums.DeviceType.LegionGoS && deviceInfo.SupportsRgbLighting)
+                    {
+                        try
+                        {
+                            Logger.Info("Attempting to connect Legion Go S RGB controller...");
+                            goSController = new LegionGoSController();
+                            if (goSController.Connect())
+                            {
+                                isGoSControllerConnected = true;
+                                isLegionGoDetected = true;
+                                Logger.Info("Legion Go S RGB controller connected successfully");
+                            }
+                            else
+                            {
+                                // In debug mode, don't disable RGB capability - the UI should still show
+                                // RGB controls even if we can't connect to actual hardware
+                                if (DeviceDetector.IsDebugModeActive)
+                                {
+                                    Logger.Info("Legion Go S RGB controller not found (debug mode - keeping RGB UI enabled)");
+                                    isLegionGoDetected = true;  // Mark as detected so UI shows
+                                }
+                                else
+                                {
+                                    Logger.Warn("Legion Go S RGB controller not found - RGB lighting disabled");
+                                    deviceInfo.SupportsRgbLighting = false;
+                                }
+                            }
+                        }
+                        catch (Exception goSEx)
+                        {
+                            Logger.Error($"Error connecting Legion Go S RGB controller: {goSEx.Message}");
+                            if (!DeviceDetector.IsDebugModeActive)
+                            {
+                                deviceInfo.SupportsRgbLighting = false;
+                            }
+                        }
                     }
                 }
             }
@@ -659,9 +746,13 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
 
         public void SetLightMode(int mode)
         {
-            if (!isControllerConnected || controllerService == null)
+            // Check if we have a valid controller for RGB
+            bool hasGoSController = isGoSControllerConnected && goSController != null;
+            bool hasStandardController = isControllerConnected && controllerService != null;
+
+            if (!hasGoSController && !hasStandardController)
             {
-                Logger.Warn("Cannot set light mode: controller not connected");
+                Logger.Warn("Cannot set light mode: no RGB controller connected");
                 return;
             }
 
@@ -670,16 +761,56 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 // Parse current color
                 ParseHexColor(lightColor, out byte r, out byte g, out byte b);
 
-                RgbMode rgbMode = (RgbMode)mode;
-                var result = controllerService.SetStickLightMode(rgbMode, r, g, b, lightBrightness / 100f, lightSpeed / 100f);
-                if (result.Success)
+                // Use Go S controller if available (Legion Go S uses different HID protocol)
+                if (hasGoSController)
                 {
-                    lightMode = mode;
-                    Logger.Info($"Light mode set to {rgbMode}");
+                    bool success = false;
+                    switch (mode)
+                    {
+                        case 0: // Disabled/Off
+                            success = goSController.DisableRgb();
+                            break;
+                        case 1: // Solid
+                            success = goSController.SetSolidColor(r, g, b, lightBrightness);
+                            break;
+                        case 2: // Pulse
+                            success = goSController.SetPulseMode(r, g, b, lightBrightness, lightSpeed);
+                            break;
+                        case 3: // Dynamic/Rainbow
+                            success = goSController.SetRainbowMode(lightBrightness, lightSpeed);
+                            break;
+                        case 4: // Spiral
+                            success = goSController.SetSpiralMode(lightBrightness, lightSpeed);
+                            break;
+                        default:
+                            success = goSController.SetSolidColor(r, g, b, lightBrightness);
+                            break;
+                    }
+
+                    if (success)
+                    {
+                        lightMode = mode;
+                        Logger.Info($"Light mode set to {mode} (Go S controller)");
+                    }
+                    else
+                    {
+                        Logger.Error($"Failed to set light mode on Go S controller");
+                    }
                 }
                 else
                 {
-                    Logger.Error($"Failed to set light mode: {result.Message}");
+                    // Standard Legion Go controller
+                    RgbMode rgbMode = (RgbMode)mode;
+                    var result = controllerService.SetStickLightMode(rgbMode, r, g, b, lightBrightness / 100f, lightSpeed / 100f);
+                    if (result.Success)
+                    {
+                        lightMode = mode;
+                        Logger.Info($"Light mode set to {rgbMode}");
+                    }
+                    else
+                    {
+                        Logger.Error($"Failed to set light mode: {result.Message}");
+                    }
                 }
             }
             catch (Exception ex)
@@ -690,9 +821,12 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
 
         public void SetLightColor(string hexColor)
         {
-            if (!isControllerConnected || controllerService == null)
+            bool hasGoSController = isGoSControllerConnected && goSController != null;
+            bool hasStandardController = isControllerConnected && controllerService != null;
+
+            if (!hasGoSController && !hasStandardController)
             {
-                Logger.Warn("Cannot set light color: controller not connected");
+                Logger.Warn("Cannot set light color: no RGB controller connected");
                 return;
             }
 
@@ -700,16 +834,43 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             {
                 ParseHexColor(hexColor, out byte r, out byte g, out byte b);
 
-                RgbMode rgbMode = (RgbMode)lightMode;
-                var result = controllerService.SetStickLightMode(rgbMode, r, g, b, lightBrightness / 100f, lightSpeed / 100f);
-                if (result.Success)
+                if (hasGoSController)
                 {
-                    lightColor = hexColor;
-                    Logger.Info($"Light color set to {hexColor}");
+                    // Map light mode to Go S RGB mode
+                    var goSMode = lightMode switch
+                    {
+                        0 => LegionGoSController.RgbMode.Solid,
+                        1 => LegionGoSController.RgbMode.Solid,
+                        2 => LegionGoSController.RgbMode.Pulse,
+                        3 => LegionGoSController.RgbMode.Dynamic,
+                        4 => LegionGoSController.RgbMode.Spiral,
+                        _ => LegionGoSController.RgbMode.Solid
+                    };
+
+                    bool success = goSController.SetRgbMode(goSMode, r, g, b, lightBrightness, lightSpeed);
+                    if (success)
+                    {
+                        lightColor = hexColor;
+                        Logger.Info($"Light color set to {hexColor} (Go S controller)");
+                    }
+                    else
+                    {
+                        Logger.Error($"Failed to set light color on Go S controller");
+                    }
                 }
                 else
                 {
-                    Logger.Error($"Failed to set light color: {result.Message}");
+                    RgbMode rgbMode = (RgbMode)lightMode;
+                    var result = controllerService.SetStickLightMode(rgbMode, r, g, b, lightBrightness / 100f, lightSpeed / 100f);
+                    if (result.Success)
+                    {
+                        lightColor = hexColor;
+                        Logger.Info($"Light color set to {hexColor}");
+                    }
+                    else
+                    {
+                        Logger.Error($"Failed to set light color: {result.Message}");
+                    }
                 }
             }
             catch (Exception ex)
@@ -738,9 +899,12 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
 
         public void SetLightBrightness(int brightness)
         {
-            if (!isControllerConnected || controllerService == null)
+            bool hasGoSController = isGoSControllerConnected && goSController != null;
+            bool hasStandardController = isControllerConnected && controllerService != null;
+
+            if (!hasGoSController && !hasStandardController)
             {
-                Logger.Warn("Cannot set light brightness: controller not connected");
+                Logger.Warn("Cannot set light brightness: no RGB controller connected");
                 return;
             }
 
@@ -749,16 +913,42 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 brightness = Math.Max(0, Math.Min(100, brightness));
                 ParseHexColor(lightColor, out byte r, out byte g, out byte b);
 
-                RgbMode rgbMode = (RgbMode)lightMode;
-                var result = controllerService.SetStickLightMode(rgbMode, r, g, b, brightness / 100f, lightSpeed / 100f);
-                if (result.Success)
+                if (hasGoSController)
                 {
-                    lightBrightness = brightness;
-                    Logger.Info($"Light brightness set to {brightness}%");
+                    var goSMode = lightMode switch
+                    {
+                        0 => LegionGoSController.RgbMode.Solid,
+                        1 => LegionGoSController.RgbMode.Solid,
+                        2 => LegionGoSController.RgbMode.Pulse,
+                        3 => LegionGoSController.RgbMode.Dynamic,
+                        4 => LegionGoSController.RgbMode.Spiral,
+                        _ => LegionGoSController.RgbMode.Solid
+                    };
+
+                    bool success = goSController.SetRgbMode(goSMode, r, g, b, brightness, lightSpeed);
+                    if (success)
+                    {
+                        lightBrightness = brightness;
+                        Logger.Info($"Light brightness set to {brightness}% (Go S controller)");
+                    }
+                    else
+                    {
+                        Logger.Error($"Failed to set light brightness on Go S controller");
+                    }
                 }
                 else
                 {
-                    Logger.Error($"Failed to set light brightness: {result.Message}");
+                    RgbMode rgbMode = (RgbMode)lightMode;
+                    var result = controllerService.SetStickLightMode(rgbMode, r, g, b, brightness / 100f, lightSpeed / 100f);
+                    if (result.Success)
+                    {
+                        lightBrightness = brightness;
+                        Logger.Info($"Light brightness set to {brightness}%");
+                    }
+                    else
+                    {
+                        Logger.Error($"Failed to set light brightness: {result.Message}");
+                    }
                 }
             }
             catch (Exception ex)
@@ -769,9 +959,12 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
 
         public void SetLightSpeed(int speed)
         {
-            if (!isControllerConnected || controllerService == null)
+            bool hasGoSController = isGoSControllerConnected && goSController != null;
+            bool hasStandardController = isControllerConnected && controllerService != null;
+
+            if (!hasGoSController && !hasStandardController)
             {
-                Logger.Warn("Cannot set light speed: controller not connected");
+                Logger.Warn("Cannot set light speed: no RGB controller connected");
                 return;
             }
 
@@ -780,16 +973,42 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 speed = Math.Max(0, Math.Min(100, speed));
                 ParseHexColor(lightColor, out byte r, out byte g, out byte b);
 
-                RgbMode rgbMode = (RgbMode)lightMode;
-                var result = controllerService.SetStickLightMode(rgbMode, r, g, b, lightBrightness / 100f, speed / 100f);
-                if (result.Success)
+                if (hasGoSController)
                 {
-                    lightSpeed = speed;
-                    Logger.Info($"Light speed set to {speed}%");
+                    var goSMode = lightMode switch
+                    {
+                        0 => LegionGoSController.RgbMode.Solid,
+                        1 => LegionGoSController.RgbMode.Solid,
+                        2 => LegionGoSController.RgbMode.Pulse,
+                        3 => LegionGoSController.RgbMode.Dynamic,
+                        4 => LegionGoSController.RgbMode.Spiral,
+                        _ => LegionGoSController.RgbMode.Solid
+                    };
+
+                    bool success = goSController.SetRgbMode(goSMode, r, g, b, lightBrightness, speed);
+                    if (success)
+                    {
+                        lightSpeed = speed;
+                        Logger.Info($"Light speed set to {speed}% (Go S controller)");
+                    }
+                    else
+                    {
+                        Logger.Error($"Failed to set light speed on Go S controller");
+                    }
                 }
                 else
                 {
-                    Logger.Error($"Failed to set light speed: {result.Message}");
+                    RgbMode rgbMode = (RgbMode)lightMode;
+                    var result = controllerService.SetStickLightMode(rgbMode, r, g, b, lightBrightness / 100f, speed / 100f);
+                    if (result.Success)
+                    {
+                        lightSpeed = speed;
+                        Logger.Info($"Light speed set to {speed}%");
+                    }
+                    else
+                    {
+                        Logger.Error($"Failed to set light speed: {result.Message}");
+                    }
                 }
             }
             catch (Exception ex)
@@ -864,29 +1083,11 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                     // Mode was already set optimistically, just log success
                     Logger.Info($"Performance mode set to {tdpMode}");
 
-                    // When switching to a preset mode (not Custom), reset the fan curve
-                    // to default values so the hardware uses its built-in preset fan curves.
-                    // Without this, a previously-set custom fan curve would persist and
-                    // the fans would run louder/differently than expected for the preset.
-                    if (mode != 255 && wmiService.HasCustomFanCurve())
-                    {
-                        Logger.Info($"Resetting fan curve to default for preset mode {tdpMode}");
-                        var defaultCurve = LenovoWMIService.DefaultFanCurve;
-                        var resetResult = wmiService.SetFanCurve(defaultCurve);
-                        if (resetResult.Success)
-                        {
-                            // Update internal state
-                            fanCurve = (ushort[])defaultCurve.Clone();
-                            // Update property to sync with widget (silently to avoid triggering re-apply)
-                            string defaultCurveString = string.Join(",", fanCurve.Select(v => (int)v));
-                            LegionFanCurveData?.SetValueSilent(defaultCurveString);
-                            Logger.Info($"Fan curve reset to default: [{string.Join(", ", fanCurve)}]%");
-                        }
-                        else
-                        {
-                            Logger.Warn($"Failed to reset fan curve: {resetResult.Message}");
-                        }
-                    }
+                    // NOTE: We do NOT reset the fan curve when switching to preset modes.
+                    // The hardware's preset modes (Quiet, Balanced, Performance) have their own
+                    // built-in fan curves that automatically take effect when SetSmartFanMode is called.
+                    // Setting any fan curve here would override the hardware's preset behavior.
+                    // The custom fan curve only applies when in Custom mode (255).
                 }
                 else
                 {

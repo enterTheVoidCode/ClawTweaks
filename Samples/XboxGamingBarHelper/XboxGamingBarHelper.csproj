@@ -478,6 +478,7 @@
     <Compile Include="PawnIO\RyzenSmuService.cs" />
     <Compile Include="AutoTDP\AutoTDPManager.cs" />
     <Compile Include="AutoTDP\QLearningController.cs" />
+    <Compile Include="AutoTDP\SARSAController.cs" />
     <Compile Include="AutoTDP\TDPLimitsProperty.cs" />
     <Compile Include="RTSS\DisplayOSDConfigProperty.cs" />
     <Compile Include="Systems\HDREnabledProperty.cs" />
@@ -508,6 +509,7 @@
     <Compile Include="Devices\GPD\GPDWin4Config.cs" />
     <Compile Include="Devices\GPD\GPDWin5Config.cs" />
     <Compile Include="Devices\Libraries\Legion\LegionGoController.cs" />
+    <Compile Include="Devices\Libraries\Legion\LegionGoSController.cs" />
     <Compile Include="Devices\Libraries\Legion\LegionGoLibrary.cs" />
     <Compile Include="Devices\Libraries\Legion\LegionManager.cs" />
     <Compile Include="Devices\Libraries\Legion\LegionProperties.cs" />

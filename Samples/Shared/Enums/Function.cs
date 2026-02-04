@@ -92,6 +92,15 @@
         DeviceModel,                // string - device model identifier (e.g., "83E1", "83N0")
         DeviceSupportsWmiTdp,       // bool - whether device supports WMI-based TDP control
 
+        // Device capability flags (helper -> widget sync for UI visibility)
+        DeviceDisplayName,              // string - "Legion Go", "Legion Go 2", "Legion Go S"
+        DeviceSupportsControllerRemap,  // bool - whether device supports HID controller remapping
+        DeviceSupportsRgbLighting,      // bool - whether device supports HID RGB lighting control
+        DeviceSupportsGyro,             // bool - whether device supports HID gyro configuration
+        DeviceHasScrollWheel,           // bool - whether device has a scroll wheel (Legion Go/Go2 yes, Go S no)
+        DeviceHasDetachableControllers, // bool - whether device has detachable L/R controllers (Legion Go/Go2 yes, Go S no)
+        DeviceHasTouchpad,              // bool - whether device has touchpad/vibration settings (uses HID)
+
         // Legion Go specific functions
         LegionGoDetected,           // bool - whether a Legion Go device is detected (kept for backwards compatibility)
         LegionTouchpadEnabled,      // bool - touchpad on/off
@@ -183,6 +192,7 @@
         GPDButtonDPadRight,             // ushort - D-Pad Right keycode
         GPDButtonL3,                    // ushort - L3 (left stick click) keycode
         GPDButtonR3,                    // ushort - R3 (right stick click) keycode
+        GPDButtonL4,                    // ushort - L4 back paddle keycode
         GPDButtonR4,                    // ushort - R4 back paddle keycode
         GPDButtonLSUp,                  // ushort - Left stick Up keycode
         GPDButtonLSDown,                // ushort - Left stick Down keycode
@@ -204,10 +214,11 @@
         AutoTDPCurrentFPS,          // int - current FPS reading (read-only)
         AutoTDPMinTDP,              // int - minimum TDP for AutoTDP range (4-85)
         AutoTDPMaxTDP,              // int - maximum TDP for AutoTDP range (4-85)
-        AutoTDPUseMLMode,           // bool - use ML learning mode instead of PID controller
+        AutoTDPUseMLMode,           // bool - DEPRECATED: use AutoTDPControllerType instead
         AutoTDPMLStatus,            // string - ML mode status (read-only: "Updates: N | Exploration: X%")
         AutoTDPResetML,             // bool - trigger to reset ML learning data (write true to trigger)
         AutoTDPPauseWhenUnfocused,  // bool - pause AutoTDP when game window is not focused (default: true)
+        AutoTDPControllerType,      // int - controller type (0=PID, 1=Q-Learning, 2=SARSA)
 
         // OSD Customization
         OSDConfig,                  // string - OSD configuration per level (L1:items;L2:items;L3:items)

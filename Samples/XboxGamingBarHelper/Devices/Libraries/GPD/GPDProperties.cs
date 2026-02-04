@@ -268,6 +268,13 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             : base(GPDButtonPosition.LeftStickRight, "LSRight", Function.GPDButtonLSRight, inManager) { }
     }
 
+    // GPD L4 Paddle Property - uses regular button remapping at position 15
+    internal class GPDButtonL4Property : GPDButtonPropertyBase
+    {
+        public GPDButtonL4Property(GPDManager inManager)
+            : base(GPDButtonPosition.L4, "L4", Function.GPDButtonL4, inManager) { }
+    }
+
     /// <summary>
     /// GPD R4 Paddle Property - special handling as it uses a different packet.
     /// </summary>
