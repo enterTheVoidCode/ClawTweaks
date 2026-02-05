@@ -189,15 +189,17 @@ namespace XboxGamingBar
 
         protected override void OnActivated(IActivatedEventArgs args)
         {
-            Logger.Info("App activated");
+            Logger.Info($"=== App.OnActivated START === Kind={args.Kind}, PreviousExecutionState={args.PreviousExecutionState}");
             XboxGameBarWidgetActivatedEventArgs widgetArgs = null;
             if (args.Kind == ActivationKind.Protocol)
             {
                 var protocolArgs = args as IProtocolActivatedEventArgs;
                 string scheme = protocolArgs.Uri.Scheme;
+                Logger.Info($"Protocol activation: scheme={scheme}, Uri={protocolArgs.Uri}");
                 if (scheme.Equals("ms-gamebarwidget"))
                 {
                     widgetArgs = args as XboxGameBarWidgetActivatedEventArgs;
+                    Logger.Info($"Game Bar widget activation: AppExtensionId={widgetArgs?.AppExtensionId}, IsLaunchActivation={widgetArgs?.IsLaunchActivation}");
                 }
             }
             if (widgetArgs != null)
@@ -227,21 +229,34 @@ namespace XboxGamingBar
                 //
                 if (widgetArgs.IsLaunchActivation)
                 {
+                    Logger.Info($"IsLaunchActivation=true: Creating new widget window. Window.Current={Window.Current?.GetHashCode()}, CoreWindow={Window.Current?.CoreWindow?.GetHashCode()}");
                     var rootFrame = new Frame();
                     rootFrame.NavigationFailed += OnNavigationFailed;
                     Window.Current.Content = rootFrame;
 
                     if (widgetArgs.AppExtensionId == "GamingWidget")
                     {
-                        // Create Game Bar widget object which bootstraps the connection with Game Bar
-                        gamingXboxGameBarWidget = new XboxGameBarWidget(widgetArgs, Window.Current.CoreWindow, rootFrame);
-                        rootFrame.Navigate(typeof(GamingWidget), gamingXboxGameBarWidget);
-                        gamingWidget = rootFrame.Content as GamingWidget;
+                        Logger.Info("Creating XboxGameBarWidget for GamingWidget...");
+                        try
+                        {
+                            // Create Game Bar widget object which bootstraps the connection with Game Bar
+                            gamingXboxGameBarWidget = new XboxGameBarWidget(widgetArgs, Window.Current.CoreWindow, rootFrame);
+                            Logger.Info($"XboxGameBarWidget created: {gamingXboxGameBarWidget?.GetHashCode()}");
+                            rootFrame.Navigate(typeof(GamingWidget), gamingXboxGameBarWidget);
+                            gamingWidget = rootFrame.Content as GamingWidget;
+                            Logger.Info($"GamingWidget navigated: {gamingWidget?.GetHashCode()}");
 
-                        Window.Current.Closed += GamingWidgetWindow_Closed;
+                            Window.Current.Closed += GamingWidgetWindow_Closed;
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"Failed to create GamingWidget on launch activation: {ex.Message}");
+                            Logger.Error($"Stack trace: {ex.StackTrace}");
+                        }
                     }
                     else if (widgetArgs.AppExtensionId == "GamingWidgetSettings")
                     {
+                        Logger.Info("Creating XboxGameBarWidget for GamingWidgetSettings...");
                         gamingSettingsXboxGameBarWidget = new XboxGameBarWidget(widgetArgs, Window.Current.CoreWindow, rootFrame);
                         rootFrame.Navigate(typeof(GamingWidgetSettings), gamingSettingsXboxGameBarWidget);
                         gamingWidgetSettings = rootFrame.Content as GamingWidgetSettings;
@@ -249,13 +264,17 @@ namespace XboxGamingBar
                         Window.Current.Closed += GamingSettingsWidgetWindow_Closed;
                     }
 
+                    Logger.Info("Calling Window.Current.Activate()...");
                     Window.Current.Activate();
+                    Logger.Info("Window activated successfully");
                 }
                 else
                 {
                     // Subsequent activation from Game Bar
                     // Check if we're running in app mode (no Game Bar widget) and should upgrade to widget mode
-                    Logger.Info($"Subsequent Game Bar activation received. AppExtensionId: {widgetArgs.AppExtensionId}");
+                    Logger.Info($"IsLaunchActivation=false: Subsequent Game Bar activation. AppExtensionId={widgetArgs.AppExtensionId}");
+                    Logger.Info($"Current state: gamingXboxGameBarWidget={gamingXboxGameBarWidget?.GetHashCode() ?? 0}, gamingWidget={gamingWidget?.GetHashCode() ?? 0}, IsConnected={IsConnected}");
+                    Logger.Info($"Window.Current={Window.Current?.GetHashCode()}, CoreWindow={Window.Current?.CoreWindow?.GetHashCode()}");
 
                     if (widgetArgs.AppExtensionId == "GamingWidget" && gamingXboxGameBarWidget == null)
                     {
@@ -263,8 +282,10 @@ namespace XboxGamingBar
 
                         // Get the existing frame or create a new one
                         var rootFrame = Window.Current.Content as Frame;
+                        Logger.Info($"Existing rootFrame: {rootFrame?.GetHashCode() ?? 0}, Content type: {rootFrame?.Content?.GetType().Name ?? "null"}");
                         if (rootFrame == null)
                         {
+                            Logger.Info("Creating new Frame for upgrade...");
                             rootFrame = new Frame();
                             rootFrame.NavigationFailed += OnNavigationFailed;
                             Window.Current.Content = rootFrame;
@@ -273,16 +294,20 @@ namespace XboxGamingBar
                         try
                         {
                             // Create the Game Bar widget object
+                            Logger.Info("Creating XboxGameBarWidget for upgrade...");
                             gamingXboxGameBarWidget = new XboxGameBarWidget(widgetArgs, Window.Current.CoreWindow, rootFrame);
-                            Logger.Info("XboxGameBarWidget created successfully from subsequent activation.");
+                            Logger.Info($"XboxGameBarWidget created successfully: {gamingXboxGameBarWidget.GetHashCode()}");
 
                             // Re-navigate to inject the widget context
+                            Logger.Info("Navigating to GamingWidget with new widget context...");
                             rootFrame.Navigate(typeof(GamingWidget), gamingXboxGameBarWidget);
                             gamingWidget = rootFrame.Content as GamingWidget;
+                            Logger.Info($"GamingWidget navigated: {gamingWidget?.GetHashCode() ?? 0}");
 
                             Window.Current.Closed -= GamingWidgetWindow_Closed; // Remove if already registered
                             Window.Current.Closed += GamingWidgetWindow_Closed;
 
+                            Logger.Info("Calling Window.Current.Activate() for upgrade...");
                             Window.Current.Activate();
                             Logger.Info("Successfully upgraded from app mode to Game Bar widget mode.");
                         }
@@ -327,6 +352,7 @@ namespace XboxGamingBar
                     }
                 }
             }
+            Logger.Info("=== App.OnActivated END ===");
         }
 
         private void GamingWidgetWindow_Closed(object sender, Windows.UI.Core.CoreWindowEventArgs e)

@@ -803,6 +803,8 @@ namespace XboxGamingBar
         // GPD properties
         private readonly GPDDetectedProperty gpdDetected;
         private readonly GPDWin5ConnectedProperty gpdWin5Connected;
+        private readonly GPDDeviceNameProperty gpdDeviceName;
+        private readonly GPDSupportsFanControlProperty gpdSupportsFanControl;
         private readonly GPDFanSpeedProperty gpdFanSpeed;
         private readonly GPDFanRPMProperty gpdFanRPM;
         private readonly GPDFanModeProperty gpdFanMode;
@@ -981,7 +983,7 @@ namespace XboxGamingBar
         public GamingWidget()
         {
             var constructorTimer = Stopwatch.StartNew();
-            Logger.Info("GamingWidget constructor called - creating new instance.");
+            Logger.Info($"=== GamingWidget constructor START === Instance hash: {this.GetHashCode()}");
 
             // Prevent OSD checkbox events from saving during XAML initialization
             isLoadingOSDConfig = true;
@@ -1188,6 +1190,8 @@ namespace XboxGamingBar
             // GPD properties
             gpdDetected = new GPDDetectedProperty(this);
             gpdWin5Connected = new GPDWin5ConnectedProperty(this);
+            gpdDeviceName = new GPDDeviceNameProperty(this);
+            gpdSupportsFanControl = new GPDSupportsFanControlProperty(this);
             gpdFanSpeed = new GPDFanSpeedProperty(this);
             gpdFanRPM = new GPDFanRPMProperty(this);
             gpdFanMode = new GPDFanModeProperty(this);
@@ -1276,7 +1280,9 @@ namespace XboxGamingBar
 
             // GPD tab callbacks
             gpdDetected.SetVisibilityCallback(SetGPDTabVisibility);
-            gpdWin5Connected.SetConnectionCallback(SetGPDWin5Visibility);
+            gpdDeviceName.SetNameCallback(SetGPDDeviceName);
+            gpdSupportsFanControl.SetVisibilityCallback(SetGPDFanControlVisibility);
+            gpdWin5Connected.SetConnectionCallback(SetGPDButtonRemapVisibility);
             gpdFanRPM.SetRPMCallback(UpdateGPDFanRPM);
             gpdFanMode.SetModeCallback(UpdateGPDFanMode);
 
@@ -1425,6 +1431,8 @@ namespace XboxGamingBar
                 // GPD properties
                 gpdDetected,
                 gpdWin5Connected,
+                gpdDeviceName,
+                gpdSupportsFanControl,
                 gpdFanSpeed,
                 gpdFanRPM,
                 gpdFanMode,
@@ -1449,7 +1457,7 @@ namespace XboxGamingBar
             RegisterCardFocusHandlers();
 
             constructorTimer.Stop();
-            Logger.Info($"[TIMING] Constructor total: {constructorTimer.ElapsedMilliseconds}ms");
+            Logger.Info($"=== GamingWidget constructor END === Total: {constructorTimer.ElapsedMilliseconds}ms, Instance hash: {this.GetHashCode()}");
         }
 
         // Track the currently focused card
@@ -13737,7 +13745,7 @@ namespace XboxGamingBar
 
         public void OnDeactivated()
         {
-            Logger.Info("GamingWidget being deactivated - stopping pending updates.");
+            Logger.Info($"=== GamingWidget.OnDeactivated START === Instance hash: {this.GetHashCode()}");
             try
             {
                 // Must run on UI thread since DispatcherTimer is UI-bound
@@ -14523,8 +14531,12 @@ namespace XboxGamingBar
         /// <param name="state">The banner state to display</param>
         private void ShowConnectionBanner(BannerState state)
         {
+            Logger.Info($"[BANNER] ShowConnectionBanner called: state={state}");
             if (ConnectionStatusBanner == null || ConnectionStatusText == null)
+            {
+                Logger.Warn($"[BANNER] ShowConnectionBanner: Banner controls are null! ConnectionStatusBanner={ConnectionStatusBanner != null}, ConnectionStatusText={ConnectionStatusText != null}");
                 return;
+            }
 
             switch (state)
             {
@@ -14558,6 +14570,22 @@ namespace XboxGamingBar
                     break;
             }
             ConnectionStatusBanner.Visibility = Visibility.Visible;
+
+            // Also update the small status indicator dot
+            switch (state)
+            {
+                case BannerState.Disconnected:
+                    UpdateHelperStatusIndicator(HelperStatus.Disconnected);
+                    break;
+                case BannerState.Syncing:
+                case BannerState.Reconnecting:
+                case BannerState.Launching:
+                case BannerState.Loading:
+                case BannerState.InitialSetup:
+                case BannerState.Upgrading:
+                    UpdateHelperStatusIndicator(HelperStatus.Connecting);
+                    break;
+            }
         }
 
         /// <summary>
@@ -14565,9 +14593,68 @@ namespace XboxGamingBar
         /// </summary>
         private void HideConnectionBanner()
         {
+            Logger.Info("[BANNER] HideConnectionBanner called");
             if (ConnectionStatusBanner != null)
             {
                 ConnectionStatusBanner.Visibility = Visibility.Collapsed;
+                Logger.Info("[BANNER] ConnectionStatusBanner visibility set to Collapsed");
+            }
+            else
+            {
+                Logger.Warn("[BANNER] HideConnectionBanner: ConnectionStatusBanner is null!");
+            }
+
+            // When banner is hidden, we're connected - show green status
+            UpdateHelperStatusIndicator(HelperStatus.Connected);
+        }
+
+        /// <summary>
+        /// Helper connection status for the status indicator dot.
+        /// </summary>
+        private enum HelperStatus
+        {
+            Disconnected,  // Red - not connected
+            Connecting,    // Yellow - connecting/syncing/launching
+            Connected      // Green - fully connected
+        }
+
+        /// <summary>
+        /// Updates the small helper status indicator dot in the Quick tab corner.
+        /// </summary>
+        private void UpdateHelperStatusIndicator(HelperStatus status)
+        {
+            if (HelperStatusDot == null) return;
+
+            _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+            {
+                switch (status)
+                {
+                    case HelperStatus.Disconnected:
+                        HelperStatusDot.Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 85, 85)); // #FF5555 Red
+                        if (HelperStatusText != null) HelperStatusText.Text = "Disconnected";
+                        break;
+                    case HelperStatus.Connecting:
+                        HelperStatusDot.Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 200, 50)); // #FFC832 Yellow/Orange
+                        if (HelperStatusText != null) HelperStatusText.Text = "Connecting...";
+                        break;
+                    case HelperStatus.Connected:
+                        HelperStatusDot.Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 85, 200, 85)); // #55C855 Green
+                        if (HelperStatusText != null) HelperStatusText.Text = "Connected";
+                        break;
+                }
+            });
+        }
+
+        /// <summary>
+        /// Handle tap on helper status indicator to show/hide status text.
+        /// </summary>
+        private void HelperStatusIndicator_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            if (HelperStatusText != null)
+            {
+                HelperStatusText.Visibility = HelperStatusText.Visibility == Visibility.Visible
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
             }
         }
 
@@ -15213,6 +15300,12 @@ namespace XboxGamingBar
             }
 
             Logger.Warn($"Failed to connect via pipe after {maxAttempts} attempts ({maxAttempts * delayBetweenAttempts / 1000}s)");
+
+            // Show disconnected banner so user knows connection failed
+            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                ShowConnectionBanner(BannerState.Disconnected);
+            });
         }
 
         /// <summary>
@@ -15421,6 +15514,17 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Check for Quick Metrics push from helper
+                if (message.TryGetValue("Function", out object qmFuncObj) &&
+                    Convert.ToInt32(qmFuncObj) == (int)Shared.Enums.Function.QuickMetrics)
+                {
+                    if (message.TryGetValue("Content", out object content) && content is string metricsJson)
+                    {
+                        UpdateQuickMetrics(metricsJson);
+                    }
+                    return;
+                }
+
                 // Skip TDP and CurrentTDP updates during Sticky TDP reapply
                 if (isStickyTDPReapplying && message.ContainsKey("Function"))
                 {
@@ -15541,6 +15645,7 @@ namespace XboxGamingBar
         private async Task OnPipeConnectedAsync()
         {
             Logger.Info("=== OnPipeConnectedAsync START ===");
+            Logger.Info($"[PIPE] OnPipeConnectedAsync called. Widget hash: {this.GetHashCode()}, App.IsConnected: {App.IsConnected}");
 
             // Stop reconnection timeout timer - connection established
             StopReconnectionTimeoutTimer();
@@ -15631,6 +15736,7 @@ namespace XboxGamingBar
 
             try
             {
+                Logger.Info("[PIPE] Starting post-sync initialization...");
                 await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                 {
                     properties.StopPendingUpdates();
@@ -15641,22 +15747,39 @@ namespace XboxGamingBar
                     legionPerformanceMode.SuppressUpdates = false;
                 }
 
+                Logger.Info("[PIPE] Sending OSD config to helper...");
                 SendOSDConfigToHelper();
+                Logger.Info("[PIPE] Applying profile TDP to helper...");
                 await ApplyProfileTDPToHelper();
+
+                // Send Quick Metrics enabled state to helper
+                Logger.Info("[PIPE] Sending Quick Metrics enabled state to helper...");
+                await SendQuickMetricsEnabledToHelper();
 
                 await Task.Delay(200);
                 isInitialSync = false;
                 Logger.Info("Initial sync via pipe complete - profile saves are now enabled");
 
+                Logger.Info("[PIPE] About to hide connection banner and update profile display...");
                 await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                 {
+                    Logger.Info("[PIPE] Inside dispatcher - calling HideConnectionBanner()");
                     HideConnectionBanner();
+                    Logger.Info("[PIPE] Inside dispatcher - calling UpdateProfileDisplay()");
                     UpdateProfileDisplay();
+                    Logger.Info("[PIPE] Inside dispatcher - post-sync UI updates complete");
                 });
+                Logger.Info("[PIPE] Post-sync initialization complete");
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error in post-sync initialization via pipe: {ex}");
+                Logger.Error($"[PIPE] Stack trace: {ex.StackTrace}");
+                // Show error banner so user knows something went wrong
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    ShowConnectionBanner(BannerState.Disconnected);
+                });
             }
 
             Logger.Info("=== OnPipeConnectedAsync END ===");
@@ -16399,26 +16522,41 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Sets visibility of Win 5 specific sections based on HID controller connection.
+        /// Sets the GPD device name text from the helper.
         /// </summary>
-        private void SetGPDWin5Visibility(bool connected)
+        private void SetGPDDeviceName(string name)
+        {
+            if (GPDDeviceNameText != null && !string.IsNullOrEmpty(name))
+            {
+                GPDDeviceNameText.Text = name;
+                Logger.Info($"GPD device name set to: {name}");
+            }
+        }
+
+        /// <summary>
+        /// Sets visibility of fan control section based on device capability.
+        /// Fan control uses EC commands, independent of HID controller connection.
+        /// </summary>
+        private void SetGPDFanControlVisibility(bool supported)
         {
             if (GPDFanControlSection != null)
             {
-                GPDFanControlSection.Visibility = connected ? Visibility.Visible : Visibility.Collapsed;
+                GPDFanControlSection.Visibility = supported ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"GPD fan control section visibility set to: {supported}");
             }
+        }
+
+        /// <summary>
+        /// Sets visibility of button remapping section based on HID controller connection.
+        /// Button remapping requires HID connection to the Win 5 controller.
+        /// </summary>
+        private void SetGPDButtonRemapVisibility(bool connected)
+        {
             if (GPDButtonRemapSection != null)
             {
                 GPDButtonRemapSection.Visibility = connected ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"GPD button remap section visibility set to: {connected}");
             }
-
-            // Update device name for Win 5
-            if (GPDDeviceNameText != null && connected)
-            {
-                GPDDeviceNameText.Text = "GPD Win 5";
-            }
-
-            Logger.Info($"GPD Win 5 sections visibility set to: {connected}");
         }
 
         /// <summary>
@@ -18055,6 +18193,60 @@ namespace XboxGamingBar
         // Column count setting (3 or 4 columns)
         private int qsColumnCount = 4;
 
+        // Quick Metrics row state
+        private bool quickMetricsEnabled = false;
+        private const string QuickMetricsEnabledKey = "QS_MetricsEnabled";
+        private const string QuickMetricsSelectionKey = "QS_MetricsSelection";
+        private const int MaxSelectedMetrics = 6;
+
+        // Available metric types with their display properties
+        private enum MetricType
+        {
+            BatteryDrain,
+            BatteryLevel,
+            CPUUsage,
+            CPUTemp,
+            CPUWattage,
+            GPUUsage,
+            GPUTemp,
+            GPUWattage,
+            MemoryUsage,
+            TimeRemaining
+        }
+
+        // Metric display info
+        private class MetricInfo
+        {
+            public string Id { get; set; }
+            public string Label { get; set; }
+            public string Glyph { get; set; }
+            public string Unit { get; set; }
+            public TextBlock ValueTextBlock { get; set; }
+            public TextBlock LabelTextBlock { get; set; }
+        }
+
+        // Map of metric type to display info
+        private readonly Dictionary<MetricType, MetricInfo> metricDefinitions = new Dictionary<MetricType, MetricInfo>
+        {
+            { MetricType.BatteryDrain, new MetricInfo { Id = "BatteryDrain", Label = "Battery", Glyph = "\uE83F", Unit = "W" } },
+            { MetricType.BatteryLevel, new MetricInfo { Id = "BatteryLevel", Label = "Battery", Glyph = "\uE83F", Unit = "%" } },
+            { MetricType.CPUUsage, new MetricInfo { Id = "CPUUsage", Label = "CPU", Glyph = "\uE950", Unit = "%" } },
+            { MetricType.CPUTemp, new MetricInfo { Id = "CPUTemp", Label = "CPU Temp", Glyph = "\uE9CA", Unit = "°" } },
+            { MetricType.CPUWattage, new MetricInfo { Id = "CPUWattage", Label = "CPU", Glyph = "\uE945", Unit = "W" } },
+            { MetricType.GPUUsage, new MetricInfo { Id = "GPUUsage", Label = "GPU", Glyph = "\uE7F4", Unit = "%" } },
+            { MetricType.GPUTemp, new MetricInfo { Id = "GPUTemp", Label = "GPU Temp", Glyph = "\uE9CA", Unit = "°" } },
+            { MetricType.GPUWattage, new MetricInfo { Id = "GPUWattage", Label = "GPU", Glyph = "\uE945", Unit = "W" } },
+            { MetricType.MemoryUsage, new MetricInfo { Id = "MemoryUsage", Label = "Memory", Glyph = "\uE964", Unit = "%" } },
+            { MetricType.TimeRemaining, new MetricInfo { Id = "TimeRemaining", Label = "Time", Glyph = "\uE916", Unit = "" } }
+        };
+
+        // Currently selected metrics (in order of display)
+        private List<MetricType> selectedMetrics = new List<MetricType>();
+
+        // Current metrics data from helper
+        private Dictionary<string, double> currentMetricsData = new Dictionary<string, double>();
+        private bool currentMetricsIsCharging = false;
+
         // Timer for TDP reapply when switching to Custom mode
         private Windows.UI.Xaml.DispatcherTimer qsTdpReapplyTimer;
 
@@ -18377,6 +18569,43 @@ namespace XboxGamingBar
                     qsColumnCount = Math.Max(3, Math.Min(5, colCount));  // Clamp to 3-5
                 }
 
+                // Load Quick Metrics toggle state
+                if (settings.Values.TryGetValue(QuickMetricsEnabledKey, out object metricsVal) && metricsVal is bool metricsEnabled)
+                {
+                    quickMetricsEnabled = metricsEnabled;
+                }
+
+                // Load Quick Metrics selection
+                selectedMetrics.Clear();
+                if (settings.Values.TryGetValue(QuickMetricsSelectionKey, out object selectionVal) && selectionVal is string selectionStr)
+                {
+                    // Parse comma-separated metric IDs
+                    foreach (var id in selectionStr.Split(','))
+                    {
+                        if (Enum.TryParse<MetricType>(id.Trim(), out var metricType))
+                        {
+                            selectedMetrics.Add(metricType);
+                        }
+                    }
+                }
+                else
+                {
+                    // Default selection: Battery Drain, CPU Usage, CPU Temp, GPU Usage, Time Remaining
+                    selectedMetrics.AddRange(new[] { MetricType.BatteryDrain, MetricType.CPUUsage, MetricType.CPUTemp, MetricType.GPUUsage, MetricType.TimeRemaining });
+                }
+
+                // Update Quick Metrics UI
+                if (QuickMetricsToggle != null)
+                    QuickMetricsToggle.IsOn = quickMetricsEnabled;
+                if (QuickMetricsRow != null)
+                    QuickMetricsRow.Visibility = quickMetricsEnabled ? Visibility.Visible : Visibility.Collapsed;
+                if (MetricsSelectionPanel != null)
+                    MetricsSelectionPanel.Visibility = quickMetricsEnabled ? Visibility.Visible : Visibility.Collapsed;
+
+                // Update checkboxes and rebuild metrics grid
+                UpdateMetricCheckboxes();
+                RebuildMetricsGrid();
+
                 foreach (var tile in qsTileDefinitions)
                 {
                     string visKey = $"QS_{tile.Id}_Visible";
@@ -18423,6 +18652,565 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Error saving Quick Settings config: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle Quick Metrics toggle change
+        /// </summary>
+        private async void QuickMetricsToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                quickMetricsEnabled = QuickMetricsToggle.IsOn;
+
+                // Save setting to local storage
+                var settings = ApplicationData.Current.LocalSettings;
+                settings.Values[QuickMetricsEnabledKey] = quickMetricsEnabled;
+
+                // Update visibility of metrics row and selection panel
+                if (QuickMetricsRow != null)
+                    QuickMetricsRow.Visibility = quickMetricsEnabled ? Visibility.Visible : Visibility.Collapsed;
+                if (MetricsSelectionPanel != null)
+                    MetricsSelectionPanel.Visibility = quickMetricsEnabled ? Visibility.Visible : Visibility.Collapsed;
+
+                // Rebuild the metrics grid if enabling
+                if (quickMetricsEnabled)
+                {
+                    RebuildMetricsGrid();
+                }
+
+                // Notify helper to start/stop pushing metrics
+                if (App.IsConnected)
+                {
+                    var request = new Windows.Foundation.Collections.ValueSet
+                    {
+                        { "Command", (int)Shared.Enums.Command.Set },
+                        { "Function", (int)Shared.Enums.Function.QuickMetricsEnabled },
+                        { "Content", quickMetricsEnabled }
+                    };
+                    await App.SendMessageAsync(request);
+                    Logger.Info($"Quick Metrics toggle set to: {quickMetricsEnabled}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error handling Quick Metrics toggle: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Update Quick Metrics display from helper push data
+        /// </summary>
+        private void UpdateQuickMetrics(string json)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(json)) return;
+
+                // Parse all metrics from JSON
+                var matches = System.Text.RegularExpressions.Regex.Matches(json,
+                    @"""(\w+)""\s*:\s*(-?\d+\.?\d*|true|false)");
+
+                foreach (System.Text.RegularExpressions.Match match in matches)
+                {
+                    var key = match.Groups[1].Value;
+                    var value = match.Groups[2].Value;
+
+                    if (key == "isCharging")
+                    {
+                        currentMetricsIsCharging = value == "true";
+                    }
+                    else if (double.TryParse(value, out double numValue))
+                    {
+                        currentMetricsData[key] = numValue;
+                    }
+                }
+
+                // Update UI elements on dispatcher thread
+                _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    try
+                    {
+                        UpdateMetricsDisplay();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error updating Quick Metrics UI: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error parsing Quick Metrics JSON: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Update the metrics display based on current data and selected metrics
+        /// </summary>
+        private void UpdateMetricsDisplay()
+        {
+            foreach (var metricType in selectedMetrics)
+            {
+                if (!metricDefinitions.TryGetValue(metricType, out var info) || info.ValueTextBlock == null)
+                    continue;
+
+                string displayValue = "--";
+                string label = info.Label;
+
+                switch (metricType)
+                {
+                    case MetricType.BatteryDrain:
+                        if (currentMetricsData.TryGetValue("batteryDrain", out var drain))
+                        {
+                            if (drain > 0)
+                                displayValue = $"{drain:F1}W";
+                            else if (drain < 0)
+                                displayValue = $"+{-drain:F1}W";
+                            else
+                                displayValue = "--W";
+                        }
+                        break;
+
+                    case MetricType.BatteryLevel:
+                        if (currentMetricsData.TryGetValue("batteryLevel", out var level) && level >= 0)
+                            displayValue = $"{level:F0}%";
+                        break;
+
+                    case MetricType.CPUUsage:
+                        if (currentMetricsData.TryGetValue("cpuUsage", out var cpuUse) && cpuUse >= 0)
+                            displayValue = $"{cpuUse:F0}%";
+                        break;
+
+                    case MetricType.CPUTemp:
+                        if (currentMetricsData.TryGetValue("cpuTemp", out var cpuTemp) && cpuTemp > 0)
+                            displayValue = $"{cpuTemp:F0}°";
+                        break;
+
+                    case MetricType.CPUWattage:
+                        if (currentMetricsData.TryGetValue("cpuWattage", out var cpuWatt) && cpuWatt >= 0)
+                            displayValue = $"{cpuWatt:F1}W";
+                        break;
+
+                    case MetricType.GPUUsage:
+                        if (currentMetricsData.TryGetValue("gpuUsage", out var gpuUse) && gpuUse >= 0)
+                            displayValue = $"{gpuUse:F0}%";
+                        break;
+
+                    case MetricType.GPUTemp:
+                        if (currentMetricsData.TryGetValue("gpuTemp", out var gpuTemp) && gpuTemp > 0)
+                            displayValue = $"{gpuTemp:F0}°";
+                        break;
+
+                    case MetricType.GPUWattage:
+                        if (currentMetricsData.TryGetValue("gpuWattage", out var gpuWatt) && gpuWatt >= 0)
+                            displayValue = $"{gpuWatt:F1}W";
+                        break;
+
+                    case MetricType.MemoryUsage:
+                        if (currentMetricsData.TryGetValue("memoryUsage", out var memUse) && memUse >= 0)
+                            displayValue = $"{memUse:F0}%";
+                        break;
+
+                    case MetricType.TimeRemaining:
+                        currentMetricsData.TryGetValue("timeRemaining", out var timeRem);
+                        currentMetricsData.TryGetValue("timeToFull", out var timeFull);
+                        if (currentMetricsIsCharging && timeFull > 0)
+                        {
+                            var hours = (int)(timeFull / 3600);
+                            var mins = (int)((timeFull % 3600) / 60);
+                            displayValue = $"{hours}:{mins:D2}";
+                            label = "To Full";
+                        }
+                        else if (!currentMetricsIsCharging && timeRem > 0)
+                        {
+                            var hours = (int)(timeRem / 3600);
+                            var mins = (int)((timeRem % 3600) / 60);
+                            displayValue = $"{hours}:{mins:D2}";
+                            label = "Remaining";
+                        }
+                        else
+                        {
+                            displayValue = "--:--";
+                            label = currentMetricsIsCharging ? "Charging" : "Time";
+                        }
+                        break;
+                }
+
+                info.ValueTextBlock.Text = displayValue;
+                if (info.LabelTextBlock != null)
+                    info.LabelTextBlock.Text = label;
+            }
+        }
+
+        /// <summary>
+        /// Update checkbox states based on selected metrics
+        /// </summary>
+        private void UpdateMetricCheckboxes()
+        {
+            // Map checkboxes to metric types
+            var checkboxMap = new Dictionary<CheckBox, MetricType>
+            {
+                { MetricCheck_BatteryDrain, MetricType.BatteryDrain },
+                { MetricCheck_BatteryLevel, MetricType.BatteryLevel },
+                { MetricCheck_CPUUsage, MetricType.CPUUsage },
+                { MetricCheck_CPUTemp, MetricType.CPUTemp },
+                { MetricCheck_CPUWattage, MetricType.CPUWattage },
+                { MetricCheck_GPUUsage, MetricType.GPUUsage },
+                { MetricCheck_GPUTemp, MetricType.GPUTemp },
+                { MetricCheck_GPUWattage, MetricType.GPUWattage },
+                { MetricCheck_MemoryUsage, MetricType.MemoryUsage },
+                { MetricCheck_TimeRemaining, MetricType.TimeRemaining }
+            };
+
+            foreach (var kvp in checkboxMap)
+            {
+                if (kvp.Key != null)
+                    kvp.Key.IsChecked = selectedMetrics.Contains(kvp.Value);
+            }
+
+            UpdateMetricsSelectionCount();
+        }
+
+        /// <summary>
+        /// Update the metrics selection count display
+        /// </summary>
+        private void UpdateMetricsSelectionCount()
+        {
+            if (MetricsSelectionCount != null)
+            {
+                MetricsSelectionCount.Text = $"{selectedMetrics.Count}/{MaxSelectedMetrics} selected";
+                MetricsSelectionCount.Foreground = new SolidColorBrush(
+                    selectedMetrics.Count >= MaxSelectedMetrics
+                        ? Windows.UI.Color.FromArgb(255, 255, 150, 100)  // Orange when at max
+                        : Windows.UI.Color.FromArgb(255, 102, 102, 102)); // Gray otherwise
+            }
+        }
+
+        /// <summary>
+        /// Handle metric checkbox changes
+        /// </summary>
+        private void MetricCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is CheckBox checkbox)) return;
+
+            // Map checkbox to metric type
+            var checkboxMap = new Dictionary<CheckBox, MetricType>
+            {
+                { MetricCheck_BatteryDrain, MetricType.BatteryDrain },
+                { MetricCheck_BatteryLevel, MetricType.BatteryLevel },
+                { MetricCheck_CPUUsage, MetricType.CPUUsage },
+                { MetricCheck_CPUTemp, MetricType.CPUTemp },
+                { MetricCheck_CPUWattage, MetricType.CPUWattage },
+                { MetricCheck_GPUUsage, MetricType.GPUUsage },
+                { MetricCheck_GPUTemp, MetricType.GPUTemp },
+                { MetricCheck_GPUWattage, MetricType.GPUWattage },
+                { MetricCheck_MemoryUsage, MetricType.MemoryUsage },
+                { MetricCheck_TimeRemaining, MetricType.TimeRemaining }
+            };
+
+            if (!checkboxMap.TryGetValue(checkbox, out var metricType))
+                return;
+
+            bool isChecked = checkbox.IsChecked == true;
+
+            if (isChecked)
+            {
+                // Trying to add - check if at max
+                if (selectedMetrics.Count >= MaxSelectedMetrics)
+                {
+                    checkbox.IsChecked = false;
+                    return;
+                }
+                if (!selectedMetrics.Contains(metricType))
+                    selectedMetrics.Add(metricType);
+            }
+            else
+            {
+                selectedMetrics.Remove(metricType);
+            }
+
+            // Save selection
+            SaveMetricsSelection();
+
+            // Update count display
+            UpdateMetricsSelectionCount();
+
+            // Rebuild the metrics grid
+            RebuildMetricsGrid();
+        }
+
+        /// <summary>
+        /// Save metrics selection to local settings
+        /// </summary>
+        private void SaveMetricsSelection()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                var selectionStr = string.Join(",", selectedMetrics.Select(m => m.ToString()));
+                settings.Values[QuickMetricsSelectionKey] = selectionStr;
+                Logger.Info($"Saved metrics selection: {selectionStr}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error saving metrics selection: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Rebuild the metrics grid based on selected metrics
+        /// </summary>
+        private void RebuildMetricsGrid()
+        {
+            if (QuickMetricsGrid == null) return;
+
+            QuickMetricsGrid.Children.Clear();
+            QuickMetricsGrid.ColumnDefinitions.Clear();
+
+            if (selectedMetrics.Count == 0)
+            {
+                QuickMetricsRow.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            // Create columns for each selected metric
+            foreach (var _ in selectedMetrics)
+            {
+                QuickMetricsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            }
+
+            // Create UI for each selected metric
+            int colIndex = 0;
+            foreach (var metricType in selectedMetrics)
+            {
+                if (!metricDefinitions.TryGetValue(metricType, out var info))
+                    continue;
+
+                // Create metric panel
+                var panel = new StackPanel
+                {
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+
+                // Value row (icon + value)
+                var valueRow = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+
+                var icon = new FontIcon
+                {
+                    Glyph = info.Glyph,
+                    FontSize = 14,
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 200, 255)), // #00C8FF
+                    Margin = new Thickness(0, 0, 4, 0),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+
+                var valueText = new TextBlock
+                {
+                    Text = "--",
+                    FontSize = 14,
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                info.ValueTextBlock = valueText;
+
+                valueRow.Children.Add(icon);
+                valueRow.Children.Add(valueText);
+
+                // Label
+                var labelText = new TextBlock
+                {
+                    Text = info.Label,
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136)), // #888888
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                info.LabelTextBlock = labelText;
+
+                panel.Children.Add(valueRow);
+                panel.Children.Add(labelText);
+
+                Grid.SetColumn(panel, colIndex);
+                QuickMetricsGrid.Children.Add(panel);
+
+                colIndex++;
+            }
+
+            // Show the row if we have metrics
+            if (quickMetricsEnabled && selectedMetrics.Count > 0)
+            {
+                QuickMetricsRow.Visibility = Visibility.Visible;
+            }
+
+            // Also rebuild the reorder list
+            RebuildMetricsReorderList();
+        }
+
+        /// <summary>
+        /// Rebuild the metrics reorder list UI
+        /// </summary>
+        private void RebuildMetricsReorderList()
+        {
+            if (MetricsReorderList == null || MetricsReorderSection == null) return;
+
+            MetricsReorderList.Children.Clear();
+
+            // Hide reorder section if no metrics selected
+            if (selectedMetrics.Count == 0)
+            {
+                MetricsReorderSection.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            MetricsReorderSection.Visibility = Visibility.Visible;
+
+            // Create a row for each selected metric
+            for (int i = 0; i < selectedMetrics.Count; i++)
+            {
+                var metricType = selectedMetrics[i];
+                if (!metricDefinitions.TryGetValue(metricType, out var info))
+                    continue;
+
+                var row = new Grid
+                {
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(40, 255, 255, 255)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(8, 4, 4, 4),
+                    Margin = new Thickness(0, 0, 0, 0)
+                };
+
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) }); // Index
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Name
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) }); // Up button
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) }); // Down button
+
+                // Index number
+                var indexText = new TextBlock
+                {
+                    Text = $"{i + 1}",
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 200, 255)),
+                    FontSize = 11,
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(indexText, 0);
+                row.Children.Add(indexText);
+
+                // Metric name
+                var nameText = new TextBlock
+                {
+                    Text = info.Label,
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(nameText, 1);
+                row.Children.Add(nameText);
+
+                // Up button
+                var upButton = new Button
+                {
+                    Content = new FontIcon { Glyph = "\uE70E", FontSize = 10 }, // ChevronUp
+                    Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    Padding = new Thickness(4),
+                    MinWidth = 24,
+                    MinHeight = 24,
+                    IsEnabled = i > 0,
+                    Opacity = i > 0 ? 1.0 : 0.3,
+                    Tag = metricType
+                };
+                upButton.Click += MetricMoveUp_Click;
+                Grid.SetColumn(upButton, 2);
+                row.Children.Add(upButton);
+
+                // Down button
+                var downButton = new Button
+                {
+                    Content = new FontIcon { Glyph = "\uE70D", FontSize = 10 }, // ChevronDown
+                    Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    Padding = new Thickness(4),
+                    MinWidth = 24,
+                    MinHeight = 24,
+                    IsEnabled = i < selectedMetrics.Count - 1,
+                    Opacity = i < selectedMetrics.Count - 1 ? 1.0 : 0.3,
+                    Tag = metricType
+                };
+                downButton.Click += MetricMoveDown_Click;
+                Grid.SetColumn(downButton, 3);
+                row.Children.Add(downButton);
+
+                MetricsReorderList.Children.Add(row);
+            }
+        }
+
+        /// <summary>
+        /// Handle move up button click for metric reordering
+        /// </summary>
+        private void MetricMoveUp_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is Button button) || !(button.Tag is MetricType metricType))
+                return;
+
+            int index = selectedMetrics.IndexOf(metricType);
+            if (index <= 0) return;
+
+            // Swap with previous item
+            selectedMetrics.RemoveAt(index);
+            selectedMetrics.Insert(index - 1, metricType);
+
+            // Save and rebuild
+            SaveMetricsSelection();
+            RebuildMetricsGrid();
+        }
+
+        /// <summary>
+        /// Handle move down button click for metric reordering
+        /// </summary>
+        private void MetricMoveDown_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is Button button) || !(button.Tag is MetricType metricType))
+                return;
+
+            int index = selectedMetrics.IndexOf(metricType);
+            if (index < 0 || index >= selectedMetrics.Count - 1) return;
+
+            // Swap with next item
+            selectedMetrics.RemoveAt(index);
+            selectedMetrics.Insert(index + 1, metricType);
+
+            // Save and rebuild
+            SaveMetricsSelection();
+            RebuildMetricsGrid();
+        }
+
+        /// <summary>
+        /// Send Quick Metrics enabled state to helper
+        /// </summary>
+        private async Task SendQuickMetricsEnabledToHelper()
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "Command", (int)Shared.Enums.Command.Set },
+                    { "Function", (int)Shared.Enums.Function.QuickMetricsEnabled },
+                    { "Content", quickMetricsEnabled }
+                };
+                await App.SendMessageAsync(request);
+                Logger.Info($"Sent Quick Metrics enabled state to helper: {quickMetricsEnabled}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending Quick Metrics enabled state: {ex.Message}");
             }
         }
 
