@@ -177,6 +177,8 @@
         GPDDetected,                    // bool - whether a GPD device is detected (Win Mini, Win 4, etc.)
         GPDWin5Connected,               // bool - whether GPD Win 5 HID controller is connected
         GPDRestoreDefaults,             // bool - trigger to restore default button mappings on Win 5
+        GPDDeviceName,                  // string - device display name (e.g., "GPD Win 5")
+        GPDSupportsFanControl,          // bool - whether device supports fan control (separate from HID)
         GPDFanSpeed,                    // int - fan speed percentage (0 = auto, 30-100 = manual)
         GPDFanRPM,                      // int - current fan RPM (read-only, helper to widget)
         GPDFanMode,                     // int - fan mode (0 = auto, 1 = manual)
@@ -291,5 +293,9 @@
         // Import/Export (comprehensive backup/restore)
         ExportAllData,                  // Trigger: export profiles, settings, Q-learning model to Desktop folder
         ImportAllData,                  // string - path to import folder; imports all data from it
+
+        // Quick Metrics (compact stats row at top of Quick Tab)
+        QuickMetrics,                   // string - JSON bundle pushed from helper (batteryDrain, cpuUsage, gpuUsage, timeRemaining, etc.)
+        QuickMetricsEnabled,            // bool - toggle for metrics row visibility (widget setting synced to helper)
     }
 }

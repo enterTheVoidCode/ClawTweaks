@@ -284,6 +284,46 @@ namespace XboxGamingBarHelper.Performance
         // Flag to indicate AutoTDP is managing TDP - when true, widget TDP updates are ignored
         public bool IsAutoTDPActive { get; set; }
 
+        /// <summary>
+        /// Returns true if the device is in Custom TDP mode (Legion mode 255).
+        /// AutoTDP should only manage TDP when this is true.
+        /// </summary>
+        public bool IsInCustomMode
+        {
+            get
+            {
+                // If no Legion manager, assume custom mode (legacy devices)
+                if (legionManager == null)
+                    return true;
+
+                // Check if Legion Go is detected
+                if (!(legionManager.LegionGoDetected?.Value ?? false))
+                    return true;
+
+                // Check if in Custom mode (255)
+                return legionManager.CurrentPerformanceMode == 255;
+            }
+        }
+
+        // Quick Metrics push timer (pushes bundled sensor data to widget when enabled)
+        private System.Timers.Timer quickMetricsTimer;
+        private bool quickMetricsEnabled;
+
+        /// <summary>
+        /// Gets or sets whether Quick Metrics push is enabled.
+        /// When enabled, pushes bundled sensor data (battery, CPU, GPU usage) to the widget every second.
+        /// </summary>
+        public bool QuickMetricsEnabled
+        {
+            get => quickMetricsEnabled;
+            set
+            {
+                if (quickMetricsEnabled == value) return;
+                quickMetricsEnabled = value;
+                UpdateQuickMetricsTimerState();
+            }
+        }
+
         private System.Timers.Timer currentTdpTimer;
         private string lastTdpString = "";
         private int consecutiveReadFailures = 0;
@@ -1347,11 +1387,99 @@ namespace XboxGamingBarHelper.Performance
             }
         }
 
+        /// <summary>
+        /// Updates the Quick Metrics timer state based on QuickMetricsEnabled.
+        /// </summary>
+        private void UpdateQuickMetricsTimerState()
+        {
+            if (quickMetricsEnabled)
+            {
+                if (quickMetricsTimer == null)
+                {
+                    quickMetricsTimer = new System.Timers.Timer(1000); // 1 second interval
+                    quickMetricsTimer.Elapsed += PushQuickMetrics;
+                    quickMetricsTimer.AutoReset = true;
+                }
+                quickMetricsTimer.Start();
+                Logger.Info("Quick Metrics push timer started");
+            }
+            else
+            {
+                if (quickMetricsTimer != null)
+                {
+                    quickMetricsTimer.Stop();
+                    Logger.Info("Quick Metrics push timer stopped");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Pushes bundled metrics data to the widget.
+        /// </summary>
+        private void PushQuickMetrics(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            try
+            {
+                // Build JSON with all sensor values for flexible display
+                float batteryDrain = BatteryDischargeRate.Value > 0 ? BatteryDischargeRate.Value : -BatteryChargeRate.Value;
+                float cpuUsage = CPUUsage.Value;
+                float gpuUsage = GPUUsage.Value;
+                float cpuTemp = CPUTemperature.Value;
+                float gpuTemp = GPUTemperature.Value;
+                float cpuWattage = CPUWattage.Value;
+                float gpuWattage = GPUWattage.Value;
+                float memoryUsage = MemoryUsage.Value;
+                float batteryLevel = BatteryLevel.Value;
+                float timeRemaining = BatteryTimeRemaining;
+                float timeToFull = BatteryTimeToFull;
+                bool isCharging = BatteryChargeRate.Value > 0;
+
+                // Format as JSON with all metrics
+                string json = $"{{" +
+                    $"\"batteryDrain\":{batteryDrain:F1}," +
+                    $"\"cpuUsage\":{cpuUsage:F0}," +
+                    $"\"gpuUsage\":{gpuUsage:F0}," +
+                    $"\"cpuTemp\":{cpuTemp:F0}," +
+                    $"\"gpuTemp\":{gpuTemp:F0}," +
+                    $"\"cpuWattage\":{cpuWattage:F1}," +
+                    $"\"gpuWattage\":{gpuWattage:F1}," +
+                    $"\"memoryUsage\":{memoryUsage:F0}," +
+                    $"\"batteryLevel\":{batteryLevel:F0}," +
+                    $"\"timeRemaining\":{timeRemaining:F0}," +
+                    $"\"timeToFull\":{timeToFull:F0}," +
+                    $"\"isCharging\":{(isCharging ? "true" : "false")}}}";
+
+                // Send via named pipe
+                var message = new Shared.IPC.PipeMessage
+                {
+                    Command = Shared.Enums.Command.Response,
+                    Function = Shared.Enums.Function.QuickMetrics,
+                    Content = json
+                };
+
+                Program.SendPipeMessage(message);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error pushing Quick Metrics: {ex.Message}");
+            }
+        }
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
                 Logger.Info("PerformanceManager: Disposing resources");
+
+                // Stop and dispose Quick Metrics timer
+                if (quickMetricsTimer != null)
+                {
+                    quickMetricsTimer.Stop();
+                    quickMetricsTimer.Elapsed -= PushQuickMetrics;
+                    quickMetricsTimer.Dispose();
+                    quickMetricsTimer = null;
+                    Logger.Info("PerformanceManager: Quick Metrics timer disposed");
+                }
 
                 // Stop and dispose the timer
                 if (currentTdpTimer != null)

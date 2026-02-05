@@ -154,11 +154,25 @@ namespace XboxGamingBarHelper.Icons
 
         /// <summary>
         /// Extracts an icon from an executable using the managed .NET Icon API.
+        /// For UWP apps, looks for logo assets in the app folder instead.
         /// </summary>
         private static Bitmap ExtractIconBitmap(string exePath, int size, int cornerRadius)
         {
             try
             {
+                // Check if this is a UWP app (in WindowsApps folder)
+                // UWP apps don't have embedded icons - they use separate PNG assets
+                if (exePath.IndexOf("WindowsApps", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    var uwpIcon = ExtractUwpAppIcon(exePath, size, cornerRadius);
+                    if (uwpIcon != null)
+                    {
+                        Logger.Info($"ExtractIconBitmap: Using UWP app icon for {Path.GetFileName(exePath)}");
+                        return uwpIcon;
+                    }
+                    Logger.Debug($"ExtractIconBitmap: No UWP icon found, falling back to ExtractAssociatedIcon");
+                }
+
                 // Use managed API - Icon.ExtractAssociatedIcon
                 // This is a trusted .NET Framework API that doesn't trigger security warnings
                 using (var icon = Icon.ExtractAssociatedIcon(exePath))
@@ -198,6 +212,100 @@ namespace XboxGamingBarHelper.Icons
             catch (Exception ex)
             {
                 Logger.Debug($"ExtractIconBitmap: Exception for {exePath}: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Extracts icon from a UWP app by looking for logo assets in the app folder.
+        /// UWP apps store icons as separate PNG files (Square150x150Logo.png, StoreLogo.png, etc.)
+        /// </summary>
+        private static Bitmap ExtractUwpAppIcon(string exePath, int size, int cornerRadius)
+        {
+            try
+            {
+                var appFolder = Path.GetDirectoryName(exePath);
+                if (string.IsNullOrEmpty(appFolder) || !Directory.Exists(appFolder))
+                    return null;
+
+                // Look for logo files in order of preference
+                // 44x44 is ideal for small UI icons (36x36 display) - minimal scaling = sharper details
+                var logoFiles = new[]
+                {
+                    "Square44x44Logo.png",    // Best match for 36x36 display
+                    "Square150x150Logo.png",  // Good fallback
+                    "StoreLogo.png",
+                    "Square480x480Logo.png",  // Large - loses detail when scaled down
+                    "Logo.png",
+                    "AppIcon.png"
+                };
+
+                // Also check for scaled versions (e.g., Square150x150Logo.scale-200.png)
+                var scaleSuffixes = new[] { "", ".scale-200", ".scale-150", ".scale-125", ".scale-100" };
+
+                string foundLogoPath = null;
+
+                foreach (var logo in logoFiles)
+                {
+                    foreach (var scale in scaleSuffixes)
+                    {
+                        var logoName = Path.GetFileNameWithoutExtension(logo) + scale + Path.GetExtension(logo);
+                        var logoPath = Path.Combine(appFolder, logoName);
+
+                        if (File.Exists(logoPath))
+                        {
+                            foundLogoPath = logoPath;
+                            break;
+                        }
+                    }
+
+                    if (foundLogoPath != null)
+                        break;
+
+                    // Also check in Assets subfolder
+                    var assetsPath = Path.Combine(appFolder, "Assets", logo);
+                    if (File.Exists(assetsPath))
+                    {
+                        foundLogoPath = assetsPath;
+                        break;
+                    }
+                }
+
+                if (foundLogoPath == null)
+                {
+                    Logger.Debug($"ExtractUwpAppIcon: No logo found in {appFolder}");
+                    return null;
+                }
+
+                Logger.Debug($"ExtractUwpAppIcon: Found logo at {foundLogoPath}");
+
+                // Load the PNG and resize to target size
+                using (var originalBitmap = new Bitmap(foundLogoPath))
+                {
+                    var resizedBitmap = new Bitmap(size, size, PixelFormat.Format32bppArgb);
+                    using (Graphics g = Graphics.FromImage(resizedBitmap))
+                    {
+                        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                        g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+                        g.DrawImage(originalBitmap, 0, 0, size, size);
+                    }
+
+                    // Apply rounded corners if needed
+                    if (cornerRadius > 0)
+                    {
+                        var rounded = ApplyRoundedCorners(resizedBitmap, size, cornerRadius);
+                        resizedBitmap.Dispose();
+                        return rounded;
+                    }
+
+                    return resizedBitmap;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"ExtractUwpAppIcon: Exception for {exePath}: {ex.Message}");
                 return null;
             }
         }

@@ -128,4 +128,11 @@ namespace XboxGamingBar.Data
         {
         }
     }
+
+    internal class AutoTDPControllerTypeProperty : WidgetProperty<int>
+    {
+        public AutoTDPControllerTypeProperty(int inValue) : base(inValue, null, Function.AutoTDPControllerType)
+        {
+        }
+    }
 }

@@ -36,7 +36,7 @@ namespace XboxGamingBarHelper.AutoTDP
         private readonly TDPLimitsProperty tdpLimits;
         public TDPLimitsProperty TDPLimits => tdpLimits;
 
-        // ML Mode properties
+        // ML Mode properties (AutoTDPUseMLMode is deprecated, use AutoTDPControllerType)
         private readonly AutoTDPUseMLModeProperty useMLMode;
         public AutoTDPUseMLModeProperty UseMLMode => useMLMode;
 
@@ -46,11 +46,16 @@ namespace XboxGamingBarHelper.AutoTDP
         private readonly AutoTDPResetMLProperty resetML;
         public AutoTDPResetMLProperty ResetML => resetML;
 
+        // Controller type (0=PID, 1=Q-Learning, 2=SARSA)
+        private readonly AutoTDPControllerTypeProperty controllerType;
+        public AutoTDPControllerTypeProperty ControllerType => controllerType;
+
         private readonly AutoTDPPauseWhenUnfocusedProperty pauseWhenUnfocused;
         public AutoTDPPauseWhenUnfocusedProperty PauseWhenUnfocused => pauseWhenUnfocused;
 
-        // Q-Learning controller for ML mode
+        // ML controllers for ML mode
         private QLearningController qLearningController;
+        private SARSAController sarsaController;
         private bool isMLFallbackActive = false;  // True when ML has fallen back to PID
 
         // Controller state
@@ -146,12 +151,28 @@ namespace XboxGamingBarHelper.AutoTDP
         public bool IsPowerOptimizationMode => isPowerOptimizationMode;
 
         // ML Mode OSD Status
-        public bool IsMLModeActive => useMLMode.Value && qLearningController != null && !isMLFallbackActive;
+        public bool IsMLModeActive => controllerType.Value > 0 && GetActiveMLController() != null && !isMLFallbackActive;
         public double LastMLReward { get; private set; } = 0;
-        public long MLUpdateCount => qLearningController?.TotalUpdates ?? 0;
-        public int MLExplorationPercent => qLearningController != null ? (int)(qLearningController.ExplorationRate * 100) : 0;
-        public double MLCumulativeReward => qLearningController?.CumulativeReward ?? 0;
-        public double MLAverageReward => qLearningController?.AverageRecentReward ?? 0;
+        public long MLUpdateCount => controllerType.Value == 2 ? (sarsaController?.TotalUpdates ?? 0) : (qLearningController?.TotalUpdates ?? 0);
+        public int MLExplorationPercent => controllerType.Value == 2
+            ? (sarsaController != null ? (int)(sarsaController.ExplorationRate * 100) : 0)
+            : (qLearningController != null ? (int)(qLearningController.ExplorationRate * 100) : 0);
+        public double MLCumulativeReward => controllerType.Value == 2 ? (sarsaController?.CumulativeReward ?? 0) : (qLearningController?.CumulativeReward ?? 0);
+        public double MLAverageReward => controllerType.Value == 2 ? (sarsaController?.AverageRecentReward ?? 0) : (qLearningController?.AverageRecentReward ?? 0);
+
+        /// <summary>
+        /// Gets the currently active ML controller based on controller type.
+        /// Returns null for PID mode (type 0).
+        /// </summary>
+        private object GetActiveMLController()
+        {
+            return controllerType.Value switch
+            {
+                1 => qLearningController,
+                2 => sarsaController,
+                _ => null
+            };
+        }
 
         /// <summary>
         /// Gets the average FPS gained per watt from recent TDP increases.
@@ -183,24 +204,27 @@ namespace XboxGamingBarHelper.AutoTDP
             mlStatus = new AutoTDPMLStatusProperty("", this);
             resetML = new AutoTDPResetMLProperty(false, this);
 
+            // Controller type (0=PID, 1=Q-Learning, 2=SARSA)
+            controllerType = new AutoTDPControllerTypeProperty(0, this);
+
             // Pause when unfocused (default: true)
             pauseWhenUnfocused = new AutoTDPPauseWhenUnfocusedProperty(true, this);
 
-            // Initialize Q-Learning controller
-            InitializeQLearning();
+            // Initialize ML controllers
+            InitializeMLControllers();
 
             // Initialize limits from properties
             minTDP = minTDPProperty.Value;
             maxTDP = maxTDPProperty.Value;
 
-            Logger.Info("AutoTDPManager initialized with conservative tuning and ML support");
+            Logger.Info("AutoTDPManager initialized with conservative tuning and ML support (Q-Learning + SARSA)");
         }
 
-        private void InitializeQLearning()
+        private void InitializeMLControllers()
         {
             try
             {
-                // Get the LocalState path for storing Q-table
+                // Get the LocalState path for storing Q-tables
                 string localStatePath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "Packages",
@@ -209,58 +233,108 @@ namespace XboxGamingBarHelper.AutoTDP
                 );
 
                 qLearningController = new QLearningController(localStatePath);
-                UpdateMLStatusProperty();
                 Logger.Info("Q-Learning controller initialized");
+
+                sarsaController = new SARSAController(localStatePath);
+                Logger.Info("SARSA controller initialized");
+
+                UpdateMLStatusProperty();
             }
             catch (Exception ex)
             {
-                Logger.Error($"Failed to initialize Q-Learning controller: {ex.Message}");
+                Logger.Error($"Failed to initialize ML controllers: {ex.Message}");
                 qLearningController = null;
+                sarsaController = null;
             }
         }
 
         private void UpdateMLStatusProperty()
         {
-            if (qLearningController != null && mlStatus != null)
+            if (mlStatus == null) return;
+
+            string statusString;
+            switch (controllerType.Value)
             {
-                mlStatus.SetValue(qLearningController.GetStatusString());
+                case 1:
+                    statusString = qLearningController != null
+                        ? $"Q-Learning: {qLearningController.GetStatusString()}"
+                        : "Q-Learning: Not initialized";
+                    break;
+                case 2:
+                    statusString = sarsaController != null
+                        ? $"SARSA: {sarsaController.GetStatusString()}"
+                        : "SARSA: Not initialized";
+                    break;
+                default:
+                    statusString = "PID Controller";
+                    break;
             }
+            mlStatus.SetValue(statusString);
         }
 
         /// <summary>
-        /// Resets the ML learning data (called when user clicks Reset button).
+        /// Resets the ML learning data for the currently active controller (called when user clicks Reset button).
         /// </summary>
         public void ResetMLLearning()
         {
-            if (qLearningController != null)
+            switch (controllerType.Value)
             {
-                Logger.Info("Resetting ML learning data");
-                qLearningController.Reset();
+                case 1:
+                    if (qLearningController != null)
+                    {
+                        Logger.Info("Resetting Q-Learning data");
+                        qLearningController.Reset();
+                    }
+                    break;
+                case 2:
+                    if (sarsaController != null)
+                    {
+                        Logger.Info("Resetting SARSA data");
+                        sarsaController.Reset();
+                    }
+                    break;
+                default:
+                    Logger.Info("Reset requested but PID mode is active, nothing to reset");
+                    break;
+            }
+            isMLFallbackActive = false;
+            UpdateMLStatusProperty();
+        }
+
+        /// <summary>
+        /// Reloads all ML models from disk (called after importing backup).
+        /// </summary>
+        public void ReloadMLModels()
+        {
+            try
+            {
+                Logger.Info("Reloading ML models from disk");
+                if (qLearningController != null)
+                {
+                    qLearningController.Load();
+                    Logger.Info("Q-learning model reloaded successfully");
+                }
+                if (sarsaController != null)
+                {
+                    sarsaController.Load();
+                    Logger.Info("SARSA model reloaded successfully");
+                }
                 isMLFallbackActive = false;
                 UpdateMLStatusProperty();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to reload ML models: {ex.Message}");
             }
         }
 
         /// <summary>
         /// Reloads the Q-learning model from disk (called after importing backup).
+        /// DEPRECATED: Use ReloadMLModels() instead.
         /// </summary>
         public void ReloadQLearningModel()
         {
-            try
-            {
-                Logger.Info("Reloading Q-learning model from disk");
-                if (qLearningController != null)
-                {
-                    qLearningController.Load();
-                    isMLFallbackActive = false;
-                    UpdateMLStatusProperty();
-                    Logger.Info("Q-learning model reloaded successfully");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Failed to reload Q-learning model: {ex.Message}");
-            }
+            ReloadMLModels();
         }
 
         public void UpdateTDPLimits(int min, int max)
@@ -362,6 +436,26 @@ namespace XboxGamingBarHelper.AutoTDP
             if (!runningGame.IsForeground && !pauseWhenUnfocused.Value)
             {
                 Logger.Debug($"AutoTDP: Game not focused but pauseWhenUnfocused=false, continuing to manage TDP");
+            }
+
+            // Check if we're in Custom TDP mode - AutoTDP can only manage TDP in Custom mode
+            if (!performanceManager.IsInCustomMode)
+            {
+                // Restore profile TDP when leaving Custom mode
+                if (wasActivelyManaging && performanceManager.TDP != null)
+                {
+                    int profileTDP = performanceManager.TDP.Value;
+                    Logger.Info($"AutoTDP: Not in Custom mode - restoring profile TDP: {profileTDP}W");
+                    performanceManager.SetTDP(profileTDP);
+                }
+                wasActivelyManaging = false;
+
+                // Allow widget TDP changes when not in Custom mode
+                performanceManager.IsAutoTDPActive = false;
+                ResetState();
+                StatusText = "Not in Custom mode";
+                TrendText = "";
+                return;
             }
 
             // Now we're actively managing TDP - block widget changes
@@ -468,35 +562,50 @@ namespace XboxGamingBarHelper.AutoTDP
             // Check for ML fallback recovery (must be before routing decision)
             // Recovery happens in PID mode when FPS stabilizes
             double fpsError = targetFPS.Value - smoothedFPS;
-            if (isMLFallbackActive && useMLMode.Value && qLearningController != null)
+            if (isMLFallbackActive && controllerType.Value > 0)
             {
                 // Allow recovery if FPS is reasonably close to target
                 if (Math.Abs(fpsError) <= 10.0)
                 {
-                    Logger.Info($"FPS stabilized ({smoothedFPS:F1}/{targetFPS.Value}) - resuming ML mode");
+                    string controllerName = controllerType.Value == 2 ? "SARSA" : "Q-Learning";
+                    Logger.Info($"FPS stabilized ({smoothedFPS:F1}/{targetFPS.Value}) - resuming {controllerName} mode");
                     isMLFallbackActive = false;
-                    qLearningController.ResetFallbackCounter();
+                    if (controllerType.Value == 2)
+                        sarsaController?.ResetFallbackCounter();
+                    else
+                        qLearningController?.ResetFallbackCounter();
                 }
             }
 
             // Route to ML or PID controller based on mode
-            bool useML = useMLMode.Value && qLearningController != null && !isMLFallbackActive;
+            // 0 = PID, 1 = Q-Learning, 2 = SARSA
+            bool useML = controllerType.Value > 0 && GetActiveMLController() != null && !isMLFallbackActive;
 
             // Cliff detection: If actual FPS drops significantly below smoothed FPS,
             // immediately increase TDP to recover (don't wait for smoothed FPS to catch up)
             bool cliffDetected = false;
+            string mlControllerName = controllerType.Value == 2 ? "SARSA" : "Q-Learning";
             if (useML && measuredFPS < smoothedFPS - 15 && measuredFPS < targetFPS.Value - 10)
             {
                 // Actual FPS dropped more than 15 below smoothed and is below target
                 // This indicates we hit a cliff - TDP is too low
                 cliffDetected = true;
                 newTDP = Math.Min(maxTDP, currentTDP + 2);  // Emergency +2W
-                Logger.Info($"AutoTDP [ML]: Cliff detected! Actual={measuredFPS}, Smooth={smoothedFPS:F1}, Target={targetFPS.Value}. Emergency TDP: {currentTDP}W -> {newTDP}W");
+                Logger.Info($"AutoTDP [{mlControllerName}]: Cliff detected! Actual={measuredFPS}, Smooth={smoothedFPS:F1}, Target={targetFPS.Value}. Emergency TDP: {currentTDP}W -> {newTDP}W");
             }
             else if (useML)
             {
-                // ML Mode: Use Q-Learning controller
-                newTDP = CalculateMLTDP(smoothedFPS, trend, currentTDP, gpuUtil);
+                // ML Mode: Use Q-Learning or SARSA controller based on type
+                if (controllerType.Value == 2)
+                {
+                    // SARSA mode
+                    newTDP = CalculateSARSATDP(smoothedFPS, trend, currentTDP, gpuUtil);
+                }
+                else
+                {
+                    // Q-Learning mode (default ML)
+                    newTDP = CalculateMLTDP(smoothedFPS, trend, currentTDP, gpuUtil);
+                }
             }
             else
             {
@@ -525,7 +634,8 @@ namespace XboxGamingBarHelper.AutoTDP
                 }
 
                 string action = newTDP > currentTDP ? "Increasing" : "Decreasing";
-                string modePrefix = useML ? "[ML] " : "";
+                string modeStr = controllerType.Value == 2 ? "SARSA" : (controllerType.Value == 1 ? "Q-Learn" : "PID");
+                string modePrefix = useML ? $"[{modeStr}] " : "";
                 string ceilingPrefix = isCeilingDetected ? "[Ceiling] " : "";
                 string powerOptPrefix = isPowerOptimizationMode ? "[PwrOpt] " : "";
                 StatusText = ceilingPrefix + powerOptPrefix + modePrefix + action;
@@ -534,7 +644,8 @@ namespace XboxGamingBarHelper.AutoTDP
                     StatusText += $" (sweet:{sweetSpotTDP}W)";
                 }
                 string ceilingInfo = isCeilingDetected ? $", Ceiling(eff={effectiveTarget}, achv≈{achievableFPS:F0})" : "";
-                Logger.Info($"AutoTDP{(useML ? " [ML]" : "")}: FPS={measuredFPS} (smooth={smoothedFPS:F1}, pred={predictedFPS:F1}), Trend={trend:F2}, Target={targetFPS.Value}, TDP: {currentTDP}W -> {newTDP}W{ceilingInfo}{(useML ? "" : $", SweetSpot={sweetSpotTDP}W@{sweetSpotConfidence}%")}");
+                string logModeStr = controllerType.Value == 2 ? " [SARSA]" : (controllerType.Value == 1 ? " [Q-Learning]" : "");
+                Logger.Info($"AutoTDP{logModeStr}: FPS={measuredFPS} (smooth={smoothedFPS:F1}, pred={predictedFPS:F1}), Trend={trend:F2}, Target={targetFPS.Value}, TDP: {currentTDP}W -> {newTDP}W{ceilingInfo}{(useML ? "" : $", SweetSpot={sweetSpotTDP}W@{sweetSpotConfidence}%")}");
                 performanceManager.SetTDP(newTDP);
                 // Note: Removed duplicate SetValue call that was causing double hardware apply
                 // SetTDP already applies to hardware; the widget will sync via IPC
@@ -589,7 +700,7 @@ namespace XboxGamingBarHelper.AutoTDP
             }
 
             // Update ML status periodically
-            if (useMLMode.Value && qLearningController != null)
+            if (controllerType.Value > 0)
             {
                 UpdateMLStatusProperty();
             }
@@ -1018,6 +1129,101 @@ namespace XboxGamingBarHelper.AutoTDP
             return newTDP;
         }
 
+        /// <summary>
+        /// Calculates TDP using SARSA ML controller.
+        /// SARSA is on-policy, using the actual next action for updates (more conservative than Q-learning).
+        /// </summary>
+        private int CalculateSARSATDP(double smoothedFPS, double trend, int currentTDP, double gpuUtil)
+        {
+            if (sarsaController == null)
+            {
+                // Fallback to PID if SARSA is unavailable
+                return currentTDP;
+            }
+
+            // Use effective target when ceiling is detected, otherwise use user target
+            int target = isCeilingDetected ? effectiveTarget : targetFPS.Value;
+            double fpsError = target - smoothedFPS;
+
+            // Also track error from user's actual target for ceiling-aware decisions
+            double userTargetError = targetFPS.Value - smoothedFPS;
+            bool atMaxTDP = currentTDP >= maxTDP - 1;
+            bool headroomExhausted = isCeilingDetected || (atMaxTDP && gpuUtil < CeilingGpuUtilThreshold && userTargetError > DeadZone);
+
+            // Encode current state
+            int state = sarsaController.EncodeState(fpsError, trend, currentTDP, minTDP, maxTDP, gpuUtil);
+
+            // Check if we should fall back to PID due to poor ML performance
+            if (!isCeilingDetected && sarsaController.ShouldFallbackToPID(fpsError))
+            {
+                Logger.Warn("SARSA performance poor - temporarily falling back to PID controller");
+                isMLFallbackActive = true;
+                StatusText = "[SARSA->PID] Fallback";
+                return currentTDP;
+            }
+
+            // Calculate TDP percentage for action selection override logic
+            int tdpRange = maxTDP - minTDP;
+            double currentTdpPercent = tdpRange > 0 ? (double)(currentTDP - minTDP) / tdpRange : 0.5;
+
+            // Select action using epsilon-greedy policy with safety overrides
+            int tdpDelta = sarsaController.SelectAction(state, fpsError, currentTdpPercent);
+
+            // Safety: Limit aggressive decreases at low TDP to prevent oscillation
+            if (tdpDelta <= -2 && currentTdpPercent < 0.30)
+            {
+                tdpDelta = -1;
+                Logger.Debug($"AutoTDP [SARSA]: Limited -2W to -1W at low TDP ({currentTdpPercent:P0})");
+            }
+
+            // Ceiling mode safeguards
+            if (headroomExhausted && optimalCeilingTDP > 0)
+            {
+                int minCeilingTDP = Math.Max(minTDP, optimalCeilingTDP - 3);
+                int proposedTDP = currentTDP + tdpDelta;
+
+                if (proposedTDP < minCeilingTDP)
+                {
+                    int originalDelta = tdpDelta;
+                    tdpDelta = minCeilingTDP - currentTDP;
+                    if (tdpDelta != originalDelta)
+                    {
+                        Logger.Debug($"AutoTDP [SARSA]: Limiting TDP decrease at ceiling (optimalCeilingTDP={optimalCeilingTDP}W, min={minCeilingTDP}W)");
+                    }
+                }
+
+                double effectiveAchievable = lockedAchievableFPS > 0 ? lockedAchievableFPS : achievableFPS;
+                double fpsFromCeiling = smoothedFPS - effectiveAchievable;
+                if (fpsFromCeiling < -5 && tdpDelta <= 0)
+                {
+                    tdpDelta = Math.Max(1, tdpDelta + 2);
+                    Logger.Debug($"AutoTDP [SARSA]: FPS {fpsFromCeiling:F1} below locked ceiling ({effectiveAchievable:F0}), forcing TDP increase to recover");
+                }
+            }
+
+            // Calculate new TDP
+            int newTDP = currentTDP + tdpDelta;
+            newTDP = Math.Max(minTDP, Math.Min(maxTDP, newTDP));
+
+            // Calculate reward
+            int prevTdpChange = sarsaController.PreviousTdpChange;
+            double avgFpsPerWatt = GetAverageFpsPerWatt();
+            double reward = sarsaController.CalculateReward(fpsError, currentTDP, newTDP, headroomExhausted, gpuUtil, achievableFPS, smoothedFPS, minTDP, maxTDP, prevTdpChange, avgFpsPerWatt);
+            LastMLReward = reward;
+
+            // Get next state for SARSA update
+            int nextState = sarsaController.EncodeState(fpsError, trend, newTDP, minTDP, maxTDP, gpuUtil);
+
+            // Update Q-values using SARSA (on-policy)
+            sarsaController.Update(nextState, reward);
+
+            string ceilingStr = headroomExhausted ? ", CEILING" : "";
+            Logger.Debug($"AutoTDP [SARSA]: state={state}, action={tdpDelta:+#;-#;0}W, reward={reward:F2}, " +
+                        $"FPS={smoothedFPS:F1}, GPU={gpuUtil:F0}%, TDP: {currentTDP}W -> {newTDP}W{ceilingStr}");
+
+            return newTDP;
+        }
+
         private void ResetState()
         {
             integral = 0;
@@ -1040,6 +1246,7 @@ namespace XboxGamingBarHelper.AutoTDP
             // Reset ML fallback state
             isMLFallbackActive = false;
             qLearningController?.ResetFallbackCounter();
+            sarsaController?.ResetFallbackCounter();
             // Reset ceiling detection state
             achievableFPS = 0;
             lockedAchievableFPS = 0;
@@ -1234,11 +1441,16 @@ namespace XboxGamingBarHelper.AutoTDP
             if (disposing)
             {
                 Logger.Info("AutoTDPManager: Disposing");
-                // Save Q-table on shutdown
+                // Save ML models on shutdown
                 if (qLearningController != null)
                 {
-                    Logger.Info("AutoTDPManager: Saving Q-table on shutdown");
+                    Logger.Info("AutoTDPManager: Saving Q-Learning table on shutdown");
                     qLearningController.Save();
+                }
+                if (sarsaController != null)
+                {
+                    Logger.Info("AutoTDPManager: Saving SARSA table on shutdown");
+                    sarsaController.Save();
                 }
             }
             base.Dispose(disposing);
@@ -1371,6 +1583,23 @@ namespace XboxGamingBarHelper.AutoTDP
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"AutoTDP pause when unfocused: {Value}");
+        }
+    }
+
+    internal class AutoTDPControllerTypeProperty : HelperProperty<int, AutoTDPManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private static readonly string[] ControllerNames = { "PID", "Q-Learning", "SARSA" };
+
+        public AutoTDPControllerTypeProperty(int inValue, AutoTDPManager inManager) : base(inValue, null, Function.AutoTDPControllerType, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            string name = Value >= 0 && Value < ControllerNames.Length ? ControllerNames[Value] : "Unknown";
+            Logger.Info($"AutoTDP Controller Type: {name} ({Value})");
         }
     }
 }

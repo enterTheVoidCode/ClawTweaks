@@ -328,11 +328,35 @@
                 <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"/>
             </muxc:NavigationView.MenuItems>
 
-            <!-- RT indicator in nav bar (compact) -->
+            <!-- RT indicator and status dot in nav bar (compact) -->
             <muxc:NavigationView.PaneFooter>
-                <Border Background="#404040" CornerRadius="3" Padding="4,1" Margin="2,0,4,0" VerticalAlignment="Center">
-                    <TextBlock Text="RT" Foreground="#FFFFFF" FontSize="10" FontWeight="SemiBold"/>
-                </Border>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="4">
+                    <Border Background="#404040" CornerRadius="3" Padding="4,1" Margin="2,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="RT" Foreground="#FFFFFF" FontSize="10" FontWeight="SemiBold"/>
+                    </Border>
+                    <!-- Helper Connection Status Indicator -->
+                    <Border x:Name="HelperStatusIndicator"
+                            Background="#30000000"
+                            CornerRadius="6"
+                            Padding="4,2"
+                            Margin="0,0,4,0"
+                            VerticalAlignment="Center"
+                            ToolTipService.ToolTip="Helper Status"
+                            Tapped="HelperStatusIndicator_Tapped">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Ellipse x:Name="HelperStatusDot"
+                                     Width="8" Height="8"
+                                     Fill="#FF5555"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock x:Name="HelperStatusText"
+                                       Text="Disconnected"
+                                       Foreground="#AAAAAA"
+                                       FontSize="9"
+                                       VerticalAlignment="Center"
+                                       Visibility="Collapsed"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
             </muxc:NavigationView.PaneFooter>
 
             <!-- QUICK SETTINGS TAB -->
@@ -340,6 +364,19 @@
                 <ScrollViewer x:Name="QuickSettingsScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Visible"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
+
+                        <!-- Quick Metrics Row (compact stats display - dynamically populated) -->
+                        <Border x:Name="QuickMetricsRow"
+                                Background="#1A1C1E"
+                                CornerRadius="12"
+                                Padding="12,8"
+                                Margin="0,0,0,8"
+                                BorderBrush="#50555C"
+                                BorderThickness="1"
+                                Visibility="Collapsed">
+                            <!-- Dynamic metrics grid - populated in code-behind -->
+                            <Grid x:Name="QuickMetricsGrid"/>
+                        </Border>
 
                         <!-- Dynamic Tiles Container - tiles generated in code-behind -->
                         <StackPanel x:Name="QuickSettingsTilesContainer"/>
@@ -392,6 +429,87 @@
                                                 Click="ColumnCount5_Click"/>
                                     </StackPanel>
                                 </Grid>
+
+                                <!-- Show Metrics Row Toggle -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Show Metrics Row"
+                                                   Foreground="#FFFFFF"
+                                                   FontSize="13"/>
+                                        <TextBlock Text="Select up to 6 metrics below"
+                                                   Foreground="#666666"
+                                                   FontSize="11"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="QuickMetricsToggle"
+                                                  Grid.Column="1"
+                                                  OffContent=""
+                                                  OnContent=""
+                                                  Toggled="QuickMetricsToggle_Toggled"/>
+                                </Grid>
+
+                                <!-- Metrics Selection (visible when toggle is on) -->
+                                <Border x:Name="MetricsSelectionPanel"
+                                        Background="#15171A"
+                                        CornerRadius="8"
+                                        Padding="10"
+                                        Margin="0,0,0,12"
+                                        Visibility="Collapsed">
+                                    <StackPanel>
+                                        <TextBlock Text="Select Metrics (max 6)"
+                                                   Foreground="#AAAAAA"
+                                                   FontSize="11"
+                                                   Margin="0,0,0,8"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <!-- Row 0 -->
+                                            <CheckBox x:Name="MetricCheck_BatteryDrain" Content="Battery Drain" Grid.Row="0" Grid.Column="0" Foreground="White" FontSize="12" Margin="0,2" Checked="MetricCheckBox_Changed" Unchecked="MetricCheckBox_Changed"/>
+                                            <CheckBox x:Name="MetricCheck_BatteryLevel" Content="Battery Level" Grid.Row="0" Grid.Column="1" Foreground="White" FontSize="12" Margin="0,2" Checked="MetricCheckBox_Changed" Unchecked="MetricCheckBox_Changed"/>
+                                            <!-- Row 1 -->
+                                            <CheckBox x:Name="MetricCheck_CPUUsage" Content="CPU Usage" Grid.Row="1" Grid.Column="0" Foreground="White" FontSize="12" Margin="0,2" Checked="MetricCheckBox_Changed" Unchecked="MetricCheckBox_Changed"/>
+                                            <CheckBox x:Name="MetricCheck_CPUTemp" Content="CPU Temp" Grid.Row="1" Grid.Column="1" Foreground="White" FontSize="12" Margin="0,2" Checked="MetricCheckBox_Changed" Unchecked="MetricCheckBox_Changed"/>
+                                            <!-- Row 2 -->
+                                            <CheckBox x:Name="MetricCheck_CPUWattage" Content="CPU Wattage" Grid.Row="2" Grid.Column="0" Foreground="White" FontSize="12" Margin="0,2" Checked="MetricCheckBox_Changed" Unchecked="MetricCheckBox_Changed"/>
+                                            <CheckBox x:Name="MetricCheck_GPUUsage" Content="GPU Usage" Grid.Row="2" Grid.Column="1" Foreground="White" FontSize="12" Margin="0,2" Checked="MetricCheckBox_Changed" Unchecked="MetricCheckBox_Changed"/>
+                                            <!-- Row 3 -->
+                                            <CheckBox x:Name="MetricCheck_GPUTemp" Content="GPU Temp" Grid.Row="3" Grid.Column="0" Foreground="White" FontSize="12" Margin="0,2" Checked="MetricCheckBox_Changed" Unchecked="MetricCheckBox_Changed"/>
+                                            <CheckBox x:Name="MetricCheck_GPUWattage" Content="GPU Wattage" Grid.Row="3" Grid.Column="1" Foreground="White" FontSize="12" Margin="0,2" Checked="MetricCheckBox_Changed" Unchecked="MetricCheckBox_Changed"/>
+                                            <!-- Row 4 -->
+                                            <CheckBox x:Name="MetricCheck_MemoryUsage" Content="Memory Usage" Grid.Row="4" Grid.Column="0" Foreground="White" FontSize="12" Margin="0,2" Checked="MetricCheckBox_Changed" Unchecked="MetricCheckBox_Changed"/>
+                                            <CheckBox x:Name="MetricCheck_TimeRemaining" Content="Time Remaining" Grid.Row="4" Grid.Column="1" Foreground="White" FontSize="12" Margin="0,2" Checked="MetricCheckBox_Changed" Unchecked="MetricCheckBox_Changed"/>
+                                        </Grid>
+                                        <TextBlock x:Name="MetricsSelectionCount" Text="0/6 selected" Foreground="#666666" FontSize="11" Margin="0,6,0,0" HorizontalAlignment="Right"/>
+
+                                        <!-- Reorder Section -->
+                                        <Border x:Name="MetricsReorderSection"
+                                                Background="#1A1C1E"
+                                                CornerRadius="6"
+                                                Padding="8"
+                                                Margin="0,10,0,0"
+                                                Visibility="Collapsed">
+                                            <StackPanel>
+                                                <TextBlock Text="Reorder (drag or use arrows)"
+                                                           Foreground="#888888"
+                                                           FontSize="10"
+                                                           Margin="0,0,0,6"/>
+                                                <StackPanel x:Name="MetricsReorderList" Spacing="4"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
 
                                 <!-- Sortable Tile Grid - generated in code-behind -->
                                 <StackPanel x:Name="TileSortableGrid"/>

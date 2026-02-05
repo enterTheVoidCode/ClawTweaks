@@ -612,5 +612,17 @@ namespace XboxGamingBarHelper.Profile
                 }
             }
         }
+
+        public int AutoTDPControllerType
+        {
+            get { return value.AutoTDPControllerType; }
+            set
+            {
+                if (this.value.AutoTDPControllerType != value)
+                {
+                    this.value.AutoTDPControllerType = value;
+                }
+            }
+        }
     }
 }

@@ -640,6 +640,15 @@ namespace XboxGamingBarHelper
 
                 // Exit the helper
                 _isShuttingDown = true;
+
+                // Release mutex before exiting to ensure clean restart
+                try
+                {
+                    singleInstanceMutex?.ReleaseMutex();
+                    singleInstanceMutex?.Dispose();
+                }
+                catch { /* Ignore mutex errors during shutdown */ }
+
                 Environment.Exit(0);
             }
         }
@@ -1388,6 +1397,14 @@ del /f /q ""%~f0"" 2>nul
                 legionManager.ControllerConnectedLeft,
                 legionManager.ControllerConnectedRight,
                 legionManager.ControllerVidPid,
+                // Device capability properties (for UI visibility based on device features)
+                legionManager.DeviceDisplayName,
+                legionManager.DeviceSupportsControllerRemap,
+                legionManager.DeviceSupportsRgbLighting,
+                legionManager.DeviceSupportsGyro,
+                legionManager.DeviceHasScrollWheel,
+                legionManager.DeviceHasDetachableControllers,
+                legionManager.DeviceHasTouchpad,
                 autoTDPManager.Enabled,
                 autoTDPManager.TargetFPS,
                 autoTDPManager.CurrentFPS,
@@ -1395,6 +1412,7 @@ del /f /q ""%~f0"" 2>nul
                 autoTDPManager.MaxTDP,
                 autoTDPManager.TDPLimits,
                 autoTDPManager.UseMLMode,
+                autoTDPManager.ControllerType,  // 0=PID, 1=Q-Learning, 2=SARSA
                 autoTDPManager.MLStatus,
                 autoTDPManager.ResetML,
                 autoTDPManager.PauseWhenUnfocused,
@@ -1487,7 +1505,8 @@ del /f /q ""%~f0"" 2>nul
                 autoTDPManager.TargetFPS.PropertyChanged += AutoTDPSetting_PropertyChanged;
                 autoTDPManager.MinTDP.PropertyChanged += AutoTDPSetting_PropertyChanged;
                 autoTDPManager.MaxTDP.PropertyChanged += AutoTDPSetting_PropertyChanged;
-                autoTDPManager.UseMLMode.PropertyChanged += AutoTDPSetting_PropertyChanged;
+                autoTDPManager.UseMLMode.PropertyChanged += AutoTDPSetting_PropertyChanged;  // Legacy
+                autoTDPManager.ControllerType.PropertyChanged += AutoTDPSetting_PropertyChanged;
             }
 
             initTimer.Stop();
@@ -1906,8 +1925,16 @@ del /f /q ""%~f0"" 2>nul
             }
             else if (sender == autoTDPManager.UseMLMode)
             {
+                // Legacy: sync UseMLMode to profile for backwards compatibility
                 Logger.Info($"Saving AutoTDPUseMLMode to profile {profileName}");
                 profileManager.CurrentProfile.AutoTDPUseMLMode = autoTDPManager.UseMLMode.Value;
+            }
+            else if (sender == autoTDPManager.ControllerType)
+            {
+                Logger.Info($"Saving AutoTDPControllerType to profile {profileName}");
+                profileManager.CurrentProfile.AutoTDPControllerType = autoTDPManager.ControllerType.Value;
+                // Also sync legacy UseMLMode for backwards compatibility
+                profileManager.CurrentProfile.AutoTDPUseMLMode = autoTDPManager.ControllerType.Value > 0;
             }
         }
 
@@ -2137,8 +2164,17 @@ del /f /q ""%~f0"" 2>nul
             Logger.Debug($"Applying AutoTDPMaxTDP: {profile.AutoTDPMaxTDP}");
             autoTDPManager.MaxTDP.SetValue(profile.AutoTDPMaxTDP);
 
-            Logger.Debug($"Applying AutoTDPUseMLMode: {profile.AutoTDPUseMLMode}");
-            autoTDPManager.UseMLMode.SetValue(profile.AutoTDPUseMLMode);
+            // Apply controller type (0=PID, 1=Q-Learning, 2=SARSA)
+            // Try new property first, fall back to legacy UseMLMode for migration
+            int controllerType = profile.AutoTDPControllerType;
+            if (controllerType == 0 && profile.AutoTDPUseMLMode)
+            {
+                // Legacy migration: UseMLMode=true -> Q-Learning (1)
+                controllerType = 1;
+            }
+            Logger.Debug($"Applying AutoTDPControllerType: {controllerType} (PID=0, Q-Learning=1, SARSA=2)");
+            autoTDPManager.ControllerType.SetValue(controllerType);
+            autoTDPManager.UseMLMode.SetValue(controllerType > 0);  // Legacy sync
         }
 
         private static void CurrentProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -2830,20 +2866,12 @@ del /f /q ""%~f0"" 2>nul
                 // Handle exit helper request (for version mismatch restart - legacy)
                 if (pipeMsg.Extra.ContainsKey("ExitHelper"))
                 {
-                    Logger.Info("Pipe: ExitHelper request received - shutting down helper for version update");
+                    Logger.Info("Pipe: ExitHelper request received - shutting down helper for restart");
+                    LogManager.Flush(); // Ensure log is written before we start shutdown
                     SendPipeAck(pipeMsg.RequestId);
                     _isShuttingDown = true;
-
-                    // Schedule a forced exit in case the main loop doesn't exit quickly
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(3000); // Give main loop 3 seconds to exit gracefully
-                        if (_isShuttingDown)
-                        {
-                            Logger.Info("Forcing exit after ExitHelper timeout");
-                            Environment.Exit(0);
-                        }
-                    });
+                    // Main loop will exit, Initialize() returns, finally block releases mutex naturally
+                    // No Environment.Exit needed - process will exit cleanly via Main() return
                     return;
                 }
 
@@ -2855,6 +2883,7 @@ del /f /q ""%~f0"" 2>nul
                     if (!string.IsNullOrEmpty(msixSourcePath))
                     {
                         Logger.Info($"Pipe: UpgradeHelper request received - source: {msixSourcePath}");
+                        LogManager.Flush(); // Ensure log is written before we start shutdown
                         SendPipeAck(pipeMsg.RequestId);
 
                         // Launch upgrade script that will copy files and restart after we exit
@@ -2869,6 +2898,16 @@ del /f /q ""%~f0"" 2>nul
                             if (_isShuttingDown)
                             {
                                 Logger.Info("Forcing exit for upgrade");
+                                LogManager.Flush(); // Ensure log is written before exit
+
+                                // Release mutex before exiting to ensure clean restart
+                                try
+                                {
+                                    singleInstanceMutex?.ReleaseMutex();
+                                    singleInstanceMutex?.Dispose();
+                                }
+                                catch { /* Ignore mutex errors during shutdown */ }
+
                                 Environment.Exit(0);
                             }
                         });
@@ -2990,6 +3029,20 @@ del /f /q ""%~f0"" 2>nul
                     {
                         string configJson = request.Content.ToString();
                         ApplyControllerHotkeyConfig(configJson);
+                    }
+                }
+                // Quick Metrics: Enable/disable metrics push timer
+                else if (functionValue == (int)Function.QuickMetricsEnabled)
+                {
+                    if (request.Content != null && performanceManager != null)
+                    {
+                        bool enabled = false;
+                        if (bool.TryParse(request.Content.ToString(), out enabled) || request.Content.ToString() == "True" || request.Content.ToString() == "true")
+                        {
+                            enabled = request.Content.ToString().ToLower() == "true" || request.Content.ToString() == "True";
+                        }
+                        performanceManager.QuickMetricsEnabled = enabled;
+                        Logger.Info($"Pipe: Quick Metrics enabled set to: {enabled}");
                     }
                 }
                 // ViGEmBus: Check installed status
@@ -3246,6 +3299,16 @@ del /f /q ""%~f0"" 2>nul
 
                             // Exit helper so installer can replace files
                             Logger.Info("Pipe: Exiting helper for update installation...");
+                            LogManager.Flush(); // Ensure log is written before exit
+
+                            // Release mutex before exiting to ensure clean restart
+                            try
+                            {
+                                singleInstanceMutex?.ReleaseMutex();
+                                singleInstanceMutex?.Dispose();
+                            }
+                            catch { /* Ignore mutex errors during shutdown */ }
+
                             Environment.Exit(0);
                             return; // Won't reach this but for clarity
                         }
@@ -3428,10 +3491,27 @@ del /f /q ""%~f0"" 2>nul
                 }
 
                 // Build batch response with all property values
+                // Skip DefaultGameProfile properties - they're managed by ResyncCurrentState
+                // Including them in batch causes race condition where stale values overwrite resync
+                var helperManagedProperties = new HashSet<Shared.Enums.Function>
+                {
+                    Shared.Enums.Function.DefaultGameProfileAvailable,
+                    Shared.Enums.Function.DefaultGameProfileData,
+                    Shared.Enums.Function.DefaultGameProfileEnabled
+                };
+
                 var batchData = new Dictionary<string, object>();
                 foreach (var funcId in functionIds)
                 {
                     var func = (Shared.Enums.Function)funcId;
+
+                    // Skip helper-managed properties that are resynced separately
+                    if (helperManagedProperties.Contains(func))
+                    {
+                        Logger.Debug($"BatchGet: Skipping {func} - managed by ResyncCurrentState");
+                        continue;
+                    }
+
                     if (properties.TryGetProperty(func, out var property))
                     {
                         try
@@ -3506,6 +3586,10 @@ del /f /q ""%~f0"" 2>nul
 
                 timer.Stop();
                 Logger.Info($"[TIMING] BatchGet via pipe {functionIds.Length} properties: {timer.ElapsedMilliseconds}ms");
+
+                // After batch sync, resync DefaultGameProfile state to fix race condition
+                // where widget may have received stale ProfileAvailable=false during sync
+                defaultGameProfileManager?.ResyncCurrentState();
             }
             catch (Exception ex)
             {
