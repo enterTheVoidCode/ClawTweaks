@@ -99,6 +99,36 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
     }
 
     /// <summary>
+    /// Read-only property for the GPD device display name (e.g., "GPD Win 5").
+    /// Set based on SMBIOS detection, independent of HID controller connection.
+    /// </summary>
+    internal class GPDDeviceNameProperty : HelperProperty<string, GPDManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public GPDDeviceNameProperty(string initialValue, GPDManager inManager)
+            : base(initialValue, null, Function.GPDDeviceName, inManager)
+        {
+            Logger.Debug($"[GPD] GPDDeviceNameProperty created with value: {initialValue}");
+        }
+    }
+
+    /// <summary>
+    /// Read-only property indicating if the GPD device supports fan control.
+    /// This is based on device detection, independent of HID controller connection.
+    /// </summary>
+    internal class GPDSupportsFanControlProperty : HelperProperty<bool, GPDManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public GPDSupportsFanControlProperty(bool initialValue, GPDManager inManager)
+            : base(initialValue, null, Function.GPDSupportsFanControl, inManager)
+        {
+            Logger.Debug($"[GPD] GPDSupportsFanControlProperty created with value: {initialValue}");
+        }
+    }
+
+    /// <summary>
     /// Trigger property to restore default button mappings on GPD Win 5.
     /// When the widget sets this to true, the helper restores default mappings.
     /// </summary>

@@ -392,7 +392,7 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         /// <summary>
         /// Determines if default profile should be auto-enabled based on power state and user preference.
         /// </summary>
-        /// <param name="userPreference">User's explicit preference: true=always on, false=always off, null=auto</param>
+        /// <param name="userPreference">User's explicit preference: true=enabled, false=disabled, null=use default</param>
         /// <param name="isOnBattery">Whether device is currently on battery power</param>
         /// <returns>True if default profile should be enabled</returns>
         public bool ShouldAutoEnable(bool? userPreference, bool isOnBattery)
@@ -404,9 +404,9 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
                 return userPreference.Value;
             }
 
-            // Auto mode: enable on battery, disable on AC
-            Logger.Debug($"Auto mode: isOnBattery={isOnBattery}, enabling={isOnBattery}");
-            return isOnBattery;
+            // Default: disabled on both AC and DC until user explicitly enables it
+            Logger.Debug($"No user preference set, defaulting to disabled (isOnBattery={isOnBattery})");
+            return false;
         }
 
         /// <summary>

@@ -381,6 +381,10 @@ namespace Shared.Data
             }
         }
 
+        /// <summary>
+        /// DEPRECATED: Use AutoTDPControllerType instead.
+        /// Kept for backwards compatibility during migration.
+        /// </summary>
         [XmlElement("AutoTDPUseMLMode")]
         private bool autoTDPUseMLMode;
         public bool AutoTDPUseMLMode
@@ -391,6 +395,24 @@ namespace Shared.Data
                 if (autoTDPUseMLMode != value)
                 {
                     autoTDPUseMLMode = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
+        /// AutoTDP controller type: 0=PID, 1=Q-Learning, 2=SARSA
+        /// </summary>
+        [XmlElement("AutoTDPControllerType")]
+        private int autoTDPControllerType;
+        public int AutoTDPControllerType
+        {
+            get { return autoTDPControllerType; }
+            set
+            {
+                if (autoTDPControllerType != value)
+                {
+                    autoTDPControllerType = value;
                     Save();
                 }
             }
@@ -1143,6 +1165,7 @@ namespace Shared.Data
             autoTDPMinTDP = 8;
             autoTDPMaxTDP = 30;
             autoTDPUseMLMode = false;
+            autoTDPControllerType = 0; // PID by default
             osPowerMode = null;
             // Additional profile settings (DC overrides)
             fpsLimitDC = null;

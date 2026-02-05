@@ -44,6 +44,16 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         public readonly GPDWin5ConnectedProperty Win5Connected;
 
         /// <summary>
+        /// Device display name (e.g., "GPD Win 5") based on SMBIOS detection.
+        /// </summary>
+        public readonly GPDDeviceNameProperty DeviceName;
+
+        /// <summary>
+        /// Property synced to widget indicating if device supports fan control.
+        /// </summary>
+        public readonly GPDSupportsFanControlProperty SupportsFanControlProp;
+
+        /// <summary>
         /// Trigger property to restore default button mappings on Win 5.
         /// </summary>
         public readonly GPDRestoreDefaultsProperty RestoreDefaults;
@@ -80,6 +90,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             {
                 yield return GPDDetected;
                 yield return Win5Connected;
+                yield return DeviceName;
+                yield return SupportsFanControlProp;
                 yield return RestoreDefaults;
                 // Button remapping properties
                 yield return ButtonA;
@@ -137,7 +149,11 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             // Create the detection properties
             GPDDetected = new GPDDetectedProperty(isGPDDetected, this);
             Win5Connected = new GPDWin5ConnectedProperty(false, this);
+            DeviceName = new GPDDeviceNameProperty(GetDeviceModelName(), this);
+            SupportsFanControlProp = new GPDSupportsFanControlProperty(deviceInfo?.SupportsFanControl ?? false, this);
             RestoreDefaults = new GPDRestoreDefaultsProperty(this);
+
+            Logger.Info($"[GPD] Device name: {GetDeviceModelName()}, SupportsFanControl: {deviceInfo?.SupportsFanControl ?? false}");
 
             // Create button remapping properties (only used for Win 5)
             ButtonA = new GPDButtonAProperty(this);

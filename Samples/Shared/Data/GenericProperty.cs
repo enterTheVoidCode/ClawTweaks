@@ -479,19 +479,17 @@ namespace Shared.Data
             var updatedTime = DateTime.Now.Ticks;
             lastUpdatedTime = updatedTime;
 
-            // Only trigger notification if value actually changed
-            if (!EqualityComparer<ValueType>.Default.Equals(value, newValue))
+            // Always update the value - ForceSetValue should force the full value update
+            // This is important for structs where equality may not include all fields (e.g., RunningGame.IconPath)
+            bool wasEqual = EqualityComparer<ValueType>.Default.Equals(value, newValue);
+            value = newValue;
+
+            if (wasEqual)
             {
-                value = newValue;
-                NotifyPropertyChanged(nameof(value));
+                Logger.Info($"Force sending {Function} value to remote (equality unchanged but value updated)");
             }
-            else
-            {
-                // Value is the same but we still need to send to remote
-                // Directly call NotifyPropertyChanged to send to helper/widget
-                Logger.Info($"Force sending {Function} value {newValue} to remote (value unchanged)");
-                NotifyPropertyChanged(nameof(value));
-            }
+
+            NotifyPropertyChanged(nameof(value));
             return true;
         }
     }

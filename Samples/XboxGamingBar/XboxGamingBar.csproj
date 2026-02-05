@@ -156,6 +156,8 @@
     <Compile Include="Data\LegionGoDetectedProperty.cs" />
     <Compile Include="Data\GPDDetectedProperty.cs" />
     <Compile Include="Data\GPDWin5ConnectedProperty.cs" />
+    <Compile Include="Data\GPDDeviceNameProperty.cs" />
+    <Compile Include="Data\GPDSupportsFanControlProperty.cs" />
     <Compile Include="Data\GPDFanSpeedProperty.cs" />
     <Compile Include="Data\GPDFanRPMProperty.cs" />
     <Compile Include="Data\GPDFanModeProperty.cs" />

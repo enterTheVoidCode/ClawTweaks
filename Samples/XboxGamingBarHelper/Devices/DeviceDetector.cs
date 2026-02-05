@@ -79,8 +79,12 @@ namespace XboxGamingBarHelper.Devices
 
                 try
                 {
-                    // Step 1: Try to load from disk cache (instant startup)
-                    if (TryLoadFromDiskCache(out var cachedInfo))
+                    // Check if debug.json exists - if so, skip cache to ensure fresh detection
+                    var debugFilePath = GetDebugFilePath();
+                    bool debugFileExists = !string.IsNullOrEmpty(debugFilePath) && File.Exists(debugFilePath);
+
+                    // Step 1: Try to load from disk cache (instant startup) - skip if debug.json exists
+                    if (!debugFileExists && TryLoadFromDiskCache(out var cachedInfo))
                     {
                         deviceInfo = cachedInfo;
                         timer.Stop();
@@ -88,14 +92,22 @@ namespace XboxGamingBarHelper.Devices
                     }
                     else
                     {
+                        if (debugFileExists)
+                        {
+                            Logger.Info("Debug override file exists - skipping device cache");
+                        }
+
                         // Step 2: Query WMI for device information (single combined query)
                         QueryDeviceInfoCombined(deviceInfo);
 
                         timer.Stop();
                         Logger.Info($"[TIMING] Device detection from WMI: {timer.ElapsedMilliseconds}ms");
 
-                        // Save to disk cache for next startup
-                        SaveToDiskCache(deviceInfo);
+                        // Save to disk cache for next startup (only if not in debug mode)
+                        if (!debugFileExists)
+                        {
+                            SaveToDiskCache(deviceInfo);
+                        }
                     }
 
                     // Step 3: Check for debug override file (always check, even with cache)
@@ -222,8 +234,17 @@ namespace XboxGamingBarHelper.Devices
             try
             {
                 var debugFilePath = GetDebugFilePath();
-                if (string.IsNullOrEmpty(debugFilePath) || !File.Exists(debugFilePath))
+                Logger.Info($"Debug override check - path: {debugFilePath ?? "(null)"}");
+
+                if (string.IsNullOrEmpty(debugFilePath))
                 {
+                    Logger.Info("Debug file path is null or empty");
+                    return;
+                }
+
+                if (!File.Exists(debugFilePath))
+                {
+                    Logger.Info($"Debug file does not exist at: {debugFilePath}");
                     return;
                 }
 
@@ -358,7 +379,7 @@ namespace XboxGamingBarHelper.Devices
             Logger.Info($"  SystemFamily: {deviceInfo.SystemFamily}");
             Logger.Info($"  DeviceType: {deviceInfo.DeviceType}");
             Logger.Info($"  Features - WMI TDP: {deviceInfo.SupportsWmiTdp}, Controller: {deviceInfo.SupportsControllerRemap}, RGB: {deviceInfo.SupportsRgbLighting}, Gyro: {deviceInfo.SupportsGyro}, FanControl: {deviceInfo.SupportsFanControl}");
-            Logger.Info($"  Hardware - Touchpad: {deviceInfo.HasTouchpad}, ScrollWheel: {deviceInfo.HasScrollWheel}");
+            Logger.Info($"  Hardware - Touchpad: {deviceInfo.HasTouchpad}, ScrollWheel: {deviceInfo.HasScrollWheel}, DetachableControllers: {deviceInfo.HasDetachableControllers}");
         }
 
         /// <summary>

@@ -599,6 +599,26 @@ namespace XboxGamingBarHelper.DefaultGameProfiles
         }
 
         /// <summary>
+        /// Forces resending of current DefaultGameProfile state to the widget.
+        /// Called after batch sync to ensure widget has the correct state.
+        /// </summary>
+        public void ResyncCurrentState()
+        {
+            if (_currentProfile.HasValue)
+            {
+                Logger.Info($"DefaultGameProfileManager: Resyncing current state - profile available for {_currentProfile.Value.GameName}");
+                ProfileAvailable.ForceSetValue(true);
+                ProfileData.ForceSetValue(XmlHelper.ToXMLString(_currentProfile.Value, true));
+                ProfileEnabled.ForceSetValue(ProfileEnabled.Value);
+            }
+            else
+            {
+                Logger.Debug("DefaultGameProfileManager: Resyncing current state - no profile available");
+                ProfileAvailable.ForceSetValue(false);
+            }
+        }
+
+        /// <summary>
         /// Clears current profile state (when no game or no profile found).
         /// </summary>
         private void ClearCurrentProfile()
