@@ -35,9 +35,6 @@ using XboxGamingBar.Event;
 using XboxGamingBar.IPC;
 using XboxGamingBar.QuickSettings;
 using Shared.Enums;
-using NavigationView = Microsoft.UI.Xaml.Controls.NavigationView;
-using NavigationViewItem = Microsoft.UI.Xaml.Controls.NavigationViewItem;
-using NavigationViewSelectionChangedEventArgs = Microsoft.UI.Xaml.Controls.NavigationViewSelectionChangedEventArgs;
 
 // The Blank Page item template is documented at https://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
@@ -1472,11 +1469,11 @@ namespace XboxGamingBar
             cardFocusBorderBrush = (SolidColorBrush)Resources["CardFocusBorderBrush"];
 
             // Register focus handler on navigation items to clear card focus when tabs get focus
-            foreach (var item in MainNavigationView.MenuItems)
+            foreach (var item in MainNavPanel.Children)
             {
-                if (item is NavigationViewItem navItem)
+                if (item is RadioButton radioButton)
                 {
-                    navItem.GotFocus += NavItem_GotFocus;
+                    radioButton.GotFocus += NavItem_GotFocus;
                 }
             }
 
@@ -1767,11 +1764,8 @@ namespace XboxGamingBar
         {
             Logger.Info($"GamingWidget_Loaded called. Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, Pipe connected: {App.IsConnected}");
 
-            // Set initial navigation selection
-            if (MainNavigationView.MenuItems.Count > 0)
-            {
-                MainNavigationView.SelectedItem = MainNavigationView.MenuItems[0];
-            }
+            // Set initial navigation selection (first RadioButton - Quick tab)
+            QuickNavItem.IsChecked = true;
 
             // Load profile customization settings
             LoadProfileCustomizationSettings();
@@ -3076,11 +3070,21 @@ namespace XboxGamingBar
             {
                 Logger.Info($"AutoTDP enabled but Legion Go is in mode {legionPerformanceMode?.Value} (not Custom). Switching to Custom mode.");
                 legionPerformanceMode?.SetValue(255);
-                // Update the UI dropdown if available
-                if (LegionPerformanceModeComboBox != null)
+
+                // Update BOTH UI dropdowns - this is critical for profile saving
+                // Profile save reads from TDPModeComboBox via GetCurrentPresetLegionMode()
+                int customIndex = GetCustomTdpModeIndex();
+                if (TDPModeComboBox != null && TDPModeComboBox.SelectedIndex != customIndex)
                 {
-                    // Custom mode is index 3 (Quiet=0, Balanced=1, Performance=2, Custom=3)
-                    LegionPerformanceModeComboBox.SelectedIndex = 3;
+                    isUpdatingTDPMode = true;
+                    TDPModeComboBox.SelectedIndex = customIndex;
+                    lastTDPModeIndex = customIndex;
+                    isUpdatingTDPMode = false;
+                    UpdateTDPSliderEnabledState();
+                }
+                if (LegionPerformanceModeComboBox != null && LegionPerformanceModeComboBox.SelectedIndex != customIndex)
+                {
+                    LegionPerformanceModeComboBox.SelectedIndex = customIndex;
                 }
             }
 
@@ -6115,6 +6119,23 @@ namespace XboxGamingBar
             {
                 // Custom is the last item (index 3)
                 return index == 3;
+            }
+        }
+
+        /// <summary>
+        /// Gets the TDPModeComboBox index for Custom mode.
+        /// </summary>
+        private int GetCustomTdpModeIndex()
+        {
+            if (useCustomTDPPresets && tdpPresets != null)
+            {
+                // Custom is after all presets
+                return tdpPresets.Count;
+            }
+            else
+            {
+                // Custom is index 3 (Quiet=0, Balanced=1, Performance=2, Custom=3)
+                return 3;
             }
         }
 
@@ -10115,6 +10136,31 @@ namespace XboxGamingBar
 
                 // Update profile display to show correct TDP mode in Profiles tab
                 UpdateProfileDisplay();
+
+                // Safety check: If AutoTDP is enabled but we're not in Custom mode, switch to Custom mode
+                // This handles profiles that were saved with incorrect mode values before the fix
+                if (SaveAutoTDP && AutoTDPToggle?.IsOn == true && legionGoDetected?.Value == true)
+                {
+                    int customIndex = GetCustomTdpModeIndex();
+                    if (TDPModeComboBox != null && !IsCustomTdpModeSelected())
+                    {
+                        Logger.Info($"AutoTDP enabled but not in Custom mode - fixing mode to Custom");
+                        isUpdatingTDPMode = true;
+                        try
+                        {
+                            lastTDPModeIndex = customIndex;
+                            TDPModeComboBox.SelectedIndex = customIndex;
+                            if (LegionPerformanceModeComboBox != null)
+                                LegionPerformanceModeComboBox.SelectedIndex = customIndex;
+                            legionPerformanceMode?.SetValue(255);
+                            UpdateTDPSliderEnabledState();
+                        }
+                        finally
+                        {
+                            isUpdatingTDPMode = false;
+                        }
+                    }
+                }
             }
             finally
             {
@@ -13451,9 +13497,9 @@ namespace XboxGamingBar
             _saveCPUAffinity = ProfileSaveCPUAffinityCheckBox?.IsChecked ?? false;
         }
 
-        private void MainNavigationView_SelectionChanged(object sender, object args)
+        private void NavRadioButton_Checked(object sender, RoutedEventArgs e)
         {
-            if (args is NavigationViewSelectionChangedEventArgs navArgs && navArgs.SelectedItem is NavigationViewItem selectedItem)
+            if (sender is RadioButton selectedItem)
             {
                 string tag = selectedItem.Tag?.ToString() ?? "";
 
@@ -13577,7 +13623,7 @@ namespace XboxGamingBar
             else if (e.Key == VirtualKey.GamepadDPadDown)
             {
                 var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
-                // Check if focus is on a NavigationViewItem or within the nav area
+                // Check if focus is on a nav RadioButton or within the nav area
                 if (focusedElement != null && IsInNavigationArea(focusedElement))
                 {
                     // Mark as handled immediately to prevent default XY navigation
@@ -13606,7 +13652,8 @@ namespace XboxGamingBar
             var current = element;
             while (current != null)
             {
-                if (current is NavigationViewItem)
+                // Check if we're in the nav panel
+                if (current == MainNavPanel)
                     return true;
                 current = VisualTreeHelper.GetParent(current) as FrameworkElement;
             }
@@ -13618,15 +13665,18 @@ namespace XboxGamingBar
             var visibleItems = GetVisibleNavigationItems();
             if (visibleItems.Count == 0) return;
 
-            int currentIndex = visibleItems.IndexOf(MainNavigationView.SelectedItem as NavigationViewItem);
+            // Find currently checked item
+            var currentItem = visibleItems.FirstOrDefault(rb => rb.IsChecked == true);
+            int currentIndex = currentItem != null ? visibleItems.IndexOf(currentItem) : 0;
+
             if (currentIndex > 0)
             {
-                MainNavigationView.SelectedItem = visibleItems[currentIndex - 1];
+                visibleItems[currentIndex - 1].IsChecked = true;
             }
             else
             {
                 // Wrap around to last tab
-                MainNavigationView.SelectedItem = visibleItems[visibleItems.Count - 1];
+                visibleItems[visibleItems.Count - 1].IsChecked = true;
             }
         }
 
@@ -13635,26 +13685,29 @@ namespace XboxGamingBar
             var visibleItems = GetVisibleNavigationItems();
             if (visibleItems.Count == 0) return;
 
-            int currentIndex = visibleItems.IndexOf(MainNavigationView.SelectedItem as NavigationViewItem);
+            // Find currently checked item
+            var currentItem = visibleItems.FirstOrDefault(rb => rb.IsChecked == true);
+            int currentIndex = currentItem != null ? visibleItems.IndexOf(currentItem) : 0;
+
             if (currentIndex < visibleItems.Count - 1)
             {
-                MainNavigationView.SelectedItem = visibleItems[currentIndex + 1];
+                visibleItems[currentIndex + 1].IsChecked = true;
             }
             else
             {
                 // Wrap around to first tab
-                MainNavigationView.SelectedItem = visibleItems[0];
+                visibleItems[0].IsChecked = true;
             }
         }
 
-        private List<NavigationViewItem> GetVisibleNavigationItems()
+        private List<RadioButton> GetVisibleNavigationItems()
         {
-            var visibleItems = new List<NavigationViewItem>();
-            foreach (var item in MainNavigationView.MenuItems)
+            var visibleItems = new List<RadioButton>();
+            foreach (var item in MainNavPanel.Children)
             {
-                if (item is NavigationViewItem navItem && navItem.Visibility == Visibility.Visible)
+                if (item is RadioButton radioButton && radioButton.Visibility == Visibility.Visible)
                 {
-                    visibleItems.Add(navItem);
+                    visibleItems.Add(radioButton);
                 }
             }
             return visibleItems;
@@ -17948,6 +18001,8 @@ namespace XboxGamingBar
 
                 // Set flag to prevent toggle handlers from saving forced-off state to LocalSettings
                 isUpdatingTDPMode = true;
+                bool wasAutoTDPOn = AutoTDPToggle?.IsOn == true;
+                bool wasStickyTDPOn = StickyTDPToggle?.IsOn == true;
                 try
                 {
                     // Also disable TDP Boost and AutoTDP controls in preset modes
@@ -17974,6 +18029,18 @@ namespace XboxGamingBar
                 finally
                 {
                     isUpdatingTDPMode = false;
+                }
+
+                // Explicitly notify helper to disable AutoTDP/StickyTDP since toggle handlers were blocked
+                if (wasAutoTDPOn)
+                {
+                    autoTDPEnabled?.SetValue(false);
+                    Logger.Info("AutoTDP disabled due to TDP mode change away from Custom");
+                }
+                if (wasStickyTDPOn)
+                {
+                    StopStickyTDPTimer();
+                    Logger.Info("Sticky TDP disabled due to TDP mode change away from Custom");
                 }
 
                 // Update XY focus to skip disabled controls
@@ -18020,7 +18087,8 @@ namespace XboxGamingBar
                         try
                         {
                             AutoTDPToggle.IsOn = autoTdpEnabled;
-                            // NOTE: Do NOT send to helper - helper is source of truth for profile values
+                            // Send to helper to re-enable AutoTDP when switching back to Custom mode
+                            autoTDPEnabled?.SetValue(autoTdpEnabled);
                             Logger.Debug($"Restored AutoTDP toggle state from LocalSettings: {autoTdpEnabled}");
                         }
                         finally
@@ -18268,8 +18336,16 @@ namespace XboxGamingBar
                 qsSelectedTileForMove = null;
 
                 // Dark mode colors with sharp contrast for handheld devices
-                // On state: dark green
-                tileOnBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 26, 46, 31));    // #1A2E1F
+                // On state: use desaturated system accent color for subtle indication
+                var accentDark3 = (Windows.UI.Color)Application.Current.Resources["SystemAccentColorDark3"];
+                // Blend accent with dark gray to reduce saturation (40% accent, 60% dark base)
+                var darkBase = Windows.UI.Color.FromArgb(255, 26, 28, 30); // Same as tile off
+                var desaturatedAccent = Windows.UI.Color.FromArgb(
+                    255,
+                    (byte)((accentDark3.R * 0.4) + (darkBase.R * 0.6)),
+                    (byte)((accentDark3.G * 0.4) + (darkBase.G * 0.6)),
+                    (byte)((accentDark3.B * 0.4) + (darkBase.B * 0.6)));
+                tileOnBrush = new SolidColorBrush(desaturatedAccent);
 
                 // Other tile brushes - dark mode
                 tileOffBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 26, 28, 30));   // #1A1C1E
@@ -19006,7 +19082,7 @@ namespace XboxGamingBar
                 {
                     Glyph = info.Glyph,
                     FontSize = 14,
-                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 200, 255)), // #00C8FF
+                    Foreground = new SolidColorBrush((Windows.UI.Color)Application.Current.Resources["SystemAccentColorLight2"]),
                     Margin = new Thickness(0, 0, 4, 0),
                     VerticalAlignment = VerticalAlignment.Center
                 };
@@ -19095,7 +19171,7 @@ namespace XboxGamingBar
                 var indexText = new TextBlock
                 {
                     Text = $"{i + 1}",
-                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 200, 255)),
+                    Foreground = new SolidColorBrush((Windows.UI.Color)Application.Current.Resources["SystemAccentColorLight2"]),
                     FontSize = 11,
                     FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                     VerticalAlignment = VerticalAlignment.Center
@@ -19874,7 +19950,7 @@ namespace XboxGamingBar
 
             try
             {
-                var accentForeground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 200, 255));
+                var accentForeground = new SolidColorBrush((Windows.UI.Color)Application.Current.Resources["SystemAccentColorLight2"]);
                 var offForeground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
 
                 // TDP Mode tile - color-coded backgrounds based on preset or mode
