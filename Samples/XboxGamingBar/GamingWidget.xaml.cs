@@ -225,7 +225,8 @@ namespace XboxGamingBar
         AltF4 = 6,
         OpenKeyboard = 7,
         CtrlAltDel = 8,
-        TaskManager = 9
+        TaskManager = 9,
+        FocusGoTweaks = 10
     }
 
     /// <summary>
@@ -609,7 +610,7 @@ namespace XboxGamingBar
         // Helper launch guard - prevents duplicate launches and UAC prompts
         private static bool isLaunchingHelper = false;
         private static DateTime lastLaunchAttempt = DateTime.MinValue;
-        private const int MinLaunchIntervalMs = 10000; // 10 seconds between launch attempts
+        private const int MinLaunchIntervalMs = 5000; // 5 seconds between launch attempts
         private const int HeartbeatStaleThresholdSeconds = 5;
         private const int ReconnectionTimeoutSeconds = 5;
         private DispatcherTimer reconnectionTimeoutTimer = null;
@@ -14644,14 +14645,14 @@ namespace XboxGamingBar
                 // View + A: Disabled (0) - was Ctrl+Alt+Del but that cannot be simulated
                 // View + B: Open Virtual Keyboard (7)
                 // View + X: Screenshot (4)
-                // View + Y: Task Manager (9)
+                // View + Y: Focus GoTweaks (10)
                 settings.Values["Hotkey_MenuA_Action"] = (int)HotkeyAction.Disabled;
                 settings.Values["Hotkey_MenuB_Action"] = (int)HotkeyAction.OpenKeyboard;
                 settings.Values["Hotkey_MenuX_Action"] = (int)HotkeyAction.Screenshot;
-                settings.Values["Hotkey_MenuY_Action"] = (int)HotkeyAction.TaskManager;
+                settings.Values["Hotkey_MenuY_Action"] = (int)HotkeyAction.FocusGoTweaks;
                 settings.Values["Hotkey_DefaultsApplied"] = true;
 
-                Logger.Info("Hotkey defaults applied: A=Disabled, B=OpenKeyboard, X=Screenshot, Y=TaskManager");
+                Logger.Info("Hotkey defaults applied: A=Disabled, B=OpenKeyboard, X=Screenshot, Y=FocusGoTweaks");
             }
             catch (Exception ex)
             {
@@ -15609,8 +15610,8 @@ namespace XboxGamingBar
                 Logger.Info("Helper launch completed");
 
                 // Try to connect via Named Pipe (works even when helper is elevated)
-                // Give the helper a moment to start its pipe server
-                await Task.Delay(500);
+                // Brief delay for helper to start, then fast retry loop handles the rest
+                await Task.Delay(200);
                 _ = TryConnectPipeAsync();
 
                 return true;
@@ -15634,15 +15635,25 @@ namespace XboxGamingBar
         /// </summary>
         private async Task TryConnectPipeAsync()
         {
-            // Longer retry duration for elevation scenario:
+            // Retry duration must cover the elevation scenario:
             // - MSIX helper launches, checks elevation, launches --setup (UAC prompt)
             // - User approves UAC
             // - Setup helper deploys, creates task, runs task, exits
             // - Elevated helper starts from deployed location
             // - Pipe server starts
             // This can take 15-30 seconds total
-            const int maxAttempts = 60;
-            const int delayBetweenAttempts = 1000;
+            //
+            // Use fast retries (500ms timeout + 250ms delay) for the first 10 attempts (~7.5s)
+            // to minimize reconnection latency when helper is already running.
+            // Then slow down for the remaining attempts to cover UAC/setup scenarios.
+            const int maxAttempts = 80;
+            const int fastTimeoutMs = 500;
+            const int slowTimeoutMs = 1500;
+            const int fastDelayMs = 250;
+            const int slowDelayMs = 1000;
+            const int fastAttempts = 10; // ~7.5s of fast retries
+            var startTime = DateTime.Now;
+            bool shownInitialSetupBanner = false;
 
             for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
@@ -15652,26 +15663,31 @@ namespace XboxGamingBar
                     return;
                 }
 
-                // Only log every 5 attempts to reduce noise
-                if (attempt == 1 || attempt % 5 == 0)
+                bool isFastPhase = attempt <= fastAttempts;
+                int timeoutMs = isFastPhase ? fastTimeoutMs : slowTimeoutMs;
+                int delayMs = isFastPhase ? fastDelayMs : slowDelayMs;
+
+                // Only log every 10 attempts to reduce noise
+                if (attempt == 1 || attempt % 10 == 0)
                 {
-                    Logger.Info($"Attempting pipe connection ({attempt}/{maxAttempts})...");
+                    Logger.Info($"Attempting pipe connection ({attempt}/{maxAttempts}, timeout={timeoutMs}ms)...");
                 }
 
-                // After 5 seconds, show InitialSetup banner (likely UAC/setup in progress)
-                if (attempt == 5)
+                // After 8 seconds, show InitialSetup banner (likely UAC/setup in progress)
+                if (!shownInitialSetupBanner && (DateTime.Now - startTime).TotalSeconds >= 8)
                 {
+                    shownInitialSetupBanner = true;
                     await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                     {
                         ShowConnectionBanner(BannerState.InitialSetup);
                     });
                 }
 
-                bool connected = await App.ConnectPipeAsync(2000);
+                bool connected = await App.ConnectPipeAsync(timeoutMs);
 
                 if (connected)
                 {
-                    Logger.Info("Connected to helper via Named Pipe!");
+                    Logger.Info($"Connected to helper via Named Pipe! (attempt {attempt}, {(DateTime.Now - startTime).TotalMilliseconds:F0}ms elapsed)");
 
                     // Register for pipe messages
                     App.PipeMessageReceived -= PipeClient_MessageReceived;
@@ -15687,11 +15703,11 @@ namespace XboxGamingBar
                 // Wait before next attempt
                 if (attempt < maxAttempts)
                 {
-                    await Task.Delay(delayBetweenAttempts);
+                    await Task.Delay(delayMs);
                 }
             }
 
-            Logger.Warn($"Failed to connect via pipe after {maxAttempts} attempts ({maxAttempts * delayBetweenAttempts / 1000}s)");
+            Logger.Warn($"Failed to connect via pipe after {maxAttempts} attempts ({(DateTime.Now - startTime).TotalSeconds:F1}s)");
 
             // Show disconnected banner so user knows connection failed
             await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
@@ -16093,6 +16109,13 @@ namespace XboxGamingBar
             // Register as active widget
             App.RegisterActiveGamingWidget(this);
             Logger.Info("Registered as active widget for pipe communication");
+
+            // Hide the connection banner early - the pipe is connected and UI is already visible.
+            // Property sync happens in the background; no need to show "Reconnecting" during it.
+            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+            {
+                HideConnectionBanner();
+            });
 
             // Create widget activity and app target tracker if widget is available
             if (widget != null)
