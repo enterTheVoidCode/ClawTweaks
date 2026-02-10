@@ -3347,6 +3347,7 @@
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
+                                                <ComboBoxItem Content="Focus GoTweaks" Tag="10"/>
                                             </ComboBox>
                                         </Grid>
                                         <StackPanel x:Name="HotkeyMenuAKeyPanel" Orientation="Horizontal" Margin="80,4,0,0" Visibility="Collapsed">
@@ -3382,6 +3383,7 @@
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
+                                                <ComboBoxItem Content="Focus GoTweaks" Tag="10"/>
                                             </ComboBox>
                                         </Grid>
                                         <StackPanel x:Name="HotkeyMenuBKeyPanel" Orientation="Horizontal" Margin="80,4,0,0" Visibility="Collapsed">
@@ -3417,6 +3419,7 @@
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
+                                                <ComboBoxItem Content="Focus GoTweaks" Tag="10"/>
                                             </ComboBox>
                                         </Grid>
                                         <StackPanel x:Name="HotkeyMenuXKeyPanel" Orientation="Horizontal" Margin="80,4,0,0" Visibility="Collapsed">
@@ -3452,6 +3455,7 @@
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
+                                                <ComboBoxItem Content="Focus GoTweaks" Tag="10"/>
                                             </ComboBox>
                                         </Grid>
                                         <StackPanel x:Name="HotkeyMenuYKeyPanel" Orientation="Horizontal" Margin="80,4,0,0" Visibility="Collapsed">
@@ -3487,6 +3491,7 @@
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
+                                                <ComboBoxItem Content="Focus GoTweaks" Tag="10"/>
                                             </ComboBox>
                                         </Grid>
                                         <StackPanel x:Name="HotkeyMenuDpadUpKeyPanel" Orientation="Horizontal" Margin="80,4,0,0" Visibility="Collapsed">
@@ -3522,6 +3527,7 @@
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
+                                                <ComboBoxItem Content="Focus GoTweaks" Tag="10"/>
                                             </ComboBox>
                                         </Grid>
                                         <StackPanel x:Name="HotkeyMenuDpadDownKeyPanel" Orientation="Horizontal" Margin="80,4,0,0" Visibility="Collapsed">
@@ -3557,6 +3563,7 @@
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
+                                                <ComboBoxItem Content="Focus GoTweaks" Tag="10"/>
                                             </ComboBox>
                                         </Grid>
                                         <StackPanel x:Name="HotkeyMenuDpadLeftKeyPanel" Orientation="Horizontal" Margin="80,4,0,0" Visibility="Collapsed">
@@ -3592,6 +3599,7 @@
                                                 <ComboBoxItem Content="Alt+F4" Tag="6"/>
                                                 <ComboBoxItem Content="Open Keyboard" Tag="7"/>
                                                 <ComboBoxItem Content="Task Manager" Tag="9"/>
+                                                <ComboBoxItem Content="Focus GoTweaks" Tag="10"/>
                                             </ComboBox>
                                         </Grid>
                                         <StackPanel x:Name="HotkeyMenuDpadRightKeyPanel" Orientation="Horizontal" Margin="80,4,0,0" Visibility="Collapsed">

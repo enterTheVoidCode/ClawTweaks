@@ -4139,7 +4139,7 @@ del /f /q ""%~f0"" 2>nul
 
                 // HotkeyAction enum from widget:
                 // 0=Disabled, 1=KeyboardKey, 2=KeyboardShortcut, 3=ToggleOSD, 4=Screenshot,
-                // 5=AltTab, 6=AltF4, 7=OpenKeyboard, 8=CtrlAltDel, 9=TaskManager
+                // 5=AltTab, 6=AltF4, 7=OpenKeyboard, 8=CtrlAltDel, 9=TaskManager, 10=FocusGoTweaks
                 switch (action)
                 {
                     case 0: // Disabled
@@ -4176,6 +4176,9 @@ del /f /q ""%~f0"" 2>nul
                         break;
                     case 9: // Task Manager (Ctrl+Shift+Esc)
                         ExecuteKeyboardShortcut("Ctrl+Shift+Escape");
+                        break;
+                    case 10: // Focus GoTweaks widget
+                        FocusGoTweaksWidget();
                         break;
                     default:
                         Logger.Warn($"ExecuteControllerHotkeyAction: Unknown action {action} for {hotkeyName}");
