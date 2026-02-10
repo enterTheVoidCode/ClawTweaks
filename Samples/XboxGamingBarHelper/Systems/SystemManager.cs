@@ -548,9 +548,6 @@ namespace XboxGamingBarHelper.Systems
                     var gameName = GetGameName(mw.Path, trackedGame.DisplayName);
                     Logger.Info($"TrackedGame \"{trackedGame.DisplayName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground} -> GameName={gameName}");
 
-                    // Window match found - reset the no-window-match timeout
-                    trackedGame.OnWindowMatched();
-
                     return new RunningGame(mw.ProcessId, gameName, mw.Path, fps, mw.IsForeground);
                 }
                 else
@@ -561,16 +558,6 @@ namespace XboxGamingBarHelper.Systems
                         Logger.Info($"[GameDetection] TrackedGame \"{trackedGame.DisplayName}\" valid but no window match (AumId={trackedGame.AumId})");
                     }
                     Logger.Debug($"TrackedGame \"{trackedGame.DisplayName}\" is valid but no matching window found (AumId={trackedGame.AumId})");
-
-                    // Track time since last window match - clear TrackedGame if it has been too long
-                    // This handles the case where the game has actually closed but Game Bar didn't send
-                    // an empty TrackedGame update (or we rejected it because the widget lost focus)
-                    if (trackedGame.OnNoWindowMatch())
-                    {
-                        // Timeout exceeded - clear the stale TrackedGame
-                        trackedGame.Clear();
-                        // Continue to look for other games instead of returning
-                    }
                 }
             }
 

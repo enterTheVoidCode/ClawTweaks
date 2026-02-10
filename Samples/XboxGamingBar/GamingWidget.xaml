@@ -19,6 +19,9 @@
         <converter:SharpnessPercentStringConverter x:Key="SharpnessPercentStringConverter"/>
         <converter:RadeonBoostResolutionStringConverter x:Key="RadeonBoostResolutionStringConverter"/>
 
+        <!-- System Accent Color Brush (Light2 variant for dark theme text) -->
+        <SolidColorBrush x:Key="SystemAccentBrush" Color="{ThemeResource SystemAccentColorLight2}"/>
+
         <!-- Tooth Theme Colors -->
         <SolidColorBrush x:Key="PageBackgroundBrush" Color="#25282C"/>
         <SolidColorBrush x:Key="CardBackgroundBrush" Color="#30343A"/>
@@ -47,17 +50,101 @@
         <!-- Card Focus Border Brush -->
         <SolidColorBrush x:Key="CardFocusBorderBrush" Color="White"/>
 
-        <!-- Navigation Item Style with Focus - Optimized for Handheld -->
-        <!-- Compact padding to ensure all tabs fit without overflow -->
-        <Style x:Key="NavItemStyle" TargetType="muxc:NavigationViewItem">
+        <!-- Navigation RadioButton Style - Optimized for Handheld XY Navigation -->
+        <!-- Uses RadioButtons group which treats tabs as single navigable unit -->
+        <Style x:Key="NavRadioButtonStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#AAAAAA"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
             <Setter Property="Padding" Value="8,5,8,5"/>
-            <Setter Property="FocusVisualPrimaryBrush" Value="White"/>
-            <Setter Property="FocusVisualSecondaryBrush" Value="Transparent"/>
-            <Setter Property="FocusVisualPrimaryThickness" Value="2"/>
-            <Setter Property="FocusVisualMargin" Value="-2"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="UseSystemFocusVisuals" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid x:Name="RootGrid" Background="{TemplateBinding Background}">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="PointerOver">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#FFFFFF"/>
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#888888"/>
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#555555"/>
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="CheckStates">
+                                    <VisualState x:Name="Checked">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="{StaticResource SystemAccentBrush}"/>
+                                            </ObjectAnimationUsingKeyFrames>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionIndicator" Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Unchecked"/>
+                                    <VisualState x:Name="Indeterminate"/>
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="FocusStates">
+                                    <VisualState x:Name="Focused">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="FocusBorder" Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Unfocused"/>
+                                    <VisualState x:Name="PointerFocused"/>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <!-- Focus border with rounded corners -->
+                            <Border x:Name="FocusBorder"
+                                    BorderBrush="White"
+                                    BorderThickness="2"
+                                    CornerRadius="6"
+                                    Margin="-2"
+                                    Visibility="Collapsed"/>
+                            <ContentPresenter x:Name="ContentPresenter"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              Foreground="{TemplateBinding Foreground}"
+                                              Padding="{TemplateBinding Padding}"
+                                              HorizontalContentAlignment="Center"
+                                              VerticalContentAlignment="Center"
+                                              AutomationProperties.AccessibilityView="Raw"/>
+                            <Border x:Name="SelectionIndicator"
+                                    Height="3"
+                                    Background="{StaticResource SystemAccentBrush}"
+                                    CornerRadius="1.5"
+                                    VerticalAlignment="Bottom"
+                                    HorizontalAlignment="Stretch"
+                                    Margin="6,0,6,2"
+                                    Visibility="Collapsed"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- Card Title Style - Tooth Theme -->
@@ -89,7 +176,7 @@
         <Style x:Key="CardValueStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="18"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#00C8FF"/>
+            <Setter Property="Foreground" Value="{StaticResource SystemAccentBrush}"/>
             <Setter Property="HorizontalAlignment" Value="Right"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
@@ -172,7 +259,7 @@
         <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="18"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="#00C8FF"/>
+            <Setter Property="Foreground" Value="{StaticResource SystemAccentBrush}"/>
             <Setter Property="Margin" Value="0,20,0,0"/>
         </Style>
 
@@ -298,40 +385,47 @@
                       HorizontalAlignment="Center"
                       VerticalAlignment="Center"/>
 
-        <muxc:NavigationView x:Name="MainNavigationView"
-                        IsBackButtonVisible="Collapsed"
-                        IsSettingsVisible="False"
-                        IsPaneToggleButtonVisible="False"
-                        PaneDisplayMode="Top"
-                        OpenPaneLength="140"
-                        CompactModeThresholdWidth="0"
-                        ExpandedModeThresholdWidth="0"
-                        Background="Transparent"
-                        Margin="0,-6,0,-6"
-                        SelectionChanged="MainNavigationView_SelectionChanged">
+        <!-- Navigation Bar using RadioButtons for proper XY focus navigation -->
+        <Grid x:Name="MainNavContainer">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-            <!-- LT indicator in nav bar (compact) -->
-            <muxc:NavigationView.PaneHeader>
-                <Border Background="#404040" CornerRadius="3" Padding="4,1" Margin="4,0,2,0" VerticalAlignment="Center">
+            <!-- Nav Bar Row -->
+            <Grid Grid.Row="0" Background="Transparent" Margin="4,0,4,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- LT indicator -->
+                <Border Grid.Column="0" Background="#404040" CornerRadius="3" Padding="4,1" Margin="0,0,4,0" VerticalAlignment="Center">
                     <TextBlock Text="LT" Foreground="#FFFFFF" FontSize="10" FontWeight="SemiBold"/>
                 </Border>
-            </muxc:NavigationView.PaneHeader>
 
-            <muxc:NavigationView.MenuItems>
-                <muxc:NavigationViewItem x:Name="QuickNavItem" Content="Quick" Tag="Quick" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem x:Name="PerformanceNavItem" Content="Perf" Tag="Performance" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem x:Name="ProfilesNavItem" Content="Profiles" Tag="Game" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem x:Name="GraphicsNavItem" Content="Display" Tag="AMD" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem x:Name="ScalingNavItem" Content="Scale" Tag="Scaling" Style="{StaticResource NavItemStyle}"/>
-                <muxc:NavigationViewItem x:Name="LegionNavItem" Content="Legion" Tag="Legion" Style="{StaticResource NavItemStyle}" Visibility="Collapsed"/>
-                <muxc:NavigationViewItem x:Name="GPDNavItem" Content="GPD" Tag="GPD" Style="{StaticResource NavItemStyle}" Visibility="Collapsed"/>
-                <muxc:NavigationViewItem x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavItemStyle}"/>
-            </muxc:NavigationView.MenuItems>
+                <!-- Navigation Tabs - StackPanel for proper horizontal XY navigation -->
+                <!-- XYFocusKeyboardNavigation="Disabled" prevents vertical nav within, allows left/right -->
+                <StackPanel x:Name="MainNavPanel"
+                            Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            XYFocusKeyboardNavigation="Disabled">
+                    <RadioButton x:Name="QuickNavItem" Content="Quick" Tag="Quick" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
+                    <RadioButton x:Name="PerformanceNavItem" Content="Performance" Tag="Performance" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
+                    <RadioButton x:Name="ProfilesNavItem" Content="Profiles" Tag="Game" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
+                    <RadioButton x:Name="GraphicsNavItem" Content="Display" Tag="AMD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
+                    <RadioButton x:Name="ScalingNavItem" Content="Scale" Tag="Scaling" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
+                    <RadioButton x:Name="LegionNavItem" Content="Legion" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked"/>
+                    <RadioButton x:Name="GPDNavItem" Content="GPD" Tag="GPD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked"/>
+                    <RadioButton x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
+                </StackPanel>
 
-            <!-- RT indicator and status dot in nav bar (compact) -->
-            <muxc:NavigationView.PaneFooter>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="4">
-                    <Border Background="#404040" CornerRadius="3" Padding="4,1" Margin="2,0,0,0" VerticalAlignment="Center">
+                <!-- RT indicator and status dot -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="4">
+                    <Border Background="#404040" CornerRadius="3" Padding="4,1" Margin="4,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="RT" Foreground="#FFFFFF" FontSize="10" FontWeight="SemiBold"/>
                     </Border>
                     <!-- Helper Connection Status Indicator -->
@@ -339,7 +433,7 @@
                             Background="#30000000"
                             CornerRadius="6"
                             Padding="4,2"
-                            Margin="0,0,4,0"
+                            Margin="0,0,0,0"
                             VerticalAlignment="Center"
                             ToolTipService.ToolTip="Helper Status"
                             Tapped="HelperStatusIndicator_Tapped">
@@ -357,8 +451,10 @@
                         </StackPanel>
                     </Border>
                 </StackPanel>
-            </muxc:NavigationView.PaneFooter>
+            </Grid>
 
+            <!-- Content Area -->
+            <Grid Grid.Row="1">
             <!-- QUICK SETTINGS TAB -->
             <Grid>
                 <ScrollViewer x:Name="QuickSettingsScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Visible"
@@ -650,7 +746,8 @@
                                 </StackPanel>
                                 <ToggleSwitch x:Name="DefaultProfileToggle"
                                               Grid.Column="2"
-                                              Style="{StaticResource ModernToggleStyle}"/>
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              XYFocusUp="{x:Bind PerformanceNavItem}"/>
                             </Grid>
                         </Border>
 
@@ -713,6 +810,7 @@
                                               Width="120"
                                               Grid.Column="1"
                                               SelectionChanged="PerformanceOverlayComboBox_SelectionChanged"
+                                              XYFocusUp="{x:Bind PerformanceNavItem}"
                                               XYFocusDown="{x:Bind TDPSlider}"
                                               XYFocusLeft="{x:Bind PerformanceNavItem}">
                                         <ComboBoxItem Content="Off" Tag="0" IsSelected="True"/>
@@ -865,7 +963,7 @@
                                             <TextBlock Text="Target FPS" FontSize="14" Foreground="#A0A0A0"/>
                                             <TextBlock x:Name="AutoTDPTargetFPSValue" Text="60 FPS" FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold" HorizontalAlignment="Right"/>
                                         </Grid>
-                                        <Slider x:Name="AutoTDPTargetFPSSlider" Style="{StaticResource ModernSliderStyle}" Minimum="30" Maximum="144" StepFrequency="1" Value="60" ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"/>
+                                        <Slider x:Name="AutoTDPTargetFPSSlider" Style="{StaticResource ModernSliderStyle}" Minimum="30" Maximum="144" StepFrequency="5" TickFrequency="5" TickPlacement="Outside" SnapsTo="StepValues" Value="60" ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"/>
                                         <Grid Margin="0,8,0,0">
                                             <TextBlock Text="Current FPS" FontSize="14" Foreground="#A0A0A0"/>
                                             <TextBlock x:Name="AutoTDPCurrentFPSValue" Text="-- FPS" FontSize="14" Foreground="#FFCC00" FontWeight="SemiBold" HorizontalAlignment="Right"/>
@@ -2074,7 +2172,8 @@
                                           Width="150"
                                           Grid.Column="1"
                                           IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}">
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          XYFocusUp="{x:Bind GraphicsNavItem}">
                                     <x:String>1920x1080</x:String>
                                 </ComboBox>
                             </Grid>
@@ -2096,7 +2195,8 @@
                                           Width="120"
                                           Grid.Column="1"
                                           IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}">
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          XYFocusUp="{x:Bind GraphicsNavItem}">
                                     <x:String>60 Hz</x:String>
                                 </ComboBox>
                             </Grid>
@@ -2388,7 +2488,8 @@
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
-                                                  Click="TDPSettingsExpandButton_Click">
+                                                  Click="TDPSettingsExpandButton_Click"
+                                                  XYFocusUp="{x:Bind SystemNavItem}">
                                         <FontIcon x:Name="TDPSettingsExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
@@ -3694,6 +3795,136 @@
                                             Style="{StaticResource StandaloneButtonStyle}"
                                             Click="PrepareForUninstallButton_Click"/>
 
+                                    <!-- Enable Debug Tools Toggle -->
+                                    <Grid Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Enable Debug Tools" FontSize="14" Foreground="#FF6B6B"/>
+                                            <TextBlock Text="Advanced PawnIO testing (use with caution)" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="EnableDebugToolsToggle"
+                                                      Grid.Column="1"
+                                                      OnContent="" OffContent=""
+                                                      IsOn="False"
+                                                      Toggled="EnableDebugToolsToggle_Toggled"/>
+                                    </Grid>
+
+                                    <!-- PawnIO Debug Tools (visible when Debug Tools enabled) -->
+                                    <StackPanel x:Name="PawnIODebugTools" Visibility="Collapsed" Margin="0,12,0,0">
+                                        <Border Background="#402020" CornerRadius="6" Padding="12" Margin="0,0,0,8">
+                                            <StackPanel>
+                                                <TextBlock Text="PawnIO SMU Tools" FontSize="14" FontWeight="SemiBold" Foreground="#FF6B6B"/>
+                                                <TextBlock Text="Direct SMU commands - changes apply immediately" FontSize="11" Foreground="#888888" Margin="0,2,0,8"/>
+
+                                                <!-- CPU Info -->
+                                                <TextBlock x:Name="PawnIOCpuInfoText" Text="CPU: Not detected" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,8"/>
+
+                                                <!-- Curve Optimizer All -->
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="60"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <TextBlock Text="Curve Optimizer (All Cores)" FontSize="13" Foreground="#FFFFFF"/>
+                                                        <TextBlock Text="Undervolt: negative, Overvolt: positive" FontSize="10" Foreground="#888888"/>
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="PawnIOCoAllValue" Grid.Column="1" Text="0" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                        <Button Content="-" Width="32" Height="32" Click="PawnIOCoAllMinus_Click" Margin="0,0,4,0"/>
+                                                        <Button Content="+" Width="32" Height="32" Click="PawnIOCoAllPlus_Click"/>
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!-- Curve Optimizer iGPU -->
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="60"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <TextBlock Text="Curve Optimizer (iGPU)" FontSize="13" Foreground="#FFFFFF"/>
+                                                        <TextBlock Text="Undervolt: negative, Overvolt: positive" FontSize="10" Foreground="#888888"/>
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="PawnIOCoGfxValue" Grid.Column="1" Text="0" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                        <Button Content="-" Width="32" Height="32" Click="PawnIOCoGfxMinus_Click" Margin="0,0,4,0"/>
+                                                        <Button Content="+" Width="32" Height="32" Click="PawnIOCoGfxPlus_Click"/>
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!-- iGPU Clock -->
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="80"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <TextBlock Text="iGPU Clock (MHz)" FontSize="13" Foreground="#FFFFFF"/>
+                                                        <TextBlock Text="Set iGPU frequency" FontSize="10" Foreground="#888888"/>
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="PawnIOGfxClkValue" Grid.Column="1" Text="800" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                        <Button Content="-" Width="32" Height="32" Click="PawnIOGfxClkMinus_Click" Margin="0,0,4,0"/>
+                                                        <Button Content="+" Width="32" Height="32" Click="PawnIOGfxClkPlus_Click"/>
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!-- Tctl Temperature -->
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="80"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <TextBlock Text="Tctl Temp Limit (°C)" FontSize="13" Foreground="#FFFFFF"/>
+                                                        <TextBlock Text="CPU temperature limit" FontSize="10" Foreground="#888888"/>
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="PawnIOTctlValue" Grid.Column="1" Text="95" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                        <Button Content="-" Width="32" Height="32" Click="PawnIOTctlMinus_Click" Margin="0,0,4,0"/>
+                                                        <Button Content="+" Width="32" Height="32" Click="PawnIOTctlPlus_Click"/>
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!-- Apply Buttons -->
+                                                <Grid Margin="0,8,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="8"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Button x:Name="PawnIOApplyButton"
+                                                            Grid.Column="0"
+                                                            Content="Apply All"
+                                                            HorizontalAlignment="Stretch"
+                                                            Background="#4CAF50"
+                                                            Click="PawnIOApplyButton_Click"/>
+                                                    <Button x:Name="PawnIOResetButton"
+                                                            Grid.Column="2"
+                                                            Content="Reset to 0"
+                                                            HorizontalAlignment="Stretch"
+                                                            Click="PawnIOResetButton_Click"/>
+                                                </Grid>
+
+                                                <!-- Status Text -->
+                                                <TextBlock x:Name="PawnIODebugStatusText"
+                                                           Text=""
+                                                           FontSize="11"
+                                                           Foreground="#A0A0A0"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,8,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+
                                     <!-- Update Status Text -->
                                     <TextBlock x:Name="UpdateStatusText"
                                                Text=""
@@ -3843,12 +4074,14 @@
                                             Content="Show Window"
                                             Margin="0,0,8,0"
                                             Visibility="Collapsed"
-                                            Click="ShowLosslessScalingWindowButton_Click"/>
+                                            Click="ShowLosslessScalingWindowButton_Click"
+                                            XYFocusUp="{x:Bind ScalingNavItem}"/>
                                     <Button x:Name="LaunchLosslessScalingButton"
                                             Grid.Column="2"
                                             Content="Launch"
                                             Visibility="Collapsed"
-                                            Click="LaunchLosslessScalingButton_Click"/>
+                                            Click="LaunchLosslessScalingButton_Click"
+                                            XYFocusUp="{x:Bind ScalingNavItem}"/>
                                 </Grid>
                                 <TextBlock x:Name="LosslessScalingStatusText"
                                            Text="Not Installed"
@@ -3879,7 +4112,8 @@
                                             Content="Create Profile"
                                             VerticalAlignment="Center"
                                             IsEnabled="False"
-                                            Click="LosslessScalingCreateProfileButton_Click"/>
+                                            Click="LosslessScalingCreateProfileButton_Click"
+                                            XYFocusUp="{x:Bind ScalingNavItem}"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -4328,7 +4562,8 @@
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
-                                                  Click="TouchpadVibrationExpandToggle_Click">
+                                                  Click="TouchpadVibrationExpandToggle_Click"
+                                                  XYFocusUp="{x:Bind LegionNavItem}">
                                         <FontIcon x:Name="TouchpadVibrationExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
@@ -6137,7 +6372,8 @@
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernToggleStyle}"
                                                       IsOn="False"
-                                                      Toggled="GPDFanModeToggle_Toggled"/>
+                                                      Toggled="GPDFanModeToggle_Toggled"
+                                                      XYFocusUp="{x:Bind GPDNavItem}"/>
                                     </Grid>
 
                                     <!-- Fan Speed Slider (visible only in manual mode) -->
@@ -6333,7 +6569,7 @@
                 </Border>
 
             </Grid>
-
-        </muxc:NavigationView>
+            </Grid> <!-- End Content Area Grid.Row="1" -->
+        </Grid> <!-- End MainNavContainer -->
     </Grid>
 </Page>

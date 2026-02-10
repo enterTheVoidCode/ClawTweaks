@@ -297,5 +297,9 @@
         // Quick Metrics (compact stats row at top of Quick Tab)
         QuickMetrics,                   // string - JSON bundle pushed from helper (batteryDrain, cpuUsage, gpuUsage, timeRemaining, etc.)
         QuickMetricsEnabled,            // bool - toggle for metrics row visibility (widget setting synced to helper)
+
+        // PawnIO Debug Tools (for testing RyzenSMU functions)
+        PawnIOGetCpuInfo,               // Query: returns CPU codename and capabilities
+        PawnIOApplySettings,            // Set: apply CO, GfxClk, Tctl settings (params: CoAll, CoGfx, GfxClk, TctlTemp)
     }
 }

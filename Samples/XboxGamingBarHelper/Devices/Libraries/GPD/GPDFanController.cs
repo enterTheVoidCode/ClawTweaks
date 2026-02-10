@@ -47,6 +47,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         public GPDFanController()
         {
             Logger.Info("[GPDFan] Initializing GPD Fan Controller...");
+            Logger.Info($"[GPDFan] EC addresses: Fan1=0x{FAN1_DUTY_ADDR:X4}, Fan2=0x{FAN2_DUTY_ADDR:X4}, RPM=0x{FAN_RPM_HIGH_ADDR:X4}");
 
             _ec = new EcController();
             if (_ec.Initialize())
@@ -54,6 +55,18 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 _isReady = true;
                 Logger.Info("[GPDFan] EC controller initialized successfully");
                 Logger.Info($"[GPDFan] Chip ID: 0x{_ec.ChipId:X4}");
+
+                // Verify EC access is working by reading current fan duty values
+                try
+                {
+                    byte fan1Duty = _ec.ReadByte(FAN1_DUTY_ADDR);
+                    byte fan2Duty = _ec.ReadByte(FAN2_DUTY_ADDR);
+                    Logger.Info($"[GPDFan] Current PWM duty: Fan1=0x{fan1Duty:X2} ({fan1Duty}), Fan2=0x{fan2Duty:X2} ({fan2Duty})");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"[GPDFan] Could not read initial fan duty: {ex.Message}");
+                }
 
                 // Read initial fan speed
                 try
@@ -154,11 +167,23 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 // Map 30-100% to PWM_MANUAL_MIN-PWM_MAX
                 int pwm = PercentToPwm(percent);
 
-                Logger.Debug($"[GPDFan] Setting fan speed: {percent}% (PWM: {pwm})");
+                Logger.Debug($"[GPDFan] Setting fan speed: {percent}% (PWM: {pwm}/0x{pwm:X2})");
 
                 // Write to both fan registers
                 _ec.WriteByte(FAN1_DUTY_ADDR, (byte)pwm);
                 _ec.WriteByte(FAN2_DUTY_ADDR, (byte)pwm);
+
+                // Verify writes (read back values for diagnostic)
+                byte verifyFan1 = _ec.ReadByte(FAN1_DUTY_ADDR);
+                byte verifyFan2 = _ec.ReadByte(FAN2_DUTY_ADDR);
+                if (verifyFan1 != pwm || verifyFan2 != pwm)
+                {
+                    Logger.Warn($"[GPDFan] Write verification mismatch! Expected {pwm}, got Fan1={verifyFan1}, Fan2={verifyFan2}");
+                }
+                else
+                {
+                    Logger.Debug($"[GPDFan] Write verified: Fan1={verifyFan1}, Fan2={verifyFan2}");
+                }
 
                 _currentMode = GPDFanMode.Manual;
                 _currentSpeedPercent = percent;

@@ -392,6 +392,89 @@ namespace XboxGamingBarHelper.Performance
         /// </summary>
         public InstallPawnIOProperty InstallPawnIOProperty => installPawnIOProperty;
 
+        #region PawnIO Debug Tools
+
+        /// <summary>
+        /// Gets CPU info string for PawnIO debug display.
+        /// </summary>
+        public string GetPawnIOCpuInfo()
+        {
+            if (ryzenSmuService == null || !ryzenSmuService.IsInitialized)
+            {
+                return "PawnIO not initialized";
+            }
+
+            var cpuName = ryzenSmuService.CpuCodeName.ToString();
+            var smuVer = $"0x{ryzenSmuService.SmuVersion:X8}";
+            var capabilities = new System.Collections.Generic.List<string>();
+
+            if (ryzenSmuService.CanSetCurveOptimizerAll()) capabilities.Add("CO");
+            if (ryzenSmuService.CanSetCurveOptimizerGfx()) capabilities.Add("CO-GFX");
+            if (ryzenSmuService.CanSetGfxClock()) capabilities.Add("GfxClk");
+            if (ryzenSmuService.CanSetTctlTemp()) capabilities.Add("Tctl");
+            if (ryzenSmuService.CanSetStapmTime()) capabilities.Add("StapmTime");
+
+            return $"{cpuName} (SMU: {smuVer}) | {string.Join(", ", capabilities)}";
+        }
+
+        /// <summary>
+        /// Applies PawnIO debug settings (Curve Optimizer, GfxClk, Tctl).
+        /// </summary>
+        public string ApplyPawnIODebugSettings(int coAll, int coGfx, int gfxClk, int tctlTemp)
+        {
+            if (ryzenSmuService == null || !ryzenSmuService.IsInitialized)
+            {
+                return "Error: PawnIO not initialized";
+            }
+
+            var results = new System.Collections.Generic.List<string>();
+
+            try
+            {
+                // Apply Curve Optimizer All
+                if (coAll != 0 && ryzenSmuService.CanSetCurveOptimizerAll())
+                {
+                    bool success = ryzenSmuService.SetCurveOptimizerAll(coAll);
+                    results.Add($"CO All ({coAll}): {(success ? "OK" : "FAIL")}");
+                }
+
+                // Apply Curve Optimizer iGPU
+                if (coGfx != 0 && ryzenSmuService.CanSetCurveOptimizerGfx())
+                {
+                    bool success = ryzenSmuService.SetCurveOptimizerGfx(coGfx);
+                    results.Add($"CO GFX ({coGfx}): {(success ? "OK" : "FAIL")}");
+                }
+
+                // Apply iGPU Clock
+                if (gfxClk > 0 && ryzenSmuService.CanSetGfxClock())
+                {
+                    bool success = ryzenSmuService.SetGfxClock((uint)gfxClk);
+                    results.Add($"GfxClk ({gfxClk} MHz): {(success ? "OK" : "FAIL")}");
+                }
+
+                // Apply Tctl Temperature
+                if (tctlTemp > 0 && ryzenSmuService.CanSetTctlTemp())
+                {
+                    bool success = ryzenSmuService.SetTctlTemp((uint)tctlTemp);
+                    results.Add($"Tctl ({tctlTemp}°C): {(success ? "OK" : "FAIL")}");
+                }
+
+                if (results.Count == 0)
+                {
+                    return "No settings applied (all values at default or unsupported)";
+                }
+
+                return string.Join(" | ", results);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"PawnIO debug apply failed: {ex.Message}");
+                return $"Error: {ex.Message}";
+            }
+        }
+
+        #endregion
+
         /// <summary>
         /// Sets the Legion Manager reference for WMI TDP support.
         /// Must be called after LegionManager is initialized.

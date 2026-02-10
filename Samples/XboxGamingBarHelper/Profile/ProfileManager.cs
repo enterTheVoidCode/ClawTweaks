@@ -142,7 +142,61 @@ namespace XboxGamingBarHelper.Profile
 
         public bool TryGetProfile(GameId gameId, out GameProfile gameProfile)
         {
-            return gameProfiles.TryGetValue(gameId, out gameProfile);
+            // Fast path: exact match
+            if (gameProfiles.TryGetValue(gameId, out gameProfile))
+            {
+                return true;
+            }
+
+            // Fallback: try matching by path only (handles name variations like "Game Name" vs "Game: Name")
+            if (!string.IsNullOrEmpty(gameId.Path))
+            {
+                foreach (var kvp in gameProfiles)
+                {
+                    if (string.Equals(kvp.Key.Path, gameId.Path, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Logger.Debug($"Profile matched by path (name mismatch: '{gameId.Name}' vs '{kvp.Key.Name}'): {gameId.Path}");
+                        gameProfile = kvp.Value;
+                        return true;
+                    }
+                }
+            }
+
+            // Fallback: try normalized name match (removes punctuation, case-insensitive)
+            var normalizedName = NormalizeName(gameId.Name);
+            foreach (var kvp in gameProfiles)
+            {
+                if (NormalizeName(kvp.Key.Name) == normalizedName)
+                {
+                    Logger.Debug($"Profile matched by normalized name: '{gameId.Name}' -> '{kvp.Key.Name}'");
+                    gameProfile = kvp.Value;
+                    return true;
+                }
+            }
+
+            gameProfile = default;
+            return false;
+        }
+
+        /// <summary>
+        /// Normalizes a game name for fuzzy matching by removing punctuation and converting to lowercase.
+        /// </summary>
+        private static string NormalizeName(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return string.Empty;
+
+            // Remove common punctuation that varies between sources (colons, dashes, etc.)
+            // and convert to lowercase for case-insensitive comparison
+            var normalized = new System.Text.StringBuilder();
+            foreach (var c in name.ToLowerInvariant())
+            {
+                if (char.IsLetterOrDigit(c) || c == ' ')
+                {
+                    normalized.Append(c);
+                }
+            }
+            return normalized.ToString().Trim();
         }
 
         public GameProfile AddNewProfile(GameId gameId)

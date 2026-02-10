@@ -83,17 +83,42 @@ namespace XboxGamingBarHelper.PawnIO
         public const uint RENOIR_SET_STAPM_TIME = 0x18;
         public const uint RENOIR_SET_TCTL_TEMP = 0x19;
         public const uint RENOIR_SET_APU_SLOW_LIMIT = 0x21;
+        public const uint RENOIR_SET_CO_ALL = 0x55;
+        public const uint RENOIR_SET_CO_PER = 0x54;
+        public const uint RENOIR_SET_CO_GFX = 0x64;
 
         // Phoenix/Hawk Point APU commands (Family 19h Model 70+)
         public const uint PHOENIX_SET_STAPM_LIMIT = 0x14;
         public const uint PHOENIX_SET_FAST_LIMIT = 0x15;
         public const uint PHOENIX_SET_SLOW_LIMIT = 0x16;
         public const uint PHOENIX_SET_APU_SLOW_LIMIT = 0x21;
+        public const uint PHOENIX_SET_CO_ALL = 0x4C;
+        public const uint PHOENIX_SET_CO_PER = 0x4B;
+        public const uint PHOENIX_SET_CO_GFX = 0xB7;
+        public const uint PHOENIX_SET_GFX_CLK = 0x89;
 
         // Strix Point commands (Family 1Ah)
         public const uint STRIX_SET_STAPM_LIMIT = 0x14;
         public const uint STRIX_SET_FAST_LIMIT = 0x15;
         public const uint STRIX_SET_SLOW_LIMIT = 0x16;
+        public const uint STRIX_SET_CO_ALL = 0x4C;
+        public const uint STRIX_SET_CO_PER = 0x4B;
+        public const uint STRIX_SET_GFX_CLK = 0x89;
+
+        // RavenRidge commands (older APUs)
+        public const uint RAVEN_SET_STAPM_LIMIT = 0x1A;
+        public const uint RAVEN_SET_FAST_LIMIT = 0x1B;
+        public const uint RAVEN_SET_SLOW_LIMIT = 0x1C;
+        public const uint RAVEN_SET_MIN_GFX_CLK = 0x47;
+        public const uint RAVEN_SET_MAX_GFX_CLK = 0x46;
+
+        // DragonRange/Raphael commands (desktop APUs)
+        public const uint DRAGON_SET_STAPM_LIMIT = 0x4F;
+        public const uint DRAGON_SET_FAST_LIMIT = 0x3E;
+        public const uint DRAGON_SET_SLOW_LIMIT = 0x5F;
+        public const uint DRAGON_SET_CO_ALL = 0x07;
+        public const uint DRAGON_SET_CO_PER = 0x06;
+        public const uint DRAGON_SET_GFX_CLK = 0x89;
     }
 
     /// <summary>
@@ -109,6 +134,12 @@ namespace XboxGamingBarHelper.PawnIO
         private bool _initialized;
         private CpuCodeName _cpuCodeName;
         private uint _smuVersion;
+
+        // MP1 mailbox addresses (set per-CPU during initialization)
+        private uint _mp1AddrCmd;
+        private uint _mp1AddrRsp;
+        private uint _mp1AddrArgs;
+        private const int SMU_RETRIES_MAX = 8096;
 
         /// <summary>
         /// Gets whether the service is initialized and ready.
@@ -247,6 +278,10 @@ namespace XboxGamingBarHelper.PawnIO
                     Logger.Info($"SMU version: 0x{_smuVersion:X8}");
                 }
 
+                // Get CPU-specific MP1 mailbox addresses
+                GetSmuMailboxAddresses(_cpuCodeName, out _mp1AddrCmd, out _mp1AddrRsp, out _mp1AddrArgs);
+                Logger.Info($"MP1 mailbox addresses: CMD=0x{_mp1AddrCmd:X8}, RSP=0x{_mp1AddrRsp:X8}, ARGS=0x{_mp1AddrArgs:X8}");
+
                 _initialized = true;
                 Logger.Info("RyzenSMU service initialized successfully");
                 return true;
@@ -288,6 +323,65 @@ namespace XboxGamingBarHelper.PawnIO
                 return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Gets the MP1 mailbox addresses for a given CPU codename.
+        /// Addresses are from RyzenAdj nb_smu_ops.c.
+        /// </summary>
+        public static void GetSmuMailboxAddresses(CpuCodeName codeName, out uint cmd, out uint rsp, out uint args)
+        {
+            switch (codeName)
+            {
+                // Set 2: Rembrandt, Vangogh, Mendocino, Phoenix, HawkPoint
+                // MP1_C2PMSG_MESSAGE_ADDR_2  0x3B10528
+                // MP1_C2PMSG_RESPONSE_ADDR_2 0x3B10578
+                // MP1_C2PMSG_ARG_BASE_2      0x3B10998
+                case CpuCodeName.Rembrandt:
+                case CpuCodeName.Vangogh:
+                case CpuCodeName.Mendocino:
+                case CpuCodeName.Phoenix:
+                case CpuCodeName.Phoenix2:
+                case CpuCodeName.HawkPoint:
+                    cmd = 0x3B10528;
+                    rsp = 0x3B10578;
+                    args = 0x3B10998;
+                    break;
+
+                // Set 3: Strix Point, Strix Halo, Krackan Point
+                // MP1_C2PMSG_MESSAGE_ADDR_3  0x3B10928
+                // MP1_C2PMSG_RESPONSE_ADDR_3 0x3B10978
+                // MP1_C2PMSG_ARG_BASE_3      0x3B10998
+                case CpuCodeName.StrixPoint:
+                case CpuCodeName.StrixHalo:
+                case CpuCodeName.KrackanPoint:
+                case CpuCodeName.KrackanPoint2:
+                case CpuCodeName.Z2Extreme:
+                    cmd = 0x3B10928;
+                    rsp = 0x3B10978;
+                    args = 0x3B10998;
+                    break;
+
+                // Set 4: DragonRange, FireRange
+                // MP1_C2PMSG_MESSAGE_ADDR_4  0x3B10530
+                // MP1_C2PMSG_RESPONSE_ADDR_4 0x3B1057C
+                // MP1_C2PMSG_ARG_BASE_4      0x3B109C4
+                case CpuCodeName.DragonRange:
+                    cmd = 0x3B10530;
+                    rsp = 0x3B1057C;
+                    args = 0x3B109C4;
+                    break;
+
+                // Default: Set 1 (older CPUs)
+                // MP1_C2PMSG_MESSAGE_ADDR_1  0x3B10528
+                // MP1_C2PMSG_RESPONSE_ADDR_1 0x3B10564
+                // MP1_C2PMSG_ARG_BASE_1      0x3B10998
+                default:
+                    cmd = 0x3B10528;
+                    rsp = 0x3B10564;
+                    args = 0x3B10998;
+                    break;
+            }
         }
 
         /// <summary>
@@ -369,14 +463,8 @@ namespace XboxGamingBarHelper.PawnIO
             }
         }
 
-        // MP1 mailbox addresses for Strix Point / Z2 Extreme (from RyzenAdj)
-        private const uint MP1_ADDR_CMD = 0x3B10928;
-        private const uint MP1_ADDR_RSP = 0x3B10978;
-        private const uint MP1_ADDR_ARG_BASE = 0x3B10998;
-        private const int SMU_RETRIES_MAX = 8096;
-
         /// <summary>
-        /// Sends a raw SMU command via MP1 mailbox (for TDP commands on Strix/Z2E).
+        /// Sends a raw SMU command via MP1 mailbox (for TDP commands on HawkPoint/Strix/Z2E).
         /// Implements the SMU protocol directly using register read/write.
         /// </summary>
         /// <param name="command">SMU command ID.</param>
@@ -395,28 +483,22 @@ namespace XboxGamingBarHelper.PawnIO
 
             try
             {
-                Logger.Info($"Sending SMU command 0x{command:X2} via MP1 with arg: {(args != null && args.Length > 0 ? args[0].ToString() : "none")}");
+                Logger.Debug($"Sending SMU command 0x{command:X2} via MP1 (CMD=0x{_mp1AddrCmd:X}, RSP=0x{_mp1AddrRsp:X}) with arg: {(args != null && args.Length > 0 ? args[0].ToString() : "none")}");
 
-                // Step 1: Wait until the RSP register is non-zero
+                // Step 1: Check if RSP register is non-zero (SMU ready)
+                // Some CPUs start with RSP=0, so we don't fail if it's 0 initially
                 uint rspValue = 0;
-                for (int i = 0; i < SMU_RETRIES_MAX; i++)
+                if (ReadSmuRegister(_mp1AddrRsp, out rspValue))
                 {
-                    if (!ReadSmuRegister(MP1_ADDR_RSP, out rspValue))
-                    {
-                        Logger.Error("Failed to read MP1 RSP register");
-                        return SmuStatus.Failed;
-                    }
-                    if (rspValue != 0)
-                        break;
+                    Logger.Debug($"Initial MP1 RSP value: 0x{rspValue:X8}");
                 }
-                if (rspValue == 0)
+                else
                 {
-                    Logger.Error("MP1 SMU busy (RSP stayed 0)");
-                    return SmuStatus.CmdRejectedBusy;
+                    Logger.Warn("Failed to read initial MP1 RSP register, continuing anyway...");
                 }
 
                 // Step 2: Write zero to the RSP register
-                if (!WriteSmuRegister(MP1_ADDR_RSP, 0))
+                if (!WriteSmuRegister(_mp1AddrRsp, 0))
                 {
                     Logger.Error("Failed to clear MP1 RSP register");
                     return SmuStatus.Failed;
@@ -426,7 +508,7 @@ namespace XboxGamingBarHelper.PawnIO
                 for (int i = 0; i < 6; i++)
                 {
                     uint argValue = (args != null && i < args.Length) ? args[i] : 0;
-                    if (!WriteSmuRegister(MP1_ADDR_ARG_BASE + (uint)(i * 4), argValue))
+                    if (!WriteSmuRegister(_mp1AddrArgs + (uint)(i * 4), argValue))
                     {
                         Logger.Error($"Failed to write MP1 arg[{i}]");
                         return SmuStatus.Failed;
@@ -434,7 +516,7 @@ namespace XboxGamingBarHelper.PawnIO
                 }
 
                 // Step 4: Write the command to the CMD register
-                if (!WriteSmuRegister(MP1_ADDR_CMD, command))
+                if (!WriteSmuRegister(_mp1AddrCmd, command))
                 {
                     Logger.Error("Failed to write MP1 CMD register");
                     return SmuStatus.Failed;
@@ -444,7 +526,7 @@ namespace XboxGamingBarHelper.PawnIO
                 rspValue = 0;
                 for (int i = 0; i < SMU_RETRIES_MAX; i++)
                 {
-                    if (!ReadSmuRegister(MP1_ADDR_RSP, out rspValue))
+                    if (!ReadSmuRegister(_mp1AddrRsp, out rspValue))
                     {
                         Logger.Error("Failed to read MP1 RSP register (waiting for response)");
                         return SmuStatus.Failed;
@@ -468,14 +550,14 @@ namespace XboxGamingBarHelper.PawnIO
                 // Step 7: Read back the argument registers
                 for (int i = 0; i < 6; i++)
                 {
-                    if (!ReadSmuRegister(MP1_ADDR_ARG_BASE + (uint)(i * 4), out response[i]))
+                    if (!ReadSmuRegister(_mp1AddrArgs + (uint)(i * 4), out response[i]))
                     {
                         Logger.Error($"Failed to read MP1 response arg[{i}]");
                         return SmuStatus.Failed;
                     }
                 }
 
-                Logger.Info($"SMU MP1 command 0x{command:X2} response: [{response[0]}, {response[1]}, {response[2]}, {response[3]}, {response[4]}, {response[5]}]");
+                Logger.Debug($"SMU MP1 command 0x{command:X2} response: [{response[0]}, {response[1]}, {response[2]}, {response[3]}, {response[4]}, {response[5]}]");
 
                 return SmuStatus.OK;
             }
@@ -634,6 +716,219 @@ namespace XboxGamingBarHelper.PawnIO
             return SetAllLimits(stapmWatts, fastWatts, slowWatts, out _, out _, out _);
         }
 
+        #region Time Constants
+
+        /// <summary>
+        /// Sets the STAPM time constant in seconds.
+        /// </summary>
+        public bool SetStapmTime(uint seconds)
+        {
+            uint cmdId = GetSetStapmTimeCommand();
+            if (cmdId == 0)
+            {
+                Logger.Warn("SetStapmTime not supported for this CPU");
+                return false;
+            }
+            var status = SendTdpCommand(cmdId, new uint[] { seconds }, out _);
+            return status == SmuStatus.OK;
+        }
+
+        /// <summary>
+        /// Sets the Slow PPT time constant in seconds.
+        /// </summary>
+        public bool SetSlowTime(uint seconds)
+        {
+            uint cmdId = GetSetSlowTimeCommand();
+            if (cmdId == 0)
+            {
+                Logger.Warn("SetSlowTime not supported for this CPU");
+                return false;
+            }
+            var status = SendTdpCommand(cmdId, new uint[] { seconds }, out _);
+            return status == SmuStatus.OK;
+        }
+
+        #endregion
+
+        #region Thermal Control
+
+        /// <summary>
+        /// Sets the Tctl (CPU) temperature limit in degrees Celsius.
+        /// </summary>
+        public bool SetTctlTemp(uint tempCelsius)
+        {
+            uint cmdId = GetSetTctlTempCommand();
+            if (cmdId == 0)
+            {
+                Logger.Warn("SetTctlTemp not supported for this CPU");
+                return false;
+            }
+            var status = SendTdpCommand(cmdId, new uint[] { tempCelsius * 1000 }, out _); // Convert to milli-celsius
+            return status == SmuStatus.OK;
+        }
+
+        /// <summary>
+        /// Sets the APU Slow power limit in milliwatts.
+        /// </summary>
+        public bool SetApuSlowLimit(uint limitMw)
+        {
+            uint cmdId = GetSetApuSlowLimitCommand();
+            if (cmdId == 0)
+            {
+                Logger.Warn("SetApuSlowLimit not supported for this CPU");
+                return false;
+            }
+            var status = SendTdpCommand(cmdId, new uint[] { limitMw }, out _);
+            return status == SmuStatus.OK;
+        }
+
+        #endregion
+
+        #region Curve Optimizer
+
+        /// <summary>
+        /// Encodes a Curve Optimizer offset value for SMU commands.
+        /// </summary>
+        public static uint EncodeCurveOffset(int steps) => (uint)(steps & 0xFFFFF);
+
+        /// <summary>
+        /// Sets Curve Optimizer offset for all CPU cores.
+        /// Negative values = undervolt, Positive values = overvolt.
+        /// Typical range: -30 to +30.
+        /// </summary>
+        public bool SetCurveOptimizerAll(int offset)
+        {
+            uint cmdId = GetSetCoAllCommand();
+            if (cmdId == 0)
+            {
+                Logger.Warn("SetCurveOptimizerAll not supported for this CPU");
+                return false;
+            }
+            Logger.Info($"Setting Curve Optimizer All cores: {offset}");
+            var status = SendCommand(cmdId, new uint[] { EncodeCurveOffset(offset) }, out _);
+            return status == SmuStatus.OK;
+        }
+
+        /// <summary>
+        /// Sets Curve Optimizer offset per core.
+        /// </summary>
+        public bool SetCurveOptimizerPerCore(int offset)
+        {
+            uint cmdId = GetSetCoPerCommand();
+            if (cmdId == 0)
+            {
+                Logger.Warn("SetCurveOptimizerPerCore not supported for this CPU");
+                return false;
+            }
+            Logger.Info($"Setting Curve Optimizer Per-Core: {offset}");
+            var status = SendCommand(cmdId, new uint[] { EncodeCurveOffset(offset) }, out _);
+            return status == SmuStatus.OK;
+        }
+
+        /// <summary>
+        /// Sets Curve Optimizer offset for iGPU.
+        /// </summary>
+        public bool SetCurveOptimizerGfx(int offset)
+        {
+            uint cmdId = GetSetCoGfxCommand();
+            if (cmdId == 0)
+            {
+                Logger.Warn("SetCurveOptimizerGfx not supported for this CPU");
+                return false;
+            }
+            Logger.Info($"Setting Curve Optimizer iGPU: {offset}");
+            var status = SendCommand(cmdId, new uint[] { EncodeCurveOffset(offset) }, out _);
+            return status == SmuStatus.OK;
+        }
+
+        #endregion
+
+        #region iGPU Clock Control
+
+        /// <summary>
+        /// Sets the iGPU clock frequency in MHz.
+        /// </summary>
+        public bool SetGfxClock(uint mhz)
+        {
+            uint cmdId = GetSetGfxClkCommand();
+            if (cmdId == 0)
+            {
+                Logger.Warn("SetGfxClock not supported for this CPU");
+                return false;
+            }
+            Logger.Info($"Setting iGPU clock: {mhz} MHz");
+            var status = SendTdpCommand(cmdId, new uint[] { mhz }, out _);
+            return status == SmuStatus.OK;
+        }
+
+        /// <summary>
+        /// Sets the minimum iGPU clock frequency in MHz (RavenRidge only).
+        /// </summary>
+        public bool SetMinGfxClock(uint mhz)
+        {
+            uint cmdId = GetSetMinGfxClkCommand();
+            if (cmdId == 0)
+            {
+                Logger.Warn("SetMinGfxClock not supported for this CPU");
+                return false;
+            }
+            Logger.Info($"Setting min iGPU clock: {mhz} MHz");
+            var status = SendTdpCommand(cmdId, new uint[] { mhz }, out _);
+            return status == SmuStatus.OK;
+        }
+
+        /// <summary>
+        /// Sets the maximum iGPU clock frequency in MHz (RavenRidge only).
+        /// </summary>
+        public bool SetMaxGfxClock(uint mhz)
+        {
+            uint cmdId = GetSetMaxGfxClkCommand();
+            if (cmdId == 0)
+            {
+                Logger.Warn("SetMaxGfxClock not supported for this CPU");
+                return false;
+            }
+            Logger.Info($"Setting max iGPU clock: {mhz} MHz");
+            var status = SendTdpCommand(cmdId, new uint[] { mhz }, out _);
+            return status == SmuStatus.OK;
+        }
+
+        #endregion
+
+        #region Capability Checks
+
+        /// <summary>
+        /// Checks if Curve Optimizer All is supported.
+        /// </summary>
+        public bool CanSetCurveOptimizerAll() => GetSetCoAllCommand() != 0;
+
+        /// <summary>
+        /// Checks if Curve Optimizer Per-Core is supported.
+        /// </summary>
+        public bool CanSetCurveOptimizerPerCore() => GetSetCoPerCommand() != 0;
+
+        /// <summary>
+        /// Checks if Curve Optimizer iGPU is supported.
+        /// </summary>
+        public bool CanSetCurveOptimizerGfx() => GetSetCoGfxCommand() != 0;
+
+        /// <summary>
+        /// Checks if iGPU clock control is supported.
+        /// </summary>
+        public bool CanSetGfxClock() => GetSetGfxClkCommand() != 0 || GetSetMinGfxClkCommand() != 0;
+
+        /// <summary>
+        /// Checks if STAPM time constant is supported.
+        /// </summary>
+        public bool CanSetStapmTime() => GetSetStapmTimeCommand() != 0;
+
+        /// <summary>
+        /// Checks if Tctl temperature limit is supported.
+        /// </summary>
+        public bool CanSetTctlTemp() => GetSetTctlTempCommand() != 0;
+
+        #endregion
+
         /// <summary>
         /// Reads SMU register value.
         /// </summary>
@@ -742,6 +1037,207 @@ namespace XboxGamingBarHelper.PawnIO
                     return SmuCommands.RENOIR_SET_SLOW_LIMIT;
                 default:
                     return SmuCommands.RENOIR_SET_SLOW_LIMIT;
+            }
+        }
+
+        private uint GetSetStapmTimeCommand()
+        {
+            switch (_cpuCodeName)
+            {
+                case CpuCodeName.Renoir:
+                case CpuCodeName.Lucienne:
+                case CpuCodeName.Cezanne:
+                case CpuCodeName.Vangogh:
+                case CpuCodeName.Rembrandt:
+                case CpuCodeName.Mendocino:
+                    return SmuCommands.RENOIR_SET_STAPM_TIME;
+                default:
+                    return 0; // Not supported on newer CPUs
+            }
+        }
+
+        private uint GetSetSlowTimeCommand()
+        {
+            switch (_cpuCodeName)
+            {
+                case CpuCodeName.Renoir:
+                case CpuCodeName.Lucienne:
+                case CpuCodeName.Cezanne:
+                case CpuCodeName.Vangogh:
+                case CpuCodeName.Rembrandt:
+                case CpuCodeName.Mendocino:
+                    return SmuCommands.RENOIR_SET_SLOW_TIME;
+                default:
+                    return 0;
+            }
+        }
+
+        private uint GetSetTctlTempCommand()
+        {
+            switch (_cpuCodeName)
+            {
+                case CpuCodeName.Renoir:
+                case CpuCodeName.Lucienne:
+                case CpuCodeName.Cezanne:
+                case CpuCodeName.Vangogh:
+                case CpuCodeName.Rembrandt:
+                case CpuCodeName.Mendocino:
+                    return SmuCommands.RENOIR_SET_TCTL_TEMP;
+                default:
+                    return 0;
+            }
+        }
+
+        private uint GetSetApuSlowLimitCommand()
+        {
+            switch (_cpuCodeName)
+            {
+                case CpuCodeName.Renoir:
+                case CpuCodeName.Lucienne:
+                case CpuCodeName.Cezanne:
+                case CpuCodeName.Vangogh:
+                case CpuCodeName.Rembrandt:
+                case CpuCodeName.Mendocino:
+                    return SmuCommands.RENOIR_SET_APU_SLOW_LIMIT;
+                case CpuCodeName.Phoenix:
+                case CpuCodeName.Phoenix2:
+                case CpuCodeName.HawkPoint:
+                    return SmuCommands.PHOENIX_SET_APU_SLOW_LIMIT;
+                default:
+                    return 0;
+            }
+        }
+
+        private uint GetSetCoAllCommand()
+        {
+            switch (_cpuCodeName)
+            {
+                case CpuCodeName.Renoir:
+                case CpuCodeName.Lucienne:
+                case CpuCodeName.Cezanne:
+                    return SmuCommands.RENOIR_SET_CO_ALL;
+                case CpuCodeName.Vangogh:
+                case CpuCodeName.Rembrandt:
+                case CpuCodeName.Mendocino:
+                case CpuCodeName.Phoenix:
+                case CpuCodeName.Phoenix2:
+                case CpuCodeName.HawkPoint:
+                case CpuCodeName.StrixPoint:
+                case CpuCodeName.StrixHalo:
+                case CpuCodeName.KrackanPoint:
+                case CpuCodeName.KrackanPoint2:
+                case CpuCodeName.Z2Extreme:
+                    return SmuCommands.PHOENIX_SET_CO_ALL;
+                case CpuCodeName.DragonRange:
+                case CpuCodeName.Raphael:
+                case CpuCodeName.GraniteRidge:
+                    return SmuCommands.DRAGON_SET_CO_ALL;
+                default:
+                    return 0;
+            }
+        }
+
+        private uint GetSetCoPerCommand()
+        {
+            switch (_cpuCodeName)
+            {
+                case CpuCodeName.Renoir:
+                case CpuCodeName.Lucienne:
+                case CpuCodeName.Cezanne:
+                    return SmuCommands.RENOIR_SET_CO_PER;
+                case CpuCodeName.Vangogh:
+                case CpuCodeName.Rembrandt:
+                case CpuCodeName.Mendocino:
+                case CpuCodeName.Phoenix:
+                case CpuCodeName.Phoenix2:
+                case CpuCodeName.HawkPoint:
+                case CpuCodeName.StrixPoint:
+                case CpuCodeName.StrixHalo:
+                case CpuCodeName.KrackanPoint:
+                case CpuCodeName.KrackanPoint2:
+                case CpuCodeName.Z2Extreme:
+                    return SmuCommands.PHOENIX_SET_CO_PER;
+                case CpuCodeName.DragonRange:
+                case CpuCodeName.Raphael:
+                case CpuCodeName.GraniteRidge:
+                    return SmuCommands.DRAGON_SET_CO_PER;
+                default:
+                    return 0;
+            }
+        }
+
+        private uint GetSetCoGfxCommand()
+        {
+            switch (_cpuCodeName)
+            {
+                case CpuCodeName.Renoir:
+                case CpuCodeName.Lucienne:
+                case CpuCodeName.Cezanne:
+                    return SmuCommands.RENOIR_SET_CO_GFX;
+                case CpuCodeName.Vangogh:
+                case CpuCodeName.Rembrandt:
+                case CpuCodeName.Phoenix:
+                case CpuCodeName.Phoenix2:
+                case CpuCodeName.HawkPoint:
+                case CpuCodeName.KrackanPoint:
+                    return SmuCommands.PHOENIX_SET_CO_GFX;
+                default:
+                    return 0; // Not supported on StrixPoint and newer
+            }
+        }
+
+        private uint GetSetGfxClkCommand()
+        {
+            switch (_cpuCodeName)
+            {
+                case CpuCodeName.Renoir:
+                case CpuCodeName.Lucienne:
+                case CpuCodeName.Cezanne:
+                case CpuCodeName.Vangogh:
+                case CpuCodeName.Rembrandt:
+                case CpuCodeName.Mendocino:
+                case CpuCodeName.Phoenix:
+                case CpuCodeName.Phoenix2:
+                case CpuCodeName.HawkPoint:
+                case CpuCodeName.StrixPoint:
+                case CpuCodeName.StrixHalo:
+                case CpuCodeName.KrackanPoint:
+                case CpuCodeName.KrackanPoint2:
+                case CpuCodeName.Z2Extreme:
+                case CpuCodeName.DragonRange:
+                case CpuCodeName.Raphael:
+                case CpuCodeName.GraniteRidge:
+                    return SmuCommands.PHOENIX_SET_GFX_CLK;
+                default:
+                    return 0;
+            }
+        }
+
+        private uint GetSetMinGfxClkCommand()
+        {
+            switch (_cpuCodeName)
+            {
+                case CpuCodeName.RavenRidge:
+                case CpuCodeName.RavenRidge2:
+                case CpuCodeName.Picasso:
+                case CpuCodeName.Dali:
+                    return SmuCommands.RAVEN_SET_MIN_GFX_CLK;
+                default:
+                    return 0; // Only supported on RavenRidge
+            }
+        }
+
+        private uint GetSetMaxGfxClkCommand()
+        {
+            switch (_cpuCodeName)
+            {
+                case CpuCodeName.RavenRidge:
+                case CpuCodeName.RavenRidge2:
+                case CpuCodeName.Picasso:
+                case CpuCodeName.Dali:
+                    return SmuCommands.RAVEN_SET_MAX_GFX_CLK;
+                default:
+                    return 0;
             }
         }
 

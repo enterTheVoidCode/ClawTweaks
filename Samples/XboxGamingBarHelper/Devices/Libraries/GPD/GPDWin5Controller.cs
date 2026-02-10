@@ -226,9 +226,25 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                         _device = device;
 
                         Logger.Info($"[GPDWin5] ========== CONNECTION SUCCESS ==========");
-                        Logger.Info($"[GPDWin5] Connected to: {device.GetProductName()}");
-                        Logger.Info($"[GPDWin5] Manufacturer: {device.GetManufacturer()}");
-                        Logger.Info($"[GPDWin5] Serial: {device.GetSerialNumber()}");
+
+                        // Log device info (these may fail on some devices, but that's OK)
+                        try
+                        {
+                            Logger.Info($"[GPDWin5] Connected to: {device.GetProductName()}");
+                        }
+                        catch { Logger.Info("[GPDWin5] Connected to: (unable to get product name)"); }
+
+                        try
+                        {
+                            Logger.Info($"[GPDWin5] Manufacturer: {device.GetManufacturer()}");
+                        }
+                        catch { Logger.Info("[GPDWin5] Manufacturer: (unable to get manufacturer)"); }
+
+                        try
+                        {
+                            Logger.Info($"[GPDWin5] Serial: {device.GetSerialNumber()}");
+                        }
+                        catch { Logger.Info("[GPDWin5] Serial: (unable to get serial number)"); }
 
                         ConnectionChanged?.Invoke(this, true);
                         return true;
@@ -236,6 +252,13 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                     catch (Exception ex)
                     {
                         Logger.Warn($"[GPDWin5] Failed to open device: {ex.Message}");
+                        // Clean up if we partially opened
+                        if (_stream != null)
+                        {
+                            try { _stream.Dispose(); } catch { }
+                            _stream = null;
+                        }
+                        _device = null;
                     }
                 }
 

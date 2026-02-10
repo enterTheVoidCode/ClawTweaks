@@ -14,10 +14,10 @@ namespace XboxGamingBar.Data
         private const int DEBOUNCE_DELAY_MS = 500; // Wait 500ms after last change before sending
 
         /// <summary>
-        /// Flag to indicate when the UI is being updated programmatically (from helper sync).
-        /// When true, ValueChanged events should not trigger profile saves.
+        /// Flag to indicate when the UI is being updated programmatically (from helper sync or profile loading).
+        /// When true, ValueChanged events should not trigger profile saves or debounce timer.
         /// </summary>
-        public bool IsUpdatingUI { get; private set; }
+        public bool IsUpdatingUI { get; internal set; }
 
         public WidgetSliderProperty(int inValue, Function inFunction, Slider inControl, Page inOwner) : base(inValue, inFunction, inControl, inOwner)
         {
@@ -45,6 +45,25 @@ namespace XboxGamingBar.Data
                 debounceTimer.Stop();
                 hasPendingValue = false;
             }
+        }
+
+        /// <summary>
+        /// Override SetValue to cancel the debounce timer when receiving external updates.
+        /// This prevents stale pending values from being sent back to the helper after
+        /// a profile switch or AutoTDP adjustment.
+        /// </summary>
+        public override bool SetValue(object newValue, long updatedTime = 0)
+        {
+            // Cancel any pending debounce timer when receiving external updates
+            // This is critical to prevent stale widget values from corrupting profiles
+            // after a profile switch (e.g., game close -> global profile restore)
+            if (SuppressRemoteSync && hasPendingValue)
+            {
+                Logger.Info($"{Function} Cancelling debounce timer due to external update (pending={pendingValue}, new={newValue})");
+                StopDebounceTimer();
+            }
+
+            return base.SetValue(newValue, updatedTime);
         }
 
         public void Cleanup()
@@ -114,6 +133,13 @@ namespace XboxGamingBar.Data
 
         private void Slider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
         {
+            // Skip if UI is being updated programmatically (from helper sync)
+            // This prevents the debounce timer from being started with stale values
+            if (IsUpdatingUI)
+            {
+                return;
+            }
+
             var newValue = (int)e.NewValue;
             if (newValue != Value)
             {

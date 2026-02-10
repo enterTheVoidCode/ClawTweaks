@@ -94,6 +94,26 @@ namespace XboxGamingBarHelper
         internal static bool isApplyingProfile = false;
 
         /// <summary>
+        /// Timestamp when the last profile switch completed.
+        /// Used to implement a cooldown period to reject stale widget messages.
+        /// </summary>
+        private static DateTime profileSwitchTime = DateTime.MinValue;
+
+        /// <summary>
+        /// Cooldown period in milliseconds after a profile switch.
+        /// Stale widget messages arriving during this period are rejected to prevent profile corruption.
+        /// </summary>
+        private const int PROFILE_SWITCH_COOLDOWN_MS = 500;
+
+        /// <summary>
+        /// Helper method to check if we're in the cooldown period after a profile switch.
+        /// </summary>
+        private static bool IsInProfileSwitchCooldown()
+        {
+            return (DateTime.UtcNow - profileSwitchTime).TotalMilliseconds < PROFILE_SWITCH_COOLDOWN_MS;
+        }
+
+        /// <summary>
         /// Lock object to ensure atomic profile application.
         /// Prevents race conditions when rapid game switches cause interleaved settings.
         /// </summary>
@@ -1190,6 +1210,9 @@ del /f /q ""%~f0"" 2>nul
             // Set AutoTDPManager reference in RTSSManager for AutoTDP OSD support
             rtssManager.SetAutoTDPManager(autoTDPManager);
 
+            // Set RTSSManager reference in AutoTDPManager for frametime stability detection
+            autoTDPManager.SetRTSSManager(rtssManager);
+
             // Initialize Display/OSD config (position shift handled by RTSSManager, adaptive brightness by SystemManager)
             Logger.Info("Initialize DisplayOSD Config.");
             rtssManager.InitializeDisplayOSDConfig(systemManager.SetAdaptiveBrightness);
@@ -1208,6 +1231,7 @@ del /f /q ""%~f0"" 2>nul
                 losslessScalingManager,
                 settingsManager,
                 legionManager,
+                gpdManager,
                 autoTDPManager
             };
             // Note: defaultGameProfileManager is added in background task when ready
@@ -1307,6 +1331,8 @@ del /f /q ""%~f0"" 2>nul
                 // GPD specific properties
                 gpdManager.GPDDetected,
                 gpdManager.Win5Connected,
+                gpdManager.DeviceName,
+                gpdManager.SupportsFanControlProp,
                 gpdManager.RestoreDefaults,
                 // GPD Win 5 button remapping properties
                 gpdManager.ButtonA,
@@ -1319,6 +1345,7 @@ del /f /q ""%~f0"" 2>nul
                 gpdManager.ButtonDPadRight,
                 gpdManager.ButtonL3,
                 gpdManager.ButtonR3,
+                gpdManager.ButtonL4,
                 gpdManager.ButtonR4,
                 gpdManager.ButtonLSUp,
                 gpdManager.ButtonLSDown,
@@ -1620,6 +1647,13 @@ del /f /q ""%~f0"" 2>nul
                 return;
             }
 
+            // Skip stale widget messages during cooldown after profile switch
+            if (IsInProfileSwitchCooldown())
+            {
+                Logger.Debug($"Skipping CPUState_PropertyChanged - in profile switch cooldown");
+                return;
+            }
+
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s CPU State to Max={powerManager.MaxCPUState.Value}%, Min={powerManager.MinCPUState.Value}%.");
             profileManager.CurrentProfile.MaxCPUState = powerManager.MaxCPUState.Value;
             profileManager.CurrentProfile.MinCPUState = powerManager.MinCPUState.Value;
@@ -1656,6 +1690,13 @@ del /f /q ""%~f0"" 2>nul
                 return;
             }
 
+            // Skip stale widget messages during cooldown after profile switch
+            if (IsInProfileSwitchCooldown())
+            {
+                Logger.Debug($"Skipping CPUBoost_PropertyChanged - in profile switch cooldown");
+                return;
+            }
+
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s CPU Boost from {profileManager.CurrentProfile.CPUBoost} to {powerManager.CPUBoost}.");
             profileManager.CurrentProfile.CPUBoost = powerManager.CPUBoost;
         }
@@ -1669,6 +1710,13 @@ del /f /q ""%~f0"" 2>nul
                 return;
             }
 
+            // Skip stale widget messages during cooldown after profile switch
+            if (IsInProfileSwitchCooldown())
+            {
+                Logger.Debug($"Skipping CPUEPP_PropertyChanged - in profile switch cooldown");
+                return;
+            }
+
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s CPU EPP from {profileManager.CurrentProfile.CPUEPP} to {powerManager.CPUEPP}.");
             profileManager.CurrentProfile.CPUEPP = powerManager.CPUEPP;
         }
@@ -1679,6 +1727,13 @@ del /f /q ""%~f0"" 2>nul
             if (isApplyingProfile)
             {
                 Logger.Debug("Skipping LegionControllerSetting_PropertyChanged - already applying profile");
+                return;
+            }
+
+            // Skip stale widget messages during cooldown after profile switch
+            if (IsInProfileSwitchCooldown())
+            {
+                Logger.Debug("Skipping LegionControllerSetting_PropertyChanged - in profile switch cooldown");
                 return;
             }
 
@@ -1894,6 +1949,13 @@ del /f /q ""%~f0"" 2>nul
             if (isApplyingProfile)
             {
                 Logger.Debug("Skipping AutoTDPSetting_PropertyChanged - already applying profile");
+                return;
+            }
+
+            // Skip stale widget messages during cooldown after profile switch
+            if (IsInProfileSwitchCooldown())
+            {
+                Logger.Debug("Skipping AutoTDPSetting_PropertyChanged - in profile switch cooldown");
                 return;
             }
 
@@ -2152,8 +2214,13 @@ del /f /q ""%~f0"" 2>nul
             Logger.Info($"Applying AutoTDP settings from profile: {profileName}");
 
             // Apply AutoTDP settings from profile
+            // Use ForceSetValue for Enabled to ensure the pipe message is ALWAYS sent to the widget.
+            // If the global profile was corrupted (AutoTDPEnabled=true from a previous bug),
+            // SetValue would skip NotifyPropertyChanged when the value hasn't changed (e.g., game
+            // profile had AutoTDP=true and corrupted global also has true), leaving the widget
+            // with the wrong toggle state.
             Logger.Debug($"Applying AutoTDPEnabled: {profile.AutoTDPEnabled}");
-            autoTDPManager.Enabled.SetValue(profile.AutoTDPEnabled);
+            autoTDPManager.Enabled.ForceSetValue(profile.AutoTDPEnabled);
 
             Logger.Debug($"Applying AutoTDPTargetFPS: {profile.AutoTDPTargetFPS}");
             autoTDPManager.TargetFPS.SetValue(profile.AutoTDPTargetFPS);
@@ -2175,6 +2242,58 @@ del /f /q ""%~f0"" 2>nul
             Logger.Debug($"Applying AutoTDPControllerType: {controllerType} (PID=0, Q-Learning=1, SARSA=2)");
             autoTDPManager.ControllerType.SetValue(controllerType);
             autoTDPManager.UseMLMode.SetValue(controllerType > 0);  // Legacy sync
+        }
+
+        /// <summary>
+        /// Restores global profile settings (TDP, AutoTDP, Legion mode, etc.)
+        /// Called when transitioning away from a per-game profile:
+        /// - Game stops (RunningGame becomes invalid)
+        /// - Game changes from per-game profile game to non-per-game-profile game
+        /// - Per-game profile is explicitly disabled by widget
+        /// Must be called within isApplyingProfile = true context.
+        /// </summary>
+        private static void RestoreGlobalProfileSettings()
+        {
+            profileManager.CurrentProfile.SetValue(profileManager.GlobalProfile);
+
+            Logger.Info($"Applying global profile settings: TDP={profileManager.GlobalProfile.TDP}, CPUBoost={profileManager.GlobalProfile.CPUBoost}, EPP={profileManager.GlobalProfile.CPUEPP}");
+
+            // IMPORTANT: Disable AutoTDP FIRST, before setting TDP.
+            // TDPProperty.NotifyPropertyChanged() skips hardware apply when IsAutoTDPActive is true.
+            // If we set TDP while AutoTDP is still active, the TDP value never gets applied to hardware.
+            ApplyAutoTDPSettingsFromProfile();
+            // Clear the AutoTDP active flag immediately so the TDP set below applies to hardware.
+            // The AutoTDP tick will also clear this on its next iteration, but we can't wait for that.
+            performanceManager.IsAutoTDPActive = false;
+
+            // Restore LegionPerformanceMode from global profile if set
+            if (legionManager != null)
+            {
+                int? savedMode = profileManager.GlobalProfile.LegionPerformanceMode;
+                if (savedMode.HasValue)
+                {
+                    int currentMode = legionManager.LegionPerformanceMode.Value;
+                    if (currentMode != savedMode.Value)
+                    {
+                        Logger.Info($"Restoring global profile performance mode ({savedMode.Value}) (was {currentMode})");
+                        legionManager.LegionPerformanceMode.SetValue(savedMode.Value);
+                    }
+                }
+            }
+
+            performanceManager.TDP.SetProfileValue(profileManager.GlobalProfile.TDP);
+            performanceManager.TDPBoostEnabled.SetValue(profileManager.GlobalProfile.TDPBoostEnabled);
+            powerManager.CPUBoost.SetValue(profileManager.GlobalProfile.CPUBoost);
+            powerManager.CPUEPP.SetValue(profileManager.GlobalProfile.CPUEPP);
+            powerManager.MaxCPUState.SetValue(profileManager.GlobalProfile.MaxCPUState);
+            powerManager.MinCPUState.SetValue(profileManager.GlobalProfile.MinCPUState);
+            profileManager.PerGameProfile.SetValue(false);
+
+            // Apply Legion controller settings from global profile
+            if (legionManager != null)
+            {
+                ApplyLegionControllerSettingsFromProfile();
+            }
         }
 
         private static void CurrentProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -2228,6 +2347,13 @@ del /f /q ""%~f0"" 2>nul
                             }
                         }
 
+                        // Apply AutoTDP settings FIRST, before TDP.
+                        // TDPProperty.NotifyPropertyChanged() skips hardware apply when IsAutoTDPActive is true.
+                        // Applying AutoTDP first ensures IsAutoTDPActive is cleared when disabling AutoTDP,
+                        // so the subsequent TDP.SetProfileValue applies to hardware.
+                        ApplyAutoTDPSettingsFromProfile();
+                        performanceManager.IsAutoTDPActive = false;
+
                         // Use SetProfileValue to ensure profile TDP takes precedence over in-flight widget messages
                         // All settings applied atomically under lock to prevent cross-contamination
                         performanceManager.TDP.SetProfileValue(profileManager.CurrentProfile.TDP);
@@ -2243,12 +2369,10 @@ del /f /q ""%~f0"" 2>nul
                         {
                             ApplyLegionControllerSettingsFromProfile();
                         }
-
-                        // Apply AutoTDP settings from profile
-                        ApplyAutoTDPSettingsFromProfile();
                     }
                     finally
                     {
+                        profileSwitchTime = DateTime.UtcNow;
                         isApplyingProfile = false;
                     }
                 }
@@ -2303,19 +2427,51 @@ del /f /q ""%~f0"" 2>nul
                         Logger.Info("Switching to Custom TDP mode for per-game profile editing");
                         legionManager.LegionPerformanceMode.SetValue(255);
                     }
+
+                    // Set current profile and apply AutoTDP settings from per-game profile
+                    profileManager.CurrentProfile.SetValue(gameProfile);
+                    ApplyAutoTDPSettingsFromProfile();
                 }
                 else
                 {
+                    // Don't disable per-game profile if a game with an active profile is still running
+                    // This prevents race conditions when widget sends stale PerGameProfile=false
+                    if (systemManager.RunningGame.Value.IsValid())
+                    {
+                        // Check if the current profile matches the running game (or a similar name variant)
+                        var currentProfile = profileManager.CurrentProfile;
+                        if (currentProfile != null && currentProfile != profileManager.GlobalProfile && currentProfile.Use)
+                        {
+                            var runningGameName = systemManager.RunningGame.Value.GameId.Name ?? "";
+                            var profileName = currentProfile.GameId.Name ?? "";
+
+                            // Check for exact match or name variants (e.g., "Game: Title" vs "Game Title")
+                            bool isSameGame = string.Equals(runningGameName, profileName, StringComparison.OrdinalIgnoreCase) ||
+                                              runningGameName.Replace(":", "").Replace("  ", " ").Trim().Equals(
+                                                  profileName.Replace(":", "").Replace("  ", " ").Trim(),
+                                                  StringComparison.OrdinalIgnoreCase);
+
+                            if (isSameGame)
+                            {
+                                Logger.Info($"Ignoring PerGameProfile=false - game '{runningGameName}' with active profile is still running");
+                                return;
+                            }
+                        }
+                    }
+
                     if (profileManager.TryGetProfile(systemManager.RunningGame.Value.GameId, out gameProfile))
                     {
                         gameProfile.Use = false;
                     }
-                    gameProfile = profileManager.GlobalProfile;
+                    // Restore global profile and apply all its settings (TDP, AutoTDP, etc.)
+                    // CurrentProfile_PropertyChanged is blocked by isApplyingProfile, so we
+                    // must apply settings explicitly here
+                    RestoreGlobalProfileSettings();
                 }
-                profileManager.CurrentProfile.SetValue(gameProfile);
             }
             finally
             {
+                profileSwitchTime = DateTime.UtcNow;
                 isApplyingProfile = false;
             }
         }
@@ -2327,6 +2483,13 @@ del /f /q ""%~f0"" 2>nul
             if (isApplyingProfile)
             {
                 Logger.Debug($"Skipping TDP_PropertyChanged - already applying profile (TDP={performanceManager.TDP})");
+                return;
+            }
+
+            // Skip stale widget messages during cooldown after profile switch
+            if (IsInProfileSwitchCooldown())
+            {
+                Logger.Debug($"Skipping TDP_PropertyChanged - in profile switch cooldown (TDP={performanceManager.TDP})");
                 return;
             }
 
@@ -2347,6 +2510,13 @@ del /f /q ""%~f0"" 2>nul
             if (isApplyingProfile)
             {
                 Logger.Debug($"Skipping TDPBoostEnabled_PropertyChanged - already applying profile");
+                return;
+            }
+
+            // Skip stale widget messages during cooldown after profile switch
+            if (IsInProfileSwitchCooldown())
+            {
+                Logger.Debug($"Skipping TDPBoostEnabled_PropertyChanged - in profile switch cooldown");
                 return;
             }
 
@@ -2375,12 +2545,14 @@ del /f /q ""%~f0"" 2>nul
                 isApplyingProfile = true;
                 if (systemManager.RunningGame.Value.IsValid())
                 {
+                    bool gameHasActiveProfile = false;
                     if (profileManager.TryGetProfile(systemManager.RunningGame.Value.GameId, out var runningGameProfile))
                     {
                         if (runningGameProfile.Use)
                         {
                             Logger.Info($"Game {systemManager.RunningGame.GameId} has per-game profile in use.");
                             profileManager.CurrentProfile.SetValue(runningGameProfile);
+                            gameHasActiveProfile = true;
                         }
                         else
                         {
@@ -2390,6 +2562,17 @@ del /f /q ""%~f0"" 2>nul
                     else
                     {
                         Logger.Info($"Game {systemManager.RunningGame.GameId} doesn't have per-game profile.");
+                    }
+
+                    // Only restore global if the current game doesn't have an active profile
+                    // AND we're currently on a per-game profile from a previous game.
+                    // Without the gameHasActiveProfile check, re-firing for the SAME game
+                    // (e.g., foreground change) would incorrectly restore global and cause
+                    // per-game AutoTDP settings to bleed into the global profile.
+                    if (!gameHasActiveProfile && !profileManager.CurrentProfile.IsGlobalProfile)
+                    {
+                        Logger.Info($"Previous game had per-game profile active, restoring global profile for {systemManager.RunningGame.GameId}");
+                        RestoreGlobalProfileSettings();
                     }
 
                     // Apply CPU core affinity to the new game
@@ -2406,42 +2589,7 @@ del /f /q ""%~f0"" 2>nul
                 else
                 {
                     Logger.Info($"Stopped playing game, use global profile instead.");
-                    profileManager.CurrentProfile.SetValue(profileManager.GlobalProfile);
-
-                    // Apply global profile settings directly (handler is skipped because isApplyingProfile=true)
-                    Logger.Info($"Applying global profile settings: TDP={profileManager.GlobalProfile.TDP}, CPUBoost={profileManager.GlobalProfile.CPUBoost}, EPP={profileManager.GlobalProfile.CPUEPP}");
-
-                    // Restore LegionPerformanceMode from global profile if set
-                    if (legionManager != null)
-                    {
-                        int? savedMode = profileManager.GlobalProfile.LegionPerformanceMode;
-                        if (savedMode.HasValue)
-                        {
-                            int currentMode = legionManager.LegionPerformanceMode.Value;
-                            if (currentMode != savedMode.Value)
-                            {
-                                Logger.Info($"Restoring global profile performance mode ({savedMode.Value}) (was {currentMode})");
-                                legionManager.LegionPerformanceMode.SetValue(savedMode.Value);
-                            }
-                        }
-                    }
-
-                    performanceManager.TDP.SetProfileValue(profileManager.GlobalProfile.TDP);
-                    performanceManager.TDPBoostEnabled.SetValue(profileManager.GlobalProfile.TDPBoostEnabled);
-                    powerManager.CPUBoost.SetValue(profileManager.GlobalProfile.CPUBoost);
-                    powerManager.CPUEPP.SetValue(profileManager.GlobalProfile.CPUEPP);
-                    powerManager.MaxCPUState.SetValue(profileManager.GlobalProfile.MaxCPUState);
-                    powerManager.MinCPUState.SetValue(profileManager.GlobalProfile.MinCPUState);
-                    profileManager.PerGameProfile.SetValue(false);
-
-                    // Apply Legion controller settings from global profile
-                    if (legionManager != null)
-                    {
-                        ApplyLegionControllerSettingsFromProfile();
-                    }
-
-                    // Apply AutoTDP settings from global profile
-                    ApplyAutoTDPSettingsFromProfile();
+                    RestoreGlobalProfileSettings();
 
                     // Reset Lossless Scaling to Default profile when game stops
                     if (losslessScalingManager.LosslessScalingInstalled.Value)
@@ -2452,6 +2600,7 @@ del /f /q ""%~f0"" 2>nul
             }
             finally
             {
+                profileSwitchTime = DateTime.UtcNow;
                 isApplyingProfile = false;
             }
         }
@@ -3405,6 +3554,47 @@ del /f /q ""%~f0"" 2>nul
                     catch (Exception ex)
                     {
                         Logger.Error($"Pipe: ImportAllData failed: {ex.Message}");
+                        response.Add("Content", $"Error: {ex.Message}");
+                    }
+                }
+                // PawnIO Debug: Get CPU Info
+                else if (functionValue == (int)Function.PawnIOGetCpuInfo)
+                {
+                    Logger.Info("Pipe: PawnIOGetCpuInfo request received");
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    try
+                    {
+                        string cpuInfo = performanceManager?.GetPawnIOCpuInfo() ?? "PerformanceManager not initialized";
+                        response.Add("Content", cpuInfo);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: PawnIOGetCpuInfo failed: {ex.Message}");
+                        response.Add("Content", $"Error: {ex.Message}");
+                    }
+                }
+                // PawnIO Debug: Apply Settings
+                else if (functionValue == (int)Function.PawnIOApplySettings)
+                {
+                    Logger.Info("Pipe: PawnIOApplySettings request received");
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    try
+                    {
+                        int coAll = 0, coGfx = 0, gfxClk = 0, tctlTemp = 0;
+                        var valueSet = request.ToValueSet();
+                        if (valueSet.TryGetValue("CoAll", out object coAllObj)) coAll = Convert.ToInt32(coAllObj);
+                        if (valueSet.TryGetValue("CoGfx", out object coGfxObj)) coGfx = Convert.ToInt32(coGfxObj);
+                        if (valueSet.TryGetValue("GfxClk", out object gfxClkObj)) gfxClk = Convert.ToInt32(gfxClkObj);
+                        if (valueSet.TryGetValue("TctlTemp", out object tctlObj)) tctlTemp = Convert.ToInt32(tctlObj);
+
+                        Logger.Info($"PawnIO Apply: CoAll={coAll}, CoGfx={coGfx}, GfxClk={gfxClk}, Tctl={tctlTemp}");
+                        string result = performanceManager?.ApplyPawnIODebugSettings(coAll, coGfx, gfxClk, tctlTemp)
+                            ?? "PerformanceManager not initialized";
+                        response.Add("Content", result);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: PawnIOApplySettings failed: {ex.Message}");
                         response.Add("Content", $"Error: {ex.Message}");
                     }
                 }
