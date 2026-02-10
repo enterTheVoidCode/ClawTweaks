@@ -64,6 +64,12 @@ namespace XboxGamingBarHelper.RTSS
         private float currentAvgFt = 0f;
         private float currentMaxFt = 0f;
 
+        // Public frametime stats for stability detection (used by AutoTDPManager)
+        public float FrametimeMin => currentMinFt;
+        public float FrametimeAvg => currentAvgFt;
+        public float FrametimeMax => currentMaxFt;
+        public float FrametimeVariance => currentMaxFt - currentMinFt;  // Max-Min variance in ms
+
         // OSD configuration per level - stores which items are enabled
         // Level 1 (Basic): Time, FPS, Battery - 3 columns
         // Level 2 (Detailed): Time, FPS, Battery, CPU, GPU, Fan, FrametimeGraph - 1 column

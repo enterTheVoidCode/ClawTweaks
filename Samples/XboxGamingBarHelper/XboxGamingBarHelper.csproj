@@ -479,6 +479,7 @@
     <Compile Include="AutoTDP\AutoTDPManager.cs" />
     <Compile Include="AutoTDP\QLearningController.cs" />
     <Compile Include="AutoTDP\SARSAController.cs" />
+    <Compile Include="AutoTDP\LearnedGameTDPStore.cs" />
     <Compile Include="AutoTDP\TDPLimitsProperty.cs" />
     <Compile Include="RTSS\DisplayOSDConfigProperty.cs" />
     <Compile Include="Systems\HDREnabledProperty.cs" />

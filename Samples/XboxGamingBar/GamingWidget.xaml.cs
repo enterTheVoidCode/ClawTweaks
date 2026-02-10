@@ -70,6 +70,7 @@ namespace XboxGamingBar
         public int AutoTDPMinTDP { get; set; } = 8;
         public int AutoTDPMaxTDP { get; set; } = 30;
         public bool AutoTDPUseMLMode { get; set; } = false;
+        public int AutoTDPControllerType { get; set; } = 0;  // 0=PID, 1=Q-Learning, 2=SARSA
         // OS Power Mode (0=Best Power Efficiency, 1=Balanced, 2=Best Performance)
         public int OSPowerMode { get; set; } = 1;
         // Legion Performance Mode (1=Quiet, 2=Balanced, 3=Performance, 255=Custom)
@@ -118,6 +119,7 @@ namespace XboxGamingBar
                 AutoTDPMinTDP = this.AutoTDPMinTDP,
                 AutoTDPMaxTDP = this.AutoTDPMaxTDP,
                 AutoTDPUseMLMode = this.AutoTDPUseMLMode,
+                AutoTDPControllerType = this.AutoTDPControllerType,
                 OSPowerMode = this.OSPowerMode,
                 LegionPerformanceMode = this.LegionPerformanceMode,
                 TDPModeIndex = this.TDPModeIndex,
@@ -833,6 +835,15 @@ namespace XboxGamingBar
         private readonly AutoTDPResetMLProperty autoTDPResetML;
         private readonly AutoTDPPauseWhenUnfocusedProperty autoTDPPauseWhenUnfocused;
         private readonly TDPLimitsProperty tdpLimits;
+
+        // AutoTDP slider debounce timers (delay sending to helper until user stops sliding)
+        private DispatcherTimer autoTDPTargetFPSDebounceTimer;
+        private DispatcherTimer autoTDPMinDebounceTimer;
+        private DispatcherTimer autoTDPMaxDebounceTimer;
+        private int pendingAutoTDPTargetFPS;
+        private int pendingAutoTDPMinTDP;
+        private int pendingAutoTDPMaxTDP;
+
         private readonly CPUCoreConfigProperty cpuCoreConfig;
         private readonly CPUCoreActiveConfigProperty cpuCoreActiveConfig;
         private readonly CoreParkingPercentProperty coreParkingPercent;
@@ -3173,7 +3184,11 @@ namespace XboxGamingBar
             else
             {
                 // When AutoTDP is off, restore normal display
-                UpdateTDPDisplayText();
+                // Only update display if in Custom mode - don't overwrite preset mode names
+                if (IsCustomTdpModeSelected())
+                {
+                    UpdateTDPDisplayText();
+                }
                 // Helper will update CurrentTDPValueText with actual hardware limits
             }
         }
@@ -3186,13 +3201,33 @@ namespace XboxGamingBar
             if (isApplyingHelperUpdate) return;
 
             int targetFPS = (int)Math.Round(e.NewValue);
-            Logger.Info($"AutoTDP target FPS changed to: {targetFPS}");
 
-            // Update display
+            // Update display immediately for visual feedback
             if (AutoTDPTargetFPSValue != null)
             {
                 AutoTDPTargetFPSValue.Text = $"{targetFPS} FPS";
             }
+
+            // Store pending value and debounce the send to helper
+            pendingAutoTDPTargetFPS = targetFPS;
+
+            // Initialize or restart debounce timer
+            if (autoTDPTargetFPSDebounceTimer == null)
+            {
+                autoTDPTargetFPSDebounceTimer = new DispatcherTimer();
+                autoTDPTargetFPSDebounceTimer.Interval = TimeSpan.FromMilliseconds(300);
+                autoTDPTargetFPSDebounceTimer.Tick += AutoTDPTargetFPSDebounceTimer_Tick;
+            }
+            autoTDPTargetFPSDebounceTimer.Stop();
+            autoTDPTargetFPSDebounceTimer.Start();
+        }
+
+        private void AutoTDPTargetFPSDebounceTimer_Tick(object sender, object e)
+        {
+            autoTDPTargetFPSDebounceTimer.Stop();
+
+            int targetFPS = pendingAutoTDPTargetFPS;
+            Logger.Info($"AutoTDP target FPS changed to: {targetFPS} (debounced)");
 
             // Sync FPS limit if enabled
             ApplyAutoTDPFPSLimit();
@@ -3228,16 +3263,33 @@ namespace XboxGamingBar
                 return;
             }
 
-            Logger.Info($"AutoTDP min TDP changed to: {minTDP}W");
-
-            // Update display
+            // Update display immediately for visual feedback
             if (AutoTDPMinValue != null)
             {
                 AutoTDPMinValue.Text = $"{minTDP}W";
             }
-
-            // Update TDP limits display if AutoTDP is active
             UpdateAutoTDPLimitsDisplay();
+
+            // Store pending value and debounce the send to helper
+            pendingAutoTDPMinTDP = minTDP;
+
+            // Initialize or restart debounce timer
+            if (autoTDPMinDebounceTimer == null)
+            {
+                autoTDPMinDebounceTimer = new DispatcherTimer();
+                autoTDPMinDebounceTimer.Interval = TimeSpan.FromMilliseconds(300);
+                autoTDPMinDebounceTimer.Tick += AutoTDPMinDebounceTimer_Tick;
+            }
+            autoTDPMinDebounceTimer.Stop();
+            autoTDPMinDebounceTimer.Start();
+        }
+
+        private void AutoTDPMinDebounceTimer_Tick(object sender, object e)
+        {
+            autoTDPMinDebounceTimer.Stop();
+
+            int minTDP = pendingAutoTDPMinTDP;
+            Logger.Info($"AutoTDP min TDP changed to: {minTDP}W (debounced)");
 
             // Send to helper
             autoTDPMinTDP?.SetValue(minTDP);
@@ -3270,16 +3322,33 @@ namespace XboxGamingBar
                 return;
             }
 
-            Logger.Info($"AutoTDP max TDP changed to: {maxTDP}W");
-
-            // Update display
+            // Update display immediately for visual feedback
             if (AutoTDPMaxValue != null)
             {
                 AutoTDPMaxValue.Text = $"{maxTDP}W";
             }
-
-            // Update TDP limits display if AutoTDP is active
             UpdateAutoTDPLimitsDisplay();
+
+            // Store pending value and debounce the send to helper
+            pendingAutoTDPMaxTDP = maxTDP;
+
+            // Initialize or restart debounce timer
+            if (autoTDPMaxDebounceTimer == null)
+            {
+                autoTDPMaxDebounceTimer = new DispatcherTimer();
+                autoTDPMaxDebounceTimer.Interval = TimeSpan.FromMilliseconds(300);
+                autoTDPMaxDebounceTimer.Tick += AutoTDPMaxDebounceTimer_Tick;
+            }
+            autoTDPMaxDebounceTimer.Stop();
+            autoTDPMaxDebounceTimer.Start();
+        }
+
+        private void AutoTDPMaxDebounceTimer_Tick(object sender, object e)
+        {
+            autoTDPMaxDebounceTimer.Stop();
+
+            int maxTDP = pendingAutoTDPMaxTDP;
+            Logger.Info($"AutoTDP max TDP changed to: {maxTDP}W (debounced)");
 
             // Send to helper
             autoTDPMaxTDP?.SetValue(maxTDP);
@@ -8613,6 +8682,166 @@ namespace XboxGamingBar
             }
         }
 
+        #region PawnIO Debug Tools
+
+        private int _pawnIOCoAllValue = 0;
+        private int _pawnIOCoGfxValue = 0;
+        private int _pawnIOGfxClkValue = 800;
+        private int _pawnIOTctlValue = 95;
+
+        private void EnableDebugToolsToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (PawnIODebugTools != null)
+            {
+                PawnIODebugTools.Visibility = EnableDebugToolsToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+
+                if (EnableDebugToolsToggle.IsOn)
+                {
+                    // Request CPU info from helper
+                    _ = UpdatePawnIOCpuInfo();
+                }
+            }
+        }
+
+        private async Task UpdatePawnIOCpuInfo()
+        {
+            try
+            {
+                if (!App.IsConnected)
+                {
+                    PawnIOCpuInfoText.Text = "CPU: Helper not connected";
+                    return;
+                }
+
+                var message = new Windows.Foundation.Collections.ValueSet();
+                message.Add("Command", (int)Shared.Enums.Command.Get);
+                message.Add("Function", (int)Shared.Enums.Function.PawnIOGetCpuInfo);
+                var response = await App.SendMessageAsync(message);
+
+                if (response != null && response.TryGetValue("Content", out object contentObj))
+                {
+                    PawnIOCpuInfoText.Text = $"CPU: {contentObj}";
+                }
+                else
+                {
+                    PawnIOCpuInfoText.Text = "CPU: PawnIO not available";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to get PawnIO CPU info: {ex.Message}");
+                PawnIOCpuInfoText.Text = "CPU: Error";
+            }
+        }
+
+        private void PawnIOCoAllMinus_Click(object sender, RoutedEventArgs e)
+        {
+            _pawnIOCoAllValue = Math.Max(-30, _pawnIOCoAllValue - 1);
+            PawnIOCoAllValue.Text = _pawnIOCoAllValue.ToString();
+        }
+
+        private void PawnIOCoAllPlus_Click(object sender, RoutedEventArgs e)
+        {
+            _pawnIOCoAllValue = Math.Min(30, _pawnIOCoAllValue + 1);
+            PawnIOCoAllValue.Text = _pawnIOCoAllValue.ToString();
+        }
+
+        private void PawnIOCoGfxMinus_Click(object sender, RoutedEventArgs e)
+        {
+            _pawnIOCoGfxValue = Math.Max(-30, _pawnIOCoGfxValue - 1);
+            PawnIOCoGfxValue.Text = _pawnIOCoGfxValue.ToString();
+        }
+
+        private void PawnIOCoGfxPlus_Click(object sender, RoutedEventArgs e)
+        {
+            _pawnIOCoGfxValue = Math.Min(30, _pawnIOCoGfxValue + 1);
+            PawnIOCoGfxValue.Text = _pawnIOCoGfxValue.ToString();
+        }
+
+        private void PawnIOGfxClkMinus_Click(object sender, RoutedEventArgs e)
+        {
+            _pawnIOGfxClkValue = Math.Max(100, _pawnIOGfxClkValue - 50);
+            PawnIOGfxClkValue.Text = _pawnIOGfxClkValue.ToString();
+        }
+
+        private void PawnIOGfxClkPlus_Click(object sender, RoutedEventArgs e)
+        {
+            _pawnIOGfxClkValue = Math.Min(3000, _pawnIOGfxClkValue + 50);
+            PawnIOGfxClkValue.Text = _pawnIOGfxClkValue.ToString();
+        }
+
+        private void PawnIOTctlMinus_Click(object sender, RoutedEventArgs e)
+        {
+            _pawnIOTctlValue = Math.Max(60, _pawnIOTctlValue - 1);
+            PawnIOTctlValue.Text = _pawnIOTctlValue.ToString();
+        }
+
+        private void PawnIOTctlPlus_Click(object sender, RoutedEventArgs e)
+        {
+            _pawnIOTctlValue = Math.Min(105, _pawnIOTctlValue + 1);
+            PawnIOTctlValue.Text = _pawnIOTctlValue.ToString();
+        }
+
+        private async void PawnIOApplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                PawnIOApplyButton.IsEnabled = false;
+                PawnIODebugStatusText.Text = "Applying...";
+
+                if (!App.IsConnected)
+                {
+                    PawnIODebugStatusText.Text = "Helper not connected";
+                    PawnIOApplyButton.IsEnabled = true;
+                    return;
+                }
+
+                var message = new Windows.Foundation.Collections.ValueSet();
+                message.Add("Command", (int)Shared.Enums.Command.Set);
+                message.Add("Function", (int)Shared.Enums.Function.PawnIOApplySettings);
+                message.Add("CoAll", _pawnIOCoAllValue);
+                message.Add("CoGfx", _pawnIOCoGfxValue);
+                message.Add("GfxClk", _pawnIOGfxClkValue);
+                message.Add("TctlTemp", _pawnIOTctlValue);
+
+                var response = await App.SendMessageAsync(message);
+
+                if (response != null && response.TryGetValue("Content", out object contentObj))
+                {
+                    PawnIODebugStatusText.Text = contentObj?.ToString() ?? "Applied";
+                }
+                else
+                {
+                    PawnIODebugStatusText.Text = "No response from helper";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"PawnIO apply failed: {ex.Message}");
+                PawnIODebugStatusText.Text = $"Error: {ex.Message}";
+            }
+            finally
+            {
+                PawnIOApplyButton.IsEnabled = true;
+            }
+        }
+
+        private void PawnIOResetButton_Click(object sender, RoutedEventArgs e)
+        {
+            _pawnIOCoAllValue = 0;
+            _pawnIOCoGfxValue = 0;
+            _pawnIOGfxClkValue = 800;
+            _pawnIOTctlValue = 95;
+
+            PawnIOCoAllValue.Text = "0";
+            PawnIOCoGfxValue.Text = "0";
+            PawnIOGfxClkValue.Text = "800";
+            PawnIOTctlValue.Text = "95";
+            PawnIODebugStatusText.Text = "Values reset (not applied)";
+        }
+
+        #endregion
+
         #endregion
 
         private void UpdateCPUCoreConfigSummary()
@@ -9416,6 +9645,14 @@ namespace XboxGamingBar
                 return;
             }
 
+            // Don't save during initial sync - prevents stale widget values from overwriting
+            // the helper's actual hardware state in the profile
+            if (isInitialSync)
+            {
+                Logger.Debug($"Skipping profile save for {profileName} - isInitialSync is true");
+                return;
+            }
+
             // Don't save when Default Game Profile is active - prevents overwriting user's profile
             if (defaultGameProfileEnabled?.Value == true)
             {
@@ -9501,7 +9738,10 @@ namespace XboxGamingBar
                 profile.AutoTDPTargetFPS = (int)AutoTDPTargetFPSSlider.Value;
                 profile.AutoTDPMinTDP = (int)AutoTDPMinSlider.Value;
                 profile.AutoTDPMaxTDP = (int)AutoTDPMaxSlider.Value;
-                profile.AutoTDPUseMLMode = AutoTDPControllerModeComboBox?.SelectedIndex == 1;
+                // Save the controller type (0=PID, 1=Q-Learning, 2=SARSA)
+                profile.AutoTDPControllerType = AutoTDPControllerModeComboBox?.SelectedIndex ?? 0;
+                // Also update deprecated field for backwards compatibility
+                profile.AutoTDPUseMLMode = AutoTDPControllerModeComboBox?.SelectedIndex > 0;
             }
             if (SaveOSPowerMode && OSPowerModeComboBox != null)
             {
@@ -9580,7 +9820,18 @@ namespace XboxGamingBar
                 // Skip TDP loading when DGP is active - DGP controls TDP
                 if (SaveTDP && defaultGameProfileEnabled?.Value != true)
                 {
-                    TDPSlider.Value = profile.TDP;
+                    // Set IsUpdatingUI to prevent the slider's ValueChanged from starting debounce timer.
+                    // Without this, the slider fires ValueChanged → debounce timer → sends stale LocalSettings
+                    // value back to helper, corrupting the per-game profile.
+                    if (tdp != null) tdp.IsUpdatingUI = true;
+                    try
+                    {
+                        TDPSlider.Value = profile.TDP;
+                    }
+                    finally
+                    {
+                        if (tdp != null) tdp.IsUpdatingUI = false;
+                    }
                     // Only initialize savedCustomTDP from profile's TDP value if the profile was saved in Custom mode
                     // Otherwise we'd be saving a preset's TDP value as the custom TDP value
                     if (profile.LegionPerformanceMode == 255)
@@ -9592,7 +9843,9 @@ namespace XboxGamingBar
                     // For Legion devices: TDP value will be sent AFTER TDP mode is applied (see Legion-specific handling below)
                     // This prevents TDP from being ignored when switching from preset mode to Custom mode
                     // For non-Legion devices: send TDP value immediately
-                    if (legionGoDetected?.Value != true)
+                    // Skip sending when helper triggered the profile switch (isApplyingHelperUpdate) —
+                    // the helper already sent the correct TDP via pipe, don't overwrite with stale LocalSettings value
+                    if (legionGoDetected?.Value != true && !isApplyingHelperUpdate)
                     {
                         tdp?.ForceSetValue((int)profile.TDP);
                     }
@@ -9607,7 +9860,7 @@ namespace XboxGamingBar
                     if (TDPBoostToggle != null)
                     {
                         TDPBoostToggle.IsOn = profile.TDPBoostEnabled;
-                        if (!legionSwitchingToCustom)
+                        if (!legionSwitchingToCustom && !isApplyingHelperUpdate)
                         {
                             tdpBoostEnabled?.SetValue(profile.TDPBoostEnabled);
                         }
@@ -9617,15 +9870,28 @@ namespace XboxGamingBar
                 if (SaveCPUBoost)
                 {
                     CPUBoostToggle.IsOn = profile.CPUBoost;
-                    // Send to helper explicitly
-                    cpuBoost?.SetValue(profile.CPUBoost);
+                    // Send to helper explicitly — skip when helper triggered the switch
+                    if (!isApplyingHelperUpdate)
+                    {
+                        cpuBoost?.SetValue(profile.CPUBoost);
+                    }
                 }
                 if (SaveCPUEPP)
                 {
-                    CPUEPPSlider.Value = profile.CPUEPP;
+                    // Set IsUpdatingUI to prevent EPP slider debounce timer
+                    if (cpuEPP != null) cpuEPP.IsUpdatingUI = true;
+                    try
+                    {
+                        CPUEPPSlider.Value = profile.CPUEPP;
+                    }
+                    finally
+                    {
+                        if (cpuEPP != null) cpuEPP.IsUpdatingUI = false;
+                    }
                     // Send to helper explicitly (cast to int for property type)
                     // For Legion devices switching to Custom mode: defer sending to helper until mode change is applied
-                    if (!legionSwitchingToCustom)
+                    // Skip when helper triggered the switch
+                    if (!legionSwitchingToCustom && !isApplyingHelperUpdate)
                     {
                         cpuEPP?.SetValue((int)profile.CPUEPP);
                     }
@@ -9634,9 +9900,12 @@ namespace XboxGamingBar
                 {
                     SetCPUStateComboBoxValue(MaxCPUStateComboBox, profile.MaxCPUState);
                     SetCPUStateComboBoxValue(MinCPUStateComboBox, profile.MinCPUState);
-                    // Send to helper explicitly
-                    maxCPUState?.SetValue(profile.MaxCPUState);
-                    minCPUState?.SetValue(profile.MinCPUState);
+                    // Send to helper explicitly — skip when helper triggered the switch
+                    if (!isApplyingHelperUpdate)
+                    {
+                        maxCPUState?.SetValue(profile.MaxCPUState);
+                        minCPUState?.SetValue(profile.MinCPUState);
+                    }
                     // Update CPU Boost enabled state based on Max CPU State
                     UpdateCPUBoostEnabledState();
                 }
@@ -9720,10 +9989,10 @@ namespace XboxGamingBar
                         {
                             AutoTDPMaxValue.Text = $"{profile.AutoTDPMaxTDP}W";
                         }
-                        // Update ML mode selection
+                        // Update controller type selection (0=PID, 1=Q-Learning, 2=SARSA)
                         if (AutoTDPControllerModeComboBox != null)
                         {
-                            AutoTDPControllerModeComboBox.SelectedIndex = profile.AutoTDPUseMLMode ? 1 : 0;
+                            AutoTDPControllerModeComboBox.SelectedIndex = profile.AutoTDPControllerType;
                             UpdateAutoTDPMLInfoPanelVisibility();
                         }
                         // NOTE: Do NOT send to helper here - helper is source of truth for profile values
@@ -10232,6 +10501,7 @@ namespace XboxGamingBar
             container.Values["AutoTDPMinTDP"] = profile.AutoTDPMinTDP;
             container.Values["AutoTDPMaxTDP"] = profile.AutoTDPMaxTDP;
             container.Values["AutoTDPUseMLMode"] = profile.AutoTDPUseMLMode;
+            container.Values["AutoTDPControllerType"] = profile.AutoTDPControllerType;
             container.Values["OSPowerMode"] = profile.OSPowerMode;
             container.Values["LegionPerformanceMode"] = profile.LegionPerformanceMode;
             container.Values["TDPModeIndex"] = profile.TDPModeIndex;
@@ -10279,6 +10549,7 @@ namespace XboxGamingBar
                 profile.AutoTDPMinTDP = container.Values.ContainsKey("AutoTDPMinTDP") ? (int)container.Values["AutoTDPMinTDP"] : 8;
                 profile.AutoTDPMaxTDP = container.Values.ContainsKey("AutoTDPMaxTDP") ? (int)container.Values["AutoTDPMaxTDP"] : 30;
                 profile.AutoTDPUseMLMode = container.Values.ContainsKey("AutoTDPUseMLMode") ? (bool)container.Values["AutoTDPUseMLMode"] : false;
+                profile.AutoTDPControllerType = container.Values.ContainsKey("AutoTDPControllerType") ? (int)container.Values["AutoTDPControllerType"] : 0;
                 profile.OSPowerMode = container.Values.ContainsKey("OSPowerMode") ? (int)container.Values["OSPowerMode"] : 1;
                 // Only load LegionPerformanceMode if it exists in storage - keep profile's existing value otherwise
                 // This preserves the default (Balanced=2) for new profiles but doesn't override if storage key is missing
@@ -10496,21 +10767,93 @@ namespace XboxGamingBar
                 // Lighting - only load if explicitly saved (to avoid defaulting to white for old profiles)
                 profile.HasExplicitLighting = container.Values.ContainsKey("LightColorR");
                 profile.LightMode = container.Values.ContainsKey("LightMode") ? (int)container.Values["LightMode"] : 1;
+                profile.LightSpeed = container.Values.ContainsKey("LightSpeed") ? (int)container.Values["LightSpeed"] : 50;
+                profile.LightBrightness = container.Values.ContainsKey("LightBrightness") ? (int)container.Values["LightBrightness"] : 50;
+                profile.PowerLight = container.Values.ContainsKey("PowerLight") ? (bool)container.Values["PowerLight"] : true;
+
                 if (profile.HasExplicitLighting)
                 {
                     profile.LightColorR = (byte)container.Values["LightColorR"];
                     profile.LightColorG = container.Values.ContainsKey("LightColorG") ? (byte)container.Values["LightColorG"] : (byte)255;
                     profile.LightColorB = container.Values.ContainsKey("LightColorB") ? (byte)container.Values["LightColorB"] : (byte)255;
+
+                    // Check if saved color is the default white (#FFFFFF) with high brightness
+                    // This likely means the profile was saved before the user set their preferred color
+                    // In this case, inherit from main lighting to prevent unexpected white lights
+                    bool isDefaultWhite = profile.LightColorR == 255 && profile.LightColorG == 255 && profile.LightColorB == 255;
+                    bool hasHighBrightness = profile.LightBrightness >= 90;  // 90% or higher suggests default
+                    if (isDefaultWhite && hasHighBrightness)
+                    {
+                        Logger.Info($"Controller profile '{profileName}' has default white (#FFFFFF) with high brightness ({profile.LightBrightness}%) - inheriting main lighting instead");
+                        InheritMainLightingSettings(profile);
+                    }
                 }
-                profile.LightSpeed = container.Values.ContainsKey("LightSpeed") ? (int)container.Values["LightSpeed"] : 50;
-                profile.LightBrightness = container.Values.ContainsKey("LightBrightness") ? (int)container.Values["LightBrightness"] : 50;
-                profile.PowerLight = container.Values.ContainsKey("PowerLight") ? (bool)container.Values["PowerLight"] : true;
+                else
+                {
+                    // No explicit lighting saved - inherit from current main lighting settings
+                    // This prevents profiles from defaulting to white and ensures consistency
+                    InheritMainLightingSettings(profile);
+                }
 
                 Logger.Info($"Loaded controller profile: {profileName} (HasExplicitLighting={profile.HasExplicitLighting}, LightMode={profile.LightMode}, Color=#{profile.LightColorR:X2}{profile.LightColorG:X2}{profile.LightColorB:X2}, Brightness={profile.LightBrightness})");
             }
             else
             {
                 Logger.Warn($"Controller profile container not found: {containerKey} - using defaults");
+                // Even for new profiles, inherit current main lighting settings
+                InheritMainLightingSettings(profile);
+            }
+        }
+
+        /// <summary>
+        /// Copies current main lighting settings into a controller profile.
+        /// Used when a profile has no explicit lighting saved to prevent defaulting to white.
+        /// </summary>
+        private void InheritMainLightingSettings(ControllerProfile profile)
+        {
+            try
+            {
+                // Get current light mode
+                if (legionLightMode != null)
+                {
+                    profile.LightMode = legionLightMode.Value;
+                }
+
+                // Get current light color from hex string (e.g., "#RRGGBB" or "RRGGBB")
+                if (legionLightColor != null && !string.IsNullOrEmpty(legionLightColor.Value))
+                {
+                    string hex = legionLightColor.Value.TrimStart('#');
+                    if (hex.Length >= 6)
+                    {
+                        profile.LightColorR = Convert.ToByte(hex.Substring(0, 2), 16);
+                        profile.LightColorG = Convert.ToByte(hex.Substring(2, 2), 16);
+                        profile.LightColorB = Convert.ToByte(hex.Substring(4, 2), 16);
+                    }
+                }
+
+                // Get current brightness
+                if (legionLightBrightness != null)
+                {
+                    profile.LightBrightness = legionLightBrightness.Value;
+                }
+
+                // Get current speed
+                if (legionLightSpeed != null)
+                {
+                    profile.LightSpeed = legionLightSpeed.Value;
+                }
+
+                // Get current power light state
+                if (legionPowerLight != null)
+                {
+                    profile.PowerLight = legionPowerLight.Value;
+                }
+
+                Logger.Info($"Inherited main lighting settings: Mode={profile.LightMode}, Color=#{profile.LightColorR:X2}{profile.LightColorG:X2}{profile.LightColorB:X2}, Brightness={profile.LightBrightness}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error inheriting main lighting settings: {ex.Message}");
             }
         }
 
@@ -13957,37 +14300,13 @@ namespace XboxGamingBar
                     Logger.Info("Connection status banner hidden - already connected.");
 
                     // Sync properties since we're already connected
+                    // The helper is the source of truth for hardware state (TDP mode, etc.)
                     Logger.Info("Syncing properties with helper since connection already exists...");
                     try
                     {
                         isApplyingHelperUpdate = true;
 
-                        // Suppress LegionPerformanceMode value updates during sync - we'll apply profile mode afterward
-                        // This prevents helper's cached Custom mode from overwriting the profile's mode
-                        if (legionPerformanceMode != null)
-                        {
-                            legionPerformanceMode.SuppressUpdates = true;
-                        }
-
-                        // Skip TDP sync if profile uses a preset mode (not Custom)
-                        // This prevents the TDP sync from triggering Custom mode on the hardware LED
-                        try
-                        {
-                            var profile = GetProfile(currentProfileName);
-                            if (profile != null)
-                            {
-                                bool isPresetMode = profile.LegionPerformanceMode != 255; // Not Custom
-                                if (tdp != null && isPresetMode)
-                                {
-                                    tdp.SkipSync = true;
-                                    Logger.Info($"TDP sync will be skipped - profile uses {GetLegionModeShortName(profile.LegionPerformanceMode)} mode");
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Warn($"Could not check profile for TDP sync skip: {ex.Message}");
-                        }
+                        // Accept helper's LegionPerformanceMode as-is - helper is source of truth
 
                         // Skip OS Power Mode sync if profile has it saved
                         // This prevents sync from overwriting profile-loaded OS Power Mode with hardware state
@@ -14015,20 +14334,8 @@ namespace XboxGamingBar
                         isApplyingHelperUpdate = false;
                     }
 
-                    // Stop any pending slider updates from the sync - we'll apply profile values instead
+                    // Stop any pending slider updates from the sync
                     properties.StopPendingUpdates();
-
-                    // Re-enable updates for LegionPerformanceMode now that profile is applied
-                    if (legionPerformanceMode != null)
-                    {
-                        legionPerformanceMode.SuppressUpdates = false;
-                    }
-
-                    // Re-enable TDP sync for future syncs
-                    if (tdp != null)
-                    {
-                        tdp.SkipSync = false;
-                    }
 
                     // Re-enable OS Power Mode sync for future syncs
                     if (osPowerMode != null)
@@ -14036,9 +14343,41 @@ namespace XboxGamingBar
                         osPowerMode.SkipSync = false;
                     }
 
-                    // Apply profile TDP to helper now that we're synced
-                    // Profile was loaded in constructor before connection, so TDP may not have been applied
-                    await ApplyProfileTDPToHelper();
+                    // Don't apply profile TDP mode to helper - helper is source of truth
+                    // Helper already has correct mode from its own profile
+
+                    // Sync TDPModeComboBox with helper's LegionPerformanceMode
+                    if (legionGoDetected?.Value == true && LegionPerformanceModeComboBox != null && TDPModeComboBox != null)
+                    {
+                        if (TDPModeComboBox.SelectedIndex != LegionPerformanceModeComboBox.SelectedIndex)
+                        {
+                            Logger.Info($"Syncing TDPModeComboBox to match helper's mode: index {LegionPerformanceModeComboBox.SelectedIndex}");
+                            lastTDPModeIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                            TDPModeComboBox.SelectedIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                        }
+
+                        // Initialize savedCustomTDP from helper's synced TDP value
+                        if (IsCustomTdpModeIndex(LegionPerformanceModeComboBox.SelectedIndex) && tdp != null)
+                        {
+                            savedCustomTDP = tdp.Value;
+                            Logger.Info($"Initialized savedCustomTDP from helper's TDP: {savedCustomTDP}W");
+                        }
+                    }
+
+                    // Update TDP slider to show helper's actual TDP value
+                    if (tdp != null && TDPSlider != null)
+                    {
+                        double helperTDP = tdp.Value;
+                        if (Math.Abs(TDPSlider.Value - helperTDP) > 0.5)
+                        {
+                            Logger.Info($"Updating TDP slider from stale {TDPSlider.Value}W to helper's {helperTDP}W");
+                            TDPSlider.Value = helperTDP;
+                        }
+                    }
+
+                    // Update TDP display text and enabled state based on current mode
+                    UpdateTDPSliderEnabledState();
+                    Logger.Info($"Updated TDP slider enabled state after sync");
 
                     // Update profile display now that legionGoDetected has been synced from helper
                     // This ensures TDP Mode shows in Profiles tab on fresh start
@@ -15763,15 +16102,17 @@ namespace XboxGamingBar
             }
 
             // Sync properties now that pipe is connected
-            Logger.Info("Starting property sync via pipe...");
+            // The helper is the source of truth for hardware state (TDP mode, etc.)
+            // Always accept the helper's current LegionPerformanceMode during sync
+            // Using App.HasEverConnectedToHelper (static) so it persists across widget instance recreations
+            bool isReconnection = App.HasEverConnectedToHelper;
+            Logger.Info($"Starting property sync via pipe... (isReconnection={isReconnection})");
             try
             {
                 isApplyingHelperUpdate = true;
 
-                if (legionPerformanceMode != null)
-                {
-                    legionPerformanceMode.SuppressUpdates = true;
-                }
+                // Never suppress LegionPerformanceMode - always accept helper's current TDP mode
+                // The helper loads the correct mode from its profile on startup
 
                 await properties.Sync();
                 Logger.Info("Property sync via pipe completed successfully.");
@@ -15795,15 +16136,54 @@ namespace XboxGamingBar
                     properties.StopPendingUpdates();
                 });
 
-                if (legionPerformanceMode != null)
-                {
-                    legionPerformanceMode.SuppressUpdates = false;
-                }
-
                 Logger.Info("[PIPE] Sending OSD config to helper...");
                 SendOSDConfigToHelper();
-                Logger.Info("[PIPE] Applying profile TDP to helper...");
-                await ApplyProfileTDPToHelper();
+
+                // Don't apply profile TDP mode to helper - the helper is the source of truth
+                // It already has the correct mode from its own profile (global.xml)
+                Logger.Info("[PIPE] Skipping profile TDP mode apply - helper is source of truth");
+
+                // Sync TDPModeComboBox with helper's LegionPerformanceMode
+                // This is needed because LegionPerformanceModeComboBox_SelectionChanged skips
+                // TDPModeComboBox sync during isInitialSync
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    if (legionGoDetected?.Value == true && LegionPerformanceModeComboBox != null && TDPModeComboBox != null)
+                    {
+                        if (TDPModeComboBox.SelectedIndex != LegionPerformanceModeComboBox.SelectedIndex)
+                        {
+                            Logger.Info($"[PIPE] Syncing TDPModeComboBox to match helper's mode: index {LegionPerformanceModeComboBox.SelectedIndex}");
+                            lastTDPModeIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                            TDPModeComboBox.SelectedIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                        }
+
+                        // Initialize savedCustomTDP from helper's synced TDP value
+                        // This prevents stale savedCustomTDP (default 15W) from overriding
+                        // the helper's actual TDP when TDPModeComboBox_SelectionChanged fires
+                        if (IsCustomTdpModeIndex(LegionPerformanceModeComboBox.SelectedIndex) && tdp != null)
+                        {
+                            savedCustomTDP = tdp.Value;
+                            Logger.Info($"[PIPE] Initialized savedCustomTDP from helper's TDP: {savedCustomTDP}W");
+                        }
+                    }
+
+                    // Update the TDP slider to show helper's actual TDP value
+                    // The slider may have been set to a stale profile value during LoadProfileSettings
+                    if (tdp != null && TDPSlider != null)
+                    {
+                        double helperTDP = tdp.Value;
+                        if (Math.Abs(TDPSlider.Value - helperTDP) > 0.5)
+                        {
+                            Logger.Info($"[PIPE] Updating TDP slider from stale {TDPSlider.Value}W to helper's {helperTDP}W");
+                            TDPSlider.Value = helperTDP;
+                        }
+                    }
+
+                    // Update TDP display text and enabled state based on current mode
+                    // Without this, TDPValueText/CurrentTDPValueText show stale "Balanced mode" from XAML defaults
+                    UpdateTDPSliderEnabledState();
+                    Logger.Info($"[PIPE] Updated TDP slider enabled state after sync");
+                });
 
                 // Send Quick Metrics enabled state to helper
                 Logger.Info("[PIPE] Sending Quick Metrics enabled state to helper...");
@@ -15811,6 +16191,7 @@ namespace XboxGamingBar
 
                 await Task.Delay(200);
                 isInitialSync = false;
+                App.HasEverConnectedToHelper = true;
                 Logger.Info("Initial sync via pipe complete - profile saves are now enabled");
 
                 Logger.Info("[PIPE] About to hide connection banner and update profile display...");
@@ -15818,6 +16199,26 @@ namespace XboxGamingBar
                 {
                     Logger.Info("[PIPE] Inside dispatcher - calling HideConnectionBanner()");
                     HideConnectionBanner();
+
+                    // Update current profile's TDP and mode from helper's synced values
+                    // This prevents stale profile values from being loaded in subsequent LoadProfileSettings calls
+                    if (tdp != null && !string.IsNullOrEmpty(currentProfileName))
+                    {
+                        var profile = GetProfile(currentProfileName);
+                        if (profile != null && legionPerformanceMode != null)
+                        {
+                            int helperMode = legionPerformanceMode.Value;
+                            double helperTDP = tdp.Value;
+                            if (profile.LegionPerformanceMode != helperMode || Math.Abs(profile.TDP - helperTDP) > 0.5)
+                            {
+                                Logger.Info($"[PIPE] Syncing profile '{currentProfileName}' with helper: TDP {profile.TDP}→{helperTDP}W, Mode {profile.LegionPerformanceMode}→{helperMode}");
+                                profile.LegionPerformanceMode = helperMode;
+                                profile.TDP = helperTDP;
+                                SaveProfileToStorage(currentProfileName, profile);
+                            }
+                        }
+                    }
+
                     Logger.Info("[PIPE] Inside dispatcher - calling UpdateProfileDisplay()");
                     UpdateProfileDisplay();
                     Logger.Info("[PIPE] Inside dispatcher - post-sync UI updates complete");
@@ -18067,29 +18468,51 @@ namespace XboxGamingBar
                 if (StickyTDPToggle != null) StickyTDPToggle.IsEnabled = true;
                 if (StickyTDPIntervalSlider != null) StickyTDPIntervalSlider.IsEnabled = true;
 
-                // Restore toggle states from LocalSettings (they were turned off when not in Custom mode)
-                // Use flag to prevent toggle handlers from re-saving the restored values
+                // Restore toggle states when switching back to Custom mode.
+                // When SaveAutoTDP/SaveTDP is enabled, use the CURRENT PROFILE's values (source of truth)
+                // instead of LocalSettings. LocalSettings stores a global value that can be stale
+                // (e.g., AutoTDP=true from a per-game profile bleeds into global via deferred UI updates).
+                // Only fall back to LocalSettings when the profile system doesn't manage the setting.
                 isUpdatingTDPMode = true;
                 try
                 {
                     var settings = ApplicationData.Current.LocalSettings;
 
-                    if (TDPBoostToggle != null && settings.Values.TryGetValue("TDPBoostEnabled", out object tdpBoostVal) && tdpBoostVal is bool tdpBoostEnabledVal)
+                    if (TDPBoostToggle != null)
                     {
-                        TDPBoostToggle.IsOn = tdpBoostEnabledVal; // Data binding handles slider visibility
-                        this.tdpBoostEnabled?.SetValue(tdpBoostEnabledVal); // Send to helper
-                        Logger.Debug($"Restored TDP Boost toggle state from LocalSettings: {tdpBoostEnabledVal}");
+                        if (SaveTDP)
+                        {
+                            var profile = GetProfile(currentProfileName);
+                            TDPBoostToggle.IsOn = profile.TDPBoostEnabled;
+                            this.tdpBoostEnabled?.SetValue(profile.TDPBoostEnabled);
+                            Logger.Debug($"Restored TDP Boost from profile '{currentProfileName}': {profile.TDPBoostEnabled}");
+                        }
+                        else if (settings.Values.TryGetValue("TDPBoostEnabled", out object tdpBoostVal) && tdpBoostVal is bool tdpBoostEnabledVal)
+                        {
+                            TDPBoostToggle.IsOn = tdpBoostEnabledVal;
+                            this.tdpBoostEnabled?.SetValue(tdpBoostEnabledVal);
+                            Logger.Debug($"Restored TDP Boost from LocalSettings: {tdpBoostEnabledVal}");
+                        }
                     }
 
-                    if (AutoTDPToggle != null && settings.Values.TryGetValue("AutoTDPEnabled", out object autoTdpVal) && autoTdpVal is bool autoTdpEnabled)
+                    if (AutoTDPToggle != null)
                     {
                         isLoadingAutoTDPSettings = true;
                         try
                         {
-                            AutoTDPToggle.IsOn = autoTdpEnabled;
-                            // Send to helper to re-enable AutoTDP when switching back to Custom mode
-                            autoTDPEnabled?.SetValue(autoTdpEnabled);
-                            Logger.Debug($"Restored AutoTDP toggle state from LocalSettings: {autoTdpEnabled}");
+                            if (SaveAutoTDP)
+                            {
+                                var profile = GetProfile(currentProfileName);
+                                AutoTDPToggle.IsOn = profile.AutoTDPEnabled;
+                                autoTDPEnabled?.SetValue(profile.AutoTDPEnabled);
+                                Logger.Debug($"Restored AutoTDP from profile '{currentProfileName}': {profile.AutoTDPEnabled}");
+                            }
+                            else if (settings.Values.TryGetValue("AutoTDPEnabled", out object autoTdpVal) && autoTdpVal is bool autoTdpEnabled)
+                            {
+                                AutoTDPToggle.IsOn = autoTdpEnabled;
+                                autoTDPEnabled?.SetValue(autoTdpEnabled);
+                                Logger.Debug($"Restored AutoTDP from LocalSettings: {autoTdpEnabled}");
+                            }
                         }
                         finally
                         {
@@ -18100,7 +18523,6 @@ namespace XboxGamingBar
                     if (StickyTDPToggle != null && settings.Values.TryGetValue("StickyTDPEnabled", out object stickyVal) && stickyVal is bool stickyEnabled)
                     {
                         StickyTDPToggle.IsOn = stickyEnabled;
-                        // Start/stop Sticky TDP timer based on restored state
                         if (stickyEnabled)
                         {
                             targetTDPLimit = TDPSlider.Value;
@@ -18193,8 +18615,9 @@ namespace XboxGamingBar
         /// </summary>
         private void TDPSlider_ValueChanged_UpdateDisplay(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
-            // Only update display if in Custom mode (accounts for custom TDP presets)
-            if (IsCustomTdpModeSelected())
+            // Only update display if in Custom mode and slider is enabled
+            // The slider is disabled in preset modes, so this prevents overwriting mode names
+            if (IsCustomTdpModeSelected() && TDPSlider?.IsEnabled == true)
             {
                 UpdateTDPDisplayText();
             }
@@ -18213,6 +18636,8 @@ namespace XboxGamingBar
                 TDPValueText.Text = $"{tdpValue}W";
             }
             // Note: CurrentTDPValueText is updated by the helper with actual hardware limits
+            // via CurrentTDPProperty. Don't set it here - slider values would overwrite
+            // the detailed hardware readout (e.g., "S:21W F:21W L:21W").
         }
 
         #endregion

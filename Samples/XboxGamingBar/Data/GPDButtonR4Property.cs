@@ -22,7 +22,7 @@ namespace XboxGamingBar.Data
         /// <param name="keycode">USB HID keycode.</param>
         public void SetKeycode(ushort keycode)
         {
-            SetValue(keycode);
+            SetValue((int)keycode);
         }
     }
 }

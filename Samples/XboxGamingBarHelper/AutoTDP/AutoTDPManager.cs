@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Performance;
+using XboxGamingBarHelper.RTSS;
 using XboxGamingBarHelper.Systems;
 
 namespace XboxGamingBarHelper.AutoTDP
@@ -16,6 +17,23 @@ namespace XboxGamingBarHelper.AutoTDP
     {
         private readonly PerformanceManager performanceManager;
         private readonly SystemManager systemManager;
+        private RTSSManager rtssManager;  // For frametime stability detection
+        private LearnedGameTDPStore learnedTDPStore;  // Per-game learned TDP storage
+
+        // Target FPS change tracking - reset state when target changes
+        private int lastTargetFPS = 0;
+        private DateTime lastTargetChangeTime = DateTime.MinValue;
+        private const double TargetChangeSettleTimeMs = 2000;  // Ignore spike detection for 2 seconds after target change
+
+        // Current game tracking for per-game TDP learning
+        private string currentGamePath = null;
+        private string currentGameName = null;
+        private bool hasAppliedLearnedTDP = false;  // True if we've applied learned TDP for current game
+        private int learnedTDPApplied = 0;  // The learned TDP we applied (for reliability tracking)
+        private DateTime gameStartTime = DateTime.MinValue;  // When current game was detected
+        private int stableObservations = 0;  // Count of stable observations for learning
+        private const int MinStableObservationsToLearn = 10;  // Need this many stable readings to learn
+        private const float MaxFrametimeVarianceForLearning = 2.0f;  // Must have low variance to learn
 
         // Properties
         private readonly AutoTDPEnabledProperty enabled;
@@ -79,19 +97,23 @@ namespace XboxGamingBarHelper.AutoTDP
         private int minTDP = 4;
         private int maxTDP = 35;
 
-        // Update interval
-        private const double MinUpdateIntervalMs = 500; // 0.5s updates for faster ML learning and quicker response
+        // Update intervals - sample FPS frequently but make TDP decisions less often
+        private const double SampleIntervalMs = 250;   // 250ms FPS sampling for smoother data
+        private const double DecisionIntervalMs = 500; // 500ms TDP decisions to respect hardware response time
+        private const int SamplesPerDecision = 2;      // DecisionIntervalMs / SampleIntervalMs
+        private int samplesSinceLastDecision = 0;      // Counter for samples since last TDP decision
 
-        // Smoothing - shorter history for faster response
-        private double[] fpsHistory = new double[5];
+        // Smoothing - 10 samples at 250ms = 2.5 seconds of history
+        private double[] fpsHistory = new double[10];
         private int fpsHistoryIndex = 0;
         private int fpsHistoryCount = 0;
 
-        // Trend detection
-        private double[] fpsDeltas = new double[3];
+        // Trend detection - 5 deltas for better trend accuracy
+        private double[] fpsDeltas = new double[5];
         private int fpsDeltaIndex = 0;
         private int fpsDeltaCount = 0;
         private double lastSmoothedFPS = 0;
+        private double lastInstantFPS = 0;  // Track instantaneous FPS for spike detection
 
         // Hysteresis - reduced requirements for decreasing TDP
         private const int StableReadingsRequired = 2;
@@ -102,6 +124,13 @@ namespace XboxGamingBarHelper.AutoTDP
         private const int StableAtTargetRequired = 6;  // Faster probing (was 10)
         private int consecutiveAtTarget = 0;
         private int lastProbeTDP = 0;  // TDP we dropped to during probing
+
+        // Emergency spike recovery - track safe TDP for quick recovery on large FPS drops
+        private int safeTDP = 0;                    // Last known stable TDP before probing/reduction started
+        private int totalProbeReduction = 0;        // Total watts reduced from safeTDP
+        private const double SpikeThreshold = 12.0; // FPS drop threshold for emergency recovery (12+ FPS)
+        private const double SevereSpike = 15.0;    // Severe spike threshold (15+ FPS) - jump to safeTDP + margin
+        private bool spikeRecoveryActive = false;   // True when recovering from a spike
 
         // Sweet spot detection - track TDP history to find optimal value
         private const int TDPHistorySize = 20;  // Track last 20 TDP readings
@@ -213,11 +242,44 @@ namespace XboxGamingBarHelper.AutoTDP
             // Initialize ML controllers
             InitializeMLControllers();
 
+            // Initialize per-game learned TDP store
+            InitializeLearnedTDPStore();
+
             // Initialize limits from properties
             minTDP = minTDPProperty.Value;
             maxTDP = maxTDPProperty.Value;
 
+            // Initialize target FPS tracking
+            lastTargetFPS = targetFPS.Value;
+
             Logger.Info("AutoTDPManager initialized with conservative tuning and ML support (Q-Learning + SARSA)");
+        }
+
+        /// <summary>
+        /// Sets the RTSSManager reference for frametime stability detection.
+        /// </summary>
+        public void SetRTSSManager(RTSSManager manager)
+        {
+            rtssManager = manager;
+            Logger.Info("AutoTDPManager: RTSSManager reference set for frametime stability detection");
+        }
+
+        /// <summary>
+        /// Gets the current frametime variance (max - min) in milliseconds.
+        /// Returns 0 if RTSSManager is not available.
+        /// </summary>
+        private float GetFrametimeVariance()
+        {
+            return rtssManager?.FrametimeVariance ?? 0f;
+        }
+
+        /// <summary>
+        /// Gets the current average frametime in milliseconds.
+        /// Returns 0 if RTSSManager is not available.
+        /// </summary>
+        private float GetFrametimeAvg()
+        {
+            return rtssManager?.FrametimeAvg ?? 0f;
         }
 
         private void InitializeMLControllers()
@@ -245,6 +307,26 @@ namespace XboxGamingBarHelper.AutoTDP
                 Logger.Error($"Failed to initialize ML controllers: {ex.Message}");
                 qLearningController = null;
                 sarsaController = null;
+            }
+        }
+
+        private void InitializeLearnedTDPStore()
+        {
+            try
+            {
+                string localStatePath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Packages",
+                    "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg",
+                    "LocalState"
+                );
+                learnedTDPStore = new LearnedGameTDPStore(localStatePath);
+                Logger.Info("LearnedGameTDPStore initialized");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to initialize LearnedGameTDPStore: {ex.Message}");
+                learnedTDPStore = null;
             }
         }
 
@@ -398,6 +480,17 @@ namespace XboxGamingBarHelper.AutoTDP
                 }
                 wasActivelyManaging = false;
 
+                // Reset per-game learning state
+                if (currentGamePath != null)
+                {
+                    Logger.Info($"AutoTDP: Game '{currentGameName}' exited, resetting per-game learning state");
+                    currentGamePath = null;
+                    currentGameName = null;
+                    hasAppliedLearnedTDP = false;
+                    learnedTDPApplied = 0;
+                    stableObservations = 0;
+                }
+
                 // No game running - reset state and clear FPS
                 if (currentFPS.Value != 0)
                 {
@@ -409,6 +502,40 @@ namespace XboxGamingBarHelper.AutoTDP
                 StatusText = "Waiting for game";
                 TrendText = "";
                 return;
+            }
+
+            // Detect game change and apply learned TDP
+            string newGamePath = runningGame.GameId.Path;
+            string newGameName = runningGame.GameId.Name;
+            if (newGamePath != currentGamePath)
+            {
+                // Game changed - reset learning state and try to apply learned TDP
+                currentGamePath = newGamePath;
+                currentGameName = newGameName;
+                hasAppliedLearnedTDP = false;
+                learnedTDPApplied = 0;
+                stableObservations = 0;
+                gameStartTime = DateTime.Now;
+
+                Logger.Info($"AutoTDP: New game detected - '{currentGameName}' at {currentGamePath}");
+
+                // Try to get learned TDP for this game
+                if (learnedTDPStore != null && controllerType.Value == 2)  // Only use learned TDP in SARSA mode
+                {
+                    int learnedTDP = learnedTDPStore.GetLearnedTDP(currentGamePath, currentGameName, targetFPS.Value);
+                    if (learnedTDP > 0)
+                    {
+                        // Clamp to current TDP limits
+                        learnedTDP = Math.Max(minTDP, Math.Min(maxTDP, learnedTDP));
+
+                        Logger.Info($"AutoTDP: Applying learned TDP for '{currentGameName}': {learnedTDP}W");
+                        performanceManager.SetTDP(learnedTDP);
+                        lastAppliedTDP = learnedTDP;
+                        hasAppliedLearnedTDP = true;
+                        learnedTDPApplied = learnedTDP;
+                        StatusText = $"[Learned] {learnedTDP}W";
+                    }
+                }
             }
 
             // Check if the game is in the foreground - pause AutoTDP if game is in background (if enabled)
@@ -462,17 +589,18 @@ namespace XboxGamingBarHelper.AutoTDP
             performanceManager.IsAutoTDPActive = true;
             wasActivelyManaging = true;
 
-            // Rate limit updates
+            // Rate limit FPS sampling (250ms intervals)
             var now = DateTime.Now;
             if (lastUpdateTime != DateTime.MinValue)
             {
                 var elapsed = (now - lastUpdateTime).TotalMilliseconds;
-                if (elapsed < MinUpdateIntervalMs)
+                if (elapsed < SampleIntervalMs)
                 {
                     return;
                 }
             }
             lastUpdateTime = now;
+            samplesSinceLastDecision++;
 
             // Get current FPS from RTSS
             int measuredFPS = GetCurrentFPS(runningGame.ProcessId);
@@ -488,12 +616,32 @@ namespace XboxGamingBarHelper.AutoTDP
                 currentFPS.SetValue(measuredFPS);
             }
 
+            // Detect target FPS changes and reset history to avoid stale data affecting decisions
+            if (targetFPS.Value != lastTargetFPS)
+            {
+                Logger.Info($"AutoTDP: Target FPS changed from {lastTargetFPS} to {targetFPS.Value}, resetting FPS history");
+                lastTargetFPS = targetFPS.Value;
+                lastTargetChangeTime = DateTime.Now;
+                // Reset FPS history so we don't use stale data
+                fpsHistoryCount = 0;
+                fpsHistoryIndex = 0;
+                fpsDeltaCount = 0;
+                fpsDeltaIndex = 0;
+                lastSmoothedFPS = 0;
+                consecutiveStableReadings = 0;
+                consecutiveAtTarget = 0;
+                StatusText = "Target changed";
+                return;  // Skip this cycle to let things settle
+            }
+
             // Spike detection - detect sudden FPS jumps (menus opening, pause screens)
             // Only detect spikes if we have enough history and FPS suddenly jumps up
+            // Skip spike detection briefly after target FPS changes to avoid false positives
             double currentAverage = CalculateWeightedAverage();
             bool isSpike = false;
+            bool recentTargetChange = (DateTime.Now - lastTargetChangeTime).TotalMilliseconds < TargetChangeSettleTimeMs;
 
-            if (fpsHistoryCount >= 4 && currentAverage > 0)
+            if (fpsHistoryCount >= 6 && currentAverage > 0 && !recentTargetChange)
             {
                 // Spike = FPS suddenly jumps more than 50% above recent average
                 // AND the jump is significant (at least 50 FPS increase)
@@ -577,6 +725,21 @@ namespace XboxGamingBarHelper.AutoTDP
                 }
             }
 
+            // Check if it's time to make a TDP decision (every 500ms / 2 samples)
+            // We sample FPS every 250ms for smoother data, but only adjust TDP every 500ms
+            // to give the hardware time to respond to previous changes
+            bool shouldMakeDecision = samplesSinceLastDecision >= SamplesPerDecision;
+
+            if (!shouldMakeDecision)
+            {
+                // Just collecting FPS samples, no TDP decision this cycle
+                // Don't change status text - keep showing last decision status
+                return;
+            }
+
+            // Reset sample counter for next decision window
+            samplesSinceLastDecision = 0;
+
             // Route to ML or PID controller based on mode
             // 0 = PID, 1 = Q-Learning, 2 = SARSA
             bool useML = controllerType.Value > 0 && GetActiveMLController() != null && !isMLFallbackActive;
@@ -599,7 +762,7 @@ namespace XboxGamingBarHelper.AutoTDP
                 if (controllerType.Value == 2)
                 {
                     // SARSA mode
-                    newTDP = CalculateSARSATDP(smoothedFPS, trend, currentTDP, gpuUtil);
+                    newTDP = CalculateSARSATDP(smoothedFPS, trend, currentTDP, gpuUtil, measuredFPS);
                 }
                 else
                 {
@@ -703,6 +866,59 @@ namespace XboxGamingBarHelper.AutoTDP
             if (controllerType.Value > 0)
             {
                 UpdateMLStatusProperty();
+            }
+
+            // Per-game TDP learning: detect stability and save learned TDP
+            // Only learn in SARSA mode with valid game and store
+            if (controllerType.Value == 2 && sarsaController != null && learnedTDPStore != null &&
+                !string.IsNullOrEmpty(currentGamePath))
+            {
+                // Check stability conditions:
+                // 1. SARSA has 5+ consecutive stays (at target, choosing to stay)
+                // 2. Frametime variance is low (smooth gameplay)
+                // 3. FPS is within 2 of target
+                // 4. At least 30 seconds since game started (let things settle)
+                float ftVariance = GetFrametimeVariance();
+                double learningFpsError = targetFPS.Value - smoothedFPS;
+                bool sarsaStable = sarsaController.ConsecutiveStays >= 5;
+                bool frametimeStable = ftVariance > 0 && ftVariance < MaxFrametimeVarianceForLearning;
+                bool fpsOnTarget = Math.Abs(learningFpsError) <= 2.0;
+                bool settledIn = (DateTime.Now - gameStartTime).TotalSeconds >= 30;
+
+                if (sarsaStable && fpsOnTarget && settledIn)
+                {
+                    stableObservations++;
+
+                    // If frametime is also stable, this is a high-quality observation
+                    if (frametimeStable && stableObservations >= MinStableObservationsToLearn)
+                    {
+                        // Record this as a stable TDP for this game
+                        learnedTDPStore.RecordStableTDP(currentGamePath, currentGameName, lastAppliedTDP, targetFPS.Value);
+                        stableObservations = 0;  // Reset counter after recording
+
+                        // If we applied a learned TDP and it's working, increase confidence
+                        if (hasAppliedLearnedTDP && Math.Abs(lastAppliedTDP - learnedTDPApplied) <= 2)
+                        {
+                            Logger.Debug($"AutoTDP: Learned TDP confirmed working for '{currentGameName}'");
+                        }
+                    }
+                }
+                else
+                {
+                    // Reset if conditions not met
+                    if (stableObservations > 0 && !sarsaStable)
+                    {
+                        stableObservations = 0;
+                    }
+
+                    // If we applied a learned TDP and SARSA is struggling (FPS way off), mark it unreliable
+                    if (hasAppliedLearnedTDP && settledIn && Math.Abs(learningFpsError) > 10)
+                    {
+                        Logger.Warn($"AutoTDP: Learned TDP ({learnedTDPApplied}W) not working for '{currentGameName}', marking unreliable");
+                        learnedTDPStore.MarkUnreliable(currentGamePath);
+                        hasAppliedLearnedTDP = false;  // Don't mark again
+                    }
+                }
             }
         }
 
@@ -960,7 +1176,7 @@ namespace XboxGamingBarHelper.AutoTDP
             }
 
             // Calculate time delta
-            double dt = MinUpdateIntervalMs / 1000.0;
+            double dt = SampleIntervalMs / 1000.0;
 
             // Proportional term
             double P = Kp * effectiveError;
@@ -1133,7 +1349,7 @@ namespace XboxGamingBarHelper.AutoTDP
         /// Calculates TDP using SARSA ML controller.
         /// SARSA is on-policy, using the actual next action for updates (more conservative than Q-learning).
         /// </summary>
-        private int CalculateSARSATDP(double smoothedFPS, double trend, int currentTDP, double gpuUtil)
+        private int CalculateSARSATDP(double smoothedFPS, double trend, int currentTDP, double gpuUtil, double instantFPS = 0)
         {
             if (sarsaController == null)
             {
@@ -1144,6 +1360,66 @@ namespace XboxGamingBarHelper.AutoTDP
             // Use effective target when ceiling is detected, otherwise use user target
             int target = isCeilingDetected ? effectiveTarget : targetFPS.Value;
             double fpsError = target - smoothedFPS;
+
+            // Emergency spike detection - use INSTANTANEOUS FPS for quick detection of large drops
+            // Smoothed FPS changes too slowly to catch sudden spikes
+            if (lastInstantFPS > 0 && instantFPS > 0)
+            {
+                double fpsDrop = lastInstantFPS - instantFPS;
+
+                // Update safeTDP when stable at target (not in spike recovery)
+                bool stableAtTarget = Math.Abs(fpsError) <= 2.0 && Math.Abs(trend) < 1.0;
+                if (stableAtTarget && !spikeRecoveryActive)
+                {
+                    if (safeTDP == 0 || currentTDP > safeTDP)
+                    {
+                        // First stable reading or higher TDP is now stable - update safeTDP
+                        safeTDP = currentTDP;
+                        totalProbeReduction = 0;
+                        Logger.Debug($"AutoTDP [SARSA]: Updated safeTDP to {safeTDP}W (stable at target)");
+                    }
+                }
+
+                // Detect spike and trigger emergency recovery
+                if (fpsDrop >= SpikeThreshold && safeTDP > 0 && currentTDP < safeTDP)
+                {
+                    spikeRecoveryActive = true;
+                    int recoveryTDP;
+
+                    if (fpsDrop >= SevereSpike)
+                    {
+                        // Severe spike (15+ FPS) - jump to safeTDP + 1W margin
+                        recoveryTDP = Math.Min(maxTDP, safeTDP + 1);
+                        Logger.Warn($"AutoTDP [SARSA]: SEVERE SPIKE detected ({fpsDrop:F1} FPS drop)! Emergency recovery: {currentTDP}W -> {recoveryTDP}W (safeTDP={safeTDP}W)");
+                    }
+                    else
+                    {
+                        // Moderate spike (12-15 FPS) - jump back to safeTDP
+                        recoveryTDP = safeTDP;
+                        Logger.Warn($"AutoTDP [SARSA]: SPIKE detected ({fpsDrop:F1} FPS drop)! Recovery: {currentTDP}W -> {recoveryTDP}W");
+                    }
+
+                    StatusText = "[SARSA] Spike recovery";
+                    // Reset probe reduction since we're recovering
+                    totalProbeReduction = 0;
+                    return recoveryTDP;
+                }
+                else if (spikeRecoveryActive && stableAtTarget)
+                {
+                    // Recovered from spike, back to normal operation
+                    spikeRecoveryActive = false;
+                    Logger.Info($"AutoTDP [SARSA]: Spike recovery complete, stable at {smoothedFPS:F1} FPS / {currentTDP}W");
+                }
+
+                // Track probe reduction when decreasing TDP below safeTDP
+                if (safeTDP > 0 && currentTDP < safeTDP)
+                {
+                    totalProbeReduction = safeTDP - currentTDP;
+                }
+
+                // Update last instant FPS for next spike detection
+                lastInstantFPS = instantFPS;
+            }
 
             // Also track error from user's actual target for ceiling-aware decisions
             double userTargetError = targetFPS.Value - smoothedFPS;
@@ -1167,13 +1443,24 @@ namespace XboxGamingBarHelper.AutoTDP
             double currentTdpPercent = tdpRange > 0 ? (double)(currentTDP - minTDP) / tdpRange : 0.5;
 
             // Select action using epsilon-greedy policy with safety overrides
-            int tdpDelta = sarsaController.SelectAction(state, fpsError, currentTdpPercent);
+            // Pass currentTDP and minTDP for power probing when at FPS target
+            int tdpDelta = sarsaController.SelectAction(state, fpsError, currentTdpPercent, currentTDP, minTDP);
 
             // Safety: Limit aggressive decreases at low TDP to prevent oscillation
             if (tdpDelta <= -2 && currentTdpPercent < 0.30)
             {
                 tdpDelta = -1;
                 Logger.Debug($"AutoTDP [SARSA]: Limited -2W to -1W at low TDP ({currentTdpPercent:P0})");
+            }
+
+            // Frametime stability gate (Option 3): Block TDP reduction when frametime is unstable
+            // If frametime variance > 3ms, force "stay" to avoid making stuttering worse
+            float frametimeVariance = GetFrametimeVariance();
+            if (tdpDelta < 0 && frametimeVariance > 3.0f)
+            {
+                Logger.Info($"AutoTDP [SARSA]: Frametime unstable ({frametimeVariance:F1}ms variance), blocking TDP decrease");
+                tdpDelta = 0;  // Force stay
+                StatusText = "[SARSA] Stabilizing";
             }
 
             // Ceiling mode safeguards
@@ -1208,7 +1495,8 @@ namespace XboxGamingBarHelper.AutoTDP
             // Calculate reward
             int prevTdpChange = sarsaController.PreviousTdpChange;
             double avgFpsPerWatt = GetAverageFpsPerWatt();
-            double reward = sarsaController.CalculateReward(fpsError, currentTDP, newTDP, headroomExhausted, gpuUtil, achievableFPS, smoothedFPS, minTDP, maxTDP, prevTdpChange, avgFpsPerWatt);
+            float ftVariance = GetFrametimeVariance();
+            double reward = sarsaController.CalculateReward(fpsError, currentTDP, newTDP, headroomExhausted, gpuUtil, achievableFPS, smoothedFPS, minTDP, maxTDP, prevTdpChange, avgFpsPerWatt, lastSmoothedFPS, ftVariance);
             LastMLReward = reward;
 
             // Get next state for SARSA update
@@ -1233,11 +1521,13 @@ namespace XboxGamingBarHelper.AutoTDP
             fpsDeltaCount = 0;
             fpsDeltaIndex = 0;
             lastSmoothedFPS = 0;
+            lastInstantFPS = 0;
             consecutiveStableReadings = 0;
             consecutiveAtTarget = 0;
             IsProbing = false;
             lastProbeTDP = 0;
             lastUpdateTime = DateTime.MinValue;
+            samplesSinceLastDecision = 0;
             // Reset sweet spot tracking
             tdpHistoryCount = 0;
             tdpHistoryIndex = 0;
@@ -1259,6 +1549,12 @@ namespace XboxGamingBarHelper.AutoTDP
             tdpGainCount = 0;
             tdpGainIndex = 0;
             pendingTDPGainMeasurement = false;
+            // Reset spike recovery state
+            safeTDP = 0;
+            totalProbeReduction = 0;
+            spikeRecoveryActive = false;
+            // Reset per-game learning observations
+            stableObservations = 0;
             Logger.Debug("AutoTDP: State reset");
         }
 
@@ -1451,6 +1747,12 @@ namespace XboxGamingBarHelper.AutoTDP
                 {
                     Logger.Info("AutoTDPManager: Saving SARSA table on shutdown");
                     sarsaController.Save();
+                }
+                // Save per-game learned TDP data
+                if (learnedTDPStore != null)
+                {
+                    Logger.Info("AutoTDPManager: Saving learned TDP data on shutdown");
+                    learnedTDPStore.Save();
                 }
             }
             base.Dispose(disposing);

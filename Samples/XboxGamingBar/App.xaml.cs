@@ -23,6 +23,13 @@ namespace XboxGamingBar
         public static event EventHandler PipeDisconnected;
         public static event EventHandler<PipeMessageEventArgs> PipeMessageReceived;
 
+        /// <summary>
+        /// True after first successful pipe connection. Used to detect reconnection vs cold start.
+        /// On reconnection, widget should accept helper's TDP mode instead of applying its own profile.
+        /// This is static so it persists across widget instance recreations.
+        /// </summary>
+        public static bool HasEverConnectedToHelper { get; set; } = false;
+
         // Track the active GamingWidget instance to prevent multiple instances from handling messages
         private static GamingWidget activeGamingWidget = null;
         private static readonly object activeWidgetLock = new object();

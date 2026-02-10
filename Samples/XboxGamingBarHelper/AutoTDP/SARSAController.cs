@@ -76,6 +76,17 @@ namespace XboxGamingBarHelper.AutoTDP
         private int previousTdpChange = 0;
         private int currentTdpChange = 0;
 
+        // Consecutive stability tracking - rewards sustained "stay" actions at target
+        private int consecutiveStays = 0;
+        private const int MaxConsecutiveStaysBonus = 5;  // Cap the bonus at 5 consecutive stays
+
+        // Power efficiency probing - when stable at target, try lower TDP to save power
+        private int consecutiveAtTarget = 0;
+        private const int ProbeThreshold = 8;  // Cycles at target before probing
+        private int lastStableTDP = 0;  // TDP that was working before probe
+        private bool isProbing = false;  // Currently probing lower TDP
+        private int probeStartTDP = 0;  // TDP when probe started
+
         public SARSAController(string dataPath)
         {
             savePath = Path.Combine(dataPath, "autotdp_sarsa_table.json");
@@ -136,10 +147,70 @@ namespace XboxGamingBarHelper.AutoTDP
         /// Selects an action using epsilon-greedy policy.
         /// Returns the TDP delta (-2, -1, 0, +1, or +2).
         /// </summary>
-        public int SelectAction(int state, double fpsError = 0, double currentTdpPercent = 0.5)
+        public int SelectAction(int state, double fpsError = 0, double currentTdpPercent = 0.5, int currentTDP = 0, int minTDP = 4)
         {
             int actionIndex;
             bool overrideApplied = false;
+
+            // Track consecutive cycles at target for power probing
+            bool atTarget = Math.Abs(fpsError) <= 2.0;
+
+            if (atTarget)
+            {
+                consecutiveAtTarget++;
+
+                // Power probing: When stable at target, try reducing TDP to save power
+                // This is essential when FPS is capped (can never exceed target)
+                if (!isProbing && consecutiveAtTarget >= ProbeThreshold && currentTDP > minTDP)
+                {
+                    // Start probing - try reducing TDP by 1W
+                    isProbing = true;
+                    probeStartTDP = currentTDP;
+                    lastStableTDP = currentTDP;
+                    consecutiveAtTarget = 0;  // Reset counter
+                    Logger.Info($"SARSA: POWER PROBE - Stable at target for {ProbeThreshold} cycles, trying {currentTDP}W -> {currentTDP - 1}W");
+
+                    // Store for SARSA update
+                    lastState = state;
+                    lastAction = 1;  // -1W action
+                    previousTdpChange = currentTdpChange;
+                    currentTdpChange = -1;
+
+                    return -1;  // Decrease TDP by 1W
+                }
+                else if (isProbing)
+                {
+                    // Probe successful - we're still at target with lower TDP
+                    Logger.Info($"SARSA: POWER PROBE SUCCESS - Still at target with {currentTDP}W (was {probeStartTDP}W)");
+                    lastStableTDP = currentTDP;
+                    isProbing = false;
+                    // Continue with normal action selection (likely stay)
+                }
+            }
+            else
+            {
+                // Not at target
+                if (isProbing && fpsError > 2)
+                {
+                    // Probe failed - FPS dropped below target, need to recover
+                    Logger.Info($"SARSA: POWER PROBE FAILED - FPS dropped, recovering {currentTDP}W -> {lastStableTDP}W");
+                    isProbing = false;
+                    consecutiveAtTarget = 0;
+
+                    int recoveryDelta = lastStableTDP - currentTDP;
+                    if (recoveryDelta > 0)
+                    {
+                        // Store for SARSA update
+                        lastState = state;
+                        lastAction = recoveryDelta >= 2 ? 4 : 3;  // +2W or +1W
+                        previousTdpChange = currentTdpChange;
+                        currentTdpChange = recoveryDelta >= 2 ? 2 : 1;
+
+                        return Math.Min(2, recoveryDelta);  // Return to last stable TDP
+                    }
+                }
+                consecutiveAtTarget = 0;  // Reset when not at target
+            }
 
             // CRITICAL SAFETY OVERRIDE: When situation is unambiguous, override Q-values
             if (fpsError < -8 && currentTdpPercent > 0.15)
@@ -324,7 +395,7 @@ namespace XboxGamingBarHelper.AutoTDP
         /// <summary>
         /// Calculates reward (same as Q-Learning for fair comparison).
         /// </summary>
-        public double CalculateReward(double fpsError, int prevTdp, int newTdp, bool headroomExhausted, double gpuUtil, double achievableFPS = 0, double currentFPS = 0, int minTdp = 8, int maxTdp = 30, int prevTdpChange = 0, double avgFpsPerWatt = -1)
+        public double CalculateReward(double fpsError, int prevTdp, int newTdp, bool headroomExhausted, double gpuUtil, double achievableFPS = 0, double currentFPS = 0, int minTdp = 8, int maxTdp = 30, int prevTdpChange = 0, double avgFpsPerWatt = -1, double previousFPS = 0, float frametimeVariance = 0)
         {
             double totalReward;
             int currentTdpChange = newTdp - prevTdp;
@@ -335,6 +406,70 @@ namespace XboxGamingBarHelper.AutoTDP
             {
                 oscillationPenalty = -3.0;
                 Logger.Debug($"SARSA Oscillation penalty: prev={prevTdpChange:+#;-#;0}, curr={currentTdpChange:+#;-#;0}");
+            }
+
+            // Frametime stability bonus/penalty (Option 2)
+            // Reward truly stable gameplay, penalize stuttery "target FPS"
+            double frametimeBonus = 0;
+            if (Math.Abs(fpsError) <= 2.0 && frametimeVariance > 0)  // At target FPS
+            {
+                if (frametimeVariance < 2.0f)
+                {
+                    // Truly stable - smooth gameplay
+                    frametimeBonus = 2.0;
+                    Logger.Info($"SARSA Frametime bonus: variance {frametimeVariance:F1}ms (stable)");
+                }
+                else if (frametimeVariance > 3.0f)
+                {
+                    // Stuttery even at target - not actually stable
+                    frametimeBonus = -1.0;
+                    Logger.Info($"SARSA Frametime penalty: variance {frametimeVariance:F1}ms (stuttery)");
+                }
+            }
+
+            // Spike penalty - heavily penalize large FPS drops that ruin frametime stability
+            double spikePenalty = 0;
+            if (previousFPS > 0 && currentFPS > 0)
+            {
+                double fpsDrop = previousFPS - currentFPS;
+                if (fpsDrop >= 15)
+                {
+                    // Severe spike (15+ FPS drop) - very heavy penalty
+                    spikePenalty = -10.0;
+                    Logger.Info($"SARSA Spike penalty (severe): FPS dropped {fpsDrop:F1} ({previousFPS:F1} -> {currentFPS:F1})");
+                }
+                else if (fpsDrop >= 10)
+                {
+                    // Moderate spike (10-15 FPS drop) - heavy penalty
+                    spikePenalty = -6.0;
+                    Logger.Info($"SARSA Spike penalty (moderate): FPS dropped {fpsDrop:F1} ({previousFPS:F1} -> {currentFPS:F1})");
+                }
+            }
+
+            // Consecutive stability tracking - reward sustained "stay" actions at target
+            double consecutiveStayBonus = 0;
+            double absError = Math.Abs(fpsError);
+            bool atTarget = absError <= 2.0;
+
+            if (currentTdpChange == 0 && atTarget)
+            {
+                // Staying at target - increment and reward
+                consecutiveStays = Math.Min(consecutiveStays + 1, MaxConsecutiveStaysBonus);
+                // Bonus grows with consecutive stays: 0.5, 1.0, 1.5, 2.0, 2.5
+                consecutiveStayBonus = consecutiveStays * 0.5;
+                if (consecutiveStays >= 3)
+                {
+                    Logger.Info($"SARSA Consecutive stay bonus: {consecutiveStays} stays, +{consecutiveStayBonus:F1}");
+                }
+            }
+            else
+            {
+                // Changed TDP or not at target - reset streak
+                if (consecutiveStays >= 3)
+                {
+                    Logger.Info($"SARSA Consecutive stay streak broken after {consecutiveStays} stays");
+                }
+                consecutiveStays = 0;
             }
 
             if (headroomExhausted && achievableFPS > 0 && currentFPS > 0)
@@ -365,7 +500,10 @@ namespace XboxGamingBarHelper.AutoTDP
                 if (fpsFromCeiling >= -2)
                 {
                     if (tdpChange == 0)
-                        stabilityBonus = 2.0;
+                    {
+                        // Strong bonus for staying when at ceiling - prioritize frametime stability
+                        stabilityBonus = fpsFromCeiling >= -1 ? 4.0 : 2.0;
+                    }
                     else if (Math.Abs(tdpChange) == 1)
                         stabilityBonus = 1.0;
                 }
@@ -404,12 +542,11 @@ namespace XboxGamingBarHelper.AutoTDP
                         efficiencyPenalty = 1.0;
                 }
 
-                totalReward = fpsReward + directionBonus + stabilityBonus + powerBonus + efficiencyPenalty + oscillationPenalty;
+                totalReward = fpsReward + directionBonus + stabilityBonus + powerBonus + efficiencyPenalty + oscillationPenalty + spikePenalty + consecutiveStayBonus + frametimeBonus;
             }
             else
             {
-                // Normal operation
-                double absError = Math.Abs(fpsError);
+                // Normal operation (absError already calculated above)
                 int tdpChange = newTdp - prevTdp;
 
                 double fpsReward;
@@ -440,7 +577,10 @@ namespace XboxGamingBarHelper.AutoTDP
                 if (absError <= 3.0)
                 {
                     if (tdpChange == 0)
-                        stabilityBonus = 2.0;
+                    {
+                        // Strong bonus for staying when perfectly at target - prioritize frametime stability
+                        stabilityBonus = absError < 1.0 ? 4.0 : 2.0;
+                    }
                     else if (Math.Abs(tdpChange) == 1)
                         stabilityBonus = 1.0;
                 }
@@ -496,7 +636,7 @@ namespace XboxGamingBarHelper.AutoTDP
                     }
                 }
 
-                totalReward = fpsReward + directionBonus + stabilityBonus + powerBonus + efficiencyPenalty + oscillationPenalty;
+                totalReward = fpsReward + directionBonus + stabilityBonus + powerBonus + efficiencyPenalty + oscillationPenalty + spikePenalty + consecutiveStayBonus + frametimeBonus;
             }
 
             return totalReward;
@@ -768,6 +908,7 @@ namespace XboxGamingBarHelper.AutoTDP
         public double CumulativeReward => cumulativeReward;
         public double AverageRecentReward => recentRewards.Count > 0 ? recentRewardSum / recentRewards.Count : 0;
         public int PreviousTdpChange => previousTdpChange;
+        public int ConsecutiveStays => consecutiveStays;
 
         private class SARSAData
         {
