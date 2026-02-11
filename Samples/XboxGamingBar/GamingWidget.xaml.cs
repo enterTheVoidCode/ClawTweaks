@@ -15269,6 +15269,10 @@ namespace XboxGamingBar
                     case HotkeyAction.TaskManager:
                         _ = SendKeyboardShortcutViaHelper("Ctrl+Shift+Escape");
                         break;
+
+                    case HotkeyAction.FocusGoTweaks:
+                        _ = FocusThisWidgetAsync();
+                        break;
                 }
             }
             catch (Exception ex)
@@ -20751,6 +20755,46 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Send current controller hotkey config to helper via pipe so it can update
+        /// its cached config for XInput-based button combo detection.
+        /// </summary>
+        private void SendControllerHotkeyConfigToHelper()
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+
+                var settings = ApplicationData.Current.LocalSettings;
+                var hotkeyNames = new[] { "MenuA", "MenuB", "MenuX", "MenuY", "MenuDpadUp", "MenuDpadDown", "MenuDpadLeft", "MenuDpadRight" };
+
+                // Build JSON config matching what ApplyControllerHotkeyConfig expects
+                var jsonObj = new Windows.Data.Json.JsonObject();
+                foreach (var name in hotkeyNames)
+                {
+                    int action = (int)(settings.Values[$"Hotkey_{name}_Action"] ?? 0);
+                    string key = settings.Values[$"Hotkey_{name}_Key"] as string ?? "";
+                    jsonObj[$"{name}_Action"] = Windows.Data.Json.JsonValue.CreateNumberValue(action);
+                    jsonObj[$"{name}_Key"] = Windows.Data.Json.JsonValue.CreateStringValue(key);
+                }
+
+                string configJson = jsonObj.Stringify();
+
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "Command", (int)Shared.Enums.Command.Set },
+                    { "Function", (int)Shared.Enums.Function.ControllerHotkeyConfig },
+                    { "Content", configJson }
+                };
+                App.PipeClient?.SendValueSet(request);
+                Logger.Info($"Sent controller hotkey config to helper");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending controller hotkey config: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Build sortable grid for tile customization
         /// </summary>
         private void BuildSortableGrid()
@@ -24857,6 +24901,9 @@ namespace XboxGamingBar
                 }
 
                 Logger.Info($"Hotkey {hotkeyName} action changed to {(HotkeyAction)action}");
+
+                // Sync updated config to helper so its XInput monitor uses the new action
+                SendControllerHotkeyConfigToHelper();
             }
         }
 
@@ -25051,6 +25098,9 @@ namespace XboxGamingBar
             var keysString = GetKeysAsString(keyStorageName);
             ApplicationData.Current.LocalSettings.Values[$"Hotkey_{hotkeyName}_Key"] = keysString;
             Logger.Info($"Hotkey {hotkeyName} keys saved: {keysString}");
+
+            // Sync updated config to helper so its XInput monitor uses the new key
+            SendControllerHotkeyConfigToHelper();
         }
 
         // Legion L/R key selection handlers
