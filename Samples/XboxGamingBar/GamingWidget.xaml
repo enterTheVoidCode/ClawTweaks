@@ -842,7 +842,7 @@
                                                Style="{StaticResource CardCaptionStyle}"/>
                                 </StackPanel>
                                 <ComboBox x:Name="TDPModeComboBox"
-                                          Width="140"
+                                          MinWidth="140"
                                           Grid.Column="1"
                                           Style="{StaticResource ModernComboBoxStyle}"
                                           SelectedIndex="1"
@@ -1027,6 +1027,11 @@
                                                             FontSize="11"
                                                             HorizontalAlignment="Left"
                                                             Click="AutoTDPResetMLButton_Click"/>
+                                                    <StackPanel Margin="0,8,0,0">
+                                                        <TextBlock Text="Learned Game Data" FontSize="12" Foreground="#8BC34A" FontWeight="SemiBold"/>
+                                                        <TextBlock x:Name="AutoTDPLearnedSummaryText" Text="No learned data yet" FontSize="11" Foreground="#888888" Margin="0,4,0,0"/>
+                                                        <StackPanel x:Name="AutoTDPLearnedHeatmapPanel" Margin="0,6,0,0"/>
+                                                    </StackPanel>
                                                 </StackPanel>
                                             </Border>
                                         </StackPanel>
@@ -3661,6 +3666,73 @@
                                                          Margin="0,8,0,0"/>
                                     </StackPanel>
                                 </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Auto Hibernate Card -->
+                        <Border x:Name="AutoHibernateCard" Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Auto Hibernate" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Hibernate after inactivity to avoid Modern Standby issues"
+                                           Style="{StaticResource CardCaptionStyle}"
+                                           TextWrapping="Wrap"/>
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Enable auto hibernate" Foreground="#FFFFFF" FontSize="13"/>
+                                        <TextBlock Text="System will hibernate when idle" Foreground="#707070" FontSize="11"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="AutoHibernateToggle"
+                                                  Grid.Column="1"
+                                                  IsOn="False"
+                                                  Style="{StaticResource ModernToggleStyle}"/>
+                                </Grid>
+
+                                <StackPanel Visibility="{Binding ElementName=AutoHibernateToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Power source"
+                                                   FontSize="13"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"
+                                                   Grid.Column="0"/>
+                                        <ComboBox x:Name="AutoHibernateModeComboBox"
+                                                  Grid.Column="1"
+                                                  Width="120"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  SelectionChanged="AutoHibernateModeComboBox_SelectionChanged">
+                                            <ComboBoxItem Content="Always" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="AC Only" Tag="1"/>
+                                            <ComboBoxItem Content="DC Only" Tag="2"/>
+                                        </ComboBox>
+                                    </Grid>
+                                    <Grid Margin="0,12,0,6">
+                                        <TextBlock Text="Idle timeout"
+                                                   FontSize="14"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="AutoHibernateTimeoutValue"
+                                                   Text="15 min"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="AutoHibernateTimeoutSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="1" Maximum="120"
+                                            TickFrequency="1"
+                                            SnapsTo="Ticks"
+                                            Value="15"
+                                            ValueChanged="AutoHibernateTimeoutSlider_ValueChanged"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
@@ -6359,75 +6431,193 @@
 
                             <Border Style="{StaticResource CardStyle}">
                                 <StackPanel>
+                                    <!-- Header: Fan Settings + RPM -->
                                     <TextBlock Text="Fan Settings" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Control fan speed and monitor RPM"
-                                               Style="{StaticResource CardCaptionStyle}"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Fan: " Style="{StaticResource CardCaptionStyle}"/>
+                                        <TextBlock x:Name="GPDFanRPMText" Text="-- RPM" Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
 
-                                    <!-- Fan Mode Toggle -->
+                                    <!-- Fan Curve Toggle -->
                                     <Grid Margin="0,16,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="Fan Mode" Foreground="#FFFFFF" FontSize="14"/>
-                                            <TextBlock x:Name="GPDFanModeText"
-                                                       Text="Auto"
-                                                       FontSize="12"
-                                                       Foreground="#888888"/>
+                                            <TextBlock Text="Fan Curve" Foreground="#FFFFFF" FontSize="14"/>
+                                            <TextBlock Text="Software-controlled fan curve based on CPU temperature"
+                                                       FontSize="12" Foreground="#888888"/>
                                         </StackPanel>
-                                        <ToggleSwitch x:Name="GPDFanModeToggle"
+                                        <ToggleSwitch x:Name="GPDFanCurveToggle"
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernToggleStyle}"
                                                       IsOn="False"
-                                                      Toggled="GPDFanModeToggle_Toggled"
+                                                      Toggled="GPDFanCurveToggle_Toggled"
                                                       XYFocusUp="{x:Bind GPDNavItem}"/>
                                     </Grid>
 
-                                    <!-- Fan Speed Slider (visible only in manual mode) -->
-                                    <StackPanel x:Name="GPDFanSpeedSection" Margin="0,16,0,0" Visibility="Collapsed">
-                                        <Grid>
+                                    <!-- Manual Fan Controls (visible when curve OFF) -->
+                                    <StackPanel x:Name="GPDManualFanContent">
+                                        <!-- Fan Mode Toggle -->
+                                        <Grid Margin="0,16,0,0">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="Fan Speed" Grid.Column="0" Foreground="#FFFFFF" FontSize="14" VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="GPDFanSpeedValueText"
-                                                       Grid.Column="1"
-                                                       Text="50%"
-                                                       FontSize="14"
-                                                       Foreground="#00C8FF"
-                                                       VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Fan Mode" Foreground="#FFFFFF" FontSize="14"/>
+                                                <TextBlock x:Name="GPDFanModeText"
+                                                           Text="Auto"
+                                                           FontSize="12"
+                                                           Foreground="#888888"/>
+                                            </StackPanel>
+                                            <ToggleSwitch x:Name="GPDFanModeToggle"
+                                                          Grid.Column="1"
+                                                          Style="{StaticResource ModernToggleStyle}"
+                                                          IsOn="False"
+                                                          Toggled="GPDFanModeToggle_Toggled"/>
                                         </Grid>
-                                        <Slider x:Name="GPDFanSpeedSlider"
-                                                Style="{StaticResource ModernSliderStyle}"
-                                                Minimum="30"
-                                                Maximum="100"
-                                                Value="50"
-                                                ValueChanged="GPDFanSpeedSlider_ValueChanged"/>
+
+                                        <!-- Fan Speed Slider (visible only in manual mode) -->
+                                        <StackPanel x:Name="GPDFanSpeedSection" Margin="0,16,0,0" Visibility="Collapsed">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Fan Speed" Grid.Column="0" Foreground="#FFFFFF" FontSize="14" VerticalAlignment="Center"/>
+                                                <TextBlock x:Name="GPDFanSpeedValueText"
+                                                           Grid.Column="1"
+                                                           Text="50%"
+                                                           FontSize="14"
+                                                           Foreground="#00C8FF"
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                            <Slider x:Name="GPDFanSpeedSlider"
+                                                    Style="{StaticResource ModernSliderStyle}"
+                                                    Minimum="30"
+                                                    Maximum="100"
+                                                    Value="50"
+                                                    ValueChanged="GPDFanSpeedSlider_ValueChanged"/>
+                                        </StackPanel>
                                     </StackPanel>
 
-                                    <!-- Current RPM Display -->
-                                    <Grid Margin="0,16,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Current RPM" Grid.Column="0" Foreground="#AAAAAA" FontSize="14" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="GPDFanRPMText"
-                                                   Grid.Column="1"
-                                                   Text="-- RPM"
-                                                   FontSize="14"
-                                                   Foreground="#00C8FF"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
+                                    <!-- Fan Curve Content (visible when curve ON) -->
+                                    <StackPanel x:Name="GPDFanCurveContent" Visibility="Collapsed">
+                                        <!-- Preset + Expand toggle row -->
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox x:Name="GPDFanCurvePresetComboBox"
+                                                      Grid.Column="0"
+                                                      Width="130"
+                                                      HorizontalAlignment="Left"
+                                                      SelectionChanged="GPDFanCurvePresetComboBox_SelectionChanged">
+                                                <ComboBoxItem Content="Silent" Tag="Silent"/>
+                                                <ComboBoxItem Content="Balanced" Tag="Balanced"/>
+                                                <ComboBoxItem Content="Performance" Tag="Performance"/>
+                                                <ComboBoxItem Content="Max Cooling" Tag="MaxCooling"/>
+                                                <ComboBoxItem Content="Custom" Tag="Custom" IsSelected="True"/>
+                                            </ComboBox>
+                                            <ToggleButton x:Name="GPDFanCurveExpandToggle"
+                                                          Grid.Column="1"
+                                                          IsChecked="False"
+                                                          VerticalAlignment="Center"
+                                                          Background="Transparent"
+                                                          BorderThickness="0"
+                                                          Padding="8,4"
+                                                          Click="GPDFanCurveExpandToggle_Click">
+                                                <FontIcon x:Name="GPDFanCurveExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                            </ToggleButton>
+                                        </Grid>
+
+                                        <!-- Expandable graph content -->
+                                        <StackPanel x:Name="GPDFanCurveGraphContent" Margin="0,12,0,0" Visibility="Collapsed">
+                                            <!-- Y-axis label -->
+                                            <TextBlock Text="Fan %" FontSize="11" Foreground="#999999" Margin="0,0,0,4"/>
+
+                                            <!-- Graph area -->
+                                            <Grid Height="150">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="30"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Y-axis labels -->
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Stretch">
+                                                    <TextBlock Text="100" FontSize="10" Foreground="#666666" VerticalAlignment="Top"/>
+                                                    <TextBlock Text="75" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>
+                                                    <TextBlock Text="50" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>
+                                                    <TextBlock Text="25" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>
+                                                    <TextBlock Text="0" FontSize="10" Foreground="#666666" VerticalAlignment="Bottom"/>
+                                                </StackPanel>
+
+                                                <!-- Canvas for drawing the graph -->
+                                                <Canvas x:Name="GPDFanCurveCanvas"
+                                                        Grid.Column="1"
+                                                        Background="#1A1A1A"
+                                                        PointerPressed="GPDFanCurveCanvas_PointerPressed"
+                                                        PointerMoved="GPDFanCurveCanvas_PointerMoved"
+                                                        PointerReleased="GPDFanCurveCanvas_PointerReleased"
+                                                        PointerCaptureLost="GPDFanCurveCanvas_PointerReleased"
+                                                        SizeChanged="GPDFanCurveCanvas_SizeChanged">
+
+                                                    <!-- Fill under the curve -->
+                                                    <Polygon x:Name="GPDFanCurveFill"
+                                                             Fill="#3300AAFF"
+                                                             Stroke="Transparent"/>
+
+                                                    <!-- The curve line -->
+                                                    <Polyline x:Name="GPDFanCurvePolyline"
+                                                              Stroke="#00AAFF"
+                                                              StrokeThickness="2"
+                                                              StrokeLineJoin="Round"/>
+
+                                                    <!-- Temperature indicator line (vertical dashed orange) -->
+                                                    <Line x:Name="GPDTempIndicatorLine"
+                                                          Y1="0" Y2="150"
+                                                          Stroke="#FF8800"
+                                                          StrokeThickness="2"
+                                                          StrokeDashArray="4,2"
+                                                          Visibility="Collapsed"/>
+
+                                                    <!-- Control points created in code-behind -->
+                                                </Canvas>
+                                            </Grid>
+
+                                            <!-- X-axis labels (30°C to 100°C) -->
+                                            <Grid Margin="30,4,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="30°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Left"/>
+                                                <TextBlock Grid.Column="1" Text="46°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Left"/>
+                                                <TextBlock Grid.Column="2" Text="62°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Center"/>
+                                                <TextBlock Grid.Column="3" Text="78°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Right"/>
+                                                <TextBlock Grid.Column="4" Text="100°C" FontSize="10" Foreground="#666666" HorizontalAlignment="Right"/>
+                                            </Grid>
+
+                                            <!-- Current CPU temperature display -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0" HorizontalAlignment="Center">
+                                                <TextBlock Text="CPU Temp: " FontSize="12" Foreground="#999999"/>
+                                                <TextBlock x:Name="GPDCurrentTempLabel" Text="--°C" FontSize="12" Foreground="#FF8800" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
 
-                        <!-- Button Remapping Card (Win 5 specific) -->
+                        <!-- Button Remapping Section (Win 5 specific) -->
                         <StackPanel x:Name="GPDButtonRemapSection" Visibility="Collapsed">
-                            <TextBlock Text="BACK PADDLES" Style="{StaticResource SectionHeaderStyle}"/>
+                            <TextBlock Text="BUTTON REMAPPING" Style="{StaticResource SectionHeaderStyle}"/>
 
                             <Border Style="{StaticResource CardStyle}">
                                 <StackPanel>
@@ -6437,8 +6627,8 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="Paddle Remapping" Style="{StaticResource CardTitleStyle}"/>
-                                            <TextBlock Text="Remap L4 and R4 back paddle buttons"
+                                            <TextBlock Text="Button Remapping" Style="{StaticResource CardTitleStyle}"/>
+                                            <TextBlock Text="Remap controller buttons to keyboard or mouse"
                                                        Style="{StaticResource CardCaptionStyle}"/>
                                         </StackPanel>
                                         <ToggleButton x:Name="GPDButtonRemapExpandToggle"
@@ -6453,14 +6643,256 @@
                                         </ToggleButton>
                                     </Grid>
 
-                                    <StackPanel x:Name="GPDButtonRemapContent" Spacing="12" Margin="0,12,0,0" Visibility="Collapsed">
-                                        <!-- L4 Paddle Mapping -->
+                                    <StackPanel x:Name="GPDButtonRemapContent" Spacing="8" Margin="0,12,0,0" Visibility="Collapsed">
+
+                                        <!-- Face Buttons -->
+                                        <TextBlock Text="Face Buttons" Foreground="#FFFFFF" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="80"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="L4 Paddle" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <TextBlock Text="A" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDButtonAComboBox" Grid.Column="1" Style="{StaticResource ModernComboBoxStyle}" SelectionChanged="GPDButtonComboBox_SelectionChanged" Tag="A">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="B" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDButtonBComboBox" Grid.Column="1" Style="{StaticResource ModernComboBoxStyle}" SelectionChanged="GPDButtonComboBox_SelectionChanged" Tag="B">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="X" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDButtonXComboBox" Grid.Column="1" Style="{StaticResource ModernComboBoxStyle}" SelectionChanged="GPDButtonComboBox_SelectionChanged" Tag="X">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Y" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDButtonYComboBox" Grid.Column="1" Style="{StaticResource ModernComboBoxStyle}" SelectionChanged="GPDButtonComboBox_SelectionChanged" Tag="Y">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- D-Pad -->
+                                        <TextBlock Text="D-Pad" Foreground="#FFFFFF" FontSize="13" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Up" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDButtonDPadUpComboBox" Grid.Column="1" Style="{StaticResource ModernComboBoxStyle}" SelectionChanged="GPDButtonComboBox_SelectionChanged" Tag="DPadUp">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Down" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDButtonDPadDownComboBox" Grid.Column="1" Style="{StaticResource ModernComboBoxStyle}" SelectionChanged="GPDButtonComboBox_SelectionChanged" Tag="DPadDown">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Left" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDButtonDPadLeftComboBox" Grid.Column="1" Style="{StaticResource ModernComboBoxStyle}" SelectionChanged="GPDButtonComboBox_SelectionChanged" Tag="DPadLeft">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Right" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDButtonDPadRightComboBox" Grid.Column="1" Style="{StaticResource ModernComboBoxStyle}" SelectionChanged="GPDButtonComboBox_SelectionChanged" Tag="DPadRight">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- Stick Buttons -->
+                                        <TextBlock Text="Stick Buttons" Foreground="#FFFFFF" FontSize="13" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="L3" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDButtonL3ComboBox" Grid.Column="1" Style="{StaticResource ModernComboBoxStyle}" SelectionChanged="GPDButtonComboBox_SelectionChanged" Tag="L3">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="R3" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDButtonR3ComboBox" Grid.Column="1" Style="{StaticResource ModernComboBoxStyle}" SelectionChanged="GPDButtonComboBox_SelectionChanged" Tag="R3">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- Left Stick Directions -->
+                                        <TextBlock Text="Left Stick" Foreground="#FFFFFF" FontSize="13" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="LS Left" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDButtonLSLeftComboBox" Grid.Column="1" Style="{StaticResource ModernComboBoxStyle}" SelectionChanged="GPDButtonComboBox_SelectionChanged" Tag="LSLeft">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="LS Right" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <ComboBox x:Name="GPDButtonLSRightComboBox" Grid.Column="1" Style="{StaticResource ModernComboBoxStyle}" SelectionChanged="GPDButtonComboBox_SelectionChanged" Tag="LSRight">
+                                                <x:String>Disabled</x:String>
+                                                <x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String>
+                                                <x:String>F13</x:String><x:String>F14</x:String><x:String>F15</x:String><x:String>F16</x:String><x:String>F17</x:String>
+                                                <x:String>Enter</x:String><x:String>Escape</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String>
+                                                <x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String>
+                                                <x:String>Home</x:String><x:String>End</x:String><x:String>PageUp</x:String><x:String>PageDown</x:String><x:String>Insert</x:String><x:String>Delete</x:String>
+                                                <x:String>Left Ctrl</x:String><x:String>Left Shift</x:String><x:String>Left Alt</x:String><x:String>Left Win</x:String>
+                                                <x:String>Right Ctrl</x:String><x:String>Right Shift</x:String><x:String>Right Alt</x:String>
+                                                <x:String>Mouse Left</x:String><x:String>Mouse Right</x:String><x:String>Mouse Middle</x:String>
+                                                <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- Back Paddles -->
+                                        <TextBlock Text="Back Paddles" Foreground="#FFFFFF" FontSize="13" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="L4" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
                                             <ComboBox x:Name="GPDL4PaddleComboBox"
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernComboBoxStyle}"
@@ -6477,14 +6909,12 @@
                                                 <x:String>Mouse Wheel Up</x:String><x:String>Mouse Wheel Down</x:String>
                                             </ComboBox>
                                         </Grid>
-
-                                        <!-- R4 Paddle Mapping -->
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="80"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="R4 Paddle" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                            <TextBlock Text="R4" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
                                             <ComboBox x:Name="GPDR4PaddleComboBox"
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernComboBoxStyle}"

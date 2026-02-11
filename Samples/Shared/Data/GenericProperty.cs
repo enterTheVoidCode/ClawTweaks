@@ -170,6 +170,13 @@ namespace Shared.Data
 
         protected bool SetValue(ValueType newValue, long updatedTime)
         {
+            // Treat 0 as "now" to prevent stale-timestamp rejection when UpdatedTime
+            // is missing from pipe messages (e.g., JSON parsing dropped it)
+            if (updatedTime == 0)
+            {
+                updatedTime = DateTime.Now.Ticks;
+            }
+
             if (updatedTime < lastUpdatedTime)
             {
                 Logger.Debug($"Skip value {newValue} of {Function} because it is older than current value {updatedTime} vs {lastUpdatedTime}.");

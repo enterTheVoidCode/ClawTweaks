@@ -465,6 +465,8 @@
     <Compile Include="RTSS\RTSSFPSLimiter.cs" />
     <Compile Include="RTSS\RTSSManager.cs" />
     <Compile Include="Settings\AutoStartRTSSProperty.cs" />
+    <Compile Include="Settings\AutoHibernateEnabledProperty.cs" />
+    <Compile Include="Settings\AutoHibernateIdleMinutesProperty.cs" />
     <Compile Include="Settings\UseManufacturerWMIProperty.cs" />
     <Compile Include="Settings\TdpMethodProperty.cs" />
     <Compile Include="Settings\ProfileMatchByExeProperty.cs" />

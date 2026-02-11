@@ -432,4 +432,98 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
     }
 
     #endregion
+
+    #region Software Fan Curve Properties
+
+    /// <summary>
+    /// Fan curve enabled property - widget toggle to enable/disable the software fan curve.
+    /// When enabled, the helper periodically reads CPU temp and sets fan speed via interpolation.
+    /// </summary>
+    internal class GPDFanCurveEnabledProperty : HelperProperty<bool, GPDManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public GPDFanCurveEnabledProperty(GPDManager inManager)
+            : base(false, null, Function.GPDFanCurveEnabled, inManager)
+        {
+            Logger.Debug("[GPDFan] GPDFanCurveEnabledProperty created");
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"[GPDFan] Fan curve enabled changed to: {Value}");
+            Manager?.SetFanCurveEnabled(Value);
+        }
+    }
+
+    /// <summary>
+    /// Fan curve data property - comma-separated 10 fan speed values from the widget.
+    /// </summary>
+    internal class GPDFanCurveDataProperty : HelperProperty<string, GPDManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public GPDFanCurveDataProperty(GPDManager inManager)
+            : base("0,30,35,45,55,65,75,85,95,100", null, Function.GPDFanCurveData, inManager)
+        {
+            Logger.Debug("[GPDFan] GPDFanCurveDataProperty created");
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"[GPDFan] Fan curve data changed to: {Value}");
+            Manager?.SetFanCurveData(Value);
+        }
+    }
+
+    /// <summary>
+    /// Fan curve visible property - widget tells helper when the graph UI is visible.
+    /// Helper pushes CPU temp updates only when visible.
+    /// </summary>
+    internal class GPDFanCurveVisibleProperty : HelperProperty<bool, GPDManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public GPDFanCurveVisibleProperty(GPDManager inManager)
+            : base(false, null, Function.GPDFanCurveVisible, inManager)
+        {
+            Logger.Debug("[GPDFan] GPDFanCurveVisibleProperty created");
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"[GPDFan] Fan curve visible changed to: {Value}");
+            Manager?.SetFanCurveVisible(Value);
+        }
+    }
+
+    /// <summary>
+    /// CPU temperature property - read-only, pushed from helper to widget for the fan curve graph.
+    /// </summary>
+    internal class GPDCPUTempProperty : HelperProperty<int, GPDManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public GPDCPUTempProperty(GPDManager inManager)
+            : base(0, null, Function.GPDCPUTemp, inManager)
+        {
+            Logger.Debug("[GPDFan] GPDCPUTempProperty created");
+        }
+
+        /// <summary>
+        /// Updates the CPU temperature and notifies the widget.
+        /// </summary>
+        public void UpdateTemp(int temp)
+        {
+            if (Value != temp)
+            {
+                SetValue(temp);
+            }
+        }
+    }
+
+    #endregion
 }

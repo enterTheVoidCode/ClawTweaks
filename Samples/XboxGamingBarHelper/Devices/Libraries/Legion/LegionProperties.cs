@@ -271,6 +271,36 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         {
         }
 
+        public override bool SetValue(object newValue, long updatedTime = 0)
+        {
+            int incoming;
+            if (newValue is int intValue)
+            {
+                incoming = intValue;
+            }
+            else if (newValue is string stringValue && int.TryParse(stringValue, out var parsed))
+            {
+                incoming = parsed;
+            }
+            else
+            {
+                return base.SetValue(newValue, updatedTime);
+            }
+
+            bool isSame = incoming == value;
+            var result = base.SetValue(incoming, updatedTime);
+
+            // Force apply even when the cached value is already the same.
+            // This fixes startup cases where hardware mode differs from cached value.
+            if (isSame)
+            {
+                Logger.Info($"LegionPerformanceMode received same value {incoming}, forcing apply");
+                Manager?.SetPerformanceMode(incoming);
+            }
+
+            return result;
+        }
+
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);

@@ -65,6 +65,25 @@ namespace XboxGamingBarHelper
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern IntPtr LoadLibrary(string lpFileName);
 
+        // P/Invoke for screen saver idle detection and monitor power control
+        [DllImport("user32.dll")]
+        private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct LASTINPUTINFO
+        {
+            public uint cbSize;
+            public uint dwTime;
+        }
+
+        private static readonly IntPtr HWND_BROADCAST = new IntPtr(0xFFFF);
+        private const uint WM_SYSCOMMAND = 0x0112;
+        private static readonly IntPtr SC_MONITORPOWER = new IntPtr(0xF170);
+        private static readonly IntPtr MONITOR_OFF = new IntPtr(2);
+
         // Managers
         private static PerformanceManager performanceManager;
         private static RTSSManager rtssManager;
@@ -175,6 +194,26 @@ namespace XboxGamingBarHelper
         private static string packageDataFolder;
         private static DateTime lastUninstallCheck = DateTime.MinValue;
         private const int UninstallCheckIntervalMs = 60000; // Check every 60 seconds
+
+        /// <summary>
+        /// Screen saver idle monitoring - triggers Windows screen saver after idle timeout
+        /// </summary>
+        private static volatile bool screenSaverEnabled = false;
+        private static volatile bool screenSaverTriggered = false;
+        private static System.Threading.Timer screenSaverTimer;
+        private const int ScreenSaverIdleTimeoutMs = 60000; // 60 seconds idle before triggering
+        private const int ScreenSaverCheckIntervalMs = 5000; // Check every 5 seconds
+
+        /// <summary>
+        /// Auto hibernate idle monitoring - hibernates after inactivity timeout
+        /// </summary>
+        private static volatile bool autoHibernateEnabled = false;
+        private static volatile int autoHibernateMode = 0; // 0=Always, 1=AC Only, 2=DC Only
+        private static System.Threading.Timer autoHibernateTimer;
+        private static DateTime lastAutoHibernateAttemptUtc = DateTime.MinValue;
+        private static int autoHibernateIdleTimeoutMs = 15 * 60 * 1000; // 15 minutes idle before hibernate
+        private const int AutoHibernateCheckIntervalMs = 30000; // Check every 30 seconds
+        private const int AutoHibernateCooldownMs = 5 * 60 * 1000; // Minimum time between attempts
 
         /// <summary>
         /// Configures NLog to write logs to the package's LocalCache/Local folder.
@@ -1133,6 +1172,9 @@ del /f /q ""%~f0"" 2>nul
             // Set PerformanceManager reference in LegionManager for CPU temperature sensor access
             legionManager.SetPerformanceManager(performanceManager);
 
+            // Set PerformanceManager reference in GPDManager for software fan curve CPU temperature access
+            gpdManager?.SetPerformanceManager(performanceManager);
+
             // PawnIO/RyzenSMU initialization for anti-cheat compatible TDP control
             // Priority: Legion WMI > PawnIO/RyzenSMU > RyzenAdj (deprecated, WinRing0 not bundled)
             // Uses official signed module from release 0.2.1
@@ -1319,6 +1361,8 @@ del /f /q ""%~f0"" 2>nul
                 losslessScalingManager.LosslessScalingBringToForeground,
                 losslessScalingManager.LosslessScalingLaunch,
                 settingsManager.AutoStartRTSS,
+                settingsManager.AutoHibernateEnabled,
+                settingsManager.AutoHibernateIdleMinutes,
                 settingsManager.OnScreenDisplayProvider,
                 settingsManager.UseManufacturerWMI,
                 settingsManager.TdpMethod,
@@ -1355,6 +1399,11 @@ del /f /q ""%~f0"" 2>nul
                 gpdManager.FanSpeed,
                 gpdManager.FanRPM,
                 gpdManager.FanMode,
+                // GPD software fan curve properties
+                gpdManager.FanCurveEnabled,
+                gpdManager.FanCurveData,
+                gpdManager.FanCurveVisibleProp,
+                gpdManager.CPUTemp,
                 // Legion Go specific properties
                 legionManager.LegionGoDetected,
                 legionManager.LegionTouchpadEnabled,
@@ -1441,6 +1490,7 @@ del /f /q ""%~f0"" 2>nul
                 autoTDPManager.UseMLMode,
                 autoTDPManager.ControllerType,  // 0=PID, 1=Q-Learning, 2=SARSA
                 autoTDPManager.MLStatus,
+                autoTDPManager.LearnedGameData,
                 autoTDPManager.ResetML,
                 autoTDPManager.PauseWhenUnfocused,
                 systemManager.ForceParkMode,
@@ -1468,6 +1518,16 @@ del /f /q ""%~f0"" 2>nul
             powerManager.CPUEPP.PropertyChanged += CPUEPP_PropertyChanged;
             powerManager.MaxCPUState.PropertyChanged += CPUState_PropertyChanged;
             powerManager.MinCPUState.PropertyChanged += CPUState_PropertyChanged;
+            if (settingsManager?.AutoHibernateEnabled != null)
+            {
+                settingsManager.AutoHibernateEnabled.PropertyChanged += AutoHibernateEnabled_PropertyChanged;
+                SetAutoHibernateEnabled(settingsManager.AutoHibernateEnabled.Value);
+            }
+            if (settingsManager?.AutoHibernateIdleMinutes != null)
+            {
+                settingsManager.AutoHibernateIdleMinutes.PropertyChanged += AutoHibernateIdleMinutes_PropertyChanged;
+                UpdateAutoHibernateIdleTimeout(settingsManager.AutoHibernateIdleMinutes.Value);
+            }
             // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
             //powerManager.LimitGPUClock.PropertyChanged += GPUClock_PropertyChanged;
             //powerManager.GPUClockMin.PropertyChanged += GPUClock_PropertyChanged;
@@ -1719,6 +1779,18 @@ del /f /q ""%~f0"" 2>nul
 
             Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s CPU EPP from {profileManager.CurrentProfile.CPUEPP} to {powerManager.CPUEPP}.");
             profileManager.CurrentProfile.CPUEPP = powerManager.CPUEPP;
+        }
+
+        private static void AutoHibernateEnabled_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (settingsManager?.AutoHibernateEnabled == null) return;
+            SetAutoHibernateEnabled(settingsManager.AutoHibernateEnabled.Value);
+        }
+
+        private static void AutoHibernateIdleMinutes_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (settingsManager?.AutoHibernateIdleMinutes == null) return;
+            UpdateAutoHibernateIdleTimeout(settingsManager.AutoHibernateIdleMinutes.Value);
         }
 
         private static void LegionControllerSetting_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -2254,6 +2326,11 @@ del /f /q ""%~f0"" 2>nul
         /// </summary>
         private static void RestoreGlobalProfileSettings()
         {
+            // Refresh GlobalProfile from cache — property change handlers (TDP_PropertyChanged, etc.)
+            // update CurrentProfile (a struct copy), which saves to cache/disk, but the
+            // GlobalProfile field stays stale since GameProfile is a struct.
+            profileManager.RefreshGlobalProfile();
+
             profileManager.CurrentProfile.SetValue(profileManager.GlobalProfile);
 
             Logger.Info($"Applying global profile settings: TDP={profileManager.GlobalProfile.TDP}, CPUBoost={profileManager.GlobalProfile.CPUBoost}, EPP={profileManager.GlobalProfile.CPUEPP}");
@@ -2420,17 +2497,44 @@ del /f /q ""%~f0"" 2>nul
                         defaultGameProfileManager.ProfileEnabled.SetValue(false);
                     }
 
-                    // Auto-switch to Custom TDP mode (255) when enabling per-game profile
-                    // This allows the user to customize TDP for this game
-                    if (legionManager != null && legionManager.LegionPerformanceMode.Value != 255)
+                    // Apply saved LegionPerformanceMode from game profile, or default to Custom (255) for new profiles.
+                    // Previously this always switched to Custom, which overrode user-saved preset modes.
+                    if (legionManager != null)
                     {
-                        Logger.Info("Switching to Custom TDP mode for per-game profile editing");
-                        legionManager.LegionPerformanceMode.SetValue(255);
+                        int? savedMode = gameProfile.LegionPerformanceMode;
+                        if (savedMode.HasValue && savedMode.Value > 0)
+                        {
+                            if (legionManager.LegionPerformanceMode.Value != savedMode.Value)
+                            {
+                                Logger.Info($"Applying saved performance mode ({savedMode.Value}) for per-game profile '{systemManager.RunningGame.Value.GameId.Name}'");
+                                legionManager.LegionPerformanceMode.SetValue(savedMode.Value);
+                            }
+                            else
+                            {
+                                Logger.Debug($"Per-game profile already in saved mode ({savedMode.Value})");
+                            }
+                        }
+                        else if (legionManager.LegionPerformanceMode.Value != 255)
+                        {
+                            Logger.Info("Switching to Custom TDP mode for new per-game profile (no saved mode)");
+                            legionManager.LegionPerformanceMode.SetValue(255);
+                        }
                     }
 
-                    // Set current profile and apply AutoTDP settings from per-game profile
+                    // Set current profile and apply settings from per-game profile.
+                    // CurrentProfile_PropertyChanged is blocked by isApplyingProfile, so we
+                    // must apply settings explicitly here (same pattern as RestoreGlobalProfileSettings).
                     profileManager.CurrentProfile.SetValue(gameProfile);
+
                     ApplyAutoTDPSettingsFromProfile();
+                    performanceManager.IsAutoTDPActive = false;
+
+                    performanceManager.TDP.SetProfileValue(gameProfile.TDP);
+                    performanceManager.TDPBoostEnabled.SetValue(gameProfile.TDPBoostEnabled);
+                    powerManager.CPUBoost.SetValue(gameProfile.CPUBoost);
+                    powerManager.CPUEPP.SetValue(gameProfile.CPUEPP);
+                    powerManager.MaxCPUState.SetValue(gameProfile.MaxCPUState);
+                    powerManager.MinCPUState.SetValue(gameProfile.MinCPUState);
                 }
                 else
                 {
@@ -2453,8 +2557,17 @@ del /f /q ""%~f0"" 2>nul
 
                             if (isSameGame)
                             {
-                                Logger.Info($"Ignoring PerGameProfile=false - game '{runningGameName}' with active profile is still running");
-                                return;
+                                // Only ignore if this is likely a stale message from a recent game
+                                // transition (within 2 seconds). Otherwise, honor the user's explicit
+                                // toggle and restore global settings.
+                                double secondsSinceSwitch = (DateTime.UtcNow - profileSwitchTime).TotalSeconds;
+                                if (secondsSinceSwitch < 2)
+                                {
+                                    Logger.Info($"Ignoring stale PerGameProfile=false - game '{runningGameName}' still running, recent switch {secondsSinceSwitch:F1}s ago");
+                                    return;
+                                }
+                                Logger.Info($"Honoring PerGameProfile=false while game '{runningGameName}' is running (user toggle, {secondsSinceSwitch:F1}s since last switch)");
+                                // Fall through to disable per-game profile and restore global settings
                             }
                         }
                     }
@@ -2553,6 +2666,48 @@ del /f /q ""%~f0"" 2>nul
                             Logger.Info($"Game {systemManager.RunningGame.GameId} has per-game profile in use.");
                             profileManager.CurrentProfile.SetValue(runningGameProfile);
                             gameHasActiveProfile = true;
+
+                            // Notify widget that per-game profile is active.
+                            // The widget may not auto-enable (e.g., disabled preference stored locally),
+                            // so the helper must assert this to keep both sides in sync.
+                            profileManager.PerGameProfile.ForceSetValue(true);
+
+                            // Apply all settings explicitly. CurrentProfile_PropertyChanged is blocked
+                            // by isApplyingProfile, so we must apply here (same as PerGameProfile_PropertyChanged).
+                            if (legionManager != null)
+                            {
+                                int? savedMode = runningGameProfile.LegionPerformanceMode;
+                                if (savedMode.HasValue && savedMode.Value > 0)
+                                {
+                                    if (legionManager.LegionPerformanceMode.Value != savedMode.Value)
+                                    {
+                                        Logger.Info($"Applying saved performance mode ({savedMode.Value}) for game '{systemManager.RunningGame.Value.GameId.Name}'");
+                                        legionManager.LegionPerformanceMode.SetValue(savedMode.Value);
+                                    }
+                                }
+                                else if (legionManager.LegionPerformanceMode.Value != 255)
+                                {
+                                    Logger.Info("Switching to Custom TDP mode for game profile (no saved mode)");
+                                    legionManager.LegionPerformanceMode.SetValue(255);
+                                }
+                            }
+
+                            ApplyAutoTDPSettingsFromProfile();
+                            performanceManager.IsAutoTDPActive = false;
+
+                            performanceManager.TDP.SetProfileValue(runningGameProfile.TDP);
+                            performanceManager.TDPBoostEnabled.SetValue(runningGameProfile.TDPBoostEnabled);
+                            powerManager.CPUBoost.SetValue(runningGameProfile.CPUBoost);
+                            powerManager.CPUEPP.SetValue(runningGameProfile.CPUEPP);
+                            powerManager.MaxCPUState.SetValue(runningGameProfile.MaxCPUState);
+                            powerManager.MinCPUState.SetValue(runningGameProfile.MinCPUState);
+
+                            if (legionManager != null)
+                            {
+                                ApplyLegionControllerSettingsFromProfile();
+                            }
+
+                            Logger.Info($"Applied per-game profile settings for {systemManager.RunningGame.Value.GameId.Name}: TDP={runningGameProfile.TDP}, AutoTDP={runningGameProfile.AutoTDPEnabled}");
                         }
                         else
                         {
@@ -3192,6 +3347,25 @@ del /f /q ""%~f0"" 2>nul
                         }
                         performanceManager.QuickMetricsEnabled = enabled;
                         Logger.Info($"Pipe: Quick Metrics enabled set to: {enabled}");
+                    }
+                }
+                // Screen Saver: Enable/disable idle-triggered screen saver
+                else if (functionValue == (int)Function.ScreenSaverEnabled)
+                {
+                    if (request.Content != null)
+                    {
+                        bool enabled = request.Content.ToString().ToLower() == "true";
+                        SetScreenSaverEnabled(enabled);
+                        Logger.Info($"Pipe: Screen Saver enabled set to: {enabled}");
+                    }
+                }
+                // Auto Hibernate Mode: 0=Always, 1=AC Only, 2=DC Only
+                else if (functionValue == (int)Function.AutoHibernateMode)
+                {
+                    if (request.Content != null && int.TryParse(request.Content.ToString(), out int mode))
+                    {
+                        autoHibernateMode = mode;
+                        Logger.Info($"Pipe: Auto Hibernate mode set to: {mode} ({(mode == 0 ? "Always" : mode == 1 ? "AC Only" : "DC Only")})");
                     }
                 }
                 // ViGEmBus: Check installed status
@@ -5493,6 +5667,172 @@ del /f /q ""%~f0"" 2>nul
             catch (Exception ex)
             {
                 Logger.Error($"Labs: Failed to focus GoTweaks widget: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region Screen Saver
+
+        private static void SetScreenSaverEnabled(bool enabled)
+        {
+            screenSaverEnabled = enabled;
+            if (enabled)
+            {
+                if (screenSaverTimer == null)
+                {
+                    screenSaverTimer = new System.Threading.Timer(ScreenSaverIdleCheck, null, ScreenSaverCheckIntervalMs, ScreenSaverCheckIntervalMs);
+                    Logger.Info("Screen Saver: Started idle monitoring timer");
+                }
+            }
+            else
+            {
+                if (screenSaverTimer != null)
+                {
+                    screenSaverTimer.Dispose();
+                    screenSaverTimer = null;
+                    Logger.Info("Screen Saver: Stopped idle monitoring timer");
+                }
+            }
+        }
+
+        private static void ScreenSaverIdleCheck(object state)
+        {
+            if (!screenSaverEnabled) return;
+
+            try
+            {
+                var lastInput = new LASTINPUTINFO();
+                lastInput.cbSize = (uint)Marshal.SizeOf(lastInput);
+
+                if (GetLastInputInfo(ref lastInput))
+                {
+                    uint idleMs = (uint)Environment.TickCount - lastInput.dwTime;
+                    if (idleMs >= ScreenSaverIdleTimeoutMs)
+                    {
+                        if (!screenSaverTriggered)
+                        {
+                            screenSaverTriggered = true;
+                            Logger.Info($"Screen Off: Idle for {idleMs}ms, turning off display");
+                            SendMessage(HWND_BROADCAST, WM_SYSCOMMAND, SC_MONITORPOWER, MONITOR_OFF);
+                        }
+                    }
+                    else if (screenSaverTriggered)
+                    {
+                        // User moved mouse/pressed key — re-arm for next idle period
+                        screenSaverTriggered = false;
+                        Logger.Info("Screen Saver: Input detected, re-armed");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Screen Saver: Idle check failed: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region Auto Hibernate
+
+        private static void SetAutoHibernateEnabled(bool enabled)
+        {
+            autoHibernateEnabled = enabled;
+            if (enabled)
+            {
+                if (autoHibernateTimer == null)
+                {
+                    autoHibernateTimer = new System.Threading.Timer(AutoHibernateIdleCheck, null, AutoHibernateCheckIntervalMs, AutoHibernateCheckIntervalMs);
+                    Logger.Info("Auto Hibernate: Started idle monitoring timer");
+                }
+            }
+            else
+            {
+                if (autoHibernateTimer != null)
+                {
+                    autoHibernateTimer.Dispose();
+                    autoHibernateTimer = null;
+                    Logger.Info("Auto Hibernate: Stopped idle monitoring timer");
+                }
+            }
+        }
+
+        private static void UpdateAutoHibernateIdleTimeout(int minutes)
+        {
+            if (minutes < 1) minutes = 1;
+            autoHibernateIdleTimeoutMs = minutes * 60 * 1000;
+            Logger.Info($"Auto Hibernate: Idle timeout set to {minutes} minutes");
+        }
+
+        private static void AutoHibernateIdleCheck(object state)
+        {
+            if (!autoHibernateEnabled) return;
+
+            try
+            {
+                var lastInput = new LASTINPUTINFO();
+                lastInput.cbSize = (uint)Marshal.SizeOf(lastInput);
+
+                if (GetLastInputInfo(ref lastInput))
+                {
+                    uint idleMs = (uint)Environment.TickCount - lastInput.dwTime;
+                    if (idleMs < autoHibernateIdleTimeoutMs)
+                    {
+                        return;
+                    }
+
+                    if ((DateTime.UtcNow - lastAutoHibernateAttemptUtc).TotalMilliseconds < AutoHibernateCooldownMs)
+                    {
+                        return;
+                    }
+
+                    // Check power source mode: 1=AC Only, 2=DC Only
+                    if (autoHibernateMode == 1) // AC Only
+                    {
+                        var powerStatus = global::Windows.System.Power.PowerManager.PowerSupplyStatus;
+                        if (powerStatus != global::Windows.System.Power.PowerSupplyStatus.Adequate)
+                        {
+                            return; // Not on AC, skip
+                        }
+                    }
+                    else if (autoHibernateMode == 2) // DC Only
+                    {
+                        var powerStatus = global::Windows.System.Power.PowerManager.PowerSupplyStatus;
+                        if (powerStatus == global::Windows.System.Power.PowerSupplyStatus.Adequate)
+                        {
+                            return; // On AC, skip
+                        }
+                    }
+
+                    // Avoid hibernating while a game is in the foreground
+                    if (systemManager?.RunningGame?.Value.IsValid() == true && systemManager.RunningGame.Value.IsForeground)
+                    {
+                        Logger.Info("Auto Hibernate: Skipping - game is in foreground");
+                        return;
+                    }
+
+                    lastAutoHibernateAttemptUtc = DateTime.UtcNow;
+                    Logger.Info($"Auto Hibernate: Idle for {idleMs}ms, hibernating now");
+
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "shutdown",
+                            Arguments = "/h",
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Auto Hibernate: Failed to initiate hibernate: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Auto Hibernate: Idle check failed: {ex.Message}");
             }
         }
 

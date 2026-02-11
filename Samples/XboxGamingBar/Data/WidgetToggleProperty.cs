@@ -14,6 +14,12 @@ namespace XboxGamingBar.Data
         /// </summary>
         private bool isUpdatingUI;
 
+        /// <summary>
+        /// Public accessor for isUpdatingUI. External handlers (e.g., PerGameProfileToggle_Changed)
+        /// can check this to skip profile-creation logic when the toggle was set by helper pipe sync.
+        /// </summary>
+        public bool IsUpdatingUI => isUpdatingUI;
+
         public WidgetToggleProperty(bool inValue, Function inFunction, ToggleSwitch inUI, Page inOwner) : base(inValue, inFunction, inUI, inOwner)
         {
             if (UI != null)
@@ -44,7 +50,9 @@ namespace XboxGamingBar.Data
                 Logger.Info($"Update {Function} value {Value}.");
                 await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
-                    // Set flag to prevent Toggled handler from echoing value back
+                    // Set flags to prevent Toggled handler from echoing value back
+                    // and to prevent SettingChanged from auto-saving during helper sync
+                    WidgetSliderProperty.HelperSyncCount++;
                     isUpdatingUI = true;
                     try
                     {
@@ -53,6 +61,7 @@ namespace XboxGamingBar.Data
                     finally
                     {
                         isUpdatingUI = false;
+                        WidgetSliderProperty.HelperSyncCount--;
                     }
                 });
             }

@@ -17,8 +17,13 @@ namespace XboxGamingBarHelper.AutoTDP
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         private readonly string storePath;
+        private readonly string heatmapPath;
         private Dictionary<string, LearnedGameTDP> games = new Dictionary<string, LearnedGameTDP>();
         private bool isDirty = false;
+        private Dictionary<string, Dictionary<int, int>> heatmaps = new Dictionary<string, Dictionary<int, int>>();
+        private bool heatmapDirty = false;
+        private DateTime lastSaveUtc = DateTime.MinValue;
+        private static readonly TimeSpan MinSaveInterval = TimeSpan.FromMinutes(1);
 
         /// <summary>
         /// Data structure for a single game's learned TDP.
@@ -47,7 +52,9 @@ namespace XboxGamingBarHelper.AutoTDP
         public LearnedGameTDPStore(string localStatePath)
         {
             storePath = Path.Combine(localStatePath, "learned_game_tdp.json");
+            heatmapPath = Path.Combine(localStatePath, "learned_game_tdp_heatmap.json");
             Load();
+            LoadHeatmaps();
         }
 
         /// <summary>
@@ -121,6 +128,8 @@ namespace XboxGamingBarHelper.AutoTDP
                 };
                 games[key] = data;
                 isDirty = true;
+                AddHeatmapSample(key, stableTDP);
+                SaveIfNeeded();
                 Logger.Info($"LearnedTDP: New game '{gameName}' - initial TDP={stableTDP}W @ {targetFPS}FPS (confidence=20%)");
             }
             else
@@ -158,6 +167,8 @@ namespace XboxGamingBarHelper.AutoTDP
                 }
 
                 isDirty = true;
+                AddHeatmapSample(key, stableTDP);
+                SaveIfNeeded();
             }
         }
 
@@ -177,6 +188,7 @@ namespace XboxGamingBarHelper.AutoTDP
                 data.Confidence *= 0.5;  // Cut confidence in half
                 Logger.Info($"LearnedTDP: Marked unreliable for '{data.GameName}' - confidence {oldConfidence:P0} -> {data.Confidence:P0}");
                 isDirty = true;
+                SaveIfNeeded();
             }
         }
 
@@ -208,6 +220,31 @@ namespace XboxGamingBarHelper.AutoTDP
             isDirty = false;
         }
 
+        private void LoadHeatmaps()
+        {
+            try
+            {
+                if (File.Exists(heatmapPath))
+                {
+                    string json = File.ReadAllText(heatmapPath);
+                    heatmaps = JsonSerializer.Deserialize<Dictionary<string, Dictionary<int, int>>>(json)
+                               ?? new Dictionary<string, Dictionary<int, int>>();
+                    Logger.Info($"LearnedTDP: Loaded heatmap data for {heatmaps.Count} game entries from {heatmapPath}");
+                }
+                else
+                {
+                    heatmaps = new Dictionary<string, Dictionary<int, int>>();
+                    Logger.Info("LearnedTDP: No heatmap data found, starting fresh");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LearnedTDP: Failed to load heatmap: {ex.Message}");
+                heatmaps = new Dictionary<string, Dictionary<int, int>>();
+            }
+            heatmapDirty = false;
+        }
+
         /// <summary>
         /// Saves the learned TDP data to disk.
         /// </summary>
@@ -225,11 +262,69 @@ namespace XboxGamingBarHelper.AutoTDP
                 File.WriteAllText(storePath, json);
                 Logger.Info($"LearnedTDP: Saved {games.Count} game entries to {storePath}");
                 isDirty = false;
+                lastSaveUtc = DateTime.UtcNow;
             }
             catch (Exception ex)
             {
                 Logger.Error($"LearnedTDP: Failed to save: {ex.Message}");
             }
+        }
+
+        private void SaveHeatmaps()
+        {
+            if (!heatmapDirty)
+                return;
+
+            try
+            {
+                string json = JsonSerializer.Serialize(heatmaps, new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+                File.WriteAllText(heatmapPath, json);
+                Logger.Info($"LearnedTDP: Saved heatmap data for {heatmaps.Count} game entries to {heatmapPath}");
+                heatmapDirty = false;
+                lastSaveUtc = DateTime.UtcNow;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LearnedTDP: Failed to save heatmap: {ex.Message}");
+            }
+        }
+
+        private void SaveIfNeeded()
+        {
+            if (!isDirty)
+                if (!heatmapDirty)
+                    return;
+
+            var now = DateTime.UtcNow;
+            if (lastSaveUtc == DateTime.MinValue || (now - lastSaveUtc) >= MinSaveInterval)
+            {
+                Save();
+                SaveHeatmaps();
+            }
+        }
+
+        private void AddHeatmapSample(string gameKey, int tdp)
+        {
+            if (string.IsNullOrEmpty(gameKey))
+                return;
+
+            if (!heatmaps.TryGetValue(gameKey, out var map))
+            {
+                map = new Dictionary<int, int>();
+                heatmaps[gameKey] = map;
+            }
+
+            map.TryGetValue(tdp, out var count);
+            map[tdp] = count + 1;
+            heatmapDirty = true;
+        }
+
+        public IReadOnlyDictionary<string, Dictionary<int, int>> GetHeatmaps()
+        {
+            return heatmaps;
         }
 
         /// <summary>
@@ -240,6 +335,46 @@ namespace XboxGamingBarHelper.AutoTDP
             return games;
         }
 
+        public string GetGameDataJson(string gamePath, string gameName, int targetFPS)
+        {
+            var payload = new LearnedGameDataPayload
+            {
+                GameName = gameName ?? "",
+                GamePath = gamePath ?? "",
+                TargetFPS = targetFPS,
+                HasLearned = false,
+                LearnedTDP = 0,
+                Confidence = 0,
+                StableCount = 0,
+                LastUpdatedUtc = "",
+                Heatmap = new Dictionary<int, int>()
+            };
+
+            string key = GetGameKey(gamePath);
+            if (key != null)
+            {
+                if (games.TryGetValue(key, out var data))
+                {
+                    payload.HasLearned = true;
+                    payload.LearnedTDP = data.LearnedTDP;
+                    payload.Confidence = data.Confidence;
+                    payload.StableCount = data.StableCount;
+                    payload.LastUpdatedUtc = data.LastUpdated.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss'Z'");
+                    if (string.IsNullOrEmpty(payload.GameName))
+                    {
+                        payload.GameName = data.GameName ?? "";
+                    }
+                }
+
+                if (heatmaps.TryGetValue(key, out var map) && map != null)
+                {
+                    payload.Heatmap = new Dictionary<int, int>(map);
+                }
+            }
+
+            return JsonSerializer.Serialize(payload);
+        }
+
         /// <summary>
         /// Clears all learned TDP data.
         /// </summary>
@@ -247,8 +382,24 @@ namespace XboxGamingBarHelper.AutoTDP
         {
             games.Clear();
             isDirty = true;
+            heatmaps.Clear();
+            heatmapDirty = true;
             Save();
+            SaveHeatmaps();
             Logger.Info("LearnedTDP: Cleared all learned data");
+        }
+
+        private class LearnedGameDataPayload
+        {
+            public string GameName { get; set; }
+            public string GamePath { get; set; }
+            public int TargetFPS { get; set; }
+            public bool HasLearned { get; set; }
+            public int LearnedTDP { get; set; }
+            public double Confidence { get; set; }
+            public int StableCount { get; set; }
+            public string LastUpdatedUtc { get; set; }
+            public Dictionary<int, int> Heatmap { get; set; }
         }
     }
 }

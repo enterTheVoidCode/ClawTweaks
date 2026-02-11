@@ -16,6 +16,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
+using Windows.Data.Json;
 using Windows.Foundation;
 using Windows.Foundation.Metadata;
 using Windows.UI.Core;
@@ -30,6 +31,8 @@ using Windows.System.Power;
 using Windows.Storage;
 using Windows.System;
 using Windows.UI.Xaml.Input;
+using System.Runtime.InteropServices;
+using Windows.UI;
 using XboxGamingBar.Data;
 using XboxGamingBar.Event;
 using XboxGamingBar.IPC;
@@ -480,6 +483,16 @@ namespace XboxGamingBar
     /// </summary>
     public sealed partial class GamingWidget : Page, INotifyPropertyChanged
     {
+        [DllImport("user32.dll")]
+        private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct LASTINPUTINFO
+        {
+            public uint cbSize;
+            public uint dwTime;
+        }
+
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         private static readonly List<string> BlackListAppTrackerNames = new List<string>()
@@ -810,6 +823,22 @@ namespace XboxGamingBar
         private readonly GPDFanModeProperty gpdFanMode;
         private readonly GPDButtonL4Property gpdButtonL4;
         private readonly GPDButtonR4Property gpdButtonR4;
+        private readonly GPDButtonProperty gpdButtonA;
+        private readonly GPDButtonProperty gpdButtonB;
+        private readonly GPDButtonProperty gpdButtonX;
+        private readonly GPDButtonProperty gpdButtonY;
+        private readonly GPDButtonProperty gpdButtonDPadUp;
+        private readonly GPDButtonProperty gpdButtonDPadDown;
+        private readonly GPDButtonProperty gpdButtonDPadLeft;
+        private readonly GPDButtonProperty gpdButtonDPadRight;
+        private readonly GPDButtonProperty gpdButtonL3;
+        private readonly GPDButtonProperty gpdButtonR3;
+        private readonly GPDButtonProperty gpdButtonLSLeft;
+        private readonly GPDButtonProperty gpdButtonLSRight;
+        private readonly GPDFanCurveGraphProperty gpdFanCurveGraph;
+        private readonly GPDCPUTempProperty gpdCPUTemp;
+        private readonly GPDFanCurveVisibleProperty gpdFanCurveVisible;
+        private readonly GPDFanCurveEnabledProperty gpdFanCurveEnabled;
 
         // Default Game Profile properties (Microsoft Gaming Services profiles)
         private readonly DefaultGameProfileAvailableProperty defaultGameProfileAvailable;
@@ -823,6 +852,8 @@ namespace XboxGamingBar
         private readonly InstallPawnIOProperty installPawnIO;
         private readonly ViGEmBusInstalledProperty vigemBusInstalled;
         private readonly InstallViGEmBusProperty installViGEmBus;
+        private readonly AutoHibernateEnabledProperty autoHibernateEnabled;
+        private readonly AutoHibernateIdleMinutesProperty autoHibernateIdleMinutes;
 
         // AutoTDP properties
         private readonly AutoTDPEnabledProperty autoTDPEnabled;
@@ -833,6 +864,7 @@ namespace XboxGamingBar
         private readonly AutoTDPUseMLModeProperty autoTDPUseMLMode;  // DEPRECATED: use autoTDPControllerType
         private readonly AutoTDPControllerTypeProperty autoTDPControllerType;  // 0=PID, 1=Q-Learning, 2=SARSA
         private readonly AutoTDPMLStatusProperty autoTDPMLStatus;
+        private readonly AutoTDPLearnedGameDataProperty autoTDPLearnedGameData;
         private readonly AutoTDPResetMLProperty autoTDPResetML;
         private readonly AutoTDPPauseWhenUnfocusedProperty autoTDPPauseWhenUnfocused;
         private readonly TDPLimitsProperty tdpLimits;
@@ -905,6 +937,7 @@ namespace XboxGamingBar
         private bool isLoadingControllerProfile = false;
         private bool isSwitchingControllerProfile = false;
         private DateTime lastProfileApplyTime = DateTime.MinValue; // Prevents duplicate sends from queued UI events
+        private int profileSwitchEpoch = 0; // Incremented on each LoadProfileSettings; used to skip stale deferred callbacks
         private string lastSentGamepadMappingsJson = null; // Tracks last sent mappings to avoid duplicates
 
         // Helper to check if we have a valid game (not null, not empty, not "No game detected")
@@ -1206,6 +1239,24 @@ namespace XboxGamingBar
             gpdFanMode = new GPDFanModeProperty(this);
             gpdButtonL4 = new GPDButtonL4Property(this);
             gpdButtonR4 = new GPDButtonR4Property(this);
+            gpdButtonA = new GPDButtonProperty(this, Function.GPDButtonA);
+            gpdButtonB = new GPDButtonProperty(this, Function.GPDButtonB);
+            gpdButtonX = new GPDButtonProperty(this, Function.GPDButtonX);
+            gpdButtonY = new GPDButtonProperty(this, Function.GPDButtonY);
+            gpdButtonDPadUp = new GPDButtonProperty(this, Function.GPDButtonDPadUp);
+            gpdButtonDPadDown = new GPDButtonProperty(this, Function.GPDButtonDPadDown);
+            gpdButtonDPadLeft = new GPDButtonProperty(this, Function.GPDButtonDPadLeft);
+            gpdButtonDPadRight = new GPDButtonProperty(this, Function.GPDButtonDPadRight);
+            gpdButtonL3 = new GPDButtonProperty(this, Function.GPDButtonL3);
+            gpdButtonR3 = new GPDButtonProperty(this, Function.GPDButtonR3);
+            gpdButtonLSLeft = new GPDButtonProperty(this, Function.GPDButtonLSLeft);
+            gpdButtonLSRight = new GPDButtonProperty(this, Function.GPDButtonLSRight);
+            gpdFanCurveGraph = new GPDFanCurveGraphProperty(this);
+            gpdFanCurveGraph.SetGraphUpdateCallback(OnGPDFanCurveUpdated);
+            gpdCPUTemp = new GPDCPUTempProperty(this);
+            gpdCPUTemp.SetTempUpdateCallback(OnGPDCPUTempUpdated);
+            gpdFanCurveVisible = new GPDFanCurveVisibleProperty();
+            gpdFanCurveEnabled = new GPDFanCurveEnabledProperty(this);
 
             // Default Game Profile properties
             defaultGameProfileAvailable = new DefaultGameProfileAvailableProperty(this);
@@ -1225,6 +1276,8 @@ namespace XboxGamingBar
             installPawnIO = new InstallPawnIOProperty(this);
             vigemBusInstalled = new ViGEmBusInstalledProperty(this);
             installViGEmBus = new InstallViGEmBusProperty(this);
+            autoHibernateEnabled = new AutoHibernateEnabledProperty(AutoHibernateToggle, this);
+            autoHibernateIdleMinutes = new AutoHibernateIdleMinutesProperty(15, AutoHibernateTimeoutSlider, this);
 
             // Set up callbacks for TDP method availability
             winRing0Available.SetAvailabilityCallback(UpdateWinRing0Visibility);
@@ -1240,6 +1293,7 @@ namespace XboxGamingBar
             autoTDPUseMLMode = new AutoTDPUseMLModeProperty(false);
             autoTDPControllerType = new AutoTDPControllerTypeProperty(0);  // 0=PID
             autoTDPMLStatus = new AutoTDPMLStatusProperty("");
+            autoTDPLearnedGameData = new AutoTDPLearnedGameDataProperty("");
             autoTDPResetML = new AutoTDPResetMLProperty(false);
             autoTDPPauseWhenUnfocused = new AutoTDPPauseWhenUnfocusedProperty(true); // Default: enabled
             tdpLimits = new TDPLimitsProperty("4,35");
@@ -1400,6 +1454,8 @@ namespace XboxGamingBar
                 installPawnIO,
                 vigemBusInstalled,
                 installViGEmBus,
+                autoHibernateEnabled,
+                autoHibernateIdleMinutes,
                 autoTDPEnabled,
                 autoTDPTargetFPS,
                 autoTDPCurrentFPS,
@@ -1407,7 +1463,9 @@ namespace XboxGamingBar
                 autoTDPMaxTDP,
                 autoTDPUseMLMode,
                 autoTDPControllerType,
+                autoTDPPauseWhenUnfocused,
                 autoTDPMLStatus,
+                autoTDPLearnedGameData,
                 autoTDPResetML,
                 fpsLimit,
                 osPowerMode,
@@ -1447,6 +1505,22 @@ namespace XboxGamingBar
                 gpdFanMode,
                 gpdButtonL4,
                 gpdButtonR4,
+                gpdButtonA,
+                gpdButtonB,
+                gpdButtonX,
+                gpdButtonY,
+                gpdButtonDPadUp,
+                gpdButtonDPadDown,
+                gpdButtonDPadLeft,
+                gpdButtonDPadRight,
+                gpdButtonL3,
+                gpdButtonR3,
+                gpdButtonLSLeft,
+                gpdButtonLSRight,
+                gpdFanCurveGraph,
+                gpdCPUTemp,
+                gpdFanCurveVisible,
+                gpdFanCurveEnabled,
                 defaultGameProfileAvailable,
                 defaultGameProfileData,
                 defaultGameProfileEnabled,
@@ -1888,6 +1962,8 @@ namespace XboxGamingBar
                 autoTDPCurrentFPS.PropertyChanged += AutoTDPCurrentFPS_PropertyChanged;
             if (autoTDPMLStatus != null)
                 autoTDPMLStatus.PropertyChanged += AutoTDPMLStatus_PropertyChanged;
+            if (autoTDPLearnedGameData != null)
+                autoTDPLearnedGameData.PropertyChanged += AutoTDPLearnedGameData_PropertyChanged;
             if (autoTDPUseMLMode != null)
                 autoTDPUseMLMode.PropertyChanged += AutoTDPUseMLMode_PropertyChanged;
             if (autoTDPControllerType != null)
@@ -2179,6 +2255,16 @@ namespace XboxGamingBar
 
         private void PerGameProfileToggle_Changed(object sender, RoutedEventArgs e)
         {
+            // Skip when toggle is being updated by helper pipe sync (not user interaction).
+            // This prevents creating profiles for the wrong game when currentGameName
+            // hasn't been updated yet (RunningGame pipe message may still be queued).
+            // The helper already manages profile switching; OnGameTextChanged will update the UI.
+            if (perGameProfile?.IsUpdatingUI == true)
+            {
+                Logger.Info($"Skipping PerGameProfileToggle_Changed - toggle set by helper sync (currentGameName='{currentGameName}')");
+                return;
+            }
+
             // Protect entire toggle change sequence from auto-saves
             isSwitchingProfile = true;
 
@@ -2675,8 +2761,9 @@ namespace XboxGamingBar
             }
 
             // Don't save during profile loading, switching, initial sync, when helper is updating values,
-            // or when Default Game Profile is active (to avoid contaminating user's profile with DGP values)
-            if (isLoadingProfile || isSwitchingProfile || isApplyingHelperUpdate || isInitialSync || defaultGameProfileEnabled?.Value == true)
+            // when any property is syncing from helper pipe, or when Default Game Profile is active
+            if (isLoadingProfile || isSwitchingProfile || isApplyingHelperUpdate || isInitialSync
+                || WidgetSliderProperty.HelperSyncCount > 0 || defaultGameProfileEnabled?.Value == true)
             {
                 Logger.Debug($"Skipping auto-save during profile operation (loading={isLoadingProfile}, switching={isSwitchingProfile}, helperUpdate={isApplyingHelperUpdate}, initialSync={isInitialSync}, defaultGameProfile={defaultGameProfileEnabled?.Value})");
                 return;
@@ -3667,6 +3754,152 @@ namespace XboxGamingBar
             });
         }
 
+        private void AutoTDPLearnedGameData_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                UpdateAutoTDPLearnedGameUI(autoTDPLearnedGameData?.Value);
+            });
+        }
+
+        private void UpdateAutoTDPLearnedGameUI(string json)
+        {
+            if (AutoTDPLearnedSummaryText == null || AutoTDPLearnedHeatmapPanel == null)
+                return;
+
+            AutoTDPLearnedHeatmapPanel.Children.Clear();
+
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                AutoTDPLearnedSummaryText.Text = "No learned data yet";
+                return;
+            }
+
+            if (!JsonObject.TryParse(json, out JsonObject obj))
+            {
+                AutoTDPLearnedSummaryText.Text = "Learned data unavailable";
+                return;
+            }
+
+            string gameName = obj.GetNamedString("GameName", "");
+            int targetFPS = (int)obj.GetNamedNumber("TargetFPS", 0);
+            int learnedTDP = (int)obj.GetNamedNumber("LearnedTDP", 0);
+            double confidence = obj.GetNamedNumber("Confidence", 0);
+            int stableCount = (int)obj.GetNamedNumber("StableCount", 0);
+            string lastUpdated = obj.GetNamedString("LastUpdatedUtc", "");
+            bool hasLearned = false;
+            if (obj.TryGetValue("HasLearned", out IJsonValue hasLearnedValue) && hasLearnedValue.ValueType == JsonValueType.Boolean)
+            {
+                hasLearned = hasLearnedValue.GetBoolean();
+            }
+
+            string titleName = string.IsNullOrWhiteSpace(gameName) ? "Current game" : gameName;
+            if (hasLearned)
+            {
+                AutoTDPLearnedSummaryText.Text = $"{titleName} — {learnedTDP}W @ {targetFPS} FPS (conf {confidence:P0}, samples {stableCount})";
+                if (!string.IsNullOrWhiteSpace(lastUpdated))
+                {
+                    AutoTDPLearnedSummaryText.Text += $" • {lastUpdated}";
+                }
+            }
+            else
+            {
+                AutoTDPLearnedSummaryText.Text = string.IsNullOrWhiteSpace(gameName)
+                    ? "No learned data yet"
+                    : $"No learned data yet for {gameName}";
+            }
+
+            if (!obj.TryGetValue("Heatmap", out IJsonValue heatmapValue) || heatmapValue.ValueType != JsonValueType.Object)
+            {
+                AutoTDPLearnedHeatmapPanel.Children.Add(new TextBlock
+                {
+                    Text = "No heatmap data yet",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 136, 136, 136))
+                });
+                return;
+            }
+
+            var heatmapObj = heatmapValue.GetObject();
+            var heatmap = new List<KeyValuePair<int, int>>();
+            foreach (var key in heatmapObj.Keys)
+            {
+                if (!int.TryParse(key, out int tdp))
+                    continue;
+
+                int count = 0;
+                var countVal = heatmapObj.GetNamedValue(key);
+                if (countVal.ValueType == JsonValueType.Number)
+                {
+                    count = (int)countVal.GetNumber();
+                }
+                else if (countVal.ValueType == JsonValueType.String && int.TryParse(countVal.GetString(), out int parsed))
+                {
+                    count = parsed;
+                }
+
+                heatmap.Add(new KeyValuePair<int, int>(tdp, count));
+            }
+
+            if (heatmap.Count == 0)
+            {
+                AutoTDPLearnedHeatmapPanel.Children.Add(new TextBlock
+                {
+                    Text = "No heatmap data yet",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 136, 136, 136))
+                });
+                return;
+            }
+
+            heatmap = heatmap.OrderBy(kvp => kvp.Key).ToList();
+            int maxCount = Math.Max(1, heatmap.Max(kvp => kvp.Value));
+
+            foreach (var kvp in heatmap)
+            {
+                var row = new Grid { Margin = new Thickness(0, 2, 0, 0) };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
+
+                var label = new TextBlock
+                {
+                    Text = $"{kvp.Key}W",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 170, 170, 170)),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(label, 0);
+
+                var bar = new Windows.UI.Xaml.Controls.ProgressBar
+                {
+                    Minimum = 0,
+                    Maximum = maxCount,
+                    Value = kvp.Value,
+                    Height = 6,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 139, 195, 74)),
+                    Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(bar, 1);
+
+                var countText = new TextBlock
+                {
+                    Text = kvp.Value.ToString(),
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 170, 170, 170)),
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(countText, 2);
+
+                row.Children.Add(label);
+                row.Children.Add(bar);
+                row.Children.Add(countText);
+                AutoTDPLearnedHeatmapPanel.Children.Add(row);
+            }
+        }
+
         private void AutoTDPUseMLMode_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             // DEPRECATED: This handler is kept for backwards compatibility.
@@ -3732,8 +3965,18 @@ namespace XboxGamingBar
 
         private void AutoTDPEnabled_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
+            // Capture epoch before queueing on UI thread. If a profile switch happens
+            // between now and when the callback runs, the epoch will differ and we skip
+            // the stale update (prevents helper's game-profile AutoTDP=true from overriding
+            // Global profile's AutoTDP=false after a rapid profile switch).
+            int epochSnapshot = profileSwitchEpoch;
             _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
+                if (epochSnapshot != profileSwitchEpoch)
+                {
+                    Logger.Info($"Skipping AutoTDP sync from helper (profile switched since queued, epoch {epochSnapshot} vs {profileSwitchEpoch})");
+                    return;
+                }
                 if (AutoTDPToggle != null && autoTDPEnabled != null)
                 {
                     // Sync toggle with helper's value (from profile)
@@ -5119,23 +5362,162 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Toggles the Legion Fan Full Speed mode on/off.
+        /// Toggles Fan Full Speed mode on/off for Legion or GPD devices.
         /// </summary>
+        private bool gpdFanMaxActive = false;
+
+        // GPD Software Fan Curve graph state
+        private bool isGPDFanCurveExpanded = false;
+        private bool gpdFanCurveGraphInitialized = false;
+        private readonly Windows.UI.Xaml.Shapes.Ellipse[] gpdFanCurvePoints = new Windows.UI.Xaml.Shapes.Ellipse[10];
+        private int[] currentGPDFanCurveValues = new int[10];
+        private int gpdDraggedPointIndex = -1;
+        private bool isGPDDraggingPoint = false;
+        private static readonly int[] GPDFanCurveTemps = { 30, 38, 46, 54, 62, 70, 78, 86, 94, 100 };
+        private static readonly Dictionary<string, int[]> GPDFanCurvePresets = new Dictionary<string, int[]>
+        {
+            { "Silent",      new int[] { 0, 0, 0, 30, 35, 45, 55, 65, 80, 100 } },
+            { "Balanced",    new int[] { 0, 30, 35, 45, 55, 65, 75, 85, 95, 100 } },
+            { "Performance", new int[] { 30, 40, 50, 55, 60, 70, 80, 90, 95, 100 } },
+            { "MaxCooling",  new int[] { 40, 50, 60, 65, 70, 80, 85, 95, 100, 100 } }
+        };
+        private string currentGPDFanCurvePreset = "Custom";
+        private bool isGPDFanCurvePresetLoading = false;
+
         private void ToggleLegionFanFullSpeed()
         {
-            if (legionFanFullSpeed == null) return;
-
-            // Toggle the current state
-            bool newState = !legionFanFullSpeed.Value;
-            legionFanFullSpeed.SetValue(newState);
-
-            // Also update the toggle switch if it exists
-            if (LegionFanFullSpeedToggle != null)
+            if (legionGoDetected?.Value == true && legionFanFullSpeed != null)
             {
-                LegionFanFullSpeedToggle.IsOn = newState;
+                bool newState = !legionFanFullSpeed.Value;
+                legionFanFullSpeed.SetValue(newState);
+
+                if (LegionFanFullSpeedToggle != null)
+                {
+                    LegionFanFullSpeedToggle.IsOn = newState;
+                }
+
+                Logger.Info($"Fan Full Speed toggled (Legion): {(newState ? "On" : "Off")}");
+            }
+            else if (gpdDetected?.Value == true && gpdFanMode != null && gpdFanSpeed != null)
+            {
+                gpdFanMaxActive = !gpdFanMaxActive;
+                if (gpdFanMaxActive)
+                {
+                    gpdFanMode.SetMode(1); // Manual
+                    gpdFanSpeed.SetSpeed(100); // 100%
+                    if (GPDFanModeToggle != null)
+                    {
+                        GPDFanModeToggle.Toggled -= GPDFanModeToggle_Toggled;
+                        GPDFanModeToggle.IsOn = true;
+                        GPDFanModeToggle.Toggled += GPDFanModeToggle_Toggled;
+                    }
+                    if (GPDFanSpeedSlider != null) GPDFanSpeedSlider.Value = 100;
+                }
+                else
+                {
+                    gpdFanMode.SetMode(0); // Auto
+                    gpdFanSpeed.SetSpeed(0);
+                    if (GPDFanModeToggle != null)
+                    {
+                        GPDFanModeToggle.Toggled -= GPDFanModeToggle_Toggled;
+                        GPDFanModeToggle.IsOn = false;
+                        GPDFanModeToggle.Toggled += GPDFanModeToggle_Toggled;
+                    }
+                }
+
+                Logger.Info($"Fan Full Speed toggled (GPD): {(gpdFanMaxActive ? "On" : "Off")}");
+            }
+        }
+
+        private async void ToggleScreenSaver()
+        {
+            screenSaverEnabled = !screenSaverEnabled;
+
+            // Persist setting
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values[ScreenSaverEnabledKey] = screenSaverEnabled;
+
+            // Start or stop countdown timer
+            if (screenSaverEnabled)
+            {
+                StartScreenSaverCountdown();
+            }
+            else
+            {
+                StopScreenSaverCountdown();
             }
 
-            Logger.Info($"Fan Full Speed toggled: {(newState ? "On" : "Off")}");
+            // Send to helper
+            try
+            {
+                if (App.IsConnected)
+                {
+                    var request = new Windows.Foundation.Collections.ValueSet
+                    {
+                        { "Command", (int)Shared.Enums.Command.Set },
+                        { "Function", (int)Shared.Enums.Function.ScreenSaverEnabled },
+                        { "Content", screenSaverEnabled }
+                    };
+                    await App.SendMessageAsync(request);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending Screen Saver state: {ex.Message}");
+            }
+
+            Logger.Info($"Screen Saver toggled: {(screenSaverEnabled ? "On" : "Off")}");
+        }
+
+        private void StartScreenSaverCountdown()
+        {
+            if (screenSaverCountdownTimer == null)
+            {
+                screenSaverCountdownTimer = new DispatcherTimer();
+                screenSaverCountdownTimer.Interval = TimeSpan.FromSeconds(1);
+                screenSaverCountdownTimer.Tick += ScreenSaverCountdownTimer_Tick;
+            }
+            screenSaverCountdownTimer.Start();
+            UpdateScreenSaverTileCountdown();
+        }
+
+        private void StopScreenSaverCountdown()
+        {
+            screenSaverCountdownTimer?.Stop();
+            UpdateQuickSettingsTileStates();
+        }
+
+        private void ScreenSaverCountdownTimer_Tick(object sender, object e)
+        {
+            if (!screenSaverEnabled)
+            {
+                screenSaverCountdownTimer?.Stop();
+                return;
+            }
+            UpdateScreenSaverTileCountdown();
+        }
+
+        private void UpdateScreenSaverTileCountdown()
+        {
+            if (qsTileMap == null || !qsTileMap.TryGetValue("ScreenSaver", out var tile) || tile.StateText == null)
+                return;
+
+            try
+            {
+                var lastInput = new LASTINPUTINFO();
+                lastInput.cbSize = (uint)Marshal.SizeOf(lastInput);
+
+                if (GetLastInputInfo(ref lastInput))
+                {
+                    uint idleMs = (uint)Environment.TickCount - lastInput.dwTime;
+                    int remaining = Math.Max(0, ScreenSaverTimeoutSeconds - (int)(idleMs / 1000));
+                    tile.StateText.Text = $"{remaining}s";
+                }
+            }
+            catch
+            {
+                tile.StateText.Text = $"{ScreenSaverTimeoutSeconds}s";
+            }
         }
 
         /// <summary>
@@ -6638,6 +7020,41 @@ namespace XboxGamingBar
             SavePowerPlanSettings();
 
             Logger.Info($"Power Plan auto-switch set to: {powerPlanAutoSwitch}");
+        }
+
+        private void AutoHibernateTimeoutSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (AutoHibernateTimeoutValue != null)
+            {
+                AutoHibernateTimeoutValue.Text = $"{(int)e.NewValue} min";
+            }
+        }
+
+        private async void AutoHibernateModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (AutoHibernateModeComboBox?.SelectedItem == null) return;
+            var selected = AutoHibernateModeComboBox.SelectedItem as ComboBoxItem;
+            if (selected?.Tag == null) return;
+
+            int mode = int.Parse(selected.Tag.ToString());
+            try
+            {
+                if (App.IsConnected)
+                {
+                    var request = new Windows.Foundation.Collections.ValueSet
+                    {
+                        { "Command", (int)Shared.Enums.Command.Set },
+                        { "Function", (int)Shared.Enums.Function.AutoHibernateMode },
+                        { "Content", mode }
+                    };
+                    await App.SendMessageAsync(request);
+                    Logger.Info($"Auto Hibernate mode set to: {selected.Content}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending Auto Hibernate mode: {ex.Message}");
+            }
         }
 
         private void ApplyPowerPlan(Guid planGuid)
@@ -9568,9 +9985,18 @@ namespace XboxGamingBar
 
                 try
                 {
-                    // Save current profile before switching
-                    // (isApplyingHelperUpdate check inside prevents race conditions)
-                    SaveCurrentSettingsToProfile(currentProfileName);
+                    // Save current profile before switching, but SKIP for game-related transitions.
+                    // 1. FROM a game profile (game close): helper already pushed global values to the
+                    //    widget UI (AutoTDP=false, Mode=Quiet, etc.) BEFORE sending PerGameProfile=false.
+                    //    Saving now would capture global values and corrupt the game profile.
+                    // 2. TO a game profile (game open): helper sends game values (Mode=Custom, AutoTDP=true)
+                    //    BEFORE the profile switch. Saving now would capture game values and corrupt Global.
+                    // Individual toggle/slider handlers already save user changes immediately,
+                    // so skipping here is safe — the profile is always up-to-date.
+                    if (!currentProfileName.StartsWith("Game_") && !targetProfile.StartsWith("Game_"))
+                    {
+                        SaveCurrentSettingsToProfile(currentProfileName);
+                    }
 
                     // Switch to new profile
                     currentProfileName = targetProfile;
@@ -9797,6 +10223,7 @@ namespace XboxGamingBar
         {
             if (isLoadingProfile) return;
             isLoadingProfile = true;
+            profileSwitchEpoch++; // Invalidate any deferred PropertyChanged callbacks queued before this switch
 
             try
             {
@@ -9973,7 +10400,13 @@ namespace XboxGamingBar
                     isLoadingAutoTDPSettings = true;
                     try
                     {
-                        AutoTDPToggle.IsOn = profile.AutoTDPEnabled;
+                        // For game profiles, use the helper's synced property value.
+                        // The widget's profile may be stale (e.g., AutoTDP=false saved during game close
+                        // when helper restored global values). The helper is the source of truth.
+                        bool autoTDPState = profileName.StartsWith("Game_") && autoTDPEnabled != null
+                            ? autoTDPEnabled.Value
+                            : profile.AutoTDPEnabled;
+                        AutoTDPToggle.IsOn = autoTDPState;
                         AutoTDPTargetFPSSlider.Value = profile.AutoTDPTargetFPS;
                         AutoTDPMinSlider.Value = profile.AutoTDPMinTDP;
                         AutoTDPMaxSlider.Value = profile.AutoTDPMaxTDP;
@@ -10057,61 +10490,21 @@ namespace XboxGamingBar
                         {
                             int profileMode = profile.LegionPerformanceMode;
                             int modeIndex = GetProfileTDPModeIndex(profile);
-                            if (modeIndex >= 0 && (legionPerformanceMode.Value != profileMode || TDPModeComboBox.SelectedIndex != modeIndex))
-                            {
-                                // Update lastTDPModeIndex FIRST to prevent TDPModeComboBox_SelectionChanged
-                                // from treating the profile load as a user-initiated change
+
+                            // For game profiles, the helper manages LegionPerformanceMode in PerGameProfile_PropertyChanged:
+                            // it applies the saved mode from the helper's profile (or Custom for new profiles).
+                            // Don't send mode to helper here — that would override the helper's mode and cause
+                            // "switches to Custom then immediately back" when profiles have stale/corrupted modes.
+                            // Just update lastTDPModeIndex so the handler doesn't treat the helper's mode update as a "change".
+                            if (modeIndex >= 0)
                                 lastTDPModeIndex = modeIndex;
-
-                                if (LegionPerformanceModeComboBox.SelectedIndex != modeIndex)
-                                    LegionPerformanceModeComboBox.SelectedIndex = modeIndex;
-                                if (TDPModeComboBox.SelectedIndex != modeIndex)
-                                    TDPModeComboBox.SelectedIndex = modeIndex;
-                                legionPerformanceMode?.ForceSetValue(profileMode);
-                                Logger.Info($"Applied game profile TDP Mode: {GetLegionModeShortName(profileMode)} ({profileMode}) for {profileName}");
-
-                                // If switching to Custom mode (255), send deferred settings with delay to allow mode change to propagate
-                                if (profileMode == 255)
-                                {
-                                    _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
-                                    {
-                                        await Task.Delay(500); // Allow mode change to propagate to helper (increased for reliability)
-                                        // Send deferred TDP-related settings that were skipped earlier
-                                        if (SaveTDP && TDPBoostToggle != null)
-                                        {
-                                            tdpBoostEnabled?.ForceSetValue(profile.TDPBoostEnabled);
-                                            Logger.Info($"Applied deferred TDP Boost after mode change: {profile.TDPBoostEnabled}");
-                                        }
-                                        if (SaveCPUEPP)
-                                        {
-                                            cpuEPP?.ForceSetValue((int)profile.CPUEPP);
-                                            Logger.Info($"Applied deferred CPU EPP after mode change: {profile.CPUEPP}");
-                                        }
-                                        // Send TDP value last
-                                        tdp?.ForceSetValue((int)profile.TDP);
-                                        Logger.Info($"Applied game profile TDP value after mode change: {profile.TDP}W for {profileName}");
-                                    });
-                                }
-                            }
-                            else if (profileMode == 255)
-                            {
-                                // Already in Custom mode, send TDP value immediately
-                                tdp?.ForceSetValue((int)profile.TDP);
-                                Logger.Info($"Applied game profile TDP value (already in Custom mode): {profile.TDP}W for {profileName}");
-                            }
+                            Logger.Info($"Game profile: LegionPerformanceMode deferred to helper. Widget profile has: {GetLegionModeShortName(profileMode)} ({profileMode}) for {profileName}");
                         }
                         else
                         {
-                            // SaveTDP disabled: default to Custom mode to allow manual TDP adjustment
-                            if (TDPModeComboBox.SelectedIndex != 3)
-                            {
-                                if (LegionPerformanceModeComboBox.SelectedIndex != 3)
-                                    LegionPerformanceModeComboBox.SelectedIndex = 3;
-                                lastTDPModeIndex = 3;
-                                TDPModeComboBox.SelectedIndex = 3;
-                                legionPerformanceMode?.SetValue(255);
-                                Logger.Info($"SaveTDP disabled - using Custom Legion mode for game profile: {profileName}");
-                            }
+                            // SaveTDP disabled: let helper manage mode (it defaults to Custom for new profiles)
+                            lastTDPModeIndex = 3; // Custom mode index
+                            Logger.Info($"SaveTDP disabled - deferring mode to helper for game profile: {profileName}");
                         }
                     }
                     else if (savedLegionPerformanceMode >= 0)
@@ -10223,7 +10616,16 @@ namespace XboxGamingBar
                     }
 
                     // Update TDP slider enabled state based on mode
-                    UpdateTDPSliderEnabledState();
+                    // Skip for game profiles: helper manages TDP mode, and the ComboBox hasn't been
+                    // updated yet (it still shows the old global mode). Running UpdateTDPSliderEnabledState
+                    // now would see the wrong mode and send incorrect values to the helper (e.g.,
+                    // AutoTDP=false when the game profile has AutoTDP=true, because the old mode is
+                    // non-Custom). UpdateTDPSliderEnabledState runs naturally when the helper sends its
+                    // mode via pipe → ComboBox updates → TDPModeComboBox_SelectionChanged.
+                    if (!profileName.StartsWith("Game_"))
+                    {
+                        UpdateTDPSliderEnabledState();
+                    }
                 }
                 // Generic device TDP Mode handling
                 else if (legionGoDetected?.Value != true && TDPModeComboBox != null && defaultGameProfileEnabled?.Value != true && !isInitialSync)
@@ -10232,23 +10634,31 @@ namespace XboxGamingBar
                     int profileMode = profile.LegionPerformanceMode;
                     int modeIndex = GetProfileTDPModeIndex(profile); // Already defaults to Balanced if not found
 
-                    if (SaveTDP && TDPModeComboBox.SelectedIndex != modeIndex)
+                    // Always sync lastTDPModeIndex to match the profile's mode.
+                    // Without this, lastTDPModeIndex retains a stale value from the previous
+                    // user session, causing TDPModeComboBox_SelectionChanged to skip the first
+                    // mode change (selectedIndex == lastTDPModeIndex early return).
+                    if (SaveTDP)
                     {
                         lastTDPModeIndex = modeIndex;
-                        TDPModeComboBox.SelectedIndex = modeIndex;
-                        Logger.Info($"Applied generic device TDP Mode: index {modeIndex} (mode {profileMode}) for {profileName}");
 
-                        // For Custom mode, the TDP slider value was already set above
-                        // For preset modes, apply the preset TDP value
-                        if (profileMode != 255)
+                        if (TDPModeComboBox.SelectedIndex != modeIndex)
                         {
-                            int[] genericTDPValues = { 8, 15, 25 }; // Quiet, Balanced, Performance TDP values
-                            if (modeIndex >= 0 && modeIndex < genericTDPValues.Length)
+                            TDPModeComboBox.SelectedIndex = modeIndex;
+                            Logger.Info($"Applied generic device TDP Mode: index {modeIndex} (mode {profileMode}) for {profileName}");
+
+                            // For Custom mode, the TDP slider value was already set above
+                            // For preset modes, apply the preset TDP value
+                            if (profileMode != 255)
                             {
-                                int presetTDP = genericTDPValues[modeIndex];
-                                TDPSlider.Value = presetTDP;
-                                tdp?.ForceSetValue(presetTDP);
-                                Logger.Info($"Applied generic device preset TDP: {presetTDP}W");
+                                int[] genericTDPValues = { 8, 15, 25 }; // Quiet, Balanced, Performance TDP values
+                                if (modeIndex >= 0 && modeIndex < genericTDPValues.Length)
+                                {
+                                    int presetTDP = genericTDPValues[modeIndex];
+                                    TDPSlider.Value = presetTDP;
+                                    tdp?.ForceSetValue(presetTDP);
+                                    Logger.Info($"Applied generic device preset TDP: {presetTDP}W");
+                                }
                             }
                         }
                     }
@@ -10408,8 +10818,10 @@ namespace XboxGamingBar
                 UpdateProfileDisplay();
 
                 // Safety check: If AutoTDP is enabled but we're not in Custom mode, switch to Custom mode
-                // This handles profiles that were saved with incorrect mode values before the fix
-                if (SaveAutoTDP && AutoTDPToggle?.IsOn == true && legionGoDetected?.Value == true)
+                // This handles profiles that were saved with incorrect mode values before the fix.
+                // Skip for game profiles: helper manages TDP mode for game profiles, and the toggle
+                // may show true from autoTDPEnabled.Value which belongs to a DIFFERENT game's profile.
+                if (SaveAutoTDP && AutoTDPToggle?.IsOn == true && legionGoDetected?.Value == true && !profileName.StartsWith("Game_"))
                 {
                     int customIndex = GetCustomTdpModeIndex();
                     if (TDPModeComboBox != null && !IsCustomTdpModeSelected())
@@ -16171,22 +16583,38 @@ namespace XboxGamingBar
                 // TDPModeComboBox sync during isInitialSync
                 await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                 {
-                    if (legionGoDetected?.Value == true && LegionPerformanceModeComboBox != null && TDPModeComboBox != null)
+                    if (LegionPerformanceModeComboBox != null && TDPModeComboBox != null)
                     {
-                        if (TDPModeComboBox.SelectedIndex != LegionPerformanceModeComboBox.SelectedIndex)
+                        if (legionGoDetected?.Value == true)
                         {
-                            Logger.Info($"[PIPE] Syncing TDPModeComboBox to match helper's mode: index {LegionPerformanceModeComboBox.SelectedIndex}");
-                            lastTDPModeIndex = LegionPerformanceModeComboBox.SelectedIndex;
-                            TDPModeComboBox.SelectedIndex = LegionPerformanceModeComboBox.SelectedIndex;
-                        }
+                            if (TDPModeComboBox.SelectedIndex != LegionPerformanceModeComboBox.SelectedIndex)
+                            {
+                                Logger.Info($"[PIPE] Syncing TDPModeComboBox to match helper's mode: index {LegionPerformanceModeComboBox.SelectedIndex}");
+                                lastTDPModeIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                                TDPModeComboBox.SelectedIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                            }
+                            else
+                            {
+                                // Always sync lastTDPModeIndex even when indices already match
+                                // to prevent stale values from a previous session
+                                lastTDPModeIndex = TDPModeComboBox.SelectedIndex;
+                            }
 
-                        // Initialize savedCustomTDP from helper's synced TDP value
-                        // This prevents stale savedCustomTDP (default 15W) from overriding
-                        // the helper's actual TDP when TDPModeComboBox_SelectionChanged fires
-                        if (IsCustomTdpModeIndex(LegionPerformanceModeComboBox.SelectedIndex) && tdp != null)
+                            // Initialize savedCustomTDP from helper's synced TDP value
+                            // This prevents stale savedCustomTDP (default 15W) from overriding
+                            // the helper's actual TDP when TDPModeComboBox_SelectionChanged fires
+                            if (IsCustomTdpModeIndex(LegionPerformanceModeComboBox.SelectedIndex) && tdp != null)
+                            {
+                                savedCustomTDP = tdp.Value;
+                                Logger.Info($"[PIPE] Initialized savedCustomTDP from helper's TDP: {savedCustomTDP}W");
+                            }
+                        }
+                        else
                         {
-                            savedCustomTDP = tdp.Value;
-                            Logger.Info($"[PIPE] Initialized savedCustomTDP from helper's TDP: {savedCustomTDP}W");
+                            // Generic device: sync lastTDPModeIndex from current ComboBox state
+                            // to prevent stale values from causing the first mode change to be skipped
+                            lastTDPModeIndex = TDPModeComboBox.SelectedIndex;
+                            Logger.Info($"[PIPE] Synced lastTDPModeIndex for generic device: {lastTDPModeIndex}");
                         }
                     }
 
@@ -16208,9 +16636,10 @@ namespace XboxGamingBar
                     Logger.Info($"[PIPE] Updated TDP slider enabled state after sync");
                 });
 
-                // Send Quick Metrics enabled state to helper
-                Logger.Info("[PIPE] Sending Quick Metrics enabled state to helper...");
-                await SendQuickMetricsEnabledToHelper();
+                // Send Quick Metrics and Screen Saver enabled states to helper (fire-and-forget)
+                Logger.Info("[PIPE] Sending Quick Metrics and Screen Saver enabled states to helper...");
+                SendQuickMetricsEnabledToHelper();
+                SendScreenSaverEnabledToHelper();
 
                 await Task.Delay(200);
                 isInitialSync = false;
@@ -17021,6 +17450,32 @@ namespace XboxGamingBar
                 GPDFanControlSection.Visibility = supported ? Visibility.Visible : Visibility.Collapsed;
                 Logger.Info($"GPD fan control section visibility set to: {supported}");
             }
+
+            // Restore fan curve enabled state from LocalSettings
+            if (supported)
+            {
+                try
+                {
+                    var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                    if (settings.Values.TryGetValue("GPDFanCurveEnabled", out object saved) && saved is bool enabled && enabled)
+                    {
+                        if (GPDFanCurveToggle != null)
+                        {
+                            GPDFanCurveToggle.Toggled -= GPDFanCurveToggle_Toggled;
+                            GPDFanCurveToggle.IsOn = true;
+                            GPDFanCurveToggle.Toggled += GPDFanCurveToggle_Toggled;
+                        }
+                        if (GPDManualFanContent != null)
+                            GPDManualFanContent.Visibility = Visibility.Collapsed;
+                        if (GPDFanCurveContent != null)
+                            GPDFanCurveContent.Visibility = Visibility.Visible;
+
+                        // Send enabled state to helper
+                        gpdFanCurveEnabled?.SetEnabled(true);
+                    }
+                }
+                catch { }
+            }
         }
 
         /// <summary>
@@ -17123,6 +17578,398 @@ namespace XboxGamingBar
             }
         }
 
+        #region GPD Software Fan Curve
+
+        private void GPDFanCurveToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (GPDFanCurveToggle == null) return;
+
+            bool enabled = GPDFanCurveToggle.IsOn;
+            Logger.Info($"GPD fan curve toggled: {enabled}");
+
+            // Send enabled state to helper
+            gpdFanCurveEnabled?.SetEnabled(enabled);
+
+            // Toggle visibility of manual vs curve content
+            if (GPDManualFanContent != null)
+            {
+                GPDManualFanContent.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+            }
+            if (GPDFanCurveContent != null)
+            {
+                GPDFanCurveContent.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            // Save enabled state
+            try
+            {
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                settings.Values["GPDFanCurveEnabled"] = enabled;
+            }
+            catch { }
+        }
+
+        private void GPDFanCurveExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isGPDFanCurveExpanded = !isGPDFanCurveExpanded;
+
+            if (GPDFanCurveGraphContent != null)
+            {
+                GPDFanCurveGraphContent.Visibility = isGPDFanCurveExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (GPDFanCurveExpandIcon != null)
+            {
+                GPDFanCurveExpandIcon.Glyph = isGPDFanCurveExpanded ? "\uE70E" : "\uE70D";
+            }
+
+            // Initialize graph on first expand
+            if (isGPDFanCurveExpanded && !gpdFanCurveGraphInitialized)
+            {
+                InitializeGPDFanCurveGraph();
+            }
+
+            // Tell helper whether to push CPU temp updates
+            gpdFanCurveVisible?.SetVisible(isGPDFanCurveExpanded);
+        }
+
+        private void InitializeGPDFanCurveGraph()
+        {
+            if (GPDFanCurveCanvas == null || gpdFanCurveGraphInitialized)
+                return;
+
+            // Initialize with current values from property
+            currentGPDFanCurveValues = gpdFanCurveGraph.GetCurveValues();
+
+            // Create 10 control point ellipses
+            for (int i = 0; i < 10; i++)
+            {
+                var ellipse = new Windows.UI.Xaml.Shapes.Ellipse
+                {
+                    Width = 16,
+                    Height = 16,
+                    Fill = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 0, 170, 255)),
+                    Stroke = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.White),
+                    StrokeThickness = 2,
+                    Tag = i
+                };
+                gpdFanCurvePoints[i] = ellipse;
+                GPDFanCurveCanvas.Children.Add(ellipse);
+            }
+
+            gpdFanCurveGraphInitialized = true;
+
+            // Load saved preset selection
+            LoadGPDFanCurvePresetSetting();
+
+            // Draw the graph
+            DrawGPDGridLines();
+            UpdateGPDFanCurveGraph();
+        }
+
+        private void DrawGPDGridLines()
+        {
+            if (GPDFanCurveCanvas == null) return;
+
+            double width = GPDFanCurveCanvas.ActualWidth;
+            double height = GPDFanCurveCanvas.ActualHeight;
+
+            if (width <= 0 || height <= 0) return;
+
+            // Draw horizontal grid lines (at 25%, 50%, 75%)
+            for (int i = 1; i <= 3; i++)
+            {
+                double y = height - (height * i * 0.25);
+                var line = new Windows.UI.Xaml.Shapes.Line
+                {
+                    X1 = 0,
+                    Y1 = y,
+                    X2 = width,
+                    Y2 = y,
+                    Stroke = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.ColorHelper.FromArgb(50, 255, 255, 255)),
+                    StrokeThickness = 1
+                };
+                Canvas.SetZIndex(line, -1);
+                GPDFanCurveCanvas.Children.Add(line);
+            }
+
+            // Draw vertical grid lines (at 20%, 40%, 60%, 80%)
+            for (int i = 1; i <= 4; i++)
+            {
+                double x = width * i * 0.2;
+                var line = new Windows.UI.Xaml.Shapes.Line
+                {
+                    X1 = x,
+                    Y1 = 0,
+                    X2 = x,
+                    Y2 = height,
+                    Stroke = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.ColorHelper.FromArgb(50, 255, 255, 255)),
+                    StrokeThickness = 1
+                };
+                Canvas.SetZIndex(line, -1);
+                GPDFanCurveCanvas.Children.Add(line);
+            }
+        }
+
+        private void UpdateGPDFanCurveGraph()
+        {
+            if (GPDFanCurveCanvas == null || GPDFanCurvePolyline == null || GPDFanCurveFill == null)
+                return;
+
+            double width = GPDFanCurveCanvas.ActualWidth;
+            double height = GPDFanCurveCanvas.ActualHeight;
+
+            if (width <= 0 || height <= 0) return;
+
+            var points = new Windows.UI.Xaml.Media.PointCollection();
+            var fillPoints = new Windows.UI.Xaml.Media.PointCollection();
+
+            // GPD temperature thresholds: 30-100°C (70°C range)
+            for (int i = 0; i < 10; i++)
+            {
+                int temp = GPDFanCurveTemps[i];
+                double x = (temp - 30.0) / 70.0 * width; // Normalize 30-100 to 0-width
+                double y = height - (currentGPDFanCurveValues[i] / 100.0 * height);
+
+                points.Add(new Windows.Foundation.Point(x, y));
+                fillPoints.Add(new Windows.Foundation.Point(x, y));
+
+                // Position control point
+                if (gpdFanCurvePoints[i] != null)
+                {
+                    Canvas.SetLeft(gpdFanCurvePoints[i], x - 8); // Center the 16px ellipse
+                    Canvas.SetTop(gpdFanCurvePoints[i], y - 8);
+                }
+            }
+
+            GPDFanCurvePolyline.Points = points;
+
+            // Add bottom corners for fill polygon
+            fillPoints.Add(new Windows.Foundation.Point(width, height));
+            fillPoints.Add(new Windows.Foundation.Point(0, height));
+            GPDFanCurveFill.Points = fillPoints;
+        }
+
+        private void UpdateGPDTemperatureIndicator(int tempC)
+        {
+            if (GPDTempIndicatorLine == null || GPDFanCurveCanvas == null)
+                return;
+
+            double width = GPDFanCurveCanvas.ActualWidth;
+            double height = GPDFanCurveCanvas.ActualHeight;
+
+            if (width <= 0 || height <= 0) return;
+
+            // Clamp temp to 30-100 range
+            tempC = Math.Max(30, Math.Min(100, tempC));
+
+            // Calculate X position (30-100°C range = 70°C span)
+            double x = (tempC - 30.0) / 70.0 * width;
+
+            GPDTempIndicatorLine.X1 = x;
+            GPDTempIndicatorLine.X2 = x;
+            GPDTempIndicatorLine.Y1 = 0;
+            GPDTempIndicatorLine.Y2 = height;
+            GPDTempIndicatorLine.Visibility = Visibility.Visible;
+        }
+
+        private void OnGPDFanCurveUpdated(int[] values)
+        {
+            if (values == null || values.Length != 10) return;
+
+            currentGPDFanCurveValues = values;
+            UpdateGPDFanCurveGraph();
+        }
+
+        private void OnGPDCPUTempUpdated(int tempC)
+        {
+            // Update temperature label
+            if (GPDCurrentTempLabel != null)
+            {
+                GPDCurrentTempLabel.Text = $"{tempC}°C";
+            }
+            // Update temperature indicator on graph
+            UpdateGPDTemperatureIndicator(tempC);
+        }
+
+        private void GPDFanCurveCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (gpdFanCurveGraphInitialized)
+            {
+                // Clear old grid lines
+                var toRemove = new System.Collections.Generic.List<Windows.UI.Xaml.UIElement>();
+                foreach (var child in GPDFanCurveCanvas.Children)
+                {
+                    if (child is Windows.UI.Xaml.Shapes.Line line && line != GPDTempIndicatorLine)
+                    {
+                        toRemove.Add(child);
+                    }
+                }
+                foreach (var item in toRemove)
+                {
+                    GPDFanCurveCanvas.Children.Remove(item);
+                }
+
+                DrawGPDGridLines();
+                UpdateGPDFanCurveGraph();
+
+                // Re-update temp indicator if we have a value
+                if (gpdCPUTemp != null && gpdCPUTemp.Value > 0)
+                {
+                    UpdateGPDTemperatureIndicator(gpdCPUTemp.Value);
+                }
+            }
+        }
+
+        private void GPDFanCurveCanvas_PointerPressed(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            if (GPDFanCurveCanvas == null) return;
+
+            var point = e.GetCurrentPoint(GPDFanCurveCanvas).Position;
+
+            // Find the closest control point
+            double minDist = double.MaxValue;
+            int closestIndex = -1;
+
+            for (int i = 0; i < 10; i++)
+            {
+                if (gpdFanCurvePoints[i] == null) continue;
+
+                double px = Canvas.GetLeft(gpdFanCurvePoints[i]) + 8;
+                double py = Canvas.GetTop(gpdFanCurvePoints[i]) + 8;
+
+                double dist = Math.Sqrt(Math.Pow(point.X - px, 2) + Math.Pow(point.Y - py, 2));
+                if (dist < minDist && dist < 30) // 30px hit area
+                {
+                    minDist = dist;
+                    closestIndex = i;
+                }
+            }
+
+            if (closestIndex >= 0)
+            {
+                gpdDraggedPointIndex = closestIndex;
+                isGPDDraggingPoint = true;
+                GPDFanCurveCanvas.CapturePointer(e.Pointer);
+                e.Handled = true;
+            }
+        }
+
+        private void GPDFanCurveCanvas_PointerMoved(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            if (!isGPDDraggingPoint || gpdDraggedPointIndex < 0 || GPDFanCurveCanvas == null)
+                return;
+
+            var point = e.GetCurrentPoint(GPDFanCurveCanvas).Position;
+            double height = GPDFanCurveCanvas.ActualHeight;
+
+            // Calculate new fan speed (invert Y since 0 is at top)
+            double fanSpeed = (1.0 - point.Y / height) * 100.0;
+            fanSpeed = Math.Max(0, Math.Min(100, fanSpeed));
+
+            // Update the value
+            currentGPDFanCurveValues[gpdDraggedPointIndex] = (int)Math.Round(fanSpeed);
+
+            // Redraw the graph
+            UpdateGPDFanCurveGraph();
+
+            e.Handled = true;
+        }
+
+        private void GPDFanCurveCanvas_PointerReleased(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            if (isGPDDraggingPoint && GPDFanCurveCanvas != null)
+            {
+                GPDFanCurveCanvas.ReleasePointerCapture(e.Pointer);
+
+                // Switch to Custom preset when manually dragging
+                GPDSwitchToCustomPreset();
+
+                // Send the updated values to the helper (debounced)
+                gpdFanCurveGraph.SetCurveValuesDebounced(currentGPDFanCurveValues);
+            }
+
+            gpdDraggedPointIndex = -1;
+            isGPDDraggingPoint = false;
+            e.Handled = true;
+        }
+
+        private void GPDFanCurvePresetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isGPDFanCurvePresetLoading) return;
+
+            if (GPDFanCurvePresetComboBox?.SelectedItem is ComboBoxItem item && item.Tag is string presetName)
+            {
+                if (presetName == "Custom") return;
+
+                if (GPDFanCurvePresets.TryGetValue(presetName, out int[] presetValues))
+                {
+                    currentGPDFanCurvePreset = presetName;
+                    currentGPDFanCurveValues = (int[])presetValues.Clone();
+                    UpdateGPDFanCurveGraph();
+
+                    // Send to helper
+                    gpdFanCurveGraph?.SetCurveValuesDebounced(currentGPDFanCurveValues);
+
+                    // Save preset selection
+                    SaveGPDFanCurvePresetSetting(presetName);
+                }
+            }
+        }
+
+        private void GPDSwitchToCustomPreset()
+        {
+            if (currentGPDFanCurvePreset != "Custom")
+            {
+                currentGPDFanCurvePreset = "Custom";
+                isGPDFanCurvePresetLoading = true;
+                GPDSelectPresetInComboBox("Custom");
+                isGPDFanCurvePresetLoading = false;
+                SaveGPDFanCurvePresetSetting("Custom");
+            }
+        }
+
+        private void GPDSelectPresetInComboBox(string presetName)
+        {
+            if (GPDFanCurvePresetComboBox == null) return;
+            foreach (ComboBoxItem item in GPDFanCurvePresetComboBox.Items)
+            {
+                if (item.Tag is string tag && tag == presetName)
+                {
+                    GPDFanCurvePresetComboBox.SelectedItem = item;
+                    break;
+                }
+            }
+        }
+
+        private void SaveGPDFanCurvePresetSetting(string presetName)
+        {
+            try
+            {
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                settings.Values["GPDFanCurvePreset"] = presetName;
+            }
+            catch { }
+        }
+
+        private void LoadGPDFanCurvePresetSetting()
+        {
+            try
+            {
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                if (settings.Values.TryGetValue("GPDFanCurvePreset", out object saved) && saved is string presetName)
+                {
+                    currentGPDFanCurvePreset = presetName;
+                    isGPDFanCurvePresetLoading = true;
+                    GPDSelectPresetInComboBox(presetName);
+                    isGPDFanCurvePresetLoading = false;
+                }
+            }
+            catch { }
+        }
+
+        #endregion
+
         private void GPDButtonRemapExpandToggle_Click(object sender, RoutedEventArgs e)
         {
             if (GPDButtonRemapExpandToggle != null && GPDButtonRemapContent != null && GPDButtonRemapExpandIcon != null)
@@ -17161,6 +18008,36 @@ namespace XboxGamingBar
             {
                 gpdButtonR4.SetKeycode(keycode);
             }
+        }
+
+        private void GPDButtonComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!(sender is ComboBox comboBox) || comboBox.SelectedItem == null) return;
+
+            string tag = comboBox.Tag?.ToString();
+            string selected = comboBox.SelectedItem.ToString();
+            ushort keycode = MapGPDKeyNameToKeycode(selected);
+
+            Logger.Info($"GPD button {tag} remapped to: {selected} (keycode: 0x{keycode:X4})");
+
+            GPDButtonProperty prop = null;
+            switch (tag)
+            {
+                case "A": prop = gpdButtonA; break;
+                case "B": prop = gpdButtonB; break;
+                case "X": prop = gpdButtonX; break;
+                case "Y": prop = gpdButtonY; break;
+                case "DPadUp": prop = gpdButtonDPadUp; break;
+                case "DPadDown": prop = gpdButtonDPadDown; break;
+                case "DPadLeft": prop = gpdButtonDPadLeft; break;
+                case "DPadRight": prop = gpdButtonDPadRight; break;
+                case "L3": prop = gpdButtonL3; break;
+                case "R3": prop = gpdButtonR3; break;
+                case "LSLeft": prop = gpdButtonLSLeft; break;
+                case "LSRight": prop = gpdButtonLSRight; break;
+            }
+
+            prop?.SetKeycode(keycode);
         }
 
         /// <summary>
@@ -17239,17 +18116,35 @@ namespace XboxGamingBar
         {
             Logger.Info("GPD restore defaults button clicked");
 
-            // Reset paddles to default (Disabled)
-            if (GPDL4PaddleComboBox != null)
+            // Reset all button ComboBoxes to Disabled (index 0)
+            var comboBoxes = new ComboBox[]
             {
-                GPDL4PaddleComboBox.SelectedIndex = 0; // Disabled
-            }
-            if (GPDR4PaddleComboBox != null)
+                GPDButtonAComboBox, GPDButtonBComboBox, GPDButtonXComboBox, GPDButtonYComboBox,
+                GPDButtonDPadUpComboBox, GPDButtonDPadDownComboBox, GPDButtonDPadLeftComboBox, GPDButtonDPadRightComboBox,
+                GPDButtonL3ComboBox, GPDButtonR3ComboBox,
+                GPDButtonLSLeftComboBox, GPDButtonLSRightComboBox,
+                GPDL4PaddleComboBox, GPDR4PaddleComboBox
+            };
+
+            foreach (var comboBox in comboBoxes)
             {
-                GPDR4PaddleComboBox.SelectedIndex = 0; // Disabled
+                if (comboBox != null)
+                    comboBox.SelectedIndex = 0;
             }
 
-            // Send disabled keycodes
+            // Send disabled keycodes for all buttons
+            gpdButtonA?.SetKeycode(0);
+            gpdButtonB?.SetKeycode(0);
+            gpdButtonX?.SetKeycode(0);
+            gpdButtonY?.SetKeycode(0);
+            gpdButtonDPadUp?.SetKeycode(0);
+            gpdButtonDPadDown?.SetKeycode(0);
+            gpdButtonDPadLeft?.SetKeycode(0);
+            gpdButtonDPadRight?.SetKeycode(0);
+            gpdButtonL3?.SetKeycode(0);
+            gpdButtonR3?.SetKeycode(0);
+            gpdButtonLSLeft?.SetKeycode(0);
+            gpdButtonLSRight?.SetKeycode(0);
             gpdButtonL4?.SetKeycode(0);
             gpdButtonR4?.SetKeycode(0);
         }
@@ -18208,8 +19103,11 @@ namespace XboxGamingBar
         /// </summary>
         private void LegionPerformanceModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Property handles the update, just log here
-            Logger.Info($"Legion Performance mode selection changed");
+            // Check if this change came from a pipe/property sync (not user interaction).
+            // When true, TDPModeComboBox_SelectionChanged must skip profile saves to prevent
+            // corrupting game profiles with global values during game exit transitions.
+            bool fromHelperSync = legionPerformanceMode?.IsUpdatingUI == true;
+            Logger.Info($"Legion Performance mode selection changed (fromHelperSync={fromHelperSync})");
 
             // Sync TDP Mode dropdown in Performance tab
             // Skip during initial sync - ApplyProfileTDPToHelper will set the correct value
@@ -18217,7 +19115,19 @@ namespace XboxGamingBar
             {
                 if (TDPModeComboBox.SelectedIndex != LegionPerformanceModeComboBox.SelectedIndex)
                 {
-                    TDPModeComboBox.SelectedIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                    // Set isApplyingHelperUpdate during sync so TDPModeComboBox_SelectionChanged
+                    // returns early (skips profile save and value sends).
+                    if (fromHelperSync)
+                        isApplyingHelperUpdate = true;
+                    try
+                    {
+                        TDPModeComboBox.SelectedIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                    }
+                    finally
+                    {
+                        if (fromHelperSync)
+                            isApplyingHelperUpdate = false;
+                    }
                 }
             }
 
@@ -18234,14 +19144,27 @@ namespace XboxGamingBar
         {
             if (TDPModeComboBox == null) return;
 
-            // Skip during initialization or profile loading to prevent cycling
-            if (isInitialSync || isLoadingProfile) return;
-
             int selectedIndex = TDPModeComboBox.SelectedIndex;
             if (selectedIndex < 0) return;
 
+            Logger.Debug($"TDPModeComboBox_SelectionChanged: selectedIndex={selectedIndex}, lastTDPModeIndex={lastTDPModeIndex}, isApplyingHelperUpdate={isApplyingHelperUpdate}, isLoadingProfile={isLoadingProfile}");
+
+            // Block only during active pipe operations (sync/message handling) or profile loading.
+            // Use isApplyingHelperUpdate instead of isInitialSync so user clicks work during the
+            // init window (20-50s). Programmatic changes from pipe sync are blocked by isApplyingHelperUpdate,
+            // and post-sync ComboBox updates are blocked by the equality check (lastTDPModeIndex set first).
+            if (isApplyingHelperUpdate || isLoadingProfile)
+            {
+                lastTDPModeIndex = selectedIndex;
+                return;
+            }
+
             // Skip if this is the same index as last time (avoid redundant processing)
-            if (selectedIndex == lastTDPModeIndex) return;
+            if (selectedIndex == lastTDPModeIndex)
+            {
+                Logger.Debug($"TDPModeComboBox_SelectionChanged skipped: selectedIndex={selectedIndex} == lastTDPModeIndex={lastTDPModeIndex}");
+                return;
+            }
 
             // Check if switching away from Custom mode (to save slider value)
             // Use lastTDPModeIndex to check the PREVIOUS selection, not the new one
@@ -18276,10 +19199,17 @@ namespace XboxGamingBar
                     LegionPerformanceModeComboBox.SelectedIndex = selectedIndex;
                 }
 
-                // Send Legion mode to helper
-                if (legionPerformanceMode != null && legionPerformanceMode.Value != legionModeValue)
+                // Send Legion mode to helper - force send even if cached value matches
+                if (legionPerformanceMode != null)
                 {
-                    legionPerformanceMode.SetValue(legionModeValue);
+                    if (legionPerformanceMode.Value == legionModeValue)
+                    {
+                        legionPerformanceMode.ForceSetValue(legionModeValue);
+                    }
+                    else
+                    {
+                        legionPerformanceMode.SetValue(legionModeValue);
+                    }
                 }
 
                 // For custom presets without hardware mode (255), also apply TDP via software
@@ -18363,8 +19293,21 @@ namespace XboxGamingBar
             // Don't save when Default Game Profile is active (to avoid contaminating user's profile)
             if (!isInitialSync && !isLoadingProfile && SaveTDP && (!isApplyingHelperUpdate || isUserInitiatedTDPModeChange) && defaultGameProfileEnabled?.Value != true)
             {
-                Logger.Info($"Saving TDP Mode change to profile: {currentProfileName}");
-                SaveCurrentSettingsToProfile(currentProfileName);
+                // Don't save to game profile if per-game profile is disabled.
+                // During game close, helper sends global mode via pipe → ComboBox changes → handler fires.
+                // At this point, perGameProfile.Value is already false (pipe message processed) but
+                // currentProfileName still points to the game profile (SwitchProfile hasn't run yet).
+                // Without this check, the global mode gets saved to the game profile, corrupting it.
+                bool isGameProfile = currentProfileName?.StartsWith("Game_") == true;
+                if (isGameProfile && perGameProfile?.Value != true)
+                {
+                    Logger.Warn($"TDP Mode save skipped: per-game profile is disabled but currentProfileName is still '{currentProfileName}' (game closing)");
+                }
+                else
+                {
+                    Logger.Info($"Saving TDP Mode change to profile: {currentProfileName}");
+                    SaveCurrentSettingsToProfile(currentProfileName);
+                }
             }
             else
             {
@@ -18391,6 +19334,10 @@ namespace XboxGamingBar
             // Check if in Custom mode (uses preset system for proper detection)
             bool isCustomMode = IsCustomTdpModeSelected();
             bool isLegion = legionGoDetected?.Value == true;
+
+            // Check if the mode change came from helper pipe sync (not user interaction).
+            // When true, widget's profile may have stale values - use helper's property values instead.
+            bool isHelperModeSync = legionPerformanceMode?.IsUpdatingUI == true;
 
             // TDP slider, TDP Boost, and AutoTDP should only be enabled in Custom mode
             // Note: TDP slider also requires tdp property to be ready (IsEnabled is set elsewhere too)
@@ -18455,8 +19402,13 @@ namespace XboxGamingBar
                     isUpdatingTDPMode = false;
                 }
 
-                // Explicitly notify helper to disable AutoTDP/StickyTDP since toggle handlers were blocked
-                if (wasAutoTDPOn)
+                // Explicitly notify helper to disable AutoTDP/StickyTDP since toggle handlers were blocked.
+                // Skip when:
+                // - isLoadingProfile: helper manages state during profile switches, ComboBox may show wrong mode
+                // - isHelperModeSync: mode change came from helper pipe sync (not user).
+                //   During game close, helper sends global mode → widget shouldn't send stale values back.
+                //   During game open, helper sends game mode → widget's profile may have stale AutoTDP.
+                if (wasAutoTDPOn && !isLoadingProfile && !isHelperModeSync)
                 {
                     autoTDPEnabled?.SetValue(false);
                     Logger.Info("AutoTDP disabled due to TDP mode change away from Custom");
@@ -18501,19 +19453,31 @@ namespace XboxGamingBar
                 {
                     var settings = ApplicationData.Current.LocalSettings;
 
+                    // Skip sending to helper when:
+                    // - isLoadingProfile: profile is being loaded, helper manages state
+                    // - isHelperModeSync: mode change came from helper pipe sync, widget's profile
+                    //   may have stale values (e.g., AutoTDP=false saved during game close)
+                    bool canSendToHelper = !isLoadingProfile && !isHelperModeSync;
+
                     if (TDPBoostToggle != null)
                     {
                         if (SaveTDP)
                         {
                             var profile = GetProfile(currentProfileName);
-                            TDPBoostToggle.IsOn = profile.TDPBoostEnabled;
-                            this.tdpBoostEnabled?.SetValue(profile.TDPBoostEnabled);
-                            Logger.Debug($"Restored TDP Boost from profile '{currentProfileName}': {profile.TDPBoostEnabled}");
+                            // When helper is syncing mode, use the helper's property value.
+                            bool tdpBoostState = isHelperModeSync && this.tdpBoostEnabled != null
+                                ? this.tdpBoostEnabled.Value
+                                : profile.TDPBoostEnabled;
+                            TDPBoostToggle.IsOn = tdpBoostState;
+                            if (canSendToHelper)
+                                this.tdpBoostEnabled?.SetValue(tdpBoostState);
+                            Logger.Debug($"Restored TDP Boost from {(isHelperModeSync ? "helper" : "profile")} '{currentProfileName}': {tdpBoostState}");
                         }
                         else if (settings.Values.TryGetValue("TDPBoostEnabled", out object tdpBoostVal) && tdpBoostVal is bool tdpBoostEnabledVal)
                         {
                             TDPBoostToggle.IsOn = tdpBoostEnabledVal;
-                            this.tdpBoostEnabled?.SetValue(tdpBoostEnabledVal);
+                            if (canSendToHelper)
+                                this.tdpBoostEnabled?.SetValue(tdpBoostEnabledVal);
                             Logger.Debug($"Restored TDP Boost from LocalSettings: {tdpBoostEnabledVal}");
                         }
                     }
@@ -18526,14 +19490,22 @@ namespace XboxGamingBar
                             if (SaveAutoTDP)
                             {
                                 var profile = GetProfile(currentProfileName);
-                                AutoTDPToggle.IsOn = profile.AutoTDPEnabled;
-                                autoTDPEnabled?.SetValue(profile.AutoTDPEnabled);
-                                Logger.Debug($"Restored AutoTDP from profile '{currentProfileName}': {profile.AutoTDPEnabled}");
+                                // When helper is syncing mode, use the helper's property value.
+                                // The widget's profile may be stale (e.g., AutoTDP=false saved during
+                                // game close). The helper's autoTDPEnabled.Value is the source of truth.
+                                bool autoTDPState = isHelperModeSync && autoTDPEnabled != null
+                                    ? autoTDPEnabled.Value
+                                    : profile.AutoTDPEnabled;
+                                AutoTDPToggle.IsOn = autoTDPState;
+                                if (canSendToHelper)
+                                    autoTDPEnabled?.SetValue(autoTDPState);
+                                Logger.Debug($"Restored AutoTDP from {(isHelperModeSync ? "helper" : "profile")} '{currentProfileName}': {autoTDPState}");
                             }
                             else if (settings.Values.TryGetValue("AutoTDPEnabled", out object autoTdpVal) && autoTdpVal is bool autoTdpEnabled)
                             {
                                 AutoTDPToggle.IsOn = autoTdpEnabled;
-                                autoTDPEnabled?.SetValue(autoTdpEnabled);
+                                if (canSendToHelper)
+                                    autoTDPEnabled?.SetValue(autoTdpEnabled);
                                 Logger.Debug($"Restored AutoTDP from LocalSettings: {autoTdpEnabled}");
                             }
                         }
@@ -18711,6 +19683,10 @@ namespace XboxGamingBar
 
         // Quick Metrics row state
         private bool quickMetricsEnabled = false;
+        private bool screenSaverEnabled = false;
+        private const string ScreenSaverEnabledKey = "QS_ScreenSaverEnabled";
+        private const int ScreenSaverTimeoutSeconds = 60;
+        private DispatcherTimer screenSaverCountdownTimer;
         private const string QuickMetricsEnabledKey = "QS_MetricsEnabled";
         private const string QuickMetricsSelectionKey = "QS_MetricsSelection";
         private const int MaxSelectedMetrics = 6;
@@ -18894,6 +19870,7 @@ namespace XboxGamingBar
             AddTileDefinition("Overlay", "Overlay", "\uE7B3", order: order++);
 
             // Row 6 - Input & Interaction
+            AddTileDefinition("ScreenSaver", "Idle Screen Off", "\uE7E8", order: order++);
             AddTileDefinition("Keyboard", "Keyboard", "\uE765", isTrigger: true, order: order++);
             AddTileDefinition("LegionTouchpad", "Touchpad", "\uE962", order: order++);
             AddTileDefinition("LegionRemapControls", "Remap", "\uE7FC", order: order++);
@@ -19097,6 +20074,16 @@ namespace XboxGamingBar
                 if (settings.Values.TryGetValue(QuickMetricsEnabledKey, out object metricsVal) && metricsVal is bool metricsEnabled)
                 {
                     quickMetricsEnabled = metricsEnabled;
+                }
+
+                // Load Screen Saver toggle state
+                if (settings.Values.TryGetValue(ScreenSaverEnabledKey, out object ssVal) && ssVal is bool ssEnabled)
+                {
+                    screenSaverEnabled = ssEnabled;
+                    if (screenSaverEnabled)
+                    {
+                        StartScreenSaverCountdown();
+                    }
                 }
 
                 // Load Quick Metrics selection
@@ -19717,7 +20704,7 @@ namespace XboxGamingBar
         /// <summary>
         /// Send Quick Metrics enabled state to helper
         /// </summary>
-        private async Task SendQuickMetricsEnabledToHelper()
+        private void SendQuickMetricsEnabledToHelper()
         {
             try
             {
@@ -19729,12 +20716,37 @@ namespace XboxGamingBar
                     { "Function", (int)Shared.Enums.Function.QuickMetricsEnabled },
                     { "Content", quickMetricsEnabled }
                 };
-                await App.SendMessageAsync(request);
+                // Fire-and-forget: helper processes this but doesn't send a response,
+                // so using SendRequestAsync would timeout after 10s for no reason
+                App.PipeClient?.SendValueSet(request);
                 Logger.Info($"Sent Quick Metrics enabled state to helper: {quickMetricsEnabled}");
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error sending Quick Metrics enabled state: {ex.Message}");
+            }
+        }
+
+        private void SendScreenSaverEnabledToHelper()
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "Command", (int)Shared.Enums.Command.Set },
+                    { "Function", (int)Shared.Enums.Function.ScreenSaverEnabled },
+                    { "Content", screenSaverEnabled }
+                };
+                // Fire-and-forget: helper processes this but doesn't send a response,
+                // so using SendRequestAsync would timeout after 10s for no reason
+                App.PipeClient?.SendValueSet(request);
+                Logger.Info($"Sent Screen Saver enabled state to helper: {screenSaverEnabled}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending Screen Saver enabled state: {ex.Message}");
             }
         }
 
@@ -20794,16 +21806,38 @@ namespace XboxGamingBar
                     }
                 }
 
-                // Legion Fan Full Speed tile
+                // Fan Full Speed tile (Legion or GPD)
                 if (qsTileMap.TryGetValue("LegionFanFullSpeed", out var fanFullSpeedTile) && fanFullSpeedTile.TileButton != null)
                 {
+                    bool enabled = false;
                     if (legionGoDetected?.Value == true)
                     {
-                        bool enabled = legionFanFullSpeed?.Value ?? false;
-                        fanFullSpeedTile.StateText.Text = enabled ? "On" : "Off";
-                        fanFullSpeedTile.StateText.Foreground = enabled ? accentForeground : offForeground;
-                        fanFullSpeedTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                        enabled = legionFanFullSpeed?.Value ?? false;
                     }
+                    else if (gpdDetected?.Value == true)
+                    {
+                        enabled = gpdFanMaxActive;
+                    }
+                    fanFullSpeedTile.StateText.Text = enabled ? "On" : "Off";
+                    fanFullSpeedTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                    fanFullSpeedTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
+                // Screen Saver tile
+                if (qsTileMap.TryGetValue("ScreenSaver", out var screenSaverTile) && screenSaverTile.TileButton != null)
+                {
+                    bool enabled = screenSaverEnabled;
+                    if (enabled)
+                    {
+                        // Don't overwrite countdown text — let the timer handle it
+                        screenSaverTile.StateText.Foreground = accentForeground;
+                    }
+                    else
+                    {
+                        screenSaverTile.StateText.Text = "Off";
+                        screenSaverTile.StateText.Foreground = offForeground;
+                    }
+                    screenSaverTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
                 }
 
                 // Battery tile - device battery in title, controllers in state text
@@ -20981,6 +22015,9 @@ namespace XboxGamingBar
                                 break;
                             case "EPP":
                                 CycleEPP();
+                                break;
+                            case "ScreenSaver":
+                                ToggleScreenSaver();
                                 break;
                             case "Keyboard":
                                 TriggerOnScreenKeyboard();

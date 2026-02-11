@@ -543,12 +543,40 @@ namespace XboxGamingBarHelper.Systems
                         fps = appEntry.InstantaneousFrames;
                     }
 
-                    // Use GetGameName to respect preferExe setting - returns exe name (e.g., "msedge")
-                    // instead of window title (e.g., "YouTube - Personal - Microsoft Edge")
-                    var gameName = GetGameName(mw.Path, trackedGame.DisplayName);
-                    Logger.Info($"TrackedGame \"{trackedGame.DisplayName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground} -> GameName={gameName}");
-
-                    return new RunningGame(mw.ProcessId, gameName, mw.Path, fps, mw.IsForeground);
+                    // If TrackedGame matched a non-rendering window (FPS=0), check if an actual
+                    // game is still running with FPS > 0. This prevents switching away from a real
+                    // game (e.g., Hollow Knight) to a non-game app (e.g., Notepad) just because
+                    // Game Bar tracked a focus change. Fall through to normal FPS-based detection.
+                    if (fps == 0)
+                    {
+                        bool hasGameWithFPS = false;
+                        foreach (var pw in ProcessWindows.Values)
+                        {
+                            if (AppEntries.TryGetValue(pw.ProcessId, out var otherEntry) && otherEntry.InstantaneousFrames > 0)
+                            {
+                                hasGameWithFPS = true;
+                                break;
+                            }
+                        }
+                        if (hasGameWithFPS)
+                        {
+                            Logger.Info($"TrackedGame \"{trackedGame.DisplayName}\" matched but has FPS=0, another game has FPS > 0 - falling through to normal detection");
+                            // Fall through to normal game detection below
+                        }
+                        else
+                        {
+                            var gameName = GetGameName(mw.Path, trackedGame.DisplayName);
+                            Logger.Info($"TrackedGame \"{trackedGame.DisplayName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground} -> GameName={gameName}");
+                            return new RunningGame(mw.ProcessId, gameName, mw.Path, fps, mw.IsForeground);
+                        }
+                    }
+                    else
+                    {
+                        // TrackedGame has FPS > 0, it's actively rendering - use it
+                        var gameName = GetGameName(mw.Path, trackedGame.DisplayName);
+                        Logger.Info($"TrackedGame \"{trackedGame.DisplayName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground} -> GameName={gameName}");
+                        return new RunningGame(mw.ProcessId, gameName, mw.Path, fps, mw.IsForeground);
+                    }
                 }
                 else
                 {
