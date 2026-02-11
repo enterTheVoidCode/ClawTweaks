@@ -14,6 +14,13 @@ namespace XboxGamingBar.Data
         private const int DEBOUNCE_DELAY_MS = 500; // Wait 500ms after last change before sending
 
         /// <summary>
+        /// Static counter tracking how many widget properties are currently updating their UI
+        /// from helper pipe sync. Used by SettingChanged to skip auto-saves during sync.
+        /// Shared across WidgetSliderProperty, WidgetToggleProperty, and LegionPerformanceModeProperty.
+        /// </summary>
+        internal static int HelperSyncCount = 0;
+
+        /// <summary>
         /// Flag to indicate when the UI is being updated programmatically (from helper sync or profile loading).
         /// When true, ValueChanged events should not trigger profile saves or debounce timer.
         /// </summary>
@@ -39,11 +46,38 @@ namespace XboxGamingBar.Data
 
         public void StopDebounceTimer()
         {
-            if (debounceTimer != null && debounceTimer.IsEnabled)
+            if (debounceTimer == null || !debounceTimer.IsEnabled)
             {
-                Logger.Info($"{Function} Stopping debounce timer.");
+                return;
+            }
+
+            // Clear pending state immediately to avoid stale sends
+            hasPendingValue = false;
+
+            // DispatcherTimer must be stopped on the UI thread
+            if (Owner?.Dispatcher != null)
+            {
+                if (Owner.Dispatcher.HasThreadAccess)
+                {
+                    Logger.Info($"{Function} Stopping debounce timer.");
+                    debounceTimer.Stop();
+                }
+                else
+                {
+                    _ = Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        if (debounceTimer != null && debounceTimer.IsEnabled)
+                        {
+                            Logger.Info($"{Function} Stopping debounce timer (dispatched).");
+                            debounceTimer.Stop();
+                        }
+                    });
+                }
+            }
+            else
+            {
+                Logger.Info($"{Function} Stopping debounce timer (no dispatcher).");
                 debounceTimer.Stop();
-                hasPendingValue = false;
             }
         }
 
@@ -165,7 +199,8 @@ namespace XboxGamingBar.Data
                 Logger.Info($"Update {Function} slider value {Value}.");
                 await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
-                    // Set flag to prevent ValueChanged from triggering profile saves
+                    // Set flags to prevent ValueChanged from triggering profile saves
+                    HelperSyncCount++;
                     IsUpdatingUI = true;
                     try
                     {
@@ -174,6 +209,7 @@ namespace XboxGamingBar.Data
                     finally
                     {
                         IsUpdatingUI = false;
+                        HelperSyncCount--;
                     }
                 });
             }

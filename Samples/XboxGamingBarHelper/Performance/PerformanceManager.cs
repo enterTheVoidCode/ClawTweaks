@@ -927,29 +927,34 @@ namespace XboxGamingBarHelper.Performance
                 Logger.Info($"set_max={setMaxResult} set_min={setMinResult} set={"123"}");
             }*/
 
-            // Track which sensors have received valid values this update cycle
-            // This allows us to prefer valid values over N/A when multiple GPUs exist (MUX switch scenarios)
-            var sensorsWithValidValues = new HashSet<HardwareSensor>();
-
-            foreach (var hardwareSensor in hardwareSensors)
-            {
-                hardwareSensor.Value = -1.0f;
-            }
-
             if (computer == null)
                 return;
+
+            // Reset sensors to -1 in a local set, then swap atomically after processing.
+            // This prevents PushQuickMetrics (on a separate timer) from reading -1 mid-update.
+            var pendingValues = new Dictionary<HardwareSensor, float>();
+            foreach (var hardwareSensor in hardwareSensors)
+            {
+                pendingValues[hardwareSensor] = -1.0f;
+            }
 
             computer.Accept(updateVisitor);
             foreach (IHardware hardware in computer.Hardware)
             {
                 // Process sensors for this hardware
-                ProcessHardwareSensors(hardware);
+                ProcessHardwareSensors(hardware, pendingValues);
 
                 // Also process sub-hardware sensors (some sensors like GPU temp are nested)
                 foreach (IHardware subHardware in hardware.SubHardware)
                 {
-                    ProcessHardwareSensors(subHardware);
+                    ProcessHardwareSensors(subHardware, pendingValues);
                 }
+            }
+
+            // Apply all values at once so PushQuickMetrics never sees partially-reset state
+            foreach (var kvp in pendingValues)
+            {
+                kvp.Key.Value = kvp.Value;
             }
 
             // Override battery level with Windows API value
@@ -978,9 +983,10 @@ namespace XboxGamingBarHelper.Performance
         }
 
         /// <summary>
-        /// Processes sensors for a given hardware device and updates matching HardwareSensor values.
+        /// Processes sensors for a given hardware device and updates pending values dictionary.
+        /// Values are written to sensors atomically after all processing completes.
         /// </summary>
-        private void ProcessHardwareSensors(IHardware hardware)
+        private void ProcessHardwareSensors(IHardware hardware, Dictionary<HardwareSensor, float> pendingValues)
         {
             foreach (ISensor sensor in hardware.Sensors)
             {
@@ -996,8 +1002,9 @@ namespace XboxGamingBarHelper.Performance
                         // Prefer non-zero valid values over zero or invalid values
                         // This handles dual-GPU scenarios (iGPU + dGPU) where iGPU may report 0W
                         // while dGPU has the actual power reading
-                        bool currentIsValid = hardwareSensor.Value >= 0;
-                        bool currentIsNonZero = hardwareSensor.Value > 0;
+                        float currentValue = pendingValues[hardwareSensor];
+                        bool currentIsValid = currentValue >= 0;
+                        bool currentIsNonZero = currentValue > 0;
                         bool newIsValid = newValue >= 0;
                         bool newIsNonZero = newValue > 0;
 
@@ -1007,7 +1014,7 @@ namespace XboxGamingBarHelper.Performance
                         // Don't overwrite a non-zero valid value with zero
                         if (!currentIsValid || newIsNonZero || (!currentIsNonZero && newIsValid))
                         {
-                            hardwareSensor.Value = newValue;
+                            pendingValues[hardwareSensor] = newValue;
                         }
                     }
                 }

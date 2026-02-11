@@ -16,6 +16,14 @@ namespace XboxGamingBar.Data
         private Action<bool> _customTDPVisibilityCallback;
 
         /// <summary>
+        /// Flag indicating the UI is being updated from a pipe/property sync (not user interaction).
+        /// When true, downstream handlers (TDPModeComboBox_SelectionChanged) should treat the
+        /// change as helper-initiated and skip profile saves.
+        /// </summary>
+        private bool isUpdatingUI;
+        public bool IsUpdatingUI => isUpdatingUI;
+
+        /// <summary>
         /// When true, both UI updates AND internal value changes from helper sync are suppressed.
         /// Used during initial sync to prevent helper's cached mode from overwriting profile mode.
         /// </summary>
@@ -95,7 +103,17 @@ namespace XboxGamingBar.Data
             {
                 await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
-                    UpdateUISelection();
+                    WidgetSliderProperty.HelperSyncCount++;
+                    isUpdatingUI = true;
+                    try
+                    {
+                        UpdateUISelection();
+                    }
+                    finally
+                    {
+                        isUpdatingUI = false;
+                        WidgetSliderProperty.HelperSyncCount--;
+                    }
                 });
             }
         }

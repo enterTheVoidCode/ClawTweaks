@@ -91,6 +91,8 @@
     <Compile Include="Converter\SharpnessPercentStringConverter.cs" />
     <Compile Include="Data\AMDRadeonAntiLagEnabledProperty.cs" />
     <Compile Include="Data\AMDRadeonAntiLagSupportedProperty.cs" />
+    <Compile Include="Data\AutoHibernateEnabledProperty.cs" />
+    <Compile Include="Data\AutoHibernateIdleMinutesProperty.cs" />
     <Compile Include="Data\AMDFluidMotionFrameEnabledProperty.cs" />
     <Compile Include="Data\AMDFluidMotionFrameSupportedProperty.cs" />
     <Compile Include="Data\AMDRadeonBoostEnabledProperty.cs" />
@@ -161,6 +163,8 @@
     <Compile Include="Data\GPDFanSpeedProperty.cs" />
     <Compile Include="Data\GPDFanRPMProperty.cs" />
     <Compile Include="Data\GPDFanModeProperty.cs" />
+    <Compile Include="Data\GPDFanCurveProperty.cs" />
+    <Compile Include="Data\GPDButtonProperty.cs" />
     <Compile Include="Data\GPDButtonL4Property.cs" />
     <Compile Include="Data\GPDButtonR4Property.cs" />
     <Compile Include="Data\LegionTouchpadEnabledProperty.cs" />

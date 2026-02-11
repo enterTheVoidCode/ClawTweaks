@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Threading;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Devices;
+using XboxGamingBarHelper.Performance;
+using XboxGamingBarHelper.Settings;
 
 namespace XboxGamingBarHelper.Devices.Libraries.GPD
 {
@@ -32,6 +34,14 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         private GPDFanController _fanController;
         private DateTime _lastFanRPMUpdate = DateTime.MinValue;
         private const int FAN_RPM_UPDATE_INTERVAL_MS = 2000; // Update RPM every 2 seconds
+
+        // Software fan curve
+        private PerformanceManager performanceManager;
+        private bool fanCurveEnabled = false;
+        private int[] fanCurveValues = { 0, 30, 35, 45, 55, 65, 75, 85, 95, 100 };
+        private bool fanCurveVisible = false;
+        private int lastAppliedFanSpeed = -1;
+        private static readonly int[] FanCurveTemps = { 30, 38, 46, 54, 62, 70, 78, 86, 94, 100 };
 
         /// <summary>
         /// Property indicating if a GPD device is detected. Synced to widget.
@@ -81,6 +91,12 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         public readonly GPDFanRPMProperty FanRPM;
         public readonly GPDFanModeProperty FanMode;
 
+        // GPD Software Fan Curve Properties
+        public readonly GPDFanCurveEnabledProperty FanCurveEnabled;
+        public readonly GPDFanCurveDataProperty FanCurveData;
+        public readonly GPDFanCurveVisibleProperty FanCurveVisibleProp;
+        public readonly GPDCPUTempProperty CPUTemp;
+
         /// <summary>
         /// Gets all properties managed by this manager for registration with the sync system.
         /// </summary>
@@ -114,6 +130,11 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 yield return FanSpeed;
                 yield return FanRPM;
                 yield return FanMode;
+                // Software fan curve properties
+                yield return FanCurveEnabled;
+                yield return FanCurveData;
+                yield return FanCurveVisibleProp;
+                yield return CPUTemp;
             }
         }
 
@@ -177,6 +198,15 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             FanSpeed = new GPDFanSpeedProperty(this);
             FanRPM = new GPDFanRPMProperty(this);
             FanMode = new GPDFanModeProperty(this);
+
+            // Create software fan curve properties
+            FanCurveEnabled = new GPDFanCurveEnabledProperty(this);
+            FanCurveData = new GPDFanCurveDataProperty(this);
+            FanCurveVisibleProp = new GPDFanCurveVisibleProperty(this);
+            CPUTemp = new GPDCPUTempProperty(this);
+
+            // Load saved fan curve data from LocalSettings
+            LoadFanCurveSettings();
 
             if (isGPDDetected)
             {
@@ -481,6 +511,155 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             }
         }
 
+        #region Software Fan Curve
+
+        /// <summary>
+        /// Sets the PerformanceManager reference for CPU temperature access.
+        /// Called from Program.cs after both managers are initialized.
+        /// </summary>
+        public void SetPerformanceManager(PerformanceManager manager)
+        {
+            performanceManager = manager;
+            Logger.Info($"[GPDFan] PerformanceManager reference set, CPUTemperature sensor available: {manager?.CPUTemperature != null}");
+        }
+
+        /// <summary>
+        /// Enables or disables the software fan curve.
+        /// When disabled, restores Auto fan mode.
+        /// </summary>
+        public void SetFanCurveEnabled(bool enabled)
+        {
+            Logger.Info($"[GPDFan] SetFanCurveEnabled: {enabled}");
+            fanCurveEnabled = enabled;
+
+            if (!enabled)
+            {
+                // Restore Auto mode when disabling fan curve
+                lastAppliedFanSpeed = -1;
+                if (_fanController != null && _fanController.IsReady)
+                {
+                    _fanController.SetFanMode(GPDFanMode.Auto);
+                    FanMode?.UpdateMode(GPDFanMode.Auto);
+                }
+            }
+
+            // Save enabled state
+            LocalSettingsHelper.SetValue("GPDFanCurveEnabled", enabled);
+        }
+
+        /// <summary>
+        /// Updates the fan curve data from the widget.
+        /// </summary>
+        public void SetFanCurveData(string data)
+        {
+            Logger.Info($"[GPDFan] SetFanCurveData: {data}");
+            try
+            {
+                var parts = data?.Split(',');
+                if (parts != null && parts.Length == 10)
+                {
+                    for (int i = 0; i < 10; i++)
+                    {
+                        fanCurveValues[i] = Math.Max(0, Math.Min(100, int.Parse(parts[i].Trim())));
+                    }
+                    // Reset lastAppliedFanSpeed so new curve takes effect immediately
+                    lastAppliedFanSpeed = -1;
+                    // Save curve data
+                    LocalSettingsHelper.SetValue("GPDFanCurveData", data);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[GPDFan] Error parsing fan curve data: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sets whether the fan curve graph is visible in the widget.
+        /// When visible, helper pushes CPU temp updates.
+        /// </summary>
+        public void SetFanCurveVisible(bool visible)
+        {
+            Logger.Info($"[GPDFan] SetFanCurveVisible: {visible}");
+            fanCurveVisible = visible;
+
+            // Push current temp immediately when becoming visible
+            if (visible && performanceManager != null)
+            {
+                CPUTemp?.UpdateTemp((int)performanceManager.CPUTemperature.Value);
+            }
+        }
+
+        /// <summary>
+        /// Interpolates the target fan speed for a given CPU temperature using the fan curve.
+        /// </summary>
+        /// <param name="tempC">CPU temperature in Celsius</param>
+        /// <returns>Target fan speed percentage (0 = off/auto idle, 1-100 = manual speed)</returns>
+        private int InterpolateFanSpeed(float tempC)
+        {
+            // Below minimum temp → first point value
+            if (tempC <= FanCurveTemps[0])
+                return fanCurveValues[0];
+
+            // Above maximum temp → 100%
+            if (tempC >= FanCurveTemps[9])
+                return 100;
+
+            // Find the two surrounding points and interpolate
+            for (int i = 0; i < 9; i++)
+            {
+                if (tempC >= FanCurveTemps[i] && tempC <= FanCurveTemps[i + 1])
+                {
+                    float t = (tempC - FanCurveTemps[i]) / (float)(FanCurveTemps[i + 1] - FanCurveTemps[i]);
+                    int speed = (int)Math.Round(fanCurveValues[i] + t * (fanCurveValues[i + 1] - fanCurveValues[i]));
+                    speed = Math.Max(0, Math.Min(100, speed));
+
+                    // GPD minimum manual speed is 30%, so clamp 1-29 up to 30
+                    // Value 0 means "off" — allow auto idle
+                    if (speed > 0 && speed < 30)
+                        speed = 30;
+
+                    return speed;
+                }
+            }
+
+            return 100; // Fallback
+        }
+
+        /// <summary>
+        /// Loads saved fan curve settings from LocalSettings.
+        /// </summary>
+        private void LoadFanCurveSettings()
+        {
+            try
+            {
+                if (LocalSettingsHelper.TryGetValue("GPDFanCurveData", out string savedData))
+                {
+                    var parts = savedData?.Split(',');
+                    if (parts != null && parts.Length == 10)
+                    {
+                        for (int i = 0; i < 10; i++)
+                        {
+                            fanCurveValues[i] = Math.Max(0, Math.Min(100, int.Parse(parts[i].Trim())));
+                        }
+                        Logger.Info($"[GPDFan] Loaded saved fan curve data: {savedData}");
+                    }
+                }
+
+                if (LocalSettingsHelper.TryGetValue("GPDFanCurveEnabled", out bool savedEnabled))
+                {
+                    fanCurveEnabled = savedEnabled;
+                    Logger.Info($"[GPDFan] Loaded saved fan curve enabled: {savedEnabled}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[GPDFan] Error loading fan curve settings: {ex.Message}");
+            }
+        }
+
+        #endregion
+
         #region IManager Implementation
 
         public override void Update()
@@ -500,6 +679,40 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                     catch (Exception ex)
                     {
                         Logger.Debug($"[GPD] Error updating fan RPM: {ex.Message}");
+                    }
+
+                    // Software fan curve: read CPU temp and set fan speed
+                    if (fanCurveEnabled && performanceManager != null)
+                    {
+                        try
+                        {
+                            float cpuTemp = performanceManager.CPUTemperature.Value;
+                            int targetSpeed = InterpolateFanSpeed(cpuTemp);
+
+                            if (targetSpeed != lastAppliedFanSpeed)
+                            {
+                                if (targetSpeed == 0)
+                                {
+                                    _fanController.SetFanMode(GPDFanMode.Auto);
+                                }
+                                else
+                                {
+                                    _fanController.SetFanSpeed(targetSpeed);
+                                }
+                                lastAppliedFanSpeed = targetSpeed;
+                                Logger.Debug($"[GPDFan] Curve: temp={cpuTemp:F1}°C → speed={targetSpeed}%");
+                            }
+
+                            // Push CPU temp to widget if graph is visible
+                            if (fanCurveVisible)
+                            {
+                                CPUTemp?.UpdateTemp((int)cpuTemp);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Debug($"[GPDFan] Error in fan curve update: {ex.Message}");
+                        }
                     }
                 }
             }
@@ -526,6 +739,17 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                     _win5Controller.CommandExecuted -= OnWin5CommandExecuted;
                     _win5Controller.Dispose();
                     _win5Controller = null;
+                }
+
+                // Restore auto mode if fan curve was active
+                if (fanCurveEnabled && _fanController != null && _fanController.IsReady)
+                {
+                    try
+                    {
+                        _fanController.SetFanMode(GPDFanMode.Auto);
+                        Logger.Info("[GPDFan] Restored Auto fan mode on shutdown");
+                    }
+                    catch { }
                 }
 
                 // Dispose fan controller (will restore auto mode)

@@ -64,6 +64,9 @@ namespace XboxGamingBarHelper.AutoTDP
         private readonly AutoTDPResetMLProperty resetML;
         public AutoTDPResetMLProperty ResetML => resetML;
 
+        private readonly AutoTDPLearnedGameDataProperty learnedGameData;
+        public AutoTDPLearnedGameDataProperty LearnedGameData => learnedGameData;
+
         // Controller type (0=PID, 1=Q-Learning, 2=SARSA)
         private readonly AutoTDPControllerTypeProperty controllerType;
         public AutoTDPControllerTypeProperty ControllerType => controllerType;
@@ -232,6 +235,7 @@ namespace XboxGamingBarHelper.AutoTDP
             useMLMode = new AutoTDPUseMLModeProperty(false, this);
             mlStatus = new AutoTDPMLStatusProperty("", this);
             resetML = new AutoTDPResetMLProperty(false, this);
+            learnedGameData = new AutoTDPLearnedGameDataProperty("", this);
 
             // Controller type (0=PID, 1=Q-Learning, 2=SARSA)
             controllerType = new AutoTDPControllerTypeProperty(0, this);
@@ -352,6 +356,30 @@ namespace XboxGamingBarHelper.AutoTDP
                     break;
             }
             mlStatus.SetValue(statusString);
+        }
+
+        internal void UpdateLearnedGameDataProperty()
+        {
+            if (learnedGameData == null)
+                return;
+
+            if (learnedTDPStore == null || string.IsNullOrEmpty(currentGamePath))
+            {
+                learnedGameData.SetValue("");
+                return;
+            }
+
+            var json = learnedTDPStore.GetGameDataJson(currentGamePath, currentGameName, targetFPS?.Value ?? 0);
+            learnedGameData.SetValue(json);
+        }
+
+        internal void FlushLearnedTDPStore()
+        {
+            if (learnedTDPStore != null)
+            {
+                Logger.Info("AutoTDPManager: Flushing learned TDP data");
+                learnedTDPStore.Save();
+            }
         }
 
         /// <summary>
@@ -501,6 +529,7 @@ namespace XboxGamingBarHelper.AutoTDP
                 performanceManager.IsAutoTDPActive = false;
                 StatusText = "Waiting for game";
                 TrendText = "";
+                UpdateLearnedGameDataProperty();
                 return;
             }
 
@@ -518,6 +547,7 @@ namespace XboxGamingBarHelper.AutoTDP
                 gameStartTime = DateTime.Now;
 
                 Logger.Info($"AutoTDP: New game detected - '{currentGameName}' at {currentGamePath}");
+                UpdateLearnedGameDataProperty();
 
                 // Try to get learned TDP for this game
                 if (learnedTDPStore != null && controllerType.Value == 2)  // Only use learned TDP in SARSA mode
@@ -534,6 +564,7 @@ namespace XboxGamingBarHelper.AutoTDP
                         hasAppliedLearnedTDP = true;
                         learnedTDPApplied = learnedTDP;
                         StatusText = $"[Learned] {learnedTDP}W";
+                        UpdateLearnedGameDataProperty();
                     }
                 }
             }
@@ -895,6 +926,7 @@ namespace XboxGamingBarHelper.AutoTDP
                         // Record this as a stable TDP for this game
                         learnedTDPStore.RecordStableTDP(currentGamePath, currentGameName, lastAppliedTDP, targetFPS.Value);
                         stableObservations = 0;  // Reset counter after recording
+                        UpdateLearnedGameDataProperty();
 
                         // If we applied a learned TDP and it's working, increase confidence
                         if (hasAppliedLearnedTDP && Math.Abs(lastAppliedTDP - learnedTDPApplied) <= 2)
@@ -916,6 +948,7 @@ namespace XboxGamingBarHelper.AutoTDP
                     {
                         Logger.Warn($"AutoTDP: Learned TDP ({learnedTDPApplied}W) not working for '{currentGameName}', marking unreliable");
                         learnedTDPStore.MarkUnreliable(currentGamePath);
+                        UpdateLearnedGameDataProperty();
                         hasAppliedLearnedTDP = false;  // Don't mark again
                     }
                 }
@@ -1772,6 +1805,11 @@ namespace XboxGamingBarHelper.AutoTDP
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"AutoTDP enabled: {Value}");
+
+            if (!Value)
+            {
+                Manager?.FlushLearnedTDPStore();
+            }
         }
     }
 
@@ -1787,6 +1825,7 @@ namespace XboxGamingBarHelper.AutoTDP
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"AutoTDP target FPS: {Value}");
+            Manager?.UpdateLearnedGameDataProperty();
         }
     }
 
@@ -1847,6 +1886,13 @@ namespace XboxGamingBarHelper.AutoTDP
     internal class AutoTDPMLStatusProperty : HelperProperty<string, AutoTDPManager>
     {
         public AutoTDPMLStatusProperty(string inValue, AutoTDPManager inManager) : base(inValue, null, Function.AutoTDPMLStatus, inManager)
+        {
+        }
+    }
+
+    internal class AutoTDPLearnedGameDataProperty : HelperProperty<string, AutoTDPManager>
+    {
+        public AutoTDPLearnedGameDataProperty(string inValue, AutoTDPManager inManager) : base(inValue, null, Function.AutoTDPLearnedGameData, inManager)
         {
         }
     }

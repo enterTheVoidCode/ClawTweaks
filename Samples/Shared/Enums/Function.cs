@@ -182,6 +182,10 @@
         GPDFanSpeed,                    // int - fan speed percentage (0 = auto, 30-100 = manual)
         GPDFanRPM,                      // int - current fan RPM (read-only, helper to widget)
         GPDFanMode,                     // int - fan mode (0 = auto, 1 = manual)
+        GPDFanCurveEnabled,             // bool - software fan curve on/off
+        GPDFanCurveData,                // string - "v0,v1,...,v9" (10 fan speed % values)
+        GPDFanCurveVisible,             // bool - graph is visible (triggers temp pushes)
+        GPDCPUTemp,                     // int - CPU temp pushed to widget for graph
 
         // GPD Win 5 Button Remapping (ushort keycodes using GPDWin5Keycodes values)
         GPDButtonA,                     // ushort - A button keycode
@@ -221,6 +225,7 @@
         AutoTDPResetML,             // bool - trigger to reset ML learning data (write true to trigger)
         AutoTDPPauseWhenUnfocused,  // bool - pause AutoTDP when game window is not focused (default: true)
         AutoTDPControllerType,      // int - controller type (0=PID, 1=Q-Learning, 2=SARSA)
+        AutoTDPLearnedGameData,     // string - JSON bundle for learned TDP + heatmap for current game
 
         // OSD Customization
         OSDConfig,                  // string - OSD configuration per level (L1:items;L2:items;L3:items)
@@ -301,5 +306,13 @@
         // PawnIO Debug Tools (for testing RyzenSMU functions)
         PawnIOGetCpuInfo,               // Query: returns CPU codename and capabilities
         PawnIOApplySettings,            // Set: apply CO, GfxClk, Tctl settings (params: CoAll, CoGfx, GfxClk, TctlTemp)
+
+        // Screen Saver (idle display off for gaming)
+        ScreenSaverEnabled,             // bool - when true, helper monitors idle time and triggers Windows screen saver
+
+        // Auto Hibernate (idle-based hibernation)
+        AutoHibernateEnabled,           // bool - when true, helper hibernates system after inactivity timeout
+        AutoHibernateIdleMinutes,       // int - idle minutes before hibernate
+        AutoHibernateMode,              // int - 0=Always, 1=AC Only, 2=DC Only
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Diagnostics;
 using NLog;
 using Windows.Storage;
 
@@ -38,9 +39,17 @@ namespace XboxGamingBarHelper.Settings
             try
             {
                 var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                var settingsFolder = Path.Combine(localAppData, "Packages", "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg", "LocalCache");
+
+                // Prefer LocalState when running without package identity.
+                var settingsFolder = GetLocalStateFromExePath()
+                    ?? Path.Combine(localAppData, "GoTweaks");
+
                 Directory.CreateDirectory(settingsFolder);
                 _fallbackSettingsPath = Path.Combine(settingsFolder, "settings.json");
+                Logger.Info($"Fallback settings path: {_fallbackSettingsPath}");
+
+                // Migrate from old LocalCache location (if present) to LocalState/GoTweaks.
+                TryMigrateLegacySettings(localAppData, settingsFolder);
 
                 if (File.Exists(_fallbackSettingsPath))
                 {
@@ -56,6 +65,88 @@ namespace XboxGamingBarHelper.Settings
             {
                 Logger.Warn($"Failed to initialize fallback settings: {ex.Message}");
                 _fallbackSettings = new Dictionary<string, object>();
+            }
+        }
+
+        private static string GetLocalStateFromExePath()
+        {
+            try
+            {
+                var exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                if (string.IsNullOrWhiteSpace(exePath))
+                    return null;
+
+                var packagesIdx = exePath.IndexOf("Packages", StringComparison.OrdinalIgnoreCase);
+                if (packagesIdx < 0)
+                    return null;
+
+                var localCacheIdx = exePath.IndexOf("LocalCache", StringComparison.OrdinalIgnoreCase);
+                var localStateIdx = exePath.IndexOf("LocalState", StringComparison.OrdinalIgnoreCase);
+
+                int baseIdx = localCacheIdx >= 0 ? localCacheIdx : localStateIdx;
+                if (baseIdx <= packagesIdx)
+                    return null;
+
+                var packageBase = exePath.Substring(0, baseIdx).TrimEnd('\\');
+                return Path.Combine(packageBase, "LocalState");
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string GetLocalCacheFromExePath()
+        {
+            try
+            {
+                var exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+                if (string.IsNullOrWhiteSpace(exePath))
+                    return null;
+
+                var packagesIdx = exePath.IndexOf("Packages", StringComparison.OrdinalIgnoreCase);
+                if (packagesIdx < 0)
+                    return null;
+
+                var localCacheIdx = exePath.IndexOf("LocalCache", StringComparison.OrdinalIgnoreCase);
+                if (localCacheIdx <= packagesIdx)
+                    return null;
+
+                var packageBase = exePath.Substring(0, localCacheIdx).TrimEnd('\\');
+                return Path.Combine(packageBase, "LocalCache");
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static void TryMigrateLegacySettings(string localAppData, string newSettingsFolder)
+        {
+            try
+            {
+                var legacyFolder = GetLocalCacheFromExePath()
+                    ?? Path.Combine(
+                        localAppData,
+                        "Packages",
+                        "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg",
+                        "LocalCache"
+                    );
+
+                var legacyPath = Path.Combine(legacyFolder, "settings.json");
+                if (!File.Exists(legacyPath))
+                    return;
+
+                var newPath = Path.Combine(newSettingsFolder, "settings.json");
+                if (File.Exists(newPath))
+                    return;
+
+                Directory.CreateDirectory(newSettingsFolder);
+                File.Copy(legacyPath, newPath, overwrite: false);
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Legacy settings migration failed: {ex.Message}");
             }
         }
 

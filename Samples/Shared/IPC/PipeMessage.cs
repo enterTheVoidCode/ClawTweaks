@@ -220,7 +220,10 @@ namespace Shared.IPC
                     }
                     else
                     {
-                        if (int.TryParse(value, out var i))
+                        // Try long first for large values like UpdatedTime (DateTime.Ticks)
+                        if (long.TryParse(value, out var l))
+                            msg.Extra[key] = l;
+                        else if (int.TryParse(value, out var i))
                             msg.Extra[key] = i;
                     }
                 }

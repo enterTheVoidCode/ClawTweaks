@@ -140,6 +140,21 @@ namespace XboxGamingBarHelper.Profile
             return Path.Combine(GetLocalFolderPath(), $"{GameProfile.GLOBAL_PROFILE_NAME}{XML_EXTENSION}");
         }
 
+        /// <summary>
+        /// Refreshes the GlobalProfile field from the dictionary cache.
+        /// Property change handlers (TDP_PropertyChanged, etc.) update CurrentProfile which is a
+        /// struct copy. Save() writes to the cache/disk, but the GlobalProfile field stays stale.
+        /// Call this before reading GlobalProfile to get the latest values.
+        /// </summary>
+        public void RefreshGlobalProfile()
+        {
+            if (gameProfiles.TryGetValue(GlobalProfile.GameId, out GameProfile cached))
+            {
+                GlobalProfile = cached;
+                Logger.Info($"Refreshed GlobalProfile from cache: TDP={GlobalProfile.TDP}, CPUBoost={GlobalProfile.CPUBoost}, EPP={GlobalProfile.CPUEPP}");
+            }
+        }
+
         public bool TryGetProfile(GameId gameId, out GameProfile gameProfile)
         {
             // Fast path: exact match

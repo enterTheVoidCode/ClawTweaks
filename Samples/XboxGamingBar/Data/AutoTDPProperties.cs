@@ -115,6 +115,13 @@ namespace XboxGamingBar.Data
         }
     }
 
+    internal class AutoTDPLearnedGameDataProperty : WidgetProperty<string>
+    {
+        public AutoTDPLearnedGameDataProperty(string inValue) : base(inValue, null, Function.AutoTDPLearnedGameData)
+        {
+        }
+    }
+
     internal class AutoTDPResetMLProperty : WidgetProperty<bool>
     {
         public AutoTDPResetMLProperty(bool inValue) : base(inValue, null, Function.AutoTDPResetML)
