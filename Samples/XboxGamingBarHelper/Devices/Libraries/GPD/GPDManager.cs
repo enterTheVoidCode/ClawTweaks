@@ -44,6 +44,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         private static readonly int[] FanCurveTemps = { 30, 38, 46, 54, 62, 70, 78, 86, 94, 100 };
         private readonly Dictionary<int, ushort> _win5Mappings = new Dictionary<int, ushort>();
         private ushort _win5R4Keycode = 0x002B;
+        private int _controllerEmulationGyroSource = 0;
+        private int _controllerEmulationMode = 0;
 
         /// <summary>
         /// Property indicating if a GPD device is detected. Synced to widget.
@@ -69,6 +71,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         /// Trigger property to restore default button mappings on Win 5.
         /// </summary>
         public readonly GPDRestoreDefaultsProperty RestoreDefaults;
+        public readonly GPDApplyMappingsProperty ApplyMappings;
 
         // GPD Win 5 Button Remapping Properties
         public readonly GPDButtonAProperty ButtonA;
@@ -98,6 +101,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         public readonly GPDFanCurveDataProperty FanCurveData;
         public readonly GPDFanCurveVisibleProperty FanCurveVisibleProp;
         public readonly GPDCPUTempProperty CPUTemp;
+        public readonly GPDGyroSourceProperty GyroSource;
+        public readonly GPDGyroSimulateModeProperty GyroSimulateMode;
 
         /// <summary>
         /// Gets all properties managed by this manager for registration with the sync system.
@@ -111,6 +116,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 yield return DeviceName;
                 yield return SupportsFanControlProp;
                 yield return RestoreDefaults;
+                yield return ApplyMappings;
                 // Button remapping properties
                 yield return ButtonA;
                 yield return ButtonB;
@@ -137,6 +143,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 yield return FanCurveData;
                 yield return FanCurveVisibleProp;
                 yield return CPUTemp;
+                yield return GyroSource;
+                yield return GyroSimulateMode;
             }
         }
 
@@ -175,6 +183,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             DeviceName = new GPDDeviceNameProperty(GetDeviceModelName(), this);
             SupportsFanControlProp = new GPDSupportsFanControlProperty(deviceInfo?.SupportsFanControl ?? false, this);
             RestoreDefaults = new GPDRestoreDefaultsProperty(this);
+            ApplyMappings = new GPDApplyMappingsProperty(this);
 
             Logger.Info($"[GPD] Device name: {GetDeviceModelName()}, SupportsFanControl: {deviceInfo?.SupportsFanControl ?? false}");
 
@@ -206,6 +215,11 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             FanCurveData = new GPDFanCurveDataProperty(this);
             FanCurveVisibleProp = new GPDFanCurveVisibleProperty(this);
             CPUTemp = new GPDCPUTempProperty(this);
+
+            // Load controller emulation settings before creating synced properties
+            LoadControllerEmulationSettings();
+            GyroSource = new GPDGyroSourceProperty(_controllerEmulationGyroSource, this);
+            GyroSimulateMode = new GPDGyroSimulateModeProperty(_controllerEmulationMode, this);
 
             var defaults = GPDWin5Controller.GetDefaultButtonMap();
             for (int i = 0; i < defaults.Length; i++)
@@ -296,6 +310,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                     // Read and log current configuration
                     Logger.Info("[GPDWin5] Reading current button configuration...");
                     ReadAndLogConfiguration();
+                    TryApplyControllerEmulationSettings();
                 }
                 else
                 {
@@ -437,6 +452,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                             Logger.Info("[GPDWin5] Reconnection successful!");
                             _win5ControllerConnected = true;
                             Win5Connected.SetConnected(true);
+                            TryApplyControllerEmulationSettings();
                             reconnectAttempts = 0;
                         }
                     }
@@ -458,6 +474,10 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             Logger.Info($"[GPDWin5] Connection changed: {(connected ? "Connected" : "Disconnected")}");
             _win5ControllerConnected = connected;
             Win5Connected.SetConnected(connected);
+            if (connected)
+            {
+                TryApplyControllerEmulationSettings();
+            }
         }
 
         /// <summary>
@@ -666,6 +686,99 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             }
         }
 
+        /// <summary>
+        /// Loads saved controller emulation settings from LocalSettings.
+        /// </summary>
+        private void LoadControllerEmulationSettings()
+        {
+            try
+            {
+                if (LocalSettingsHelper.TryGetValue("GPDControllerEmulationGyroSource", out int savedGyroSource))
+                {
+                    _controllerEmulationGyroSource = savedGyroSource == 1 ? 1 : 0;
+                }
+
+                if (LocalSettingsHelper.TryGetValue("GPDControllerEmulationMode", out int savedMode))
+                {
+                    _controllerEmulationMode = Math.Max(0, Math.Min(3, savedMode));
+                }
+
+                Logger.Info($"[GPD] Loaded controller emulation settings: gyroSource={_controllerEmulationGyroSource}, mode={_controllerEmulationMode}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[GPD] Error loading controller emulation settings: {ex.Message}");
+                _controllerEmulationGyroSource = 0;
+                _controllerEmulationMode = 0;
+            }
+        }
+
+        /// <summary>
+        /// Sets and persists gyro source selection for controller emulation.
+        /// </summary>
+        public void SetControllerEmulationGyroSource(int source)
+        {
+            _controllerEmulationGyroSource = source == 1 ? 1 : 0;
+            LocalSettingsHelper.SetValue("GPDControllerEmulationGyroSource", _controllerEmulationGyroSource);
+            Logger.Info($"[GPD] Controller emulation gyro source set to {_controllerEmulationGyroSource}");
+            TryApplyControllerEmulationSettings();
+        }
+
+        /// <summary>
+        /// Sets and persists gyro simulation mode for controller emulation.
+        /// </summary>
+        public void SetControllerEmulationGyroSimulateMode(int mode)
+        {
+            _controllerEmulationMode = Math.Max(0, Math.Min(3, mode));
+            LocalSettingsHelper.SetValue("GPDControllerEmulationMode", _controllerEmulationMode);
+            Logger.Info($"[GPD] Controller emulation mode set to {_controllerEmulationMode}");
+            TryApplyControllerEmulationSettings();
+        }
+
+        /// <summary>
+        /// Applies shared controller emulation settings from the handheld-agnostic manager.
+        /// </summary>
+        public bool ApplyControllerEmulationFromShared(int source, int mode)
+        {
+            _controllerEmulationGyroSource = source == 1 ? 1 : 0;
+            _controllerEmulationMode = Math.Max(0, Math.Min(3, mode));
+
+            LocalSettingsHelper.SetValue("GPDControllerEmulationGyroSource", _controllerEmulationGyroSource);
+            LocalSettingsHelper.SetValue("GPDControllerEmulationMode", _controllerEmulationMode);
+
+            if (!isWin5Detected || _win5Controller == null || !_win5Controller.IsConnected)
+            {
+                Logger.Warn("[GPD] Shared controller emulation apply skipped: Win 5 controller not connected");
+                return false;
+            }
+
+            bool applied = _win5Controller.SetControllerEmulation(_controllerEmulationGyroSource, _controllerEmulationMode);
+            if (!applied)
+            {
+                Logger.Warn("[GPD] Shared controller emulation saved but hardware apply is not implemented");
+            }
+
+            return applied;
+        }
+
+        /// <summary>
+        /// Applies current controller emulation settings to hardware when supported.
+        /// </summary>
+        private void TryApplyControllerEmulationSettings()
+        {
+            if (!isWin5Detected || _win5Controller == null || !_win5Controller.IsConnected)
+            {
+                Logger.Debug("[GPD] Skipping controller emulation apply: Win 5 controller not connected");
+                return;
+            }
+
+            bool applied = _win5Controller.SetControllerEmulation(_controllerEmulationGyroSource, _controllerEmulationMode);
+            if (!applied)
+            {
+                Logger.Warn("[GPD] Controller emulation setting saved but hardware apply is not available in current implementation");
+            }
+        }
+
         #endregion
 
         #region IManager Implementation
@@ -788,6 +901,59 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         }
 
         /// <summary>
+        /// Stages a single button mapping without writing to hardware.
+        /// </summary>
+        public bool StageButtonMapping(int buttonPosition, ushort keycode)
+        {
+            if (!isWin5Detected)
+            {
+                Logger.Warn("[GPD] StageButtonMapping called but Win 5 is not detected");
+                return false;
+            }
+
+            _win5Mappings[buttonPosition] = keycode;
+            Logger.Info($"[GPD] Staged button mapping: position={buttonPosition}, keycode=0x{keycode:X4}");
+            return true;
+        }
+
+        /// <summary>
+        /// Stages R4 mapping without writing to hardware.
+        /// </summary>
+        public bool StageR4Mapping(ushort keycode)
+        {
+            if (!isWin5Detected)
+            {
+                Logger.Warn("[GPD] StageR4Mapping called but Win 5 is not detected");
+                return false;
+            }
+
+            _win5R4Keycode = keycode;
+            Logger.Info($"[GPD] Staged R4 mapping: keycode=0x{keycode:X4}");
+            return true;
+        }
+
+        /// <summary>
+        /// Applies all staged button mappings to hardware in one transaction.
+        /// </summary>
+        public bool ApplyStagedMappings()
+        {
+            if (!isWin5Detected || _win5Controller == null)
+            {
+                Logger.Warn("[GPD] ApplyStagedMappings called but Win 5 not detected or controller not initialized");
+                return false;
+            }
+
+            if (!_win5Controller.IsConnected)
+            {
+                Logger.Warn("[GPD] ApplyStagedMappings called but Win 5 controller not connected");
+                return false;
+            }
+
+            Logger.Info($"[GPD] Applying staged mappings: {_win5Mappings.Count} entries, R4=0x{_win5R4Keycode:X4}");
+            return _win5Controller.RemapButtons(new Dictionary<int, ushort>(_win5Mappings), _win5R4Keycode);
+        }
+
+        /// <summary>
         /// Remaps multiple buttons at once on the Win 5 controller.
         /// </summary>
         /// <param name="mappings">Dictionary of button position to keycode.</param>
@@ -858,40 +1024,12 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
 
         public bool ApplyButtonMapping(int buttonPosition, ushort keycode)
         {
-            if (!isWin5Detected || _win5Controller == null)
-            {
-                Logger.Warn("[GPD] ApplyButtonMapping called but Win 5 not detected or controller not initialized");
-                return false;
-            }
-
-            if (!_win5Controller.IsConnected)
-            {
-                Logger.Warn("[GPD] ApplyButtonMapping called but Win 5 controller not connected");
-                return false;
-            }
-
-            Logger.Info($"[GPD] ApplyButtonMapping: position={buttonPosition}, keycode=0x{keycode:X4}");
-            _win5Mappings[buttonPosition] = keycode;
-            return _win5Controller.RemapButtons(new Dictionary<int, ushort>(_win5Mappings), _win5R4Keycode);
+            return StageButtonMapping(buttonPosition, keycode) && ApplyStagedMappings();
         }
 
         public bool ApplyR4Mapping(ushort keycode)
         {
-            if (!isWin5Detected || _win5Controller == null)
-            {
-                Logger.Warn("[GPD] ApplyR4Mapping called but Win 5 not detected or controller not initialized");
-                return false;
-            }
-
-            if (!_win5Controller.IsConnected)
-            {
-                Logger.Warn("[GPD] ApplyR4Mapping called but Win 5 controller not connected");
-                return false;
-            }
-
-            Logger.Info($"[GPD] ApplyR4Mapping: keycode=0x{keycode:X4}");
-            _win5R4Keycode = keycode;
-            return _win5Controller.RemapButtons(new Dictionary<int, ushort>(_win5Mappings), _win5R4Keycode);
+            return StageR4Mapping(keycode) && ApplyStagedMappings();
         }
 
         #endregion

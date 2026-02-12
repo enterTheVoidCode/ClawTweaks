@@ -418,6 +418,27 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         }
 
         /// <summary>
+        /// Sets controller emulation configuration.
+        /// 0 = Internal Handheld, 1 = Controller Internal.
+        /// 0 = Mouse, 1 = Xbox (Stick), 2 = PS4 (Motion), 3 = PS4 (Stick).
+        /// </summary>
+        /// <remarks>
+        /// Packet-level gyro emulation protocol for Win 5 has not been finalized in this codebase yet.
+        /// Settings are persisted by manager and this method provides a safe integration point.
+        /// </remarks>
+        public bool SetControllerEmulation(int gyroSource, int simulateMode)
+        {
+            if (!IsConnected)
+            {
+                Logger.Warn("[GPDWin5] SetControllerEmulation skipped: controller not connected");
+                return false;
+            }
+
+            Logger.Warn($"[GPDWin5] SetControllerEmulation not implemented yet (gyroSource={gyroSource}, mode={simulateMode})");
+            return false;
+        }
+
+        /// <summary>
         /// Writes a complete button configuration to the device.
         /// Uses the CORRECTED full protocol sequence.
         /// </summary>
@@ -774,17 +795,40 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 return false;
             }
 
+            if (command == null)
+            {
+                Logger.Error("[GPDWin5] SendCommand failed: command is null");
+                return false;
+            }
+
             int packetNum = ++_packetCounter;
 
             try
             {
+                byte[] commandToSend = command;
+                if (command.Length != CommandLength)
+                {
+                    commandToSend = new byte[CommandLength];
+                    if (command.Length > CommandLength)
+                    {
+                        // Some hardcoded protocol dumps contain trailing bytes past 64; Win5 expects exactly 64.
+                        Array.Copy(command, commandToSend, CommandLength);
+                        Logger.Warn($"[GPDWin5] TX Packet #{packetNum} normalized: truncated {command.Length} -> {CommandLength} bytes");
+                    }
+                    else
+                    {
+                        Array.Copy(command, commandToSend, command.Length);
+                        Logger.Debug($"[GPDWin5] TX Packet #{packetNum} normalized: padded {command.Length} -> {CommandLength} bytes");
+                    }
+                }
+
                 lock (_lock)
                 {
                     Logger.Info($"[GPDWin5] TX Packet #{packetNum} {(description != null ? $"({description})" : "")}");
-                    _stream.Write(command);
+                    _stream.Write(commandToSend);
                     Thread.Sleep(3);  // Small delay after write
 
-                    CommandExecuted?.Invoke(this, new GPDHidCommandEventArgs(command, true));
+                    CommandExecuted?.Invoke(this, new GPDHidCommandEventArgs(commandToSend, true));
                     return true;
                 }
             }

@@ -3666,6 +3666,70 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Controller Emulation Card -->
+                        <Border x:Name="ControllerEmulationCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="Controller Emulation" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Configure handheld gyro source and simulation output"
+                                           Style="{StaticResource CardCaptionStyle}"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock x:Name="ControllerEmulationStatusText"
+                                           Text="Waiting for controller emulation support..."
+                                           FontSize="11"
+                                           Foreground="#888888"
+                                           Margin="0,8,0,0"
+                                           TextWrapping="Wrap"/>
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Gyroscope Source" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Select which gyroscope to use"
+                                                   FontSize="11"
+                                                   Foreground="#888888"/>
+                                    </StackPanel>
+                                    <ComboBox x:Name="ControllerEmulationGyroSourceComboBox"
+                                              Grid.Column="1"
+                                              Width="180"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              XYFocusUp="{x:Bind HotkeysExpandButton}"
+                                              XYFocusDown="{x:Bind ControllerEmulationModeComboBox}"
+                                              IsEnabled="False">
+                                        <ComboBoxItem Content="Internal Handheld" Tag="0" IsSelected="True"/>
+                                        <ComboBoxItem Content="Controller Internal" Tag="1"/>
+                                    </ComboBox>
+                                </Grid>
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Gyro Simulation" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Choose how gyro motion is emulated"
+                                                   FontSize="11"
+                                                   Foreground="#888888"/>
+                                    </StackPanel>
+                                    <ComboBox x:Name="ControllerEmulationModeComboBox"
+                                              Grid.Column="1"
+                                              Width="180"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              XYFocusUp="{x:Bind ControllerEmulationGyroSourceComboBox}"
+                                              XYFocusDown="{x:Bind AutoHibernateToggle}"
+                                              IsEnabled="False">
+                                        <ComboBoxItem Content="Mouse" Tag="0" IsSelected="True"/>
+                                        <ComboBoxItem Content="Xbox (Stick)" Tag="1"/>
+                                        <ComboBoxItem Content="PS4 (Motion)" Tag="2"/>
+                                        <ComboBoxItem Content="PS4 (Stick)" Tag="3"/>
+                                    </ComboBox>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Force Default Game Profiles Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -6969,13 +7033,28 @@
                                             </ComboBox>
                                         </Grid>
 
-                                        <!-- Restore Defaults Button -->
-                                        <Button x:Name="GPDRestoreDefaultsButton"
-                                                Content="Restore Defaults"
-                                                HorizontalAlignment="Stretch"
-                                                Style="{StaticResource StandaloneButtonStyle}"
-                                                Margin="0,8,0,0"
-                                                Click="GPDRestoreDefaultsButton_Click"/>
+                                        <!-- Apply/Restore Buttons -->
+                                        <Grid Margin="0,8,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <Button x:Name="GPDApplyMappingsButton"
+                                                    Grid.Column="0"
+                                                    Content="Apply Mappings"
+                                                    HorizontalAlignment="Stretch"
+                                                    Style="{StaticResource StandaloneButtonStyle}"
+                                                    Click="GPDApplyMappingsButton_Click"/>
+
+                                            <Button x:Name="GPDRestoreDefaultsButton"
+                                                    Grid.Column="2"
+                                                    Content="Restore Defaults"
+                                                    HorizontalAlignment="Stretch"
+                                                    Style="{StaticResource StandaloneButtonStyle}"
+                                                    Click="GPDRestoreDefaultsButton_Click"/>
+                                        </Grid>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>

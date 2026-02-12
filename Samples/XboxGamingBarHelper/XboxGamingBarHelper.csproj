@@ -522,6 +522,10 @@
     <Compile Include="Devices\Libraries\GPD\GPDFanController.cs" />
     <Compile Include="Devices\Libraries\GPD\GPDWin5Controller.cs" />
     <Compile Include="Devices\Libraries\GPD\GPDWin5Keycodes.cs" />
+    <Compile Include="ControllerEmulation\ControllerEmulationManager.cs" />
+    <Compile Include="ControllerEmulation\ControllerEmulationProperties.cs" />
+    <Compile Include="ControllerEmulation\ControllerSuppressionManager.cs" />
+    <Compile Include="ControllerEmulation\GyroSourceAdapters.cs" />
     <Compile Include="DefaultGameProfiles\CpuDetector.cs" />
     <Compile Include="DefaultGameProfiles\ProfileParser.cs" />
     <Compile Include="DefaultGameProfiles\BundledProfileExporter.cs" />
