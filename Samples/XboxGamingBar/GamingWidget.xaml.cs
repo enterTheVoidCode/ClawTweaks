@@ -3236,14 +3236,18 @@ namespace XboxGamingBar
             if (AutoTDPToggle == null) return;
 
             // When AutoTDP is on, focus down goes to the slider
-            // When AutoTDP is off, focus down goes to TdpMethodComboBox
+            // When AutoTDP is off, keep navigation inside Performance tab.
             if (AutoTDPToggle.IsOn && AutoTDPTargetFPSSlider != null)
             {
                 AutoTDPToggle.XYFocusDown = AutoTDPTargetFPSSlider;
             }
-            else if (TdpMethodComboBox != null)
+            else if (StickyTDPToggle != null)
             {
-                AutoTDPToggle.XYFocusDown = TdpMethodComboBox;
+                AutoTDPToggle.XYFocusDown = StickyTDPToggle;
+            }
+            else if (OSPowerModeComboBox != null)
+            {
+                AutoTDPToggle.XYFocusDown = OSPowerModeComboBox;
             }
         }
 
@@ -6014,6 +6018,13 @@ namespace XboxGamingBar
             {
                 // E70D = ChevronDown, E70E = ChevronUp
                 TDPExtrasExpandIcon.Glyph = isTDPExtrasExpanded ? "\uE70E" : "\uE70D";
+            }
+
+            // Update XY focus chain based on expanded state
+            if (TDPExtrasExpandToggle != null && OSPowerModeComboBox != null)
+            {
+                TDPExtrasExpandToggle.XYFocusDown = isTDPExtrasExpanded ? (DependencyObject)TDPBoostToggle : OSPowerModeComboBox;
+                OSPowerModeComboBox.XYFocusUp = isTDPExtrasExpanded ? (DependencyObject)StickyTDPToggle : TDPExtrasExpandToggle;
             }
         }
 
@@ -10026,34 +10037,44 @@ namespace XboxGamingBar
             // If per-game is enabled but no valid game, fall back to global profiles
             if (perGameEnabled && hasGame)
             {
-                // Per-game profile - only if we have a VALID game name
-                Logger.Info($"Using per-game profile for: {currentGameName}");
-
+                // Per-game profile - only if we have a VALID game name AND the profile
+                // storage container already exists. This prevents switching to ghost profiles
+                // for fuzzy-matched launcher names that were never explicitly created by the user
+                // or LoadOrCreateGameProfiles(). Without this check, deferred events after
+                // SwitchProfile can auto-save to a non-existent profile, creating it accidentally.
+                var settings = ApplicationData.Current.LocalSettings;
+                string candidateProfile;
                 if (PowerSourceProfileToggle.IsOn)
                 {
-                    return isOnAC ? $"Game_{currentGameName}_AC" : $"Game_{currentGameName}_DC";
+                    candidateProfile = isOnAC ? $"Game_{currentGameName}_AC" : $"Game_{currentGameName}_DC";
                 }
                 else
                 {
-                    return $"Game_{currentGameName}";
+                    candidateProfile = $"Game_{currentGameName}";
                 }
+
+                if (settings.Containers.ContainsKey($"Profile_{candidateProfile}"))
+                {
+                    Logger.Info($"Using per-game profile for: {currentGameName}");
+                    return candidateProfile;
+                }
+
+                Logger.Warn($"Per-game toggle is ON but no saved profile exists for '{candidateProfile}', using global profile instead");
+                // Fall through to global profile below
+            }
+            else if (perGameEnabled && !hasGame)
+            {
+                Logger.Warn($"Per-game toggle is ON but no valid game detected, using global profile instead");
+            }
+
+            // Global profiles (used when: no valid game, per-game disabled, or game profile doesn't exist yet)
+            if (!PowerSourceProfileToggle.IsOn)
+            {
+                return "Global";
             }
             else
             {
-                // Global profiles (used when: no valid game OR per-game disabled)
-                if (perGameEnabled && !hasGame)
-                {
-                    Logger.Warn($"Per-game toggle is ON but no valid game detected, using global profile instead");
-                }
-
-                if (!PowerSourceProfileToggle.IsOn)
-                {
-                    return "Global";
-                }
-                else
-                {
-                    return isOnAC ? "AC" : "DC";
-                }
+                return isOnAC ? "AC" : "DC";
             }
         }
 
@@ -10099,6 +10120,20 @@ namespace XboxGamingBar
             {
                 Logger.Warn($"Attempted to save to invalid profile name: {profileName}, skipping");
                 return;
+            }
+
+            // Don't auto-save to game profiles that haven't been explicitly created.
+            // Only LoadOrCreateGameProfiles() should create new game profile storage containers.
+            // Without this guard, deferred UI events after SwitchProfile can accidentally create
+            // ghost profiles for fuzzy-matched launcher names (e.g., "Game_Hollow Knight: Silksong").
+            if (profileName.StartsWith("Game_"))
+            {
+                var settings2 = ApplicationData.Current.LocalSettings;
+                if (!settings2.Containers.ContainsKey($"Profile_{profileName}"))
+                {
+                    Logger.Warn($"Skipping auto-save to non-existent game profile '{profileName}' (profile must be created via LoadOrCreateGameProfiles first)");
+                    return;
+                }
             }
 
             var profile = GetProfile(profileName);
@@ -18758,18 +18793,28 @@ namespace XboxGamingBar
                 Logger.Info($"PawnIO install button updated: installed={installed}");
 
                 // Update XY navigation to skip disabled button
+                // TDPSettingsExpandButton.XYFocusUp must always point to SystemNavItem (for navigating out of card)
                 if (TdpMethodComboBox != null && TDPSettingsExpandButton != null)
                 {
                     if (installed)
                     {
-                        TdpMethodComboBox.XYFocusDown = TDPSettingsExpandButton;
-                        TDPSettingsExpandButton.XYFocusUp = TdpMethodComboBox;
+                        // Skip disabled Install button: ComboBox -> next slider
+                        TdpMethodComboBox.XYFocusDown = TDPLimitsMinSlider;
+                        if (TDPLimitsMinSlider != null)
+                        {
+                            TDPLimitsMinSlider.XYFocusUp = TdpMethodComboBox;
+                        }
                     }
                     else
                     {
                         TdpMethodComboBox.XYFocusDown = InstallPawnIOButton;
-                        TDPSettingsExpandButton.XYFocusUp = InstallPawnIOButton;
+                        if (TDPLimitsMinSlider != null && InstallPawnIOButton != null)
+                        {
+                            TDPLimitsMinSlider.XYFocusUp = InstallPawnIOButton;
+                        }
                     }
+                    // Always allow navigating up from card header to nav bar
+                    TDPSettingsExpandButton.XYFocusUp = SystemNavItem;
                 }
             }
 
@@ -19562,20 +19607,27 @@ namespace XboxGamingBar
                 }
 
                 // Restore normal XY focus chain in Custom mode
-                // TDPModeComboBox -> TDPSlider -> TDPBoostToggle -> AutoTDPToggle -> StickyTDPToggle -> OSPowerModeComboBox
+                // TDPModeComboBox -> TDPSlider -> TDPExtrasExpandToggle -> [expanded: TDPBoost/AutoTDP/Sticky] -> OSPowerModeComboBox
                 if (TDPModeComboBox != null && OSPowerModeComboBox != null)
                 {
                     TDPModeComboBox.XYFocusDown = TDPSlider;
                     TDPSlider.XYFocusUp = TDPModeComboBox;
-                    TDPSlider.XYFocusDown = TDPBoostToggle;
-                    TDPBoostToggle.XYFocusUp = TDPSlider;
+                    TDPSlider.XYFocusDown = TDPExtrasExpandToggle;
+                    TDPExtrasExpandToggle.XYFocusUp = TDPSlider;
+
+                    // Internal chain when TDP Extras is expanded
+                    TDPBoostToggle.XYFocusUp = TDPExtrasExpandToggle;
                     TDPBoostToggle.XYFocusDown = AutoTDPToggle;
                     AutoTDPToggle.XYFocusUp = TDPBoostToggle;
                     AutoTDPToggle.XYFocusDown = StickyTDPToggle;
                     StickyTDPToggle.XYFocusUp = AutoTDPToggle;
                     StickyTDPToggle.XYFocusDown = OSPowerModeComboBox;
-                    OSPowerModeComboBox.XYFocusUp = StickyTDPToggle;
-                    Logger.Debug("XY focus restored for Custom mode");
+
+                    // TDPExtrasExpandToggle.XYFocusDown depends on expanded state
+                    bool isTDPExtrasOpen = TDPExtrasContent?.Visibility == Visibility.Visible;
+                    TDPExtrasExpandToggle.XYFocusDown = isTDPExtrasOpen ? (DependencyObject)TDPBoostToggle : OSPowerModeComboBox;
+                    OSPowerModeComboBox.XYFocusUp = isTDPExtrasOpen ? (DependencyObject)StickyTDPToggle : TDPExtrasExpandToggle;
+                    Logger.Debug($"XY focus restored for Custom mode (TDP Extras expanded: {isTDPExtrasOpen})");
                 }
             }
         }

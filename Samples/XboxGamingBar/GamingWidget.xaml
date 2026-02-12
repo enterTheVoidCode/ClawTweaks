@@ -209,6 +209,7 @@
             <Setter Property="Margin" Value="0,4,0,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="ManipulationMode" Value="None"/>
+            <Setter Property="IsFocusEngagementEnabled" Value="True"/>
         </Style>
 
         <!-- Modern ComboBox Style - System style with minor customizations -->
@@ -788,7 +789,9 @@
                                     <ToggleSwitch x:Name="PerGameProfileToggle"
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
+                                                  IsEnabled="False"
+                                                  XYFocusUp="{x:Bind PerformanceNavItem}"
+                                                  XYFocusDown="{x:Bind PerformanceOverlayComboBox}"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -810,8 +813,8 @@
                                               Width="120"
                                               Grid.Column="1"
                                               SelectionChanged="PerformanceOverlayComboBox_SelectionChanged"
-                                              XYFocusUp="{x:Bind PerformanceNavItem}"
-                                              XYFocusDown="{x:Bind TDPSlider}"
+                                              XYFocusUp="{x:Bind PerGameProfileToggle}"
+                                              XYFocusDown="{x:Bind TDPModeComboBox}"
                                               XYFocusLeft="{x:Bind PerformanceNavItem}">
                                         <ComboBoxItem Content="Off" Tag="0" IsSelected="True"/>
                                         <ComboBoxItem Content="Basic" Tag="1"/>
@@ -846,7 +849,9 @@
                                           Grid.Column="1"
                                           Style="{StaticResource ModernComboBoxStyle}"
                                           SelectedIndex="1"
-                                          SelectionChanged="TDPModeComboBox_SelectionChanged">
+                                          SelectionChanged="TDPModeComboBox_SelectionChanged"
+                                          XYFocusUp="{x:Bind PerformanceOverlayComboBox}"
+                                          XYFocusDown="{x:Bind TDPSlider}">
                                     <ComboBoxItem Content="Quiet" Tag="1"/>
                                     <ComboBoxItem Content="Balanced" Tag="2"/>
                                     <ComboBoxItem Content="Performance" Tag="3"/>
@@ -871,7 +876,10 @@
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
                                         IsEnabled="False" Value="-5"
-                                        ValueChanged="TDPSlider_ValueChanged_UpdateDisplay"/>
+                                        ValueChanged="TDPSlider_ValueChanged_UpdateDisplay"
+                                        XYFocusUp="{x:Bind TDPModeComboBox}"
+                                        XYFocusDown="{x:Bind TDPExtrasExpandToggle}"
+                                        />
                                 <Grid Margin="0,4,0,0">
                                     <TextBlock x:Name="CurrentTDPText"
                                                Text="Limits:"
@@ -912,6 +920,9 @@
                                                   VerticalAlignment="Center"
                                                   Background="Transparent"
                                                   BorderThickness="0"
+                                                  XYFocusUp="{x:Bind TDPSlider}"
+                                                  XYFocusDown="{x:Bind OSPowerModeComboBox}"
+                                                  UseSystemFocusVisuals="True"
                                                   Padding="8,4"
                                                   Click="TDPExtrasExpandToggle_Click">
                                         <FontIcon x:Name="TDPExtrasExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
@@ -932,7 +943,9 @@
                                         <ToggleSwitch x:Name="TDPBoostToggle"
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernToggleStyle}"
-                                                      Toggled="TDPBoostToggle_Toggled"/>
+                                                      Toggled="TDPBoostToggle_Toggled"
+                                                      XYFocusUp="{x:Bind TDPExtrasExpandToggle}"
+                                                      XYFocusDown="{x:Bind AutoTDPToggle}"/>
                                     </Grid>
                                     <TextBlock Text="TDP Boost: Active"
                                                FontSize="13"
@@ -955,7 +968,9 @@
                                         <ToggleSwitch x:Name="AutoTDPToggle"
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernToggleStyle}"
-                                                      Toggled="AutoTDPToggle_Toggled"/>
+                                                      Toggled="AutoTDPToggle_Toggled"
+                                                      XYFocusUp="{x:Bind TDPBoostToggle}"
+                                                      XYFocusDown="{x:Bind StickyTDPToggle}"/>
                                     </Grid>
                                     <StackPanel Visibility="{Binding ElementName=AutoTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"
                                                 Margin="0,-8,0,0">
@@ -1051,7 +1066,8 @@
                                         <ToggleSwitch x:Name="StickyTDPToggle"
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernToggleStyle}"
-                                                      Toggled="StickyTDPToggle_Toggled"/>
+                                                      Toggled="StickyTDPToggle_Toggled"
+                                                      XYFocusUp="{x:Bind AutoTDPToggle}"/>
                                     </Grid>
                                     <StackPanel Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"
                                                 Margin="0,-8,0,0">
@@ -1092,7 +1108,9 @@
                                           Margin="0,12,0,0"
                                           Style="{StaticResource ModernComboBoxStyle}"
                                           SelectedIndex="1"
-                                          SelectionChanged="OSPowerModeComboBox_SelectionChanged">
+                                          SelectionChanged="OSPowerModeComboBox_SelectionChanged"
+                                          XYFocusUp="{x:Bind TDPExtrasExpandToggle}"
+                                          XYFocusDown="{x:Bind CPUExtrasExpandToggle}">
                                     <ComboBoxItem Content="Best Power Efficiency"/>
                                     <ComboBoxItem Content="Balanced"/>
                                     <ComboBoxItem Content="Best Performance"/>
@@ -1120,7 +1138,9 @@
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
-                                                  Click="CPUExtrasExpandToggle_Click">
+                                                  Click="CPUExtrasExpandToggle_Click"
+                                                  XYFocusUp="{x:Bind OSPowerModeComboBox}"
+                                                  UseSystemFocusVisuals="True">
                                         <FontIcon x:Name="CPUExtrasExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
@@ -1219,7 +1239,9 @@
                                     <ToggleSwitch x:Name="FPSLimitToggle"
                                                   Grid.Column="2"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False" Width="52"/>
+                                                  IsEnabled="False" Width="52"
+                                                  XYFocusUp="{x:Bind CPUExtrasExpandToggle}"
+                                                  XYFocusDown="{x:Bind AdvancedExpandButton}"/>
                                 </Grid>
                                 <Slider x:Name="FPSLimitSlider"
                                         Style="{StaticResource ModernSliderStyle}"
@@ -1255,7 +1277,9 @@
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
-                                                  Click="AdvancedExpandButton_Click">
+                                                  Click="AdvancedExpandButton_Click"
+                                                  XYFocusUp="{x:Bind FPSLimitToggle}"
+                                                  UseSystemFocusVisuals="True">
                                         <FontIcon x:Name="AdvancedExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
@@ -2473,7 +2497,7 @@
 
                         <!-- TDP Settings Card (Collapsible - consolidates Control Method, Device Limits, and Boost Settings) -->
                         <Border x:Name="TdpMethodCard" Style="{StaticResource CardStyle}">
-                            <StackPanel XYFocusKeyboardNavigation="Enabled">
+                            <StackPanel>
                                 <!-- Header with Expand/Collapse -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -2494,7 +2518,9 @@
                                                   BorderThickness="0"
                                                   Padding="8,4"
                                                   Click="TDPSettingsExpandButton_Click"
-                                                  XYFocusUp="{x:Bind SystemNavItem}">
+                                                  XYFocusUp="{x:Bind SystemNavItem}"
+                                                  XYFocusDown="{x:Bind OSDCustomizeExpandButton}"
+                                                  UseSystemFocusVisuals="True">
                                         <FontIcon x:Name="TDPSettingsExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
@@ -2598,7 +2624,8 @@
                                             Value="4"
                                             ValueChanged="TDPLimitsMinSlider_ValueChanged"
                                             XYFocusUp="{x:Bind InstallPawnIOButton}"
-                                            XYFocusDown="{x:Bind TDPLimitsMaxSlider}"/>
+                                            XYFocusDown="{x:Bind TDPLimitsMaxSlider}"
+                                            />
 
                                     <!-- Maximum TDP -->
                                     <Grid Margin="0,12,0,8">
@@ -2621,7 +2648,8 @@
                                             Value="35"
                                             ValueChanged="TDPLimitsMaxSlider_ValueChanged"
                                             XYFocusUp="{x:Bind TDPLimitsMinSlider}"
-                                            XYFocusDown="{x:Bind TDPBoostSPPTSlider}"/>
+                                            XYFocusDown="{x:Bind TDPBoostSPPTSlider}"
+                                            />
 
                                     <!-- Separator -->
                                     <Border Height="1" Background="#3A3A3A" Margin="0,16,0,16"/>
@@ -2671,7 +2699,8 @@
                                             SnapsTo="Ticks"
                                             ValueChanged="TDPBoostSPPTSlider_ValueChanged"
                                             XYFocusUp="{x:Bind TDPLimitsMaxSlider}"
-                                            XYFocusDown="{x:Bind TDPBoostFPPTSlider}"/>
+                                            XYFocusDown="{x:Bind TDPBoostFPPTSlider}"
+                                            />
 
                                     <!-- FPPT Boost -->
                                     <Grid Margin="0,12,0,8">
@@ -2693,7 +2722,8 @@
                                             SnapsTo="Ticks"
                                             ValueChanged="TDPBoostFPPTSlider_ValueChanged"
                                             XYFocusUp="{x:Bind TDPBoostSPPTSlider}"
-                                            XYFocusDown="{x:Bind UseCustomTDPPresetsToggle}"/>
+                                            XYFocusDown="{x:Bind UseCustomTDPPresetsToggle}"
+                                            />
 
                                     <!-- Separator -->
                                     <Border Height="1" Background="#3A3A3A" Margin="0,16,0,16"/>
@@ -2931,7 +2961,10 @@
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
-                                                  Click="OSDCustomizeExpandButton_Click">
+                                                  Click="OSDCustomizeExpandButton_Click"
+                                                  XYFocusUp="{x:Bind TDPSettingsExpandButton}"
+                                                  XYFocusDown="{x:Bind HotkeysExpandButton}"
+                                                  UseSystemFocusVisuals="True">
                                         <FontIcon x:Name="OSDCustomizeExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
@@ -3325,7 +3358,10 @@
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
-                                                  Click="HotkeysExpandButton_Click">
+                                                  Click="HotkeysExpandButton_Click"
+                                                  XYFocusUp="{x:Bind OSDCustomizeExpandButton}"
+                                                  XYFocusDown="{x:Bind AutoHibernateToggle}"
+                                                  UseSystemFocusVisuals="True">
                                         <FontIcon x:Name="HotkeysExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
@@ -3689,7 +3725,8 @@
                                     <ToggleSwitch x:Name="AutoHibernateToggle"
                                                   Grid.Column="1"
                                                   IsOn="False"
-                                                  Style="{StaticResource ModernToggleStyle}"/>
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  XYFocusUp="{x:Bind HotkeysExpandButton}"/>
                                 </Grid>
 
                                 <StackPanel Visibility="{Binding ElementName=AutoHibernateToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -3738,7 +3775,7 @@
 
                         <!-- Debug Card (Collapsible) -->
                         <Border Style="{StaticResource CardStyle}">
-                            <StackPanel XYFocusKeyboardNavigation="Enabled">
+                            <StackPanel>
                                 <!-- Header with Expand/Collapse -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
