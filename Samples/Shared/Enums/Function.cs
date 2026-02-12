@@ -314,5 +314,15 @@
         AutoHibernateEnabled,           // bool - when true, helper hibernates system after inactivity timeout
         AutoHibernateIdleMinutes,       // int - idle minutes before hibernate
         AutoHibernateMode,              // int - 0=Always, 1=AC Only, 2=DC Only
+
+        // GPD Controller Emulation
+        GPDGyroSource,                  // int - gyro source (0=Internal Handheld, 1=Controller Internal)
+        GPDGyroSimulateMode,            // int - gyro simulation mode (0=Mouse, 1=XboxStick, 2=PS4Motion, 3=PS4Stick)
+        GPDApplyMappings,               // bool - trigger to apply staged GPD Win 5 button mappings
+
+        // Handheld-agnostic Controller Emulation
+        ControllerEmulationAvailable,   // bool - helper supports controller emulation flow on current device
+        ControllerEmulationGyroSource,  // int - gyro source (0=Internal Handheld, 1=Controller Internal)
+        ControllerEmulationMode,        // int - mode (0=Mouse, 1=XboxStick, 2=PS4Motion, 3=PS4Stick)
     }
 }

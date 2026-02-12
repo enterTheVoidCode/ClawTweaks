@@ -39,6 +39,8 @@ namespace XboxGamingBarHelper.Labs
         private const int BUTTON_BYTE_DETACHED = 18;
         private const byte LEGION_L_BIT = 0x80;
         private const byte LEGION_R_BIT = 0x40;
+        private const float GYRO_SCALE_DEG_PER_SECOND = 0.0610209f;
+        private const float ACCEL_SCALE_G = 0.00212f;
 
         // Detected controller mode
         private bool isDetachedMode = false;
@@ -208,6 +210,11 @@ namespace XboxGamingBarHelper.Labs
         // This allows other code to notify us when they send HID output reports to the controller
         private static DateTime _lastExternalOutputReportTime = DateTime.MinValue;
         private static readonly object _externalOutputLock = new object();
+        private static readonly object _gyroSampleLock = new object();
+        private static LegionGyroSample _latestLeftGyroSample;
+        private static LegionGyroSample _latestRightGyroSample;
+        private static bool _hasLeftGyroSample = false;
+        private static bool _hasRightGyroSample = false;
 
         /// <summary>
         /// Notify that an external HID output report was sent to the Legion controller.
@@ -219,6 +226,25 @@ namespace XboxGamingBarHelper.Labs
             lock (_externalOutputLock)
             {
                 _lastExternalOutputReportTime = DateTime.Now;
+            }
+        }
+
+        /// <summary>
+        /// Returns the latest parsed controller gyro sample from HID input reports.
+        /// Use <paramref name="useLeftController"/> to select left (true) or right (false) controller source.
+        /// </summary>
+        public static bool TryGetLatestGyroSample(bool useLeftController, out LegionGyroSample sample)
+        {
+            lock (_gyroSampleLock)
+            {
+                if (useLeftController)
+                {
+                    sample = _latestLeftGyroSample;
+                    return _hasLeftGyroSample;
+                }
+
+                sample = _latestRightGyroSample;
+                return _hasRightGyroSample;
             }
         }
 
@@ -2052,6 +2078,8 @@ namespace XboxGamingBarHelper.Labs
                             {
                                 if (hasValidReportHeader)
                                 {
+                                    TryParseAndStoreGyroSamples(buffer, bytesRead);
+
                                     // With heartbeat always active, we use 04:00:A1 header format
                                     // Battery at bytes 3-6, connection status at bytes 10-11
                                     int batteryOffset = 3;
@@ -2190,6 +2218,54 @@ namespace XboxGamingBarHelper.Labs
                     bufferHandle.Free();
                 }
             }
+        }
+
+        private static void TryParseAndStoreGyroSamples(byte[] buffer, uint bytesRead)
+        {
+            if (buffer == null || bytesRead < 60)
+            {
+                return;
+            }
+
+            // Legion raw input reports provide per-controller IMU samples in big-endian format.
+            // Offsets are aligned with known Legion Go report layouts (04:00:A1 / 04:3C:74).
+            LegionGyroSample leftSample = new LegionGyroSample(
+                ReadInt16BigEndian(buffer, 41) * GYRO_SCALE_DEG_PER_SECOND,
+                ReadInt16BigEndian(buffer, 45) * GYRO_SCALE_DEG_PER_SECOND,
+                ReadInt16BigEndian(buffer, 43) * GYRO_SCALE_DEG_PER_SECOND,
+                ReadInt16BigEndian(buffer, 35) * ACCEL_SCALE_G,
+                ReadInt16BigEndian(buffer, 39) * ACCEL_SCALE_G,
+                ReadInt16BigEndian(buffer, 37) * ACCEL_SCALE_G,
+                DateTime.UtcNow.Ticks);
+
+            LegionGyroSample rightSample = new LegionGyroSample(
+                ReadInt16BigEndian(buffer, 56) * GYRO_SCALE_DEG_PER_SECOND,
+                ReadInt16BigEndian(buffer, 58) * GYRO_SCALE_DEG_PER_SECOND,
+                ReadInt16BigEndian(buffer, 54) * GYRO_SCALE_DEG_PER_SECOND,
+                ReadInt16BigEndian(buffer, 50) * ACCEL_SCALE_G,
+                ReadInt16BigEndian(buffer, 52) * ACCEL_SCALE_G,
+                ReadInt16BigEndian(buffer, 48) * ACCEL_SCALE_G,
+                DateTime.UtcNow.Ticks);
+
+            lock (_gyroSampleLock)
+            {
+                _latestLeftGyroSample = leftSample;
+                _latestRightGyroSample = rightSample;
+                _hasLeftGyroSample = true;
+                _hasRightGyroSample = true;
+            }
+        }
+
+        private static short ReadInt16BigEndian(byte[] buffer, int offset)
+        {
+            if (buffer == null || offset < 0 || offset + 1 >= buffer.Length)
+            {
+                return 0;
+            }
+
+            int high = buffer[offset];
+            int low = buffer[offset + 1];
+            return unchecked((short)((high << 8) | low));
         }
 
         /// <summary>
@@ -2336,6 +2412,41 @@ namespace XboxGamingBarHelper.Labs
             RightBattery = rightBattery;
             RightCharging = rightCharging;
             RightConnected = rightConnected;
+        }
+    }
+
+    /// <summary>
+    /// Latest parsed Legion controller IMU sample from HID reports.
+    /// Units:
+    /// - Gyro: degrees per second
+    /// - Accelerometer: g
+    /// </summary>
+    internal readonly struct LegionGyroSample
+    {
+        public readonly float GyroXDegPerSecond;
+        public readonly float GyroYDegPerSecond;
+        public readonly float GyroZDegPerSecond;
+        public readonly float AccelXG;
+        public readonly float AccelYG;
+        public readonly float AccelZG;
+        public readonly long TimestampTicksUtc;
+
+        public LegionGyroSample(
+            float gyroXDegPerSecond,
+            float gyroYDegPerSecond,
+            float gyroZDegPerSecond,
+            float accelXG,
+            float accelYG,
+            float accelZG,
+            long timestampTicksUtc)
+        {
+            GyroXDegPerSecond = gyroXDegPerSecond;
+            GyroYDegPerSecond = gyroYDegPerSecond;
+            GyroZDegPerSecond = gyroZDegPerSecond;
+            AccelXG = accelXG;
+            AccelYG = accelYG;
+            AccelZG = accelZG;
+            TimestampTicksUtc = timestampTicksUtc;
         }
     }
 }

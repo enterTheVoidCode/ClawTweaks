@@ -822,6 +822,7 @@ namespace XboxGamingBar
         private readonly GPDFanRPMProperty gpdFanRPM;
         private readonly GPDFanModeProperty gpdFanMode;
         private readonly GPDRestoreDefaultsProperty gpdRestoreDefaults;
+        private readonly GPDApplyMappingsProperty gpdApplyMappings;
         private readonly GPDButtonL4Property gpdButtonL4;
         private readonly GPDButtonR4Property gpdButtonR4;
         private readonly GPDButtonProperty gpdButtonA;
@@ -836,6 +837,9 @@ namespace XboxGamingBar
         private readonly GPDButtonProperty gpdButtonR3;
         private readonly GPDButtonProperty gpdButtonLSLeft;
         private readonly GPDButtonProperty gpdButtonLSRight;
+        private readonly ControllerEmulationAvailableProperty controllerEmulationAvailable;
+        private readonly ControllerEmulationGyroSourceProperty controllerEmulationGyroSource;
+        private readonly ControllerEmulationModeProperty controllerEmulationMode;
         private bool isApplyingGpdRestoreDefaults = false;
         private readonly GPDFanCurveGraphProperty gpdFanCurveGraph;
         private readonly GPDCPUTempProperty gpdCPUTemp;
@@ -1240,6 +1244,7 @@ namespace XboxGamingBar
             gpdFanRPM = new GPDFanRPMProperty(this);
             gpdFanMode = new GPDFanModeProperty(this);
             gpdRestoreDefaults = new GPDRestoreDefaultsProperty();
+            gpdApplyMappings = new GPDApplyMappingsProperty();
             gpdButtonL4 = new GPDButtonL4Property(this);
             gpdButtonR4 = new GPDButtonR4Property(this);
             gpdButtonA = new GPDButtonProperty(this, Function.GPDButtonA);
@@ -1254,6 +1259,9 @@ namespace XboxGamingBar
             gpdButtonR3 = new GPDButtonProperty(this, Function.GPDButtonR3);
             gpdButtonLSLeft = new GPDButtonProperty(this, Function.GPDButtonLSLeft);
             gpdButtonLSRight = new GPDButtonProperty(this, Function.GPDButtonLSRight);
+            controllerEmulationAvailable = new ControllerEmulationAvailableProperty(this);
+            controllerEmulationGyroSource = new ControllerEmulationGyroSourceProperty(ControllerEmulationGyroSourceComboBox, this);
+            controllerEmulationMode = new ControllerEmulationModeProperty(ControllerEmulationModeComboBox, this);
             gpdFanCurveGraph = new GPDFanCurveGraphProperty(this);
             gpdFanCurveGraph.SetGraphUpdateCallback(OnGPDFanCurveUpdated);
             gpdCPUTemp = new GPDCPUTempProperty(this);
@@ -1349,6 +1357,7 @@ namespace XboxGamingBar
             gpdDeviceName.SetNameCallback(SetGPDDeviceName);
             gpdSupportsFanControl.SetVisibilityCallback(SetGPDFanControlVisibility);
             gpdWin5Connected.SetConnectionCallback(SetGPDButtonRemapVisibility);
+            controllerEmulationAvailable.SetAvailabilityCallback(SetControllerEmulationAvailability);
             gpdFanRPM.SetRPMCallback(UpdateGPDFanRPM);
             gpdFanMode.SetModeCallback(UpdateGPDFanMode);
 
@@ -1507,6 +1516,7 @@ namespace XboxGamingBar
                 gpdFanRPM,
                 gpdFanMode,
                 gpdRestoreDefaults,
+                gpdApplyMappings,
                 gpdButtonL4,
                 gpdButtonR4,
                 gpdButtonA,
@@ -1521,6 +1531,9 @@ namespace XboxGamingBar
                 gpdButtonR3,
                 gpdButtonLSLeft,
                 gpdButtonLSRight,
+                controllerEmulationAvailable,
+                controllerEmulationGyroSource,
+                controllerEmulationMode,
                 gpdFanCurveGraph,
                 gpdCPUTemp,
                 gpdFanCurveVisible,
@@ -1709,6 +1722,12 @@ namespace XboxGamingBar
             // System tab - OSD Customization card
             OSDCustomizeExpandButton.GotFocus += Control_GotFocus;
             OSDCustomizeExpandButton.LostFocus += Control_LostFocus;
+
+            // System tab - Controller Emulation card
+            ControllerEmulationGyroSourceComboBox.GotFocus += Control_GotFocus;
+            ControllerEmulationGyroSourceComboBox.LostFocus += Control_LostFocus;
+            ControllerEmulationModeComboBox.GotFocus += Control_GotFocus;
+            ControllerEmulationModeComboBox.LostFocus += Control_LostFocus;
 
             // System tab - Advanced card
             AdvancedExpandButton.GotFocus += Control_GotFocus;
@@ -17468,6 +17487,8 @@ namespace XboxGamingBar
                     Windows.UI.Color.FromArgb(255, 76, 175, 80) :  // Green
                     Windows.UI.Color.FromArgb(255, 136, 136, 136)); // Gray
             }
+
+            UpdateSystemControllerEmulationNavigation();
         }
 
         /// <summary>
@@ -17531,6 +17552,78 @@ namespace XboxGamingBar
             {
                 GPDButtonRemapSection.Visibility = connected ? Visibility.Visible : Visibility.Collapsed;
                 Logger.Info($"GPD button remap section visibility set to: {connected}");
+            }
+
+            if (GPDApplyMappingsButton != null)
+            {
+                GPDApplyMappingsButton.IsEnabled = connected;
+            }
+
+            UpdateSystemControllerEmulationNavigation();
+        }
+
+        /// <summary>
+        /// Controls visibility and enabled state for the handheld-agnostic Controller Emulation card.
+        /// </summary>
+        private void SetControllerEmulationAvailability(bool available)
+        {
+            if (ControllerEmulationCard != null)
+            {
+                ControllerEmulationCard.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (ControllerEmulationGyroSourceComboBox != null)
+            {
+                ControllerEmulationGyroSourceComboBox.IsEnabled = available;
+            }
+
+            if (ControllerEmulationModeComboBox != null)
+            {
+                ControllerEmulationModeComboBox.IsEnabled = available;
+            }
+
+            if (ControllerEmulationStatusText != null)
+            {
+                ControllerEmulationStatusText.Text = available
+                    ? "Controller emulation is available on this handheld."
+                    : "Controller emulation is not available on this handheld.";
+
+                ControllerEmulationStatusText.Foreground = new SolidColorBrush(available
+                    ? Windows.UI.Color.FromArgb(255, 120, 200, 120)
+                    : Windows.UI.Color.FromArgb(255, 136, 136, 136));
+            }
+
+            Logger.Info($"Controller emulation availability set to: {available}");
+            UpdateSystemControllerEmulationNavigation();
+        }
+
+        /// <summary>
+        /// Keeps System tab D-pad/keyboard navigation valid when Controller Emulation card visibility/enabled state changes.
+        /// </summary>
+        private void UpdateSystemControllerEmulationNavigation()
+        {
+            if (HotkeysExpandButton == null || AutoHibernateToggle == null)
+            {
+                return;
+            }
+
+            bool emulationControlsActive =
+                ControllerEmulationCard != null &&
+                ControllerEmulationCard.Visibility == Visibility.Visible &&
+                ControllerEmulationGyroSourceComboBox != null &&
+                ControllerEmulationGyroSourceComboBox.IsEnabled &&
+                ControllerEmulationModeComboBox != null &&
+                ControllerEmulationModeComboBox.IsEnabled;
+
+            if (emulationControlsActive)
+            {
+                HotkeysExpandButton.XYFocusDown = ControllerEmulationGyroSourceComboBox;
+                AutoHibernateToggle.XYFocusUp = ControllerEmulationModeComboBox;
+            }
+            else
+            {
+                HotkeysExpandButton.XYFocusDown = AutoHibernateToggle;
+                AutoHibernateToggle.XYFocusUp = HotkeysExpandButton;
             }
         }
 
@@ -18031,7 +18124,7 @@ namespace XboxGamingBar
             string selected = GPDL4PaddleComboBox.SelectedItem.ToString();
             ushort keycode = MapGPDKeyNameToKeycode(selected);
 
-            Logger.Info($"GPD L4 paddle remapped to: {selected} (keycode: 0x{keycode:X4})");
+            Logger.Info($"GPD L4 paddle staged: {selected} (keycode: 0x{keycode:X4})");
 
             if (gpdButtonL4 != null)
             {
@@ -18047,7 +18140,7 @@ namespace XboxGamingBar
             string selected = GPDR4PaddleComboBox.SelectedItem.ToString();
             ushort keycode = MapGPDKeyNameToKeycode(selected);
 
-            Logger.Info($"GPD R4 paddle remapped to: {selected} (keycode: 0x{keycode:X4})");
+            Logger.Info($"GPD R4 paddle staged: {selected} (keycode: 0x{keycode:X4})");
 
             if (gpdButtonR4 != null)
             {
@@ -18064,7 +18157,7 @@ namespace XboxGamingBar
             string selected = comboBox.SelectedItem.ToString();
             ushort keycode = MapGPDKeyNameToKeycode(selected);
 
-            Logger.Info($"GPD button {tag} remapped to: {selected} (keycode: 0x{keycode:X4})");
+            Logger.Info($"GPD button {tag} staged: {selected} (keycode: 0x{keycode:X4})");
 
             GPDButtonProperty prop = null;
             switch (tag)
@@ -18182,6 +18275,12 @@ namespace XboxGamingBar
 
             // Trigger helper-side default restore in one transaction.
             gpdRestoreDefaults?.Trigger();
+        }
+
+        private void GPDApplyMappingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            Logger.Info("GPD apply mappings button clicked");
+            gpdApplyMappings?.Trigger();
         }
 
         #endregion

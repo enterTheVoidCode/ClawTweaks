@@ -165,8 +165,12 @@
     <Compile Include="Data\GPDFanModeProperty.cs" />
     <Compile Include="Data\GPDFanCurveProperty.cs" />
     <Compile Include="Data\GPDButtonProperty.cs" />
+    <Compile Include="Data\GPDRestoreDefaultsProperty.cs" />
+    <Compile Include="Data\GPDApplyMappingsProperty.cs" />
     <Compile Include="Data\GPDButtonL4Property.cs" />
     <Compile Include="Data\GPDButtonR4Property.cs" />
+    <Compile Include="Data\GPDControllerEmulationProperties.cs" />
+    <Compile Include="Data\ControllerEmulationProperties.cs" />
     <Compile Include="Data\LegionTouchpadEnabledProperty.cs" />
     <Compile Include="Data\LegionLightModeProperty.cs" />
     <Compile Include="Data\LegionLightColorProperty.cs" />

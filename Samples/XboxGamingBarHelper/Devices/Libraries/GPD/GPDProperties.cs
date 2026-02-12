@@ -167,7 +167,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
 
     /// <summary>
     /// Base class for GPD button remapping properties.
-    /// When widget sends a keycode, the helper calls GPDManager.RemapButton().
+    /// When widget sends a keycode, the helper stages it until apply is triggered.
     /// </summary>
     internal abstract class GPDButtonPropertyBase : HelperProperty<int, GPDManager>
     {
@@ -191,8 +191,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
 
             if (Manager != null)
             {
-                bool success = Manager.ApplyButtonMapping(ButtonPosition, keycode);
-                Logger.Info($"[GPD] {ButtonName} remap result: {(success ? "success" : "failed")}");
+                bool success = Manager.StageButtonMapping(ButtonPosition, keycode);
+                Logger.Info($"[GPD] {ButtonName} remap staged: {(success ? "success" : "failed")}");
             }
         }
     }
@@ -303,7 +303,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
     }
 
     /// <summary>
-    /// GPD R4 Paddle Property - special handling as it uses a different packet.
+    /// GPD R4 Paddle Property - stages the keycode until apply is triggered.
     /// </summary>
     internal class GPDButtonR4Property : HelperProperty<int, GPDManager>
     {
@@ -321,9 +321,84 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
 
             if (Manager != null)
             {
-                bool success = Manager.ApplyR4Mapping(keycode);
-                Logger.Info($"[GPD] R4 paddle remap result: {(success ? "success" : "failed")}");
+                bool success = Manager.StageR4Mapping(keycode);
+                Logger.Info($"[GPD] R4 paddle remap staged: {(success ? "success" : "failed")}");
             }
+        }
+    }
+
+    /// <summary>
+    /// Trigger property used to apply all staged GPD Win 5 mappings in one transaction.
+    /// </summary>
+    internal class GPDApplyMappingsProperty : HelperProperty<bool, GPDManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public GPDApplyMappingsProperty(GPDManager inManager)
+            : base(false, null, Function.GPDApplyMappings, inManager)
+        {
+            Logger.Debug("[GPD] GPDApplyMappingsProperty created");
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+
+            if (!Value)
+            {
+                return;
+            }
+
+            Logger.Info("[GPD] Apply mappings trigger received from widget");
+            bool success = Manager?.ApplyStagedMappings() ?? false;
+            Logger.Info($"[GPD] Apply staged mappings result: {(success ? "success" : "failed")}");
+
+            // Reset trigger after handling.
+            SetValue(false, 0);
+        }
+    }
+
+    /// <summary>
+    /// Gyro source selection for controller emulation.
+    /// 0 = Internal Handheld, 1 = Controller Internal
+    /// </summary>
+    internal class GPDGyroSourceProperty : HelperProperty<int, GPDManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public GPDGyroSourceProperty(int initialValue, GPDManager inManager)
+            : base(initialValue, null, Function.GPDGyroSource, inManager)
+        {
+            Logger.Debug($"[GPD] GPDGyroSourceProperty created with initial value: {initialValue}");
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"[GPD] Gyro source changed to {Value}");
+            Manager?.SetControllerEmulationGyroSource(Value);
+        }
+    }
+
+    /// <summary>
+    /// Gyro simulation mode for controller emulation.
+    /// 0 = Mouse, 1 = Xbox (Stick), 2 = PS4 (Motion), 3 = PS4 (Stick)
+    /// </summary>
+    internal class GPDGyroSimulateModeProperty : HelperProperty<int, GPDManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public GPDGyroSimulateModeProperty(int initialValue, GPDManager inManager)
+            : base(initialValue, null, Function.GPDGyroSimulateMode, inManager)
+        {
+            Logger.Debug($"[GPD] GPDGyroSimulateModeProperty created with initial value: {initialValue}");
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"[GPD] Gyro simulate mode changed to {Value}");
+            Manager?.SetControllerEmulationGyroSimulateMode(Value);
         }
     }
 

@@ -19,6 +19,7 @@ using Windows.System;
 using Windows.UI.Input.Preview.Injection;
 using XboxGamingBarHelper.AMD;
 using XboxGamingBarHelper.Core;
+using XboxGamingBarHelper.ControllerEmulation;
 using XboxGamingBarHelper.Devices.Libraries.GPD;
 using XboxGamingBarHelper.Devices.Libraries.Legion;
 using XboxGamingBarHelper.LosslessScaling;
@@ -95,6 +96,7 @@ namespace XboxGamingBarHelper
         private static SettingsManager settingsManager;
         private static LegionManager legionManager;
         private static GPDManager gpdManager;
+        private static ControllerEmulationManager controllerEmulationManager;
         private static AutoTDPManager autoTDPManager;
         private static DefaultGameProfileManager defaultGameProfileManager;
         private static List<IManager> Managers;
@@ -1175,6 +1177,9 @@ del /f /q ""%~f0"" 2>nul
             // Set PerformanceManager reference in GPDManager for software fan curve CPU temperature access
             gpdManager?.SetPerformanceManager(performanceManager);
 
+            // Initialize handheld-agnostic controller emulation manager.
+            controllerEmulationManager = new ControllerEmulationManager(legionManager, gpdManager);
+
             // PawnIO/RyzenSMU initialization for anti-cheat compatible TDP control
             // Priority: Legion WMI > PawnIO/RyzenSMU > RyzenAdj (deprecated, WinRing0 not bundled)
             // Uses official signed module from release 0.2.1
@@ -1274,6 +1279,7 @@ del /f /q ""%~f0"" 2>nul
                 settingsManager,
                 legionManager,
                 gpdManager,
+                controllerEmulationManager,
                 autoTDPManager
             };
             // Note: defaultGameProfileManager is added in background task when ready
@@ -1378,6 +1384,7 @@ del /f /q ""%~f0"" 2>nul
                 gpdManager.DeviceName,
                 gpdManager.SupportsFanControlProp,
                 gpdManager.RestoreDefaults,
+                gpdManager.ApplyMappings,
                 // GPD Win 5 button remapping properties
                 gpdManager.ButtonA,
                 gpdManager.ButtonB,
@@ -1404,6 +1411,12 @@ del /f /q ""%~f0"" 2>nul
                 gpdManager.FanCurveData,
                 gpdManager.FanCurveVisibleProp,
                 gpdManager.CPUTemp,
+                gpdManager.GyroSource,
+                gpdManager.GyroSimulateMode,
+                // Handheld-agnostic controller emulation properties
+                controllerEmulationManager.ControllerEmulationAvailable,
+                controllerEmulationManager.ControllerEmulationGyroSource,
+                controllerEmulationManager.ControllerEmulationMode,
                 // Legion Go specific properties
                 legionManager.LegionGoDetected,
                 legionManager.LegionTouchpadEnabled,
@@ -4214,6 +4227,7 @@ del /f /q ""%~f0"" 2>nul
             losslessScalingManager = null;
             settingsManager = null;
             legionManager = null;
+            controllerEmulationManager = null;
 
             Logger.Info("All managers disposed.");
         }
