@@ -12,28 +12,25 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         public const int DPadDown = 1;
         public const int DPadLeft = 2;
         public const int DPadRight = 3;
-        public const int L3 = 4;          // Fixed from 15
-        public const int R3 = 5;          // Fixed from 16
-        // position 6 unused
+        public const int Start = 4;
+        public const int Back = 5;
+        public const int Xbox = 6;
         public const int A = 7;
         public const int B = 8;
         public const int X = 9;
-        public const int Select = 10;
-        public const int Y = 11;          // Fixed from 10
-        public const int LB = 12;
-        public const int RB = 13;
-        public const int LT = 14;
-        public const int L4 = 15;
-        public const int RT = 16;
-        public const int Menu = 17;       // Start
-        public const int View = 18;       // Back
-        public const int Xbox = 19;
+        public const int Y = 10;
+        public const int LB = 11;
+        public const int RB = 12;
+        public const int Position13 = 13;
+        public const int Position14 = 14;
+        public const int L3 = 15;
+        public const int R3 = 16;
+        public const int LeftStickUp = 17;
+        public const int LeftStickDown = 18;
+        public const int LeftStickRight = 19;
         public const int LeftStickLeft = 20;
-        public const int LeftStickRight = 21;
-        // Note: LeftStickUp/Down may not be supported by protocol
-        // Kept for backwards compatibility with UI, but may not work
-        public const int LeftStickUp = -2;
-        public const int LeftStickDown = -3;
+        public const int Position21 = 21;
+        public const int L4 = Position13;
         public const int R4Paddle = -1;   // Special handling
     }
 
@@ -192,9 +189,9 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             ushort keycode = (ushort)Value;
             Logger.Info($"[GPD] {ButtonName} property changed to keycode 0x{keycode:X4}");
 
-            if (Manager != null && keycode != 0)
+            if (Manager != null)
             {
-                bool success = Manager.RemapButton(ButtonPosition, keycode);
+                bool success = Manager.ApplyButtonMapping(ButtonPosition, keycode);
                 Logger.Info($"[GPD] {ButtonName} remap result: {(success ? "success" : "failed")}");
             }
         }
@@ -322,12 +319,9 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             ushort keycode = (ushort)Value;
             Logger.Info($"[GPD] R4 paddle property changed to keycode 0x{keycode:X4}");
 
-            if (Manager != null && keycode != 0)
+            if (Manager != null)
             {
-                // R4 requires remapping all buttons with the R4 keycode
-                // Use RemapButtons with empty mappings but custom R4 keycode
-                var mappings = new System.Collections.Generic.Dictionary<int, ushort>();
-                bool success = Manager.RemapButtons(mappings, keycode);
+                bool success = Manager.ApplyR4Mapping(keycode);
                 Logger.Info($"[GPD] R4 paddle remap result: {(success ? "success" : "failed")}");
             }
         }
