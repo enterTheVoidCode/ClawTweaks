@@ -565,7 +565,11 @@ namespace XboxGamingBarHelper.Systems
                         }
                         else
                         {
-                            var gameName = GetGameName(mw.Path, trackedGame.DisplayName);
+                            // Use actual window title (or exe name) for the game name, NOT trackedGame.DisplayName.
+                            // Xbox Game Bar's DisplayName comes from MSIX metadata and may contain punctuation
+                            // (e.g., "Hollow Knight: Silksong") that differs from the window title ("Hollow Knight Silksong").
+                            // Using DisplayName causes profile name mismatches between helper and widget.
+                            var gameName = GetGameName(mw.Path, mw.Title);
                             Logger.Info($"TrackedGame \"{trackedGame.DisplayName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground} -> GameName={gameName}");
                             return new RunningGame(mw.ProcessId, gameName, mw.Path, fps, mw.IsForeground);
                         }
@@ -573,7 +577,8 @@ namespace XboxGamingBarHelper.Systems
                     else
                     {
                         // TrackedGame has FPS > 0, it's actively rendering - use it
-                        var gameName = GetGameName(mw.Path, trackedGame.DisplayName);
+                        // Use actual window title for naming consistency (see comment above)
+                        var gameName = GetGameName(mw.Path, mw.Title);
                         Logger.Info($"TrackedGame \"{trackedGame.DisplayName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground} -> GameName={gameName}");
                         return new RunningGame(mw.ProcessId, gameName, mw.Path, fps, mw.IsForeground);
                     }
@@ -662,7 +667,8 @@ namespace XboxGamingBarHelper.Systems
 
                         if (matchesByTitle || matchesByProcessName)
                         {
-                            var gameName = GetGameName(processWindow.Value.Path, trackedGame.DisplayName);
+                            // Use actual window title for naming consistency (not trackedGame.DisplayName)
+                            var gameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
                             Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" matches TrackedGame \"{gameName}\" (byTitle={matchesByTitle}, byProcess={matchesByProcessName}, FPS={fps}).");
                             possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
                             continue;
