@@ -821,6 +821,7 @@ namespace XboxGamingBar
         private readonly GPDFanSpeedProperty gpdFanSpeed;
         private readonly GPDFanRPMProperty gpdFanRPM;
         private readonly GPDFanModeProperty gpdFanMode;
+        private readonly GPDRestoreDefaultsProperty gpdRestoreDefaults;
         private readonly GPDButtonL4Property gpdButtonL4;
         private readonly GPDButtonR4Property gpdButtonR4;
         private readonly GPDButtonProperty gpdButtonA;
@@ -835,6 +836,7 @@ namespace XboxGamingBar
         private readonly GPDButtonProperty gpdButtonR3;
         private readonly GPDButtonProperty gpdButtonLSLeft;
         private readonly GPDButtonProperty gpdButtonLSRight;
+        private bool isApplyingGpdRestoreDefaults = false;
         private readonly GPDFanCurveGraphProperty gpdFanCurveGraph;
         private readonly GPDCPUTempProperty gpdCPUTemp;
         private readonly GPDFanCurveVisibleProperty gpdFanCurveVisible;
@@ -1237,6 +1239,7 @@ namespace XboxGamingBar
             gpdFanSpeed = new GPDFanSpeedProperty(this);
             gpdFanRPM = new GPDFanRPMProperty(this);
             gpdFanMode = new GPDFanModeProperty(this);
+            gpdRestoreDefaults = new GPDRestoreDefaultsProperty();
             gpdButtonL4 = new GPDButtonL4Property(this);
             gpdButtonR4 = new GPDButtonR4Property(this);
             gpdButtonA = new GPDButtonProperty(this, Function.GPDButtonA);
@@ -1503,6 +1506,7 @@ namespace XboxGamingBar
                 gpdFanSpeed,
                 gpdFanRPM,
                 gpdFanMode,
+                gpdRestoreDefaults,
                 gpdButtonL4,
                 gpdButtonR4,
                 gpdButtonA,
@@ -18021,6 +18025,7 @@ namespace XboxGamingBar
 
         private void GPDL4PaddleComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (isApplyingGpdRestoreDefaults) return;
             if (GPDL4PaddleComboBox?.SelectedItem == null) return;
 
             string selected = GPDL4PaddleComboBox.SelectedItem.ToString();
@@ -18036,6 +18041,7 @@ namespace XboxGamingBar
 
         private void GPDR4PaddleComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (isApplyingGpdRestoreDefaults) return;
             if (GPDR4PaddleComboBox?.SelectedItem == null) return;
 
             string selected = GPDR4PaddleComboBox.SelectedItem.ToString();
@@ -18051,6 +18057,7 @@ namespace XboxGamingBar
 
         private void GPDButtonComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (isApplyingGpdRestoreDefaults) return;
             if (!(sender is ComboBox comboBox) || comboBox.SelectedItem == null) return;
 
             string tag = comboBox.Tag?.ToString();
@@ -18165,27 +18172,16 @@ namespace XboxGamingBar
                 GPDL4PaddleComboBox, GPDR4PaddleComboBox
             };
 
+            isApplyingGpdRestoreDefaults = true;
             foreach (var comboBox in comboBoxes)
             {
                 if (comboBox != null)
                     comboBox.SelectedIndex = 0;
             }
+            isApplyingGpdRestoreDefaults = false;
 
-            // Send disabled keycodes for all buttons
-            gpdButtonA?.SetKeycode(0);
-            gpdButtonB?.SetKeycode(0);
-            gpdButtonX?.SetKeycode(0);
-            gpdButtonY?.SetKeycode(0);
-            gpdButtonDPadUp?.SetKeycode(0);
-            gpdButtonDPadDown?.SetKeycode(0);
-            gpdButtonDPadLeft?.SetKeycode(0);
-            gpdButtonDPadRight?.SetKeycode(0);
-            gpdButtonL3?.SetKeycode(0);
-            gpdButtonR3?.SetKeycode(0);
-            gpdButtonLSLeft?.SetKeycode(0);
-            gpdButtonLSRight?.SetKeycode(0);
-            gpdButtonL4?.SetKeycode(0);
-            gpdButtonR4?.SetKeycode(0);
+            // Trigger helper-side default restore in one transaction.
+            gpdRestoreDefaults?.Trigger();
         }
 
         #endregion

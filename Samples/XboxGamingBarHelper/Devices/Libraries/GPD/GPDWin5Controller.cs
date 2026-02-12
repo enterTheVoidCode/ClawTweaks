@@ -321,10 +321,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 return null;
             }
 
-            Logger.Info("[GPDWin5] ReadConfiguration: Not fully implemented yet - returning default mapping");
-            // TODO: Implement actual configuration read from device
-            // For now, return default keyboard mapping
-            return new ushort[22];
+            Logger.Info("[GPDWin5] ReadConfiguration: Device readback not implemented - returning known default map");
+            return GetDefaultButtonMap();
         }
 
         /// <summary>
@@ -371,17 +369,14 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         {
             Logger.Info($"[GPDWin5] RemapButton: position={buttonPosition}, keycode=0x{keycode:X4}");
 
-            // Read current config, modify, then write back
-            var currentConfig = ReadConfiguration();
-            if (currentConfig == null)
-            {
-                currentConfig = new ushort[22];
-            }
+            // Build from known-good defaults and apply one change.
+            // Device readback is not implemented/reliable.
+            var currentConfig = GetDefaultButtonMap();
 
             if (buttonPosition >= 0 && buttonPosition < currentConfig.Length)
             {
                 currentConfig[buttonPosition] = keycode;
-                return WriteButtonConfiguration(currentConfig);
+                return WriteButtonConfiguration(currentConfig, 0x002B);
             }
 
             Logger.Error($"[GPDWin5] RemapButton: Invalid button position {buttonPosition}");
@@ -396,21 +391,12 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         /// <returns>True if successful</returns>
         public bool RemapButtons(Dictionary<int, ushort> mappings, ushort r4Keycode = 0x002B)
         {
-            if (mappings == null || mappings.Count == 0)
-            {
-                Logger.Warn("[GPDWin5] RemapButtons: No mappings provided");
-                return true;
-            }
+            var safeMappings = mappings ?? new Dictionary<int, ushort>();
+            Logger.Info($"[GPDWin5] RemapButtons: Applying {safeMappings.Count} mappings, R4=0x{r4Keycode:X4}");
 
-            Logger.Info($"[GPDWin5] RemapButtons: Applying {mappings.Count} mappings, R4=0x{r4Keycode:X4}");
-
-            var currentConfig = ReadConfiguration();
-            if (currentConfig == null)
-            {
-                currentConfig = new ushort[22];
-            }
-
-            foreach (var mapping in mappings)
+            // Start from known-good defaults and apply all overrides in one transaction.
+            var currentConfig = GetDefaultButtonMap();
+            foreach (var mapping in safeMappings)
             {
                 if (mapping.Key >= 0 && mapping.Key < currentConfig.Length)
                 {
@@ -418,8 +404,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 }
             }
 
-            // TODO: Handle R4 paddle separately at OffsetR4Paddle
-            return WriteButtonConfiguration(currentConfig);
+            return WriteButtonConfiguration(currentConfig, r4Keycode);
         }
 
         /// <summary>
@@ -429,10 +414,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         public bool RestoreDefaults()
         {
             Logger.Info("[GPDWin5] RestoreDefaults: Restoring default button configuration");
-
-            // Default configuration - all zeros means pass-through/default
-            var defaultConfig = new ushort[22];
-            return WriteButtonConfiguration(defaultConfig);
+            return WriteButtonConfiguration(GetDefaultButtonMap(), 0x002B);
         }
 
         /// <summary>
@@ -441,7 +423,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         /// </summary>
         /// <param name="buttonMap">Array of 22 keycodes (positions 0-21)</param>
         /// <returns>True if successful</returns>
-        public bool WriteButtonConfiguration(ushort[] buttonMap)
+        public bool WriteButtonConfiguration(ushort[] buttonMap, ushort r4Keycode = 0x002B)
         {
             if (!IsConnected)
             {
@@ -466,21 +448,14 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                     return false;
                 }
 
-                // Step 2: Send lookup packet
-                if (!SendLookupPacket())
+                // Step 2: Send full configuration packet sequence
+                if (!SendConfigPackets(buttonMap, r4Keycode))
                 {
-                    Logger.Error("[GPDWin5] Initial lookup packet failed");
+                    Logger.Error("[GPDWin5] Configuration packet sequence failed");
                     return false;
                 }
 
-                // Step 3: Send main configuration
-                if (!SendMainConfigPacket(buttonMap))
-                {
-                    Logger.Error("[GPDWin5] Main configuration packet failed");
-                    return false;
-                }
-
-                // Step 4: Send apply sequence
+                // Step 3: Send apply sequence
                 if (!SendApplySequence())
                 {
                     Logger.Error("[GPDWin5] Apply sequence failed");
@@ -550,6 +525,63 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         }
 
         /// <summary>
+        /// Sends the full Win5 configuration packet sequence (main + auxiliary + R4).
+        /// Matches the known-good packet flow used by the working remapper.
+        /// </summary>
+        private bool SendConfigPackets(ushort[] buttonMap, ushort r4Keycode)
+        {
+            if (!SendLookupPacket())
+                return false;
+
+            if (!SendMainConfigPacket(buttonMap))
+                return false;
+
+            string[] packetsBeforeR4 =
+            {
+                "01 43 38 00 38 00 2d 05 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 80 01 80 02 80 03 80 04 80 05 80 06 80 07 80 08 80 09 80",
+                "01 43 38 00 70 00 63 0d 0a 80 0b 80 0c 80 0d 80 0e 80 0f 80 10 80 11 80 12 80 13 80 14 80 15 80 16 80 17 80 18 80 19 80 1a 80 1b 80 1c 80 1d 80 1e 80 1f 80 20 80 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 a8 00 f9 00 00 00 00 00 02 04 00 00 2b 00 00 00 32 00 00 00 00 00 32 00 00 00 00 00 32 00 00 00 00 00 32 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 e0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 18 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+            };
+
+            foreach (string hex in packetsBeforeR4)
+            {
+                byte[] packet = ParseHexString(hex);
+                if (!SendCommand(packet, "Config Aux (pre-R4)"))
+                    return false;
+            }
+
+            if (!SendCommand(BuildR4Packet(r4Keycode), "Config R4"))
+                return false;
+
+            string[] packetsAfterR4 =
+            {
+                "01 43 38 00 88 01 32 00 00 00 32 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 c0 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 f8 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 30 02 06 00 00 00 00 00 02 04 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 68 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 a0 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 d8 02 06 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 04 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 10 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 48 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 80 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+                "01 43 38 00 b8 03 5e 24 00 00 00 00 01 80 00 00 00 00 00 00 00 00 00 00 00 00 01 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff",
+                "01 43 10 00 f0 03 f0 0f ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+            };
+
+            foreach (string hex in packetsAfterR4)
+            {
+                byte[] packet = ParseHexString(hex);
+                if (!SendCommand(packet, "Config Aux (post-R4)"))
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Sends the main configuration packet with button mappings.
         /// CORRECTED: Includes magic header bytes.
         /// </summary>
@@ -598,6 +630,25 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             InsertChecksum(packet);
 
             return SendCommand(packet, "Main Config");
+        }
+
+        /// <summary>
+        /// Builds the R4 paddle packet at offset 0x0150.
+        /// </summary>
+        private byte[] BuildR4Packet(ushort r4Keycode)
+        {
+            byte[] packet = ParseHexString(
+                "01 43 38 00 50 01 d8 04 00 00 00 00 00 00 00 00 00 00 00 00 " +
+                "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 " +
+                "00 02 04 00 40 00 00 00 32 00 00 00 00 00 32 00 ff ff 00 00 " +
+                "32 00 ff ff"
+            );
+
+            // R4 value at byte 0x2C (little-endian)
+            packet[0x2C] = (byte)(r4Keycode & 0xFF);
+            packet[0x2D] = (byte)((r4Keycode >> 8) & 0xFF);
+            InsertChecksum(packet);
+            return packet;
         }
 
         /// <summary>
@@ -687,8 +738,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         }
 
         /// <summary>
-        /// Calculates checksum for packet (bytes 0-5 and 8-63).
-        /// NOTE: Checksum does NOT include bytes 6-7 (checksum position itself).
+        /// Calculates checksum for packet (bytes 8-63).
+        /// Matches the known-good Win5 remapper implementation.
         /// </summary>
         private ushort CalculateChecksum(byte[] packet)
         {
@@ -696,12 +747,6 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 return 0;
 
             uint sum = 0;
-
-            // Sum bytes 0-5 (header before checksum)
-            for (int i = 0; i <= 5; i++)
-            {
-                sum += packet[i];
-            }
 
             // Sum bytes 8-63 (data after checksum)
             for (int i = 8; i < 64; i++)
@@ -787,6 +832,38 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         #endregion
 
         #region Utility Methods
+
+        /// <summary>
+        /// Returns the known-good default Win5 button map.
+        /// </summary>
+        public static ushort[] GetDefaultButtonMap()
+        {
+            return new ushort[]
+            {
+                0x001C, // 0: DPadUp
+                0x0016, // 1: DPadDown
+                0x000F, // 2: DPadLeft
+                0x0018, // 3: DPadRight
+                0x0024, // 4: Start
+                0x002C, // 5: Back/View
+                0x00E0, // 6: Xbox
+                0x0009, // 7: A
+                0x0004, // 8: B
+                0x000A, // 9: X
+                0x00EA, // 10: Y
+                0x00EB, // 11: LB
+                0x00EC, // 12: RB
+                0x00ED, // 13: Position13
+                0x002B, // 14: Position14
+                0x004C, // 15: L3
+                0x0029, // 16: R3
+                0x0000, // 17: LeftStickUp
+                0x0000, // 18: LeftStickDown
+                0x001D, // 19: LeftStickRight
+                0x0000, // 20: LeftStickLeft
+                0x001A, // 21: Position21
+            };
+        }
 
         /// <summary>
         /// Formats a byte array as hex string for display.

@@ -42,6 +42,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         private bool fanCurveVisible = false;
         private int lastAppliedFanSpeed = -1;
         private static readonly int[] FanCurveTemps = { 30, 38, 46, 54, 62, 70, 78, 86, 94, 100 };
+        private readonly Dictionary<int, ushort> _win5Mappings = new Dictionary<int, ushort>();
+        private ushort _win5R4Keycode = 0x002B;
 
         /// <summary>
         /// Property indicating if a GPD device is detected. Synced to widget.
@@ -204,6 +206,12 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             FanCurveData = new GPDFanCurveDataProperty(this);
             FanCurveVisibleProp = new GPDFanCurveVisibleProperty(this);
             CPUTemp = new GPDCPUTempProperty(this);
+
+            var defaults = GPDWin5Controller.GetDefaultButtonMap();
+            for (int i = 0; i < defaults.Length; i++)
+            {
+                _win5Mappings[i] = defaults[i];
+            }
 
             // Load saved fan curve data from LocalSettings
             LoadFanCurveSettings();
@@ -776,20 +784,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         /// <returns>True if successful.</returns>
         public bool RemapButton(int buttonPosition, ushort keycode)
         {
-            if (!isWin5Detected || _win5Controller == null)
-            {
-                Logger.Warn("[GPD] RemapButton called but Win 5 not detected or controller not initialized");
-                return false;
-            }
-
-            if (!_win5Controller.IsConnected)
-            {
-                Logger.Warn("[GPD] RemapButton called but Win 5 controller not connected");
-                return false;
-            }
-
-            Logger.Info($"[GPD] RemapButton: position={buttonPosition}, keycode=0x{keycode:X4}");
-            return _win5Controller.RemapButton(buttonPosition, keycode);
+            return ApplyButtonMapping(buttonPosition, keycode);
         }
 
         /// <summary>
@@ -812,8 +807,20 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 return false;
             }
 
+            if (mappings == null)
+            {
+                mappings = new Dictionary<int, ushort>();
+            }
+
             Logger.Info($"[GPD] RemapButtons: {mappings.Count} buttons to remap");
-            return _win5Controller.RemapButtons(mappings, r4Keycode);
+
+            foreach (var mapping in mappings)
+            {
+                _win5Mappings[mapping.Key] = mapping.Value;
+            }
+            _win5R4Keycode = r4Keycode;
+
+            return _win5Controller.RemapButtons(new Dictionary<int, ushort>(_win5Mappings), _win5R4Keycode);
         }
 
         /// <summary>
@@ -835,7 +842,56 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             }
 
             Logger.Info("[GPD] RestoreDefaultMappings: restoring Win 5 button defaults");
-            return _win5Controller.RestoreDefaults();
+            bool success = _win5Controller.RestoreDefaults();
+            if (success)
+            {
+                _win5Mappings.Clear();
+                var defaults = GPDWin5Controller.GetDefaultButtonMap();
+                for (int i = 0; i < defaults.Length; i++)
+                {
+                    _win5Mappings[i] = defaults[i];
+                }
+                _win5R4Keycode = 0x002B;
+            }
+            return success;
+        }
+
+        public bool ApplyButtonMapping(int buttonPosition, ushort keycode)
+        {
+            if (!isWin5Detected || _win5Controller == null)
+            {
+                Logger.Warn("[GPD] ApplyButtonMapping called but Win 5 not detected or controller not initialized");
+                return false;
+            }
+
+            if (!_win5Controller.IsConnected)
+            {
+                Logger.Warn("[GPD] ApplyButtonMapping called but Win 5 controller not connected");
+                return false;
+            }
+
+            Logger.Info($"[GPD] ApplyButtonMapping: position={buttonPosition}, keycode=0x{keycode:X4}");
+            _win5Mappings[buttonPosition] = keycode;
+            return _win5Controller.RemapButtons(new Dictionary<int, ushort>(_win5Mappings), _win5R4Keycode);
+        }
+
+        public bool ApplyR4Mapping(ushort keycode)
+        {
+            if (!isWin5Detected || _win5Controller == null)
+            {
+                Logger.Warn("[GPD] ApplyR4Mapping called but Win 5 not detected or controller not initialized");
+                return false;
+            }
+
+            if (!_win5Controller.IsConnected)
+            {
+                Logger.Warn("[GPD] ApplyR4Mapping called but Win 5 controller not connected");
+                return false;
+            }
+
+            Logger.Info($"[GPD] ApplyR4Mapping: keycode=0x{keycode:X4}");
+            _win5R4Keycode = keycode;
+            return _win5Controller.RemapButtons(new Dictionary<int, ushort>(_win5Mappings), _win5R4Keycode);
         }
 
         #endregion
