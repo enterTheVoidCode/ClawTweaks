@@ -19739,6 +19739,7 @@ namespace XboxGamingBar
 
         // Quick Metrics row state
         private bool quickMetricsEnabled = false;
+        private bool isUpdatingMetricCheckboxes = false;
         private bool screenSaverEnabled = false;
         private const string ScreenSaverEnabledKey = "QS_ScreenSaverEnabled";
         private const int ScreenSaverTimeoutSeconds = 60;
@@ -20416,28 +20417,40 @@ namespace XboxGamingBar
         /// </summary>
         private void UpdateMetricCheckboxes()
         {
-            // Map checkboxes to metric types
-            var checkboxMap = new Dictionary<CheckBox, MetricType>
+            // Guard to prevent MetricCheckBox_Changed from firing during programmatic updates.
+            // Without this, setting IsChecked=true on checkboxes fires the handler, which sees
+            // selectedMetrics.Count >= MaxSelectedMetrics and reverts the checkbox to false,
+            // triggering Unchecked which removes the metric from the list.
+            isUpdatingMetricCheckboxes = true;
+            try
             {
-                { MetricCheck_BatteryDrain, MetricType.BatteryDrain },
-                { MetricCheck_BatteryLevel, MetricType.BatteryLevel },
-                { MetricCheck_CPUUsage, MetricType.CPUUsage },
-                { MetricCheck_CPUTemp, MetricType.CPUTemp },
-                { MetricCheck_CPUWattage, MetricType.CPUWattage },
-                { MetricCheck_GPUUsage, MetricType.GPUUsage },
-                { MetricCheck_GPUTemp, MetricType.GPUTemp },
-                { MetricCheck_GPUWattage, MetricType.GPUWattage },
-                { MetricCheck_MemoryUsage, MetricType.MemoryUsage },
-                { MetricCheck_TimeRemaining, MetricType.TimeRemaining }
-            };
+                // Map checkboxes to metric types
+                var checkboxMap = new Dictionary<CheckBox, MetricType>
+                {
+                    { MetricCheck_BatteryDrain, MetricType.BatteryDrain },
+                    { MetricCheck_BatteryLevel, MetricType.BatteryLevel },
+                    { MetricCheck_CPUUsage, MetricType.CPUUsage },
+                    { MetricCheck_CPUTemp, MetricType.CPUTemp },
+                    { MetricCheck_CPUWattage, MetricType.CPUWattage },
+                    { MetricCheck_GPUUsage, MetricType.GPUUsage },
+                    { MetricCheck_GPUTemp, MetricType.GPUTemp },
+                    { MetricCheck_GPUWattage, MetricType.GPUWattage },
+                    { MetricCheck_MemoryUsage, MetricType.MemoryUsage },
+                    { MetricCheck_TimeRemaining, MetricType.TimeRemaining }
+                };
 
-            foreach (var kvp in checkboxMap)
-            {
-                if (kvp.Key != null)
-                    kvp.Key.IsChecked = selectedMetrics.Contains(kvp.Value);
+                foreach (var kvp in checkboxMap)
+                {
+                    if (kvp.Key != null)
+                        kvp.Key.IsChecked = selectedMetrics.Contains(kvp.Value);
+                }
+
+                UpdateMetricsSelectionCount();
             }
-
-            UpdateMetricsSelectionCount();
+            finally
+            {
+                isUpdatingMetricCheckboxes = false;
+            }
         }
 
         /// <summary>
@@ -20460,6 +20473,7 @@ namespace XboxGamingBar
         /// </summary>
         private void MetricCheckBox_Changed(object sender, RoutedEventArgs e)
         {
+            if (isUpdatingMetricCheckboxes) return;
             if (!(sender is CheckBox checkbox)) return;
 
             // Map checkbox to metric type

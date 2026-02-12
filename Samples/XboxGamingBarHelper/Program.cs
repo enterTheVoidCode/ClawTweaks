@@ -1594,6 +1594,7 @@ del /f /q ""%~f0"" 2>nul
                 autoTDPManager.MaxTDP.PropertyChanged += AutoTDPSetting_PropertyChanged;
                 autoTDPManager.UseMLMode.PropertyChanged += AutoTDPSetting_PropertyChanged;  // Legacy
                 autoTDPManager.ControllerType.PropertyChanged += AutoTDPSetting_PropertyChanged;
+                autoTDPManager.PauseWhenUnfocused.PropertyChanged += AutoTDPSetting_PropertyChanged;
             }
 
             initTimer.Stop();
@@ -2070,6 +2071,11 @@ del /f /q ""%~f0"" 2>nul
                 // Also sync legacy UseMLMode for backwards compatibility
                 profileManager.CurrentProfile.AutoTDPUseMLMode = autoTDPManager.ControllerType.Value > 0;
             }
+            else if (sender == autoTDPManager.PauseWhenUnfocused)
+            {
+                Logger.Info($"Saving AutoTDPPauseWhenUnfocused to profile {profileName}");
+                profileManager.CurrentProfile.AutoTDPPauseWhenUnfocused = autoTDPManager.PauseWhenUnfocused.Value;
+            }
         }
 
         private static void ApplyLegionControllerSettingsFromProfile()
@@ -2302,6 +2308,9 @@ del /f /q ""%~f0"" 2>nul
 
             Logger.Debug($"Applying AutoTDPMaxTDP: {profile.AutoTDPMaxTDP}");
             autoTDPManager.MaxTDP.SetValue(profile.AutoTDPMaxTDP);
+
+            Logger.Debug($"Applying AutoTDPPauseWhenUnfocused: {profile.AutoTDPPauseWhenUnfocused}");
+            autoTDPManager.PauseWhenUnfocused.SetValue(profile.AutoTDPPauseWhenUnfocused);
 
             // Apply controller type (0=PID, 1=Q-Learning, 2=SARSA)
             // Try new property first, fall back to legacy UseMLMode for migration
