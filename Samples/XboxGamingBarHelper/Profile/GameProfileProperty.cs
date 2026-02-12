@@ -624,5 +624,17 @@ namespace XboxGamingBarHelper.Profile
                 }
             }
         }
+
+        public bool AutoTDPPauseWhenUnfocused
+        {
+            get { return value.AutoTDPPauseWhenUnfocused; }
+            set
+            {
+                if (this.value.AutoTDPPauseWhenUnfocused != value)
+                {
+                    this.value.AutoTDPPauseWhenUnfocused = value;
+                }
+            }
+        }
     }
 }

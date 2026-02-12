@@ -400,6 +400,21 @@ namespace Shared.Data
             }
         }
 
+        [XmlElement("AutoTDPPauseWhenUnfocused")]
+        private bool autoTDPPauseWhenUnfocused;
+        public bool AutoTDPPauseWhenUnfocused
+        {
+            get { return autoTDPPauseWhenUnfocused; }
+            set
+            {
+                if (autoTDPPauseWhenUnfocused != value)
+                {
+                    autoTDPPauseWhenUnfocused = value;
+                    Save();
+                }
+            }
+        }
+
         /// <summary>
         /// AutoTDP controller type: 0=PID, 1=Q-Learning, 2=SARSA
         /// </summary>
@@ -1165,6 +1180,7 @@ namespace Shared.Data
             autoTDPMinTDP = 8;
             autoTDPMaxTDP = 30;
             autoTDPUseMLMode = false;
+            autoTDPPauseWhenUnfocused = true; // Default: pause when game not focused
             autoTDPControllerType = 0; // PID by default
             osPowerMode = null;
             // Additional profile settings (DC overrides)

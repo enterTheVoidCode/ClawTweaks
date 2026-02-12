@@ -550,6 +550,7 @@ namespace XboxGamingBarHelper.AutoTDP
                 UpdateLearnedGameDataProperty();
 
                 // Try to get learned TDP for this game
+                bool appliedLearnedOrSeeded = false;
                 if (learnedTDPStore != null && controllerType.Value == 2)  // Only use learned TDP in SARSA mode
                 {
                     int learnedTDP = learnedTDPStore.GetLearnedTDP(currentGamePath, currentGameName, targetFPS.Value);
@@ -565,6 +566,19 @@ namespace XboxGamingBarHelper.AutoTDP
                         learnedTDPApplied = learnedTDP;
                         StatusText = $"[Learned] {learnedTDP}W";
                         UpdateLearnedGameDataProperty();
+                        appliedLearnedOrSeeded = true;
+                    }
+                }
+
+                // If no learned TDP was applied, seed from current TDP value.
+                // A profile switch may have set TDP (e.g., 25W) but lastAppliedTDP is stale.
+                if (!appliedLearnedOrSeeded && performanceManager.TDP != null)
+                {
+                    int actualTDP = performanceManager.TDP.Value;
+                    if (actualTDP != lastAppliedTDP)
+                    {
+                        Logger.Info($"AutoTDP: New game, seeding TDP from current value: {actualTDP}W (was {lastAppliedTDP}W)");
+                        lastAppliedTDP = actualTDP;
                     }
                 }
             }
@@ -618,6 +632,20 @@ namespace XboxGamingBarHelper.AutoTDP
 
             // Now we're actively managing TDP - block widget changes
             performanceManager.IsAutoTDPActive = true;
+            if (!wasActivelyManaging && performanceManager.TDP != null && !hasAppliedLearnedTDP)
+            {
+                // Seed lastAppliedTDP from the actual current TDP when first starting.
+                // Profile switches set TDP AFTER enabling AutoTDP, so the disabled-path sync
+                // may have captured a stale value (e.g., 15W when profile just set 25W).
+                // Skip if learned TDP was applied — it already set lastAppliedTDP correctly,
+                // and performanceManager.TDP.Value may still reflect the old profile TDP.
+                int actualTDP = performanceManager.TDP.Value;
+                if (actualTDP != lastAppliedTDP)
+                {
+                    Logger.Info($"AutoTDP: Starting active management, seeding TDP from current value: {actualTDP}W (was {lastAppliedTDP}W)");
+                    lastAppliedTDP = actualTDP;
+                }
+            }
             wasActivelyManaging = true;
 
             // Rate limit FPS sampling (250ms intervals)

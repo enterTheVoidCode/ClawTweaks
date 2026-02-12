@@ -82,10 +82,11 @@ namespace XboxGamingBarHelper.AutoTDP
             if (games.TryGetValue(key, out var data))
             {
                 // Only use learned TDP if:
-                // 1. Confidence is at least 0.5 (50%)
+                // 1. Confidence is at least 0.2 (20%) - even low-confidence data is a better
+                //    starting point than the profile TDP (e.g., 8W learned vs 25W profile)
                 // 2. Target FPS matches (different targets need different TDPs)
                 // 3. Data is not too old (within 30 days)
-                bool confidenceOK = data.Confidence >= 0.5;
+                bool confidenceOK = data.Confidence >= 0.2;
                 bool targetMatches = data.TargetFPS == targetFPS;
                 bool notStale = (DateTime.Now - data.LastUpdated).TotalDays < 30;
 
