@@ -3330,7 +3330,7 @@ del /f /q ""%~f0"" 2>nul
 
                     bool success = ConfigureLegionButtonRemap(button, enabled, actionType, shortcut);
                     response = new global::Windows.Foundation.Collections.ValueSet();
-                    response.Add("Content", success);
+                    response.Add("Success", success);
                     Logger.Info($"Pipe: Legion {button} Remap - Enabled: {enabled}, Success: {success}");
                 }
                 // Labs: Scroll Wheel Remap
@@ -3352,7 +3352,7 @@ del /f /q ""%~f0"" 2>nul
 
                     bool success = ConfigureLegionScrollRemap(direction, enabled, actionType, shortcut);
                     response = new global::Windows.Foundation.Collections.ValueSet();
-                    response.Add("Content", success);
+                    response.Add("Success", success);
                     Logger.Info($"Pipe: Scroll {direction} Remap - Enabled: {enabled}, Success: {success}");
                 }
                 // Controller Hotkey Config: Receive hotkey settings from widget for XInput monitoring
