@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using NLog;
 using Windows.Devices.Sensors;
 using XboxGamingBarHelper.Labs;
@@ -48,10 +49,23 @@ namespace XboxGamingBarHelper.ControllerEmulation
     internal sealed class WindowsSensorGyroSourceAdapter : IGyroSourceAdapter
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private const uint FallbackReportIntervalMs = 4;
+        private const int WarmupTimeoutMs = 800;
         private readonly string name;
+        private readonly object sampleLock = new object();
         private Gyrometer gyrometer;
         private Accelerometer accelerometer;
         private bool started;
+        private uint originalGyroReportInterval;
+        private uint originalAccelReportInterval;
+        private long lastGyroTimestampTicksUtc;
+        private bool hasAccelSample;
+        private float latestAccelX;
+        private float latestAccelY;
+        private float latestAccelZ;
+        private GyroSample latestSample;
+        private bool hasUnreadSample;
+        private ManualResetEventSlim firstGyroSampleEvent;
 
         public string Name => name;
 
@@ -74,7 +88,52 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     return false;
                 }
 
-                Logger.Info($"Gyro source '{name}' started (accelerometer available: {accelerometer != null})");
+                lock (sampleLock)
+                {
+                    lastGyroTimestampTicksUtc = 0;
+                    hasAccelSample = false;
+                    latestAccelX = 0.0f;
+                    latestAccelY = 0.0f;
+                    latestAccelZ = 0.0f;
+                    latestSample = default;
+                    hasUnreadSample = false;
+                }
+
+                originalGyroReportInterval = gyrometer.ReportInterval;
+                uint gyroInterval = gyrometer.MinimumReportInterval > 0
+                    ? gyrometer.MinimumReportInterval
+                    : FallbackReportIntervalMs;
+                gyrometer.ReportInterval = gyroInterval;
+
+                if (accelerometer != null)
+                {
+                    originalAccelReportInterval = accelerometer.ReportInterval;
+                    uint accelInterval = accelerometer.MinimumReportInterval > 0
+                        ? accelerometer.MinimumReportInterval
+                        : FallbackReportIntervalMs;
+                    accelerometer.ReportInterval = accelInterval;
+                }
+                else
+                {
+                    originalAccelReportInterval = 0;
+                }
+
+                firstGyroSampleEvent = new ManualResetEventSlim(false);
+                gyrometer.ReadingChanged += OnGyrometerReadingChanged;
+                if (accelerometer != null)
+                {
+                    accelerometer.ReadingChanged += OnAccelerometerReadingChanged;
+                }
+
+                if (!TryWarmupGyroReading(out long firstTimestampTicksUtc))
+                {
+                    Logger.Warn($"Gyro source '{name}' warmup failed: no readings received within {WarmupTimeoutMs}ms");
+                    Stop();
+                    return false;
+                }
+
+                lastGyroTimestampTicksUtc = firstTimestampTicksUtc;
+                Logger.Info($"Gyro source '{name}' started (gyro interval: {gyrometer.ReportInterval}ms, accelerometer available: {accelerometer != null})");
                 return true;
             }
             catch (Exception ex)
@@ -87,9 +146,126 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
         public void Stop()
         {
+            if (gyrometer != null)
+            {
+                try
+                {
+                    gyrometer.ReadingChanged -= OnGyrometerReadingChanged;
+                }
+                catch
+                {
+                    // Ignore event detach failures.
+                }
+
+                try
+                {
+                    gyrometer.ReportInterval = originalGyroReportInterval;
+                }
+                catch
+                {
+                    // Ignore report interval restore failures.
+                }
+            }
+
+            if (accelerometer != null)
+            {
+                try
+                {
+                    accelerometer.ReadingChanged -= OnAccelerometerReadingChanged;
+                }
+                catch
+                {
+                    // Ignore event detach failures.
+                }
+
+                try
+                {
+                    accelerometer.ReportInterval = originalAccelReportInterval;
+                }
+                catch
+                {
+                    // Ignore report interval restore failures.
+                }
+            }
+
             started = false;
             gyrometer = null;
             accelerometer = null;
+            firstGyroSampleEvent?.Dispose();
+            firstGyroSampleEvent = null;
+
+            lock (sampleLock)
+            {
+                lastGyroTimestampTicksUtc = 0;
+                hasAccelSample = false;
+                latestAccelX = 0.0f;
+                latestAccelY = 0.0f;
+                latestAccelZ = 0.0f;
+                latestSample = default;
+                hasUnreadSample = false;
+            }
+        }
+
+        private bool TryWarmupGyroReading(out long timestampTicksUtc)
+        {
+            timestampTicksUtc = 0;
+            if (gyrometer == null)
+            {
+                return false;
+            }
+
+            if (firstGyroSampleEvent != null && firstGyroSampleEvent.Wait(WarmupTimeoutMs))
+            {
+                lock (sampleLock)
+                {
+                    if (lastGyroTimestampTicksUtc > 0)
+                    {
+                        timestampTicksUtc = lastGyroTimestampTicksUtc;
+                        return true;
+                    }
+                }
+            }
+
+            // Fallback for devices where event delivery is delayed.
+            var reading = gyrometer.GetCurrentReading();
+            if (reading == null)
+            {
+                return false;
+            }
+
+            long ticks = reading.Timestamp.UtcDateTime.Ticks;
+            if (ticks <= 0)
+            {
+                ticks = DateTime.UtcNow.Ticks;
+            }
+
+            float accelX = 0.0f;
+            float accelY = 0.0f;
+            float accelZ = 0.0f;
+            var accelReading = accelerometer?.GetCurrentReading();
+            if (accelReading != null)
+            {
+                accelX = (float)accelReading.AccelerationX;
+                accelY = (float)accelReading.AccelerationY;
+                accelZ = (float)accelReading.AccelerationZ;
+            }
+
+            lock (sampleLock)
+            {
+                lastGyroTimestampTicksUtc = ticks;
+                latestSample = new GyroSample(
+                    (float)reading.AngularVelocityX,
+                    (float)reading.AngularVelocityY,
+                    (float)reading.AngularVelocityZ,
+                    accelX,
+                    accelY,
+                    accelZ,
+                    ticks);
+                hasUnreadSample = true;
+            }
+
+            timestampTicksUtc = ticks;
+            return true;
         }
 
         public bool TryGetLatestSample(out GyroSample sample)
@@ -100,38 +276,97 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 return false;
             }
 
-            try
+            lock (sampleLock)
             {
-                var gyroReading = gyrometer.GetCurrentReading();
-                if (gyroReading == null)
+                if (!hasUnreadSample)
                 {
                     return false;
                 }
 
-                float accelX = 0.0f;
-                float accelY = 0.0f;
-                float accelZ = 0.0f;
-                var accelReading = accelerometer?.GetCurrentReading();
-                if (accelReading != null)
+                sample = latestSample;
+                hasUnreadSample = false;
+                return true;
+            }
+        }
+
+        private void OnAccelerometerReadingChanged(Accelerometer sender, AccelerometerReadingChangedEventArgs args)
+        {
+            if (!started)
+            {
+                return;
+            }
+
+            try
+            {
+                var reading = args?.Reading;
+                if (reading == null)
                 {
-                    accelX = (float)accelReading.AccelerationX;
-                    accelY = (float)accelReading.AccelerationY;
-                    accelZ = (float)accelReading.AccelerationZ;
+                    return;
                 }
 
-                sample = new GyroSample(
-                    (float)gyroReading.AngularVelocityX,
-                    (float)gyroReading.AngularVelocityY,
-                    (float)gyroReading.AngularVelocityZ,
-                    accelX,
-                    accelY,
-                    accelZ,
-                    DateTime.UtcNow.Ticks);
-                return true;
+                lock (sampleLock)
+                {
+                    latestAccelX = (float)reading.AccelerationX;
+                    latestAccelY = (float)reading.AccelerationY;
+                    latestAccelZ = (float)reading.AccelerationZ;
+                    hasAccelSample = true;
+                }
             }
             catch
             {
-                return false;
+                // Ignore transient sensor callback failures.
+            }
+        }
+
+        private void OnGyrometerReadingChanged(Gyrometer sender, GyrometerReadingChangedEventArgs args)
+        {
+            if (!started)
+            {
+                return;
+            }
+
+            try
+            {
+                var reading = args?.Reading;
+                if (reading == null)
+                {
+                    return;
+                }
+
+                long timestampTicksUtc = reading.Timestamp.UtcDateTime.Ticks;
+                if (timestampTicksUtc <= 0)
+                {
+                    timestampTicksUtc = DateTime.UtcNow.Ticks;
+                }
+
+                lock (sampleLock)
+                {
+                    if (timestampTicksUtc <= lastGyroTimestampTicksUtc)
+                    {
+                        return;
+                    }
+
+                    lastGyroTimestampTicksUtc = timestampTicksUtc;
+
+                    float accelX = hasAccelSample ? latestAccelX : 0.0f;
+                    float accelY = hasAccelSample ? latestAccelY : 0.0f;
+                    float accelZ = hasAccelSample ? latestAccelZ : 0.0f;
+                    latestSample = new GyroSample(
+                        (float)reading.AngularVelocityX,
+                        (float)reading.AngularVelocityY,
+                        (float)reading.AngularVelocityZ,
+                        accelX,
+                        accelY,
+                        accelZ,
+                        timestampTicksUtc);
+                    hasUnreadSample = true;
+                }
+
+                firstGyroSampleEvent?.Set();
+            }
+            catch
+            {
+                // Ignore transient sensor callback failures.
             }
         }
 

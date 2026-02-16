@@ -591,6 +591,7 @@ namespace XboxGamingBar
         private XboxGameBarWidgetNotificationManager notificationManager = null;
         public XboxGameBarWidgetActivity WidgetActivity { get { return widgetActivity; } }
         private XboxGameBarAppTargetTracker appTargetTracker = null;
+        private bool appIsInBackground = false;
 
         private SolidColorBrush widgetDarkThemeBrush = null;
         private SolidColorBrush widgetLightThemeBrush = null;
@@ -838,8 +839,35 @@ namespace XboxGamingBar
         private readonly GPDButtonProperty gpdButtonLSLeft;
         private readonly GPDButtonProperty gpdButtonLSRight;
         private readonly ControllerEmulationAvailableProperty controllerEmulationAvailable;
+        private readonly ControllerEmulationEnabledProperty controllerEmulationEnabled;
+        private readonly ControllerEmulationHideStockControllerProperty controllerEmulationHideStockController;
+        private readonly ControllerEmulationHideTargetProperty controllerEmulationHideTarget;
         private readonly ControllerEmulationGyroSourceProperty controllerEmulationGyroSource;
         private readonly ControllerEmulationModeProperty controllerEmulationMode;
+        private readonly ControllerEmulationGyroActivationModeProperty controllerEmulationGyroActivationMode;
+        private readonly ControllerEmulationGyroActivationButtonProperty controllerEmulationGyroActivationButton;
+        private readonly ControllerEmulationDs4OrientationProperty controllerEmulationDs4Orientation;
+        private readonly ControllerEmulationPs4TouchpadEnabledProperty controllerEmulationPs4TouchpadEnabled;
+        private readonly ControllerEmulationMouseSensitivityProperty controllerEmulationMouseSensitivity;
+        private readonly ControllerEmulationMouseThresholdProperty controllerEmulationMouseThreshold;
+        private readonly ControllerEmulationMouseAxisProperty controllerEmulationMouseAxis;
+        private readonly ControllerEmulationMouseInvertXProperty controllerEmulationMouseInvertX;
+        private readonly ControllerEmulationMouseInvertYProperty controllerEmulationMouseInvertY;
+        private readonly ControllerEmulationMouseGainXProperty controllerEmulationMouseGainX;
+        private readonly ControllerEmulationMouseGainYProperty controllerEmulationMouseGainY;
+        private readonly ControllerEmulationStickSensitivityProperty controllerEmulationStickSensitivity;
+        private readonly ControllerEmulationStickThresholdProperty controllerEmulationStickThreshold;
+        private readonly ControllerEmulationStickAxisProperty controllerEmulationStickAxis;
+        private readonly ControllerEmulationStickInvertXProperty controllerEmulationStickInvertX;
+        private readonly ControllerEmulationStickInvertYProperty controllerEmulationStickInvertY;
+        private readonly ControllerEmulationStickGainXProperty controllerEmulationStickGainX;
+        private readonly ControllerEmulationStickGainYProperty controllerEmulationStickGainY;
+        private readonly ControllerEmulationStickSelectProperty controllerEmulationStickSelect;
+        private readonly ControllerEmulationStickExcessMoveProperty controllerEmulationStickExcessMove;
+        private readonly ControllerEmulationStickRangeProperty controllerEmulationStickRange;
+        private readonly ControllerEmulationStickOnlyJoystickDataProperty controllerEmulationStickOnlyJoystickData;
+        private readonly ControllerEmulationVirtualABXYLayoutProperty controllerEmulationVirtualAbxyLayout;
+        private bool controllerEmulationSupported = false;
         private bool isApplyingGpdRestoreDefaults = false;
         private readonly GPDFanCurveGraphProperty gpdFanCurveGraph;
         private readonly GPDCPUTempProperty gpdCPUTemp;
@@ -858,6 +886,8 @@ namespace XboxGamingBar
         private readonly InstallPawnIOProperty installPawnIO;
         private readonly ViGEmBusInstalledProperty vigemBusInstalled;
         private readonly InstallViGEmBusProperty installViGEmBus;
+        private readonly HidHideInstalledProperty hidHideInstalled;
+        private readonly InstallHidHideProperty installHidHide;
         private readonly AutoHibernateEnabledProperty autoHibernateEnabled;
         private readonly AutoHibernateIdleMinutesProperty autoHibernateIdleMinutes;
 
@@ -1260,8 +1290,34 @@ namespace XboxGamingBar
             gpdButtonLSLeft = new GPDButtonProperty(this, Function.GPDButtonLSLeft);
             gpdButtonLSRight = new GPDButtonProperty(this, Function.GPDButtonLSRight);
             controllerEmulationAvailable = new ControllerEmulationAvailableProperty(this);
+            controllerEmulationEnabled = new ControllerEmulationEnabledProperty(ControllerEmulationEnabledToggle, this);
+            controllerEmulationHideStockController = new ControllerEmulationHideStockControllerProperty(ControllerEmulationHideStockControllerToggle, this);
+            controllerEmulationHideTarget = new ControllerEmulationHideTargetProperty(ControllerEmulationHideTargetComboBox, this);
             controllerEmulationGyroSource = new ControllerEmulationGyroSourceProperty(ControllerEmulationGyroSourceComboBox, this);
             controllerEmulationMode = new ControllerEmulationModeProperty(ControllerEmulationModeComboBox, this);
+            controllerEmulationGyroActivationMode = new ControllerEmulationGyroActivationModeProperty(ControllerEmulationGyroActivationModeComboBox, this);
+            controllerEmulationGyroActivationButton = new ControllerEmulationGyroActivationButtonProperty(ControllerEmulationGyroActivationButtonComboBox, this);
+            controllerEmulationDs4Orientation = new ControllerEmulationDs4OrientationProperty(ControllerEmulationDs4OrientationComboBox, this);
+            controllerEmulationPs4TouchpadEnabled = new ControllerEmulationPs4TouchpadEnabledProperty(ControllerEmulationPs4TouchpadToggle, this);
+            controllerEmulationMouseSensitivity = new ControllerEmulationMouseSensitivityProperty(ControllerEmulationMouseSensitivitySlider, this);
+            controllerEmulationMouseThreshold = new ControllerEmulationMouseThresholdProperty(ControllerEmulationMouseThresholdSlider, this);
+            controllerEmulationMouseAxis = new ControllerEmulationMouseAxisProperty(ControllerEmulationMouseAxisComboBox, this);
+            controllerEmulationMouseInvertX = new ControllerEmulationMouseInvertXProperty(ControllerEmulationMouseInvertXToggle, this);
+            controllerEmulationMouseInvertY = new ControllerEmulationMouseInvertYProperty(ControllerEmulationMouseInvertYToggle, this);
+            controllerEmulationMouseGainX = new ControllerEmulationMouseGainXProperty(ControllerEmulationMouseGainXSlider, this);
+            controllerEmulationMouseGainY = new ControllerEmulationMouseGainYProperty(ControllerEmulationMouseGainYSlider, this);
+            controllerEmulationStickSensitivity = new ControllerEmulationStickSensitivityProperty(ControllerEmulationStickSensitivitySlider, this);
+            controllerEmulationStickThreshold = new ControllerEmulationStickThresholdProperty(ControllerEmulationStickThresholdSlider, this);
+            controllerEmulationStickAxis = new ControllerEmulationStickAxisProperty(ControllerEmulationStickAxisComboBox, this);
+            controllerEmulationStickInvertX = new ControllerEmulationStickInvertXProperty(ControllerEmulationStickInvertXToggle, this);
+            controllerEmulationStickInvertY = new ControllerEmulationStickInvertYProperty(ControllerEmulationStickInvertYToggle, this);
+            controllerEmulationStickGainX = new ControllerEmulationStickGainXProperty(ControllerEmulationStickGainXSlider, this);
+            controllerEmulationStickGainY = new ControllerEmulationStickGainYProperty(ControllerEmulationStickGainYSlider, this);
+            controllerEmulationStickSelect = new ControllerEmulationStickSelectProperty(ControllerEmulationStickSelectComboBox, this);
+            controllerEmulationStickExcessMove = new ControllerEmulationStickExcessMoveProperty(ControllerEmulationStickExcessMoveToggle, this);
+            controllerEmulationStickRange = new ControllerEmulationStickRangeProperty(ControllerEmulationStickRangeSlider, this);
+            controllerEmulationStickOnlyJoystickData = new ControllerEmulationStickOnlyJoystickDataProperty(ControllerEmulationStickOnlyJoystickToggle, this);
+            controllerEmulationVirtualAbxyLayout = new ControllerEmulationVirtualABXYLayoutProperty(ControllerEmulationVirtualAbxyLayoutComboBox, this);
             gpdFanCurveGraph = new GPDFanCurveGraphProperty(this);
             gpdFanCurveGraph.SetGraphUpdateCallback(OnGPDFanCurveUpdated);
             gpdCPUTemp = new GPDCPUTempProperty(this);
@@ -1287,6 +1343,8 @@ namespace XboxGamingBar
             installPawnIO = new InstallPawnIOProperty(this);
             vigemBusInstalled = new ViGEmBusInstalledProperty(this);
             installViGEmBus = new InstallViGEmBusProperty(this);
+            hidHideInstalled = new HidHideInstalledProperty(this);
+            installHidHide = new InstallHidHideProperty(this);
             autoHibernateEnabled = new AutoHibernateEnabledProperty(AutoHibernateToggle, this);
             autoHibernateIdleMinutes = new AutoHibernateIdleMinutesProperty(15, AutoHibernateTimeoutSlider, this);
 
@@ -1294,6 +1352,7 @@ namespace XboxGamingBar
             winRing0Available.SetAvailabilityCallback(UpdateWinRing0Visibility);
             pawnIOInstalled.SetInstalledCallback(UpdatePawnIOInstalledUI);
             vigemBusInstalled.SetInstalledCallback(UpdateViGEmBusInstalledUI);
+            hidHideInstalled.SetInstalledCallback(UpdateHidHideInstalledUI);
 
             // AutoTDP properties
             autoTDPEnabled = new AutoTDPEnabledProperty(false);
@@ -1466,6 +1525,8 @@ namespace XboxGamingBar
                 installPawnIO,
                 vigemBusInstalled,
                 installViGEmBus,
+                hidHideInstalled,
+                installHidHide,
                 autoHibernateEnabled,
                 autoHibernateIdleMinutes,
                 autoTDPEnabled,
@@ -1532,8 +1593,34 @@ namespace XboxGamingBar
                 gpdButtonLSLeft,
                 gpdButtonLSRight,
                 controllerEmulationAvailable,
+                controllerEmulationEnabled,
+                controllerEmulationHideStockController,
+                controllerEmulationHideTarget,
                 controllerEmulationGyroSource,
                 controllerEmulationMode,
+                controllerEmulationGyroActivationMode,
+                controllerEmulationGyroActivationButton,
+                controllerEmulationDs4Orientation,
+                controllerEmulationPs4TouchpadEnabled,
+                controllerEmulationMouseSensitivity,
+                controllerEmulationMouseThreshold,
+                controllerEmulationMouseAxis,
+                controllerEmulationMouseInvertX,
+                controllerEmulationMouseInvertY,
+                controllerEmulationMouseGainX,
+                controllerEmulationMouseGainY,
+                controllerEmulationStickSensitivity,
+                controllerEmulationStickThreshold,
+                controllerEmulationStickAxis,
+                controllerEmulationStickInvertX,
+                controllerEmulationStickInvertY,
+                controllerEmulationStickGainX,
+                controllerEmulationStickGainY,
+                controllerEmulationStickSelect,
+                controllerEmulationStickExcessMove,
+                controllerEmulationStickRange,
+                controllerEmulationStickOnlyJoystickData,
+                controllerEmulationVirtualAbxyLayout,
                 gpdFanCurveGraph,
                 gpdCPUTemp,
                 gpdFanCurveVisible,
@@ -1724,10 +1811,60 @@ namespace XboxGamingBar
             OSDCustomizeExpandButton.LostFocus += Control_LostFocus;
 
             // System tab - Controller Emulation card
+            ControllerEmulationEnabledToggle.GotFocus += Control_GotFocus;
+            ControllerEmulationEnabledToggle.LostFocus += Control_LostFocus;
+            ControllerEmulationHideStockControllerToggle.GotFocus += Control_GotFocus;
+            ControllerEmulationHideStockControllerToggle.LostFocus += Control_LostFocus;
+            ControllerEmulationHideTargetComboBox.GotFocus += Control_GotFocus;
+            ControllerEmulationHideTargetComboBox.LostFocus += Control_LostFocus;
             ControllerEmulationGyroSourceComboBox.GotFocus += Control_GotFocus;
             ControllerEmulationGyroSourceComboBox.LostFocus += Control_LostFocus;
             ControllerEmulationModeComboBox.GotFocus += Control_GotFocus;
             ControllerEmulationModeComboBox.LostFocus += Control_LostFocus;
+            ControllerEmulationGyroActivationModeComboBox.GotFocus += Control_GotFocus;
+            ControllerEmulationGyroActivationModeComboBox.LostFocus += Control_LostFocus;
+            ControllerEmulationGyroActivationButtonComboBox.GotFocus += Control_GotFocus;
+            ControllerEmulationGyroActivationButtonComboBox.LostFocus += Control_LostFocus;
+            ControllerEmulationPs4TouchpadToggle.GotFocus += Control_GotFocus;
+            ControllerEmulationPs4TouchpadToggle.LostFocus += Control_LostFocus;
+            ControllerEmulationMouseSensitivitySlider.GotFocus += Control_GotFocus;
+            ControllerEmulationMouseSensitivitySlider.LostFocus += Control_LostFocus;
+            ControllerEmulationMouseThresholdSlider.GotFocus += Control_GotFocus;
+            ControllerEmulationMouseThresholdSlider.LostFocus += Control_LostFocus;
+            ControllerEmulationMouseAxisComboBox.GotFocus += Control_GotFocus;
+            ControllerEmulationMouseAxisComboBox.LostFocus += Control_LostFocus;
+            ControllerEmulationMouseInvertXToggle.GotFocus += Control_GotFocus;
+            ControllerEmulationMouseInvertXToggle.LostFocus += Control_LostFocus;
+            ControllerEmulationMouseInvertYToggle.GotFocus += Control_GotFocus;
+            ControllerEmulationMouseInvertYToggle.LostFocus += Control_LostFocus;
+            ControllerEmulationMouseGainXSlider.GotFocus += Control_GotFocus;
+            ControllerEmulationMouseGainXSlider.LostFocus += Control_LostFocus;
+            ControllerEmulationMouseGainYSlider.GotFocus += Control_GotFocus;
+            ControllerEmulationMouseGainYSlider.LostFocus += Control_LostFocus;
+            ControllerEmulationStickSensitivitySlider.GotFocus += Control_GotFocus;
+            ControllerEmulationStickSensitivitySlider.LostFocus += Control_LostFocus;
+            ControllerEmulationStickThresholdSlider.GotFocus += Control_GotFocus;
+            ControllerEmulationStickThresholdSlider.LostFocus += Control_LostFocus;
+            ControllerEmulationStickAxisComboBox.GotFocus += Control_GotFocus;
+            ControllerEmulationStickAxisComboBox.LostFocus += Control_LostFocus;
+            ControllerEmulationStickInvertXToggle.GotFocus += Control_GotFocus;
+            ControllerEmulationStickInvertXToggle.LostFocus += Control_LostFocus;
+            ControllerEmulationStickInvertYToggle.GotFocus += Control_GotFocus;
+            ControllerEmulationStickInvertYToggle.LostFocus += Control_LostFocus;
+            ControllerEmulationStickGainXSlider.GotFocus += Control_GotFocus;
+            ControllerEmulationStickGainXSlider.LostFocus += Control_LostFocus;
+            ControllerEmulationStickGainYSlider.GotFocus += Control_GotFocus;
+            ControllerEmulationStickGainYSlider.LostFocus += Control_LostFocus;
+            ControllerEmulationStickSelectComboBox.GotFocus += Control_GotFocus;
+            ControllerEmulationStickSelectComboBox.LostFocus += Control_LostFocus;
+            ControllerEmulationStickExcessMoveToggle.GotFocus += Control_GotFocus;
+            ControllerEmulationStickExcessMoveToggle.LostFocus += Control_LostFocus;
+            ControllerEmulationStickRangeSlider.GotFocus += Control_GotFocus;
+            ControllerEmulationStickRangeSlider.LostFocus += Control_LostFocus;
+            ControllerEmulationStickOnlyJoystickToggle.GotFocus += Control_GotFocus;
+            ControllerEmulationStickOnlyJoystickToggle.LostFocus += Control_LostFocus;
+            ControllerEmulationVirtualAbxyLayoutComboBox.GotFocus += Control_GotFocus;
+            ControllerEmulationVirtualAbxyLayoutComboBox.LostFocus += Control_LostFocus;
 
             // System tab - Advanced card
             AdvancedExpandButton.GotFocus += Control_GotFocus;
@@ -7061,6 +7198,78 @@ namespace XboxGamingBar
             if (AutoHibernateTimeoutValue != null)
             {
                 AutoHibernateTimeoutValue.Text = $"{(int)e.NewValue} min";
+            }
+        }
+
+        private void ControllerEmulationMouseSensitivitySlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (ControllerEmulationMouseSensitivityValue != null)
+            {
+                ControllerEmulationMouseSensitivityValue.Text = ((int)e.NewValue).ToString();
+            }
+        }
+
+        private void ControllerEmulationMouseThresholdSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (ControllerEmulationMouseThresholdValue != null)
+            {
+                ControllerEmulationMouseThresholdValue.Text = ((int)e.NewValue).ToString();
+            }
+        }
+
+        private void ControllerEmulationMouseGainXSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (ControllerEmulationMouseGainXValue != null)
+            {
+                ControllerEmulationMouseGainXValue.Text = ((int)e.NewValue).ToString();
+            }
+        }
+
+        private void ControllerEmulationMouseGainYSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (ControllerEmulationMouseGainYValue != null)
+            {
+                ControllerEmulationMouseGainYValue.Text = ((int)e.NewValue).ToString();
+            }
+        }
+
+        private void ControllerEmulationStickSensitivitySlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (ControllerEmulationStickSensitivityValue != null)
+            {
+                ControllerEmulationStickSensitivityValue.Text = ((int)e.NewValue).ToString();
+            }
+        }
+
+        private void ControllerEmulationStickThresholdSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (ControllerEmulationStickThresholdValue != null)
+            {
+                ControllerEmulationStickThresholdValue.Text = ((int)e.NewValue).ToString();
+            }
+        }
+
+        private void ControllerEmulationStickGainXSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (ControllerEmulationStickGainXValue != null)
+            {
+                ControllerEmulationStickGainXValue.Text = ((int)e.NewValue).ToString();
+            }
+        }
+
+        private void ControllerEmulationStickGainYSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (ControllerEmulationStickGainYValue != null)
+            {
+                ControllerEmulationStickGainYValue.Text = ((int)e.NewValue).ToString();
+            }
+        }
+
+        private void ControllerEmulationStickRangeSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (ControllerEmulationStickRangeValue != null)
+            {
+                ControllerEmulationStickRangeValue.Text = $"{(e.NewValue / 100.0):0.00}";
             }
         }
 
@@ -14379,6 +14588,7 @@ namespace XboxGamingBar
                     case "System":
                         SystemScrollViewer.Visibility = Visibility.Visible;
                         SystemScrollViewer.ChangeView(null, 0, null, true);
+                        RequestControllerEmulationDriverStatus();
                         break;
                 }
 
@@ -14539,6 +14749,14 @@ namespace XboxGamingBar
             if (PowerSourceProfileToggle != null)
             {
                 PowerSourceProfileToggle.Toggled -= PowerSourceProfileToggle_Toggled;
+            }
+
+            if (widget != null)
+            {
+                widget.RequestedThemeChanged -= GamingWidget_RequestedThemeChanged;
+                widget.SettingsClicked -= GamingWidget_SettingsClicked;
+                widget.VisibleChanged -= GamingWidget_VisibleChanged;
+                widget.GameBarDisplayModeChanged -= GamingWidget_GameBarDisplayModeChanged;
             }
 
             // Stop Sticky TDP timer
@@ -14711,10 +14929,14 @@ namespace XboxGamingBar
                 await widget.CenterWindowAsync();
                 Logger.Info("widget.CenterWindowAsync() completed.");
 
-                Logger.Info("Registering widget event handlers (RequestedThemeChanged, SettingsClicked)...");
+                Logger.Info("Registering widget event handlers (RequestedThemeChanged, SettingsClicked, VisibleChanged, GameBarDisplayModeChanged)...");
                 widget.RequestedThemeChanged += GamingWidget_RequestedThemeChanged;
                 widget.SettingsClicked += GamingWidget_SettingsClicked;
+                widget.VisibleChanged += GamingWidget_VisibleChanged;
+                widget.GameBarDisplayModeChanged += GamingWidget_GameBarDisplayModeChanged;
                 Logger.Info("Widget event handlers registered.");
+
+                UpdateGameBarForegroundSignal("OnNavigatedTo");
 
                 // Initialize notification manager for profile notifications
                 notificationManager = new XboxGameBarWidgetNotificationManager(widget);
@@ -14980,14 +15202,16 @@ namespace XboxGamingBar
                 Logger.Info("GamingWidget LeavingBackground but not connected to the full trust process.");
             }
 
-            isForeground.SetValue(true);
+            appIsInBackground = false;
+            UpdateGameBarForegroundSignal("LeavingBackground");
             Logger.Info("GamingWidget_LeavingBackground completed.");
         }
 
         public void GamingWidget_EnteredBackground(object sender, EnteredBackgroundEventArgs e)
         {
             Logger.Info($"GamingWidget_EnteredBackground called. WidgetActivity is null: {widgetActivity == null}");
-            isForeground.SetValue(false);
+            appIsInBackground = true;
+            UpdateGameBarForegroundSignal("EnteredBackground");
         }
 
         private async Task CreateWidgetActivity()
@@ -16261,6 +16485,54 @@ namespace XboxGamingBar
         private async void GamingWidget_SettingsClicked(XboxGameBarWidget sender, object args)
         {
             await widget.ActivateSettingsAsync();
+        }
+
+        private void GamingWidget_VisibleChanged(XboxGameBarWidget sender, object args)
+        {
+            try
+            {
+                bool isVisible = sender?.Visible ?? false;
+                Logger.Info($"GamingWidget_VisibleChanged: Visible={isVisible}, DisplayMode={sender?.GameBarDisplayMode.ToString() ?? "Unknown"}");
+                UpdateGameBarForegroundSignal("VisibleChanged");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"GamingWidget_VisibleChanged failed: {ex.Message}");
+            }
+        }
+
+        private void GamingWidget_GameBarDisplayModeChanged(XboxGameBarWidget sender, object args)
+        {
+            try
+            {
+                Logger.Info($"GamingWidget_GameBarDisplayModeChanged: DisplayMode={sender?.GameBarDisplayMode.ToString() ?? "Unknown"}, Visible={sender?.Visible ?? false}");
+                UpdateGameBarForegroundSignal("GameBarDisplayModeChanged");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"GamingWidget_GameBarDisplayModeChanged failed: {ex.Message}");
+            }
+        }
+
+        private void UpdateGameBarForegroundSignal(string source)
+        {
+            try
+            {
+                bool widgetVisible = widget?.Visible ?? false;
+                XboxGameBarDisplayMode displayMode = widget?.GameBarDisplayMode ?? XboxGameBarDisplayMode.Foreground;
+
+                // Full Game Bar visibility signal:
+                // - true when the overlay is foreground (even if this specific widget tab is not selected)
+                // - false when app is backgrounded or Game Bar is not in foreground mode
+                bool gameBarForeground = !appIsInBackground && displayMode == XboxGameBarDisplayMode.Foreground;
+                isForeground.ForceSetValue(gameBarForeground);
+
+                Logger.Info($"GameBar foreground signal update ({source}): value={gameBarForeground}, displayMode={displayMode}, widgetVisible={widgetVisible}, appBackground={appIsInBackground}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"UpdateGameBarForegroundSignal failed ({source}): {ex.Message}");
+            }
         }
 
         private void SetBackgroundColor()
@@ -17567,33 +17839,327 @@ namespace XboxGamingBar
         /// </summary>
         private void SetControllerEmulationAvailability(bool available)
         {
+            controllerEmulationSupported = available;
+
             if (ControllerEmulationCard != null)
             {
                 ControllerEmulationCard.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
             }
 
+            if (ControllerEmulationEnabledToggle != null)
+            {
+                ControllerEmulationEnabledToggle.IsEnabled = available;
+            }
+
+            UpdateControllerEmulationControlState();
+            UpdateControllerEmulationStatusText();
+            Logger.Info($"Controller emulation availability set to: {available}");
+            UpdateControllerEmulationMouseSettingsVisibility();
+            UpdateSystemControllerEmulationNavigation();
+
+            if (available)
+            {
+                RequestControllerEmulationDriverStatus();
+            }
+        }
+
+        private void UpdateControllerEmulationControlState()
+        {
+            bool enabled = controllerEmulationSupported &&
+                           ControllerEmulationEnabledToggle != null &&
+                           ControllerEmulationEnabledToggle.IsOn;
+
+            if (ControllerEmulationHideStockControllerToggle != null)
+            {
+                ControllerEmulationHideStockControllerToggle.IsEnabled = enabled;
+            }
+
+            if (ControllerEmulationHideTargetComboBox != null)
+            {
+                ControllerEmulationHideTargetComboBox.IsEnabled = enabled;
+            }
+
             if (ControllerEmulationGyroSourceComboBox != null)
             {
-                ControllerEmulationGyroSourceComboBox.IsEnabled = available;
+                ControllerEmulationGyroSourceComboBox.IsEnabled = enabled;
             }
 
             if (ControllerEmulationModeComboBox != null)
             {
-                ControllerEmulationModeComboBox.IsEnabled = available;
+                ControllerEmulationModeComboBox.IsEnabled = enabled;
             }
 
+            bool isAlwaysOnActivation = ControllerEmulationGyroActivationModeComboBox == null ||
+                                        ControllerEmulationGyroActivationModeComboBox.SelectedIndex <= 0;
+            if (ControllerEmulationGyroActivationModeComboBox != null)
+            {
+                ControllerEmulationGyroActivationModeComboBox.IsEnabled = enabled;
+            }
+
+            if (ControllerEmulationGyroActivationButtonComboBox != null)
+            {
+                ControllerEmulationGyroActivationButtonComboBox.IsEnabled = enabled && !isAlwaysOnActivation;
+            }
+
+            bool isMouseMode = ControllerEmulationModeComboBox != null &&
+                               ControllerEmulationModeComboBox.SelectedIndex == 0;
+            bool isDs4MotionMode = ControllerEmulationModeComboBox != null &&
+                                   ControllerEmulationModeComboBox.SelectedIndex == 2;
+            bool isDs4Mode = ControllerEmulationModeComboBox != null &&
+                             (ControllerEmulationModeComboBox.SelectedIndex == 2 || ControllerEmulationModeComboBox.SelectedIndex == 3);
+            bool isStickMode = ControllerEmulationModeComboBox != null &&
+                               (ControllerEmulationModeComboBox.SelectedIndex == 1 || ControllerEmulationModeComboBox.SelectedIndex == 3);
+
+            bool mouseControlsEnabled = enabled && isMouseMode;
+            if (ControllerEmulationMouseSensitivitySlider != null)
+                ControllerEmulationMouseSensitivitySlider.IsEnabled = mouseControlsEnabled;
+            if (ControllerEmulationMouseThresholdSlider != null)
+                ControllerEmulationMouseThresholdSlider.IsEnabled = mouseControlsEnabled;
+            if (ControllerEmulationMouseAxisComboBox != null)
+                ControllerEmulationMouseAxisComboBox.IsEnabled = mouseControlsEnabled;
+            if (ControllerEmulationMouseInvertXToggle != null)
+                ControllerEmulationMouseInvertXToggle.IsEnabled = mouseControlsEnabled;
+            if (ControllerEmulationMouseInvertYToggle != null)
+                ControllerEmulationMouseInvertYToggle.IsEnabled = mouseControlsEnabled;
+            if (ControllerEmulationMouseGainXSlider != null)
+                ControllerEmulationMouseGainXSlider.IsEnabled = mouseControlsEnabled;
+            if (ControllerEmulationMouseGainYSlider != null)
+                ControllerEmulationMouseGainYSlider.IsEnabled = mouseControlsEnabled;
+
+            bool ds4MotionControlsEnabled = enabled && isDs4MotionMode;
+            if (ControllerEmulationPs4TouchpadToggle != null)
+                ControllerEmulationPs4TouchpadToggle.IsEnabled = enabled && isDs4Mode;
+            if (ControllerEmulationDs4OrientationComboBox != null)
+                ControllerEmulationDs4OrientationComboBox.IsEnabled = ds4MotionControlsEnabled;
+
+            bool stickControlsEnabled = enabled && isStickMode;
+            if (ControllerEmulationStickSensitivitySlider != null)
+                ControllerEmulationStickSensitivitySlider.IsEnabled = stickControlsEnabled;
+            if (ControllerEmulationStickThresholdSlider != null)
+                ControllerEmulationStickThresholdSlider.IsEnabled = stickControlsEnabled;
+            if (ControllerEmulationStickAxisComboBox != null)
+                ControllerEmulationStickAxisComboBox.IsEnabled = stickControlsEnabled;
+            if (ControllerEmulationStickInvertXToggle != null)
+                ControllerEmulationStickInvertXToggle.IsEnabled = stickControlsEnabled;
+            if (ControllerEmulationStickInvertYToggle != null)
+                ControllerEmulationStickInvertYToggle.IsEnabled = stickControlsEnabled;
+            if (ControllerEmulationStickGainXSlider != null)
+                ControllerEmulationStickGainXSlider.IsEnabled = stickControlsEnabled;
+            if (ControllerEmulationStickGainYSlider != null)
+                ControllerEmulationStickGainYSlider.IsEnabled = stickControlsEnabled;
+            if (ControllerEmulationStickSelectComboBox != null)
+                ControllerEmulationStickSelectComboBox.IsEnabled = stickControlsEnabled;
+            if (ControllerEmulationStickExcessMoveToggle != null)
+                ControllerEmulationStickExcessMoveToggle.IsEnabled = stickControlsEnabled;
+            if (ControllerEmulationStickRangeSlider != null)
+                ControllerEmulationStickRangeSlider.IsEnabled = stickControlsEnabled;
+            if (ControllerEmulationStickOnlyJoystickToggle != null)
+                ControllerEmulationStickOnlyJoystickToggle.IsEnabled = stickControlsEnabled;
+            if (ControllerEmulationVirtualAbxyLayoutComboBox != null)
+                ControllerEmulationVirtualAbxyLayoutComboBox.IsEnabled = stickControlsEnabled;
+        }
+
+        private void UpdateControllerEmulationStatusText()
+        {
             if (ControllerEmulationStatusText != null)
             {
-                ControllerEmulationStatusText.Text = available
-                    ? "Controller emulation is available on this handheld."
-                    : "Controller emulation is not available on this handheld.";
+                bool enabled = controllerEmulationSupported &&
+                               ControllerEmulationEnabledToggle != null &&
+                               ControllerEmulationEnabledToggle.IsOn;
 
-                ControllerEmulationStatusText.Foreground = new SolidColorBrush(available
-                    ? Windows.UI.Color.FromArgb(255, 120, 200, 120)
-                    : Windows.UI.Color.FromArgb(255, 136, 136, 136));
+                if (!controllerEmulationSupported)
+                {
+                    ControllerEmulationStatusText.Text = "Controller emulation is not available on this handheld.";
+                    ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
+                }
+                else if (!enabled)
+                {
+                    ControllerEmulationStatusText.Text = "Controller emulation is disabled.";
+                    ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 210, 170, 90));
+                }
+                else
+                {
+                    ControllerEmulationStatusText.Text = "Controller emulation is enabled.";
+                    ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 120, 200, 120));
+                }
+            }
+        }
+
+        private void ControllerEmulationEnabledToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            UpdateControllerEmulationControlState();
+            UpdateControllerEmulationStatusText();
+            UpdateControllerEmulationMouseSettingsVisibility();
+            UpdateSystemControllerEmulationNavigation();
+        }
+
+        private void UpdateControllerEmulationMouseSettingsVisibility()
+        {
+            if (ControllerEmulationMouseSettingsPanel == null &&
+                ControllerEmulationDs4MotionSettingsPanel == null &&
+                ControllerEmulationStickSettingsPanel == null)
+            {
+                return;
             }
 
-            Logger.Info($"Controller emulation availability set to: {available}");
+            bool available = ControllerEmulationCard != null &&
+                             ControllerEmulationCard.Visibility == Visibility.Visible &&
+                             ControllerEmulationEnabledToggle != null &&
+                             ControllerEmulationEnabledToggle.IsOn &&
+                             ControllerEmulationModeComboBox != null &&
+                             ControllerEmulationModeComboBox.IsEnabled;
+
+            bool isMouseMode = ControllerEmulationModeComboBox != null &&
+                               ControllerEmulationModeComboBox.SelectedIndex == 0;
+            bool isDs4MotionMode = ControllerEmulationModeComboBox != null &&
+                                   ControllerEmulationModeComboBox.SelectedIndex == 2;
+            bool isDs4Mode = ControllerEmulationModeComboBox != null &&
+                             (ControllerEmulationModeComboBox.SelectedIndex == 2 || ControllerEmulationModeComboBox.SelectedIndex == 3);
+            bool isStickMode = ControllerEmulationModeComboBox != null &&
+                               (ControllerEmulationModeComboBox.SelectedIndex == 1 || ControllerEmulationModeComboBox.SelectedIndex == 3);
+
+            if (ControllerEmulationMouseSettingsPanel != null)
+            {
+                ControllerEmulationMouseSettingsPanel.Visibility = (available && isMouseMode)
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            if (ControllerEmulationDs4MotionSettingsPanel != null)
+            {
+                ControllerEmulationDs4MotionSettingsPanel.Visibility = (available && isDs4Mode)
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            if (ControllerEmulationDs4OrientationRow != null)
+            {
+                ControllerEmulationDs4OrientationRow.Visibility = isDs4MotionMode
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            if (ControllerEmulationPs4TouchpadToggle != null)
+            {
+                if (isDs4MotionMode && ControllerEmulationDs4OrientationComboBox != null)
+                {
+                    ControllerEmulationPs4TouchpadToggle.XYFocusDown = ControllerEmulationDs4OrientationComboBox;
+                    ControllerEmulationDs4OrientationComboBox.XYFocusUp = ControllerEmulationPs4TouchpadToggle;
+                    if (AutoHibernateToggle != null)
+                    {
+                        ControllerEmulationDs4OrientationComboBox.XYFocusDown = AutoHibernateToggle;
+                    }
+                }
+                else if (isStickMode && ControllerEmulationStickSensitivitySlider != null)
+                {
+                    ControllerEmulationPs4TouchpadToggle.XYFocusDown = ControllerEmulationStickSensitivitySlider;
+                    ControllerEmulationStickSensitivitySlider.XYFocusUp = ControllerEmulationPs4TouchpadToggle;
+                }
+                else if (AutoHibernateToggle != null)
+                {
+                    ControllerEmulationPs4TouchpadToggle.XYFocusDown = AutoHibernateToggle;
+                }
+            }
+
+            if (ControllerEmulationStickSettingsPanel != null)
+            {
+                ControllerEmulationStickSettingsPanel.Visibility = (available && isStickMode)
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            DependencyObject firstModeDetailControl = AutoHibernateToggle;
+            if (isMouseMode && ControllerEmulationMouseSensitivitySlider != null)
+            {
+                firstModeDetailControl = ControllerEmulationMouseSensitivitySlider;
+            }
+            else if (isDs4Mode && ControllerEmulationPs4TouchpadToggle != null)
+            {
+                firstModeDetailControl = ControllerEmulationPs4TouchpadToggle;
+            }
+            else if (isStickMode && ControllerEmulationStickSensitivitySlider != null)
+            {
+                firstModeDetailControl = ControllerEmulationStickSensitivitySlider;
+            }
+
+            if (ControllerEmulationModeComboBox != null)
+            {
+                if (ControllerEmulationGyroActivationModeComboBox != null && ControllerEmulationGyroActivationModeComboBox.IsEnabled)
+                {
+                    ControllerEmulationModeComboBox.XYFocusDown = ControllerEmulationGyroActivationModeComboBox;
+                    ControllerEmulationGyroActivationModeComboBox.XYFocusUp = ControllerEmulationModeComboBox;
+
+                    if (ControllerEmulationGyroActivationButtonComboBox != null && ControllerEmulationGyroActivationButtonComboBox.IsEnabled)
+                    {
+                        ControllerEmulationGyroActivationModeComboBox.XYFocusDown = ControllerEmulationGyroActivationButtonComboBox;
+                        ControllerEmulationGyroActivationButtonComboBox.XYFocusUp = ControllerEmulationGyroActivationModeComboBox;
+                        ControllerEmulationGyroActivationButtonComboBox.XYFocusDown = firstModeDetailControl;
+                        if (firstModeDetailControl is Control firstControl &&
+                            !ReferenceEquals(firstModeDetailControl, AutoHibernateToggle))
+                        {
+                            firstControl.XYFocusUp = ControllerEmulationGyroActivationButtonComboBox;
+                        }
+                    }
+                    else
+                    {
+                        ControllerEmulationGyroActivationModeComboBox.XYFocusDown = firstModeDetailControl;
+                        if (firstModeDetailControl is Control firstControl &&
+                            !ReferenceEquals(firstModeDetailControl, AutoHibernateToggle))
+                        {
+                            firstControl.XYFocusUp = ControllerEmulationGyroActivationModeComboBox;
+                        }
+                    }
+                }
+                else
+                {
+                    ControllerEmulationModeComboBox.XYFocusDown = firstModeDetailControl;
+                }
+            }
+
+            if (AutoHibernateToggle != null)
+            {
+                if (isMouseMode && ControllerEmulationMouseGainYSlider != null)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationMouseGainYSlider;
+                }
+                else if (isStickMode && ControllerEmulationVirtualAbxyLayoutComboBox != null)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationVirtualAbxyLayoutComboBox;
+                }
+                else if (isDs4MotionMode && ControllerEmulationDs4OrientationComboBox != null)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationDs4OrientationComboBox;
+                }
+                else if (isDs4Mode && ControllerEmulationPs4TouchpadToggle != null)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationPs4TouchpadToggle;
+                }
+                else if (ControllerEmulationGyroActivationButtonComboBox != null && ControllerEmulationGyroActivationButtonComboBox.IsEnabled)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationGyroActivationButtonComboBox;
+                }
+                else if (ControllerEmulationGyroActivationModeComboBox != null && ControllerEmulationGyroActivationModeComboBox.IsEnabled)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationGyroActivationModeComboBox;
+                }
+                else
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationModeComboBox;
+                }
+            }
+        }
+
+        private void ControllerEmulationModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateControllerEmulationControlState();
+            UpdateControllerEmulationMouseSettingsVisibility();
+            UpdateSystemControllerEmulationNavigation();
+        }
+
+        private void ControllerEmulationGyroActivationModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateControllerEmulationControlState();
+            UpdateControllerEmulationMouseSettingsVisibility();
             UpdateSystemControllerEmulationNavigation();
         }
 
@@ -17607,18 +18173,71 @@ namespace XboxGamingBar
                 return;
             }
 
-            bool emulationControlsActive =
+            bool emulationCardActive =
                 ControllerEmulationCard != null &&
                 ControllerEmulationCard.Visibility == Visibility.Visible &&
+                ControllerEmulationEnabledToggle != null &&
+                ControllerEmulationEnabledToggle.IsEnabled;
+
+            bool emulationModeControlsActive =
                 ControllerEmulationGyroSourceComboBox != null &&
                 ControllerEmulationGyroSourceComboBox.IsEnabled &&
                 ControllerEmulationModeComboBox != null &&
                 ControllerEmulationModeComboBox.IsEnabled;
+            bool activationModeControlEnabled =
+                ControllerEmulationGyroActivationModeComboBox != null &&
+                ControllerEmulationGyroActivationModeComboBox.IsEnabled;
+            bool activationButtonControlEnabled =
+                ControllerEmulationGyroActivationButtonComboBox != null &&
+                ControllerEmulationGyroActivationButtonComboBox.IsEnabled;
 
-            if (emulationControlsActive)
+            bool isMouseMode = ControllerEmulationModeComboBox != null &&
+                               ControllerEmulationModeComboBox.SelectedIndex == 0;
+            bool isDs4MotionMode = ControllerEmulationModeComboBox != null &&
+                                   ControllerEmulationModeComboBox.SelectedIndex == 2;
+            bool isDs4Mode = ControllerEmulationModeComboBox != null &&
+                             (ControllerEmulationModeComboBox.SelectedIndex == 2 || ControllerEmulationModeComboBox.SelectedIndex == 3);
+            bool isStickMode = ControllerEmulationModeComboBox != null &&
+                               (ControllerEmulationModeComboBox.SelectedIndex == 1 || ControllerEmulationModeComboBox.SelectedIndex == 3);
+
+            if (emulationCardActive)
             {
-                HotkeysExpandButton.XYFocusDown = ControllerEmulationGyroSourceComboBox;
-                AutoHibernateToggle.XYFocusUp = ControllerEmulationModeComboBox;
+                HotkeysExpandButton.XYFocusDown = ControllerEmulationEnabledToggle;
+
+                if (!emulationModeControlsActive)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationEnabledToggle;
+                    return;
+                }
+
+                if (isMouseMode && ControllerEmulationMouseGainYSlider != null && ControllerEmulationMouseGainYSlider.IsEnabled)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationMouseGainYSlider;
+                }
+                else if (isStickMode && ControllerEmulationVirtualAbxyLayoutComboBox != null && ControllerEmulationVirtualAbxyLayoutComboBox.IsEnabled)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationVirtualAbxyLayoutComboBox;
+                }
+                else if (isDs4MotionMode && ControllerEmulationDs4OrientationComboBox != null && ControllerEmulationDs4OrientationComboBox.IsEnabled)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationDs4OrientationComboBox;
+                }
+                else if (isDs4Mode && ControllerEmulationPs4TouchpadToggle != null && ControllerEmulationPs4TouchpadToggle.IsEnabled)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationPs4TouchpadToggle;
+                }
+                else if (activationButtonControlEnabled)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationGyroActivationButtonComboBox;
+                }
+                else if (activationModeControlEnabled)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationGyroActivationModeComboBox;
+                }
+                else
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationModeComboBox;
+                }
             }
             else
             {
@@ -18994,6 +19613,20 @@ namespace XboxGamingBar
                 ViGEmBusInstallButton.IsEnabled = !installed;
             }
 
+            if (ControllerEmulationViGEmBusStatusText != null)
+            {
+                ControllerEmulationViGEmBusStatusText.Text = installed ? "ViGEmBus: Installed" : "ViGEmBus: Not Installed";
+                ControllerEmulationViGEmBusStatusText.Foreground = installed
+                    ? new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.LimeGreen)
+                    : new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
+            }
+
+            if (ControllerEmulationViGEmBusInstallButton != null)
+            {
+                ControllerEmulationViGEmBusInstallButton.Content = installed ? "Installed" : "Install ViGEmBus";
+                ControllerEmulationViGEmBusInstallButton.IsEnabled = !installed;
+            }
+
             Logger.Info($"ViGEmBus install UI updated: installed={installed}");
         }
 
@@ -19013,9 +19646,20 @@ namespace XboxGamingBar
                     ViGEmBusInstallButton.IsEnabled = false;
                 }
 
+                if (ControllerEmulationViGEmBusInstallButton != null)
+                {
+                    ControllerEmulationViGEmBusInstallButton.Content = "Installing...";
+                    ControllerEmulationViGEmBusInstallButton.IsEnabled = false;
+                }
+
                 if (ViGEmBusStatusText != null)
                 {
                     ViGEmBusStatusText.Text = "Status: Installing...";
+                }
+
+                if (ControllerEmulationViGEmBusStatusText != null)
+                {
+                    ControllerEmulationViGEmBusStatusText.Text = "ViGEmBus: Installing...";
                 }
 
                 // Trigger the installation via the property
@@ -19033,9 +19677,79 @@ namespace XboxGamingBar
                     ViGEmBusInstallButton.Content = "Install ViGEmBus";
                     ViGEmBusInstallButton.IsEnabled = true;
                 }
+                if (ControllerEmulationViGEmBusInstallButton != null)
+                {
+                    ControllerEmulationViGEmBusInstallButton.Content = "Install ViGEmBus";
+                    ControllerEmulationViGEmBusInstallButton.IsEnabled = true;
+                }
                 if (ViGEmBusStatusText != null)
                 {
                     ViGEmBusStatusText.Text = "Status: Error";
+                }
+                if (ControllerEmulationViGEmBusStatusText != null)
+                {
+                    ControllerEmulationViGEmBusStatusText.Text = "ViGEmBus: Error";
+                }
+            }
+        }
+
+        /// <summary>
+        /// Updates the HidHide install button state based on installation status.
+        /// </summary>
+        private void UpdateHidHideInstalledUI(bool installed)
+        {
+            if (ControllerEmulationHidHideStatusText != null)
+            {
+                ControllerEmulationHidHideStatusText.Text = installed ? "HidHide: Installed" : "HidHide: Not Installed";
+                ControllerEmulationHidHideStatusText.Foreground = installed
+                    ? new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.LimeGreen)
+                    : new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
+            }
+
+            if (ControllerEmulationHidHideInstallButton != null)
+            {
+                ControllerEmulationHidHideInstallButton.Content = installed ? "Installed" : "Install HidHide";
+                ControllerEmulationHidHideInstallButton.IsEnabled = !installed;
+            }
+
+            Logger.Info($"HidHide install UI updated: installed={installed}");
+        }
+
+        /// <summary>
+        /// Handles the HidHide install button click.
+        /// </summary>
+        private void HidHideInstallButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Logger.Info("HidHideInstallButton clicked - triggering HidHide installation");
+
+                if (ControllerEmulationHidHideInstallButton != null)
+                {
+                    ControllerEmulationHidHideInstallButton.Content = "Installing...";
+                    ControllerEmulationHidHideInstallButton.IsEnabled = false;
+                }
+
+                if (ControllerEmulationHidHideStatusText != null)
+                {
+                    ControllerEmulationHidHideStatusText.Text = "HidHide: Installing...";
+                }
+
+                installHidHide?.TriggerInstall();
+                Logger.Info("HidHide installation triggered, waiting for helper response...");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error during HidHide installation: {ex.Message}");
+                if (ControllerEmulationHidHideInstallButton != null)
+                {
+                    ControllerEmulationHidHideInstallButton.Content = "Install HidHide";
+                    ControllerEmulationHidHideInstallButton.IsEnabled = true;
+                }
+
+                if (ControllerEmulationHidHideStatusText != null)
+                {
+                    ControllerEmulationHidHideStatusText.Text = "HidHide: Error";
                 }
             }
         }
@@ -24060,6 +24774,38 @@ namespace XboxGamingBar
             {
                 Logger.Error($"Failed to request ViGEmBus status: {ex.Message}");
             }
+        }
+
+        private async void RequestHidHideStatus()
+        {
+            if (!App.IsConnected)
+                return;
+
+            // Request HidHide installed status from helper
+            try
+            {
+                var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("Command", (int)Command.Get);
+                request.Add("Function", (int)Function.HidHideInstalled);
+                var response = await App.SendMessageAsync(request);
+
+                if (response != null && response.TryGetValue("Content", out object installedObj))
+                {
+                    bool installed = Convert.ToBoolean(installedObj);
+                    UpdateHidHideInstalledUI(installed);
+                    Logger.Debug($"HidHide status received: {installed}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to request HidHide status: {ex.Message}");
+            }
+        }
+
+        private void RequestControllerEmulationDriverStatus()
+        {
+            RequestViGEmBusStatus();
+            RequestHidHideStatus();
         }
 
         private async void UpdateDAServiceStatus()

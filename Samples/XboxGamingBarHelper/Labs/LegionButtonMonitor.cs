@@ -5,6 +5,7 @@ using System.Threading;
 using Microsoft.Win32.SafeHandles;
 using NLog;
 using Windows.Storage;
+using XboxGamingBarHelper.ControllerEmulation;
 
 namespace XboxGamingBarHelper.Labs
 {
@@ -39,8 +40,11 @@ namespace XboxGamingBarHelper.Labs
         private const int BUTTON_BYTE_DETACHED = 18;
         private const byte LEGION_L_BIT = 0x80;
         private const byte LEGION_R_BIT = 0x40;
-        private const float GYRO_SCALE_DEG_PER_SECOND = 0.0610209f;
-        private const float ACCEL_SCALE_G = 0.00212f;
+        private const float GYRO_SCALE_DEG_PER_SECOND = 2000.0f / 32768.0f;
+        private const float ACCEL_SCALE_G = 8.0f / 32768.0f;
+        private const float LEGACY_M8_GYRO_SCALE_DEG_PER_SECOND = 2000.0f / 128.0f;
+        private const byte LEGION_CONTROLLER_LEFT_ID = 0x03;
+        private const byte LEGION_CONTROLLER_RIGHT_ID = 0x04;
 
         // Detected controller mode
         private bool isDetachedMode = false;
@@ -87,6 +91,7 @@ namespace XboxGamingBarHelper.Labs
 
         private SafeFileHandle hidHandle;
         private bool _hasWriteAccess = false;  // Track if we have write access for heartbeat
+        private bool _highQualityGyroConfigured = false;
         private readonly object _hidLock = new object();  // Lock for HID operations to prevent race conditions
         private Thread monitorThread;
         private volatile bool isRunning = false;
@@ -98,6 +103,8 @@ namespace XboxGamingBarHelper.Labs
         private DateTime scrollClickPressTime = DateTime.MinValue; // Track when scroll click was pressed for minimum hold time
         private const int SCROLL_CLICK_COOLDOWN_MS = 400; // Minimum time between scroll click actions for Game Bar toggle
         private const int SCROLL_CLICK_MIN_HOLD_MS = 150; // Minimum time to hold Xbox Guide button for Game Bar to register
+        private const int LEGION_BUTTON_PRESS_DEBOUNCE_MS = 8; // Keep press responsive
+        private const int LEGION_BUTTON_RELEASE_DEBOUNCE_MS = 35; // Filter release chatter while held
 
         // Scroll wheel Raw Input monitor thread
         // Uses Raw Input API to capture mouse events from Legion Go mi_01/col02 interface
@@ -107,6 +114,10 @@ namespace XboxGamingBarHelper.Labs
         // Track button states for both L and R
         private bool lastLegionLState = false;
         private bool lastLegionRState = false;
+        private bool? pendingLegionLState = null;
+        private bool? pendingLegionRState = null;
+        private DateTime pendingLegionLStateSince = DateTime.MinValue;
+        private DateTime pendingLegionRStateSince = DateTime.MinValue;
 
         private ViGEmController vigemController;
         private bool ownsViGEmController = false;  // True if we created the controller
@@ -127,6 +138,7 @@ namespace XboxGamingBarHelper.Labs
         // Track when output reports are sent to skip button detection (prevents false triggers)
         private DateTime _lastOutputReportTime = DateTime.MinValue;
         private const int OUTPUT_REPORT_IGNORE_MS = 100;  // Ignore button reads for 100ms after output
+        private const int GUIDE_ROUTE_RECONCILE_INTERVAL_MS = 500;
 
         // Detected device info
         private ushort _detectedVid = 0;
@@ -134,6 +146,7 @@ namespace XboxGamingBarHelper.Labs
 
         // Flag to prevent spamming "controller not found" log (only log once until found)
         private bool _loggedControllerNotFound = false;
+        private DateTime _lastGuideRouteReconcileTimeUtc = DateTime.MinValue;
 
         // Cached device path for faster reconnection (persisted to settings)
         private static string _cachedDevicePath = null;
@@ -213,8 +226,10 @@ namespace XboxGamingBarHelper.Labs
         private static readonly object _gyroSampleLock = new object();
         private static LegionGyroSample _latestLeftGyroSample;
         private static LegionGyroSample _latestRightGyroSample;
+        private static LegionTouchpadSample _latestRightTouchpadSample;
         private static bool _hasLeftGyroSample = false;
         private static bool _hasRightGyroSample = false;
+        private static bool _hasRightTouchpadSample = false;
 
         /// <summary>
         /// Notify that an external HID output report was sent to the Legion controller.
@@ -245,6 +260,18 @@ namespace XboxGamingBarHelper.Labs
 
                 sample = _latestRightGyroSample;
                 return _hasRightGyroSample;
+            }
+        }
+
+        /// <summary>
+        /// Returns the latest parsed right touchpad sample from Legion controller HID input reports.
+        /// </summary>
+        public static bool TryGetLatestRightTouchpadSample(out LegionTouchpadSample sample)
+        {
+            lock (_gyroSampleLock)
+            {
+                sample = _latestRightTouchpadSample;
+                return _hasRightTouchpadSample;
             }
         }
 
@@ -692,7 +719,29 @@ namespace XboxGamingBarHelper.Labs
         {
             if (!NeedsViGEm)
             {
+                if (vigemController != null && ownsViGEmController)
+                {
+                    try
+                    {
+                        vigemController.Dispose();
+                    }
+                    catch
+                    {
+                        // Best-effort cleanup only.
+                    }
+
+                    vigemController = null;
+                    ownsViGEmController = false;
+                    Logger.Info("LegionButtonMonitor: Released dedicated ViGEm controller (controller emulation handles guide)");
+                }
+
                 return true; // Not needed
+            }
+
+            if (ControllerEmulationManager.CanHandleExternalGuide())
+            {
+                Logger.Info("LegionButtonMonitor: Skipping dedicated ViGEm controller (controller emulation virtual Xbox is active)");
+                return true;
             }
 
             if (vigemController != null)
@@ -726,13 +775,44 @@ namespace XboxGamingBarHelper.Labs
         }
 
         /// <summary>
+        /// Reconcile dedicated Guide ViGEm ownership without forcing creation retries.
+        /// This keeps only one virtual Xbox controller active when controller emulation is handling Guide.
+        /// </summary>
+        private void ReconcileGuideRoute()
+        {
+            if (!HasGuideActionConfigured)
+            {
+                return;
+            }
+
+            bool controllerEmulationHandlesGuide = ControllerEmulationManager.CanHandleExternalGuide();
+            if (vigemController == null && !controllerEmulationHandlesGuide)
+            {
+                // Avoid create retries in the monitor loop. Dedicated ViGEm is created on explicit config/start paths.
+                return;
+            }
+
+            DateTime nowUtc = DateTime.UtcNow;
+            if ((nowUtc - _lastGuideRouteReconcileTimeUtc).TotalMilliseconds < GUIDE_ROUTE_RECONCILE_INTERVAL_MS)
+            {
+                return;
+            }
+
+            _lastGuideRouteReconcileTimeUtc = nowUtc;
+            EnsureViGEmController();
+        }
+
+        /// <summary>
         /// Get whether ViGEmBus is needed for the current configuration.
         /// </summary>
-        public bool NeedsViGEm => (legionLEnabled && legionLActionType == LegionButtonAction.XboxGuide) ||
-                                  (legionREnabled && legionRActionType == LegionButtonAction.XboxGuide) ||
-                                  (scrollUpEnabled && scrollUpActionType == LegionButtonAction.XboxGuide) ||
-                                  (scrollDownEnabled && scrollDownActionType == LegionButtonAction.XboxGuide) ||
-                                  (scrollClickEnabled && scrollClickActionType == LegionButtonAction.XboxGuide);
+        private bool HasGuideActionConfigured =>
+            (legionLEnabled && legionLActionType == LegionButtonAction.XboxGuide) ||
+            (legionREnabled && legionRActionType == LegionButtonAction.XboxGuide) ||
+            (scrollUpEnabled && scrollUpActionType == LegionButtonAction.XboxGuide) ||
+            (scrollDownEnabled && scrollDownActionType == LegionButtonAction.XboxGuide) ||
+            (scrollClickEnabled && scrollClickActionType == LegionButtonAction.XboxGuide);
+
+        public bool NeedsViGEm => HasGuideActionConfigured && !ControllerEmulationManager.CanHandleExternalGuide();
 
         /// <summary>
         /// Get whether any button is configured.
@@ -879,14 +959,21 @@ namespace XboxGamingBarHelper.Labs
                 vigemController.SetGuide(false);
                 lastLegionLState = false;
                 lastLegionRState = false;
+                pendingLegionLState = null;
+                pendingLegionRState = null;
+                pendingLegionLStateSince = DateTime.MinValue;
+                pendingLegionRStateSince = DateTime.MinValue;
             }
 
             // Close HID handle
             if (hidHandle != null && !hidHandle.IsInvalid)
             {
+                DisableHighQualityGyroReports(hidHandle);
                 hidHandle.Close();
                 hidHandle = null;
             }
+            _hasWriteAccess = false;
+            _highQualityGyroConfigured = false;
 
             // Dispose ViGEmBus controller only if we created it
             if (vigemController != null && ownsViGEmController)
@@ -952,6 +1039,7 @@ namespace XboxGamingBarHelper.Labs
                         {
                             hidHandle = cachedHandle;
                             _hasWriteAccess = cachedWriteAccess;
+                            _highQualityGyroConfigured = false;
                             Logger.Info($"LegionButtonMonitor: Cached device path worked! VID:{_detectedVid:X4} PID:{_detectedPid:X4}");
                             return true;
                         }
@@ -1053,6 +1141,7 @@ namespace XboxGamingBarHelper.Labs
                                             {
                                                 hidHandle = handle;
                                                 _hasWriteAccess = hasWriteAccess;
+                                                _highQualityGyroConfigured = false;
                                                 _detectedVid = attrs.VendorID;
                                                 _detectedPid = attrs.ProductID;
                                                 Logger.Info($"LegionButtonMonitor: Selected device #{candidateCount} - VID:{_detectedVid:X4} PID:{_detectedPid:X4} (write: {hasWriteAccess})");
@@ -1651,41 +1740,94 @@ namespace XboxGamingBarHelper.Labs
         {
             try
             {
-                // Initialization command from Legion Space: 05:00:01:04:00:00...
-                // Byte 0 is the report ID (0x05)
-                byte[] initCommand = new byte[64];
-                initCommand[0] = 0x05;  // Report ID
-                initCommand[1] = 0x00;
-                initCommand[2] = 0x01;
-                initCommand[3] = 0x04;
-                // Rest are already zeros
-
-                // Log the actual bytes we're sending (Debug level to reduce log spam)
-                Logger.Debug($"LegionButtonMonitor: Sending init command: {initCommand[0]:X2}:{initCommand[1]:X2}:{initCommand[2]:X2}:{initCommand[3]:X2}:{initCommand[4]:X2}:{initCommand[5]:X2}");
-
-                // Use HidD_SetOutputReport for HID output reports (more reliable than WriteFile)
-                // Mark the time so we can skip button detection for a short period after
-                _lastOutputReportTime = DateTime.Now;
-
-                bool result = HidD_SetOutputReport(handle, initCommand, (uint)initCommand.Length);
-                int error = Marshal.GetLastWin32Error();
-
-                if (result)
+                byte[] initCommandPrefix = { 0x05, 0x00, 0x01, 0x04 };
+                if (!SendOutputReport(handle, initCommandPrefix, "init command"))
                 {
-                    Logger.Debug("LegionButtonMonitor: Init command sent successfully via HidD_SetOutputReport");
-                    return true;
-                }
-                else
-                {
-                    Logger.Warn($"LegionButtonMonitor: Failed to send init command (error={error})");
                     return false;
                 }
+
+                if (!_highQualityGyroConfigured)
+                {
+                    bool configured = ConfigureHighQualityGyroReports(handle);
+                    _highQualityGyroConfigured = configured;
+                    if (configured)
+                    {
+                        Logger.Info("LegionButtonMonitor: High-quality IMU mode enabled for both controllers");
+                    }
+                    else
+                    {
+                        Logger.Warn("LegionButtonMonitor: Failed to enable high-quality IMU mode");
+                    }
+                }
+
+                return true;
             }
             catch (Exception ex)
             {
                 Logger.Error($"LegionButtonMonitor: Exception sending initialization command: {ex.Message}");
                 return false;
             }
+        }
+
+        private bool ConfigureHighQualityGyroReports(SafeFileHandle handle)
+        {
+            if (handle == null || handle.IsInvalid)
+            {
+                return false;
+            }
+
+            // The Lenovo controller firmware exposes high-quality IMU only when sub-command 0x6A/0x07 is set to 0x02.
+            // We also send 0x6A/0x02 = 0x01 to ensure each controller gyro is powered on before enabling HQ reporting.
+            byte[] leftEnable = { 0x05, 0x06, 0x6A, 0x02, LEGION_CONTROLLER_LEFT_ID, 0x01, 0x01 };
+            byte[] rightEnable = { 0x05, 0x06, 0x6A, 0x02, LEGION_CONTROLLER_RIGHT_ID, 0x01, 0x01 };
+            byte[] leftHighQuality = { 0x05, 0x06, 0x6A, 0x07, LEGION_CONTROLLER_LEFT_ID, 0x02, 0x01 };
+            byte[] rightHighQuality = { 0x05, 0x06, 0x6A, 0x07, LEGION_CONTROLLER_RIGHT_ID, 0x02, 0x01 };
+
+            bool leftPowered = SendOutputReport(handle, leftEnable, "left gyro enable");
+            bool rightPowered = SendOutputReport(handle, rightEnable, "right gyro enable");
+            bool leftHq = SendOutputReport(handle, leftHighQuality, "left gyro high-quality mode");
+            bool rightHq = SendOutputReport(handle, rightHighQuality, "right gyro high-quality mode");
+
+            return leftPowered && rightPowered && leftHq && rightHq;
+        }
+
+        private void DisableHighQualityGyroReports(SafeFileHandle handle)
+        {
+            if (handle == null || handle.IsInvalid || !_hasWriteAccess)
+            {
+                return;
+            }
+
+            byte[] leftDisableHighQuality = { 0x05, 0x06, 0x6A, 0x07, LEGION_CONTROLLER_LEFT_ID, 0x01, 0x01 };
+            byte[] rightDisableHighQuality = { 0x05, 0x06, 0x6A, 0x07, LEGION_CONTROLLER_RIGHT_ID, 0x01, 0x01 };
+
+            SendOutputReport(handle, leftDisableHighQuality, "left gyro high-quality disable");
+            SendOutputReport(handle, rightDisableHighQuality, "right gyro high-quality disable");
+            _highQualityGyroConfigured = false;
+        }
+
+        private bool SendOutputReport(SafeFileHandle handle, byte[] commandPrefix, string commandName)
+        {
+            if (handle == null || handle.IsInvalid || commandPrefix == null || commandPrefix.Length == 0)
+            {
+                return false;
+            }
+
+            byte[] outputReport = new byte[64];
+            int copyCount = Math.Min(commandPrefix.Length, outputReport.Length);
+            Buffer.BlockCopy(commandPrefix, 0, outputReport, 0, copyCount);
+
+            _lastOutputReportTime = DateTime.Now;
+            bool result = HidD_SetOutputReport(handle, outputReport, (uint)outputReport.Length);
+            int error = Marshal.GetLastWin32Error();
+            if (!result)
+            {
+                Logger.Warn($"LegionButtonMonitor: Failed to send {commandName} (error={error})");
+                return false;
+            }
+
+            Logger.Debug($"LegionButtonMonitor: Sent {commandName} ({BitConverter.ToString(commandPrefix).Replace('-', ':')})");
+            return true;
         }
 
         /// <summary>
@@ -1845,9 +1987,12 @@ namespace XboxGamingBarHelper.Labs
                 // Ensure old handle is closed
                 if (hidHandle != null && !hidHandle.IsInvalid)
                 {
+                    DisableHighQualityGyroReports(hidHandle);
                     hidHandle.Close();
                     hidHandle = null;
                 }
+                _hasWriteAccess = false;
+                _highQualityGyroConfigured = false;
 
                 // Try to find and open the controller again
                 if (!OpenLegionController())
@@ -1858,6 +2003,10 @@ namespace XboxGamingBarHelper.Labs
                 // Reset button states on reconnect
                 lastLegionLState = false;
                 lastLegionRState = false;
+                pendingLegionLState = null;
+                pendingLegionRState = null;
+                pendingLegionLStateSince = DateTime.MinValue;
+                pendingLegionRStateSince = DateTime.MinValue;
 
                 // Create ViGEm controller if needed but not yet created
                 // This handles the case where monitor was started for battery only,
@@ -1956,6 +2105,8 @@ namespace XboxGamingBarHelper.Labs
                     loopIteration++;
                     try
                     {
+                        ReconcileGuideRoute();
+
                         // If no valid handle, try to reconnect
                         if (hidHandle == null || hidHandle.IsInvalid)
                         {
@@ -1977,12 +2128,8 @@ namespace XboxGamingBarHelper.Labs
 
                         // Send heartbeat to keep controller in initialized mode
                         // Legion Space times out after 5 seconds, so we send every 3 seconds
-                        // Only send heartbeats if:
-                        // 1. We have write access
-                        // 2. Controller was successfully initialized (not in fallback/detached mode)
-                        // If we're in fallback mode (isDetachedMode=true), heartbeat could cause mode switch
-                        // which would break our parsing since we're using wrong byte offsets
-                        if (_hasWriteAccess && !isDetachedMode && (DateTime.Now - lastHeartbeat).TotalMilliseconds >= HEARTBEAT_INTERVAL_MS)
+                        // We keep heartbeats active for both 0xA1 and 0x74 headers to avoid controller IMU timeout.
+                        if (_hasWriteAccess && (DateTime.Now - lastHeartbeat).TotalMilliseconds >= HEARTBEAT_INTERVAL_MS)
                         {
                             if (InitializeController(hidHandle))
                             {
@@ -2039,9 +2186,12 @@ namespace XboxGamingBarHelper.Labs
                                 // Close invalid handle and trigger reconnect
                                 if (hidHandle != null && !hidHandle.IsInvalid)
                                 {
+                                    DisableHighQualityGyroReports(hidHandle);
                                     hidHandle.Close();
                                 }
                                 hidHandle = null;
+                                _hasWriteAccess = false;
+                                _highQualityGyroConfigured = false;
                                 consecutiveFailures = 0;
                             }
                             continue;
@@ -2063,13 +2213,19 @@ namespace XboxGamingBarHelper.Labs
                             bool hasValidReportHeader = false;
                             if (bytesRead >= currentButtonByte + 1 && bytesRead >= 14 && buffer[0] == 0x04)
                             {
-                                if (!isDetachedMode && buffer[1] == 0x00 && buffer[2] == 0xA1)
+                                bool isInitializedHeader = buffer[1] == 0x00 && buffer[2] == 0xA1;
+                                bool isUninitializedHeader = buffer[1] == 0x3C && buffer[2] == 0x74;
+                                if (isInitializedHeader)
                                 {
                                     hasValidReportHeader = true;  // Attached mode: 04:00:A1
+                                    isDetachedMode = false;
+                                    currentButtonByte = BUTTON_BYTE_ATTACHED;
                                 }
-                                else if (isDetachedMode && buffer[1] == 0x3C && buffer[2] == 0x74)
+                                else if (isUninitializedHeader)
                                 {
                                     hasValidReportHeader = true;  // Detached mode: 04:3C:74
+                                    isDetachedMode = true;
+                                    currentButtonByte = BUTTON_BYTE_DETACHED;
                                 }
                             }
 
@@ -2154,10 +2310,14 @@ namespace XboxGamingBarHelper.Labs
                                 // Process Legion L button if configured
                                 if (legionLEnabled)
                                 {
-                                    bool legionLPressed = (currentBtnValue & LEGION_L_BIT) != 0;
-                                    if (legionLPressed != lastLegionLState)
+                                    bool legionLRawPressed = (currentBtnValue & LEGION_L_BIT) != 0;
+                                    if (TryCommitDebouncedButtonState(
+                                        legionLRawPressed,
+                                        ref lastLegionLState,
+                                        ref pendingLegionLState,
+                                        ref pendingLegionLStateSince,
+                                        out bool legionLPressed))
                                     {
-                                        lastLegionLState = legionLPressed;
                                         try
                                         {
                                             ProcessButtonAction("Legion L", legionLPressed, legionLActionType,
@@ -2173,10 +2333,14 @@ namespace XboxGamingBarHelper.Labs
                                 // Process Legion R button if configured
                                 if (legionREnabled)
                                 {
-                                    bool legionRPressed = (currentBtnValue & LEGION_R_BIT) != 0;
-                                    if (legionRPressed != lastLegionRState)
+                                    bool legionRRawPressed = (currentBtnValue & LEGION_R_BIT) != 0;
+                                    if (TryCommitDebouncedButtonState(
+                                        legionRRawPressed,
+                                        ref lastLegionRState,
+                                        ref pendingLegionRState,
+                                        ref pendingLegionRStateSince,
+                                        out bool legionRPressed))
                                     {
-                                        lastLegionRState = legionRPressed;
                                         try
                                         {
                                             ProcessButtonAction("Legion R", legionRPressed, legionRActionType,
@@ -2222,50 +2386,219 @@ namespace XboxGamingBarHelper.Labs
 
         private static void TryParseAndStoreGyroSamples(byte[] buffer, uint bytesRead)
         {
-            if (buffer == null || bytesRead < 60)
+            if (buffer == null || bytesRead < 32)
             {
                 return;
             }
 
-            // Legion raw input reports provide per-controller IMU samples in big-endian format.
-            // Offsets are aligned with known Legion Go report layouts (04:00:A1 / 04:3C:74).
-            LegionGyroSample leftSample = new LegionGyroSample(
-                ReadInt16BigEndian(buffer, 41) * GYRO_SCALE_DEG_PER_SECOND,
-                ReadInt16BigEndian(buffer, 45) * GYRO_SCALE_DEG_PER_SECOND,
-                ReadInt16BigEndian(buffer, 43) * GYRO_SCALE_DEG_PER_SECOND,
-                ReadInt16BigEndian(buffer, 35) * ACCEL_SCALE_G,
-                ReadInt16BigEndian(buffer, 39) * ACCEL_SCALE_G,
-                ReadInt16BigEndian(buffer, 37) * ACCEL_SCALE_G,
-                DateTime.UtcNow.Ticks);
+            bool isInitializedHeader = buffer[0] == 0x04 && buffer[1] == 0x00 && buffer[2] == 0xA1;
+            bool isUninitializedHeader = buffer[0] == 0x04 && buffer[1] == 0x3C && buffer[2] == 0x74;
+            if (!isInitializedHeader && !isUninitializedHeader)
+            {
+                return;
+            }
 
-            LegionGyroSample rightSample = new LegionGyroSample(
-                ReadInt16BigEndian(buffer, 56) * GYRO_SCALE_DEG_PER_SECOND,
-                ReadInt16BigEndian(buffer, 58) * GYRO_SCALE_DEG_PER_SECOND,
-                ReadInt16BigEndian(buffer, 54) * GYRO_SCALE_DEG_PER_SECOND,
-                ReadInt16BigEndian(buffer, 50) * ACCEL_SCALE_G,
-                ReadInt16BigEndian(buffer, 52) * ACCEL_SCALE_G,
-                ReadInt16BigEndian(buffer, 48) * ACCEL_SCALE_G,
-                DateTime.UtcNow.Ticks);
+            // High-quality IMU payload:
+            // - 04:00:A1 reports start at offset 32
+            // - 04:3C:74 reports start at offset 34
+            int imuBase = isInitializedHeader ? 32 : 34;
+            int touchBase = isInitializedHeader ? 24 : 26;
+            long sampleTimestampUtc = DateTime.UtcNow.Ticks;
+
+            LegionGyroSample leftSample = default;
+            LegionGyroSample rightSample = default;
+            LegionTouchpadSample rightTouchSample = default;
+            bool hasLeftSample = false;
+            bool hasRightSample = false;
+            bool hasRightTouchSample = false;
+
+            if (bytesRead > touchBase + 3)
+            {
+                // Legion touch bytes are split into range + area:
+                // [X range][X area 0..3][Y range][Y area 0..3]
+                // Rebuild 10-bit-like coordinates from area(high 2 bits) + range(low 8 bits).
+                byte xRange = buffer[touchBase];
+                byte xAreaRaw = buffer[touchBase + 1];
+                byte yRange = buffer[touchBase + 2];
+                byte yAreaRaw = buffer[touchBase + 3];
+
+                int xArea = xAreaRaw & 0x03;
+                int yArea = yAreaRaw & 0x03;
+
+                ushort rawX = (ushort)((xArea << 8) | xRange);
+                ushort rawY = (ushort)((yArea << 8) | yRange);
+
+                bool areaLooksValid = (xAreaRaw & 0xFC) == 0 && (yAreaRaw & 0xFC) == 0;
+                bool hasPosition = xRange != 0 || yRange != 0 || xArea != 0 || yArea != 0;
+                bool touching = areaLooksValid && hasPosition;
+
+                rightTouchSample = new LegionTouchpadSample(touching, rawX, rawY, sampleTimestampUtc);
+                hasRightTouchSample = true;
+            }
+
+            if (bytesRead > imuBase + 25)
+            {
+                int leftBase = imuBase;
+                int rightBase = imuBase + 13;
+
+                bool leftHighQualityActive = HasHighQualityImuSample(buffer, leftBase);
+                bool rightHighQualityActive = HasHighQualityImuSample(buffer, rightBase);
+
+                if (leftHighQualityActive)
+                {
+                    leftSample = new LegionGyroSample(
+                        ReadInt16LittleEndian(buffer, leftBase + 7) * GYRO_SCALE_DEG_PER_SECOND,
+                        ReadInt16LittleEndian(buffer, leftBase + 11) * GYRO_SCALE_DEG_PER_SECOND,
+                        ReadInt16LittleEndian(buffer, leftBase + 9) * GYRO_SCALE_DEG_PER_SECOND,
+                        ReadInt16LittleEndian(buffer, leftBase + 1) * ACCEL_SCALE_G,
+                        ReadInt16LittleEndian(buffer, leftBase + 5) * ACCEL_SCALE_G,
+                        ReadInt16LittleEndian(buffer, leftBase + 3) * ACCEL_SCALE_G,
+                        sampleTimestampUtc);
+                    hasLeftSample = true;
+                }
+
+                if (rightHighQualityActive)
+                {
+                    rightSample = new LegionGyroSample(
+                        ReadInt16LittleEndian(buffer, rightBase + 9) * GYRO_SCALE_DEG_PER_SECOND,
+                        ReadInt16LittleEndian(buffer, rightBase + 11) * GYRO_SCALE_DEG_PER_SECOND,
+                        ReadInt16LittleEndian(buffer, rightBase + 7) * GYRO_SCALE_DEG_PER_SECOND,
+                        ReadInt16LittleEndian(buffer, rightBase + 3) * ACCEL_SCALE_G,
+                        ReadInt16LittleEndian(buffer, rightBase + 5) * ACCEL_SCALE_G,
+                        ReadInt16LittleEndian(buffer, rightBase + 1) * ACCEL_SCALE_G,
+                        sampleTimestampUtc);
+                    hasRightSample = true;
+                }
+            }
+
+            // Fallback to legacy low-quality 8-bit gyro bytes when HQ stream is not active.
+            // Legacy layout is present in both 0xA1 and 0x74 reports at bytes 28..31:
+            // left=(28,29), right=(30,31), centered around 0x80.
+            if (bytesRead > 31)
+            {
+                if (!hasLeftSample)
+                {
+                    leftSample = new LegionGyroSample(
+                        ((int)buffer[29] - 128) * LEGACY_M8_GYRO_SCALE_DEG_PER_SECOND,
+                        ((int)buffer[28] - 128) * LEGACY_M8_GYRO_SCALE_DEG_PER_SECOND,
+                        0.0f,
+                        0.0f,
+                        0.0f,
+                        0.0f,
+                        sampleTimestampUtc);
+                    hasLeftSample = true;
+                }
+
+                if (!hasRightSample)
+                {
+                    rightSample = new LegionGyroSample(
+                        ((int)buffer[31] - 128) * LEGACY_M8_GYRO_SCALE_DEG_PER_SECOND,
+                        ((int)buffer[30] - 128) * LEGACY_M8_GYRO_SCALE_DEG_PER_SECOND,
+                        0.0f,
+                        0.0f,
+                        0.0f,
+                        0.0f,
+                        sampleTimestampUtc);
+                    hasRightSample = true;
+                }
+            }
+
+            if (!hasLeftSample && !hasRightSample)
+            {
+                return;
+            }
 
             lock (_gyroSampleLock)
             {
-                _latestLeftGyroSample = leftSample;
-                _latestRightGyroSample = rightSample;
-                _hasLeftGyroSample = true;
-                _hasRightGyroSample = true;
+                if (hasLeftSample)
+                {
+                    _latestLeftGyroSample = leftSample;
+                    _hasLeftGyroSample = true;
+                }
+
+                if (hasRightSample)
+                {
+                    _latestRightGyroSample = rightSample;
+                    _hasRightGyroSample = true;
+                }
+
+                if (hasRightTouchSample)
+                {
+                    _latestRightTouchpadSample = rightTouchSample;
+                    _hasRightTouchpadSample = true;
+                }
             }
         }
 
-        private static short ReadInt16BigEndian(byte[] buffer, int offset)
+        private static bool HasHighQualityImuSample(byte[] buffer, int baseOffset)
+        {
+            if (buffer == null || baseOffset < 0 || baseOffset + 12 >= buffer.Length)
+            {
+                return false;
+            }
+
+            // HQ sample is considered active if timestamp or any sample field is non-zero.
+            for (int i = 0; i <= 12; i++)
+            {
+                if (buffer[baseOffset + i] != 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static short ReadInt16LittleEndian(byte[] buffer, int offset)
         {
             if (buffer == null || offset < 0 || offset + 1 >= buffer.Length)
             {
                 return 0;
             }
 
-            int high = buffer[offset];
-            int low = buffer[offset + 1];
-            return unchecked((short)((high << 8) | low));
+            int low = buffer[offset];
+            int high = buffer[offset + 1];
+            return unchecked((short)(low | (high << 8)));
+        }
+
+        private static bool TryCommitDebouncedButtonState(
+            bool rawState,
+            ref bool stableState,
+            ref bool? pendingState,
+            ref DateTime pendingSinceUtc,
+            out bool committedState)
+        {
+            committedState = stableState;
+
+            if (rawState == stableState)
+            {
+                pendingState = null;
+                pendingSinceUtc = DateTime.MinValue;
+                return false;
+            }
+
+            DateTime nowUtc = DateTime.UtcNow;
+            if (!pendingState.HasValue || pendingState.Value != rawState)
+            {
+                pendingState = rawState;
+                pendingSinceUtc = nowUtc;
+                return false;
+            }
+
+            int debounceMs = rawState
+                ? LEGION_BUTTON_PRESS_DEBOUNCE_MS
+                : LEGION_BUTTON_RELEASE_DEBOUNCE_MS;
+
+            if ((nowUtc - pendingSinceUtc).TotalMilliseconds < debounceMs)
+            {
+                return false;
+            }
+
+            stableState = rawState;
+            committedState = rawState;
+            pendingState = null;
+            pendingSinceUtc = DateTime.MinValue;
+            return true;
         }
 
         /// <summary>
@@ -2275,6 +2608,12 @@ namespace XboxGamingBarHelper.Labs
             string shortcutKeys, string commandPath)
         {
             Logger.Info($"LegionButtonMonitor: {buttonName} {(pressed ? "PRESSED" : "RELEASED")} - action={actionType}");
+
+            if (actionType == LegionButtonAction.XboxGuide)
+            {
+                // Reconcile dedicated ViGEm lifetime as controller emulation mode changes.
+                EnsureViGEmController();
+            }
 
             try
             {
@@ -2291,6 +2630,12 @@ namespace XboxGamingBarHelper.Labs
                 switch (actionType)
                 {
                     case LegionButtonAction.XboxGuide:
+                        if (ControllerEmulationManager.TrySetGuideFromExternal(true))
+                        {
+                            Logger.Info($"LegionButtonMonitor: Routed SetGuide(true) to controller emulation virtual pad for {buttonName}");
+                            break;
+                        }
+
                         if (vigemController != null)
                         {
                             Logger.Info($"LegionButtonMonitor: Calling SetGuide(true) for {buttonName}");
@@ -2362,17 +2707,24 @@ namespace XboxGamingBarHelper.Labs
             else
             {
                 // Button released - only release Xbox Guide if that's the action
-                if (actionType == LegionButtonAction.XboxGuide && vigemController != null)
+                if (actionType == LegionButtonAction.XboxGuide)
                 {
-                    Logger.Info($"LegionButtonMonitor: Calling SetGuide(false) for {buttonName}");
-                    try
+                    if (ControllerEmulationManager.TrySetGuideFromExternal(false))
                     {
-                        vigemController.SetGuide(false);
-                        Logger.Info($"LegionButtonMonitor: SetGuide(false) completed for {buttonName}");
+                        Logger.Info($"LegionButtonMonitor: Routed SetGuide(false) to controller emulation virtual pad for {buttonName}");
                     }
-                    catch (Exception ex)
+                    else if (vigemController != null)
                     {
-                        Logger.Error($"LegionButtonMonitor: SetGuide(false) exception for {buttonName}: {ex.Message}\n{ex.StackTrace}");
+                        Logger.Info($"LegionButtonMonitor: Calling SetGuide(false) for {buttonName}");
+                        try
+                        {
+                            vigemController.SetGuide(false);
+                            Logger.Info($"LegionButtonMonitor: SetGuide(false) completed for {buttonName}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"LegionButtonMonitor: SetGuide(false) exception for {buttonName}: {ex.Message}\n{ex.StackTrace}");
+                        }
                     }
                 }
             }
@@ -2446,6 +2798,30 @@ namespace XboxGamingBarHelper.Labs
             AccelXG = accelXG;
             AccelYG = accelYG;
             AccelZG = accelZG;
+            TimestampTicksUtc = timestampTicksUtc;
+        }
+    }
+
+    /// <summary>
+    /// Latest parsed Legion right-controller touchpad sample from HID reports.
+    /// Raw coordinates are device-native (little-endian uint16 pair from report bytes).
+    /// </summary>
+    internal readonly struct LegionTouchpadSample
+    {
+        public readonly bool IsTouching;
+        public readonly ushort RawX;
+        public readonly ushort RawY;
+        public readonly long TimestampTicksUtc;
+
+        public LegionTouchpadSample(
+            bool isTouching,
+            ushort rawX,
+            ushort rawY,
+            long timestampTicksUtc)
+        {
+            IsTouching = isTouching;
+            RawX = rawX;
+            RawY = rawY;
             TimestampTicksUtc = timestampTicksUtc;
         }
     }

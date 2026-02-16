@@ -149,6 +149,8 @@ namespace XboxGamingBarHelper
         /// Labs: Unified Legion button monitor (handles both L and R buttons + battery)
         /// </summary>
         private static LegionButtonMonitor legionButtonMonitor;
+        private static readonly object legionButtonMonitorLock = new object();
+        private static bool legionButtonMonitorBatteryHooked;
 
         /// <summary>
         /// Hotkey manager for global keyboard shortcuts (Ctrl+Shift+D for Desktop Controls)
@@ -488,8 +490,7 @@ namespace XboxGamingBarHelper
                 hotkeyManager = null;
 
                 // Dispose Legion button monitor
-                legionButtonMonitor?.Dispose();
-                legionButtonMonitor = null;
+                DisposeLegionButtonMonitor();
 
                 // Delete heartbeat file on shutdown
                 DeleteHeartbeatFile();
@@ -1178,7 +1179,7 @@ del /f /q ""%~f0"" 2>nul
             gpdManager?.SetPerformanceManager(performanceManager);
 
             // Initialize handheld-agnostic controller emulation manager.
-            controllerEmulationManager = new ControllerEmulationManager(legionManager, gpdManager);
+            controllerEmulationManager = new ControllerEmulationManager(legionManager, gpdManager, settingsManager);
 
             // PawnIO/RyzenSMU initialization for anti-cheat compatible TDP control
             // Priority: Legion WMI > PawnIO/RyzenSMU > RyzenAdj (deprecated, WinRing0 not bundled)
@@ -1206,33 +1207,13 @@ del /f /q ""%~f0"" 2>nul
                     // Load cached HID device path for faster startup
                     LegionButtonMonitor.LoadCachedDevicePathFromSettings();
 
-                    legionButtonMonitor = new LegionButtonMonitor();
-                    legionButtonMonitor.BatteryUpdated += (sender, e) =>
-                    {
-                        try
-                        {
-                            legionManager?.UpdateControllerBatteryFromButtonMonitor(
-                                e.LeftBattery, e.LeftCharging, e.LeftConnected,
-                                e.RightBattery, e.RightCharging, e.RightConnected);
+                    LegionButtonMonitor monitor = EnsureLegionButtonMonitor();
 
-                            // Also sync VID:PID on battery updates to ensure it gets sent once connection is ready
-                            var vidPid = legionButtonMonitor?.DetectedVidPid;
-                            if (!string.IsNullOrEmpty(vidPid))
-                            {
-                                legionManager?.UpdateControllerVidPid(vidPid);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Error($"BatteryUpdated handler exception: {ex.Message}");
-                        }
-                    };
-
-                    if (legionButtonMonitor.StartForBatteryMonitoring())
+                    if (monitor.StartForBatteryMonitoring())
                     {
                         Logger.Info("Legion button monitor started for battery monitoring");
                         // Update VID:PID in LegionManager
-                        var vidPid = legionButtonMonitor.DetectedVidPid;
+                        var vidPid = monitor.DetectedVidPid;
                         Logger.Info($"Legion button monitor VID:PID after start: '{vidPid}'");
                         if (!string.IsNullOrEmpty(vidPid))
                         {
@@ -1415,8 +1396,34 @@ del /f /q ""%~f0"" 2>nul
                 gpdManager.GyroSimulateMode,
                 // Handheld-agnostic controller emulation properties
                 controllerEmulationManager.ControllerEmulationAvailable,
+                controllerEmulationManager.ControllerEmulationEnabled,
+                controllerEmulationManager.ControllerEmulationHideStockController,
+                controllerEmulationManager.ControllerEmulationHideTarget,
                 controllerEmulationManager.ControllerEmulationGyroSource,
                 controllerEmulationManager.ControllerEmulationMode,
+                controllerEmulationManager.ControllerEmulationGyroActivationMode,
+                controllerEmulationManager.ControllerEmulationGyroActivationButton,
+                controllerEmulationManager.ControllerEmulationDs4Orientation,
+                controllerEmulationManager.ControllerEmulationPs4TouchpadEnabled,
+                controllerEmulationManager.ControllerEmulationMouseSensitivity,
+                controllerEmulationManager.ControllerEmulationMouseThreshold,
+                controllerEmulationManager.ControllerEmulationMouseAxis,
+                controllerEmulationManager.ControllerEmulationMouseInvertX,
+                controllerEmulationManager.ControllerEmulationMouseInvertY,
+                controllerEmulationManager.ControllerEmulationMouseGainX,
+                controllerEmulationManager.ControllerEmulationMouseGainY,
+                controllerEmulationManager.ControllerEmulationStickSensitivity,
+                controllerEmulationManager.ControllerEmulationStickThreshold,
+                controllerEmulationManager.ControllerEmulationStickAxis,
+                controllerEmulationManager.ControllerEmulationStickInvertX,
+                controllerEmulationManager.ControllerEmulationStickInvertY,
+                controllerEmulationManager.ControllerEmulationStickGainX,
+                controllerEmulationManager.ControllerEmulationStickGainY,
+                controllerEmulationManager.ControllerEmulationStickSelect,
+                controllerEmulationManager.ControllerEmulationStickExcessMove,
+                controllerEmulationManager.ControllerEmulationStickRange,
+                controllerEmulationManager.ControllerEmulationStickOnlyJoystickData,
+                controllerEmulationManager.ControllerEmulationVirtualABXYLayout,
                 // Legion Go specific properties
                 legionManager.LegionGoDetected,
                 legionManager.LegionTouchpadEnabled,
@@ -3430,6 +3437,45 @@ del /f /q ""%~f0"" 2>nul
                     response = new global::Windows.Foundation.Collections.ValueSet();
                     response.Add("Content", true); // Acknowledge request started
                 }
+                // HidHide: Check installed status
+                else if (functionValue == (int)Function.HidHideInstalled)
+                {
+                    bool installed = XboxGamingBarHelper.Labs.HidHideHelper.IsInstalled();
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add(nameof(Function), functionValue);
+                    response.Add("Content", installed);
+                    response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                    Logger.Info($"Pipe: HidHide installed status: {installed}");
+                }
+                // HidHide: Install request - only install when explicitly requested with Set command and "install" content
+                else if (functionValue == (int)Function.InstallHidHide)
+                {
+                    bool shouldInstall = request.Command == Shared.Enums.Command.Set && request.Content == "install";
+
+                    if (!shouldInstall)
+                    {
+                        Logger.Debug("Pipe: InstallHidHide - Ignoring non-install request (Get or empty content)");
+                        return;
+                    }
+
+                    Logger.Info("Pipe: HidHide installation requested from widget");
+                    _ = Task.Run(() =>
+                    {
+                        bool success = XboxGamingBarHelper.Labs.HidHideHelper.Install();
+                        bool installed = XboxGamingBarHelper.Labs.HidHideHelper.IsInstalled();
+                        var updateMsg = new Shared.IPC.PipeMessage
+                        {
+                            Command = Shared.Enums.Command.Set,
+                            Function = Function.HidHideInstalled,
+                            Content = installed.ToString()
+                        };
+                        SendPipeMessage(updateMsg);
+                        Logger.Info($"Pipe: HidHide installation complete (success={success}), sent updated status: {installed}");
+                    });
+
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true); // Acknowledge request started
+                }
                 // Debug: Export Default Game Profiles
                 else if (functionValue == (int)Function.Debug_ExportDGPs)
                 {
@@ -4209,8 +4255,7 @@ del /f /q ""%~f0"" 2>nul
             // Dispose Legion button monitor
             try
             {
-                legionButtonMonitor?.Dispose();
-                legionButtonMonitor = null;
+                DisposeLegionButtonMonitor();
             }
             catch (Exception ex)
             {
@@ -5197,6 +5242,84 @@ del /f /q ""%~f0"" 2>nul
             return (summary.ToString(), widgetSettings);
         }
 
+        private static LegionButtonMonitor EnsureLegionButtonMonitor()
+        {
+            lock (legionButtonMonitorLock)
+            {
+                if (legionButtonMonitor == null)
+                {
+                    legionButtonMonitor = new LegionButtonMonitor();
+                    Logger.Info("Labs: Created unified Legion button monitor with battery support");
+                }
+
+                if (!legionButtonMonitorBatteryHooked)
+                {
+                    legionButtonMonitor.BatteryUpdated += LegionButtonMonitor_BatteryUpdated;
+                    legionButtonMonitorBatteryHooked = true;
+                }
+
+                return legionButtonMonitor;
+            }
+        }
+
+        private static void LegionButtonMonitor_BatteryUpdated(object sender, LegionButtonBatteryEventArgs e)
+        {
+            try
+            {
+                legionManager?.UpdateControllerBatteryFromButtonMonitor(
+                    e.LeftBattery, e.LeftCharging, e.LeftConnected,
+                    e.RightBattery, e.RightCharging, e.RightConnected);
+
+                LegionButtonMonitor monitor = sender as LegionButtonMonitor;
+                string vidPid = monitor?.DetectedVidPid ?? legionButtonMonitor?.DetectedVidPid;
+                if (!string.IsNullOrEmpty(vidPid))
+                {
+                    legionManager?.UpdateControllerVidPid(vidPid);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"BatteryUpdated handler exception: {ex.Message}");
+            }
+        }
+
+        private static void DisposeLegionButtonMonitor()
+        {
+            lock (legionButtonMonitorLock)
+            {
+                if (legionButtonMonitor == null)
+                {
+                    legionButtonMonitorBatteryHooked = false;
+                    return;
+                }
+
+                try
+                {
+                    if (legionButtonMonitorBatteryHooked)
+                    {
+                        legionButtonMonitor.BatteryUpdated -= LegionButtonMonitor_BatteryUpdated;
+                    }
+                }
+                catch
+                {
+                    // Best-effort cleanup only.
+                }
+                finally
+                {
+                    legionButtonMonitorBatteryHooked = false;
+                }
+
+                try
+                {
+                    legionButtonMonitor.Dispose();
+                }
+                finally
+                {
+                    legionButtonMonitor = null;
+                }
+            }
+        }
+
         /// <summary>
         /// Load and apply Legion button remap settings from LocalSettings on startup.
         /// Uses LocalSettingsHelper which works both inside and outside package context.
@@ -5339,114 +5462,97 @@ del /f /q ""%~f0"" 2>nul
         {
             try
             {
-                // Create unified monitor if it doesn't exist
-                if (legionButtonMonitor == null)
+                lock (legionButtonMonitorLock)
                 {
-                    legionButtonMonitor = new LegionButtonMonitor();
+                    LegionButtonMonitor monitor = EnsureLegionButtonMonitor();
 
-                    // Subscribe to battery updates once
-                    legionButtonMonitor.BatteryUpdated += (sender, e) =>
-                    {
-                        try
+                    // Remember state before configuration
+                    bool wasRunning = monitor.IsRunning;
+                    bool neededViGEmBefore = monitor.NeedsViGEm;
+
+                    // Configure the button on the unified monitor
+                    // This just updates internal flags - the monitor loop will pick up changes on next iteration
+                    monitor.ConfigureButton(
+                        button,
+                        enabled,
+                        actionType,
+                        shortcutOrCommand,
+                        (shortcutKeys) =>
                         {
-                            legionManager?.UpdateControllerBatteryFromButtonMonitor(
-                                e.LeftBattery, e.LeftCharging, e.LeftConnected,
-                                e.RightBattery, e.RightCharging, e.RightConnected);
-                        }
-                        catch (Exception ex)
+                            // Execute the keyboard shortcut when the button is pressed
+                            Logger.Debug($"Labs: Executing shortcut '{shortcutKeys}'");
+                            SendKeyboardShortcutViaInputInjector(shortcutKeys);
+                        },
+                        (commandPath) =>
                         {
-                            Logger.Error($"Labs: BatteryUpdated handler exception: {ex.Message}\n{ex.StackTrace}");
+                            // Execute the command when the button is pressed
+                            Logger.Debug($"Labs: Executing command '{commandPath}'");
+                            ExecuteCommand(commandPath);
+                        },
+                        () =>
+                        {
+                            // Focus GoTweaks widget when the button is pressed
+                            Logger.Debug("Labs: Focusing GoTweaks widget");
+                            FocusGoTweaksWidget();
                         }
-                    };
-                    Logger.Info("Labs: Created unified Legion button monitor with battery support");
-                }
+                    );
 
-                // Remember state before configuration
-                bool wasRunning = legionButtonMonitor.IsRunning;
-                bool neededViGEmBefore = legionButtonMonitor.NeedsViGEm;
+                    // Check if ViGEm requirements changed (need to restart monitor to add/remove ViGEm controller)
+                    bool needsViGEmNow = monitor.NeedsViGEm;
+                    bool vigemRequirementChanged = neededViGEmBefore != needsViGEmNow;
 
-                // Configure the button on the unified monitor
-                // This just updates internal flags - the monitor loop will pick up changes on next iteration
-                legionButtonMonitor.ConfigureButton(
-                    button,
-                    enabled,
-                    actionType,
-                    shortcutOrCommand,
-                    (shortcutKeys) =>
+                    // Handle different scenarios
+                    if (!monitor.HasAnyButtonConfigured)
                     {
-                        // Execute the keyboard shortcut when the button is pressed
-                        Logger.Debug($"Labs: Executing shortcut '{shortcutKeys}'");
-                        SendKeyboardShortcutViaInputInjector(shortcutKeys);
-                    },
-                    (commandPath) =>
-                    {
-                        // Execute the command when the button is pressed
-                        Logger.Debug($"Labs: Executing command '{commandPath}'");
-                        ExecuteCommand(commandPath);
-                    },
-                    () =>
-                    {
-                        // Focus GoTweaks widget when the button is pressed
-                        Logger.Debug("Labs: Focusing GoTweaks widget");
-                        FocusGoTweaksWidget();
+                        // No buttons configured - restart for battery-only mode if it was running with buttons
+                        if (wasRunning && neededViGEmBefore)
+                        {
+                            // Was running with ViGEm for buttons, restart for battery-only
+                            Logger.Info($"Labs: Legion {button} button disabled, restarting monitor for battery-only mode");
+                            monitor.Stop();
+                            monitor.StartForBatteryMonitoring();
+                        }
+                        else if (!wasRunning)
+                        {
+                            // Monitor wasn't running, start for battery monitoring
+                            monitor.StartForBatteryMonitoring();
+                        }
+                        // else: already running for battery-only, no change needed
+                        Logger.Info($"Labs: Legion {button} button disabled, no buttons configured - battery monitoring continues");
+                        return true;
                     }
-                );
-
-                // Check if ViGEm requirements changed (need to restart monitor to add/remove ViGEm controller)
-                bool needsViGEmNow = legionButtonMonitor.NeedsViGEm;
-                bool vigemRequirementChanged = neededViGEmBefore != needsViGEmNow;
-
-                // Handle different scenarios
-                if (!legionButtonMonitor.HasAnyButtonConfigured)
-                {
-                    // No buttons configured - restart for battery-only mode if it was running with buttons
-                    if (wasRunning && neededViGEmBefore)
+                    else if (wasRunning && vigemRequirementChanged)
                     {
-                        // Was running with ViGEm for buttons, restart for battery-only
-                        Logger.Info($"Labs: Legion {button} button disabled, restarting monitor for battery-only mode");
-                        legionButtonMonitor.Stop();
-                        legionButtonMonitor.StartForBatteryMonitoring();
+                        // ViGEm requirement changed - need to restart monitor
+                        Logger.Info($"Labs: ViGEm requirement changed ({neededViGEmBefore} -> {needsViGEmNow}), restarting monitor");
+                        monitor.Stop();
+                        if (!monitor.Start())
+                        {
+                            string errorReason = needsViGEmNow ? "ViGEmBus not installed or " : "";
+                            Logger.Error($"Labs: Failed to restart Legion button monitoring ({errorReason}controller not found)");
+                            return false;
+                        }
                     }
                     else if (!wasRunning)
                     {
-                        // Monitor wasn't running, start for battery monitoring
-                        legionButtonMonitor.StartForBatteryMonitoring();
+                        // Monitor wasn't running - start it
+                        if (!monitor.Start())
+                        {
+                            string errorReason = needsViGEmNow ? "ViGEmBus not installed or " : "";
+                            Logger.Error($"Labs: Failed to start Legion button monitoring ({errorReason}controller not found)");
+                            return false;
+                        }
                     }
-                    // else: already running for battery-only, no change needed
-                    Logger.Info($"Labs: Legion {button} button disabled, no buttons configured - battery monitoring continues");
+                    // else: Monitor was running and ViGEm requirement didn't change - config is hot-applied
+
+                    string actionName = !enabled ? "Disabled" :
+                                       actionType == 0 ? "Xbox Guide" :
+                                       actionType == 1 ? $"Shortcut: {shortcutOrCommand}" :
+                                       actionType == 2 ? $"Command: {shortcutOrCommand}" :
+                                       "Focus GoTweaks";
+                    Logger.Info($"Labs: Legion {button} button configured -> {actionName}");
                     return true;
                 }
-                else if (wasRunning && vigemRequirementChanged)
-                {
-                    // ViGEm requirement changed - need to restart monitor
-                    Logger.Info($"Labs: ViGEm requirement changed ({neededViGEmBefore} -> {needsViGEmNow}), restarting monitor");
-                    legionButtonMonitor.Stop();
-                    if (!legionButtonMonitor.Start())
-                    {
-                        string errorReason = needsViGEmNow ? "ViGEmBus not installed or " : "";
-                        Logger.Error($"Labs: Failed to restart Legion button monitoring ({errorReason}controller not found)");
-                        return false;
-                    }
-                }
-                else if (!wasRunning)
-                {
-                    // Monitor wasn't running - start it
-                    if (!legionButtonMonitor.Start())
-                    {
-                        string errorReason = needsViGEmNow ? "ViGEmBus not installed or " : "";
-                        Logger.Error($"Labs: Failed to start Legion button monitoring ({errorReason}controller not found)");
-                        return false;
-                    }
-                }
-                // else: Monitor was running and ViGEm requirement didn't change - config is hot-applied
-
-                string actionName = !enabled ? "Disabled" :
-                                   actionType == 0 ? "Xbox Guide" :
-                                   actionType == 1 ? $"Shortcut: {shortcutOrCommand}" :
-                                   actionType == 2 ? $"Command: {shortcutOrCommand}" :
-                                   "Focus GoTweaks";
-                Logger.Info($"Labs: Legion {button} button configured -> {actionName}");
-                return true;
             }
             catch (Exception ex)
             {
@@ -5468,110 +5574,93 @@ del /f /q ""%~f0"" 2>nul
         {
             try
             {
-                // Create unified monitor if it doesn't exist
-                if (legionButtonMonitor == null)
+                lock (legionButtonMonitorLock)
                 {
-                    legionButtonMonitor = new LegionButtonMonitor();
+                    LegionButtonMonitor monitor = EnsureLegionButtonMonitor();
 
-                    // Subscribe to battery updates once
-                    legionButtonMonitor.BatteryUpdated += (sender, e) =>
-                    {
-                        try
+                    // Remember state before configuration
+                    bool wasRunning = monitor.IsRunning;
+                    bool neededViGEmBefore = monitor.NeedsViGEm;
+
+                    // Configure the scroll wheel action on the unified monitor
+                    monitor.ConfigureScrollWheel(
+                        direction,
+                        enabled,
+                        actionType,
+                        shortcutOrCommand,
+                        (shortcutKeys) =>
                         {
-                            legionManager?.UpdateControllerBatteryFromButtonMonitor(
-                                e.LeftBattery, e.LeftCharging, e.LeftConnected,
-                                e.RightBattery, e.RightCharging, e.RightConnected);
-                        }
-                        catch (Exception ex)
+                            // Execute the keyboard shortcut when scroll action is triggered
+                            Logger.Debug($"Labs: Executing shortcut '{shortcutKeys}' for scroll {direction}");
+                            SendKeyboardShortcutViaInputInjector(shortcutKeys);
+                        },
+                        (commandPath) =>
                         {
-                            Logger.Error($"Labs: BatteryUpdated handler exception: {ex.Message}\n{ex.StackTrace}");
+                            // Execute the command when scroll action is triggered
+                            Logger.Debug($"Labs: Executing command '{commandPath}' for scroll {direction}");
+                            ExecuteCommand(commandPath);
+                        },
+                        () =>
+                        {
+                            // Focus GoTweaks widget when scroll action is triggered
+                            Logger.Debug($"Labs: Focusing GoTweaks widget for scroll {direction}");
+                            FocusGoTweaksWidget();
                         }
-                    };
-                    Logger.Info("Labs: Created unified Legion button monitor with battery support");
-                }
+                    );
 
-                // Remember state before configuration
-                bool wasRunning = legionButtonMonitor.IsRunning;
-                bool neededViGEmBefore = legionButtonMonitor.NeedsViGEm;
+                    // Check if ViGEm requirements changed
+                    bool needsViGEmNow = monitor.NeedsViGEm;
+                    bool vigemRequirementChanged = neededViGEmBefore != needsViGEmNow;
 
-                // Configure the scroll wheel action on the unified monitor
-                legionButtonMonitor.ConfigureScrollWheel(
-                    direction,
-                    enabled,
-                    actionType,
-                    shortcutOrCommand,
-                    (shortcutKeys) =>
+                    // Handle different scenarios
+                    if (!monitor.HasAnyButtonConfigured && !monitor.HasAnyScrollConfigured)
                     {
-                        // Execute the keyboard shortcut when scroll action is triggered
-                        Logger.Debug($"Labs: Executing shortcut '{shortcutKeys}' for scroll {direction}");
-                        SendKeyboardShortcutViaInputInjector(shortcutKeys);
-                    },
-                    (commandPath) =>
-                    {
-                        // Execute the command when scroll action is triggered
-                        Logger.Debug($"Labs: Executing command '{commandPath}' for scroll {direction}");
-                        ExecuteCommand(commandPath);
-                    },
-                    () =>
-                    {
-                        // Focus GoTweaks widget when scroll action is triggered
-                        Logger.Debug($"Labs: Focusing GoTweaks widget for scroll {direction}");
-                        FocusGoTweaksWidget();
+                        // No buttons or scroll configured - restart for battery-only mode if it was running
+                        if (wasRunning && neededViGEmBefore)
+                        {
+                            Logger.Info($"Labs: Scroll {direction} disabled, no buttons/scroll configured - restarting for battery-only");
+                            monitor.Stop();
+                            monitor.StartForBatteryMonitoring();
+                        }
+                        else if (!wasRunning)
+                        {
+                            monitor.StartForBatteryMonitoring();
+                        }
+                        Logger.Info($"Labs: Scroll {direction} disabled - battery monitoring continues");
+                        return true;
                     }
-                );
-
-                // Check if ViGEm requirements changed
-                bool needsViGEmNow = legionButtonMonitor.NeedsViGEm;
-                bool vigemRequirementChanged = neededViGEmBefore != needsViGEmNow;
-
-                // Handle different scenarios
-                if (!legionButtonMonitor.HasAnyButtonConfigured && !legionButtonMonitor.HasAnyScrollConfigured)
-                {
-                    // No buttons or scroll configured - restart for battery-only mode if it was running
-                    if (wasRunning && neededViGEmBefore)
+                    else if (wasRunning && vigemRequirementChanged)
                     {
-                        Logger.Info($"Labs: Scroll {direction} disabled, no buttons/scroll configured - restarting for battery-only");
-                        legionButtonMonitor.Stop();
-                        legionButtonMonitor.StartForBatteryMonitoring();
+                        // ViGEm requirement changed - need to restart monitor
+                        Logger.Info($"Labs: ViGEm requirement changed ({neededViGEmBefore} -> {needsViGEmNow}), restarting monitor");
+                        monitor.Stop();
+                        if (!monitor.Start())
+                        {
+                            string errorReason = needsViGEmNow ? "ViGEmBus not installed or " : "";
+                            Logger.Error($"Labs: Failed to restart monitoring ({errorReason}controller not found)");
+                            return false;
+                        }
                     }
                     else if (!wasRunning)
                     {
-                        legionButtonMonitor.StartForBatteryMonitoring();
+                        // Monitor wasn't running - start it
+                        if (!monitor.Start())
+                        {
+                            string errorReason = needsViGEmNow ? "ViGEmBus not installed or " : "";
+                            Logger.Error($"Labs: Failed to start monitoring ({errorReason}controller not found)");
+                            return false;
+                        }
                     }
-                    Logger.Info($"Labs: Scroll {direction} disabled - battery monitoring continues");
+                    // else: Monitor was running and ViGEm requirement didn't change - config is hot-applied
+
+                    string actionName = !enabled ? "Disabled" :
+                                       actionType == 0 ? "Xbox Guide" :
+                                       actionType == 1 ? $"Shortcut: {shortcutOrCommand}" :
+                                       actionType == 2 ? $"Command: {shortcutOrCommand}" :
+                                       "Focus GoTweaks";
+                    Logger.Info($"Labs: Scroll {direction} configured -> {actionName}");
                     return true;
                 }
-                else if (wasRunning && vigemRequirementChanged)
-                {
-                    // ViGEm requirement changed - need to restart monitor
-                    Logger.Info($"Labs: ViGEm requirement changed ({neededViGEmBefore} -> {needsViGEmNow}), restarting monitor");
-                    legionButtonMonitor.Stop();
-                    if (!legionButtonMonitor.Start())
-                    {
-                        string errorReason = needsViGEmNow ? "ViGEmBus not installed or " : "";
-                        Logger.Error($"Labs: Failed to restart monitoring ({errorReason}controller not found)");
-                        return false;
-                    }
-                }
-                else if (!wasRunning)
-                {
-                    // Monitor wasn't running - start it
-                    if (!legionButtonMonitor.Start())
-                    {
-                        string errorReason = needsViGEmNow ? "ViGEmBus not installed or " : "";
-                        Logger.Error($"Labs: Failed to start monitoring ({errorReason}controller not found)");
-                        return false;
-                    }
-                }
-                // else: Monitor was running and ViGEm requirement didn't change - config is hot-applied
-
-                string actionName = !enabled ? "Disabled" :
-                                   actionType == 0 ? "Xbox Guide" :
-                                   actionType == 1 ? $"Shortcut: {shortcutOrCommand}" :
-                                   actionType == 2 ? $"Command: {shortcutOrCommand}" :
-                                   "Focus GoTweaks";
-                Logger.Info($"Labs: Scroll {direction} configured -> {actionName}");
-                return true;
             }
             catch (Exception ex)
             {

@@ -29,6 +29,9 @@ namespace XboxGamingBarHelper.Labs
         private bool isConnected = false;
         private bool isDisposed = false;
         private ushort dualShockTimestamp = 0;
+        private byte dualShockTouchPacketNumber = 0;
+        private byte dualShockTouchFingerId = 0;
+        private bool dualShockTouchWasActive = false;
 
         // XInput button flags
         private const ushort XINPUT_GAMEPAD_DPAD_UP = 0x0001;
@@ -48,7 +51,26 @@ namespace XboxGamingBarHelper.Labs
 
         public bool IsPluggedIn => isConnected && virtualGamepad != null;
         public VirtualGamepadType CurrentType => currentType;
-        public int? VirtualXboxUserIndex => xboxController != null ? xboxController.UserIndex : (int?)null;
+        public int? VirtualXboxUserIndex
+        {
+            get
+            {
+                if (xboxController == null)
+                {
+                    return null;
+                }
+
+                try
+                {
+                    return xboxController.UserIndex;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"ViGEmController: Xbox user index not yet reported ({ex.GetType().Name})");
+                    return null;
+                }
+            }
+        }
 
         public bool Connect()
         {
@@ -254,7 +276,11 @@ namespace XboxGamingBarHelper.Labs
             short gyroZRaw,
             short accelXRaw,
             short accelYRaw,
-            short accelZRaw)
+            short accelZRaw,
+            bool touchActive = false,
+            ushort touchX = 0,
+            ushort touchY = 0,
+            bool touchpadButtonPressed = false)
         {
             if (!IsPluggedIn || dualShockController == null)
             {
@@ -289,7 +315,7 @@ namespace XboxGamingBarHelper.Labs
                 if ((buttons & XINPUT_GAMEPAD_RIGHT_THUMB) != 0) { sharedButtons |= 0x80; }      // R3
                 rawReport[5] = sharedButtons;
 
-                rawReport[6] = 0x00;       // PS / touchpad special buttons
+                rawReport[6] = touchpadButtonPressed ? (byte)0x02 : (byte)0x00; // PS / touchpad special buttons
                 rawReport[7] = leftTrigger;
                 rawReport[8] = rightTrigger;
 
@@ -305,7 +331,11 @@ namespace XboxGamingBarHelper.Labs
                 WriteInt16(rawReport, 20, accelYRaw);
                 WriteInt16(rawReport, 22, accelZRaw);
                 rawReport[29] = 0x0B;      // DS4 "full battery" flag used by most emulators
-                rawReport[32] = 0x00;      // Touch packet count
+                rawReport[32] = dualShockTouchPacketNumber++;
+                WriteDs4TouchPacket(rawReport, 33, touchActive, touchX, touchY, ref dualShockTouchFingerId, ref dualShockTouchWasActive);
+                byte inactiveFingerId = 1;
+                bool inactiveFingerState = false;
+                WriteDs4TouchPacket(rawReport, 37, false, 0, 0, ref inactiveFingerId, ref inactiveFingerState);
 
                 dualShockController.SubmitRawReport(rawReport);
                 return true;
@@ -321,6 +351,50 @@ namespace XboxGamingBarHelper.Labs
         {
             buffer[offset] = (byte)(value & 0xFF);
             buffer[offset + 1] = (byte)((value >> 8) & 0xFF);
+        }
+
+        private static void WriteDs4TouchPacket(
+            byte[] buffer,
+            int offset,
+            bool isTouching,
+            ushort x,
+            ushort y,
+            ref byte fingerId,
+            ref bool previousTouchState)
+        {
+            if (buffer == null || offset < 0 || offset + 3 >= buffer.Length)
+            {
+                return;
+            }
+
+            const int Ds4TouchMaxX = 1919;
+            const int Ds4TouchMaxY = 943;
+
+            if (isTouching && !previousTouchState)
+            {
+                unchecked { fingerId++; }
+            }
+
+            previousTouchState = isTouching;
+
+            if (x > Ds4TouchMaxX)
+            {
+                x = Ds4TouchMaxX;
+            }
+
+            if (y > Ds4TouchMaxY)
+            {
+                y = Ds4TouchMaxY;
+            }
+
+            byte contactAndId = isTouching
+                ? (byte)(fingerId & 0x7F)
+                : (byte)(0x80 | (fingerId & 0x7F));
+
+            buffer[offset] = contactAndId;
+            buffer[offset + 1] = (byte)(x & 0xFF);
+            buffer[offset + 2] = (byte)(((x >> 8) & 0x0F) | ((y & 0x0F) << 4));
+            buffer[offset + 3] = (byte)((y >> 4) & 0xFF);
         }
 
         private static byte MapDPadNibble(ushort buttons)
@@ -362,6 +436,9 @@ namespace XboxGamingBarHelper.Labs
             xboxController = null;
             dualShockController = null;
             dualShockTimestamp = 0;
+            dualShockTouchPacketNumber = 0;
+            dualShockTouchFingerId = 0;
+            dualShockTouchWasActive = false;
         }
 
         public void Dispose()
