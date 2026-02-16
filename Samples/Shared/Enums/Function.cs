@@ -283,6 +283,8 @@
         // ViGEmBus Driver
         ViGEmBusInstalled,              // bool - whether ViGEmBus driver is installed
         InstallViGEmBus,                // string - trigger to install ViGEmBus (write "install" to trigger)
+        HidHideInstalled,               // bool - whether HidHide is installed (CLI available)
+        InstallHidHide,                 // string - trigger to install HidHide (write "install" to trigger)
 
         // Controller Hotkey Settings (synced from widget to helper for XInput monitoring)
         ControllerHotkeyConfig,         // string - JSON config for controller button combos (Menu+DPad, View+ABXY)
@@ -322,7 +324,33 @@
 
         // Handheld-agnostic Controller Emulation
         ControllerEmulationAvailable,   // bool - helper supports controller emulation flow on current device
+        ControllerEmulationEnabled,     // bool - global on/off switch for controller emulation runtime
         ControllerEmulationGyroSource,  // int - gyro source (0=Internal Handheld, 1=Controller Internal)
         ControllerEmulationMode,        // int - mode (0=Mouse, 1=XboxStick, 2=PS4Motion, 3=PS4Stick)
+        ControllerEmulationDs4Orientation, // int - DS4 motion orientation (0=Parallel, 1=Orthogonal)
+        ControllerEmulationMouseSensitivity,  // int - 1-400 (percent scaling)
+        ControllerEmulationMouseThreshold,    // int - 0-20 (deg/s deadzone)
+        ControllerEmulationMouseAxis,         // int - axis mapping (0=Yaw/Pitch, 1=Yaw/Roll, 2=Roll/Pitch)
+        ControllerEmulationMouseInvertX,      // bool - invert horizontal
+        ControllerEmulationMouseInvertY,      // bool - invert vertical
+        ControllerEmulationMouseGainX,        // int - 25-400 (percent)
+        ControllerEmulationMouseGainY,        // int - 25-400 (percent)
+        ControllerEmulationStickSensitivity,  // int - 1-400 (percent scaling)
+        ControllerEmulationStickThreshold,    // int - 0-20 (deg/s deadzone)
+        ControllerEmulationStickAxis,         // int - axis mapping (0=XY(Yaw), 1=XZ(Roll), 2=Yaw+Pitch)
+        ControllerEmulationStickInvertX,      // bool - invert horizontal
+        ControllerEmulationStickInvertY,      // bool - invert vertical
+        ControllerEmulationStickGainX,        // int - 25-400 (percent)
+        ControllerEmulationStickGainY,        // int - 25-400 (percent)
+        ControllerEmulationStickSelect,       // int - 0=Left, 1=Right
+        ControllerEmulationStickExcessMove,   // bool - allow excess/overflow behavior
+        ControllerEmulationStickRange,        // int - 0-200 (0.00-2.00x)
+        ControllerEmulationStickOnlyJoystickData, // bool - only forward joystick data
+        ControllerEmulationVirtualABXYLayout, // int - 0=Xbox, 1=Nintendo
+        ControllerEmulationHideStockController, // bool - hide physical handheld controller while virtual controller is active
+        ControllerEmulationHideTarget, // int - suppression target selector (0=Auto, 1=Native, 2=Xbox360Bridge, 3=NativeAndXbox360)
+        ControllerEmulationPs4TouchpadEnabled, // bool - enable touchpad forwarding for PS4 (Motion/Stick) modes
+        ControllerEmulationGyroActivationMode, // int - gyro activation behavior (0=AlwaysOn, 1=Hold, 2=Toggle)
+        ControllerEmulationGyroActivationButton, // int - activation button mapping (0=None, 1=RT, 2=LT, ...)
     }
 }

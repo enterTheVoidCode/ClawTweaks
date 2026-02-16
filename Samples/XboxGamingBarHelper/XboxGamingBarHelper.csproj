@@ -100,6 +100,12 @@
     <Reference Include="Nefarius.ViGEm.Client">
       <HintPath>..\packages\Nefarius.ViGEm.Client.1.21.256\lib\netstandard2.0\Nefarius.ViGEm.Client.dll</HintPath>
     </Reference>
+    <Reference Include="Nefarius.Drivers.HidHide">
+      <HintPath>..\packages\Nefarius.Drivers.HidHide.1.8.59\lib\netstandard2.0\Nefarius.Drivers.HidHide.dll</HintPath>
+    </Reference>
+    <Reference Include="Nefarius.Utilities.DeviceManagement">
+      <HintPath>..\packages\Nefarius.Utilities.DeviceManagement.4.0.0\lib\net48\Nefarius.Utilities.DeviceManagement.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
@@ -535,6 +541,7 @@
     <Compile Include="Labs\ViGEmController.cs" />
     <Compile Include="Labs\LegionButtonMonitor.cs" />
     <Compile Include="Labs\ViGEmBusProperties.cs" />
+    <Compile Include="Labs\HidHideProperties.cs" />
     <Compile Include="Icons\GameIconHelper.cs" />
   </ItemGroup>
   <ItemGroup>
