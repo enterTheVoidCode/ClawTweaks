@@ -27,6 +27,7 @@ namespace XboxGamingBarHelper.AutoTDP
         // Action space: 5 actions (-2W, -1W, 0W, +1W, +2W)
         private const int NumActions = 5;
         private static readonly int[] ActionDeltas = { -2, -1, 0, 1, 2 };
+        private const bool EnableSafetyOverrides = false;
 
         // Q-table: state -> action values
         private Dictionary<int, double[]> qTable = new Dictionary<int, double[]>();
@@ -91,6 +92,7 @@ namespace XboxGamingBarHelper.AutoTDP
         {
             savePath = Path.Combine(dataPath, "autotdp_sarsa_table.json");
             Load();
+            Logger.Info($"SARSA: Safety overrides {(EnableSafetyOverrides ? "enabled" : "disabled for test build")}");
         }
 
         /// <summary>
@@ -213,13 +215,13 @@ namespace XboxGamingBarHelper.AutoTDP
             }
 
             // CRITICAL SAFETY OVERRIDE: When situation is unambiguous, override Q-values
-            if (fpsError < -8 && currentTdpPercent > 0.15)
+            if (EnableSafetyOverrides && fpsError < -8 && currentTdpPercent > 0.15)
             {
                 actionIndex = fpsError < -15 ? 0 : 1;
                 overrideApplied = true;
                 Logger.Info($"SARSA: OVERRIDE - FPS {-fpsError:F0} above target, forcing TDP decrease (action={ActionDeltas[actionIndex]})");
             }
-            else if (fpsError > 5 && currentTdpPercent < 0.95)
+            else if (EnableSafetyOverrides && fpsError > 5 && currentTdpPercent < 0.95)
             {
                 // FPS is 5+ below target - we need more power, definitely increase TDP
                 actionIndex = fpsError > 15 ? 4 : 3;  // +2W if way below, +1W otherwise
