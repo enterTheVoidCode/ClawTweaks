@@ -1398,6 +1398,7 @@ del /f /q ""%~f0"" 2>nul
                 controllerEmulationManager.ControllerEmulationAvailable,
                 controllerEmulationManager.ControllerEmulationEnabled,
                 controllerEmulationManager.ControllerEmulationHideStockController,
+                controllerEmulationManager.ControllerEmulationImprovedInput,
                 controllerEmulationManager.ControllerEmulationHideTarget,
                 controllerEmulationManager.ControllerEmulationGyroSource,
                 controllerEmulationManager.ControllerEmulationMode,
@@ -2150,51 +2151,44 @@ del /f /q ""%~f0"" 2>nul
             }
 
             // Gyro settings
-            if (profile.LegionGyroButton.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroButton: {profile.LegionGyroButton.Value}");
-                legionManager.LegionGyroActivationButton.SetValue(profile.LegionGyroButton.Value);
-            }
-            if (profile.LegionGyroTarget.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroTarget: {profile.LegionGyroTarget.Value}");
-                legionManager.LegionGyroTarget.SetValue(profile.LegionGyroTarget.Value);
-            }
-            if (profile.LegionGyroSensitivityX.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroSensitivityX: {profile.LegionGyroSensitivityX.Value}");
-                legionManager.LegionGyroSensitivityX.SetValue(profile.LegionGyroSensitivityX.Value);
-            }
-            if (profile.LegionGyroSensitivityY.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroSensitivityY: {profile.LegionGyroSensitivityY.Value}");
-                legionManager.LegionGyroSensitivityY.SetValue(profile.LegionGyroSensitivityY.Value);
-            }
-            if (profile.LegionGyroInvertX.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroInvertX: {profile.LegionGyroInvertX.Value}");
-                legionManager.LegionGyroInvertX.SetValue(profile.LegionGyroInvertX.Value);
-            }
-            if (profile.LegionGyroInvertY.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroInvertY: {profile.LegionGyroInvertY.Value}");
-                legionManager.LegionGyroInvertY.SetValue(profile.LegionGyroInvertY.Value);
-            }
-            if (profile.LegionGyroMappingType.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroMappingType: {profile.LegionGyroMappingType.Value}");
-                legionManager.LegionGyroMappingType.SetValue(profile.LegionGyroMappingType.Value);
-            }
-            if (profile.LegionGyroActivationMode.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroActivationMode: {profile.LegionGyroActivationMode.Value}");
-                legionManager.LegionGyroActivationMode.SetValue(profile.LegionGyroActivationMode.Value);
-            }
-            if (profile.LegionGyroDeadzone.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroDeadzone: {profile.LegionGyroDeadzone.Value}");
-                legionManager.LegionGyroDeadzone.SetValue(profile.LegionGyroDeadzone.Value);
-            }
+            // Apply explicit safe defaults when profile entries are missing so gyro never
+            // inherits prior game/global values by accident.
+            int legionGyroButton = profile.LegionGyroButton ?? 0;
+            int legionGyroTarget = profile.LegionGyroTarget ?? 0;
+            int legionGyroSensitivityX = profile.LegionGyroSensitivityX ?? 50;
+            int legionGyroSensitivityY = profile.LegionGyroSensitivityY ?? 50;
+            bool legionGyroInvertX = profile.LegionGyroInvertX ?? false;
+            bool legionGyroInvertY = profile.LegionGyroInvertY ?? false;
+            int legionGyroMappingType = profile.LegionGyroMappingType ?? 0;
+            int legionGyroActivationMode = profile.LegionGyroActivationMode ?? 0;
+            int legionGyroDeadzone = profile.LegionGyroDeadzone ?? 10;
+
+            Logger.Debug($"Applying LegionGyroButton: {legionGyroButton}{(profile.LegionGyroButton.HasValue ? string.Empty : " (default)")}");
+            legionManager.LegionGyroActivationButton.SetValue(legionGyroButton);
+
+            Logger.Debug($"Applying LegionGyroTarget: {legionGyroTarget}{(profile.LegionGyroTarget.HasValue ? string.Empty : " (default)")}");
+            legionManager.LegionGyroTarget.SetValue(legionGyroTarget);
+
+            Logger.Debug($"Applying LegionGyroSensitivityX: {legionGyroSensitivityX}{(profile.LegionGyroSensitivityX.HasValue ? string.Empty : " (default)")}");
+            legionManager.LegionGyroSensitivityX.SetValue(legionGyroSensitivityX);
+
+            Logger.Debug($"Applying LegionGyroSensitivityY: {legionGyroSensitivityY}{(profile.LegionGyroSensitivityY.HasValue ? string.Empty : " (default)")}");
+            legionManager.LegionGyroSensitivityY.SetValue(legionGyroSensitivityY);
+
+            Logger.Debug($"Applying LegionGyroInvertX: {legionGyroInvertX}{(profile.LegionGyroInvertX.HasValue ? string.Empty : " (default)")}");
+            legionManager.LegionGyroInvertX.SetValue(legionGyroInvertX);
+
+            Logger.Debug($"Applying LegionGyroInvertY: {legionGyroInvertY}{(profile.LegionGyroInvertY.HasValue ? string.Empty : " (default)")}");
+            legionManager.LegionGyroInvertY.SetValue(legionGyroInvertY);
+
+            Logger.Debug($"Applying LegionGyroMappingType: {legionGyroMappingType}{(profile.LegionGyroMappingType.HasValue ? string.Empty : " (default)")}");
+            legionManager.LegionGyroMappingType.SetValue(legionGyroMappingType);
+
+            Logger.Debug($"Applying LegionGyroActivationMode: {legionGyroActivationMode}{(profile.LegionGyroActivationMode.HasValue ? string.Empty : " (default)")}");
+            legionManager.LegionGyroActivationMode.SetValue(legionGyroActivationMode);
+
+            Logger.Debug($"Applying LegionGyroDeadzone: {legionGyroDeadzone}{(profile.LegionGyroDeadzone.HasValue ? string.Empty : " (default)")}");
+            legionManager.LegionGyroDeadzone.SetValue(legionGyroDeadzone);
 
             // Stick deadzones
             if (profile.LegionLeftStickDeadzone.HasValue)

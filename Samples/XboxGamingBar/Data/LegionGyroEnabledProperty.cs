@@ -5,7 +5,7 @@ namespace XboxGamingBar.Data
 {
     internal class LegionGyroEnabledProperty : WidgetToggleProperty
     {
-        public LegionGyroEnabledProperty(ToggleSwitch inUI, Page inOwner) : base(true, Function.LegionGyroEnabled, inUI, inOwner)
+        public LegionGyroEnabledProperty(ToggleSwitch inUI, Page inOwner) : base(false, Function.LegionGyroEnabled, inUI, inOwner)
         {
         }
     }

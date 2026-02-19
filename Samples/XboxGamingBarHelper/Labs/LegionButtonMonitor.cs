@@ -28,10 +28,13 @@ namespace XboxGamingBarHelper.Labs
     internal class LegionButtonMonitor : IDisposable
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-        // Legion Go Controller HID identifiers
-        private const ushort LEGION_VID = 0x17EF;
-        private const ushort LEGION_GO1_PID = 0x6182;  // Legion Go 1
-        private const ushort LEGION_GO2_PID = 0x61EB;  // Legion Go S / Gen 2
+        // Lenovo tablet controller HID identifiers (Legion Go / Go 2 families).
+        private const ushort LEGION_TABLET_VID = 0x17EF;
+        private static readonly ushort[] LEGION_TABLET_PIDS = { 0x6182, 0x6183, 0x6184, 0x6185, 0x61EB, 0x61EC, 0x61ED, 0x61EE };
+        // Legion Go S controller HID identifiers (xinput / dinput controller modes).
+        // Source: HHD slim backend constants (GOS_VID + GOS_PIDS).
+        private const ushort LEGION_GOS_VID = 0x1A86;
+        private static readonly ushort[] LEGION_GOS_PIDS = { 0xE310, 0xE311 };
 
         // Legion button position in HID report
         // Attached mode (04:00:A1 header): buttons at byte 16
@@ -40,11 +43,30 @@ namespace XboxGamingBarHelper.Labs
         private const int BUTTON_BYTE_DETACHED = 18;
         private const byte LEGION_L_BIT = 0x80;
         private const byte LEGION_R_BIT = 0x40;
+        private const ushort XINPUT_GAMEPAD_DPAD_UP = 0x0001;
+        private const ushort XINPUT_GAMEPAD_DPAD_DOWN = 0x0002;
+        private const ushort XINPUT_GAMEPAD_DPAD_LEFT = 0x0004;
+        private const ushort XINPUT_GAMEPAD_DPAD_RIGHT = 0x0008;
+        private const ushort XINPUT_GAMEPAD_START = 0x0010;
+        private const ushort XINPUT_GAMEPAD_BACK = 0x0020;
+        private const ushort XINPUT_GAMEPAD_LEFT_THUMB = 0x0040;
+        private const ushort XINPUT_GAMEPAD_RIGHT_THUMB = 0x0080;
+        private const ushort XINPUT_GAMEPAD_LEFT_SHOULDER = 0x0100;
+        private const ushort XINPUT_GAMEPAD_RIGHT_SHOULDER = 0x0200;
+        private const ushort XINPUT_GAMEPAD_A = 0x1000;
+        private const ushort XINPUT_GAMEPAD_B = 0x2000;
+        private const ushort XINPUT_GAMEPAD_X = 0x4000;
+        private const ushort XINPUT_GAMEPAD_Y = 0x8000;
         private const float GYRO_SCALE_DEG_PER_SECOND = 2000.0f / 32768.0f;
         private const float ACCEL_SCALE_G = 8.0f / 32768.0f;
         private const float LEGACY_M8_GYRO_SCALE_DEG_PER_SECOND = 2000.0f / 128.0f;
         private const byte LEGION_CONTROLLER_LEFT_ID = 0x03;
         private const byte LEGION_CONTROLLER_RIGHT_ID = 0x04;
+        // Legion Go S back-button (Legion L/R) bits in byte 2.
+        // Source: HHD slim const.py (extra_l1, extra_r1).
+        private const int GOS_BUTTON_BYTE = 2;
+        private const byte GOS_LEGION_L_BIT = 0x01;
+        private const byte GOS_LEGION_R_BIT = 0x02;
 
         // Detected controller mode
         private bool isDetachedMode = false;
@@ -227,9 +249,11 @@ namespace XboxGamingBarHelper.Labs
         private static LegionGyroSample _latestLeftGyroSample;
         private static LegionGyroSample _latestRightGyroSample;
         private static LegionTouchpadSample _latestRightTouchpadSample;
+        private static LegionGamepadSample _latestGamepadSample;
         private static bool _hasLeftGyroSample = false;
         private static bool _hasRightGyroSample = false;
         private static bool _hasRightTouchpadSample = false;
+        private static bool _hasGamepadSample = false;
 
         /// <summary>
         /// Notify that an external HID output report was sent to the Legion controller.
@@ -273,6 +297,67 @@ namespace XboxGamingBarHelper.Labs
                 sample = _latestRightTouchpadSample;
                 return _hasRightTouchpadSample;
             }
+        }
+
+        /// <summary>
+        /// Returns the latest parsed gamepad sample from Legion controller HID input reports.
+        /// Sample is mapped into XInput-compatible button/trigger/stick fields.
+        /// </summary>
+        public static bool TryGetLatestGamepadSample(out LegionGamepadSample sample)
+        {
+            lock (_gyroSampleLock)
+            {
+                sample = _latestGamepadSample;
+                return _hasGamepadSample;
+            }
+        }
+
+        private static bool IsSupportedLegionControllerVidPid(ushort vid, ushort pid)
+        {
+            return IsLegionTabletControllerVidPid(vid, pid) || IsLegionGoSControllerVidPid(vid, pid);
+        }
+
+        private static bool IsLegionTabletControllerVidPid(ushort vid, ushort pid)
+        {
+            return vid == LEGION_TABLET_VID && LEGION_TABLET_PIDS.Contains(pid);
+        }
+
+        private static bool IsLegionGoSControllerVidPid(ushort vid, ushort pid)
+        {
+            return vid == LEGION_GOS_VID && LEGION_GOS_PIDS.Contains(pid);
+        }
+
+        private static bool DeviceNameMatchesVidPid(string deviceNameLower, ushort vid, ushort[] pids)
+        {
+            if (string.IsNullOrWhiteSpace(deviceNameLower))
+            {
+                return false;
+            }
+
+            if (!deviceNameLower.Contains($"vid_{vid:X4}".ToLowerInvariant()))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < pids.Length; i++)
+            {
+                if (deviceNameLower.Contains($"pid_{pids[i]:X4}".ToLowerInvariant()))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsGoSControllerDevice()
+        {
+            return IsLegionGoSControllerVidPid(_detectedVid, _detectedPid);
+        }
+
+        private bool IsTabletControllerDevice()
+        {
+            return IsLegionTabletControllerVidPid(_detectedVid, _detectedPid);
         }
 
         /// <summary>
@@ -1035,7 +1120,7 @@ namespace XboxGamingBarHelper.Labs
                     Logger.Info($"LegionButtonMonitor: Trying cached device path first: {cachedPath}");
                     if (TryOpenDeviceAtPath(cachedPath, out SafeFileHandle cachedHandle, out bool cachedWriteAccess))
                     {
-                        if (ProbeDeviceFormat(cachedHandle, cachedWriteAccess))
+                        if (ProbeDeviceFormat(cachedHandle, cachedWriteAccess, _detectedVid, _detectedPid))
                         {
                             hidHandle = cachedHandle;
                             _hasWriteAccess = cachedWriteAccess;
@@ -1129,15 +1214,14 @@ namespace XboxGamingBarHelper.Labs
                                     var attrs = new HIDD_ATTRIBUTES { Size = Marshal.SizeOf<HIDD_ATTRIBUTES>() };
                                     if (HidD_GetAttributes(handle, ref attrs))
                                     {
-                                        if (attrs.VendorID == LEGION_VID &&
-                                            (attrs.ProductID == LEGION_GO1_PID || attrs.ProductID == LEGION_GO2_PID))
+                                        if (IsSupportedLegionControllerVidPid(attrs.VendorID, attrs.ProductID))
                                         {
                                             candidateCount++;
                                             Logger.Info($"LegionButtonMonitor: Found candidate #{candidateCount} at {devicePath} (write access: {hasWriteAccess})");
 
                                             // Probe the device by reading a report to verify it's the correct format
                                             // The correct device sends 64-byte reports with 04:00:A1 header
-                                            if (ProbeDeviceFormat(handle, hasWriteAccess))
+                                            if (ProbeDeviceFormat(handle, hasWriteAccess, attrs.VendorID, attrs.ProductID))
                                             {
                                                 hidHandle = handle;
                                                 _hasWriteAccess = hasWriteAccess;
@@ -1241,8 +1325,7 @@ namespace XboxGamingBarHelper.Labs
                 var attrs = new HIDD_ATTRIBUTES { Size = Marshal.SizeOf<HIDD_ATTRIBUTES>() };
                 if (HidD_GetAttributes(handle, ref attrs))
                 {
-                    if (attrs.VendorID == LEGION_VID &&
-                        (attrs.ProductID == LEGION_GO1_PID || attrs.ProductID == LEGION_GO2_PID))
+                    if (IsSupportedLegionControllerVidPid(attrs.VendorID, attrs.ProductID))
                     {
                         _detectedVid = attrs.VendorID;
                         _detectedPid = attrs.ProductID;
@@ -1557,7 +1640,7 @@ namespace XboxGamingBarHelper.Labs
 
         /// <summary>
         /// Process a Raw Input message for scroll wheel events.
-        /// Filters for Legion Go device (VID 17EF, PID 61EB) and mi_01/col02 interface.
+        /// Filters for Legion tablet-family devices and mi_01/col02 interface.
         /// </summary>
         private void ProcessScrollWheelRawInput(IntPtr hRawInput)
         {
@@ -1582,8 +1665,8 @@ namespace XboxGamingBarHelper.Labs
 
                         string deviceLower = deviceName.ToLowerInvariant();
 
-                        // Must be Legion Go device (VID 17EF, PID 61EB)
-                        if (!deviceLower.Contains("vid_17ef") || !deviceLower.Contains("pid_61eb")) return;
+                        // Must be Legion tablet-family device (VID 17EF and known tablet PIDs).
+                        if (!DeviceNameMatchesVidPid(deviceLower, LEGION_TABLET_VID, LEGION_TABLET_PIDS)) return;
 
                         // Must be scroll wheel interface: mi_01 and col02
                         if (!deviceLower.Contains("mi_01") || !deviceLower.Contains("col02")) return;
@@ -1740,6 +1823,12 @@ namespace XboxGamingBarHelper.Labs
         {
             try
             {
+                // Legion Go S uses a separate HID command protocol; skip tablet init/heartbeat packets.
+                if (IsGoSControllerDevice())
+                {
+                    return true;
+                }
+
                 byte[] initCommandPrefix = { 0x05, 0x00, 0x01, 0x04 };
                 if (!SendOutputReport(handle, initCommandPrefix, "init command"))
                 {
@@ -1793,7 +1882,7 @@ namespace XboxGamingBarHelper.Labs
 
         private void DisableHighQualityGyroReports(SafeFileHandle handle)
         {
-            if (handle == null || handle.IsInvalid || !_hasWriteAccess)
+            if (handle == null || handle.IsInvalid || !_hasWriteAccess || !IsTabletControllerDevice())
             {
                 return;
             }
@@ -1837,11 +1926,12 @@ namespace XboxGamingBarHelper.Labs
         /// </summary>
         /// <param name="handle">The HID device handle</param>
         /// <param name="hasWriteAccess">Whether the handle has write access for initialization</param>
-        private bool ProbeDeviceFormat(SafeFileHandle handle, bool hasWriteAccess)
+        private bool ProbeDeviceFormat(SafeFileHandle handle, bool hasWriteAccess, ushort vendorId, ushort productId)
         {
             const uint READ_TIMEOUT_MS = 200; // Reduced timeout per read attempt (was 500ms)
             IntPtr eventHandle = IntPtr.Zero;
             bool initializationAttempted = false;
+            bool isGoSController = IsLegionGoSControllerVidPid(vendorId, productId);
 
             try
             {
@@ -1897,6 +1987,27 @@ namespace XboxGamingBarHelper.Labs
 
                     if (readResult || bytesRead > 0)
                     {
+                        if (isGoSController)
+                        {
+                            if (LooksLikeGoSGamepadReport(buffer, bytesRead))
+                            {
+                                isDetachedMode = false;
+                                currentButtonByte = BUTTON_BYTE_ATTACHED;
+                                Logger.Info($"LegionButtonMonitor: Probe success (Legion Go S mode) - {bytesRead} bytes");
+                                return true;
+                            }
+
+                            wrongFormatCount++;
+                            Logger.Debug($"LegionButtonMonitor: Go S probe attempt {attempt + 1} - unexpected report shape ({bytesRead} bytes)");
+                            if (wrongFormatCount >= 3)
+                            {
+                                Logger.Debug("LegionButtonMonitor: Probe failed - consistently wrong Go S report format");
+                                return false;
+                            }
+
+                            continue;
+                        }
+
                         // Must be exactly 64 bytes with Legion format starting with 04
                         if (bytesRead == 64 && buffer[0] == 0x04)
                         {
@@ -2205,37 +2316,44 @@ namespace XboxGamingBarHelper.Labs
                             // which reads from the separate mi_01 HID interface. This ensures only Legion Go
                             // scroll wheel events are captured, not events from other mice.
 
-                            // Validate report header before parsing battery or buttons
-                            // Only process reports with valid Legion controller headers:
+                            // Validate report format before parsing battery/buttons.
+                            // Tablet-family reports:
                             // - Attached/initialized mode: 04:00:A1 (battery at bytes 3-6, buttons at byte 16)
                             // - Detached/uninitialized mode: 04:3C:74 (battery at bytes 5-8, buttons at byte 18)
-                            // Other reports like 04:06:xx (brightness responses) should be ignored
-                            bool hasValidReportHeader = false;
+                            bool hasTabletReportHeader = false;
                             if (bytesRead >= currentButtonByte + 1 && bytesRead >= 14 && buffer[0] == 0x04)
                             {
                                 bool isInitializedHeader = buffer[1] == 0x00 && buffer[2] == 0xA1;
                                 bool isUninitializedHeader = buffer[1] == 0x3C && buffer[2] == 0x74;
                                 if (isInitializedHeader)
                                 {
-                                    hasValidReportHeader = true;  // Attached mode: 04:00:A1
+                                    hasTabletReportHeader = true;  // Attached mode: 04:00:A1
                                     isDetachedMode = false;
                                     currentButtonByte = BUTTON_BYTE_ATTACHED;
                                 }
                                 else if (isUninitializedHeader)
                                 {
-                                    hasValidReportHeader = true;  // Detached mode: 04:3C:74
+                                    hasTabletReportHeader = true;  // Detached mode: 04:3C:74
                                     isDetachedMode = true;
                                     currentButtonByte = BUTTON_BYTE_DETACHED;
                                 }
                             }
 
+                            bool hasGoSReport = false;
+                            if (hasTabletReportHeader)
+                            {
+                                TryParseAndStoreGyroSamples(buffer, bytesRead);
+                            }
+                            else if (IsGoSControllerDevice())
+                            {
+                                hasGoSReport = TryParseAndStoreGoSGamepadSample(buffer, bytesRead);
+                            }
+
                             // Parse battery data from valid reports
                             try
                             {
-                                if (hasValidReportHeader)
+                                if (hasTabletReportHeader)
                                 {
-                                    TryParseAndStoreGyroSamples(buffer, bytesRead);
-
                                     // With heartbeat always active, we use 04:00:A1 header format
                                     // Battery at bytes 3-6, connection status at bytes 10-11
                                     int batteryOffset = 3;
@@ -2301,16 +2419,27 @@ namespace XboxGamingBarHelper.Labs
                                 Logger.Error($"LegionButtonMonitor: Battery parsing exception: {batteryEx.Message}");
                             }
 
-                            // Check button states only from valid reports (04:00:A1 or 04:3C:74)
-                            // This prevents false triggers from response reports like 04:06:xx (brightness)
-                            if (hasValidReportHeader)
+                            bool canProcessButtons = hasTabletReportHeader || hasGoSReport;
+                            if (canProcessButtons)
                             {
-                                byte currentBtnValue = buffer[currentButtonByte];
+                                bool legionLRawPressed;
+                                bool legionRRawPressed;
+                                if (hasTabletReportHeader)
+                                {
+                                    byte currentBtnValue = buffer[currentButtonByte];
+                                    legionLRawPressed = (currentBtnValue & LEGION_L_BIT) != 0;
+                                    legionRRawPressed = (currentBtnValue & LEGION_R_BIT) != 0;
+                                }
+                                else
+                                {
+                                    byte gosButtonByte = buffer[GOS_BUTTON_BYTE];
+                                    legionLRawPressed = (gosButtonByte & GOS_LEGION_L_BIT) != 0;
+                                    legionRRawPressed = (gosButtonByte & GOS_LEGION_R_BIT) != 0;
+                                }
 
                                 // Process Legion L button if configured
                                 if (legionLEnabled)
                                 {
-                                    bool legionLRawPressed = (currentBtnValue & LEGION_L_BIT) != 0;
                                     if (TryCommitDebouncedButtonState(
                                         legionLRawPressed,
                                         ref lastLegionLState,
@@ -2333,7 +2462,6 @@ namespace XboxGamingBarHelper.Labs
                                 // Process Legion R button if configured
                                 if (legionREnabled)
                                 {
-                                    bool legionRRawPressed = (currentBtnValue & LEGION_R_BIT) != 0;
                                     if (TryCommitDebouncedButtonState(
                                         legionRRawPressed,
                                         ref lastLegionRState,
@@ -2384,9 +2512,96 @@ namespace XboxGamingBarHelper.Labs
             }
         }
 
+        private static bool LooksLikeGoSGamepadReport(byte[] buffer, uint bytesRead)
+        {
+            if (buffer == null || bytesRead != 64)
+            {
+                return false;
+            }
+
+            // Reserved bits in byte2 are expected to stay clear for known Go S button map.
+            if ((buffer[2] & 0x3C) != 0)
+            {
+                return false;
+            }
+
+            // Reject known tablet header signatures.
+            if (buffer[0] == 0x04 &&
+                ((buffer[1] == 0x00 && buffer[2] == 0xA1) ||
+                 (buffer[1] == 0x3C && buffer[2] == 0x74)))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool TryParseAndStoreGoSGamepadSample(byte[] buffer, uint bytesRead)
+        {
+            if (!LooksLikeGoSGamepadReport(buffer, bytesRead))
+            {
+                return false;
+            }
+
+            // Legion Go S HID layout (interface 6) from HHD:
+            // - buttons: bytes 0..2 (BM mapping in slim/const.py)
+            // - sticks: bytes 4..7 (m8)
+            // - triggers: bytes 12/13 (HHD notes these are "confused"; on Windows raw captures
+            //   LT/RT align as LT=12, RT=13)
+            byte buttonByte0 = buffer[0];
+            byte buttonByte1 = buffer[1];
+            byte buttonByte2 = buffer[2];
+            byte leftStickXRaw = buffer[4];
+            byte leftStickYRaw = buffer[5];
+            byte rightStickXRaw = buffer[6];
+            byte rightStickYRaw = buffer[7];
+            byte leftTrigger = buffer[12];
+            byte rightTrigger = buffer[13];
+
+            ushort buttons = 0;
+            // byte0: mode/share/ls/rs/dpad (A/B/X/Y are on byte1)
+            if ((buttonByte0 & 0x10) != 0) buttons |= XINPUT_GAMEPAD_DPAD_UP;
+            if ((buttonByte0 & 0x20) != 0) buttons |= XINPUT_GAMEPAD_DPAD_DOWN;
+            if ((buttonByte0 & 0x40) != 0) buttons |= XINPUT_GAMEPAD_DPAD_LEFT;
+            if ((buttonByte0 & 0x80) != 0) buttons |= XINPUT_GAMEPAD_DPAD_RIGHT;
+            if ((buttonByte0 & 0x04) != 0) buttons |= XINPUT_GAMEPAD_LEFT_THUMB;
+            if ((buttonByte0 & 0x08) != 0) buttons |= XINPUT_GAMEPAD_RIGHT_THUMB;
+
+            // byte1: ABXY + bumpers + digital trigger flags
+            if ((buttonByte1 & 0x01) != 0) buttons |= XINPUT_GAMEPAD_A;
+            if ((buttonByte1 & 0x02) != 0) buttons |= XINPUT_GAMEPAD_B;
+            if ((buttonByte1 & 0x04) != 0) buttons |= XINPUT_GAMEPAD_X;
+            if ((buttonByte1 & 0x08) != 0) buttons |= XINPUT_GAMEPAD_Y;
+            if ((buttonByte1 & 0x10) != 0) buttons |= XINPUT_GAMEPAD_LEFT_SHOULDER;
+            if ((buttonByte1 & 0x40) != 0) buttons |= XINPUT_GAMEPAD_RIGHT_SHOULDER;
+
+            // byte2: extra buttons + start/select
+            if ((buttonByte2 & 0x80) != 0) buttons |= XINPUT_GAMEPAD_START;
+            if ((buttonByte2 & 0x40) != 0) buttons |= XINPUT_GAMEPAD_BACK;
+
+            long sampleTimestampUtc = DateTime.UtcNow.Ticks;
+            var sample = new LegionGamepadSample(
+                buttons,
+                leftTrigger,
+                rightTrigger,
+                ScaleStickByteToXInput(leftStickXRaw, false),
+                ScaleStickByteToXInput(leftStickYRaw, true),
+                ScaleStickByteToXInput(rightStickXRaw, false),
+                ScaleStickByteToXInput(rightStickYRaw, true),
+                sampleTimestampUtc);
+
+            lock (_gyroSampleLock)
+            {
+                _latestGamepadSample = sample;
+                _hasGamepadSample = true;
+            }
+
+            return true;
+        }
+
         private static void TryParseAndStoreGyroSamples(byte[] buffer, uint bytesRead)
         {
-            if (buffer == null || bytesRead < 32)
+            if (buffer == null || bytesRead < 24)
             {
                 return;
             }
@@ -2404,6 +2619,14 @@ namespace XboxGamingBarHelper.Labs
             int imuBase = isInitializedHeader ? 32 : 34;
             int touchBase = isInitializedHeader ? 24 : 26;
             long sampleTimestampUtc = DateTime.UtcNow.Ticks;
+
+            LegionGamepadSample gamepadSample = default;
+            bool hasGamepadSample = TryParseGamepadSample(
+                buffer,
+                bytesRead,
+                isInitializedHeader,
+                sampleTimestampUtc,
+                out gamepadSample);
 
             LegionGyroSample leftSample = default;
             LegionGyroSample rightSample = default;
@@ -2505,11 +2728,20 @@ namespace XboxGamingBarHelper.Labs
 
             if (!hasLeftSample && !hasRightSample)
             {
-                return;
+                if (!hasGamepadSample && !hasRightTouchSample)
+                {
+                    return;
+                }
             }
 
             lock (_gyroSampleLock)
             {
+                if (hasGamepadSample)
+                {
+                    _latestGamepadSample = gamepadSample;
+                    _hasGamepadSample = true;
+                }
+
                 if (hasLeftSample)
                 {
                     _latestLeftGyroSample = leftSample;
@@ -2528,6 +2760,112 @@ namespace XboxGamingBarHelper.Labs
                     _hasRightTouchpadSample = true;
                 }
             }
+        }
+
+        private static bool TryParseGamepadSample(
+            byte[] buffer,
+            uint bytesRead,
+            bool isInitializedHeader,
+            long sampleTimestampUtc,
+            out LegionGamepadSample sample)
+        {
+            sample = default;
+
+            int sticksBase = isInitializedHeader ? 12 : 14;
+            int buttonsBase = isInitializedHeader ? 16 : 18;
+            int leftTriggerIndex = isInitializedHeader ? 20 : 22;
+            int rightTriggerIndex = isInitializedHeader ? 21 : 23;
+
+            if (bytesRead <= sticksBase + 3 ||
+                bytesRead <= buttonsBase + 2 ||
+                bytesRead <= rightTriggerIndex ||
+                bytesRead <= leftTriggerIndex)
+            {
+                return false;
+            }
+
+            byte leftStickXRaw = buffer[sticksBase];
+            byte leftStickYRaw = buffer[sticksBase + 1];
+            byte rightStickXRaw = buffer[sticksBase + 2];
+            byte rightStickYRaw = buffer[sticksBase + 3];
+
+            byte buttonByte0 = buffer[buttonsBase];
+            byte buttonByte1 = buffer[buttonsBase + 1];
+            byte buttonByte2 = buffer[buttonsBase + 2];
+
+            ushort buttons = 0;
+
+            // Byte 0: mode/share/ls/rs/dpad.
+            // HHD tablet BM map: bit offsets 2/3/4/5/6/7 => masks 0x20/0x10/0x08/0x04/0x02/0x01.
+            if ((buttonByte0 & 0x20) != 0) buttons |= XINPUT_GAMEPAD_LEFT_THUMB;
+            if ((buttonByte0 & 0x10) != 0) buttons |= XINPUT_GAMEPAD_RIGHT_THUMB;
+            if ((buttonByte0 & 0x08) != 0) buttons |= XINPUT_GAMEPAD_DPAD_UP;
+            if ((buttonByte0 & 0x04) != 0) buttons |= XINPUT_GAMEPAD_DPAD_DOWN;
+            if ((buttonByte0 & 0x02) != 0) buttons |= XINPUT_GAMEPAD_DPAD_LEFT;
+            if ((buttonByte0 & 0x01) != 0) buttons |= XINPUT_GAMEPAD_DPAD_RIGHT;
+
+            // Byte 1: ABXY + bumpers + digital trigger flags.
+            // HHD tablet BM map uses MSB-first bit addressing.
+            if ((buttonByte1 & 0x80) != 0) buttons |= XINPUT_GAMEPAD_A;
+            if ((buttonByte1 & 0x40) != 0) buttons |= XINPUT_GAMEPAD_B;
+            if ((buttonByte1 & 0x20) != 0) buttons |= XINPUT_GAMEPAD_X;
+            if ((buttonByte1 & 0x10) != 0) buttons |= XINPUT_GAMEPAD_Y;
+            if ((buttonByte1 & 0x08) != 0) buttons |= XINPUT_GAMEPAD_LEFT_SHOULDER;
+            if ((buttonByte1 & 0x02) != 0) buttons |= XINPUT_GAMEPAD_RIGHT_SHOULDER;
+
+            // Byte 2: extra buttons + start/select.
+            if ((buttonByte2 & 0x02) != 0) buttons |= XINPUT_GAMEPAD_BACK;
+            if ((buttonByte2 & 0x01) != 0) buttons |= XINPUT_GAMEPAD_START;
+
+            byte rightTrigger = buffer[rightTriggerIndex];
+            byte leftTrigger = buffer[leftTriggerIndex];
+
+            sample = new LegionGamepadSample(
+                buttons,
+                leftTrigger,
+                rightTrigger,
+                ScaleStickByteToXInput(leftStickXRaw, false),
+                ScaleStickByteToXInput(leftStickYRaw, true),
+                ScaleStickByteToXInput(rightStickXRaw, false),
+                ScaleStickByteToXInput(rightStickYRaw, true),
+                sampleTimestampUtc);
+
+            return true;
+        }
+
+        private static short ScaleStickByteToXInput(byte raw, bool invert)
+        {
+            if (raw == 128)
+            {
+                return 0;
+            }
+
+            float normalized;
+            if (raw > 128)
+            {
+                normalized = (raw - 128) / 127.0f;
+            }
+            else
+            {
+                normalized = -((128 - raw) / 128.0f);
+            }
+
+            if (invert)
+            {
+                normalized = -normalized;
+            }
+
+            int scaled = (int)Math.Round(normalized * short.MaxValue);
+            if (scaled > short.MaxValue)
+            {
+                scaled = short.MaxValue;
+            }
+            else if (scaled < short.MinValue)
+            {
+                scaled = short.MinValue;
+            }
+
+            return (short)scaled;
         }
 
         private static bool HasHighQualityImuSample(byte[] buffer, int baseOffset)
@@ -2822,6 +3160,41 @@ namespace XboxGamingBarHelper.Labs
             IsTouching = isTouching;
             RawX = rawX;
             RawY = rawY;
+            TimestampTicksUtc = timestampTicksUtc;
+        }
+    }
+
+    /// <summary>
+    /// Latest parsed Legion gamepad sample mapped to XInput-compatible fields.
+    /// </summary>
+    internal readonly struct LegionGamepadSample
+    {
+        public readonly ushort Buttons;
+        public readonly byte LeftTrigger;
+        public readonly byte RightTrigger;
+        public readonly short LeftStickX;
+        public readonly short LeftStickY;
+        public readonly short RightStickX;
+        public readonly short RightStickY;
+        public readonly long TimestampTicksUtc;
+
+        public LegionGamepadSample(
+            ushort buttons,
+            byte leftTrigger,
+            byte rightTrigger,
+            short leftStickX,
+            short leftStickY,
+            short rightStickX,
+            short rightStickY,
+            long timestampTicksUtc)
+        {
+            Buttons = buttons;
+            LeftTrigger = leftTrigger;
+            RightTrigger = rightTrigger;
+            LeftStickX = leftStickX;
+            LeftStickY = leftStickY;
+            RightStickX = rightStickX;
+            RightStickY = rightStickY;
             TimestampTicksUtc = timestampTicksUtc;
         }
     }

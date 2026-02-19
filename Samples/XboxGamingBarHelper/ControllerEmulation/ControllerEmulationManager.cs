@@ -58,6 +58,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private int virtualAbxyLayout;
         private bool hideStockController;
         private int hideTarget;
+        private bool improvedInputRead;
         private bool ps4TouchpadEnabled;
 
         private ViGEmController virtualController;
@@ -77,6 +78,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private readonly HashSet<string> virtualXboxBridgeDeviceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly object virtualControllerSync = new object();
         private readonly uint[] lastPacketByController = new uint[4];
+        private long lastLegionHidSampleTimestampTicksUtc;
+        private uint legionHidPacketNumber;
         private float mouseCarryX;
         private float mouseCarryY;
         private float mouseFilteredHorizontal;
@@ -115,6 +118,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private const float LegionTouchMaxY = 1023.0f;
         private const float Ds4TouchMaxX = 1919.0f;
         private const float Ds4TouchMaxY = 943.0f;
+        private const long LegionHidSampleMaxAgeTicks = TimeSpan.TicksPerSecond / 2; // 500ms
         private const int GameBarForegroundStableTicks = 1;
         private const int GameBarBackgroundStableTicks = 2;
         private const int GuideSuppressionPauseSeconds = 25;
@@ -210,6 +214,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
         public readonly ControllerEmulationAvailableProperty ControllerEmulationAvailable;
         public readonly ControllerEmulationEnabledProperty ControllerEmulationEnabled;
         public readonly ControllerEmulationHideStockControllerProperty ControllerEmulationHideStockController;
+        public readonly ControllerEmulationImprovedInputProperty ControllerEmulationImprovedInput;
         public readonly ControllerEmulationHideTargetProperty ControllerEmulationHideTarget;
         public readonly ControllerEmulationGyroSourceProperty ControllerEmulationGyroSource;
         public readonly ControllerEmulationModeProperty ControllerEmulationMode;
@@ -244,6 +249,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 yield return ControllerEmulationAvailable;
                 yield return ControllerEmulationEnabled;
                 yield return ControllerEmulationHideStockController;
+                yield return ControllerEmulationImprovedInput;
                 yield return ControllerEmulationHideTarget;
                 yield return ControllerEmulationGyroSource;
                 yield return ControllerEmulationMode;
@@ -288,6 +294,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             ControllerEmulationAvailable = new ControllerEmulationAvailableProperty(isSupported, this);
             ControllerEmulationEnabled = new ControllerEmulationEnabledProperty(enabled, this);
             ControllerEmulationHideStockController = new ControllerEmulationHideStockControllerProperty(hideStockController, this);
+            ControllerEmulationImprovedInput = new ControllerEmulationImprovedInputProperty(improvedInputRead, this);
             ControllerEmulationHideTarget = new ControllerEmulationHideTargetProperty(hideTarget, this);
             ControllerEmulationGyroSource = new ControllerEmulationGyroSourceProperty(gyroSource, this);
             ControllerEmulationMode = new ControllerEmulationModeProperty(mode, this);
@@ -317,7 +324,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
             SubscribeForegroundSignal();
 
-            Logger.Info($"ControllerEmulationManager initialized. DeviceType={deviceType}, Supported={isSupported}, Enabled={enabled}, HideStockController={hideStockController}, HideTarget={hideTarget}, GyroSource={gyroSource}, Mode={mode}, GyroActivationMode={gyroActivationMode}, GyroActivationButton={gyroActivationButton}, Ds4Orientation={ds4Orientation}, Ps4TouchpadEnabled={ps4TouchpadEnabled}");
+            Logger.Info($"ControllerEmulationManager initialized. DeviceType={deviceType}, Supported={isSupported}, Enabled={enabled}, HideStockController={hideStockController}, HideTarget={hideTarget}, ImprovedInput={improvedInputRead}, GyroSource={gyroSource}, Mode={mode}, GyroActivationMode={gyroActivationMode}, GyroActivationButton={gyroActivationButton}, Ds4Orientation={ds4Orientation}, Ps4TouchpadEnabled={ps4TouchpadEnabled}");
 
             // Apply persisted settings on startup when supported.
             ApplyCurrentConfiguration("startup");
@@ -513,6 +520,18 @@ namespace XboxGamingBarHelper.ControllerEmulation
             hideTarget = normalized;
             SaveSettings();
             ApplySuppressionConfiguration($"hide target changed: {hideTarget}");
+        }
+
+        public void SetImprovedInputRead(bool value)
+        {
+            if (improvedInputRead == value)
+            {
+                return;
+            }
+
+            improvedInputRead = value;
+            SaveSettings();
+            ApplyCurrentConfiguration(improvedInputRead ? "improved input changed: on" : "improved input changed: off");
         }
 
         public void SetMouseSensitivity(int value)
@@ -762,6 +781,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             {
                 case SharedDeviceType.LegionGo:
                 case SharedDeviceType.LegionGo2:
+                case SharedDeviceType.LegionGoS:
                 case SharedDeviceType.GPDWin5:
                     return true;
                 default:
@@ -994,8 +1014,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 }
                 else
                 {
-                    // Backward compatibility: existing installs behaved as enabled.
-                    enabled = true;
+                    // Safety default: emulation stays off until explicitly enabled by the user.
+                    enabled = false;
                 }
 
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationHideStockController", out bool savedHideStockController))
@@ -1006,6 +1026,15 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 {
                     // Preserve current behavior for existing installs where suppression was always attempted.
                     hideStockController = true;
+                }
+
+                if (LocalSettingsHelper.TryGetValue("ControllerEmulationImprovedInput", out bool savedImprovedInput))
+                {
+                    improvedInputRead = savedImprovedInput;
+                }
+                else
+                {
+                    improvedInputRead = false;
                 }
 
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationHideTarget", out int savedHideTarget))
@@ -1254,8 +1283,9 @@ namespace XboxGamingBarHelper.ControllerEmulation
             catch (Exception ex)
             {
                 Logger.Warn($"Controller emulation settings load failed: {ex.Message}");
-                enabled = true;
+                enabled = false;
                 hideStockController = true;
+                improvedInputRead = false;
                 hideTarget = 0;
                 gyroSource = 0;
                 mode = 0;
@@ -1291,6 +1321,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             {
                 LocalSettingsHelper.SetValue("ControllerEmulationEnabled", enabled);
                 LocalSettingsHelper.SetValue("ControllerEmulationHideStockController", hideStockController);
+                LocalSettingsHelper.SetValue("ControllerEmulationImprovedInput", improvedInputRead);
                 LocalSettingsHelper.SetValue("ControllerEmulationHideTarget", hideTarget);
                 LocalSettingsHelper.SetValue("ControllerEmulationGyroSource", gyroSource);
                 LocalSettingsHelper.SetValue("ControllerEmulationMode", mode);
@@ -1366,11 +1397,11 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
             if (backendApplied || forwardingApplied)
             {
-                Logger.Info($"Controller emulation applied ({reason}): source={gyroSource}, mode={mode}, gyroActivationMode={gyroActivationMode}, gyroActivationButton={gyroActivationButton}, ds4Orientation={ds4Orientation}, ps4TouchpadEnabled={ps4TouchpadEnabled}, hideStockController={hideStockController}, hideTarget={hideTarget}, device={deviceType}, backend={backendApplied}, forwarding={forwardingApplied}");
+                Logger.Info($"Controller emulation applied ({reason}): source={gyroSource}, mode={mode}, gyroActivationMode={gyroActivationMode}, gyroActivationButton={gyroActivationButton}, ds4Orientation={ds4Orientation}, ps4TouchpadEnabled={ps4TouchpadEnabled}, hideStockController={hideStockController}, hideTarget={hideTarget}, improvedInput={improvedInputRead}, device={deviceType}, backend={backendApplied}, forwarding={forwardingApplied}");
             }
             else
             {
-                Logger.Warn($"Controller emulation apply not completed ({reason}): source={gyroSource}, mode={mode}, gyroActivationMode={gyroActivationMode}, gyroActivationButton={gyroActivationButton}, ds4Orientation={ds4Orientation}, ps4TouchpadEnabled={ps4TouchpadEnabled}, hideStockController={hideStockController}, hideTarget={hideTarget}, device={deviceType}, backend={backendApplied}, forwarding={forwardingApplied}");
+                Logger.Warn($"Controller emulation apply not completed ({reason}): source={gyroSource}, mode={mode}, gyroActivationMode={gyroActivationMode}, gyroActivationButton={gyroActivationButton}, ds4Orientation={ds4Orientation}, ps4TouchpadEnabled={ps4TouchpadEnabled}, hideStockController={hideStockController}, hideTarget={hideTarget}, improvedInput={improvedInputRead}, device={deviceType}, backend={backendApplied}, forwarding={forwardingApplied}");
             }
         }
 
@@ -1588,6 +1619,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
             virtualXboxUserIndex = null;
             physicalXboxUserIndex = null;
             virtualXboxBridgeDeviceIds.Clear();
+            lastLegionHidSampleTimestampTicksUtc = 0;
+            legionHidPacketNumber = 0;
             ResetMouseRuntimeState();
             ResetStickRuntimeState();
             ResetGyroActivationRuntimeState();
@@ -2383,6 +2416,11 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
                     return new LegionControllerGyroSourceAdapter(false);
 
+                case SharedDeviceType.LegionGoS:
+                    // Go S currently uses a different controller HID path; keep gyro source on
+                    // Windows sensor stack for stability regardless of dropdown source value.
+                    return new WindowsSensorGyroSourceAdapter("Legion Go S Internal Gyro");
+
                 case SharedDeviceType.GPDWin5:
                     // Win5 firmware gyro packet path is still being finalized in this codebase.
                     // Internal Windows sensor path keeps motion mode functional until a native adapter is added.
@@ -2485,6 +2523,13 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
         private bool ShouldManageSuppression()
         {
+            // Improved Legion HID input keeps physical input flowing even while Game Bar/FSE
+            // blocks XInput reads, so we should keep stock controller cloaked continuously.
+            if (ShouldUseLegionHidInputPath())
+            {
+                return false;
+            }
+
             return isSupported &&
                 enabled &&
                 hideStockController &&
@@ -2883,6 +2928,12 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private bool TryReadPhysicalControllerState(out XINPUT_STATE selectedState)
         {
             selectedState = default;
+
+            if (ShouldUseLegionHidInputPath() && TryReadLegionHidControllerState(out selectedState))
+            {
+                return true;
+            }
+
             if (xInputGetState == null)
             {
                 return false;
@@ -3018,6 +3069,55 @@ namespace XboxGamingBarHelper.ControllerEmulation
             }
 
             return false;
+        }
+
+        private bool ShouldUseLegionHidInputPath()
+        {
+            if (!improvedInputRead)
+            {
+                return false;
+            }
+
+            return deviceType == SharedDeviceType.LegionGo ||
+                   deviceType == SharedDeviceType.LegionGo2 ||
+                   deviceType == SharedDeviceType.LegionGoS;
+        }
+
+        private bool TryReadLegionHidControllerState(out XINPUT_STATE state)
+        {
+            state = default;
+            if (!LegionButtonMonitor.TryGetLatestGamepadSample(out LegionGamepadSample sample))
+            {
+                return false;
+            }
+
+            long sampleTimestamp = sample.TimestampTicksUtc;
+            if (sampleTimestamp <= 0)
+            {
+                return false;
+            }
+
+            long nowUtc = DateTime.UtcNow.Ticks;
+            if (nowUtc - sampleTimestamp > LegionHidSampleMaxAgeTicks)
+            {
+                return false;
+            }
+
+            if (sampleTimestamp != lastLegionHidSampleTimestampTicksUtc)
+            {
+                legionHidPacketNumber++;
+                lastLegionHidSampleTimestampTicksUtc = sampleTimestamp;
+            }
+
+            state.dwPacketNumber = legionHidPacketNumber;
+            state.Gamepad.wButtons = sample.Buttons;
+            state.Gamepad.bLeftTrigger = sample.LeftTrigger;
+            state.Gamepad.bRightTrigger = sample.RightTrigger;
+            state.Gamepad.sThumbLX = sample.LeftStickX;
+            state.Gamepad.sThumbLY = sample.LeftStickY;
+            state.Gamepad.sThumbRX = sample.RightStickX;
+            state.Gamepad.sThumbRY = sample.RightStickY;
+            return true;
         }
 
         protected override void Dispose(bool disposing)

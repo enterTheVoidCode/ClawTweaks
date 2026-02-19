@@ -3669,16 +3669,86 @@
                         <!-- Controller Emulation Card -->
                         <Border x:Name="ControllerEmulationCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
-                                <TextBlock Text="Controller Emulation" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Configure handheld gyro source and simulation output"
-                                           Style="{StaticResource CardCaptionStyle}"
-                                           TextWrapping="Wrap"/>
-                                <TextBlock x:Name="ControllerEmulationStatusText"
-                                           Text="Waiting for controller emulation support..."
-                                           FontSize="11"
-                                           Foreground="#888888"
-                                           Margin="0,8,0,0"
-                                           TextWrapping="Wrap"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Controller Emulation" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Configure handheld gyro source and simulation output"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="ControllerEmulationStatusText"
+                                                   Text="Waiting for controller emulation support..."
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   Margin="0,8,0,0"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="ControllerEmulationExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="ControllerEmulationExpandButton_Click"
+                                                  XYFocusUp="{x:Bind HotkeysExpandButton}"
+                                                  XYFocusDown="{x:Bind AutoHibernateToggle}"
+                                                  UseSystemFocusVisuals="True">
+                                        <FontIcon x:Name="ControllerEmulationExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <StackPanel x:Name="ControllerEmulationContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                <Border Background="#1A1A2E" CornerRadius="4" Padding="10" Margin="0,10,0,0">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Input Capture Notes"
+                                                           FontSize="11"
+                                                           Foreground="#AAAAAA"/>
+                                                <TextBlock Text="Why stock controller unhide is needed in some scenarios"
+                                                           FontSize="11"
+                                                           Foreground="#888888"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <ToggleButton x:Name="ControllerEmulationInputNotesExpandButton"
+                                                          Grid.Column="1"
+                                                          IsChecked="False"
+                                                          VerticalAlignment="Center"
+                                                          Background="Transparent"
+                                                          BorderThickness="0"
+                                                          Padding="8,4"
+                                                          Click="ControllerEmulationInputNotesExpandButton_Click"
+                                                          UseSystemFocusVisuals="True">
+                                                <FontIcon x:Name="ControllerEmulationInputNotesExpandIcon"
+                                                          Glyph="&#xE70D;"
+                                                          FontSize="12"/>
+                                            </ToggleButton>
+                                        </Grid>
+
+                                        <StackPanel x:Name="ControllerEmulationInputNotesContent"
+                                                    Visibility="Collapsed"
+                                                    Margin="0,8,0,0">
+                                            <TextBlock Text="Xbox Game Bar and Xbox FSE can block XInput reads from helper apps while open. In that state, legacy XInput forwarding may stop receiving stock-controller input."
+                                                       FontSize="11"
+                                                       Foreground="#888888"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock Text="Improved Controller Emulation uses Legion HID gamepad reports instead of stock XInput reads. This is intended for Legion Go / Legion Go 2 compatibility."
+                                                       FontSize="11"
+                                                       Foreground="#888888"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,6,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
 
                                 <Border Background="#1A1A2E" CornerRadius="4" Padding="10" Margin="0,10,0,0">
                                     <StackPanel>
@@ -3746,11 +3816,32 @@
                                     </StackPanel>
                                     <ToggleSwitch x:Name="ControllerEmulationEnabledToggle"
                                                   Grid.Column="1"
-                                                  IsOn="True"
+                                                  IsOn="False"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   IsEnabled="False"
                                                   Toggled="ControllerEmulationEnabledToggle_Toggled"
-                                                  XYFocusUp="{x:Bind HotkeysExpandButton}"
+                                                  XYFocusUp="{x:Bind ControllerEmulationExpandButton}"
+                                                  XYFocusDown="{x:Bind ControllerEmulationImprovedInputToggle}"/>
+                                </Grid>
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Improved Controller Emulation" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Use Legion HID gamepad reads instead of stock XInput reads (Legion Go / Go 2)"
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="ControllerEmulationImprovedInputToggle"
+                                                  Grid.Column="1"
+                                                  IsOn="False"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"
+                                                  XYFocusUp="{x:Bind ControllerEmulationEnabledToggle}"
                                                   XYFocusDown="{x:Bind ControllerEmulationHideStockControllerToggle}"/>
                                 </Grid>
 
@@ -3770,7 +3861,7 @@
                                                   IsOn="True"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   IsEnabled="False"
-                                                  XYFocusUp="{x:Bind ControllerEmulationEnabledToggle}"
+                                                  XYFocusUp="{x:Bind ControllerEmulationImprovedInputToggle}"
                                                   XYFocusDown="{x:Bind ControllerEmulationHideTargetComboBox}"/>
                                 </Grid>
 
@@ -4338,6 +4429,7 @@
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
+                        </StackPanel>
                         </Border>
 
                         <!-- Force Default Game Profiles Card -->
