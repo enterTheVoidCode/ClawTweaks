@@ -161,6 +161,10 @@ namespace XboxGamingBarHelper.AutoTDP
         private const double CeilingWarmupAfterGameStartMs = 12000;  // Give new games time before ceiling detection
         private const double CeilingWarmupAfterTargetChangeMs = 6000;  // Give new FPS targets time before ceiling detection
 
+        // Temporary tuning kill-switches for field validation.
+        // Keep false while validating SARSA/QLearning autonomy with user-provided FPS/TDP ranges.
+        private const bool EnableMLCliffDetection = false;
+
         // Diminishing returns tracking
         private double[] tdpIncreaseFPSGains = new double[4];  // Track FPS gain from last 4 TDP increases
         private int tdpGainIndex = 0;
@@ -261,6 +265,7 @@ namespace XboxGamingBarHelper.AutoTDP
             lastTargetFPS = targetFPS.Value;
 
             Logger.Info("AutoTDPManager initialized with conservative tuning and ML support (Q-Learning + SARSA)");
+            Logger.Info($"AutoTDPManager: ML cliff detection {(EnableMLCliffDetection ? "enabled" : "disabled for test build")}");
         }
 
         /// <summary>
@@ -816,7 +821,7 @@ namespace XboxGamingBarHelper.AutoTDP
             // immediately increase TDP to recover (don't wait for smoothed FPS to catch up)
             bool cliffDetected = false;
             string mlControllerName = controllerType.Value == 2 ? "SARSA" : "Q-Learning";
-            if (useML && measuredFPS < smoothedFPS - 15 && measuredFPS < targetFPS.Value - 10)
+            if (useML && EnableMLCliffDetection && measuredFPS < smoothedFPS - 15 && measuredFPS < targetFPS.Value - 10)
             {
                 // Actual FPS dropped more than 15 below smoothed and is below target
                 // This indicates we hit a cliff - TDP is too low
