@@ -352,5 +352,6 @@
         ControllerEmulationPs4TouchpadEnabled, // bool - enable touchpad forwarding for PS4 (Motion/Stick) modes
         ControllerEmulationGyroActivationMode, // int - gyro activation behavior (0=AlwaysOn, 1=Hold, 2=Toggle)
         ControllerEmulationGyroActivationButton, // int - activation button mapping (0=None, 1=RT, 2=LT, ...)
+        ControllerEmulationImprovedInput, // bool - Legion Go/Go2 HID gamepad-read path to avoid XInput blocking in Game Bar/FSE
     }
 }

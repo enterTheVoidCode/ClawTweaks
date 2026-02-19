@@ -150,12 +150,16 @@ namespace XboxGamingBarHelper.AutoTDP
         private int effectiveTarget = 60;          // Adjusted target (min of user target and achievable)
         private bool isCeilingDetected = false;    // True when target is unreachable
         private int consecutiveCeilingFrames = 0;  // Counter for steady-state below target
+        private int consecutiveHardCeilingSignals = 0;  // Counter for hard ceiling indicators (CPU-bound / diminishing returns)
         private int consecutiveAboveCeilingFrames = 0;  // Counter for hysteresis when exiting ceiling mode
         private const int CeilingDetectionThreshold = 12;  // Frames at ceiling before detection (stricter: 12 frames at max TDP)
+        private const int CeilingHardSignalHysteresis = 8;  // Require sustained hard ceiling indicators before capping target
         private const int CeilingExitHysteresis = 3;      // Frames above target before exiting ceiling mode (faster exit)
         private const double CeilingGpuUtilThreshold = 95.0;  // GPU util below this at max TDP = CPU bound
         private const double AchievableFPSAlpha = 0.15;  // EWMA smoothing factor for achievable FPS
         private const int CeilingMargin = 3;  // FPS margin below achievable for effective target
+        private const double CeilingWarmupAfterGameStartMs = 12000;  // Give new games time before ceiling detection
+        private const double CeilingWarmupAfterTargetChangeMs = 6000;  // Give new FPS targets time before ceiling detection
 
         // Diminishing returns tracking
         private double[] tdpIncreaseFPSGains = new double[4];  // Track FPS gain from last 4 TDP increases
@@ -460,6 +464,9 @@ namespace XboxGamingBarHelper.AutoTDP
             if (lastAppliedTDP < minTDP) lastAppliedTDP = minTDP;
             if (lastAppliedTDP > maxTDP) lastAppliedTDP = maxTDP;
 
+            // Re-evaluate ceiling state against new user-defined TDP range.
+            ResetCeilingDetectionState(log: true, reason: "TDP limits changed");
+
             Logger.Info($"AutoTDP limits updated: Min={minTDP}W, Max={maxTDP}W");
         }
 
@@ -545,6 +552,7 @@ namespace XboxGamingBarHelper.AutoTDP
                 learnedTDPApplied = 0;
                 stableObservations = 0;
                 gameStartTime = DateTime.Now;
+                ResetCeilingDetectionState(log: true, reason: "new game detected");
 
                 Logger.Info($"AutoTDP: New game detected - '{currentGameName}' at {currentGamePath}");
                 UpdateLearnedGameDataProperty();
@@ -681,6 +689,7 @@ namespace XboxGamingBarHelper.AutoTDP
                 Logger.Info($"AutoTDP: Target FPS changed from {lastTargetFPS} to {targetFPS.Value}, resetting FPS history");
                 lastTargetFPS = targetFPS.Value;
                 lastTargetChangeTime = DateTime.Now;
+                ResetCeilingDetectionState(log: true, reason: "target FPS changed");
                 // Reset FPS history so we don't use stale data
                 fpsHistoryCount = 0;
                 fpsHistoryIndex = 0;
@@ -1599,14 +1608,7 @@ namespace XboxGamingBarHelper.AutoTDP
             qLearningController?.ResetFallbackCounter();
             sarsaController?.ResetFallbackCounter();
             // Reset ceiling detection state
-            achievableFPS = 0;
-            lockedAchievableFPS = 0;
-            effectiveTarget = targetFPS.Value;
-            isCeilingDetected = false;
-            consecutiveCeilingFrames = 0;
-            consecutiveAboveCeilingFrames = 0;
-            isPowerOptimizationMode = false;
-            optimalCeilingTDP = 0;
+            ResetCeilingDetectionState();
             tdpGainCount = 0;
             tdpGainIndex = 0;
             pendingTDPGainMeasurement = false;
@@ -1617,6 +1619,51 @@ namespace XboxGamingBarHelper.AutoTDP
             // Reset per-game learning observations
             stableObservations = 0;
             Logger.Debug("AutoTDP: State reset");
+        }
+
+        private void ResetCeilingDetectionState(bool log = false, string reason = null)
+        {
+            bool hadCeilingState =
+                isCeilingDetected ||
+                isPowerOptimizationMode ||
+                effectiveTarget != targetFPS.Value ||
+                consecutiveCeilingFrames > 0 ||
+                consecutiveHardCeilingSignals > 0;
+
+            achievableFPS = 0;
+            lockedAchievableFPS = 0;
+            effectiveTarget = targetFPS.Value;
+            isCeilingDetected = false;
+            consecutiveCeilingFrames = 0;
+            consecutiveHardCeilingSignals = 0;
+            consecutiveAboveCeilingFrames = 0;
+            isPowerOptimizationMode = false;
+            optimalCeilingTDP = 0;
+
+            if (log && hadCeilingState)
+            {
+                string suffix = string.IsNullOrEmpty(reason) ? string.Empty : $" ({reason})";
+                Logger.Info($"AutoTDP: Ceiling state reset{suffix}. User target={targetFPS.Value}");
+            }
+        }
+
+        private bool IsCeilingWarmupActive()
+        {
+            DateTime now = DateTime.Now;
+
+            if (gameStartTime != DateTime.MinValue &&
+                (now - gameStartTime).TotalMilliseconds < CeilingWarmupAfterGameStartMs)
+            {
+                return true;
+            }
+
+            if (lastTargetChangeTime != DateTime.MinValue &&
+                (now - lastTargetChangeTime).TotalMilliseconds < CeilingWarmupAfterTargetChangeMs)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -1651,12 +1698,7 @@ namespace XboxGamingBarHelper.AutoTDP
 
             // Check for ceiling conditions
             bool ceilingConditionMet = false;
-
-            // Minimum TDP threshold for ceiling detection: must be at 75% of TDP range or higher
-            // This prevents false ceiling detection at low TDP values
-            int tdpRange = maxTDP - minTDP;
-            int minCeilingDetectionTDP = minTDP + (int)(tdpRange * 0.75);
-            bool atHighTDP = currentTDP >= minCeilingDetectionTDP;
+            bool hardCeilingSignal = false;
 
             // IMPORTANT: If FPS is at or above user target, we should NOT detect/maintain ceiling
             // This prevents false ceiling detection when FPS just dips temporarily
@@ -1664,7 +1706,7 @@ namespace XboxGamingBarHelper.AutoTDP
             {
                 // FPS >= target - definitely not at a ceiling
                 consecutiveCeilingFrames = 0;
-                // Don't set ceilingConditionMet
+                consecutiveHardCeilingSignals = 0;
             }
             else
             {
@@ -1674,7 +1716,7 @@ namespace XboxGamingBarHelper.AutoTDP
                 // STRICTER: Must be at actual max TDP, not just "high"
                 if (atMaxTDP && gpuNotSaturated && fpsError > DeadZone)
                 {
-                    ceilingConditionMet = true;
+                    hardCeilingSignal = true;
                     Logger.Debug($"AutoTDP Ceiling: CPU-bound detected (GPU={gpuUtil:F0}% at max TDP={maxTDP}W, FPS error={fpsError:F1})");
                 }
 
@@ -1689,7 +1731,7 @@ namespace XboxGamingBarHelper.AutoTDP
 
                     if (avgGainPerWatt < 0.3)  // Stricter: Less than 0.3 FPS per watt = diminishing returns
                     {
-                        ceilingConditionMet = true;
+                        hardCeilingSignal = true;
                         Logger.Debug($"AutoTDP Ceiling: Diminishing returns at {currentTDP}W (avg {avgGainPerWatt:F2} FPS/W)");
                     }
                 }
@@ -1705,6 +1747,33 @@ namespace XboxGamingBarHelper.AutoTDP
                     // Not at max TDP or within dead zone - reset counter
                     consecutiveCeilingFrames = 0;
                 }
+
+                if (hardCeilingSignal)
+                {
+                    consecutiveHardCeilingSignals++;
+                }
+                else
+                {
+                    consecutiveHardCeilingSignals = 0;
+                }
+            }
+
+            // Warmup period gives the user target priority right after new game / target changes.
+            if (!isCeilingDetected && IsCeilingWarmupActive())
+            {
+                if (consecutiveCeilingFrames > 0 || consecutiveHardCeilingSignals > 0)
+                {
+                    Logger.Debug($"AutoTDP Ceiling: warmup active, deferring ceiling detection (steady={consecutiveCeilingFrames}, hard={consecutiveHardCeilingSignals})");
+                }
+                consecutiveCeilingFrames = 0;
+                consecutiveHardCeilingSignals = 0;
+                return;
+            }
+
+            if (consecutiveHardCeilingSignals >= CeilingHardSignalHysteresis)
+            {
+                ceilingConditionMet = true;
+                Logger.Debug($"AutoTDP Ceiling: Hard ceiling hysteresis met for {consecutiveHardCeilingSignals} frames");
             }
 
             if (consecutiveCeilingFrames >= CeilingDetectionThreshold)
@@ -1723,6 +1792,7 @@ namespace XboxGamingBarHelper.AutoTDP
                 effectiveTarget = Math.Max(30, (int)(smoothedFPS - CeilingMargin));
                 optimalCeilingTDP = currentTDP;
                 consecutiveAboveCeilingFrames = 0;
+                consecutiveHardCeilingSignals = 0;
                 Logger.Info($"AutoTDP: Ceiling detected! User target={userTarget}, achievable FPS≈{achievableFPS:F0}, effective target={effectiveTarget}");
             }
             else if (isCeilingDetected)
@@ -1769,11 +1839,7 @@ namespace XboxGamingBarHelper.AutoTDP
                     if (consecutiveAboveCeilingFrames >= CeilingExitHysteresis)
                     {
                         Logger.Info($"AutoTDP: Target now reachable (sustained {consecutiveAboveCeilingFrames} frames), exiting ceiling mode");
-                        isCeilingDetected = false;
-                        isPowerOptimizationMode = false;
-                        effectiveTarget = userTarget;
-                        lockedAchievableFPS = 0;
-                        consecutiveAboveCeilingFrames = 0;
+                        ResetCeilingDetectionState();
                     }
                 }
                 else

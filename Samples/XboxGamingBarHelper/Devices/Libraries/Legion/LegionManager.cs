@@ -61,7 +61,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         private int customTDPPeak = 35;
         private bool fanFullSpeed = false;
         private ushort[] fanCurve = new ushort[10] { 44, 48, 55, 60, 71, 79, 87, 87, 100, 100 }; // Legion Go default curve
-        private bool gyroEnabled = true;
+        private bool gyroEnabled = false;
         private int vibrationLevel = 2; // Medium
         private bool powerLightEnabled = true;
         private bool chargeLimitEnabled = false;

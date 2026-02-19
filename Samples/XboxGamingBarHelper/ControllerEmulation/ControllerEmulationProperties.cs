@@ -46,6 +46,23 @@ namespace XboxGamingBarHelper.ControllerEmulation
         }
     }
 
+    internal class ControllerEmulationImprovedInputProperty : HelperProperty<bool, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationImprovedInputProperty(bool initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationImprovedInput, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationImprovedInput changed to {Value}");
+            Manager?.SetImprovedInputRead(Value);
+        }
+    }
+
     internal class ControllerEmulationHideTargetProperty : HelperProperty<int, ControllerEmulationManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();

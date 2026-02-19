@@ -1281,6 +1281,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     nativeIds = QueryPnpDeviceIds(0x17EF, 0x6182, 0x6183, 0x6184, 0x6185, 0x61EB, 0x61EC, 0x61ED, 0x61EE)
                         .Concat(QueryUsbDeviceIds(0x17EF, 0x6182, 0x6183, 0x6184, 0x6185, 0x61EB, 0x61EC, 0x61ED, 0x61EE));
                     break;
+                case DeviceType.LegionGoS:
+                    nativeIds = QueryPnpDeviceIds(0x1A86, 0xE310, 0xE311)
+                        .Concat(QueryUsbDeviceIds(0x1A86, 0xE310, 0xE311));
+                    break;
 
                 case DeviceType.GPDWin5:
                     nativeIds = QueryPnpDeviceIds(0x2F24, 0x0137, 0x0135)
@@ -1345,6 +1349,22 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 return filtered;
             }
 
+            if (deviceType == DeviceType.LegionGoS)
+            {
+                List<string> filtered = deviceInstanceIds
+                    .Where(IsLegionGoSSuppressibleGamepadId)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (filtered.Count == 0)
+                {
+                    Logger.Warn("HidHide native target filter found no Legion Go S gamepad interfaces; skipping native hide to avoid masking non-gamepad endpoints.");
+                    return Enumerable.Empty<string>();
+                }
+
+                return filtered;
+            }
+
             return deviceInstanceIds.Distinct(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -1363,6 +1383,34 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
             // USB MI_00 is the primary stock XInput interface we need to hide.
             // Avoid hiding transient IG_* endpoints, which can churn across reconnects.
+            if (normalized.StartsWith("USB\\", StringComparison.OrdinalIgnoreCase))
+            {
+                return normalized.IndexOf("&MI_00\\", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+
+            return false;
+        }
+
+        private static bool IsLegionGoSSuppressibleGamepadId(string deviceInstanceId)
+        {
+            if (string.IsNullOrWhiteSpace(deviceInstanceId))
+            {
+                return false;
+            }
+
+            string normalized = deviceInstanceId.Trim();
+            if (normalized.IndexOf("VID_1A86", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                return false;
+            }
+
+            if (normalized.IndexOf("PID_E310", StringComparison.OrdinalIgnoreCase) < 0 &&
+                normalized.IndexOf("PID_E311", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                return false;
+            }
+
+            // Restrict to the primary USB gamepad interface to avoid hiding touchpad/keyboard-like endpoints.
             if (normalized.StartsWith("USB\\", StringComparison.OrdinalIgnoreCase))
             {
                 return normalized.IndexOf("&MI_00\\", StringComparison.OrdinalIgnoreCase) >= 0;

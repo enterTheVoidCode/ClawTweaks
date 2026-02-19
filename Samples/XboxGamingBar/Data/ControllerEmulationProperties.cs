@@ -41,7 +41,7 @@ namespace XboxGamingBar.Data
     internal class ControllerEmulationEnabledProperty : WidgetToggleProperty
     {
         public ControllerEmulationEnabledProperty(ToggleSwitch inUI, Page inOwner)
-            : base(true, Function.ControllerEmulationEnabled, inUI, inOwner)
+            : base(false, Function.ControllerEmulationEnabled, inUI, inOwner)
         {
         }
     }
@@ -50,6 +50,14 @@ namespace XboxGamingBar.Data
     {
         public ControllerEmulationHideStockControllerProperty(ToggleSwitch inUI, Page inOwner)
             : base(true, Function.ControllerEmulationHideStockController, inUI, inOwner)
+        {
+        }
+    }
+
+    internal class ControllerEmulationImprovedInputProperty : WidgetToggleProperty
+    {
+        public ControllerEmulationImprovedInputProperty(ToggleSwitch inUI, Page inOwner)
+            : base(false, Function.ControllerEmulationImprovedInput, inUI, inOwner)
         {
         }
     }

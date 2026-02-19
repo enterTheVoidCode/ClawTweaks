@@ -841,6 +841,7 @@ namespace XboxGamingBar
         private readonly ControllerEmulationAvailableProperty controllerEmulationAvailable;
         private readonly ControllerEmulationEnabledProperty controllerEmulationEnabled;
         private readonly ControllerEmulationHideStockControllerProperty controllerEmulationHideStockController;
+        private readonly ControllerEmulationImprovedInputProperty controllerEmulationImprovedInput;
         private readonly ControllerEmulationHideTargetProperty controllerEmulationHideTarget;
         private readonly ControllerEmulationGyroSourceProperty controllerEmulationGyroSource;
         private readonly ControllerEmulationModeProperty controllerEmulationMode;
@@ -1292,6 +1293,7 @@ namespace XboxGamingBar
             controllerEmulationAvailable = new ControllerEmulationAvailableProperty(this);
             controllerEmulationEnabled = new ControllerEmulationEnabledProperty(ControllerEmulationEnabledToggle, this);
             controllerEmulationHideStockController = new ControllerEmulationHideStockControllerProperty(ControllerEmulationHideStockControllerToggle, this);
+            controllerEmulationImprovedInput = new ControllerEmulationImprovedInputProperty(ControllerEmulationImprovedInputToggle, this);
             controllerEmulationHideTarget = new ControllerEmulationHideTargetProperty(ControllerEmulationHideTargetComboBox, this);
             controllerEmulationGyroSource = new ControllerEmulationGyroSourceProperty(ControllerEmulationGyroSourceComboBox, this);
             controllerEmulationMode = new ControllerEmulationModeProperty(ControllerEmulationModeComboBox, this);
@@ -1595,6 +1597,7 @@ namespace XboxGamingBar
                 controllerEmulationAvailable,
                 controllerEmulationEnabled,
                 controllerEmulationHideStockController,
+                controllerEmulationImprovedInput,
                 controllerEmulationHideTarget,
                 controllerEmulationGyroSource,
                 controllerEmulationMode,
@@ -1811,8 +1814,14 @@ namespace XboxGamingBar
             OSDCustomizeExpandButton.LostFocus += Control_LostFocus;
 
             // System tab - Controller Emulation card
+            ControllerEmulationExpandButton.GotFocus += Control_GotFocus;
+            ControllerEmulationExpandButton.LostFocus += Control_LostFocus;
+            ControllerEmulationInputNotesExpandButton.GotFocus += Control_GotFocus;
+            ControllerEmulationInputNotesExpandButton.LostFocus += Control_LostFocus;
             ControllerEmulationEnabledToggle.GotFocus += Control_GotFocus;
             ControllerEmulationEnabledToggle.LostFocus += Control_LostFocus;
+            ControllerEmulationImprovedInputToggle.GotFocus += Control_GotFocus;
+            ControllerEmulationImprovedInputToggle.LostFocus += Control_LostFocus;
             ControllerEmulationHideStockControllerToggle.GotFocus += Control_GotFocus;
             ControllerEmulationHideStockControllerToggle.LostFocus += Control_LostFocus;
             ControllerEmulationHideTargetComboBox.GotFocus += Control_GotFocus;
@@ -4320,6 +4329,8 @@ namespace XboxGamingBar
         private bool isTouchpadVibrationExpanded = false;
         private bool isLightingExpanded = false;
         private bool isFanCurveExpanded = false;
+        private bool isControllerEmulationExpanded = false;
+        private bool isControllerEmulationInputNotesExpanded = false;
         private bool fanCurveGraphInitialized = false;
 
         // Display and OSD settings
@@ -6777,6 +6788,44 @@ namespace XboxGamingBar
             {
                 // E70D = ChevronDown, E70E = ChevronUp
                 CPUExtrasExpandIcon.Glyph = isCPUExtrasExpanded ? "\uE70E" : "\uE70D";
+            }
+        }
+
+        private void ControllerEmulationExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isControllerEmulationExpanded = !isControllerEmulationExpanded;
+
+            if (ControllerEmulationContent != null)
+            {
+                ControllerEmulationContent.Visibility = isControllerEmulationExpanded
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            if (ControllerEmulationExpandIcon != null)
+            {
+                ControllerEmulationExpandIcon.Glyph = isControllerEmulationExpanded ? "\uE70E" : "\uE70D";
+            }
+
+            UpdateControllerEmulationMouseSettingsVisibility();
+            UpdateSystemControllerEmulationNavigation();
+        }
+
+        private void ControllerEmulationInputNotesExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isControllerEmulationInputNotesExpanded = !isControllerEmulationInputNotesExpanded;
+
+            if (ControllerEmulationInputNotesContent != null)
+            {
+                ControllerEmulationInputNotesContent.Visibility = isControllerEmulationInputNotesExpanded
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            if (ControllerEmulationInputNotesExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                ControllerEmulationInputNotesExpandIcon.Glyph = isControllerEmulationInputNotesExpanded ? "\uE70E" : "\uE70D";
             }
         }
 
@@ -17874,6 +17923,11 @@ namespace XboxGamingBar
                 ControllerEmulationHideStockControllerToggle.IsEnabled = enabled;
             }
 
+            if (ControllerEmulationImprovedInputToggle != null)
+            {
+                ControllerEmulationImprovedInputToggle.IsEnabled = enabled;
+            }
+
             if (ControllerEmulationHideTargetComboBox != null)
             {
                 ControllerEmulationHideTargetComboBox.IsEnabled = enabled;
@@ -18173,21 +18227,34 @@ namespace XboxGamingBar
                 return;
             }
 
-            bool emulationCardActive =
+            bool emulationCardVisible =
                 ControllerEmulationCard != null &&
                 ControllerEmulationCard.Visibility == Visibility.Visible &&
+                ControllerEmulationExpandButton != null;
+
+            bool emulationCardExpanded =
+                emulationCardVisible &&
+                isControllerEmulationExpanded &&
+                ControllerEmulationContent != null &&
+                ControllerEmulationContent.Visibility == Visibility.Visible;
+
+            bool emulationCardActive =
+                emulationCardExpanded &&
                 ControllerEmulationEnabledToggle != null &&
                 ControllerEmulationEnabledToggle.IsEnabled;
 
             bool emulationModeControlsActive =
+                emulationCardExpanded &&
                 ControllerEmulationGyroSourceComboBox != null &&
                 ControllerEmulationGyroSourceComboBox.IsEnabled &&
                 ControllerEmulationModeComboBox != null &&
                 ControllerEmulationModeComboBox.IsEnabled;
             bool activationModeControlEnabled =
+                emulationCardExpanded &&
                 ControllerEmulationGyroActivationModeComboBox != null &&
                 ControllerEmulationGyroActivationModeComboBox.IsEnabled;
             bool activationButtonControlEnabled =
+                emulationCardExpanded &&
                 ControllerEmulationGyroActivationButtonComboBox != null &&
                 ControllerEmulationGyroActivationButtonComboBox.IsEnabled;
 
@@ -18200,9 +18267,35 @@ namespace XboxGamingBar
             bool isStickMode = ControllerEmulationModeComboBox != null &&
                                (ControllerEmulationModeComboBox.SelectedIndex == 1 || ControllerEmulationModeComboBox.SelectedIndex == 3);
 
-            if (emulationCardActive)
+            if (emulationCardVisible)
             {
-                HotkeysExpandButton.XYFocusDown = ControllerEmulationEnabledToggle;
+                HotkeysExpandButton.XYFocusDown = ControllerEmulationExpandButton;
+                ControllerEmulationExpandButton.XYFocusUp = HotkeysExpandButton;
+
+                if (!emulationCardExpanded)
+                {
+                    ControllerEmulationExpandButton.XYFocusDown = AutoHibernateToggle;
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationExpandButton;
+                    return;
+                }
+
+                if (ControllerEmulationEnabledToggle != null)
+                {
+                    ControllerEmulationExpandButton.XYFocusDown = ControllerEmulationEnabledToggle;
+                    ControllerEmulationEnabledToggle.XYFocusUp = ControllerEmulationExpandButton;
+                }
+                else
+                {
+                    ControllerEmulationExpandButton.XYFocusDown = AutoHibernateToggle;
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationExpandButton;
+                    return;
+                }
+
+                if (!emulationCardActive)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationEnabledToggle;
+                    return;
+                }
 
                 if (!emulationModeControlsActive)
                 {
