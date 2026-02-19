@@ -31,6 +31,9 @@ namespace XboxGamingBarHelper.Labs
         // Lenovo tablet controller HID identifiers (Legion Go / Go 2 families).
         private const ushort LEGION_TABLET_VID = 0x17EF;
         private static readonly ushort[] LEGION_TABLET_PIDS = { 0x6182, 0x6183, 0x6184, 0x6185, 0x61EB, 0x61EC, 0x61ED, 0x61EE };
+        // Legion Go 2 tablet controller PIDs (17EF:61Ex).
+        // Used for front button parsing differences (Desktop/Page moved from button byte 0 -> byte #20 in 0xA1 report).
+        private static readonly ushort[] LEGION_GO2_TABLET_PIDS = { 0x61EB, 0x61EC, 0x61ED, 0x61EE };
         // Legion Go S controller HID identifiers (xinput / dinput controller modes).
         // Source: HHD slim backend constants (GOS_VID + GOS_PIDS).
         private const ushort LEGION_GOS_VID = 0x1A86;
@@ -62,6 +65,14 @@ namespace XboxGamingBarHelper.Labs
         private const float LEGACY_M8_GYRO_SCALE_DEG_PER_SECOND = 2000.0f / 128.0f;
         private const byte LEGION_CONTROLLER_LEFT_ID = 0x03;
         private const byte LEGION_CONTROLLER_RIGHT_ID = 0x04;
+        private const ushort LEGION_AUX_MODE = 0x0001;
+        private const ushort LEGION_AUX_SHARE = 0x0002;
+        private const ushort LEGION_AUX_EXTRA_L1 = 0x0004;
+        private const ushort LEGION_AUX_EXTRA_L2 = 0x0008;
+        private const ushort LEGION_AUX_EXTRA_R1 = 0x0010;
+        private const ushort LEGION_AUX_EXTRA_RM1 = 0x0020;
+        private const ushort LEGION_AUX_EXTRA_R2 = 0x0040;
+        private const ushort LEGION_AUX_EXTRA_R3 = 0x0080;
         // Legion Go S back-button (Legion L/R) bits in byte 2.
         // Source: HHD slim const.py (extra_l1, extra_r1).
         private const int GOS_BUTTON_BYTE = 2;
@@ -322,6 +333,11 @@ namespace XboxGamingBarHelper.Labs
             return vid == LEGION_TABLET_VID && LEGION_TABLET_PIDS.Contains(pid);
         }
 
+        private static bool IsLegionGo2TabletControllerVidPid(ushort vid, ushort pid)
+        {
+            return vid == LEGION_TABLET_VID && LEGION_GO2_TABLET_PIDS.Contains(pid);
+        }
+
         private static bool IsLegionGoSControllerVidPid(ushort vid, ushort pid)
         {
             return vid == LEGION_GOS_VID && LEGION_GOS_PIDS.Contains(pid);
@@ -358,6 +374,11 @@ namespace XboxGamingBarHelper.Labs
         private bool IsTabletControllerDevice()
         {
             return IsLegionTabletControllerVidPid(_detectedVid, _detectedPid);
+        }
+
+        private bool IsGo2TabletControllerDevice()
+        {
+            return IsLegionGo2TabletControllerVidPid(_detectedVid, _detectedPid);
         }
 
         /// <summary>
@@ -2342,7 +2363,7 @@ namespace XboxGamingBarHelper.Labs
                             bool hasGoSReport = false;
                             if (hasTabletReportHeader)
                             {
-                                TryParseAndStoreGyroSamples(buffer, bytesRead);
+                                TryParseAndStoreGyroSamples(buffer, bytesRead, IsGo2TabletControllerDevice());
                             }
                             else if (IsGoSControllerDevice())
                             {
@@ -2588,6 +2609,7 @@ namespace XboxGamingBarHelper.Labs
                 ScaleStickByteToXInput(leftStickYRaw, true),
                 ScaleStickByteToXInput(rightStickXRaw, false),
                 ScaleStickByteToXInput(rightStickYRaw, true),
+                0,
                 sampleTimestampUtc);
 
             lock (_gyroSampleLock)
@@ -2599,7 +2621,7 @@ namespace XboxGamingBarHelper.Labs
             return true;
         }
 
-        private static void TryParseAndStoreGyroSamples(byte[] buffer, uint bytesRead)
+        private static void TryParseAndStoreGyroSamples(byte[] buffer, uint bytesRead, bool isGo2TabletController)
         {
             if (buffer == null || bytesRead < 24)
             {
@@ -2626,6 +2648,7 @@ namespace XboxGamingBarHelper.Labs
                 bytesRead,
                 isInitializedHeader,
                 sampleTimestampUtc,
+                isGo2TabletController,
                 out gamepadSample);
 
             LegionGyroSample leftSample = default;
@@ -2767,6 +2790,7 @@ namespace XboxGamingBarHelper.Labs
             uint bytesRead,
             bool isInitializedHeader,
             long sampleTimestampUtc,
+            bool isGo2TabletController,
             out LegionGamepadSample sample)
         {
             sample = default;
@@ -2817,6 +2841,33 @@ namespace XboxGamingBarHelper.Labs
             if ((buttonByte2 & 0x02) != 0) buttons |= XINPUT_GAMEPAD_BACK;
             if ((buttonByte2 & 0x01) != 0) buttons |= XINPUT_GAMEPAD_START;
 
+            ushort auxButtons = 0;
+            if (isGo2TabletController)
+            {
+                // Legion Go 2 front buttons are reported on byte #20 (1-based) in 04:00:A1 reports.
+                // In initialized mode this is absolute index 19. Detached mode keeps a +2 layout shift.
+                int frontButtonsIndex = isInitializedHeader ? 19 : buttonsBase + 3;
+                if (frontButtonsIndex >= 0 && bytesRead > frontButtonsIndex)
+                {
+                    byte frontButtons = buffer[frontButtonsIndex];
+                    if ((frontButtons & 0x40) != 0) auxButtons |= LEGION_AUX_MODE;   // Desktop
+                    if ((frontButtons & 0x20) != 0) auxButtons |= LEGION_AUX_SHARE;  // Page
+                }
+            }
+            else
+            {
+                if ((buttonByte0 & 0x80) != 0) auxButtons |= LEGION_AUX_MODE;
+                if ((buttonByte0 & 0x40) != 0) auxButtons |= LEGION_AUX_SHARE;
+            }
+
+            if ((buttonByte2 & 0x80) != 0) auxButtons |= LEGION_AUX_EXTRA_L1;
+            if ((buttonByte2 & 0x40) != 0) auxButtons |= LEGION_AUX_EXTRA_L2;
+            if ((buttonByte2 & 0x20) != 0) auxButtons |= LEGION_AUX_EXTRA_R1;
+            // 0x10 is reserved in HHD maps; on Legion Go 1/2 this carries the sixth remappable extra key (M1).
+            if ((buttonByte2 & 0x10) != 0) auxButtons |= LEGION_AUX_EXTRA_RM1;
+            if ((buttonByte2 & 0x04) != 0) auxButtons |= LEGION_AUX_EXTRA_R2;
+            if ((buttonByte2 & 0x08) != 0) auxButtons |= LEGION_AUX_EXTRA_R3;
+
             byte rightTrigger = buffer[rightTriggerIndex];
             byte leftTrigger = buffer[leftTriggerIndex];
 
@@ -2828,6 +2879,7 @@ namespace XboxGamingBarHelper.Labs
                 ScaleStickByteToXInput(leftStickYRaw, true),
                 ScaleStickByteToXInput(rightStickXRaw, false),
                 ScaleStickByteToXInput(rightStickYRaw, true),
+                auxButtons,
                 sampleTimestampUtc);
 
             return true;
@@ -3176,6 +3228,7 @@ namespace XboxGamingBarHelper.Labs
         public readonly short LeftStickY;
         public readonly short RightStickX;
         public readonly short RightStickY;
+        public readonly ushort AuxButtons;
         public readonly long TimestampTicksUtc;
 
         public LegionGamepadSample(
@@ -3186,6 +3239,7 @@ namespace XboxGamingBarHelper.Labs
             short leftStickY,
             short rightStickX,
             short rightStickY,
+            ushort auxButtons,
             long timestampTicksUtc)
         {
             Buttons = buttons;
@@ -3195,6 +3249,7 @@ namespace XboxGamingBarHelper.Labs
             LeftStickY = leftStickY;
             RightStickX = rightStickX;
             RightStickY = rightStickY;
+            AuxButtons = auxButtons;
             TimestampTicksUtc = timestampTicksUtc;
         }
     }

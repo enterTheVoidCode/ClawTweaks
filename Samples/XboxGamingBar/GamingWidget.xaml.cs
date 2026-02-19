@@ -272,6 +272,12 @@ namespace XboxGamingBar
         public int Type { get; set; } = 0;
         /// <summary>Gamepad action index (0-24, into RemapAction)</summary>
         public int GamepadAction { get; set; } = 0;
+        /// <summary>Gamepad remap mode: 0=Single, 1=Combo</summary>
+        public int GamepadMode { get; set; } = 0;
+        /// <summary>Gamepad combo action indices (into RemapAction)</summary>
+        public List<int> GamepadActions { get; set; } = new List<int>();
+        /// <summary>Turbo on/off while held (improved emulation path)</summary>
+        public bool Turbo { get; set; } = false;
         /// <summary>Keyboard key codes (up to 5 keys)</summary>
         public List<int> KeyboardKeys { get; set; } = new List<int>();
         /// <summary>Mouse button code (1-7)</summary>
@@ -281,12 +287,15 @@ namespace XboxGamingBar
         /// Returns true if this mapping represents "no mapping" / default state.
         /// A mapping is default if Type=0 (Gamepad) with GamepadAction=0 (Disabled).
         /// </summary>
-        public bool IsDefault => Type == 0 && GamepadAction == 0;
+        public bool IsDefault => Type == 0 && GamepadAction == 0 && (GamepadActions == null || GamepadActions.Count == 0);
 
         public ButtonMapping Clone() => new ButtonMapping
         {
             Type = this.Type,
             GamepadAction = this.GamepadAction,
+            GamepadMode = this.GamepadMode,
+            GamepadActions = new List<int>(this.GamepadActions),
+            Turbo = this.Turbo,
             KeyboardKeys = new List<int>(this.KeyboardKeys),
             MouseButton = this.MouseButton
         };
@@ -297,8 +306,10 @@ namespace XboxGamingBar
         /// </summary>
         public string ToJson()
         {
+            var gamepadActions = GamepadActions.Count > 0 ? string.Join(",", GamepadActions) : "";
             var keys = KeyboardKeys.Count > 0 ? string.Join(",", KeyboardKeys) : "";
-            return $"{{\"Type\":{Type},\"GamepadAction\":{GamepadAction},\"KeyboardKeys\":[{keys}],\"MouseButton\":{MouseButton}}}";
+            string turboJson = Turbo ? "true" : "false";
+            return $"{{\"Type\":{Type},\"GamepadAction\":{GamepadAction},\"GamepadMode\":{GamepadMode},\"GamepadActions\":[{gamepadActions}],\"Turbo\":{turboJson},\"KeyboardKeys\":[{keys}],\"MouseButton\":{MouseButton}}}";
         }
 
         /// <summary>
@@ -321,10 +332,38 @@ namespace XboxGamingBar
                 if (gamepadMatch.Success && int.TryParse(gamepadMatch.Groups[1].Value, out int gamepadAction))
                     result.GamepadAction = gamepadAction;
 
+                // Parse GamepadMode
+                var gamepadModeMatch = System.Text.RegularExpressions.Regex.Match(json, "\"GamepadMode\"\\s*:\\s*(-?\\d+)");
+                if (gamepadModeMatch.Success && int.TryParse(gamepadModeMatch.Groups[1].Value, out int gamepadMode))
+                    result.GamepadMode = gamepadMode;
+
+                // Parse Turbo
+                var turboMatch = System.Text.RegularExpressions.Regex.Match(json, "\"Turbo\"\\s*:\\s*(true|false|0|1)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (turboMatch.Success)
+                {
+                    string rawTurbo = turboMatch.Groups[1].Value;
+                    result.Turbo = string.Equals(rawTurbo, "true", StringComparison.OrdinalIgnoreCase) || rawTurbo == "1";
+                }
+
                 // Parse MouseButton
                 var mouseMatch = System.Text.RegularExpressions.Regex.Match(json, "\"MouseButton\"\\s*:\\s*(-?\\d+)");
                 if (mouseMatch.Success && int.TryParse(mouseMatch.Groups[1].Value, out int mouseButton))
                     result.MouseButton = mouseButton;
+
+                // Parse GamepadActions array
+                var gamepadActionsMatch = System.Text.RegularExpressions.Regex.Match(json, "\"GamepadActions\"\\s*:\\s*\\[([^\\]]*)\\]");
+                if (gamepadActionsMatch.Success)
+                {
+                    var actionsStr = gamepadActionsMatch.Groups[1].Value;
+                    if (!string.IsNullOrWhiteSpace(actionsStr))
+                    {
+                        foreach (var part in actionsStr.Split(','))
+                        {
+                            if (int.TryParse(part.Trim(), out int action))
+                                result.GamepadActions.Add(action);
+                        }
+                    }
+                }
 
                 // Parse KeyboardKeys array
                 var keysMatch = System.Text.RegularExpressions.Regex.Match(json, "\"KeyboardKeys\"\\s*:\\s*\\[([^\\]]*)\\]");
@@ -344,6 +383,15 @@ namespace XboxGamingBar
             catch
             {
                 // Return default on any parse error
+            }
+
+            if (result.GamepadAction <= 0 && result.GamepadActions.Count > 0)
+            {
+                result.GamepadAction = result.GamepadActions[0];
+            }
+            else if (result.GamepadActions.Count == 0 && result.GamepadAction > 0)
+            {
+                result.GamepadActions.Add(result.GamepadAction);
             }
 
             return result;
@@ -2917,6 +2965,14 @@ namespace XboxGamingBar
                 LegionGamepadKeyComboBox.SelectionChanged += LegionGamepadKey_SelectionChanged;
             if (LegionGamepadResetAllButton != null)
                 LegionGamepadResetAllButton.Click += LegionGamepadResetAll_Click;
+
+            if (ControllerEmulationImprovedInputToggle != null)
+                ControllerEmulationImprovedInputToggle.Toggled += ControllerEmulationImprovedInputToggle_Toggled;
+
+            foreach (string buttonName in LegionRemapButtonNames)
+            {
+                UpdateButtonGamepadComboControls(buttonName);
+            }
         }
 
         private void SettingChanged(object sender, object e)
@@ -5278,10 +5334,26 @@ namespace XboxGamingBar
                             var mapping = ButtonMapping.FromJson(mappingJson);
                             if (mapping != null)
                             {
-                                if (mapping.Type == 0 && mapping.GamepadAction > 0 && mapping.GamepadAction < GamepadActionShortNames.Length)
+                                if (mapping.Type == 0)
                                 {
-                                    // Gamepad remap
-                                    remapParts.Add($"{btnName}:{GamepadActionShortNames[mapping.GamepadAction]}");
+                                    if (mapping.GamepadMode == 1 && mapping.GamepadActions != null && mapping.GamepadActions.Count > 0)
+                                    {
+                                        var comboNames = mapping.GamepadActions
+                                            .Where(action => action > 0 && action < GamepadActionShortNames.Length)
+                                            .Select(action => GamepadActionShortNames[action])
+                                            .ToList();
+                                        if (comboNames.Count > 0)
+                                        {
+                                            string comboText = string.Join("+", comboNames);
+                                            remapParts.Add(mapping.Turbo ? $"{btnName}:{comboText}(T)" : $"{btnName}:{comboText}");
+                                        }
+                                    }
+                                    else if (mapping.GamepadAction > 0 && mapping.GamepadAction < GamepadActionShortNames.Length)
+                                    {
+                                        // Gamepad remap
+                                        string single = GamepadActionShortNames[mapping.GamepadAction];
+                                        remapParts.Add(mapping.Turbo ? $"{btnName}:{single}(T)" : $"{btnName}:{single}");
+                                    }
                                 }
                                 else if (mapping.Type == 1 && mapping.KeyboardKeys != null && mapping.KeyboardKeys.Count > 0)
                                 {
@@ -11593,13 +11665,15 @@ namespace XboxGamingBar
             var mouseCombo = FindName($"LegionButton{buttonName}MouseComboBox") as ComboBox;
             var keyCombo = FindName($"LegionButton{buttonName}KeyComboBox") as ComboBox;
 
+            EnsureButtonGamepadComboControls(buttonName);
+
             if (typeCombo != null)
             {
                 typeCombo.SelectionChanged += (s, e) => OnButtonTypeChanged(buttonName);
             }
             if (gamepadCombo != null)
             {
-                gamepadCombo.SelectionChanged += ControllerSettingChanged;
+                gamepadCombo.SelectionChanged += (s, e) => OnButtonGamepadActionSelected(buttonName);
             }
             if (mouseCombo != null)
             {
@@ -11629,10 +11703,445 @@ namespace XboxGamingBar
             if (keyboardPanel != null)
                 keyboardPanel.Visibility = type == 1 ? Visibility.Visible : Visibility.Collapsed;
 
+            UpdateButtonGamepadComboControls(buttonName);
+
             // Update the profile and send command
             if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
             {
                 ControllerSettingChanged(typeCombo, null);
+            }
+        }
+
+        private bool IsImprovedButtonComboUiEnabled()
+        {
+            return ControllerEmulationEnabledToggle?.IsOn == true &&
+                   ControllerEmulationImprovedInputToggle?.IsOn == true;
+        }
+
+        private List<int> NormalizeGamepadActions(List<int> actions)
+        {
+            if (actions == null || actions.Count == 0)
+            {
+                return new List<int>();
+            }
+
+            var normalized = new List<int>();
+            for (int i = 0; i < actions.Count; i++)
+            {
+                int action = actions[i];
+                if (action <= 0)
+                {
+                    continue;
+                }
+
+                if (!normalized.Contains(action))
+                {
+                    normalized.Add(action);
+                }
+            }
+
+            return normalized;
+        }
+
+        private List<int> GetStoredGamepadComboActions(string buttonName)
+        {
+            if (_buttonGamepadComboActions.TryGetValue(buttonName, out var actions))
+            {
+                return new List<int>(actions);
+            }
+
+            return new List<int>();
+        }
+
+        private void SetStoredGamepadComboActions(string buttonName, List<int> actions)
+        {
+            _buttonGamepadComboActions[buttonName] = NormalizeGamepadActions(actions);
+        }
+
+        private bool GetStoredButtonTurbo(string buttonName)
+        {
+            return _buttonGamepadTurbo.TryGetValue(buttonName, out var turbo) && turbo;
+        }
+
+        private void SetStoredButtonTurbo(string buttonName, bool turbo)
+        {
+            _buttonGamepadTurbo[buttonName] = turbo;
+        }
+
+        private int GetStoredButtonGamepadMode(string buttonName)
+        {
+            if (_buttonGamepadMode.TryGetValue(buttonName, out int mode))
+            {
+                return mode == 1 ? 1 : 0;
+            }
+
+            return 0;
+        }
+
+        private void SetStoredButtonGamepadMode(string buttonName, int mode)
+        {
+            _buttonGamepadMode[buttonName] = mode == 1 ? 1 : 0;
+        }
+
+        private void EnsureButtonGamepadComboControls(string buttonName)
+        {
+            if (_buttonGamepadComboRootPanels.ContainsKey(buttonName))
+            {
+                return;
+            }
+
+            var keyboardPanel = FindName($"LegionButton{buttonName}KeyboardPanel") as StackPanel;
+            if (!(keyboardPanel?.Parent is StackPanel container))
+            {
+                return;
+            }
+
+            var rootPanel = new StackPanel
+            {
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(keyboardPanel.Margin.Left, 8, 0, 0)
+            };
+
+            var modeRow = new Grid
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            modeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(130) });
+            modeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            modeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
+
+            var modeCombo = new ComboBox
+            {
+                Margin = new Thickness(0, 0, 8, 0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                SelectedIndex = 0
+            };
+            modeCombo.Items.Add("Single");
+            modeCombo.Items.Add("Combo");
+
+            Grid.SetColumn(modeCombo, 0);
+
+            var addCombo = new ComboBox
+            {
+                Margin = new Thickness(0, 0, 8, 0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                SelectedIndex = 0,
+                Visibility = Visibility.Collapsed
+            };
+            addCombo.Items.Add("+ Button");
+
+            Grid.SetColumn(addCombo, 1);
+
+            var turboCheck = new CheckBox
+            {
+                Content = "Turbo",
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 170, 170, 170))
+            };
+            Grid.SetColumn(turboCheck, 2);
+
+            if (Resources.TryGetValue("ModernComboBoxStyle", out object comboStyleObj) && comboStyleObj is Style comboStyle)
+            {
+                modeCombo.Style = comboStyle;
+            }
+
+            modeRow.Children.Add(modeCombo);
+            modeRow.Children.Add(addCombo);
+            modeRow.Children.Add(turboCheck);
+
+            var comboEditorRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 6, 0, 0),
+                Visibility = Visibility.Collapsed
+            };
+
+            var comboTags = new StackPanel
+            {
+                Orientation = Orientation.Horizontal
+            };
+
+            // Indices align with RemapAction indices (1..N) by design.
+            var sourceGamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
+            if (sourceGamepadCombo != null)
+            {
+                for (int action = 1; action < sourceGamepadCombo.Items.Count; action++)
+                {
+                    addCombo.Items.Add(GetGamepadActionName(action));
+                }
+            }
+
+            if (Resources.TryGetValue("ModernComboBoxStyle", out object addComboStyleObj) && addComboStyleObj is Style addComboStyle)
+            {
+                addCombo.Style = addComboStyle;
+            }
+
+            comboEditorRow.Children.Add(comboTags);
+
+            rootPanel.Children.Add(modeRow);
+            rootPanel.Children.Add(comboEditorRow);
+            container.Children.Add(rootPanel);
+
+            _buttonGamepadComboRootPanels[buttonName] = rootPanel;
+            _buttonGamepadModeCombos[buttonName] = modeCombo;
+            _buttonGamepadComboEditorRows[buttonName] = comboEditorRow;
+            _buttonGamepadComboTags[buttonName] = comboTags;
+            _buttonGamepadComboAddCombos[buttonName] = addCombo;
+            _buttonGamepadTurboChecks[buttonName] = turboCheck;
+
+            modeCombo.SelectionChanged += (s, e) => OnButtonGamepadModeChanged(buttonName);
+            addCombo.SelectionChanged += (s, e) => OnButtonGamepadComboActionSelected(buttonName);
+            turboCheck.Click += (s, e) => OnButtonGamepadTurboToggled(buttonName);
+        }
+
+        private void OnButtonGamepadActionSelected(string buttonName)
+        {
+            if (GetStoredButtonGamepadMode(buttonName) == 0)
+            {
+                var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
+                int selectedAction = gamepadCombo?.SelectedIndex ?? 0;
+                SetStoredGamepadComboActions(buttonName, selectedAction > 0
+                    ? new List<int> { selectedAction }
+                    : new List<int>());
+                UpdateGamepadComboActionTags(buttonName, GetStoredGamepadComboActions(buttonName));
+            }
+
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(null, null);
+            }
+        }
+
+        private void OnButtonGamepadModeChanged(string buttonName)
+        {
+            if (isUpdatingButtonComboUi)
+            {
+                return;
+            }
+
+            if (!_buttonGamepadModeCombos.TryGetValue(buttonName, out ComboBox modeCombo))
+            {
+                return;
+            }
+
+            int mode = modeCombo.SelectedIndex == 1 ? 1 : 0;
+            SetStoredButtonGamepadMode(buttonName, mode);
+
+            if (mode == 0)
+            {
+                var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
+                int selectedAction = gamepadCombo?.SelectedIndex ?? 0;
+                SetStoredGamepadComboActions(buttonName, selectedAction > 0
+                    ? new List<int> { selectedAction }
+                    : new List<int>());
+            }
+            else
+            {
+                var actions = GetStoredGamepadComboActions(buttonName);
+                if (actions.Count == 0)
+                {
+                    var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
+                    int selectedAction = gamepadCombo?.SelectedIndex ?? 0;
+                    if (selectedAction > 0)
+                    {
+                        SetStoredGamepadComboActions(buttonName, new List<int> { selectedAction });
+                    }
+                }
+            }
+
+            UpdateButtonGamepadComboControls(buttonName);
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(modeCombo, null);
+            }
+        }
+
+        private void OnButtonGamepadComboActionSelected(string buttonName)
+        {
+            if (isUpdatingButtonComboUi)
+            {
+                return;
+            }
+
+            if (!_buttonGamepadComboAddCombos.TryGetValue(buttonName, out ComboBox addCombo))
+            {
+                return;
+            }
+
+            int action = addCombo.SelectedIndex;
+            if (action <= 0)
+            {
+                return;
+            }
+
+            var actions = GetStoredGamepadComboActions(buttonName);
+            if (!actions.Contains(action))
+            {
+                actions.Add(action);
+                SetStoredGamepadComboActions(buttonName, actions);
+                UpdateGamepadComboActionTags(buttonName, actions);
+
+                if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+                {
+                    ControllerSettingChanged(addCombo, null);
+                }
+            }
+
+            addCombo.SelectedIndex = 0;
+        }
+
+        private void OnButtonGamepadTurboToggled(string buttonName)
+        {
+            if (isUpdatingButtonComboUi)
+            {
+                return;
+            }
+
+            if (!_buttonGamepadTurboChecks.TryGetValue(buttonName, out CheckBox turboCheck))
+            {
+                return;
+            }
+
+            SetStoredButtonTurbo(buttonName, turboCheck.IsChecked == true);
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(turboCheck, null);
+            }
+        }
+
+        private void RemoveGamepadComboActionFromButton(string buttonName, int action)
+        {
+            var actions = GetStoredGamepadComboActions(buttonName);
+            actions.Remove(action);
+            SetStoredGamepadComboActions(buttonName, actions);
+            UpdateGamepadComboActionTags(buttonName, actions);
+
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(null, null);
+            }
+        }
+
+        private void UpdateGamepadComboActionTags(string buttonName, List<int> actions)
+        {
+            if (!_buttonGamepadComboTags.TryGetValue(buttonName, out StackPanel tagPanel) || tagPanel == null)
+            {
+                return;
+            }
+
+            tagPanel.Children.Clear();
+            if (actions == null)
+            {
+                return;
+            }
+
+            foreach (int action in NormalizeGamepadActions(actions))
+            {
+                var tagBorder = new Border
+                {
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 60, 60)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(6, 2, 6, 2),
+                    Margin = new Thickness(0, 0, 4, 0)
+                };
+
+                var tagContent = new StackPanel { Orientation = Orientation.Horizontal };
+                var text = new TextBlock
+                {
+                    Text = GetGamepadActionName(action),
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+
+                var removeButton = new Button
+                {
+                    Content = "×",
+                    FontSize = 10,
+                    Padding = new Thickness(4, 0, 0, 0),
+                    Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    BorderThickness = new Thickness(0),
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    MinWidth = 0,
+                    MinHeight = 0
+                };
+
+                int actionToRemove = action;
+                removeButton.Click += (s, e) => RemoveGamepadComboActionFromButton(buttonName, actionToRemove);
+
+                tagContent.Children.Add(text);
+                tagContent.Children.Add(removeButton);
+                tagBorder.Child = tagContent;
+                tagPanel.Children.Add(tagBorder);
+            }
+        }
+
+        private void UpdateButtonGamepadComboControls(string buttonName)
+        {
+            EnsureButtonGamepadComboControls(buttonName);
+            if (!_buttonGamepadComboRootPanels.TryGetValue(buttonName, out StackPanel rootPanel))
+            {
+                return;
+            }
+
+            var typeCombo = FindName($"LegionButton{buttonName}TypeComboBox") as ComboBox;
+            var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
+            bool isGamepadType = typeCombo?.SelectedIndex == 0;
+            bool showComboUi = IsImprovedButtonComboUiEnabled() && isGamepadType;
+
+            rootPanel.Visibility = showComboUi ? Visibility.Visible : Visibility.Collapsed;
+            if (!showComboUi)
+            {
+                if (gamepadCombo != null && isGamepadType)
+                {
+                    gamepadCombo.Visibility = Visibility.Visible;
+                }
+
+                return;
+            }
+
+            int mode = GetStoredButtonGamepadMode(buttonName);
+            bool comboMode = mode == 1;
+
+            isUpdatingButtonComboUi = true;
+            try
+            {
+                if (_buttonGamepadModeCombos.TryGetValue(buttonName, out ComboBox modeCombo) &&
+                    modeCombo != null &&
+                    modeCombo.SelectedIndex != mode)
+                {
+                    modeCombo.SelectedIndex = mode;
+                }
+
+                if (_buttonGamepadTurboChecks.TryGetValue(buttonName, out CheckBox turboCheck) &&
+                    turboCheck != null &&
+                    turboCheck.IsChecked != GetStoredButtonTurbo(buttonName))
+                {
+                    turboCheck.IsChecked = GetStoredButtonTurbo(buttonName);
+                }
+            }
+            finally
+            {
+                isUpdatingButtonComboUi = false;
+            }
+
+            if (_buttonGamepadComboEditorRows.TryGetValue(buttonName, out StackPanel editorRow) && editorRow != null)
+            {
+                editorRow.Visibility = comboMode ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (_buttonGamepadComboAddCombos.TryGetValue(buttonName, out ComboBox addCombo) && addCombo != null)
+            {
+                addCombo.Visibility = comboMode ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            UpdateGamepadComboActionTags(buttonName, GetStoredGamepadComboActions(buttonName));
+
+            if (gamepadCombo != null)
+            {
+                gamepadCombo.Visibility = comboMode ? Visibility.Collapsed : Visibility.Visible;
             }
         }
 
@@ -11744,7 +12253,15 @@ namespace XboxGamingBar
             if (mapping == null) return "none";
             switch (mapping.Type)
             {
-                case 0: return $"GP:{mapping.GamepadAction}";
+                case 0:
+                    if (mapping.GamepadMode == 1)
+                    {
+                        string actions = mapping.GamepadActions != null && mapping.GamepadActions.Count > 0
+                            ? string.Join("+", mapping.GamepadActions)
+                            : mapping.GamepadAction.ToString();
+                        return $"GP:Combo[{actions}] {(mapping.Turbo ? "Turbo" : "")}".Trim();
+                    }
+                    return $"GP:{mapping.GamepadAction}{(mapping.Turbo ? " Turbo" : "")}";
                 case 1: return $"KB:[{string.Join(",", mapping.KeyboardKeys)}]";
                 case 2: return $"MS:{mapping.MouseButton}";
                 default: return "?";
@@ -11758,8 +12275,26 @@ namespace XboxGamingBar
             var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
             var mouseCombo = FindName($"LegionButton{buttonName}MouseComboBox") as ComboBox;
             var keyboardPanel = FindName($"LegionButton{buttonName}KeyboardPanel") as StackPanel;
+            EnsureButtonGamepadComboControls(buttonName);
 
             if (mapping == null) mapping = new ButtonMapping();
+
+            if (mapping.GamepadActions == null || mapping.GamepadActions.Count == 0)
+            {
+                if (mapping.GamepadAction > 0)
+                {
+                    mapping.GamepadActions = new List<int> { mapping.GamepadAction };
+                }
+                else
+                {
+                    mapping.GamepadActions = new List<int>();
+                }
+            }
+
+            SetStoredGamepadComboActions(buttonName, mapping.GamepadActions);
+            SetStoredButtonTurbo(buttonName, mapping.Turbo);
+            int effectiveMode = mapping.GamepadMode == 1 || (mapping.GamepadActions?.Count ?? 0) > 1 ? 1 : 0;
+            SetStoredButtonGamepadMode(buttonName, effectiveMode);
 
             // Set type dropdown
             if (typeCombo != null)
@@ -11784,6 +12319,27 @@ namespace XboxGamingBar
                 if (mapping.Type == 1)
                     UpdateKeyboardKeyTags(buttonName, mapping.KeyboardKeys);
             }
+
+            if (_buttonGamepadModeCombos.TryGetValue(buttonName, out ComboBox modeCombo) && modeCombo != null)
+            {
+                int mode = GetStoredButtonGamepadMode(buttonName);
+                if (modeCombo.SelectedIndex != mode)
+                {
+                    modeCombo.SelectedIndex = mode;
+                }
+            }
+
+            if (_buttonGamepadTurboChecks.TryGetValue(buttonName, out CheckBox turboCheck) && turboCheck != null)
+            {
+                bool turbo = GetStoredButtonTurbo(buttonName);
+                if (turboCheck.IsChecked != turbo)
+                {
+                    turboCheck.IsChecked = turbo;
+                }
+            }
+
+            UpdateGamepadComboActionTags(buttonName, GetStoredGamepadComboActions(buttonName));
+            UpdateButtonGamepadComboControls(buttonName);
         }
 
         private void UpdateKeyboardKeyTags(string buttonName, List<int> keys)
@@ -11880,8 +12436,32 @@ namespace XboxGamingBar
             var mouseCombo = FindName($"LegionButton{buttonName}MouseComboBox") as ComboBox;
 
             mapping.Type = typeCombo?.SelectedIndex ?? 0;
-            mapping.GamepadAction = gamepadCombo?.SelectedIndex ?? 0;
             mapping.MouseButton = mouseCombo?.SelectedIndex ?? 0;
+            mapping.GamepadMode = GetStoredButtonGamepadMode(buttonName);
+            mapping.Turbo = GetStoredButtonTurbo(buttonName);
+
+            int singleAction = gamepadCombo?.SelectedIndex ?? 0;
+            if (mapping.Type == 0)
+            {
+                if (mapping.GamepadMode == 1)
+                {
+                    var comboActions = GetStoredGamepadComboActions(buttonName);
+                    mapping.GamepadActions = comboActions;
+                    mapping.GamepadAction = comboActions.Count > 0 ? comboActions[0] : singleAction;
+                }
+                else
+                {
+                    mapping.GamepadAction = singleAction;
+                    mapping.GamepadActions = singleAction > 0 ? new List<int> { singleAction } : new List<int>();
+                }
+            }
+            else
+            {
+                mapping.GamepadAction = singleAction;
+                mapping.GamepadActions = new List<int>();
+                mapping.GamepadMode = 0;
+                mapping.Turbo = false;
+            }
 
             // Get keyboard keys from the stored list (maintained separately)
             var keyList = GetStoredKeyboardKeys(buttonName);
@@ -11890,7 +12470,18 @@ namespace XboxGamingBar
             return mapping;
         }
 
-        private Dictionary<string, List<int>> _buttonKeyboardKeys = new Dictionary<string, List<int>>();
+        private static readonly string[] LegionRemapButtonNames = new[] { "Y1", "Y2", "Y3", "M1", "M2", "M3", "Desktop", "Page" };
+        private readonly Dictionary<string, List<int>> _buttonKeyboardKeys = new Dictionary<string, List<int>>();
+        private readonly Dictionary<string, List<int>> _buttonGamepadComboActions = new Dictionary<string, List<int>>();
+        private readonly Dictionary<string, bool> _buttonGamepadTurbo = new Dictionary<string, bool>();
+        private readonly Dictionary<string, int> _buttonGamepadMode = new Dictionary<string, int>();
+        private readonly Dictionary<string, StackPanel> _buttonGamepadComboRootPanels = new Dictionary<string, StackPanel>();
+        private readonly Dictionary<string, ComboBox> _buttonGamepadModeCombos = new Dictionary<string, ComboBox>();
+        private readonly Dictionary<string, StackPanel> _buttonGamepadComboEditorRows = new Dictionary<string, StackPanel>();
+        private readonly Dictionary<string, StackPanel> _buttonGamepadComboTags = new Dictionary<string, StackPanel>();
+        private readonly Dictionary<string, ComboBox> _buttonGamepadComboAddCombos = new Dictionary<string, ComboBox>();
+        private readonly Dictionary<string, CheckBox> _buttonGamepadTurboChecks = new Dictionary<string, CheckBox>();
+        private bool isUpdatingButtonComboUi = false;
 
         private List<int> GetStoredKeyboardKeys(string buttonName)
         {
@@ -11919,6 +12510,34 @@ namespace XboxGamingBar
                 SetStoredKeyboardKeys("M3", profile.ButtonM3?.KeyboardKeys ?? new List<int>());
                 SetStoredKeyboardKeys("Desktop", profile.ButtonDesktop?.KeyboardKeys ?? new List<int>());
                 SetStoredKeyboardKeys("Page", profile.ButtonPage?.KeyboardKeys ?? new List<int>());
+
+                // Store gamepad combo/turbo metadata before applying UI
+                SetStoredGamepadComboActions("Y1", profile.ButtonY1?.GamepadActions ?? new List<int>());
+                SetStoredGamepadComboActions("Y2", profile.ButtonY2?.GamepadActions ?? new List<int>());
+                SetStoredGamepadComboActions("Y3", profile.ButtonY3?.GamepadActions ?? new List<int>());
+                SetStoredGamepadComboActions("M1", profile.ButtonM1?.GamepadActions ?? new List<int>());
+                SetStoredGamepadComboActions("M2", profile.ButtonM2?.GamepadActions ?? new List<int>());
+                SetStoredGamepadComboActions("M3", profile.ButtonM3?.GamepadActions ?? new List<int>());
+                SetStoredGamepadComboActions("Desktop", profile.ButtonDesktop?.GamepadActions ?? new List<int>());
+                SetStoredGamepadComboActions("Page", profile.ButtonPage?.GamepadActions ?? new List<int>());
+
+                SetStoredButtonTurbo("Y1", profile.ButtonY1?.Turbo == true);
+                SetStoredButtonTurbo("Y2", profile.ButtonY2?.Turbo == true);
+                SetStoredButtonTurbo("Y3", profile.ButtonY3?.Turbo == true);
+                SetStoredButtonTurbo("M1", profile.ButtonM1?.Turbo == true);
+                SetStoredButtonTurbo("M2", profile.ButtonM2?.Turbo == true);
+                SetStoredButtonTurbo("M3", profile.ButtonM3?.Turbo == true);
+                SetStoredButtonTurbo("Desktop", profile.ButtonDesktop?.Turbo == true);
+                SetStoredButtonTurbo("Page", profile.ButtonPage?.Turbo == true);
+
+                SetStoredButtonGamepadMode("Y1", (profile.ButtonY1?.GamepadMode == 1 || (profile.ButtonY1?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
+                SetStoredButtonGamepadMode("Y2", (profile.ButtonY2?.GamepadMode == 1 || (profile.ButtonY2?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
+                SetStoredButtonGamepadMode("Y3", (profile.ButtonY3?.GamepadMode == 1 || (profile.ButtonY3?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
+                SetStoredButtonGamepadMode("M1", (profile.ButtonM1?.GamepadMode == 1 || (profile.ButtonM1?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
+                SetStoredButtonGamepadMode("M2", (profile.ButtonM2?.GamepadMode == 1 || (profile.ButtonM2?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
+                SetStoredButtonGamepadMode("M3", (profile.ButtonM3?.GamepadMode == 1 || (profile.ButtonM3?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
+                SetStoredButtonGamepadMode("Desktop", (profile.ButtonDesktop?.GamepadMode == 1 || (profile.ButtonDesktop?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
+                SetStoredButtonGamepadMode("Page", (profile.ButtonPage?.GamepadMode == 1 || (profile.ButtonPage?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
 
                 // Apply button mappings (with full type support)
                 ApplyButtonMappingToUI("Y1", profile.ButtonY1);
@@ -13192,10 +13811,11 @@ namespace XboxGamingBar
         private bool IsButtonRemapped(ButtonMapping mapping)
         {
             if (mapping == null) return false;
+            bool hasGamepadCombo = mapping.GamepadActions != null && mapping.GamepadActions.Count > 0;
             // Type 0 (Gamepad) with action 0 (Disabled) means default/cleared
             // Keyboard or Mouse type means remapped
             // Gamepad type with action > 0 means remapped
-            return mapping.Type != 0 || mapping.GamepadAction > 0 ||
+            return mapping.Type != 0 || mapping.GamepadAction > 0 || hasGamepadCombo ||
                    (mapping.KeyboardKeys != null && mapping.KeyboardKeys.Count > 0);
         }
 
@@ -13309,8 +13929,26 @@ namespace XboxGamingBar
             switch (mapping.Type)
             {
                 case 0: // Gamepad
+                    if (mapping.GamepadMode == 1)
+                    {
+                        var comboActions = mapping.GamepadActions ?? new List<int>();
+                        if (comboActions.Count == 0 && mapping.GamepadAction > 0)
+                        {
+                            comboActions = new List<int> { mapping.GamepadAction };
+                        }
+
+                        if (comboActions.Count == 0)
+                        {
+                            return "Disabled";
+                        }
+
+                        string comboText = string.Join("+", comboActions.Select(GetGamepadActionName));
+                        return mapping.Turbo ? $"{comboText} (Turbo)" : comboText;
+                    }
+
                     if (mapping.GamepadAction == 0) return "Disabled";
-                    return GetGamepadActionName(mapping.GamepadAction);
+                    string single = GetGamepadActionName(mapping.GamepadAction);
+                    return mapping.Turbo ? $"{single} (Turbo)" : single;
                 case 1: // Keyboard
                     if (mapping.KeyboardKeys == null || mapping.KeyboardKeys.Count == 0)
                         return "Keys";
@@ -18045,6 +18683,19 @@ namespace XboxGamingBar
             UpdateControllerEmulationStatusText();
             UpdateControllerEmulationMouseSettingsVisibility();
             UpdateSystemControllerEmulationNavigation();
+
+            foreach (string buttonName in LegionRemapButtonNames)
+            {
+                UpdateButtonGamepadComboControls(buttonName);
+            }
+        }
+
+        private void ControllerEmulationImprovedInputToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            foreach (string buttonName in LegionRemapButtonNames)
+            {
+                UpdateButtonGamepadComboControls(buttonName);
+            }
         }
 
         private void UpdateControllerEmulationMouseSettingsVisibility()

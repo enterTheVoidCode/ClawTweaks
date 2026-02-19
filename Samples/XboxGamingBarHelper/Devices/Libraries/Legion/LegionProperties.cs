@@ -9,27 +9,62 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
 {
     /// <summary>
     /// Helper class to parse ButtonMapping JSON format
-    /// Format: {"Type":0,"GamepadAction":5,"KeyboardKeys":[4,5,6],"MouseButton":0}
+    /// Format: {"Type":0,"GamepadAction":5,"GamepadActions":[5,16],"GamepadMode":1,"Turbo":true,"KeyboardKeys":[4,5,6],"MouseButton":0}
     /// </summary>
     internal static class ButtonMappingParser
     {
+        internal sealed class ParsedButtonMapping
+        {
+            public int Type { get; set; }
+            public int GamepadAction { get; set; }
+            public int[] GamepadActions { get; set; } = Array.Empty<int>();
+            public int GamepadMode { get; set; }
+            public bool Turbo { get; set; }
+            public int[] KeyboardKeys { get; set; } = Array.Empty<int>();
+            public int MouseButton { get; set; }
+        }
+
         public static (int type, int gamepadAction, int[] keyboardKeys, int mouseButton) Parse(string json)
         {
+            ParsedButtonMapping parsed = ParseExtended(json);
+            return (parsed.Type, parsed.GamepadAction, parsed.KeyboardKeys, parsed.MouseButton);
+        }
+
+        public static ParsedButtonMapping ParseExtended(string json)
+        {
+            var parsed = new ParsedButtonMapping();
             if (string.IsNullOrEmpty(json))
-                return (0, 0, Array.Empty<int>(), 0);
+            {
+                return parsed;
+            }
 
             try
             {
-                int type = ExtractInt(json, "Type") ?? 0;
-                int gamepadAction = ExtractInt(json, "GamepadAction") ?? 0;
-                int mouseButton = ExtractInt(json, "MouseButton") ?? 0;
-                int[] keyboardKeys = ExtractIntArray(json, "KeyboardKeys");
+                parsed.Type = ExtractInt(json, "Type") ?? 0;
+                parsed.GamepadAction = ExtractInt(json, "GamepadAction") ?? 0;
+                parsed.GamepadActions = ExtractIntArray(json, "GamepadActions");
+                parsed.GamepadMode = ExtractInt(json, "GamepadMode") ?? 0;
+                parsed.Turbo = ExtractBool(json, "Turbo") ?? false;
+                parsed.MouseButton = ExtractInt(json, "MouseButton") ?? 0;
+                parsed.KeyboardKeys = ExtractIntArray(json, "KeyboardKeys");
 
-                return (type, gamepadAction, keyboardKeys, mouseButton);
+                // Backward/forward compatibility:
+                // if old/new payload has only one of the fields, hydrate the other.
+                if (parsed.GamepadAction <= 0 && parsed.GamepadActions.Length > 0)
+                {
+                    parsed.GamepadAction = parsed.GamepadActions[0];
+                }
+
+                if (parsed.GamepadActions.Length == 0 && parsed.GamepadAction > 0)
+                {
+                    parsed.GamepadActions = new[] { parsed.GamepadAction };
+                }
+
+                return parsed;
             }
             catch
             {
-                return (0, 0, Array.Empty<int>(), 0);
+                return parsed;
             }
         }
 
@@ -38,6 +73,25 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             var match = Regex.Match(json, $"\"{property}\"\\s*:\\s*(-?\\d+)");
             if (match.Success && int.TryParse(match.Groups[1].Value, out int value))
                 return value;
+            return null;
+        }
+
+        private static bool? ExtractBool(string json, string property)
+        {
+            var match = Regex.Match(json, $"\"{property}\"\\s*:\\s*(true|false|0|1)", RegexOptions.IgnoreCase);
+            if (!match.Success)
+                return null;
+
+            string raw = match.Groups[1].Value;
+            if (string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(raw, "false", StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (raw == "1")
+                return true;
+            if (raw == "0")
+                return false;
+
             return null;
         }
 
@@ -66,20 +120,33 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             if (string.IsNullOrEmpty(json))
                 return true;
 
-            var (type, gamepadAction, _, _) = Parse(json);
-            // A mapping is default if Type=0 (Gamepad) and GamepadAction=0 (Disabled)
-            return type == 0 && gamepadAction == 0;
+            ParsedButtonMapping parsed = ParseExtended(json);
+            bool hasGamepadActions = parsed.GamepadActions != null && Array.Exists(parsed.GamepadActions, action => action > 0);
+            // A mapping is default if Type=0 (Gamepad) and no gamepad action is set.
+            return parsed.Type == 0 && parsed.GamepadAction == 0 && !hasGamepadActions;
         }
 
         /// <summary>
         /// Gets the mapping values to send to the HID command based on mapping type
         /// </summary>
-        public static int[] GetMappingValues(int type, int gamepadAction, int[] keyboardKeys, int mouseButton)
+        public static int[] GetMappingValues(int type, int gamepadAction, int[] keyboardKeys, int mouseButton, int[] gamepadActions = null)
         {
             switch (type)
             {
                 case 0: // Gamepad
-                    return gamepadAction > 0 ? new[] { gamepadAction } : Array.Empty<int>();
+                    if (gamepadAction > 0)
+                        return new[] { gamepadAction };
+
+                    if (gamepadActions != null)
+                    {
+                        for (int i = 0; i < gamepadActions.Length; i++)
+                        {
+                            if (gamepadActions[i] > 0)
+                                return new[] { gamepadActions[i] };
+                        }
+                    }
+
+                    return Array.Empty<int>();
                 case 1: // Keyboard
                     return keyboardKeys;
                 case 2: // Mouse

@@ -30,6 +30,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private readonly SharedDeviceType deviceType;
         private readonly bool isSupported;
         private readonly SettingsManager settingsManager;
+        private readonly LegionManager legionManager;
 
         private bool enabled;
         private int gyroSource;
@@ -95,6 +96,13 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private bool gyroToggleActive;
         private bool lastGyroActivationButtonPressed;
         private readonly INPUT[] mouseMoveInputBuffer = new INPUT[1];
+        private readonly INPUT[] keyboardInputBuffer = new INPUT[1];
+        private readonly INPUT[] mouseButtonInputBuffer = new INPUT[1];
+        private readonly LegionUserspaceRemapEntry[] legionUserspaceRemaps = new LegionUserspaceRemapEntry[8];
+        private readonly bool[] legionUserspaceRemapPressed = new bool[8];
+        private readonly bool[] legionUserspaceTurboOutputActive = new bool[8];
+        private readonly long[] legionUserspaceTurboNextToggleTicksUtc = new long[8];
+        private long legionUserspaceRemapCacheTicksUtc;
 
         private const int ForwardingIntervalMs = 4;
         private const uint ERROR_SUCCESS = 0;
@@ -125,7 +133,18 @@ namespace XboxGamingBarHelper.ControllerEmulation
         // Temporary diagnostic switch: keep suppression control tied to foreground detection only.
         private static readonly bool GuideTriggeredSuppressionPauseEnabled = false;
         private const uint INPUT_MOUSE = 0;
+        private const uint INPUT_KEYBOARD = 1;
         private const uint MOUSEEVENTF_MOVE = 0x0001;
+        private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+        private const uint MOUSEEVENTF_LEFTUP = 0x0004;
+        private const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
+        private const uint MOUSEEVENTF_RIGHTUP = 0x0010;
+        private const uint MOUSEEVENTF_MIDDLEDOWN = 0x0020;
+        private const uint MOUSEEVENTF_MIDDLEUP = 0x0040;
+        private const uint MOUSEEVENTF_WHEEL = 0x0800;
+        private const uint MOUSEEVENTF_HWHEEL = 0x01000;
+        private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
         private const ushort XINPUT_GAMEPAD_DPAD_UP = 0x0001;
         private const ushort XINPUT_GAMEPAD_DPAD_DOWN = 0x0002;
         private const ushort XINPUT_GAMEPAD_DPAD_LEFT = 0x0004;
@@ -141,6 +160,17 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private const ushort XINPUT_GAMEPAD_X = 0x4000;
         private const ushort XINPUT_GAMEPAD_Y = 0x8000;
         private const byte XINPUT_TRIGGER_THRESHOLD = 30;
+        private const ushort LEGION_AUX_MODE = 0x0001;
+        private const ushort LEGION_AUX_SHARE = 0x0002;
+        private const ushort LEGION_AUX_EXTRA_L1 = 0x0004;
+        private const ushort LEGION_AUX_EXTRA_L2 = 0x0008;
+        private const ushort LEGION_AUX_EXTRA_R1 = 0x0010;
+        private const ushort LEGION_AUX_EXTRA_RM1 = 0x0020;
+        private const ushort LEGION_AUX_EXTRA_R2 = 0x0040;
+        private const ushort LEGION_AUX_EXTRA_R3 = 0x0080;
+        private const long LegionUserspaceRemapRefreshTicks = TimeSpan.TicksPerSecond / 2;
+        private const long LegionUserspaceTurboIntervalTicks = TimeSpan.TicksPerMillisecond * 45;
+        private const int MouseWheelDelta = 120;
         private static readonly int MouseInputStructSize = Marshal.SizeOf(typeof(INPUT));
         private static readonly HashSet<string> GameBarForegroundProcessNames =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -186,6 +216,9 @@ namespace XboxGamingBarHelper.ControllerEmulation
         {
             [FieldOffset(0)]
             public MOUSEINPUT mi;
+
+            [FieldOffset(0)]
+            public KEYBDINPUT ki;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -197,6 +230,39 @@ namespace XboxGamingBarHelper.ControllerEmulation
             public uint dwFlags;
             public uint time;
             public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct KEYBDINPUT
+        {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        private enum LegionUserspaceSource
+        {
+            Y1 = 0,
+            Y2 = 1,
+            Y3 = 2,
+            M1 = 3,
+            M2 = 4,
+            M3 = 5,
+            Desktop = 6,
+            Page = 7,
+        }
+
+        private struct LegionUserspaceRemapEntry
+        {
+            public int Type;
+            public RemapAction GamepadAction;
+            public RemapAction[] GamepadActions;
+            public bool TurboEnabled;
+            public int[] KeyboardKeys;
+            public int MouseButton;
+            public bool Enabled;
         }
 
         [DllImport("xinput1_4.dll", EntryPoint = "XInputGetState")]
@@ -284,6 +350,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             activeInstance = this;
             suppressionManager = new ControllerSuppressionManager();
             settingsManager = inSettingsManager;
+            legionManager = inLegionManager;
 
             var deviceInfo = DeviceDetector.DetectDevice();
             deviceType = deviceInfo?.DeviceType ?? SharedDeviceType.Generic;
@@ -1595,6 +1662,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             ResetMouseRuntimeState();
             ResetStickRuntimeState();
             ResetGyroActivationRuntimeState();
+            ResetLegionUserspaceRemapRuntime();
             physicalXboxUserIndex = null;
             forwardingRunning = true;
             forwardingThread = new Thread(ForwardingThreadProc)
@@ -1624,6 +1692,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             ResetMouseRuntimeState();
             ResetStickRuntimeState();
             ResetGyroActivationRuntimeState();
+            ResetLegionUserspaceRemapRuntime();
 
             if (virtualController != null)
             {
@@ -1888,6 +1957,565 @@ namespace XboxGamingBarHelper.ControllerEmulation
         {
             gyroToggleActive = false;
             lastGyroActivationButtonPressed = false;
+        }
+
+        private void ResetLegionUserspaceRemapRuntime()
+        {
+            // No release path needed while improved Legion userspace remaps are gamepad-only.
+
+            Array.Clear(legionUserspaceRemapPressed, 0, legionUserspaceRemapPressed.Length);
+            Array.Clear(legionUserspaceTurboOutputActive, 0, legionUserspaceTurboOutputActive.Length);
+            Array.Clear(legionUserspaceTurboNextToggleTicksUtc, 0, legionUserspaceTurboNextToggleTicksUtc.Length);
+            Array.Clear(legionUserspaceRemaps, 0, legionUserspaceRemaps.Length);
+            legionUserspaceRemapCacheTicksUtc = 0;
+        }
+
+        private void RefreshLegionUserspaceRemapsIfNeeded()
+        {
+            if (legionManager == null)
+            {
+                return;
+            }
+
+            long nowTicksUtc = DateTime.UtcNow.Ticks;
+            if (legionUserspaceRemapCacheTicksUtc != 0 &&
+                (nowTicksUtc - legionUserspaceRemapCacheTicksUtc) < LegionUserspaceRemapRefreshTicks)
+            {
+                return;
+            }
+
+            legionUserspaceRemapCacheTicksUtc = nowTicksUtc;
+
+            string[] mappings =
+            {
+                legionManager.LegionButtonY1?.Value,
+                legionManager.LegionButtonY2?.Value,
+                legionManager.LegionButtonY3?.Value,
+                legionManager.LegionButtonM1?.Value,
+                legionManager.LegionButtonM2?.Value,
+                legionManager.LegionButtonM3?.Value,
+                legionManager.LegionButtonDesktop?.Value,
+                legionManager.LegionButtonPage?.Value,
+            };
+
+            for (int i = 0; i < legionUserspaceRemaps.Length; i++)
+            {
+                legionUserspaceRemaps[i] = BuildLegionUserspaceRemap(mappings[i]);
+            }
+        }
+
+        private static LegionUserspaceRemapEntry BuildLegionUserspaceRemap(string mappingJson)
+        {
+            var remap = new LegionUserspaceRemapEntry
+            {
+                Type = 0,
+                GamepadAction = RemapAction.Disabled,
+                GamepadActions = Array.Empty<RemapAction>(),
+                TurboEnabled = false,
+                KeyboardKeys = Array.Empty<int>(),
+                MouseButton = 0,
+                Enabled = false,
+            };
+
+            if (string.IsNullOrWhiteSpace(mappingJson))
+            {
+                return remap;
+            }
+
+            ButtonMappingParser.ParsedButtonMapping parsed = ButtonMappingParser.ParseExtended(mappingJson);
+            // Improved Legion userspace remapping intentionally mirrors only gamepad actions.
+            if (parsed.Type != 0)
+            {
+                return remap;
+            }
+
+            var actions = new List<RemapAction>();
+            if (parsed.GamepadActions != null && parsed.GamepadActions.Length > 0)
+            {
+                for (int i = 0; i < parsed.GamepadActions.Length; i++)
+                {
+                    RemapAction mappedAction = RemapActionHelper.GetByIndex(parsed.GamepadActions[i]);
+                    if (!IsXinputRemapAction(mappedAction))
+                    {
+                        continue;
+                    }
+
+                    if (!actions.Contains(mappedAction))
+                    {
+                        actions.Add(mappedAction);
+                    }
+                }
+            }
+
+            if (actions.Count == 0 && parsed.GamepadAction > 0)
+            {
+                RemapAction singleAction = RemapActionHelper.GetByIndex(parsed.GamepadAction);
+                if (IsXinputRemapAction(singleAction))
+                {
+                    actions.Add(singleAction);
+                }
+            }
+
+            if (actions.Count == 0)
+            {
+                return remap;
+            }
+
+            remap.GamepadAction = actions[0];
+            remap.GamepadActions = actions.ToArray();
+            remap.TurboEnabled = parsed.Turbo;
+            remap.Enabled = true;
+            return remap;
+        }
+
+        private static bool IsLegionUserspaceSourcePressed(LegionUserspaceSource source, ushort auxButtons)
+        {
+            switch (source)
+            {
+                case LegionUserspaceSource.Y1:
+                    return (auxButtons & LEGION_AUX_EXTRA_L1) != 0;
+                case LegionUserspaceSource.Y2:
+                    return (auxButtons & LEGION_AUX_EXTRA_L2) != 0;
+                case LegionUserspaceSource.Y3:
+                    return (auxButtons & LEGION_AUX_EXTRA_R1) != 0;
+                case LegionUserspaceSource.M1:
+                    return (auxButtons & LEGION_AUX_EXTRA_RM1) != 0;
+                case LegionUserspaceSource.M2:
+                    // HHD's "m2_to_mute" path is wired to extra_r3.
+                    return (auxButtons & LEGION_AUX_EXTRA_R3) != 0;
+                case LegionUserspaceSource.M3:
+                    return (auxButtons & LEGION_AUX_EXTRA_R2) != 0;
+                case LegionUserspaceSource.Desktop:
+                    return (auxButtons & LEGION_AUX_MODE) != 0;
+                case LegionUserspaceSource.Page:
+                    return (auxButtons & LEGION_AUX_SHARE) != 0;
+                default:
+                    return false;
+            }
+        }
+
+        private void ApplyLegionUserspaceRemaps(LegionGamepadSample sample, ref XINPUT_STATE state)
+        {
+            if (legionManager == null)
+            {
+                return;
+            }
+
+            RefreshLegionUserspaceRemapsIfNeeded();
+
+            ushort auxButtons = sample.AuxButtons;
+            long nowTicksUtc = DateTime.UtcNow.Ticks;
+            for (int i = 0; i < legionUserspaceRemaps.Length; i++)
+            {
+                LegionUserspaceSource source = (LegionUserspaceSource)i;
+                bool pressed = IsLegionUserspaceSourcePressed(source, auxButtons);
+                bool wasPressed = legionUserspaceRemapPressed[i];
+                legionUserspaceRemapPressed[i] = pressed;
+
+                LegionUserspaceRemapEntry remap = legionUserspaceRemaps[i];
+                if (!remap.Enabled)
+                {
+                    legionUserspaceTurboOutputActive[i] = false;
+                    continue;
+                }
+
+                if (!pressed)
+                {
+                    legionUserspaceTurboOutputActive[i] = false;
+                    continue;
+                }
+
+                if (remap.TurboEnabled)
+                {
+                    if (!wasPressed)
+                    {
+                        legionUserspaceTurboOutputActive[i] = true;
+                        legionUserspaceTurboNextToggleTicksUtc[i] = nowTicksUtc + LegionUserspaceTurboIntervalTicks;
+                    }
+                    else if (nowTicksUtc >= legionUserspaceTurboNextToggleTicksUtc[i])
+                    {
+                        legionUserspaceTurboOutputActive[i] = !legionUserspaceTurboOutputActive[i];
+                        legionUserspaceTurboNextToggleTicksUtc[i] = nowTicksUtc + LegionUserspaceTurboIntervalTicks;
+                    }
+
+                    if (!legionUserspaceTurboOutputActive[i])
+                    {
+                        continue;
+                    }
+                }
+
+                RemapAction[] actions = remap.GamepadActions;
+                if (actions == null || actions.Length == 0)
+                {
+                    ApplyGamepadRemapAction(ref state.Gamepad, remap.GamepadAction);
+                    continue;
+                }
+
+                for (int actionIndex = 0; actionIndex < actions.Length; actionIndex++)
+                {
+                    ApplyGamepadRemapAction(ref state.Gamepad, actions[actionIndex]);
+                }
+            }
+        }
+
+        private static bool IsXinputRemapAction(RemapAction action)
+        {
+            switch (action)
+            {
+                case RemapAction.Disabled:
+                case RemapAction.DesktopButton:
+                case RemapAction.PageButton:
+                    return false;
+                default:
+                    return true;
+            }
+        }
+
+        private static void ApplyGamepadRemapAction(ref XINPUT_GAMEPAD gamepad, RemapAction action)
+        {
+            switch (action)
+            {
+                case RemapAction.LeftStickClick:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_LEFT_THUMB;
+                    break;
+                case RemapAction.LeftStickUp:
+                    gamepad.sThumbLY = short.MaxValue;
+                    break;
+                case RemapAction.LeftStickDown:
+                    gamepad.sThumbLY = short.MinValue;
+                    break;
+                case RemapAction.LeftStickLeft:
+                    gamepad.sThumbLX = short.MinValue;
+                    break;
+                case RemapAction.LeftStickRight:
+                    gamepad.sThumbLX = short.MaxValue;
+                    break;
+                case RemapAction.RightStickClick:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_RIGHT_THUMB;
+                    break;
+                case RemapAction.RightStickUp:
+                    gamepad.sThumbRY = short.MaxValue;
+                    break;
+                case RemapAction.RightStickDown:
+                    gamepad.sThumbRY = short.MinValue;
+                    break;
+                case RemapAction.RightStickLeft:
+                    gamepad.sThumbRX = short.MinValue;
+                    break;
+                case RemapAction.RightStickRight:
+                    gamepad.sThumbRX = short.MaxValue;
+                    break;
+                case RemapAction.DpadUp:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_DPAD_UP;
+                    break;
+                case RemapAction.DpadDown:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_DPAD_DOWN;
+                    break;
+                case RemapAction.DpadLeft:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_DPAD_LEFT;
+                    break;
+                case RemapAction.DpadRight:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_DPAD_RIGHT;
+                    break;
+                case RemapAction.A:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_A;
+                    break;
+                case RemapAction.B:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_B;
+                    break;
+                case RemapAction.X:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_X;
+                    break;
+                case RemapAction.Y:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_Y;
+                    break;
+                case RemapAction.LeftBumper:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_LEFT_SHOULDER;
+                    break;
+                case RemapAction.LeftTrigger:
+                    gamepad.bLeftTrigger = byte.MaxValue;
+                    break;
+                case RemapAction.RightBumper:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_RIGHT_SHOULDER;
+                    break;
+                case RemapAction.RightTrigger:
+                    gamepad.bRightTrigger = byte.MaxValue;
+                    break;
+                case RemapAction.View:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_BACK;
+                    break;
+                case RemapAction.Menu:
+                    gamepad.wButtons |= XINPUT_GAMEPAD_START;
+                    break;
+            }
+        }
+
+        private static bool IsModifierHidUsage(int hidUsage)
+        {
+            return hidUsage >= 0xE0 && hidUsage <= 0xE7;
+        }
+
+        private static bool TryConvertHidUsageToVirtualKey(int hidUsage, out ushort vk)
+        {
+            vk = 0;
+
+            if (hidUsage >= 0x04 && hidUsage <= 0x1D)
+            {
+                vk = (ushort)(0x41 + (hidUsage - 0x04));
+                return true;
+            }
+
+            if (hidUsage >= 0x1E && hidUsage <= 0x26)
+            {
+                vk = (ushort)(0x31 + (hidUsage - 0x1E));
+                return true;
+            }
+
+            if (hidUsage == 0x27)
+            {
+                vk = 0x30;
+                return true;
+            }
+
+            if (hidUsage >= 0x3A && hidUsage <= 0x45)
+            {
+                vk = (ushort)(0x70 + (hidUsage - 0x3A));
+                return true;
+            }
+
+            switch (hidUsage)
+            {
+                case 0x28: vk = 0x0D; return true; // Enter
+                case 0x29: vk = 0x1B; return true; // Escape
+                case 0x2A: vk = 0x08; return true; // Backspace
+                case 0x2B: vk = 0x09; return true; // Tab
+                case 0x2C: vk = 0x20; return true; // Space
+                case 0x2D: vk = 0xBD; return true; // -
+                case 0x2E: vk = 0xBB; return true; // =
+                case 0x2F: vk = 0xDB; return true; // [
+                case 0x30: vk = 0xDD; return true; // ]
+                case 0x31: vk = 0xDC; return true; // \
+                case 0x33: vk = 0xBA; return true; // ;
+                case 0x34: vk = 0xDE; return true; // '
+                case 0x35: vk = 0xC0; return true; // `
+                case 0x36: vk = 0xBC; return true; // ,
+                case 0x37: vk = 0xBE; return true; // .
+                case 0x38: vk = 0xBF; return true; // /
+                case 0x39: vk = 0x14; return true; // Caps
+                case 0x46: vk = 0x2C; return true; // PrintScreen
+                case 0x47: vk = 0x91; return true; // Scroll Lock
+                case 0x48: vk = 0x13; return true; // Pause
+                case 0x49: vk = 0x2D; return true; // Insert
+                case 0x4A: vk = 0x24; return true; // Home
+                case 0x4B: vk = 0x21; return true; // Page Up
+                case 0x4C: vk = 0x2E; return true; // Delete
+                case 0x4D: vk = 0x23; return true; // End
+                case 0x4E: vk = 0x22; return true; // Page Down
+                case 0x4F: vk = 0x27; return true; // Right
+                case 0x50: vk = 0x25; return true; // Left
+                case 0x51: vk = 0x28; return true; // Down
+                case 0x52: vk = 0x26; return true; // Up
+                case 0x53: vk = 0x90; return true; // NumLock
+                case 0x54: vk = 0x6F; return true; // Num /
+                case 0x55: vk = 0x6A; return true; // Num *
+                case 0x56: vk = 0x6D; return true; // Num -
+                case 0x57: vk = 0x6B; return true; // Num +
+                case 0x58: vk = 0x0D; return true; // Num Enter
+                case 0x59: vk = 0x61; return true; // Num 1
+                case 0x5A: vk = 0x62; return true; // Num 2
+                case 0x5B: vk = 0x63; return true; // Num 3
+                case 0x5C: vk = 0x64; return true; // Num 4
+                case 0x5D: vk = 0x65; return true; // Num 5
+                case 0x5E: vk = 0x66; return true; // Num 6
+                case 0x5F: vk = 0x67; return true; // Num 7
+                case 0x60: vk = 0x68; return true; // Num 8
+                case 0x61: vk = 0x69; return true; // Num 9
+                case 0x62: vk = 0x60; return true; // Num 0
+                case 0x63: vk = 0x6E; return true; // Num .
+                case 0xE0: vk = 0xA2; return true; // LCtrl
+                case 0xE1: vk = 0xA0; return true; // LShift
+                case 0xE2: vk = 0xA4; return true; // LAlt
+                case 0xE3: vk = 0x5B; return true; // LWin
+                case 0xE4: vk = 0xA3; return true; // RCtrl
+                case 0xE5: vk = 0xA1; return true; // RShift
+                case 0xE6: vk = 0xA5; return true; // RAlt
+                case 0xE7: vk = 0x5C; return true; // RWin
+                default:
+                    return false;
+            }
+        }
+
+        private static bool IsExtendedVirtualKey(ushort vk)
+        {
+            switch (vk)
+            {
+                case 0x21: // PageUp
+                case 0x22: // PageDown
+                case 0x23: // End
+                case 0x24: // Home
+                case 0x25: // Left
+                case 0x26: // Up
+                case 0x27: // Right
+                case 0x28: // Down
+                case 0x2D: // Insert
+                case 0x2E: // Delete
+                case 0x5B: // LWin
+                case 0x5C: // RWin
+                case 0x6F: // Num /
+                case 0xA3: // RCtrl
+                case 0xA5: // RAlt
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private void SendKeyboardMapping(int[] keyboardKeys, bool keyDown)
+        {
+            if (keyboardKeys == null || keyboardKeys.Length == 0)
+            {
+                return;
+            }
+
+            var modifiers = new List<ushort>();
+            var mainKeys = new List<ushort>();
+            var seen = new HashSet<ushort>();
+
+            foreach (int keyCode in keyboardKeys)
+            {
+                if (!TryConvertHidUsageToVirtualKey(keyCode, out ushort vk))
+                {
+                    continue;
+                }
+
+                if (!seen.Add(vk))
+                {
+                    continue;
+                }
+
+                if (IsModifierHidUsage(keyCode))
+                {
+                    modifiers.Add(vk);
+                }
+                else
+                {
+                    mainKeys.Add(vk);
+                }
+            }
+
+            if (keyDown)
+            {
+                for (int i = 0; i < modifiers.Count; i++)
+                {
+                    SendKeyboardVirtualKey(modifiers[i], keyUp: false);
+                }
+
+                for (int i = 0; i < mainKeys.Count; i++)
+                {
+                    SendKeyboardVirtualKey(mainKeys[i], keyUp: false);
+                }
+            }
+            else
+            {
+                for (int i = mainKeys.Count - 1; i >= 0; i--)
+                {
+                    SendKeyboardVirtualKey(mainKeys[i], keyUp: true);
+                }
+
+                for (int i = modifiers.Count - 1; i >= 0; i--)
+                {
+                    SendKeyboardVirtualKey(modifiers[i], keyUp: true);
+                }
+            }
+        }
+
+        private void SendKeyboardVirtualKey(ushort vk, bool keyUp)
+        {
+            uint flags = keyUp ? KEYEVENTF_KEYUP : 0;
+            if (IsExtendedVirtualKey(vk))
+            {
+                flags |= KEYEVENTF_EXTENDEDKEY;
+            }
+
+            keyboardInputBuffer[0] = new INPUT
+            {
+                type = INPUT_KEYBOARD,
+                U = new INPUTUNION
+                {
+                    ki = new KEYBDINPUT
+                    {
+                        wVk = vk,
+                        wScan = 0,
+                        dwFlags = flags,
+                        time = 0,
+                        dwExtraInfo = IntPtr.Zero,
+                    },
+                },
+            };
+
+            SendInput(1, keyboardInputBuffer, MouseInputStructSize);
+        }
+
+        private void SendMouseMapping(int mouseButton, bool pressed)
+        {
+            switch (mouseButton)
+            {
+                case 1:
+                    SendMouseButtonEvent(pressed ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP, 0);
+                    break;
+                case 2:
+                    SendMouseButtonEvent(pressed ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP, 0);
+                    break;
+                case 3:
+                    SendMouseButtonEvent(pressed ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP, 0);
+                    break;
+                case 4:
+                    if (pressed)
+                    {
+                        SendMouseButtonEvent(MOUSEEVENTF_WHEEL, MouseWheelDelta);
+                    }
+                    break;
+                case 5:
+                    if (pressed)
+                    {
+                        SendMouseButtonEvent(MOUSEEVENTF_WHEEL, -MouseWheelDelta);
+                    }
+                    break;
+                case 6:
+                    if (pressed)
+                    {
+                        SendMouseButtonEvent(MOUSEEVENTF_HWHEEL, -MouseWheelDelta);
+                    }
+                    break;
+                case 7:
+                    if (pressed)
+                    {
+                        SendMouseButtonEvent(MOUSEEVENTF_HWHEEL, MouseWheelDelta);
+                    }
+                    break;
+            }
+        }
+
+        private void SendMouseButtonEvent(uint flags, int mouseData)
+        {
+            mouseButtonInputBuffer[0] = new INPUT
+            {
+                type = INPUT_MOUSE,
+                U = new INPUTUNION
+                {
+                    mi = new MOUSEINPUT
+                    {
+                        dx = 0,
+                        dy = 0,
+                        mouseData = unchecked((uint)mouseData),
+                        dwFlags = flags,
+                        time = 0,
+                        dwExtraInfo = IntPtr.Zero,
+                    },
+                },
+            };
+
+            SendInput(1, mouseButtonInputBuffer, MouseInputStructSize);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -3117,6 +3745,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
             state.Gamepad.sThumbLY = sample.LeftStickY;
             state.Gamepad.sThumbRX = sample.RightStickX;
             state.Gamepad.sThumbRY = sample.RightStickY;
+
+            ApplyLegionUserspaceRemaps(sample, ref state);
             return true;
         }
 
