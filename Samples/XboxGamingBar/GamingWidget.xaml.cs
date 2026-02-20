@@ -1347,6 +1347,7 @@ namespace XboxGamingBar
             controllerEmulationEnabled = new ControllerEmulationEnabledProperty(ControllerEmulationEnabledToggle, this);
             controllerEmulationHideStockController = new ControllerEmulationHideStockControllerProperty(ControllerEmulationHideStockControllerToggle, this);
             controllerEmulationImprovedInput = new ControllerEmulationImprovedInputProperty(ControllerEmulationImprovedInputToggle, this);
+            controllerEmulationImprovedInput.PropertyChanged += ControllerEmulationImprovedInput_PropertyChanged;
             controllerEmulationHideTarget = new ControllerEmulationHideTargetProperty(ControllerEmulationHideTargetComboBox, this);
             controllerEmulationGyroSource = new ControllerEmulationGyroSourceProperty(ControllerEmulationGyroSourceComboBox, this);
             controllerEmulationMode = new ControllerEmulationModeProperty(ControllerEmulationModeComboBox, this);
@@ -5252,6 +5253,11 @@ namespace XboxGamingBar
             {
                 // E70D = ChevronDown, E70E = ChevronUp
                 ButtonRemappingExpandIcon.Glyph = isButtonRemappingExpanded ? "\uE70E" : "\uE70D";
+            }
+
+            if (isButtonRemappingExpanded)
+            {
+                RefreshLegionEnhancedRemapUi();
             }
         }
 
@@ -11723,7 +11729,9 @@ namespace XboxGamingBar
 
         private bool IsImprovedButtonComboUiEnabled()
         {
-            return ControllerEmulationEnabledToggle?.IsOn == true &&
+            // The enhanced remap editor is gated by "Improved Input" itself.
+            // Do not require controller emulation runtime toggle to be ON just to edit mappings.
+            return controllerEmulationImprovedInput?.Value == true ||
                    ControllerEmulationImprovedInputToggle?.IsOn == true;
         }
 
@@ -12802,6 +12810,11 @@ namespace XboxGamingBar
 
                 // Send lighting settings to helper
                 SendLightingToHelper(profile);
+
+                // Re-evaluate enhanced remap UI after profile/UI values settle.
+                // This avoids startup ordering issues where improved input state arrives
+                // after initial profile controls are populated.
+                RefreshLegionEnhancedRemapUi();
             }
             finally
             {
@@ -15276,6 +15289,8 @@ namespace XboxGamingBar
                         }
                         // Request ViGEmBus status for button remap section
                         RequestViGEmBusStatus();
+                        // Force remap UI refresh when Legion tab becomes active.
+                        RefreshLegionEnhancedRemapUi();
                         break;
                     case "GPD":
                         GPDScrollViewer.Visibility = Visibility.Visible;
@@ -15771,6 +15786,7 @@ namespace XboxGamingBar
                     // Update profile display now that legionGoDetected has been synced from helper
                     // This ensures TDP Mode shows in Profiles tab on fresh start
                     UpdateProfileDisplay();
+                    RefreshLegionEnhancedRemapUi();
                     Logger.Info("Profile display updated after sync - legionGoDetected=" + (legionGoDetected?.Value.ToString() ?? "null"));
 
                     // Clear initial sync flag - profile is loaded and applied, user changes should now save
@@ -17703,6 +17719,7 @@ namespace XboxGamingBar
 
                     Logger.Info("[PIPE] Inside dispatcher - calling UpdateProfileDisplay()");
                     UpdateProfileDisplay();
+                    RefreshLegionEnhancedRemapUi();
                     Logger.Info("[PIPE] Inside dispatcher - post-sync UI updates complete");
                 });
                 Logger.Info("[PIPE] Post-sync initialization complete");
@@ -18378,6 +18395,11 @@ namespace XboxGamingBar
             {
                 ControllerRemappingSection.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
                 Logger.Info($"Controller Remapping section visibility set to: {visible}");
+
+                if (visible)
+                {
+                    RefreshLegionEnhancedRemapUi();
+                }
             }
         }
 
@@ -18551,6 +18573,7 @@ namespace XboxGamingBar
             UpdateControllerEmulationStatusText();
             Logger.Info($"Controller emulation availability set to: {available}");
             UpdateControllerEmulationMouseSettingsVisibility();
+            RefreshLegionEnhancedRemapUi();
             UpdateSystemControllerEmulationNavigation();
 
             if (available)
@@ -18665,6 +18688,18 @@ namespace XboxGamingBar
                 ControllerEmulationStickOnlyJoystickToggle.IsEnabled = stickControlsEnabled;
             if (ControllerEmulationVirtualAbxyLayoutComboBox != null)
                 ControllerEmulationVirtualAbxyLayoutComboBox.IsEnabled = stickControlsEnabled;
+
+            // Keep Legion remap advanced controls aligned with current emulation toggles
+            // even when startup/property sync order suppresses Toggle events.
+            RefreshLegionEnhancedRemapUi();
+        }
+
+        private void RefreshLegionEnhancedRemapUi()
+        {
+            foreach (string buttonName in LegionRemapButtonNames)
+            {
+                UpdateButtonGamepadComboControls(buttonName);
+            }
         }
 
         private void UpdateControllerEmulationStatusText()
@@ -18699,18 +18734,25 @@ namespace XboxGamingBar
             UpdateControllerEmulationStatusText();
             UpdateControllerEmulationMouseSettingsVisibility();
             UpdateSystemControllerEmulationNavigation();
-
-            foreach (string buttonName in LegionRemapButtonNames)
-            {
-                UpdateButtonGamepadComboControls(buttonName);
-            }
         }
 
         private void ControllerEmulationImprovedInputToggle_Toggled(object sender, RoutedEventArgs e)
         {
-            foreach (string buttonName in LegionRemapButtonNames)
+            RefreshLegionEnhancedRemapUi();
+        }
+
+        private async void ControllerEmulationImprovedInput_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (Dispatcher != null)
             {
-                UpdateButtonGamepadComboControls(buttonName);
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    RefreshLegionEnhancedRemapUi();
+                });
+            }
+            else
+            {
+                RefreshLegionEnhancedRemapUi();
             }
         }
 

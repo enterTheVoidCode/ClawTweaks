@@ -3628,15 +3628,9 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     lastRumbleDispatchTicksUtc = nowTicksUtc;
                 }
 
-                // Always prefer forwarding rumble to the physical hidden controller.
-                // For DS4 modes specifically, do not route via Legion EC fallback.
-                bool isDs4Mode = mode == 2 || mode == 3;
+                // Always forward rumble to the physical controller path only.
+                // Do not mutate Legion EC vibration level from emulation runtime.
                 bool forwarded = TryForwardPhysicalXInputRumble(largeMotor, smallMotor);
-                if (!forwarded && !isDs4Mode)
-                {
-                    // Legion EC vibration-level writes are a coarse fallback.
-                    forwarded = TryForwardLegionRumble(largeMotor, smallMotor, nowTicksUtc);
-                }
 
                 if (!forwarded && (largeMotor > 0 || smallMotor > 0))
                 {
@@ -3896,11 +3890,6 @@ namespace XboxGamingBarHelper.ControllerEmulation
             lastLegionRumbleSetTicksUtc = 0;
 
             TryForwardPhysicalXInputRumble(0, 0);
-            if (legionManager != null &&
-                (deviceType == SharedDeviceType.LegionGo || deviceType == SharedDeviceType.LegionGo2 || deviceType == SharedDeviceType.LegionGoS))
-            {
-                legionManager.SetVibration(0);
-            }
         }
 
         private int? DiscoverPreferredPhysicalXboxIndex(int? excludedIndex)
