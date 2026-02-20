@@ -3929,13 +3929,39 @@
                                               Width="180"
                                               Style="{StaticResource ModernComboBoxStyle}"
                                               XYFocusUp="{x:Bind ControllerEmulationGyroSourceComboBox}"
-                                              XYFocusDown="{x:Bind ControllerEmulationGyroActivationModeComboBox}"
+                                              XYFocusDown="{x:Bind ControllerEmulationRumbleProfileComboBox}"
                                               IsEnabled="False"
                                               SelectionChanged="ControllerEmulationModeComboBox_SelectionChanged">
                                         <ComboBoxItem Content="Mouse" Tag="0" IsSelected="True"/>
                                         <ComboBoxItem Content="Xbox (Stick)" Tag="1"/>
                                         <ComboBoxItem Content="PS4 (Motion)" Tag="2"/>
                                         <ComboBoxItem Content="PS4 (Stick)" Tag="3"/>
+                                    </ComboBox>
+                                </Grid>
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Rumble Profile" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Tune vibration response for virtual gamepad rumble"
+                                                   FontSize="11"
+                                                   Foreground="#888888"/>
+                                    </StackPanel>
+                                    <ComboBox x:Name="ControllerEmulationRumbleProfileComboBox"
+                                              Grid.Column="1"
+                                              Width="180"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              XYFocusUp="{x:Bind ControllerEmulationModeComboBox}"
+                                              XYFocusDown="{x:Bind ControllerEmulationGyroActivationModeComboBox}"
+                                              IsEnabled="False">
+                                        <ComboBoxItem Content="Balanced" Tag="0" IsSelected="True"/>
+                                        <ComboBoxItem Content="Sharp" Tag="1"/>
+                                        <ComboBoxItem Content="Soft" Tag="2"/>
+                                        <ComboBoxItem Content="Impact" Tag="3"/>
+                                        <ComboBoxItem Content="Boosted" Tag="4"/>
                                     </ComboBox>
                                 </Grid>
 
@@ -3954,7 +3980,7 @@
                                               Grid.Column="1"
                                               Width="180"
                                               Style="{StaticResource ModernComboBoxStyle}"
-                                              XYFocusUp="{x:Bind ControllerEmulationModeComboBox}"
+                                              XYFocusUp="{x:Bind ControllerEmulationRumbleProfileComboBox}"
                                               XYFocusDown="{x:Bind ControllerEmulationGyroActivationButtonComboBox}"
                                               IsEnabled="False"
                                               SelectionChanged="ControllerEmulationGyroActivationModeComboBox_SelectionChanged">

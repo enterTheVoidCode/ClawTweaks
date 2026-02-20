@@ -35,6 +35,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private bool enabled;
         private int gyroSource;
         private int mode;
+        private int rumbleProfile;
         private int gyroActivationMode;
         private int gyroActivationButton;
         private int ds4Orientation;
@@ -78,9 +79,15 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private int nonGameBarForegroundConsecutiveTicks;
         private readonly HashSet<string> virtualXboxBridgeDeviceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly object virtualControllerSync = new object();
+        private readonly object rumbleSync = new object();
         private readonly uint[] lastPacketByController = new uint[4];
         private long lastLegionHidSampleTimestampTicksUtc;
         private uint legionHidPacketNumber;
+        private byte lastRumbleLargeMotor;
+        private byte lastRumbleSmallMotor;
+        private long lastRumbleDispatchTicksUtc;
+        private int lastLegionRumbleLevel = -1;
+        private long lastLegionRumbleSetTicksUtc;
         private float mouseCarryX;
         private float mouseCarryY;
         private float mouseFilteredHorizontal;
@@ -127,6 +134,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private const float Ds4TouchMaxX = 1919.0f;
         private const float Ds4TouchMaxY = 943.0f;
         private const long LegionHidSampleMaxAgeTicks = TimeSpan.TicksPerSecond / 2; // 500ms
+        private const long RumbleDispatchMinTicks = TimeSpan.TicksPerMillisecond * 4; // 250Hz max
+        private const long LegionRumbleFallbackMinTicks = TimeSpan.TicksPerMillisecond * 350; // Coarse firmware fallback; avoid frequent EC rumble bursts
         private const int GameBarForegroundStableTicks = 1;
         private const int GameBarBackgroundStableTicks = 2;
         private const int GuideSuppressionPauseSeconds = 25;
@@ -205,6 +214,13 @@ namespace XboxGamingBarHelper.ControllerEmulation
         }
 
         [StructLayout(LayoutKind.Sequential)]
+        private struct XINPUT_VIBRATION
+        {
+            public ushort wLeftMotorSpeed;
+            public ushort wRightMotorSpeed;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
         private struct INPUT
         {
             public uint type;
@@ -271,11 +287,19 @@ namespace XboxGamingBarHelper.ControllerEmulation
         [DllImport("xinput9_1_0.dll", EntryPoint = "XInputGetState")]
         private static extern uint XInputGetState910(uint dwUserIndex, ref XINPUT_STATE pState);
 
+        [DllImport("xinput1_4.dll", EntryPoint = "XInputSetState")]
+        private static extern uint XInputSetState14(uint dwUserIndex, ref XINPUT_VIBRATION pVibration);
+
+        [DllImport("xinput9_1_0.dll", EntryPoint = "XInputSetState")]
+        private static extern uint XInputSetState910(uint dwUserIndex, ref XINPUT_VIBRATION pVibration);
+
         [DllImport("user32.dll", SetLastError = false)]
         private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
         private delegate uint XInputGetStateDelegate(uint dwUserIndex, ref XINPUT_STATE pState);
+        private delegate uint XInputSetStateDelegate(uint dwUserIndex, ref XINPUT_VIBRATION pVibration);
         private static XInputGetStateDelegate xInputGetState;
+        private static XInputSetStateDelegate xInputSetState;
 
         public readonly ControllerEmulationAvailableProperty ControllerEmulationAvailable;
         public readonly ControllerEmulationEnabledProperty ControllerEmulationEnabled;
@@ -284,6 +308,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
         public readonly ControllerEmulationHideTargetProperty ControllerEmulationHideTarget;
         public readonly ControllerEmulationGyroSourceProperty ControllerEmulationGyroSource;
         public readonly ControllerEmulationModeProperty ControllerEmulationMode;
+        public readonly ControllerEmulationRumbleProfileProperty ControllerEmulationRumbleProfile;
         public readonly ControllerEmulationGyroActivationModeProperty ControllerEmulationGyroActivationMode;
         public readonly ControllerEmulationGyroActivationButtonProperty ControllerEmulationGyroActivationButton;
         public readonly ControllerEmulationDs4OrientationProperty ControllerEmulationDs4Orientation;
@@ -319,6 +344,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 yield return ControllerEmulationHideTarget;
                 yield return ControllerEmulationGyroSource;
                 yield return ControllerEmulationMode;
+                yield return ControllerEmulationRumbleProfile;
                 yield return ControllerEmulationGyroActivationMode;
                 yield return ControllerEmulationGyroActivationButton;
                 yield return ControllerEmulationDs4Orientation;
@@ -365,6 +391,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             ControllerEmulationHideTarget = new ControllerEmulationHideTargetProperty(hideTarget, this);
             ControllerEmulationGyroSource = new ControllerEmulationGyroSourceProperty(gyroSource, this);
             ControllerEmulationMode = new ControllerEmulationModeProperty(mode, this);
+            ControllerEmulationRumbleProfile = new ControllerEmulationRumbleProfileProperty(rumbleProfile, this);
             ControllerEmulationGyroActivationMode = new ControllerEmulationGyroActivationModeProperty(gyroActivationMode, this);
             ControllerEmulationGyroActivationButton = new ControllerEmulationGyroActivationButtonProperty(gyroActivationButton, this);
             ControllerEmulationDs4Orientation = new ControllerEmulationDs4OrientationProperty(ds4Orientation, this);
@@ -391,7 +418,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
             SubscribeForegroundSignal();
 
-            Logger.Info($"ControllerEmulationManager initialized. DeviceType={deviceType}, Supported={isSupported}, Enabled={enabled}, HideStockController={hideStockController}, HideTarget={hideTarget}, ImprovedInput={improvedInputRead}, GyroSource={gyroSource}, Mode={mode}, GyroActivationMode={gyroActivationMode}, GyroActivationButton={gyroActivationButton}, Ds4Orientation={ds4Orientation}, Ps4TouchpadEnabled={ps4TouchpadEnabled}");
+            Logger.Info($"ControllerEmulationManager initialized. DeviceType={deviceType}, Supported={isSupported}, Enabled={enabled}, HideStockController={hideStockController}, HideTarget={hideTarget}, ImprovedInput={improvedInputRead}, GyroSource={gyroSource}, Mode={mode}, RumbleProfile={rumbleProfile}, GyroActivationMode={gyroActivationMode}, GyroActivationButton={gyroActivationButton}, Ds4Orientation={ds4Orientation}, Ps4TouchpadEnabled={ps4TouchpadEnabled}");
 
             // Apply persisted settings on startup when supported.
             ApplyCurrentConfiguration("startup");
@@ -497,6 +524,19 @@ namespace XboxGamingBarHelper.ControllerEmulation
             mode = normalized;
             SaveSettings();
             ApplyCurrentConfiguration("mode changed");
+        }
+
+        public void SetRumbleProfile(int value)
+        {
+            int normalized = NormalizeRumbleProfile(value);
+            if (rumbleProfile == normalized)
+            {
+                return;
+            }
+
+            rumbleProfile = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation rumble profile set to {rumbleProfile}");
         }
 
         public void SetGyroActivationMode(int value)
@@ -876,6 +916,21 @@ namespace XboxGamingBarHelper.ControllerEmulation
             return inMode;
         }
 
+        private static int NormalizeRumbleProfile(int value)
+        {
+            if (value < 0)
+            {
+                return 0;
+            }
+
+            if (value > 4)
+            {
+                return 4;
+            }
+
+            return value;
+        }
+
         private static int NormalizeHideTarget(int value)
         {
             if (value < 0)
@@ -1140,6 +1195,15 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     mode = 0;
                 }
 
+                if (LocalSettingsHelper.TryGetValue("ControllerEmulationRumbleProfile", out int savedRumbleProfile))
+                {
+                    rumbleProfile = NormalizeRumbleProfile(savedRumbleProfile);
+                }
+                else
+                {
+                    rumbleProfile = 0;
+                }
+
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationGyroActivationMode", out int savedGyroActivationMode))
                 {
                     gyroActivationMode = NormalizeGyroActivationMode(savedGyroActivationMode);
@@ -1356,6 +1420,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 hideTarget = 0;
                 gyroSource = 0;
                 mode = 0;
+                rumbleProfile = 0;
                 gyroActivationMode = 0;
                 gyroActivationButton = 1;
                 ds4Orientation = 0;
@@ -1392,6 +1457,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 LocalSettingsHelper.SetValue("ControllerEmulationHideTarget", hideTarget);
                 LocalSettingsHelper.SetValue("ControllerEmulationGyroSource", gyroSource);
                 LocalSettingsHelper.SetValue("ControllerEmulationMode", mode);
+                LocalSettingsHelper.SetValue("ControllerEmulationRumbleProfile", rumbleProfile);
                 LocalSettingsHelper.SetValue("ControllerEmulationGyroActivationMode", gyroActivationMode);
                 LocalSettingsHelper.SetValue("ControllerEmulationGyroActivationButton", gyroActivationButton);
                 LocalSettingsHelper.SetValue("ControllerEmulationDs4Orientation", ds4Orientation);
@@ -1464,11 +1530,11 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
             if (backendApplied || forwardingApplied)
             {
-                Logger.Info($"Controller emulation applied ({reason}): source={gyroSource}, mode={mode}, gyroActivationMode={gyroActivationMode}, gyroActivationButton={gyroActivationButton}, ds4Orientation={ds4Orientation}, ps4TouchpadEnabled={ps4TouchpadEnabled}, hideStockController={hideStockController}, hideTarget={hideTarget}, improvedInput={improvedInputRead}, device={deviceType}, backend={backendApplied}, forwarding={forwardingApplied}");
+                Logger.Info($"Controller emulation applied ({reason}): source={gyroSource}, mode={mode}, rumbleProfile={rumbleProfile}, gyroActivationMode={gyroActivationMode}, gyroActivationButton={gyroActivationButton}, ds4Orientation={ds4Orientation}, ps4TouchpadEnabled={ps4TouchpadEnabled}, hideStockController={hideStockController}, hideTarget={hideTarget}, improvedInput={improvedInputRead}, device={deviceType}, backend={backendApplied}, forwarding={forwardingApplied}");
             }
             else
             {
-                Logger.Warn($"Controller emulation apply not completed ({reason}): source={gyroSource}, mode={mode}, gyroActivationMode={gyroActivationMode}, gyroActivationButton={gyroActivationButton}, ds4Orientation={ds4Orientation}, ps4TouchpadEnabled={ps4TouchpadEnabled}, hideStockController={hideStockController}, hideTarget={hideTarget}, improvedInput={improvedInputRead}, device={deviceType}, backend={backendApplied}, forwarding={forwardingApplied}");
+                Logger.Warn($"Controller emulation apply not completed ({reason}): source={gyroSource}, mode={mode}, rumbleProfile={rumbleProfile}, gyroActivationMode={gyroActivationMode}, gyroActivationButton={gyroActivationButton}, ds4Orientation={ds4Orientation}, ps4TouchpadEnabled={ps4TouchpadEnabled}, hideStockController={hideStockController}, hideTarget={hideTarget}, improvedInput={improvedInputRead}, device={deviceType}, backend={backendApplied}, forwarding={forwardingApplied}");
             }
         }
 
@@ -1517,6 +1583,9 @@ namespace XboxGamingBarHelper.ControllerEmulation
             {
                 virtualController = new ViGEmController();
             }
+
+            virtualController.RumbleReceived -= OnVirtualControllerRumbleReceived;
+            virtualController.RumbleReceived += OnVirtualControllerRumbleReceived;
 
             if (!virtualController.EnsureConnected(targetType))
             {
@@ -1620,7 +1689,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
         private bool EnsureXInputLoaded()
         {
-            if (xInputGetState != null)
+            if (xInputGetState != null && xInputSetState != null)
             {
                 return true;
             }
@@ -1630,6 +1699,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 var state = new XINPUT_STATE();
                 XInputGetState14(0, ref state);
                 xInputGetState = XInputGetState14;
+                xInputSetState = XInputSetState14;
                 Logger.Info("Controller emulation using xinput1_4.dll");
                 return true;
             }
@@ -1640,6 +1710,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     var state = new XINPUT_STATE();
                     XInputGetState910(0, ref state);
                     xInputGetState = XInputGetState910;
+                    xInputSetState = XInputSetState910;
                     Logger.Info("Controller emulation using xinput9_1_0.dll");
                     return true;
                 }
@@ -1647,6 +1718,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 {
                     Logger.Error($"Controller emulation failed to load XInput: {ex.Message}");
                     xInputGetState = null;
+                    xInputSetState = null;
                     return false;
                 }
             }
@@ -1698,6 +1770,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             {
                 try
                 {
+                    virtualController.RumbleReceived -= OnVirtualControllerRumbleReceived;
                     virtualController.Dispose();
                 }
                 catch
@@ -1711,6 +1784,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
             {
                 DisableSuppression();
             }
+
+            StopForwardedRumble();
             StopGyroSourceAdapter();
         }
 
@@ -3525,6 +3600,306 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     touchActive,
                     touchX,
                     touchY);
+            }
+        }
+
+        private void OnVirtualControllerRumbleReceived(byte largeMotor, byte smallMotor)
+        {
+            try
+            {
+                if (!enabled || !RequiresVirtualGamepad(mode))
+                {
+                    return;
+                }
+
+                ApplyRumbleProfile(ref largeMotor, ref smallMotor);
+
+                long nowTicksUtc = DateTime.UtcNow.Ticks;
+                lock (rumbleSync)
+                {
+                    bool unchanged = largeMotor == lastRumbleLargeMotor && smallMotor == lastRumbleSmallMotor;
+                    if (unchanged && (nowTicksUtc - lastRumbleDispatchTicksUtc) < RumbleDispatchMinTicks)
+                    {
+                        return;
+                    }
+
+                    lastRumbleLargeMotor = largeMotor;
+                    lastRumbleSmallMotor = smallMotor;
+                    lastRumbleDispatchTicksUtc = nowTicksUtc;
+                }
+
+                // Always prefer forwarding rumble to the physical hidden controller.
+                // For DS4 modes specifically, do not route via Legion EC fallback.
+                bool isDs4Mode = mode == 2 || mode == 3;
+                bool forwarded = TryForwardPhysicalXInputRumble(largeMotor, smallMotor);
+                if (!forwarded && !isDs4Mode)
+                {
+                    // Legion EC vibration-level writes are a coarse fallback.
+                    forwarded = TryForwardLegionRumble(largeMotor, smallMotor, nowTicksUtc);
+                }
+
+                if (!forwarded && (largeMotor > 0 || smallMotor > 0))
+                {
+                    Logger.Debug($"Controller emulation rumble dropped (large={largeMotor}, small={smallMotor})");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Controller emulation rumble handling failed: {ex.Message}");
+            }
+        }
+
+        private void ApplyRumbleProfile(ref byte largeMotor, ref byte smallMotor)
+        {
+            switch (rumbleProfile)
+            {
+                case 1:
+                    // Sharp: suppress tiny noise and bias toward distinct punchier pulses.
+                    largeMotor = ApplySharpRumbleCurve(largeMotor);
+                    smallMotor = ApplySharpRumbleCurve(smallMotor);
+                    break;
+                case 2:
+                    // Soft: keep low/mid detail but cap peak harshness.
+                    largeMotor = ApplySoftRumbleCurve(largeMotor);
+                    smallMotor = ApplySoftRumbleCurve(smallMotor);
+                    break;
+                case 3:
+                    // Impact: heavily suppress background buzz and preserve strong hit peaks.
+                    largeMotor = ApplyImpactRumbleCurve(largeMotor);
+                    smallMotor = ApplyImpactRumbleCurve(smallMotor);
+                    break;
+                case 4:
+                    // Boosted: raise low/mid output for weaker motors while keeping a top-end cap.
+                    largeMotor = ApplyBoostedRumbleCurve(largeMotor);
+                    smallMotor = ApplyBoostedRumbleCurve(smallMotor);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private static byte ApplySharpRumbleCurve(byte value)
+        {
+            if (value < 18)
+            {
+                return 0;
+            }
+
+            double normalized = (value - 18.0) / (255.0 - 18.0);
+            double curved = Math.Pow(normalized, 1.45);
+            int mapped = (int)Math.Round(curved * 255.0);
+            if (mapped < 0)
+            {
+                mapped = 0;
+            }
+            else if (mapped > 255)
+            {
+                mapped = 255;
+            }
+
+            return (byte)mapped;
+        }
+
+        private static byte ApplySoftRumbleCurve(byte value)
+        {
+            if (value == 0)
+            {
+                return 0;
+            }
+
+            double normalized = value / 255.0;
+            double curved = Math.Pow(normalized, 0.85) * 0.82;
+            int mapped = (int)Math.Round(curved * 255.0);
+            if (mapped < 0)
+            {
+                mapped = 0;
+            }
+            else if (mapped > 255)
+            {
+                mapped = 255;
+            }
+
+            return (byte)mapped;
+        }
+
+        private static byte ApplyImpactRumbleCurve(byte value)
+        {
+            if (value < 20)
+            {
+                return 0;
+            }
+
+            double normalized = (value - 20.0) / (255.0 - 20.0);
+            double curved = Math.Pow(normalized, 1.60);
+            int mapped = (int)Math.Round(curved * 255.0);
+            if (mapped < 0)
+            {
+                mapped = 0;
+            }
+            else if (mapped > 255)
+            {
+                mapped = 255;
+            }
+
+            return (byte)mapped;
+        }
+
+        private static byte ApplyBoostedRumbleCurve(byte value)
+        {
+            if (value == 0)
+            {
+                return 0;
+            }
+
+            double normalized = value / 255.0;
+            double curved = Math.Pow(normalized, 0.62) * 0.95;
+            int mapped = (int)Math.Round(curved * 255.0);
+            if (mapped < 0)
+            {
+                mapped = 0;
+            }
+            else if (mapped > 255)
+            {
+                mapped = 255;
+            }
+
+            return (byte)mapped;
+        }
+
+        private bool TryForwardPhysicalXInputRumble(byte largeMotor, byte smallMotor)
+        {
+            if (!EnsureXInputLoaded() || xInputSetState == null)
+            {
+                return false;
+            }
+
+            int? targetIndex = physicalXboxUserIndex;
+            if (!targetIndex.HasValue)
+            {
+                if (mode == 1 && !virtualXboxUserIndex.HasValue)
+                {
+                    // Avoid sending to virtual slot while ViGEm user index is unresolved.
+                    return false;
+                }
+
+                targetIndex = DiscoverPreferredPhysicalXboxIndex(virtualXboxUserIndex);
+                if (targetIndex.HasValue)
+                {
+                    physicalXboxUserIndex = targetIndex;
+                }
+            }
+
+            if (!targetIndex.HasValue)
+            {
+                return false;
+            }
+
+            if (virtualXboxUserIndex.HasValue && targetIndex.Value == virtualXboxUserIndex.Value)
+            {
+                return false;
+            }
+
+            var vibration = new XINPUT_VIBRATION
+            {
+                wLeftMotorSpeed = (ushort)(largeMotor * 257),
+                wRightMotorSpeed = (ushort)(smallMotor * 257),
+            };
+
+            uint result;
+            try
+            {
+                result = xInputSetState((uint)targetIndex.Value, ref vibration);
+            }
+            catch
+            {
+                xInputSetState = null;
+                return false;
+            }
+
+            if (result == ERROR_SUCCESS)
+            {
+                return true;
+            }
+
+            physicalXboxUserIndex = null;
+            return false;
+        }
+
+        private bool TryForwardLegionRumble(byte largeMotor, byte smallMotor, long nowTicksUtc)
+        {
+            if (legionManager == null)
+            {
+                return false;
+            }
+
+            if (deviceType != SharedDeviceType.LegionGo &&
+                deviceType != SharedDeviceType.LegionGo2 &&
+                deviceType != SharedDeviceType.LegionGoS)
+            {
+                return false;
+            }
+
+            int level = MapRumbleToLegionLevel(Math.Max(largeMotor, smallMotor));
+            if (level == lastLegionRumbleLevel)
+            {
+                return true;
+            }
+
+            // Legion EC vibration level changes can trigger a noticeable pulse.
+            // In fallback mode, avoid rapid non-zero level churn.
+            if (level != 0 &&
+                lastLegionRumbleLevel > 0 &&
+                (nowTicksUtc - lastLegionRumbleSetTicksUtc) < LegionRumbleFallbackMinTicks)
+            {
+                return true;
+            }
+
+            if (!legionManager.TrySetVibration(level))
+            {
+                return false;
+            }
+            lastLegionRumbleLevel = level;
+            lastLegionRumbleSetTicksUtc = nowTicksUtc;
+            return true;
+        }
+
+        private static int MapRumbleToLegionLevel(byte magnitude)
+        {
+            if (magnitude == 0)
+            {
+                return 0;
+            }
+
+            if (magnitude < 86)
+            {
+                return 1;
+            }
+
+            if (magnitude < 171)
+            {
+                return 2;
+            }
+
+            return 3;
+        }
+
+        private void StopForwardedRumble()
+        {
+            lock (rumbleSync)
+            {
+                lastRumbleLargeMotor = 0;
+                lastRumbleSmallMotor = 0;
+                lastRumbleDispatchTicksUtc = 0;
+            }
+
+            lastLegionRumbleLevel = -1;
+            lastLegionRumbleSetTicksUtc = 0;
+
+            TryForwardPhysicalXInputRumble(0, 0);
+            if (legionManager != null &&
+                (deviceType == SharedDeviceType.LegionGo || deviceType == SharedDeviceType.LegionGo2 || deviceType == SharedDeviceType.LegionGoS))
+            {
+                legionManager.SetVibration(0);
             }
         }
 

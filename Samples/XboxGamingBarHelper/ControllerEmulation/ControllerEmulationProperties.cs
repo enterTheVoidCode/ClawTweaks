@@ -114,6 +114,23 @@ namespace XboxGamingBarHelper.ControllerEmulation
         }
     }
 
+    internal class ControllerEmulationRumbleProfileProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationRumbleProfileProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationRumbleProfile, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationRumbleProfile changed to {Value}");
+            Manager?.SetRumbleProfile(Value);
+        }
+    }
+
     internal class ControllerEmulationGyroActivationModeProperty : HelperProperty<int, ControllerEmulationManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();

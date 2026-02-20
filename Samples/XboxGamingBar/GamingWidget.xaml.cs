@@ -865,6 +865,8 @@ namespace XboxGamingBar
         // GPD properties
         private readonly GPDDetectedProperty gpdDetected;
         private readonly GPDWin5ConnectedProperty gpdWin5Connected;
+        private readonly GPDWin5HidDebugProperty gpdWin5HidDebug;
+        private readonly GPDWin5HidDevicesProperty gpdWin5HidDevices;
         private readonly GPDDeviceNameProperty gpdDeviceName;
         private readonly GPDSupportsFanControlProperty gpdSupportsFanControl;
         private readonly GPDFanSpeedProperty gpdFanSpeed;
@@ -893,6 +895,7 @@ namespace XboxGamingBar
         private readonly ControllerEmulationHideTargetProperty controllerEmulationHideTarget;
         private readonly ControllerEmulationGyroSourceProperty controllerEmulationGyroSource;
         private readonly ControllerEmulationModeProperty controllerEmulationMode;
+        private readonly ControllerEmulationRumbleProfileProperty controllerEmulationRumbleProfile;
         private readonly ControllerEmulationGyroActivationModeProperty controllerEmulationGyroActivationMode;
         private readonly ControllerEmulationGyroActivationButtonProperty controllerEmulationGyroActivationButton;
         private readonly ControllerEmulationDs4OrientationProperty controllerEmulationDs4Orientation;
@@ -1317,6 +1320,8 @@ namespace XboxGamingBar
             // GPD properties
             gpdDetected = new GPDDetectedProperty(this);
             gpdWin5Connected = new GPDWin5ConnectedProperty(this);
+            gpdWin5HidDebug = new GPDWin5HidDebugProperty();
+            gpdWin5HidDevices = new GPDWin5HidDevicesProperty(this);
             gpdDeviceName = new GPDDeviceNameProperty(this);
             gpdSupportsFanControl = new GPDSupportsFanControlProperty(this);
             gpdFanSpeed = new GPDFanSpeedProperty(this);
@@ -1345,6 +1350,7 @@ namespace XboxGamingBar
             controllerEmulationHideTarget = new ControllerEmulationHideTargetProperty(ControllerEmulationHideTargetComboBox, this);
             controllerEmulationGyroSource = new ControllerEmulationGyroSourceProperty(ControllerEmulationGyroSourceComboBox, this);
             controllerEmulationMode = new ControllerEmulationModeProperty(ControllerEmulationModeComboBox, this);
+            controllerEmulationRumbleProfile = new ControllerEmulationRumbleProfileProperty(ControllerEmulationRumbleProfileComboBox, this);
             controllerEmulationGyroActivationMode = new ControllerEmulationGyroActivationModeProperty(ControllerEmulationGyroActivationModeComboBox, this);
             controllerEmulationGyroActivationButton = new ControllerEmulationGyroActivationButtonProperty(ControllerEmulationGyroActivationButtonComboBox, this);
             controllerEmulationDs4Orientation = new ControllerEmulationDs4OrientationProperty(ControllerEmulationDs4OrientationComboBox, this);
@@ -1621,6 +1627,8 @@ namespace XboxGamingBar
                 // GPD properties
                 gpdDetected,
                 gpdWin5Connected,
+                gpdWin5HidDebug,
+                gpdWin5HidDevices,
                 gpdDeviceName,
                 gpdSupportsFanControl,
                 gpdFanSpeed,
@@ -1649,6 +1657,7 @@ namespace XboxGamingBar
                 controllerEmulationHideTarget,
                 controllerEmulationGyroSource,
                 controllerEmulationMode,
+                controllerEmulationRumbleProfile,
                 controllerEmulationGyroActivationMode,
                 controllerEmulationGyroActivationButton,
                 controllerEmulationDs4Orientation,
@@ -18581,6 +18590,13 @@ namespace XboxGamingBar
                 ControllerEmulationModeComboBox.IsEnabled = enabled;
             }
 
+            bool isVirtualGamepadMode = ControllerEmulationModeComboBox != null &&
+                                        ControllerEmulationModeComboBox.SelectedIndex > 0;
+            if (ControllerEmulationRumbleProfileComboBox != null)
+            {
+                ControllerEmulationRumbleProfileComboBox.IsEnabled = enabled && isVirtualGamepadMode;
+            }
+
             bool isAlwaysOnActivation = ControllerEmulationGyroActivationModeComboBox == null ||
                                         ControllerEmulationGyroActivationModeComboBox.SelectedIndex <= 0;
             if (ControllerEmulationGyroActivationModeComboBox != null)
@@ -18789,35 +18805,34 @@ namespace XboxGamingBar
 
             if (ControllerEmulationModeComboBox != null)
             {
+                Control lastPrimaryControl = ControllerEmulationModeComboBox;
+
+                if (ControllerEmulationRumbleProfileComboBox != null && ControllerEmulationRumbleProfileComboBox.IsEnabled)
+                {
+                    ControllerEmulationModeComboBox.XYFocusDown = ControllerEmulationRumbleProfileComboBox;
+                    ControllerEmulationRumbleProfileComboBox.XYFocusUp = ControllerEmulationModeComboBox;
+                    lastPrimaryControl = ControllerEmulationRumbleProfileComboBox;
+                }
+
                 if (ControllerEmulationGyroActivationModeComboBox != null && ControllerEmulationGyroActivationModeComboBox.IsEnabled)
                 {
-                    ControllerEmulationModeComboBox.XYFocusDown = ControllerEmulationGyroActivationModeComboBox;
-                    ControllerEmulationGyroActivationModeComboBox.XYFocusUp = ControllerEmulationModeComboBox;
+                    lastPrimaryControl.XYFocusDown = ControllerEmulationGyroActivationModeComboBox;
+                    ControllerEmulationGyroActivationModeComboBox.XYFocusUp = lastPrimaryControl;
+                    lastPrimaryControl = ControllerEmulationGyroActivationModeComboBox;
 
                     if (ControllerEmulationGyroActivationButtonComboBox != null && ControllerEmulationGyroActivationButtonComboBox.IsEnabled)
                     {
-                        ControllerEmulationGyroActivationModeComboBox.XYFocusDown = ControllerEmulationGyroActivationButtonComboBox;
-                        ControllerEmulationGyroActivationButtonComboBox.XYFocusUp = ControllerEmulationGyroActivationModeComboBox;
-                        ControllerEmulationGyroActivationButtonComboBox.XYFocusDown = firstModeDetailControl;
-                        if (firstModeDetailControl is Control firstControl &&
-                            !ReferenceEquals(firstModeDetailControl, AutoHibernateToggle))
-                        {
-                            firstControl.XYFocusUp = ControllerEmulationGyroActivationButtonComboBox;
-                        }
-                    }
-                    else
-                    {
-                        ControllerEmulationGyroActivationModeComboBox.XYFocusDown = firstModeDetailControl;
-                        if (firstModeDetailControl is Control firstControl &&
-                            !ReferenceEquals(firstModeDetailControl, AutoHibernateToggle))
-                        {
-                            firstControl.XYFocusUp = ControllerEmulationGyroActivationModeComboBox;
-                        }
+                        lastPrimaryControl.XYFocusDown = ControllerEmulationGyroActivationButtonComboBox;
+                        ControllerEmulationGyroActivationButtonComboBox.XYFocusUp = lastPrimaryControl;
+                        lastPrimaryControl = ControllerEmulationGyroActivationButtonComboBox;
                     }
                 }
-                else
+
+                lastPrimaryControl.XYFocusDown = firstModeDetailControl;
+                if (firstModeDetailControl is Control firstControl &&
+                    !ReferenceEquals(firstModeDetailControl, AutoHibernateToggle))
                 {
-                    ControllerEmulationModeComboBox.XYFocusDown = firstModeDetailControl;
+                    firstControl.XYFocusUp = lastPrimaryControl;
                 }
             }
 
@@ -18846,6 +18861,10 @@ namespace XboxGamingBar
                 else if (ControllerEmulationGyroActivationModeComboBox != null && ControllerEmulationGyroActivationModeComboBox.IsEnabled)
                 {
                     AutoHibernateToggle.XYFocusUp = ControllerEmulationGyroActivationModeComboBox;
+                }
+                else if (ControllerEmulationRumbleProfileComboBox != null && ControllerEmulationRumbleProfileComboBox.IsEnabled)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationRumbleProfileComboBox;
                 }
                 else
                 {
@@ -18977,6 +18996,10 @@ namespace XboxGamingBar
                 else if (activationModeControlEnabled)
                 {
                     AutoHibernateToggle.XYFocusUp = ControllerEmulationGyroActivationModeComboBox;
+                }
+                else if (ControllerEmulationRumbleProfileComboBox != null && ControllerEmulationRumbleProfileComboBox.IsEnabled)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationRumbleProfileComboBox;
                 }
                 else
                 {

@@ -96,6 +96,61 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
     }
 
     /// <summary>
+    /// Win 5 HID debug toggle. Widget can enable/disable verbose HID TX/RX logging.
+    /// </summary>
+    internal class GPDWin5HidDebugProperty : HelperProperty<bool, GPDManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public GPDWin5HidDebugProperty(bool initialValue, GPDManager inManager)
+            : base(initialValue, null, Function.GPDWin5HidDebug, inManager)
+        {
+            Logger.Debug($"[GPDWin5] GPDWin5HidDebugProperty created with initial value: {initialValue}");
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+
+            if (Manager != null && Manager.GetWin5HidDebug() != Value)
+            {
+                Manager.SetWin5HidDebug(Value);
+            }
+        }
+
+        public void SetDebugEnabled(bool enabled)
+        {
+            if (Value != enabled)
+            {
+                SetValue(enabled);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Read-only JSON payload containing deterministic Win 5 HID candidate interfaces.
+    /// </summary>
+    internal class GPDWin5HidDevicesProperty : HelperProperty<string, GPDManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public GPDWin5HidDevicesProperty(string initialValue, GPDManager inManager)
+            : base(string.IsNullOrWhiteSpace(initialValue) ? "[]" : initialValue, null, Function.GPDWin5HidDevices, inManager)
+        {
+            Logger.Debug("[GPDWin5] GPDWin5HidDevicesProperty created");
+        }
+
+        public void SetDevicesJson(string json)
+        {
+            string payload = string.IsNullOrWhiteSpace(json) ? "[]" : json;
+            if (Value != payload)
+            {
+                SetValue(payload);
+            }
+        }
+    }
+
+    /// <summary>
     /// Read-only property for the GPD device display name (e.g., "GPD Win 5").
     /// Set based on SMBIOS detection, independent of HID controller connection.
     /// </summary>
