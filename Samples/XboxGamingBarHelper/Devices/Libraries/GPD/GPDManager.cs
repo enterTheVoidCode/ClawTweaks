@@ -3,6 +3,7 @@ using Shared.Data;
 using Shared.Enums;
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Devices;
@@ -26,6 +27,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
 
         // Win 5 HID controller
         private GPDWin5Controller _win5Controller;
+        private bool _win5HidDebugEnabled = false;
         private bool _win5ControllerConnected = false;
         private Thread _connectionMonitorThread;
         private volatile bool _monitoring = false;
@@ -56,6 +58,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         /// Property indicating if Win 5 HID controller is connected.
         /// </summary>
         public readonly GPDWin5ConnectedProperty Win5Connected;
+        public readonly GPDWin5HidDebugProperty Win5HidDebug;
+        public readonly GPDWin5HidDevicesProperty Win5HidDevices;
 
         /// <summary>
         /// Device display name (e.g., "GPD Win 5") based on SMBIOS detection.
@@ -113,6 +117,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             {
                 yield return GPDDetected;
                 yield return Win5Connected;
+                yield return Win5HidDebug;
+                yield return Win5HidDevices;
                 yield return DeviceName;
                 yield return SupportsFanControlProp;
                 yield return RestoreDefaults;
@@ -177,9 +183,13 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             Logger.Info($"[GPD]   IsGPDDevice: {isGPDDetected}");
             Logger.Info($"[GPD]   IsWin5: {isWin5Detected}");
 
+            LoadWin5HidSettings();
+
             // Create the detection properties
             GPDDetected = new GPDDetectedProperty(isGPDDetected, this);
             Win5Connected = new GPDWin5ConnectedProperty(false, this);
+            Win5HidDebug = new GPDWin5HidDebugProperty(_win5HidDebugEnabled, this);
+            Win5HidDevices = new GPDWin5HidDevicesProperty("[]", this);
             DeviceName = new GPDDeviceNameProperty(GetDeviceModelName(), this);
             SupportsFanControlProp = new GPDSupportsFanControlProperty(deviceInfo?.SupportsFanControl ?? false, this);
             RestoreDefaults = new GPDRestoreDefaultsProperty(this);
@@ -238,6 +248,11 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
 
                 if (isWin5Detected)
                 {
+                    RefreshWin5HidDevicesProperty();
+                }
+
+                if (isWin5Detected)
+                {
                     Logger.Info("[GPD] Win 5 detected - initializing HID controller...");
                     InitializeWin5Controller();
 
@@ -270,6 +285,17 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
 
             try
             {
+                var hidCandidates = GPDWin5Controller.ListHidDevices();
+                RefreshWin5HidDevicesProperty(hidCandidates);
+                Logger.Info($"[GPDWin5] list_hid_devices returned {hidCandidates.Count} candidate(s)");
+                foreach (var candidate in hidCandidates)
+                {
+                    Logger.Info(
+                        $"[GPDWin5]   score={candidate.SelectionScore}, iface={(candidate.InterfaceNumber.HasValue ? candidate.InterfaceNumber.Value.ToString() : "n/a")}, " +
+                        $"usagePageMatch={candidate.UsagePageMatch}, usageMatch={candidate.UsageMatch}, " +
+                        $"VID=0x{candidate.VendorId:X4}, PID=0x{candidate.ProductId:X4}");
+                }
+
                 // Check if device is available before attempting connection
                 Logger.Debug("[GPDWin5] Checking if Win 5 HID device is available...");
                 bool deviceAvailable = GPDWin5Controller.IsDeviceAvailable();
@@ -294,6 +320,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 }
 
                 _win5Controller = new GPDWin5Controller();
+                _win5Controller.SetHidDebug(_win5HidDebugEnabled);
                 _win5Controller.ConnectionChanged += OnWin5ConnectionChanged;
                 _win5Controller.CommandExecuted += OnWin5CommandExecuted;
 
@@ -474,6 +501,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             Logger.Info($"[GPDWin5] Connection changed: {(connected ? "Connected" : "Disconnected")}");
             _win5ControllerConnected = connected;
             Win5Connected.SetConnected(connected);
+            RefreshWin5HidDevicesProperty();
             if (connected)
             {
                 TryApplyControllerEmulationSettings();
@@ -485,6 +513,11 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         /// </summary>
         private void OnWin5CommandExecuted(object sender, GPDHidCommandEventArgs e)
         {
+            if (!_win5HidDebugEnabled)
+            {
+                return;
+            }
+
             string direction = e.IsSent ? "SENT" : "RECV";
             Logger.Debug($"[GPDWin5] HID {direction}: {e.Hex}");
         }
@@ -710,6 +743,93 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 Logger.Warn($"[GPD] Error loading controller emulation settings: {ex.Message}");
                 _controllerEmulationGyroSource = 0;
                 _controllerEmulationMode = 0;
+            }
+        }
+
+        /// <summary>
+        /// Loads persisted Win 5 HID debug settings.
+        /// </summary>
+        private void LoadWin5HidSettings()
+        {
+            try
+            {
+                if (LocalSettingsHelper.TryGetValue("GPDWin5HidDebug", out bool savedDebug))
+                {
+                    _win5HidDebugEnabled = savedDebug;
+                }
+
+                Logger.Info($"[GPDWin5] Loaded HID debug setting: {_win5HidDebugEnabled}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[GPDWin5] Error loading HID debug setting: {ex.Message}");
+                _win5HidDebugEnabled = false;
+            }
+        }
+
+        /// <summary>
+        /// Enables/disables detailed Win 5 HID command logging and persists the setting.
+        /// </summary>
+        public void SetWin5HidDebug(bool enabled)
+        {
+            _win5HidDebugEnabled = enabled;
+            LocalSettingsHelper.SetValue("GPDWin5HidDebug", enabled);
+            _win5Controller?.SetHidDebug(enabled);
+            Win5HidDebug?.SetDebugEnabled(enabled);
+            Logger.Info($"[GPDWin5] HID debug {(enabled ? "enabled" : "disabled")}");
+        }
+
+        /// <summary>
+        /// Returns current Win 5 HID debug setting.
+        /// </summary>
+        public bool GetWin5HidDebug()
+        {
+            return _win5HidDebugEnabled;
+        }
+
+        /// <summary>
+        /// Returns deterministic Win5 HID interface list for diagnostics.
+        /// </summary>
+        public IReadOnlyList<GPDWin5Controller.GPDWin5HidDeviceInfo> ListWin5HidDevices()
+        {
+            return GPDWin5Controller.ListHidDevices();
+        }
+
+        /// <summary>
+        /// Updates the widget-facing JSON snapshot of deterministic Win 5 HID candidates.
+        /// </summary>
+        private void RefreshWin5HidDevicesProperty(IReadOnlyList<GPDWin5Controller.GPDWin5HidDeviceInfo> candidates = null)
+        {
+            if (Win5HidDevices == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var hidCandidates = candidates ?? ListWin5HidDevices();
+                var payload = new List<Dictionary<string, object>>(hidCandidates.Count);
+                foreach (var candidate in hidCandidates)
+                {
+                    payload.Add(new Dictionary<string, object>
+                    {
+                        { "vendorId", candidate.VendorId },
+                        { "productId", candidate.ProductId },
+                        { "interfaceNumber", candidate.InterfaceNumber.HasValue ? (object)candidate.InterfaceNumber.Value : null },
+                        { "usageSummary", candidate.UsageSummary ?? string.Empty },
+                        { "usagePageMatch", candidate.UsagePageMatch },
+                        { "usageMatch", candidate.UsageMatch },
+                        { "selectionScore", candidate.SelectionScore },
+                        { "devicePath", candidate.DevicePath ?? string.Empty }
+                    });
+                }
+
+                Win5HidDevices.SetDevicesJson(JsonSerializer.Serialize(payload));
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[GPDWin5] Failed to refresh HID candidates property: {ex.Message}");
+                Win5HidDevices.SetDevicesJson("[]");
             }
         }
 

@@ -353,5 +353,10 @@
         ControllerEmulationGyroActivationMode, // int - gyro activation behavior (0=AlwaysOn, 1=Hold, 2=Toggle)
         ControllerEmulationGyroActivationButton, // int - activation button mapping (0=None, 1=RT, 2=LT, ...)
         ControllerEmulationImprovedInput, // bool - Legion Go/Go2 HID gamepad-read path to avoid XInput blocking in Game Bar/FSE
+
+        // GPD Win 5 HID diagnostics/configuration (appended to preserve prior enum values)
+        GPDWin5HidDebug,              // bool - enable verbose Win 5 HID TX/RX debug logging
+        GPDWin5HidDevices,            // string - JSON array of deterministic Win 5 HID candidate interfaces
+        ControllerEmulationRumbleProfile, // int - rumble response profile (0=Balanced, 1=Sharp, 2=Soft, 3=Impact, 4=Boosted)
     }
 }

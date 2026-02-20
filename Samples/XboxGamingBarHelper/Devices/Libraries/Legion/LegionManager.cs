@@ -1537,12 +1537,18 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             gyroEnabled = enabled;
         }
 
-        public void SetVibration(int level)
+        public bool TrySetVibration(int level)
         {
             if (!isControllerConnected || controllerService == null)
             {
                 Logger.Warn("Cannot set vibration: controller not connected");
-                return;
+                return false;
+            }
+
+            if (level < 0 || level > 3)
+            {
+                Logger.Warn($"Invalid vibration level: {level}");
+                return false;
             }
 
             try
@@ -1553,16 +1559,22 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 {
                     vibrationLevel = level;
                     Logger.Info($"Vibration set to level {level} ({result.Message})");
+                    return true;
                 }
-                else
-                {
-                    Logger.Error($"Failed to set vibration: {result.Message}");
-                }
+
+                Logger.Error($"Failed to set vibration: {result.Message}");
+                return false;
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error setting vibration: {ex.Message}");
+                return false;
             }
+        }
+
+        public void SetVibration(int level)
+        {
+            TrySetVibration(level);
         }
 
         public void SetPowerLight(bool enabled)

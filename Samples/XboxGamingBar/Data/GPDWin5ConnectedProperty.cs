@@ -39,4 +39,53 @@ namespace XboxGamingBar.Data
             }
         }
     }
+
+    /// <summary>
+    /// Widget-facing Win 5 HID debug toggle.
+    /// </summary>
+    internal class GPDWin5HidDebugProperty : WidgetProperty<bool>
+    {
+        public GPDWin5HidDebugProperty() : base(false, null, Function.GPDWin5HidDebug)
+        {
+        }
+
+        public void SetEnabled(bool enabled)
+        {
+            SetValue(enabled);
+        }
+    }
+
+    /// <summary>
+    /// Read-only JSON payload of Win 5 HID candidate interfaces from helper.
+    /// </summary>
+    internal class GPDWin5HidDevicesProperty : WidgetProperty<string>
+    {
+        private readonly Page owner;
+        private Action<string> devicesCallback;
+
+        public GPDWin5HidDevicesProperty(Page inOwner) : base("[]", null, Function.GPDWin5HidDevices)
+        {
+            owner = inOwner;
+        }
+
+        public void SetDevicesCallback(Action<string> callback)
+        {
+            devicesCallback = callback;
+            callback?.Invoke(Value);
+        }
+
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+
+            if (owner != null && devicesCallback != null)
+            {
+                var payload = Value ?? "[]";
+                await owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    devicesCallback(payload);
+                });
+            }
+        }
+    }
 }

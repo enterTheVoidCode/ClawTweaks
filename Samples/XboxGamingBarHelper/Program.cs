@@ -1362,6 +1362,8 @@ del /f /q ""%~f0"" 2>nul
                 // GPD specific properties
                 gpdManager.GPDDetected,
                 gpdManager.Win5Connected,
+                gpdManager.Win5HidDebug,
+                gpdManager.Win5HidDevices,
                 gpdManager.DeviceName,
                 gpdManager.SupportsFanControlProp,
                 gpdManager.RestoreDefaults,
@@ -1402,6 +1404,7 @@ del /f /q ""%~f0"" 2>nul
                 controllerEmulationManager.ControllerEmulationHideTarget,
                 controllerEmulationManager.ControllerEmulationGyroSource,
                 controllerEmulationManager.ControllerEmulationMode,
+                controllerEmulationManager.ControllerEmulationRumbleProfile,
                 controllerEmulationManager.ControllerEmulationGyroActivationMode,
                 controllerEmulationManager.ControllerEmulationGyroActivationButton,
                 controllerEmulationManager.ControllerEmulationDs4Orientation,

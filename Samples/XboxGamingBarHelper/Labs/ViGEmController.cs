@@ -21,6 +21,8 @@ namespace XboxGamingBarHelper.Labs
 
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+        public event Action<byte, byte> RumbleReceived;
+
         private ViGEmClient client;
         private IVirtualGamepad virtualGamepad;
         private IXbox360Controller xboxController;
@@ -108,11 +110,13 @@ namespace XboxGamingBarHelper.Labs
                 {
                     case VirtualGamepadType.DualShock4:
                         dualShockController = client.CreateDualShock4Controller();
+                        dualShockController.FeedbackReceived += OnDualShock4FeedbackReceived;
                         virtualGamepad = dualShockController;
                         break;
                     case VirtualGamepadType.Xbox360:
                     default:
                         xboxController = client.CreateXbox360Controller();
+                        xboxController.FeedbackReceived += OnXbox360FeedbackReceived;
                         virtualGamepad = xboxController;
                         break;
                 }
@@ -429,9 +433,44 @@ namespace XboxGamingBarHelper.Labs
             return (byte)(255 - ConvertXInputAxisToDs4(value));
         }
 
+        private void OnXbox360FeedbackReceived(object sender, Xbox360FeedbackReceivedEventArgs e)
+        {
+            try
+            {
+                RumbleReceived?.Invoke(e.LargeMotor, e.SmallMotor);
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"ViGEmController: Xbox feedback dispatch failed - {ex.Message}");
+            }
+        }
+
+        private void OnDualShock4FeedbackReceived(object sender, DualShock4FeedbackReceivedEventArgs e)
+        {
+            try
+            {
+                RumbleReceived?.Invoke(e.LargeMotor, e.SmallMotor);
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"ViGEmController: DualShock4 feedback dispatch failed - {ex.Message}");
+            }
+        }
+
         private void DisconnectVirtualGamepad()
         {
             try { virtualGamepad?.Disconnect(); } catch { }
+
+            if (xboxController != null)
+            {
+                try { xboxController.FeedbackReceived -= OnXbox360FeedbackReceived; } catch { }
+            }
+
+            if (dualShockController != null)
+            {
+                try { dualShockController.FeedbackReceived -= OnDualShock4FeedbackReceived; } catch { }
+            }
+
             virtualGamepad = null;
             xboxController = null;
             dualShockController = null;

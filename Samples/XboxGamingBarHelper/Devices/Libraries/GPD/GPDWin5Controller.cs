@@ -16,7 +16,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using HidSharp;
 using NLog;
@@ -30,6 +32,51 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
     public class GPDWin5Controller : IDisposable
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        /// <summary>
+        /// Snapshot of Win5 HID interface metadata for deterministic selection and diagnostics.
+        /// </summary>
+        public sealed class GPDWin5HidDeviceInfo
+        {
+            internal GPDWin5HidDeviceInfo(
+                string devicePath,
+                int vendorId,
+                int productId,
+                int? interfaceNumber,
+                bool usagePageMatch,
+                bool usageMatch,
+                int selectionScore,
+                string usageSummary)
+            {
+                DevicePath = devicePath ?? string.Empty;
+                VendorId = vendorId;
+                ProductId = productId;
+                InterfaceNumber = interfaceNumber;
+                UsagePageMatch = usagePageMatch;
+                UsageMatch = usageMatch;
+                SelectionScore = selectionScore;
+                UsageSummary = usageSummary ?? "(none)";
+            }
+
+            public string DevicePath { get; }
+            public int VendorId { get; }
+            public int ProductId { get; }
+            public int? InterfaceNumber { get; }
+            public bool UsagePageMatch { get; }
+            public bool UsageMatch { get; }
+            public int SelectionScore { get; }
+            public string UsageSummary { get; }
+        }
+
+        private sealed class Win5HidCandidate
+        {
+            public HidDevice Device { get; set; }
+            public int? InterfaceNumber { get; set; }
+            public bool UsagePageMatch { get; set; }
+            public bool UsageMatch { get; set; }
+            public int SelectionScore { get; set; }
+            public string UsageSummary { get; set; }
+        }
 
         #region Constants
 
@@ -47,6 +94,9 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
 
         /// <summary>Vendor-defined usage page for configuration</summary>
         private const int UsagePage = 0xFF00;
+
+        /// <summary>Expected usage within vendor usage page</summary>
+        private const int Usage = 0x0001;
 
         /// <summary>Report ID for configuration commands</summary>
         private const byte ReportId = 0x01;
@@ -74,6 +124,30 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
 
         /// <summary>Delay between commands in milliseconds</summary>
         private const int CommandDelayMs = 50;
+
+        /// <summary>Number of end-to-end write attempts before failing.</summary>
+        private const int MaxWriteAttempts = 3;
+
+        /// <summary>Retries used when requesting a configuration chunk.</summary>
+        private const int ReadRequestAttempts = 3;
+
+        /// <summary>How many input reports to poll while waiting for a matching response.</summary>
+        private const int ReadResponsePollAttempts = 10;
+
+        /// <summary>Per-report timeout while waiting for configuration response.</summary>
+        private const int ReadResponseTimeoutMs = 120;
+
+        /// <summary>Backoff between full write attempts.</summary>
+        private const int RetryBackoffMs = 120;
+
+        /// <summary>Default L4 keycode used by current packet template.</summary>
+        private const ushort DefaultL4Keycode = 0x002B;
+
+        /// <summary>L4 keycode byte offset inside the 0x00A8 packet.</summary>
+        private const int L4KeycodeOffset = 0x10;
+
+        /// <summary>R4 keycode byte offset inside the 0x0150 packet.</summary>
+        private const int R4KeycodeOffset = 0x2C;
 
         // Configuration offsets (little-endian)
         /// <summary>Offset for main button configuration (offset 0x0000)</summary>
@@ -144,6 +218,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         private HidDevice _device;
         private HidStream _stream;
         private bool _disposed;
+        private bool _hidDebugEnabled;
         private readonly object _lock = new object();
 
         #endregion
@@ -175,16 +250,61 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         public string DeviceInfo => _device?.ToString();
 
         /// <summary>
+        /// Gets whether detailed HID TX/RX debug logging is enabled.
+        /// </summary>
+        public bool HidDebugEnabled => _hidDebugEnabled;
+
+        /// <summary>
+        /// Enumerates Win5 HID interfaces and returns deterministic selection metadata.
+        /// </summary>
+        public static IReadOnlyList<GPDWin5HidDeviceInfo> ListHidDevices()
+        {
+            try
+            {
+                return GetCandidateDevices()
+                    .Select(c => new GPDWin5HidDeviceInfo(
+                        c.Device.DevicePath,
+                        c.Device.VendorID,
+                        c.Device.ProductID,
+                        c.InterfaceNumber,
+                        c.UsagePageMatch,
+                        c.UsageMatch,
+                        c.SelectionScore,
+                        c.UsageSummary))
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[GPDWin5] ListHidDevices failed: {ex.Message}");
+                return Array.Empty<GPDWin5HidDeviceInfo>();
+            }
+        }
+
+        /// <summary>
+        /// Snake-case alias used by some tooling/scripts.
+        /// </summary>
+        public static IReadOnlyList<GPDWin5HidDeviceInfo> list_hid_devices()
+        {
+            return ListHidDevices();
+        }
+
+        /// <summary>
+        /// Enables or disables detailed HID debug logging.
+        /// </summary>
+        public void SetHidDebug(bool enabled)
+        {
+            _hidDebugEnabled = enabled;
+            Logger.Info($"[GPDWin5] HID debug {(enabled ? "enabled" : "disabled")}");
+        }
+
+        /// <summary>
         /// Checks if a GPD Win 5 device is available in the system.
         /// </summary>
         public static bool IsDeviceAvailable()
         {
             try
             {
-                var devices = DeviceList.Local.GetHidDevices()
-                    .Where(d => d.VendorID == VendorId && ValidProductIds.Contains(d.ProductID))
-                    .ToList();
-                return devices.Count > 0;
+                return GetCandidateDevices().Count > 0;
             }
             catch
             {
@@ -203,26 +323,45 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         public bool Connect()
         {
             Logger.Info("[GPDWin5] ========== CONNECTION ATTEMPT START ==========");
-            Logger.Info($"[GPDWin5] Looking for VID=0x{VendorId:X4}, PIDs=[{string.Join(", ", ValidProductIds.Select(p => $"0x{p:X4}"))}], UsagePage=0x{UsagePage:X4}");
+            Logger.Info($"[GPDWin5] Looking for VID=0x{VendorId:X4}, PIDs=[{string.Join(", ", ValidProductIds.Select(p => $"0x{p:X4}"))}], UsagePage=0x{UsagePage:X4}, Usage=0x{Usage:X4}");
 
             try
             {
                 Disconnect();
 
-                var devices = DeviceList.Local.GetHidDevices()
-                    .Where(d => d.VendorID == VendorId && ValidProductIds.Contains(d.ProductID))
-                    .ToList();
+                var candidates = GetCandidateDevices();
 
-                Logger.Info($"[GPDWin5] Found {devices.Count} matching GPD Win 5 device(s)");
-
-                foreach (var device in devices)
+                Logger.Info($"[GPDWin5] Found {candidates.Count} matching GPD Win 5 HID interface(s)");
+                foreach (var candidate in candidates)
                 {
+                    Logger.Info(
+                        $"[GPDWin5] Candidate score={candidate.SelectionScore}, " +
+                        $"iface={(candidate.InterfaceNumber.HasValue ? candidate.InterfaceNumber.Value.ToString(CultureInfo.InvariantCulture) : "n/a")}, " +
+                        $"usagePageMatch={candidate.UsagePageMatch}, usageMatch={candidate.UsageMatch}, " +
+                        $"VID=0x{candidate.Device.VendorID:X4}, PID=0x{candidate.Device.ProductID:X4}");
+                    if (_hidDebugEnabled)
+                    {
+                        Logger.Debug($"[GPDWin5]   Path: {candidate.Device.DevicePath}");
+                        Logger.Debug($"[GPDWin5]   Usages: {candidate.UsageSummary}");
+                    }
+                }
+
+                foreach (var candidate in candidates)
+                {
+                    var device = candidate.Device;
                     try
                     {
-                        Logger.Info($"[GPDWin5] Attempting to open: VID=0x{device.VendorID:X4}, PID=0x{device.ProductID:X4}");
-                        Logger.Info($"[GPDWin5]   Path: {device.DevicePath}");
+                        Logger.Info(
+                            $"[GPDWin5] Attempting to open selected interface: VID=0x{device.VendorID:X4}, " +
+                            $"PID=0x{device.ProductID:X4}, iface={(candidate.InterfaceNumber.HasValue ? candidate.InterfaceNumber.Value.ToString(CultureInfo.InvariantCulture) : "n/a")}");
+                        if (_hidDebugEnabled)
+                        {
+                            Logger.Debug($"[GPDWin5]   Path: {device.DevicePath}");
+                        }
 
                         _stream = device.Open();
+                        _stream.ReadTimeout = ReadResponseTimeoutMs;
+                        _stream.WriteTimeout = ReadResponseTimeoutMs;
                         _device = device;
 
                         Logger.Info($"[GPDWin5] ========== CONNECTION SUCCESS ==========");
@@ -251,7 +390,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                     }
                     catch (Exception ex)
                     {
-                        Logger.Warn($"[GPDWin5] Failed to open device: {ex.Message}");
+                        Logger.Warn($"[GPDWin5] Failed to open candidate interface: {ex.Message}");
                         // Clean up if we partially opened
                         if (_stream != null)
                         {
@@ -321,8 +460,19 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 return null;
             }
 
-            Logger.Info("[GPDWin5] ReadConfiguration: Device readback not implemented - returning known default map");
-            return GetDefaultButtonMap();
+            if (!TryReadConfigChunk(OffsetMainButtons, out byte[] packet))
+            {
+                Logger.Warn("[GPDWin5] ReadConfiguration failed: no main config response");
+                return null;
+            }
+
+            if (!TryParseMainConfiguration(packet, out ushort[] buttonMap))
+            {
+                Logger.Warn("[GPDWin5] ReadConfiguration failed: malformed main config packet");
+                return null;
+            }
+
+            return buttonMap;
         }
 
         /// <summary>
@@ -337,9 +487,20 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 return null;
             }
 
-            Logger.Info("[GPDWin5] ReadL4PaddleConfig: Not fully implemented yet");
-            // TODO: Implement actual L4 read from device at OffsetL4Paddle
-            return new byte[2];  // Return empty config
+            if (!TryReadConfigChunk(OffsetL4Paddle, out byte[] packet))
+            {
+                Logger.Warn("[GPDWin5] ReadL4PaddleConfig failed: no response");
+                return null;
+            }
+
+            if (!TryReadKeycode(packet, L4KeycodeOffset, out ushort keycode))
+            {
+                Logger.Warn("[GPDWin5] ReadL4PaddleConfig failed: malformed packet");
+                return null;
+            }
+
+            Logger.Info($"[GPDWin5] L4 paddle readback keycode=0x{keycode:X4}");
+            return new[] { (byte)(keycode & 0xFF), (byte)((keycode >> 8) & 0xFF) };
         }
 
         /// <summary>
@@ -354,9 +515,20 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 return null;
             }
 
-            Logger.Info("[GPDWin5] ReadR4PaddleConfig: Not fully implemented yet");
-            // TODO: Implement actual R4 read from device at OffsetR4Paddle
-            return new byte[2];  // Return empty config
+            if (!TryReadConfigChunk(OffsetR4Paddle, out byte[] packet))
+            {
+                Logger.Warn("[GPDWin5] ReadR4PaddleConfig failed: no response");
+                return null;
+            }
+
+            if (!TryReadKeycode(packet, R4KeycodeOffset, out ushort keycode))
+            {
+                Logger.Warn("[GPDWin5] ReadR4PaddleConfig failed: malformed packet");
+                return null;
+            }
+
+            Logger.Info($"[GPDWin5] R4 paddle readback keycode=0x{keycode:X4}");
+            return new[] { (byte)(keycode & 0xFF), (byte)((keycode >> 8) & 0xFF) };
         }
 
         /// <summary>
@@ -369,14 +541,14 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         {
             Logger.Info($"[GPDWin5] RemapButton: position={buttonPosition}, keycode=0x{keycode:X4}");
 
-            // Build from known-good defaults and apply one change.
-            // Device readback is not implemented/reliable.
-            var currentConfig = GetDefaultButtonMap();
+            // Start from live device config when available; fallback to defaults.
+            var currentConfig = ReadConfiguration() ?? GetDefaultButtonMap();
+            ushort r4Keycode = ReadPaddleKeycodeOrDefault(ReadR4PaddleConfig(), 0x002B);
 
             if (buttonPosition >= 0 && buttonPosition < currentConfig.Length)
             {
                 currentConfig[buttonPosition] = keycode;
-                return WriteButtonConfiguration(currentConfig, 0x002B);
+                return WriteButtonConfiguration(currentConfig, r4Keycode);
             }
 
             Logger.Error($"[GPDWin5] RemapButton: Invalid button position {buttonPosition}");
@@ -394,8 +566,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             var safeMappings = mappings ?? new Dictionary<int, ushort>();
             Logger.Info($"[GPDWin5] RemapButtons: Applying {safeMappings.Count} mappings, R4=0x{r4Keycode:X4}");
 
-            // Start from known-good defaults and apply all overrides in one transaction.
-            var currentConfig = GetDefaultButtonMap();
+            // Start from live device config when available; fallback to defaults.
+            var currentConfig = ReadConfiguration() ?? GetDefaultButtonMap();
             foreach (var mapping in safeMappings)
             {
                 if (mapping.Key >= 0 && mapping.Key < currentConfig.Length)
@@ -460,37 +632,55 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
 
             Logger.Info("[GPDWin5] ========== WRITE CONFIGURATION START ==========");
 
-            try
+            string failureReason = "unknown";
+            for (int attempt = 1; attempt <= MaxWriteAttempts; attempt++)
             {
-                // Step 1: Send unlock sequence
+                if (!IsConnected)
+                {
+                    failureReason = "connection lost";
+                    break;
+                }
+
+                Logger.Info($"[GPDWin5] Write attempt {attempt}/{MaxWriteAttempts}");
+                DrainInputReports(4, 5);
+
                 if (!SendUnlockSequence())
                 {
-                    Logger.Error("[GPDWin5] Unlock sequence failed");
-                    return false;
+                    failureReason = "unlock sequence failed";
+                    if (attempt < MaxWriteAttempts) { Thread.Sleep(RetryBackoffMs); }
+                    continue;
                 }
 
-                // Step 2: Send full configuration packet sequence
                 if (!SendConfigPackets(buttonMap, r4Keycode))
                 {
-                    Logger.Error("[GPDWin5] Configuration packet sequence failed");
-                    return false;
+                    failureReason = "configuration packet sequence failed";
+                    if (attempt < MaxWriteAttempts) { Thread.Sleep(RetryBackoffMs); }
+                    continue;
                 }
 
-                // Step 3: Send apply sequence
                 if (!SendApplySequence())
                 {
-                    Logger.Error("[GPDWin5] Apply sequence failed");
-                    return false;
+                    failureReason = "apply sequence failed";
+                    if (attempt < MaxWriteAttempts) { Thread.Sleep(RetryBackoffMs); }
+                    continue;
+                }
+
+                Thread.Sleep(50);
+
+                if (!VerifyWrite(buttonMap, r4Keycode, out string verifyReason))
+                {
+                    failureReason = $"verification failed ({verifyReason})";
+                    Logger.Warn($"[GPDWin5] Write verification failed on attempt {attempt}: {verifyReason}");
+                    if (attempt < MaxWriteAttempts) { Thread.Sleep(RetryBackoffMs); }
+                    continue;
                 }
 
                 Logger.Info("[GPDWin5] ========== WRITE CONFIGURATION SUCCESS ==========");
                 return true;
             }
-            catch (Exception ex)
-            {
-                Logger.Error($"[GPDWin5] WriteButtonConfiguration failed: {ex}");
-                return false;
-            }
+
+            Logger.Error($"[GPDWin5] WriteButtonConfiguration failed after {MaxWriteAttempts} attempt(s): {failureReason}");
+            return false;
         }
 
         /// <summary>
@@ -511,8 +701,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             Thread.Sleep(10);
 
             // Try to read response (device may send acknowledgment)
-            byte[] response = TryReadInputReport();
-            if (response != null && response.Length > 0)
+            byte[] response = TryReadInputReport(120, "Unlock Ack");
+            if (response != null && response.Length > 0 && response[0] == ReportId && response.Length > 1 && response[1] == CmdUnlock)
             {
                 Logger.Info("[GPDWin5] Received unlock response, echoing back");
                 if (!SendCommand(response, "Unlock Echo"))
@@ -521,7 +711,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             else
             {
                 // Fallback: send hardcoded confirmation
-                Logger.Info("[GPDWin5] No unlock response, sending fallback confirmation");
+                Logger.Info("[GPDWin5] No valid unlock response, sending fallback confirmation");
                 byte[] confirm = ParseHexString(
                     "01 45 01 00 27 04 e2 00 e2 00 00 00 00 00 00 00 00 00 00 00 00 " +
                     "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 " +
@@ -682,6 +872,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             // Apply step 1: Send lookup
             if (!SendLookupPacket())
                 return false;
+            if (!ValidateAck("Apply step 1", CmdLookup, CmdConfig, CmdApply, CmdFinalize))
+                return false;
             Thread.Sleep(10);
 
             // Apply step 2: Send apply command (0x22)
@@ -690,10 +882,14 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             cmd22[1] = CmdApply;
             if (!SendCommand(cmd22, "Apply 0x22"))
                 return false;
+            if (!ValidateAck("Apply step 2", CmdApply, CmdLookup, CmdConfig, CmdFinalize))
+                return false;
             Thread.Sleep(10);
 
             // Apply step 3: Send lookup again
             if (!SendLookupPacket())
+                return false;
+            if (!ValidateAck("Apply step 3", CmdLookup, CmdApply, CmdConfig, CmdFinalize))
                 return false;
             Thread.Sleep(300);  // Longer delay
 
@@ -705,15 +901,21 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             );
             if (!SendCommand(cmd25, "Finalize 0x25"))
                 return false;
+            if (!ValidateAck("Apply step 4", CmdFinalize, CmdApply, CmdLookup, CmdConfig))
+                return false;
             Thread.Sleep(10);
 
             // Apply step 5: Send apply command again
             if (!SendCommand(cmd22, "Apply 0x22 (2)"))
                 return false;
+            if (!ValidateAck("Apply step 5", CmdApply, CmdLookup, CmdConfig, CmdFinalize))
+                return false;
             Thread.Sleep(10);
 
             // Apply step 6: Final lookup
             if (!SendLookupPacket())
+                return false;
+            if (!ValidateAck("Apply step 6", CmdLookup, CmdApply, CmdConfig, CmdFinalize))
                 return false;
             Thread.Sleep(100);
 
@@ -780,6 +982,392 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
 
         #endregion
 
+        #region HID Discovery Helpers
+
+        private static List<Win5HidCandidate> GetCandidateDevices()
+        {
+            var candidates = new List<Win5HidCandidate>();
+            var devices = DeviceList.Local.GetHidDevices()
+                .Where(d => d.VendorID == VendorId && ValidProductIds.Contains(d.ProductID))
+                .ToList();
+
+            foreach (var device in devices)
+            {
+                int? interfaceNumber = TryParseInterfaceNumber(device.DevicePath);
+                var usages = TryGetUsageValues(device);
+                bool usagePageMatch = usages.Any(v => ((v >> 16) & 0xFFFF) == (uint)UsagePage);
+                bool usageMatch = usages.Any(v => ((v >> 16) & 0xFFFF) == (uint)UsagePage && (v & 0xFFFF) == (uint)Usage);
+
+                candidates.Add(new Win5HidCandidate
+                {
+                    Device = device,
+                    InterfaceNumber = interfaceNumber,
+                    UsagePageMatch = usagePageMatch,
+                    UsageMatch = usageMatch,
+                    SelectionScore = ComputeCandidateScore(device, interfaceNumber, usagePageMatch, usageMatch),
+                    UsageSummary = FormatUsageSummary(usages),
+                });
+            }
+
+            return candidates
+                .OrderByDescending(c => c.SelectionScore)
+                .ThenBy(c => c.InterfaceNumber ?? int.MaxValue)
+                .ThenBy(c => c.Device?.DevicePath ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static int ComputeCandidateScore(HidDevice device, int? interfaceNumber, bool usagePageMatch, bool usageMatch)
+        {
+            int score = 0;
+            if (usagePageMatch) { score += 100; }
+            if (usageMatch) { score += 20; }
+            if (device != null && device.ProductID == ProductId) { score += 5; }
+            if (interfaceNumber.HasValue) { score += Math.Max(0, 15 - interfaceNumber.Value); }
+            return score;
+        }
+
+        private static int? TryParseInterfaceNumber(string devicePath)
+        {
+            if (string.IsNullOrWhiteSpace(devicePath))
+            {
+                return null;
+            }
+
+            var match = Regex.Match(devicePath, "mi_([0-9a-fA-F]{2})", RegexOptions.IgnoreCase);
+            if (!match.Success)
+            {
+                return null;
+            }
+
+            if (int.TryParse(match.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int interfaceNumber))
+            {
+                return interfaceNumber;
+            }
+
+            return null;
+        }
+
+        private static List<uint> TryGetUsageValues(HidDevice device)
+        {
+            var usages = new List<uint>();
+            if (device == null)
+            {
+                return usages;
+            }
+
+            try
+            {
+                var descriptor = device.GetReportDescriptor();
+                if (descriptor == null)
+                {
+                    return usages;
+                }
+
+                usages = descriptor.DeviceItems
+                    .SelectMany(item => item.Usages.GetAllValues())
+                    .Select(value => unchecked((uint)value))
+                    .Distinct()
+                    .ToList();
+            }
+            catch
+            {
+                // Descriptor access can fail on some interfaces; keep candidate and continue.
+            }
+
+            return usages;
+        }
+
+        private static string FormatUsageSummary(IReadOnlyList<uint> usages)
+        {
+            if (usages == null || usages.Count == 0)
+            {
+                return "(none)";
+            }
+
+            var summary = usages
+                .Take(8)
+                .Select(value => $"0x{(value >> 16) & 0xFFFF:X4}:0x{value & 0xFFFF:X4}")
+                .ToList();
+
+            if (usages.Count > summary.Count)
+            {
+                summary.Add("...");
+            }
+
+            return string.Join(", ", summary);
+        }
+
+        #endregion
+
+        #region Readback And Verification
+
+        private bool TryReadConfigChunk(ushort offset, out byte[] packet)
+        {
+            packet = null;
+
+            if (!IsConnected || _stream == null)
+            {
+                return false;
+            }
+
+            for (int attempt = 1; attempt <= ReadRequestAttempts; attempt++)
+            {
+                DrainInputReports(2, 5);
+
+                if (!SendLookupPacket())
+                {
+                    return false;
+                }
+                Thread.Sleep(5);
+
+                byte[] request = BuildReadConfigPacket(offset);
+                if (!SendCommand(request, $"Read Config 0x{offset:X4} (attempt {attempt})"))
+                {
+                    if (!IsConnected)
+                    {
+                        return false;
+                    }
+                    continue;
+                }
+
+                byte[] response = WaitForMatchingReport(
+                    report => IsConfigResponseForOffset(report, offset),
+                    ReadResponsePollAttempts,
+                    ReadResponseTimeoutMs,
+                    $"ReadConfig 0x{offset:X4} (attempt {attempt})");
+
+                if (response != null)
+                {
+                    packet = NormalizeToCommandLength(response);
+                    return true;
+                }
+
+                Thread.Sleep(10);
+            }
+
+            return false;
+        }
+
+        private byte[] BuildReadConfigPacket(ushort offset)
+        {
+            byte[] packet = new byte[CommandLength];
+            packet[0] = ReportId;
+            packet[1] = CmdConfig;
+            packet[2] = SubCmdConfig;
+            packet[3] = 0x00;
+            packet[4] = (byte)(offset & 0xFF);
+            packet[5] = (byte)((offset >> 8) & 0xFF);
+            InsertChecksum(packet);
+            return packet;
+        }
+
+        private byte[] WaitForMatchingReport(Func<byte[], bool> predicate, int maxReads, int timeoutMs, string context)
+        {
+            for (int read = 0; read < maxReads; read++)
+            {
+                byte[] report = TryReadInputReport(timeoutMs, context);
+                if (report == null)
+                {
+                    continue;
+                }
+
+                if (predicate == null || predicate(report))
+                {
+                    return report;
+                }
+
+                if (_hidDebugEnabled)
+                {
+                    Logger.Debug($"[GPDWin5] Ignoring non-matching RX while waiting for {context}: {FormatHex(report, 24)}");
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsConfigResponseForOffset(byte[] report, ushort offset)
+        {
+            if (report == null || report.Length < 6)
+            {
+                return false;
+            }
+
+            if (report[0] != ReportId || report[1] != CmdConfig || report[2] != SubCmdConfig)
+            {
+                return false;
+            }
+
+            byte low = (byte)(offset & 0xFF);
+            byte high = (byte)((offset >> 8) & 0xFF);
+
+            // Primary layout: [3]=0x00, [4]=offset low, [5]=offset high
+            bool primary = report[4] == low && report[5] == high;
+            // Alternate layout observed in some RE attempts: [3]=offset low, [4]=offset high
+            bool alternate = report.Length >= 5 && report[3] == low && report[4] == high;
+            return primary || alternate;
+        }
+
+        private bool TryParseMainConfiguration(byte[] packet, out ushort[] buttonMap)
+        {
+            buttonMap = null;
+            byte[] normalized = NormalizeToCommandLength(packet);
+            if (normalized == null || normalized.Length < ButtonDataOffset + (22 * 2))
+            {
+                return false;
+            }
+
+            var result = new ushort[22];
+            for (int i = 0; i < result.Length; i++)
+            {
+                int offset = ButtonDataOffset + (i * 2);
+                result[i] = (ushort)(normalized[offset] | (normalized[offset + 1] << 8));
+            }
+
+            buttonMap = result;
+            return true;
+        }
+
+        private static bool TryReadKeycode(byte[] packet, int byteOffset, out ushort keycode)
+        {
+            keycode = 0;
+            byte[] normalized = NormalizeToCommandLength(packet);
+            if (normalized == null || byteOffset < 0 || byteOffset + 1 >= normalized.Length)
+            {
+                return false;
+            }
+
+            keycode = (ushort)(normalized[byteOffset] | (normalized[byteOffset + 1] << 8));
+            return true;
+        }
+
+        private static ushort ReadPaddleKeycodeOrDefault(byte[] keycodeBytes, ushort fallback)
+        {
+            if (keycodeBytes == null || keycodeBytes.Length < 2)
+            {
+                return fallback;
+            }
+
+            return (ushort)(keycodeBytes[0] | (keycodeBytes[1] << 8));
+        }
+
+        private static byte[] NormalizeToCommandLength(byte[] report)
+        {
+            if (report == null)
+            {
+                return null;
+            }
+
+            if (report.Length == CommandLength)
+            {
+                return report;
+            }
+
+            byte[] normalized = new byte[CommandLength];
+            Array.Copy(report, normalized, Math.Min(report.Length, CommandLength));
+            return normalized;
+        }
+
+        private void DrainInputReports(int maxReports, int timeoutMs)
+        {
+            for (int i = 0; i < maxReports; i++)
+            {
+                byte[] drained = TryReadInputReport(timeoutMs, "Drain");
+                if (drained == null)
+                {
+                    break;
+                }
+
+                if (_hidDebugEnabled)
+                {
+                    Logger.Debug($"[GPDWin5] Drained stale RX: {FormatHex(drained, 24)}");
+                }
+            }
+        }
+
+        private bool ValidateAck(string context, params byte[] allowedCommands)
+        {
+            byte[] ack = TryReadInputReport(80, $"{context} Ack");
+            if (ack == null)
+            {
+                // Not every firmware path emits an ACK for every command.
+                return true;
+            }
+
+            if (ack.Length < 2 || ack[0] != ReportId)
+            {
+                Logger.Warn($"[GPDWin5] {context}: invalid ACK frame");
+                return false;
+            }
+
+            if (allowedCommands != null && allowedCommands.Length > 0 && !allowedCommands.Contains(ack[1]))
+            {
+                Logger.Warn($"[GPDWin5] {context}: unexpected ACK cmd=0x{ack[1]:X2}");
+                if (_hidDebugEnabled)
+                {
+                    Logger.Debug($"[GPDWin5] {context}: ACK frame {FormatHex(ack, CommandLength)}");
+                }
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool VerifyWrite(ushort[] expectedButtonMap, ushort expectedR4Keycode, out string reason)
+        {
+            reason = null;
+
+            ushort[] mainReadback = ReadConfiguration();
+            if (mainReadback == null)
+            {
+                reason = "main readback unavailable";
+                return false;
+            }
+
+            var mismatches = new List<string>();
+            int compareCount = Math.Min(22, Math.Min(expectedButtonMap?.Length ?? 0, mainReadback.Length));
+            for (int i = 0; i < compareCount; i++)
+            {
+                if (expectedButtonMap[i] != mainReadback[i])
+                {
+                    mismatches.Add($"btn[{i}] expected=0x{expectedButtonMap[i]:X4} actual=0x{mainReadback[i]:X4}");
+                    if (mismatches.Count >= 6)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            ushort actualR4 = ReadPaddleKeycodeOrDefault(ReadR4PaddleConfig(), ushort.MaxValue);
+            if (actualR4 == ushort.MaxValue)
+            {
+                mismatches.Add("R4 readback unavailable");
+            }
+            else if (actualR4 != expectedR4Keycode)
+            {
+                mismatches.Add($"R4 expected=0x{expectedR4Keycode:X4} actual=0x{actualR4:X4}");
+            }
+
+            ushort actualL4 = ReadPaddleKeycodeOrDefault(ReadL4PaddleConfig(), ushort.MaxValue);
+            if (actualL4 == ushort.MaxValue)
+            {
+                Logger.Warn("[GPDWin5] L4 readback unavailable during verification");
+            }
+            else if (actualL4 != DefaultL4Keycode && _hidDebugEnabled)
+            {
+                Logger.Debug($"[GPDWin5] L4 readback value observed: 0x{actualL4:X4}");
+            }
+
+            if (mismatches.Count > 0)
+            {
+                reason = string.Join("; ", mismatches);
+                return false;
+            }
+
+            return true;
+        }
+
+        #endregion
+
         #region Private Methods
 
         private static int _packetCounter = 0;
@@ -825,6 +1413,10 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
                 lock (_lock)
                 {
                     Logger.Info($"[GPDWin5] TX Packet #{packetNum} {(description != null ? $"({description})" : "")}");
+                    if (_hidDebugEnabled)
+                    {
+                        Logger.Debug($"[GPDWin5] TX HEX: {FormatHex(commandToSend, CommandLength)}");
+                    }
                     _stream.Write(commandToSend);
                     Thread.Sleep(3);  // Small delay after write
 
@@ -844,20 +1436,28 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
         /// Attempts to read an input report (non-blocking).
         /// Returns null if no data available.
         /// </summary>
-        private byte[] TryReadInputReport()
+        private byte[] TryReadInputReport(int timeoutMs = 100, string context = null)
         {
             try
             {
                 if (_stream != null && _stream.CanRead)
                 {
                     byte[] buffer = new byte[CommandLength];
-                    _stream.ReadTimeout = 100;  // 100ms timeout
+                    _stream.ReadTimeout = timeoutMs;
 
                     int bytesRead = _stream.Read(buffer, 0, buffer.Length);
                     if (bytesRead > 0)
                     {
-                        Logger.Info($"[GPDWin5] RX: Read {bytesRead} bytes");
-                        return buffer;
+                        byte[] response = new byte[bytesRead];
+                        Array.Copy(buffer, response, bytesRead);
+                        if (_hidDebugEnabled)
+                        {
+                            string suffix = string.IsNullOrWhiteSpace(context) ? string.Empty : $" ({context})";
+                            Logger.Debug($"[GPDWin5] RX{suffix}: {FormatHex(response, CommandLength)}");
+                        }
+
+                        CommandExecuted?.Invoke(this, new GPDHidCommandEventArgs(response, false));
+                        return response;
                     }
                 }
             }
@@ -867,7 +1467,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.GPD
             }
             catch (Exception ex)
             {
-                Logger.Debug($"[GPDWin5] Read error (non-fatal): {ex.Message}");
+                Logger.Debug($"[GPDWin5] Read error (non-fatal){(string.IsNullOrWhiteSpace(context) ? string.Empty : $" [{context}]")}: {ex.Message}");
             }
 
             return null;

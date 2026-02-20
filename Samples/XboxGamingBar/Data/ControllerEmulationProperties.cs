@@ -204,6 +204,53 @@ namespace XboxGamingBar.Data
     }
 
     /// <summary>
+    /// Property for rumble response profile.
+    /// 0 = Balanced, 1 = Sharp, 2 = Soft, 3 = Impact, 4 = Boosted
+    /// </summary>
+    internal class ControllerEmulationRumbleProfileProperty : WidgetControlProperty<int, ComboBox>
+    {
+        public ControllerEmulationRumbleProfileProperty(ComboBox inUI, Page inOwner)
+            : base(0, Function.ControllerEmulationRumbleProfile, inUI, inOwner)
+        {
+            if (UI != null)
+            {
+                UI.SelectionChanged += ComboBox_SelectionChanged;
+                if (UI.Items.Count > Value)
+                {
+                    UI.SelectedIndex = Value;
+                }
+            }
+        }
+
+        private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            int newIndex = UI.SelectedIndex;
+            if (newIndex >= 0 && newIndex != Value)
+            {
+                Logger.Info($"{Function} combo box updated to index {newIndex}.");
+                SetValue(newIndex);
+            }
+        }
+
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+
+            if (UI != null && Owner != null)
+            {
+                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    if (UI.Items.Count > Value && UI.SelectedIndex != Value)
+                    {
+                        Logger.Info($"{Function} combo box selected index {Value}.");
+                        UI.SelectedIndex = Value;
+                    }
+                });
+            }
+        }
+    }
+
+    /// <summary>
     /// Property for gyro activation behavior.
     /// 0 = Always On, 1 = Hold, 2 = Toggle
     /// </summary>
