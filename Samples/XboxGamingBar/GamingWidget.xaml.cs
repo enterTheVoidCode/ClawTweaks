@@ -1018,6 +1018,9 @@ namespace XboxGamingBar
         private bool isUserInitiatedProfileToggle = false; // Indicates user clicked Profile tile to toggle
         private bool isUserInitiatedTDPModeChange = false; // Indicates user clicked TDP Mode tile in Quick Tab
         private int savedLegionPerformanceMode = -1; // Stores Legion mode before per-game profile (-1 = not saved)
+        private bool isUpdatingPowerSourceProfileToggle = false; // Prevents programmatic toggle sync from triggering profile writes
+        private const string GlobalPowerSourceProfileSettingKey = "PowerSourceProfileEnabled";
+        private const string PerGamePowerSourceProfileSettingPrefix = "PerGamePowerSourceProfileEnabled_";
 
         // Controller profile state
         private ControllerProfile globalControllerProfile = new ControllerProfile();
@@ -1048,6 +1051,137 @@ namespace XboxGamingBar
 
             // Trim whitespace, normalize spaces
             return gameName.Trim();
+        }
+
+        private string GetPerGamePowerSourceProfileSettingKey(string gameName)
+        {
+            return $"{PerGamePowerSourceProfileSettingPrefix}{gameName}";
+        }
+
+        private bool HasGameSingleProfile(string gameName)
+        {
+            if (!HasValidGame(gameName))
+                return false;
+
+            var settings = ApplicationData.Current.LocalSettings;
+            return settings.Containers.ContainsKey($"Profile_Game_{gameName}");
+        }
+
+        private bool HasGamePowerSplitProfiles(string gameName)
+        {
+            if (!HasValidGame(gameName))
+                return false;
+
+            var settings = ApplicationData.Current.LocalSettings;
+            return settings.Containers.ContainsKey($"Profile_Game_{gameName}_AC")
+                || settings.Containers.ContainsKey($"Profile_Game_{gameName}_DC");
+        }
+
+        private bool HasAnyGameProfile(string gameName)
+        {
+            return HasGameSingleProfile(gameName) || HasGamePowerSplitProfiles(gameName);
+        }
+
+        private bool GetGlobalPowerSourceProfileEnabled()
+        {
+            var settings = ApplicationData.Current.LocalSettings;
+            if (settings.Values.TryGetValue(GlobalPowerSourceProfileSettingKey, out object val) && val is bool enabled)
+            {
+                return enabled;
+            }
+
+            return false;
+        }
+
+        private bool GetPerGamePowerSourceProfileEnabled(string gameName)
+        {
+            if (!HasValidGame(gameName))
+            {
+                return GetGlobalPowerSourceProfileEnabled();
+            }
+
+            var settings = ApplicationData.Current.LocalSettings;
+            string settingKey = GetPerGamePowerSourceProfileSettingKey(gameName);
+            if (settings.Values.TryGetValue(settingKey, out object val) && val is bool enabled)
+            {
+                return enabled;
+            }
+
+            bool hasSplitProfiles = HasGamePowerSplitProfiles(gameName);
+            bool hasSingleProfile = HasGameSingleProfile(gameName);
+
+            if (hasSplitProfiles && !hasSingleProfile)
+            {
+                return true;
+            }
+
+            if (hasSingleProfile && !hasSplitProfiles)
+            {
+                return false;
+            }
+
+            return GetGlobalPowerSourceProfileEnabled();
+        }
+
+        private void SavePerGamePowerSourceProfileSetting(string gameName, bool enabled)
+        {
+            if (!HasValidGame(gameName))
+            {
+                return;
+            }
+
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values[GetPerGamePowerSourceProfileSettingKey(gameName)] = enabled;
+        }
+
+        private bool GetPowerSourceProfileEnabledForCurrentContext()
+        {
+            bool perGameEnabled = PerGameProfileToggle?.IsOn == true;
+            if (perGameEnabled && HasValidGame(currentGameName))
+            {
+                return GetPerGamePowerSourceProfileEnabled(currentGameName);
+            }
+
+            return GetGlobalPowerSourceProfileEnabled();
+        }
+
+        private void UpdateGlobalProfileDisplayMode()
+        {
+            bool globalPowerSourceSplit = GetGlobalPowerSourceProfileEnabled();
+
+            if (GlobalProfileSimple != null)
+            {
+                GlobalProfileSimple.Visibility = globalPowerSourceSplit ? Visibility.Collapsed : Visibility.Visible;
+            }
+
+            if (GlobalProfileACDC != null)
+            {
+                GlobalProfileACDC.Visibility = globalPowerSourceSplit ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
+        private void SyncPowerSourceProfileToggleForCurrentContext()
+        {
+            if (PowerSourceProfileToggle == null)
+            {
+                return;
+            }
+
+            bool targetValue = GetPowerSourceProfileEnabledForCurrentContext();
+            if (PowerSourceProfileToggle.IsOn != targetValue)
+            {
+                isUpdatingPowerSourceProfileToggle = true;
+                try
+                {
+                    PowerSourceProfileToggle.IsOn = targetValue;
+                }
+                finally
+                {
+                    isUpdatingPowerSourceProfileToggle = false;
+                }
+            }
+
+            UpdateGlobalProfileDisplayMode();
         }
 
         // Profile save settings - backed by fields to avoid UI thread access issues
@@ -2113,18 +2247,7 @@ namespace XboxGamingBar
 
             // Initialize power source profile
             PowerSourceProfileToggle.Toggled += PowerSourceProfileToggle_Toggled;
-
-            // Set initial visibility for Global Profile display mode
-            if (PowerSourceProfileToggle.IsOn)
-            {
-                GlobalProfileSimple.Visibility = Visibility.Collapsed;
-                GlobalProfileACDC.Visibility = Visibility.Visible;
-            }
-            else
-            {
-                GlobalProfileSimple.Visibility = Visibility.Visible;
-                GlobalProfileACDC.Visibility = Visibility.Collapsed;
-            }
+            UpdateGlobalProfileDisplayMode();
 
             UpdateActiveProfileIndicator();
 
@@ -2489,6 +2612,9 @@ namespace XboxGamingBar
             if (perGameProfile?.IsUpdatingUI == true)
             {
                 Logger.Info($"Skipping PerGameProfileToggle_Changed - toggle set by helper sync (currentGameName='{currentGameName}')");
+                SyncPowerSourceProfileToggleForCurrentContext();
+                UpdateGameProfileCardVisibility();
+                UpdateProfileDisplay();
                 return;
             }
 
@@ -2531,16 +2657,7 @@ namespace XboxGamingBar
                     // But ALLOW internal disables (when game closes) and user-initiated toggles
                     if (HasValidGame(currentGameName) && isApplyingHelperUpdate && !isInternalToggleDisable && !isUserInitiatedProfileToggle)
                     {
-                        bool hasExistingProfile = false;
-
-                        if (PowerSourceProfileToggle?.IsOn == true)
-                        {
-                            hasExistingProfile = settings.Containers.ContainsKey($"Profile_Game_{currentGameName}_AC");
-                        }
-                        else
-                        {
-                            hasExistingProfile = settings.Containers.ContainsKey($"Profile_Game_{currentGameName}");
-                        }
+                        bool hasExistingProfile = HasAnyGameProfile(currentGameName);
 
                         if (hasExistingProfile)
                         {
@@ -2560,6 +2677,7 @@ namespace XboxGamingBar
                     }
                 }
 
+                SyncPowerSourceProfileToggleForCurrentContext();
                 UpdateActiveProfileIndicator();
             }
             finally
@@ -2608,16 +2726,7 @@ namespace XboxGamingBar
                 {
                     // Valid game detected
                     var settings = ApplicationData.Current.LocalSettings;
-                    bool hasExistingProfile = false;
-
-                    if (PowerSourceProfileToggle?.IsOn == true)
-                    {
-                        hasExistingProfile = settings.Containers.ContainsKey($"Profile_Game_{currentGameName}_AC");
-                    }
-                    else
-                    {
-                        hasExistingProfile = settings.Containers.ContainsKey($"Profile_Game_{currentGameName}");
-                    }
+                    bool hasExistingProfile = HasAnyGameProfile(currentGameName);
 
                     // Check if user explicitly disabled per-game profile for this game
                     string disabledKey = $"PerGameProfileDisabled_{currentGameName}";
@@ -2661,6 +2770,8 @@ namespace XboxGamingBar
                         isInternalToggleDisable = false;
                     }
                 }
+
+                SyncPowerSourceProfileToggleForCurrentContext();
 
                 // Update game profile card visibility and display
                 UpdateGameProfileCardVisibility();
@@ -2819,35 +2930,90 @@ namespace XboxGamingBar
                 return;
 
             var settings = ApplicationData.Current.LocalSettings;
+            bool splitEnabled = GetPerGamePowerSourceProfileEnabled(currentGameName);
+            bool hasSingle = settings.Containers.ContainsKey($"Profile_Game_{currentGameName}");
+            bool hasAC = settings.Containers.ContainsKey($"Profile_Game_{currentGameName}_AC");
+            bool hasDC = settings.Containers.ContainsKey($"Profile_Game_{currentGameName}_DC");
 
-            if (PowerSourceProfileToggle?.IsOn == true)
+            if (splitEnabled)
             {
-                // Check if game profiles exist in storage
-                if (!settings.Containers.ContainsKey($"Profile_Game_{currentGameName}_AC"))
+                // Ensure AC/DC game profiles exist. If only a single profile exists, seed both from it.
+                PerformanceProfile seedProfile = null;
+                if (hasSingle)
                 {
-                    // Initialize new game profiles from current AC/DC profiles
-                    gameACProfile = acProfile.Clone();
-                    gameDCProfile = dcProfile.Clone();
+                    seedProfile = new PerformanceProfile();
+                    LoadProfileFromStorage($"Game_{currentGameName}", seedProfile);
+                }
+
+                if (!hasAC)
+                {
+                    gameACProfile = (seedProfile ?? acProfile).Clone();
                     SaveProfileToStorage($"Game_{currentGameName}_AC", gameACProfile);
-                    SaveProfileToStorage($"Game_{currentGameName}_DC", gameDCProfile);
-                    Logger.Info($"Initialized game AC/DC profiles for {currentGameName}");
+                    Logger.Info($"Initialized game AC profile for {currentGameName} (seed={(seedProfile != null ? "single profile" : "global AC")})");
                 }
                 else
                 {
                     LoadProfileFromStorage($"Game_{currentGameName}_AC", gameACProfile);
-                    LoadProfileFromStorage($"Game_{currentGameName}_DC", gameDCProfile);
-                    Logger.Info($"Loaded existing game AC/DC profiles for {currentGameName}");
                 }
+
+                if (!hasDC)
+                {
+                    gameDCProfile = (seedProfile ?? dcProfile).Clone();
+                    SaveProfileToStorage($"Game_{currentGameName}_DC", gameDCProfile);
+                    Logger.Info($"Initialized game DC profile for {currentGameName} (seed={(seedProfile != null ? "single profile" : "global DC")})");
+                }
+                else
+                {
+                    LoadProfileFromStorage($"Game_{currentGameName}_DC", gameDCProfile);
+                }
+
+                Logger.Info($"Loaded game AC/DC profiles for {currentGameName}");
             }
             else
             {
-                // Check if game profile exists in storage
-                if (!settings.Containers.ContainsKey($"Profile_Game_{currentGameName}"))
+                // Ensure single game profile exists. If only AC/DC exists, seed from active power source profile.
+                if (!hasSingle)
                 {
-                    // Initialize new game profile from global profile
-                    gameProfile = globalProfile.Clone();
+                    PerformanceProfile seedProfile = null;
+                    if (hasAC || hasDC)
+                    {
+                        var powerSupplyStatus = PowerManager.PowerSupplyStatus;
+                        bool isOnAC = powerSupplyStatus != PowerSupplyStatus.NotPresent;
+
+                        string sourceProfileName;
+                        if (isOnAC && hasAC)
+                        {
+                            sourceProfileName = $"Game_{currentGameName}_AC";
+                        }
+                        else if (!isOnAC && hasDC)
+                        {
+                            sourceProfileName = $"Game_{currentGameName}_DC";
+                        }
+                        else if (hasAC)
+                        {
+                            sourceProfileName = $"Game_{currentGameName}_AC";
+                        }
+                        else
+                        {
+                            sourceProfileName = $"Game_{currentGameName}_DC";
+                        }
+
+                        seedProfile = new PerformanceProfile();
+                        LoadProfileFromStorage(sourceProfileName, seedProfile);
+                        Logger.Info($"Seeding single game profile for {currentGameName} from {sourceProfileName}");
+                    }
+
+                    if (seedProfile == null && GetGlobalPowerSourceProfileEnabled())
+                    {
+                        var powerSupplyStatus = PowerManager.PowerSupplyStatus;
+                        bool isOnAC = powerSupplyStatus != PowerSupplyStatus.NotPresent;
+                        seedProfile = (isOnAC ? acProfile : dcProfile).Clone();
+                        Logger.Info($"Seeding single game profile for {currentGameName} from global {(isOnAC ? "AC" : "DC")} profile");
+                    }
+
+                    gameProfile = (seedProfile ?? globalProfile).Clone();
                     SaveProfileToStorage($"Game_{currentGameName}", gameProfile);
-                    Logger.Info($"Initialized game profile for {currentGameName} from global");
+                    Logger.Info($"Initialized game profile for {currentGameName} (seed={(seedProfile != null ? "active profile" : "global profile")})");
                 }
                 else
                 {
@@ -3142,26 +3308,36 @@ namespace XboxGamingBar
 
         private void PowerSourceProfileToggle_Toggled(object sender, RoutedEventArgs e)
         {
-            Logger.Info($"PowerSourceProfileToggle toggled to: {PowerSourceProfileToggle.IsOn}");
-
-            // Save the setting
-            SavePowerSourceProfileSetting();
-
-            // Toggle Global Profile display mode
-            if (PowerSourceProfileToggle.IsOn)
+            if (PowerSourceProfileToggle == null)
             {
-                // Show AC/DC mode, hide simple mode
-                GlobalProfileSimple.Visibility = Visibility.Collapsed;
-                GlobalProfileACDC.Visibility = Visibility.Visible;
+                return;
+            }
+
+            if (isUpdatingPowerSourceProfileToggle)
+            {
+                UpdateGlobalProfileDisplayMode();
+                return;
+            }
+
+            bool enabled = PowerSourceProfileToggle.IsOn;
+            bool perGameContext = PerGameProfileToggle?.IsOn == true && HasValidGame(currentGameName);
+
+            if (perGameContext)
+            {
+                SavePerGamePowerSourceProfileSetting(currentGameName, enabled);
+                Logger.Info($"PowerSourceProfileToggle toggled for game '{currentGameName}' to: {enabled}");
+                LoadOrCreateGameProfiles();
             }
             else
             {
-                // Show simple mode, hide AC/DC mode
-                GlobalProfileSimple.Visibility = Visibility.Visible;
-                GlobalProfileACDC.Visibility = Visibility.Collapsed;
+                Logger.Info($"PowerSourceProfileToggle toggled globally to: {enabled}");
+                SavePowerSourceProfileSetting(enabled);
             }
 
+            UpdateGlobalProfileDisplayMode();
+            UpdateGameProfileCardVisibility();
             UpdateActiveProfileIndicator();
+            UpdateProfileDisplay();
         }
 
         private void LoadPowerSourceProfileSetting()
@@ -3170,9 +3346,20 @@ namespace XboxGamingBar
             {
                 if (PowerSourceProfileToggle == null) return;
                 var settings = ApplicationData.Current.LocalSettings;
-                if (settings.Values.TryGetValue("PowerSourceProfileEnabled", out object val) && val is bool enabled)
+                bool enabled = false;
+                if (settings.Values.TryGetValue(GlobalPowerSourceProfileSettingKey, out object val) && val is bool saved)
+                {
+                    enabled = saved;
+                }
+
+                isUpdatingPowerSourceProfileToggle = true;
+                try
                 {
                     PowerSourceProfileToggle.IsOn = enabled;
+                }
+                finally
+                {
+                    isUpdatingPowerSourceProfileToggle = false;
                 }
             }
             catch (Exception ex)
@@ -3181,13 +3368,12 @@ namespace XboxGamingBar
             }
         }
 
-        private void SavePowerSourceProfileSetting()
+        private void SavePowerSourceProfileSetting(bool enabled)
         {
             try
             {
-                if (PowerSourceProfileToggle == null) return;
                 var settings = ApplicationData.Current.LocalSettings;
-                settings.Values["PowerSourceProfileEnabled"] = PowerSourceProfileToggle.IsOn;
+                settings.Values[GlobalPowerSourceProfileSettingKey] = enabled;
             }
             catch (Exception ex)
             {
@@ -10188,7 +10374,7 @@ namespace XboxGamingBar
                 // For Legion preset modes (Quiet=1, Balanced=2, Performance=3), let the system handle TDP
                 // Skip TDP reapply when DGP is active - DGP controls TDP regardless of power source
                 bool isLegionCustomMode = legionGoDetected?.Value == true && legionPerformanceMode?.Value == 255;
-                bool powerSourceProfileEnabled = PowerSourceProfileToggle?.IsOn == true;
+                bool powerSourceProfileEnabled = GetPowerSourceProfileEnabledForCurrentContext();
                 bool dgpActive = defaultGameProfileEnabled?.Value == true;
 
                 if ((isLegionCustomMode || powerSourceProfileEnabled) && !dgpActive)
@@ -10279,7 +10465,7 @@ namespace XboxGamingBar
             if (perGameEnabled && hasGame)
             {
                 // Per-game profile is active
-                if (PowerSourceProfileToggle.IsOn)
+                if (GetPerGamePowerSourceProfileEnabled(currentGameName))
                 {
                     // Check power status for AC/DC
                     // Only consider DC (battery) when power supply is NotPresent (actually unplugged)
@@ -10305,7 +10491,7 @@ namespace XboxGamingBar
             else
             {
                 // Global profiles
-                if (!PowerSourceProfileToggle.IsOn)
+                if (!GetGlobalPowerSourceProfileEnabled())
                 {
                     // Power source profiles disabled, show global
                     ActiveProfileText.Text = "Global Settings";
@@ -10412,7 +10598,8 @@ namespace XboxGamingBar
                 // SwitchProfile can auto-save to a non-existent profile, creating it accidentally.
                 var settings = ApplicationData.Current.LocalSettings;
                 string candidateProfile;
-                if (PowerSourceProfileToggle.IsOn)
+                bool perGamePowerSourceSplit = GetPerGamePowerSourceProfileEnabled(currentGameName);
+                if (perGamePowerSourceSplit)
                 {
                     candidateProfile = isOnAC ? $"Game_{currentGameName}_AC" : $"Game_{currentGameName}_DC";
                 }
@@ -10436,7 +10623,7 @@ namespace XboxGamingBar
             }
 
             // Global profiles (used when: no valid game, per-game disabled, or game profile doesn't exist yet)
-            if (!PowerSourceProfileToggle.IsOn)
+            if (!GetGlobalPowerSourceProfileEnabled())
             {
                 return "Global";
             }
@@ -10874,7 +11061,7 @@ namespace XboxGamingBar
                         if (savedLegionPerformanceMode < 0)
                         {
                             // Save from the correct source profile based on Power Source Profile toggle
-                            if (PowerSourceProfileToggle.IsOn)
+                            if (GetGlobalPowerSourceProfileEnabled())
                             {
                                 var powerSupplyStatus = PowerManager.PowerSupplyStatus;
                                 bool isOnAC = powerSupplyStatus != PowerSupplyStatus.NotPresent;
@@ -14149,7 +14336,7 @@ namespace XboxGamingBar
             // Update game profile display (if game is running)
             if (HasValidGame(currentGameName))
             {
-                if (PowerSourceProfileToggle?.IsOn == true)
+                if (GetPerGamePowerSourceProfileEnabled(currentGameName))
                 {
                     // Show AC/DC game profiles - TDP Mode (Legion only)
                     GameACDCProfileTDPModeLabel.Visibility = tdpModeVisibility;
@@ -14534,7 +14721,7 @@ namespace XboxGamingBar
         private void UpdateGameProfileCardVisibility()
         {
             bool hasGame = HasValidGame(currentGameName);
-            bool powerSourceEnabled = PowerSourceProfileToggle?.IsOn == true;
+            bool powerSourceEnabled = hasGame && GetPerGamePowerSourceProfileEnabled(currentGameName);
 
             if (hasGame)
             {
@@ -14602,7 +14789,6 @@ namespace XboxGamingBar
             AllGameProfilesContainer.Children.Clear();
 
             var savedGames = GetAllSavedGameProfiles();
-            bool powerSourceEnabled = PowerSourceProfileToggle?.IsOn == true;
 
             if (savedGames.Count == 0)
             {
@@ -15028,6 +15214,7 @@ namespace XboxGamingBar
         {
             var settings = ApplicationData.Current.LocalSettings;
             var profilesToDelete = new List<string>();
+            var perGameSplitKeysToDelete = new List<string>();
 
             // Find all containers with invalid game names (case-insensitive check)
             foreach (var containerName in settings.Containers.Keys)
@@ -15038,11 +15225,27 @@ namespace XboxGamingBar
                 }
             }
 
+            // Find all per-game split settings with invalid game names
+            foreach (var key in settings.Values.Keys)
+            {
+                if (key.StartsWith(PerGamePowerSourceProfileSettingPrefix, StringComparison.OrdinalIgnoreCase) &&
+                    key.IndexOf("No game detected", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    perGameSplitKeysToDelete.Add(key);
+                }
+            }
+
             // Delete invalid profiles
             foreach (var containerName in profilesToDelete)
             {
                 settings.DeleteContainer(containerName);
                 Logger.Info($"Cleaned up invalid profile container: {containerName}");
+            }
+
+            foreach (var key in perGameSplitKeysToDelete)
+            {
+                settings.Values.Remove(key);
+                Logger.Info($"Cleaned up invalid per-game power split key: {key}");
             }
 
             if (profilesToDelete.Count > 0)
@@ -15080,6 +15283,13 @@ namespace XboxGamingBar
                 settings.DeleteContainer($"Profile_Game_{gameName}_DC");
                 Logger.Info($"Deleted game DC profile for {gameName}");
                 profileDeleted = true;
+            }
+
+            string splitKey = GetPerGamePowerSourceProfileSettingKey(gameName);
+            if (settings.Values.ContainsKey(splitKey))
+            {
+                settings.Values.Remove(splitKey);
+                Logger.Info($"Deleted per-game power split setting for {gameName}");
             }
 
             if (profileDeleted)
