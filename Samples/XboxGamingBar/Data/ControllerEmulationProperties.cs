@@ -399,6 +399,14 @@ namespace XboxGamingBar.Data
         }
     }
 
+    internal class ControllerEmulationLedForwardingEnabledProperty : WidgetToggleProperty
+    {
+        public ControllerEmulationLedForwardingEnabledProperty(ToggleSwitch inUI, Page inOwner)
+            : base(false, Function.ControllerEmulationLedForwardingEnabled, inUI, inOwner)
+        {
+        }
+    }
+
     internal class ControllerEmulationMouseSensitivityProperty : WidgetSliderProperty
     {
         public ControllerEmulationMouseSensitivityProperty(Slider inUI, Page inOwner)

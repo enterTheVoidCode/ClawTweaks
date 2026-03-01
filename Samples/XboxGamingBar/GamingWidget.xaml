@@ -1509,23 +1509,31 @@
 
                         <!-- Power Source Profile Card -->
                         <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Power Source Profile" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Separate profiles for AC (plugged in) and DC (battery)"
-                                               Style="{StaticResource CardCaptionStyle}"
-                                               TextWrapping="Wrap"/>
-                                </StackPanel>
-                                <ToggleSwitch x:Name="PowerSourceProfileToggle"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}" Width="47"
-                                              XYFocusUp="{x:Bind ProfilesNavItem}"
-                                              XYFocusDown="{x:Bind ProfileSettingsExpandToggle}"/>
-                            </Grid>
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Power Source Profile" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Separate profiles for AC (plugged in) and DC (battery)"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="PowerSourceProfileToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}" Width="47"
+                                                  XYFocusUp="{x:Bind ProfilesNavItem}"
+                                                  XYFocusDown="{x:Bind ProfileSettingsExpandToggle}"/>
+                                </Grid>
+                                <TextBlock x:Name="PowerSourceProfileScopeText"
+                                           Margin="0,8,0,0"
+                                           FontSize="11"
+                                           Foreground="#AAAAAA"
+                                           TextWrapping="Wrap"
+                                           Text="Scope: Global profiles. AC/DC split: Off. Enable Per-Game Profile to set this per game."/>
+                            </StackPanel>
                         </Border>
 
                         <!-- Game Detection Card -->
@@ -3907,10 +3915,32 @@
                                               Style="{StaticResource ModernComboBoxStyle}"
                                               XYFocusUp="{x:Bind ControllerEmulationHideStockControllerToggle}"
                                               XYFocusDown="{x:Bind ControllerEmulationModeComboBox}"
+                                              SelectionChanged="ControllerEmulationGyroSourceComboBox_SelectionChanged"
                                               IsEnabled="False">
                                         <ComboBoxItem Content="Internal Handheld" Tag="0" IsSelected="True"/>
-                                        <ComboBoxItem Content="Controller Internal" Tag="1"/>
+                                        <ComboBoxItem Content="Controller (Right)" Tag="1"/>
+                                        <ComboBoxItem Content="Controller (Left)" Tag="2"/>
+                                        <ComboBoxItem Content="Controller (Mixed)" Tag="3"/>
                                     </ComboBox>
+                                </Grid>
+
+                                <Grid x:Name="CalibrateGyroGrid" Margin="0,8,0,0" Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Calibrate Gyro" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Hold controllers still during calibration"
+                                                   FontSize="11"
+                                                   Foreground="#888888"/>
+                                    </StackPanel>
+                                    <Button x:Name="CalibrateGyroButton"
+                                            Grid.Column="1"
+                                            Content="Calibrate"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Click="CalibrateGyroButton_Click"
+                                            IsEnabled="False"/>
                                 </Grid>
 
                                 <Grid Margin="0,12,0,0">
@@ -4050,6 +4080,24 @@
                                         <ToggleSwitch x:Name="ControllerEmulationPs4TouchpadToggle"
                                                       Grid.Column="1"
                                                       IsOn="True"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      IsEnabled="False"/>
+                                    </Grid>
+
+                                    <Grid x:Name="ControllerEmulationLedForwardingRow" Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="LED Forwarding" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Forward game LED requests to physical controller"
+                                                       FontSize="11"
+                                                       Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="ControllerEmulationLedForwardingToggle"
+                                                      Grid.Column="1"
+                                                      IsOn="False"
                                                       Style="{StaticResource ModernToggleStyle}"
                                                       IsEnabled="False"/>
                                     </Grid>

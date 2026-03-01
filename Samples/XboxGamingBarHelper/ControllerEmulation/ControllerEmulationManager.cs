@@ -62,6 +62,11 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private int hideTarget;
         private bool improvedInputRead;
         private bool ps4TouchpadEnabled;
+        private bool ledForwardingEnabled;
+        private byte lastForwardedLedR;
+        private byte lastForwardedLedG;
+        private byte lastForwardedLedB;
+        private bool hasForwardedLed;
 
         private ViGEmController virtualController;
         private readonly ControllerSuppressionManager suppressionManager;
@@ -110,11 +115,20 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private readonly bool[] legionUserspaceTurboOutputActive = new bool[8];
         private readonly long[] legionUserspaceTurboNextToggleTicksUtc = new long[8];
         private long legionUserspaceRemapCacheTicksUtc;
+        private int touchDiagLogCounter;
+        private int gyroDiagLogCounter;
 
         private const int ForwardingIntervalMs = 4;
         private const uint ERROR_SUCCESS = 0;
         private const float GyroDs4MaxDegPerSecond = 2000.0f;
         private const float AccelDs4MaxG = 4.0f;
+        // DS4 IMU scale factors:
+        // Gyro: 16 counts per °/s → 1°/s = 16 raw, max ±2048°/s = ±32768 raw
+        // Accel: 8192 counts per G (matches ViiperController's ScaleAccel = raw * 2 from BMI323 4096 LSB/G)
+        private const float Ds4GyroCountsPerDps = 16.0f;
+        private const float Ds4AccelCountsPerG = 8192.0f;
+        // Default accel Z for a controller lying flat = -1G = -8192
+        private const short Ds4DefaultAccelZRaw = -8192;
         private const float MousePixelsPerDegree = 24.0f;
         private const float MouseSensitivityPower = 1.35f;
         private const float MouseOneEuroMinCutoff = 1.2f;
@@ -132,7 +146,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private const float LegionTouchMaxX = 1023.0f;
         private const float LegionTouchMaxY = 1023.0f;
         private const float Ds4TouchMaxX = 1919.0f;
-        private const float Ds4TouchMaxY = 943.0f;
+        private const float Ds4TouchMaxY = 942.0f;
         private const long LegionHidSampleMaxAgeTicks = TimeSpan.TicksPerSecond / 2; // 500ms
         private const long RumbleDispatchMinTicks = TimeSpan.TicksPerMillisecond * 4; // 250Hz max
         private const long LegionRumbleFallbackMinTicks = TimeSpan.TicksPerMillisecond * 350; // Coarse firmware fallback; avoid frequent EC rumble bursts
@@ -332,6 +346,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
         public readonly ControllerEmulationStickRangeProperty ControllerEmulationStickRange;
         public readonly ControllerEmulationStickOnlyJoystickDataProperty ControllerEmulationStickOnlyJoystickData;
         public readonly ControllerEmulationVirtualABXYLayoutProperty ControllerEmulationVirtualABXYLayout;
+        public readonly ControllerEmulationLedForwardingEnabledProperty ControllerEmulationLedForwardingEnabled;
+        public readonly ControllerEmulationCalibrateGyroProperty ControllerEmulationCalibrateGyro;
 
         public IEnumerable<IProperty> Properties
         {
@@ -368,6 +384,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 yield return ControllerEmulationStickRange;
                 yield return ControllerEmulationStickOnlyJoystickData;
                 yield return ControllerEmulationVirtualABXYLayout;
+                yield return ControllerEmulationLedForwardingEnabled;
+                yield return ControllerEmulationCalibrateGyro;
             }
         }
 
@@ -415,6 +433,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
             ControllerEmulationStickRange = new ControllerEmulationStickRangeProperty(stickRange, this);
             ControllerEmulationStickOnlyJoystickData = new ControllerEmulationStickOnlyJoystickDataProperty(stickOnlyJoystickData, this);
             ControllerEmulationVirtualABXYLayout = new ControllerEmulationVirtualABXYLayoutProperty(virtualAbxyLayout, this);
+            ControllerEmulationLedForwardingEnabled = new ControllerEmulationLedForwardingEnabledProperty(ledForwardingEnabled, this);
+            ControllerEmulationCalibrateGyro = new ControllerEmulationCalibrateGyroProperty(this);
 
             SubscribeForegroundSignal();
 
@@ -590,6 +610,54 @@ namespace XboxGamingBarHelper.ControllerEmulation
             ps4TouchpadEnabled = value;
             SaveSettings();
             Logger.Info($"Controller emulation PS4 touchpad forwarding set to {ps4TouchpadEnabled}");
+        }
+
+        public void SetLedForwardingEnabled(bool value)
+        {
+            if (ledForwardingEnabled == value)
+            {
+                return;
+            }
+
+            ledForwardingEnabled = value;
+            SaveSettings();
+            Logger.Info($"Controller emulation LED forwarding set to {ledForwardingEnabled}");
+
+            if (!ledForwardingEnabled && hasForwardedLed)
+            {
+                RevertLegionLed();
+            }
+        }
+
+        public void CalibrateGyro()
+        {
+            if (deviceType != SharedDeviceType.LegionGo && deviceType != SharedDeviceType.LegionGo2)
+            {
+                Logger.Warn("Calibrate gyro: not supported on this device");
+                return;
+            }
+
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    using (var controller = new LegionGoController())
+                    {
+                        if (!controller.Connect())
+                        {
+                            Logger.Warn("Calibrate gyro: controller not connected");
+                            return;
+                        }
+
+                        bool ok = controller.CalibrateGyro();
+                        Logger.Info($"Calibrate gyro: {(ok ? "success" : "failed")}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Calibrate gyro failed: {ex.Message}");
+                }
+            });
         }
 
         public void SetEnabled(bool value)
@@ -898,7 +966,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
         private static int NormalizeGyroSource(int source)
         {
-            return source == 1 ? 1 : 0;
+            return (source >= 0 && source <= 3) ? source : 0;
         }
 
         private static int NormalizeMode(int inMode)
@@ -1410,6 +1478,15 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 {
                     virtualAbxyLayout = 0;
                 }
+
+                if (LocalSettingsHelper.TryGetValue("ControllerEmulationLedForwardingEnabled", out bool savedLedForwarding))
+                {
+                    ledForwardingEnabled = savedLedForwarding;
+                }
+                else
+                {
+                    ledForwardingEnabled = false;
+                }
             }
             catch (Exception ex)
             {
@@ -1481,6 +1558,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 LocalSettingsHelper.SetValue("ControllerEmulationStickRange", stickRange);
                 LocalSettingsHelper.SetValue("ControllerEmulationStickOnlyJoystickData", stickOnlyJoystickData);
                 LocalSettingsHelper.SetValue("ControllerEmulationVirtualABXYLayout", virtualAbxyLayout);
+                LocalSettingsHelper.SetValue("ControllerEmulationLedForwardingEnabled", ledForwardingEnabled);
 
                 // Keep legacy keys in sync for compatibility with older builds.
                 LocalSettingsHelper.SetValue("GPDControllerEmulationGyroSource", gyroSource);
@@ -1525,7 +1603,17 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 hideStockController &&
                 RequiresSoftwareForwarding(mode) &&
                 RequiresVirtualGamepad(mode);
-            StopForwarding(preserveSuppressionAcrossRestart);
+            // When switching between modes that use the same virtual gamepad type (e.g. DS4 Stick ↔ DS4 Motion),
+            // preserve the virtual controller to avoid Windows losing track of the device during re-enumeration.
+            var newTargetType = mode == 1
+                ? ViGEmController.VirtualGamepadType.Xbox360
+                : ViGEmController.VirtualGamepadType.DualShock4;
+            bool preserveVirtualController =
+                virtualController != null &&
+                virtualController.IsPluggedIn &&
+                RequiresVirtualGamepad(mode) &&
+                virtualController.CurrentType == newTargetType;
+            StopForwarding(preserveSuppressionAcrossRestart, preserveVirtualController);
             bool forwardingApplied = ConfigureForwarding(reason);
 
             if (backendApplied || forwardingApplied)
@@ -1586,6 +1674,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
             virtualController.RumbleReceived -= OnVirtualControllerRumbleReceived;
             virtualController.RumbleReceived += OnVirtualControllerRumbleReceived;
+            virtualController.LedReceived -= OnVirtualControllerLedReceived;
+            virtualController.LedReceived += OnVirtualControllerLedReceived;
 
             if (!virtualController.EnsureConnected(targetType))
             {
@@ -1747,7 +1837,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             Logger.Info("Controller emulation forwarding thread started");
         }
 
-        private void StopForwarding(bool preserveSuppression = false)
+        private void StopForwarding(bool preserveSuppression = false, bool preserveVirtualController = false)
         {
             forwardingRunning = false;
             if (forwardingThread != null && forwardingThread.IsAlive)
@@ -1766,11 +1856,12 @@ namespace XboxGamingBarHelper.ControllerEmulation
             ResetGyroActivationRuntimeState();
             ResetLegionUserspaceRemapRuntime();
 
-            if (virtualController != null)
+            if (virtualController != null && !preserveVirtualController)
             {
                 try
                 {
                     virtualController.RumbleReceived -= OnVirtualControllerRumbleReceived;
+                    virtualController.LedReceived -= OnVirtualControllerLedReceived;
                     virtualController.Dispose();
                 }
                 catch
@@ -1778,6 +1869,11 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     // Ignore disposal failures on shutdown.
                 }
                 virtualController = null;
+            }
+
+            if (hasForwardedLed && !preserveVirtualController)
+            {
+                RevertLegionLed();
             }
 
             if (!preserveSuppression)
@@ -1837,6 +1933,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     short forwardedRightX = state.Gamepad.sThumbRX;
                     short forwardedRightY = state.Gamepad.sThumbRY;
                     bool ds4TouchActive = false;
+                    bool ds4TouchPressed = false;
                     ushort ds4TouchX = 0;
                     ushort ds4TouchY = 0;
                     bool gyroActive = IsGyroActivationEnabled(state.Gamepad);
@@ -1904,7 +2001,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
                     if ((mode == 2 || mode == 3) && ps4TouchpadEnabled)
                     {
-                        TryReadDs4TouchSample(out ds4TouchActive, out ds4TouchX, out ds4TouchY);
+                        TryReadDs4TouchSample(out ds4TouchActive, out ds4TouchPressed, out ds4TouchX, out ds4TouchY);
                     }
 
                     bool ok = false;
@@ -1924,9 +2021,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
                         short gyroX = 0;
                         short gyroY = 0;
                         short gyroZ = 0;
+                        // Default accel = controller lying flat (1G downward on Z axis)
                         short accelX = 0;
                         short accelY = 0;
-                        short accelZ = 0;
+                        short accelZ = Ds4DefaultAccelZRaw;
 
                         if (gyroActive && TryReadGyroSample(out GyroSample motionSample))
                         {
@@ -1945,12 +2043,20 @@ namespace XboxGamingBarHelper.ControllerEmulation
                                 ref accelYValue,
                                 ref accelZValue);
 
-                            gyroX = ConvertSignedRangeToInt16(gyroXValue, GyroDs4MaxDegPerSecond);
-                            gyroY = ConvertSignedRangeToInt16(gyroYValue, GyroDs4MaxDegPerSecond);
-                            gyroZ = ConvertSignedRangeToInt16(gyroZValue, GyroDs4MaxDegPerSecond);
-                            accelX = ConvertSignedRangeToInt16(accelXValue, AccelDs4MaxG);
-                            accelY = ConvertSignedRangeToInt16(accelYValue, AccelDs4MaxG);
-                            accelZ = ConvertSignedRangeToInt16(accelZValue, AccelDs4MaxG);
+                            // DS4 gyro/accel conversion.
+                            // Legion BMI323 controller needs Y↔Z swap; Windows sensor API already uses standard axes.
+                            bool isLegionController = gyroSourceAdapter is ILegionControllerGyroSource;
+                            gyroX = ConvertToDs4Gyro(gyroXValue);
+                            gyroY = ConvertToDs4Gyro(isLegionController ? gyroZValue : gyroYValue);
+                            gyroZ = ConvertToDs4Gyro(isLegionController ? gyroYValue : gyroZValue);
+                            accelX = ConvertToDs4Accel(accelXValue);
+                            accelY = ConvertToDs4Accel(isLegionController ? accelZValue : accelYValue);
+                            accelZ = ConvertToDs4Accel(isLegionController ? accelYValue : accelZValue);
+
+                            if (gyroDiagLogCounter++ % 500 == 0)
+                            {
+                                Logger.Debug($"DS4 motion: gyro=({gyroXValue:F1},{gyroYValue:F1},{gyroZValue:F1})°/s accel=({accelXValue:F2},{accelYValue:F2},{accelZValue:F2})G ds4=({gyroX},{gyroY},{gyroZ},{accelX},{accelY},{accelZ})");
+                            }
                         }
 
                         ok = SubmitDualShock4StateRaw(
@@ -1969,7 +2075,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
                             accelZ,
                             ds4TouchActive,
                             ds4TouchX,
-                            ds4TouchY);
+                            ds4TouchY,
+                            ds4TouchPressed);
                     }
                     else if (mode == 3)
                     {
@@ -1986,10 +2093,11 @@ namespace XboxGamingBarHelper.ControllerEmulation
                             0,
                             0,
                             0,
-                            0,
+                            Ds4DefaultAccelZRaw,
                             ds4TouchActive,
                             ds4TouchX,
-                            ds4TouchY);
+                            ds4TouchY,
+                            ds4TouchPressed);
                     }
 
                     if (!ok)
@@ -2899,17 +3007,18 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 return;
             }
 
-            // Orthogonal mode rotates around Y so DS4 motion orientation matches
+            // Orthogonal mode rotates around X so DS4 motion orientation matches
             // users holding the handheld in a perpendicular posture.
-            float originalGyroX = gyroX;
+            // Swaps Y↔Z (yaw↔roll) with sign flip.
+            float originalGyroY = gyroY;
             float originalGyroZ = gyroZ;
-            gyroX = originalGyroZ;
-            gyroZ = -originalGyroX;
+            gyroY = originalGyroZ;
+            gyroZ = -originalGyroY;
 
-            float originalAccelX = accelX;
+            float originalAccelY = accelY;
             float originalAccelZ = accelZ;
-            accelX = originalAccelZ;
-            accelZ = -originalAccelX;
+            accelY = originalAccelZ;
+            accelZ = -originalAccelY;
         }
 
         private static short ConvertNormalizedToInt16(float normalized)
@@ -3112,12 +3221,13 @@ namespace XboxGamingBarHelper.ControllerEmulation
             {
                 case SharedDeviceType.LegionGo:
                 case SharedDeviceType.LegionGo2:
-                    if (gyroSource == 0)
+                    switch (gyroSource)
                     {
-                        return new WindowsSensorGyroSourceAdapter("Legion Internal Gyro");
+                        case 1: return new LegionControllerGyroSourceAdapter(false);   // Right
+                        case 2: return new LegionControllerGyroSourceAdapter(true);    // Left
+                        case 3: return new LegionControllerMixedGyroSourceAdapter();   // Mixed
+                        default: return new WindowsSensorGyroSourceAdapter("Legion Internal Gyro");
                     }
-
-                    return new LegionControllerGyroSourceAdapter(false);
 
                 case SharedDeviceType.LegionGoS:
                     // Go S currently uses a different controller HID path; keep gyro source on
@@ -3173,9 +3283,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
             }
         }
 
-        private bool TryReadDs4TouchSample(out bool isTouching, out ushort x, out ushort y)
+        private bool TryReadDs4TouchSample(out bool isTouching, out bool isPressed, out ushort x, out ushort y)
         {
             isTouching = false;
+            isPressed = false;
             x = 0;
             y = 0;
 
@@ -3195,6 +3306,13 @@ namespace XboxGamingBarHelper.ControllerEmulation
             x = (ushort)Math.Round(normalizedX * Ds4TouchMaxX);
             y = (ushort)Math.Round(normalizedY * Ds4TouchMaxY);
             isTouching = touchSample.IsTouching;
+            isPressed = touchSample.IsPressed;
+
+            if (isTouching && touchDiagLogCounter++ % 250 == 0)
+            {
+                Logger.Debug($"DS4 touch: raw=({touchSample.RawX},{touchSample.RawY}) ds4=({x},{y}) pressed={isPressed}");
+            }
+
             return true;
         }
 
@@ -3501,6 +3619,25 @@ namespace XboxGamingBarHelper.ControllerEmulation
             return (short)Math.Round(normalized * short.MaxValue);
         }
 
+        /// <summary>
+        /// Converts gyro value in °/s to DS4 raw format (16 counts per °/s).
+        /// </summary>
+        private static short ConvertToDs4Gyro(float degPerSecond)
+        {
+            float raw = degPerSecond * Ds4GyroCountsPerDps;
+            return (short)Math.Max(short.MinValue, Math.Min(short.MaxValue, Math.Round(raw)));
+        }
+
+        /// <summary>
+        /// Converts accelerometer value in G to DS4 raw format (8192 counts per G).
+        /// Matches ViiperController's ScaleAccel approach (BMI323 raw × 2).
+        /// </summary>
+        private static short ConvertToDs4Accel(float valueG)
+        {
+            float raw = valueG * Ds4AccelCountsPerG;
+            return (short)Math.Max(short.MinValue, Math.Min(short.MaxValue, Math.Round(raw)));
+        }
+
         private int? TryGetVirtualXboxUserIndexSafe()
         {
             if (virtualController == null)
@@ -3568,7 +3705,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
             short accelZRaw,
             bool touchActive,
             ushort touchX,
-            ushort touchY)
+            ushort touchY,
+            bool touchpadButtonPressed = false)
         {
             var controller = virtualController;
             if (controller == null)
@@ -3599,7 +3737,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     accelZRaw,
                     touchActive,
                     touchX,
-                    touchY);
+                    touchY,
+                    touchpadButtonPressed);
             }
         }
 
@@ -3640,6 +3779,76 @@ namespace XboxGamingBarHelper.ControllerEmulation
             catch (Exception ex)
             {
                 Logger.Debug($"Controller emulation rumble handling failed: {ex.Message}");
+            }
+        }
+
+        private void OnVirtualControllerLedReceived(byte red, byte green, byte blue)
+        {
+            try
+            {
+                if (!ledForwardingEnabled)
+                {
+                    return;
+                }
+
+                if (hasForwardedLed && red == lastForwardedLedR && green == lastForwardedLedG && blue == lastForwardedLedB)
+                {
+                    return;
+                }
+
+                Logger.Info($"LED forwarding: ({red},{green},{blue}) to Legion controller");
+
+                lastForwardedLedR = red;
+                lastForwardedLedG = green;
+                lastForwardedLedB = blue;
+                hasForwardedLed = true;
+
+                if (deviceType == SharedDeviceType.LegionGo || deviceType == SharedDeviceType.LegionGo2)
+                {
+                    byte r = red, g = green, b = blue;
+                    System.Threading.Tasks.Task.Run(() =>
+                    {
+                        try
+                        {
+                            using (var controller = new LegionGoController())
+                            {
+                                if (!controller.Connect())
+                                {
+                                    Logger.Warn("Controller emulation LED forwarding: controller not connected");
+                                    return;
+                                }
+                                controller.SetStickLightBoth(StickLightMode.Solid, r, g, b);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"Controller emulation LED forwarding failed: {ex.Message}");
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Controller emulation LED callback failed: {ex.Message}");
+            }
+        }
+
+        private void RevertLegionLed()
+        {
+            hasForwardedLed = false;
+            if (deviceType != SharedDeviceType.LegionGo && deviceType != SharedDeviceType.LegionGo2)
+            {
+                return;
+            }
+
+            try
+            {
+                // Restore the user's configured LED settings via the Legion manager.
+                legionManager?.RestoreLightSettings();
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Controller emulation LED revert failed: {ex.Message}");
             }
         }
 
@@ -3772,8 +3981,15 @@ namespace XboxGamingBarHelper.ControllerEmulation
             {
                 if (mode == 1 && !virtualXboxUserIndex.HasValue)
                 {
-                    // Avoid sending to virtual slot while ViGEm user index is unresolved.
-                    return false;
+                    // Try lazy resolution — ViGEm may not have reported the index at startup.
+                    virtualXboxUserIndex = TryGetVirtualXboxUserIndexSafe();
+
+                    if (!virtualXboxUserIndex.HasValue && !ShouldUseLegionHidInputPath())
+                    {
+                        // XInput input path: avoid sending to virtual slot while unresolved.
+                        return false;
+                    }
+                    // Legion HID input path: no XInput feedback loop risk, safe to proceed.
                 }
 
                 targetIndex = DiscoverPreferredPhysicalXboxIndex(virtualXboxUserIndex);

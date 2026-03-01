@@ -900,6 +900,7 @@ namespace XboxGamingBar
         private readonly ControllerEmulationGyroActivationButtonProperty controllerEmulationGyroActivationButton;
         private readonly ControllerEmulationDs4OrientationProperty controllerEmulationDs4Orientation;
         private readonly ControllerEmulationPs4TouchpadEnabledProperty controllerEmulationPs4TouchpadEnabled;
+        private readonly ControllerEmulationLedForwardingEnabledProperty controllerEmulationLedForwardingEnabled;
         private readonly ControllerEmulationMouseSensitivityProperty controllerEmulationMouseSensitivity;
         private readonly ControllerEmulationMouseThresholdProperty controllerEmulationMouseThreshold;
         private readonly ControllerEmulationMouseAxisProperty controllerEmulationMouseAxis;
@@ -1110,14 +1111,16 @@ namespace XboxGamingBar
             bool hasSplitProfiles = HasGamePowerSplitProfiles(gameName);
             bool hasSingleProfile = HasGameSingleProfile(gameName);
 
-            if (hasSplitProfiles && !hasSingleProfile)
-            {
-                return true;
-            }
-
-            if (hasSingleProfile && !hasSplitProfiles)
+            // Prefer single-profile mode when both profile shapes exist and no explicit
+            // per-game split setting has been saved yet.
+            if (hasSingleProfile)
             {
                 return false;
+            }
+
+            if (hasSplitProfiles)
+            {
+                return true;
             }
 
             return GetGlobalPowerSourceProfileEnabled();
@@ -1160,6 +1163,28 @@ namespace XboxGamingBar
             }
         }
 
+        private void UpdatePowerSourceProfileScopeText()
+        {
+            if (PowerSourceProfileScopeText == null)
+            {
+                return;
+            }
+
+            bool hasGame = HasValidGame(currentGameName);
+            bool perGameContext = PerGameProfileToggle?.IsOn == true && hasGame;
+
+            if (perGameContext)
+            {
+                bool splitEnabled = GetPerGamePowerSourceProfileEnabled(currentGameName);
+                PowerSourceProfileScopeText.Text = $"Scope: {currentGameName} (per-game). AC/DC split: {(splitEnabled ? "On" : "Off")} (auto-saved).";
+            }
+            else
+            {
+                bool splitEnabled = GetGlobalPowerSourceProfileEnabled();
+                PowerSourceProfileScopeText.Text = $"Scope: Global profiles. AC/DC split: {(splitEnabled ? "On" : "Off")}. Enable Per-Game Profile to set this per game.";
+            }
+        }
+
         private void SyncPowerSourceProfileToggleForCurrentContext()
         {
             if (PowerSourceProfileToggle == null)
@@ -1182,6 +1207,7 @@ namespace XboxGamingBar
             }
 
             UpdateGlobalProfileDisplayMode();
+            UpdatePowerSourceProfileScopeText();
         }
 
         // Profile save settings - backed by fields to avoid UI thread access issues
@@ -1490,6 +1516,7 @@ namespace XboxGamingBar
             controllerEmulationGyroActivationButton = new ControllerEmulationGyroActivationButtonProperty(ControllerEmulationGyroActivationButtonComboBox, this);
             controllerEmulationDs4Orientation = new ControllerEmulationDs4OrientationProperty(ControllerEmulationDs4OrientationComboBox, this);
             controllerEmulationPs4TouchpadEnabled = new ControllerEmulationPs4TouchpadEnabledProperty(ControllerEmulationPs4TouchpadToggle, this);
+            controllerEmulationLedForwardingEnabled = new ControllerEmulationLedForwardingEnabledProperty(ControllerEmulationLedForwardingToggle, this);
             controllerEmulationMouseSensitivity = new ControllerEmulationMouseSensitivityProperty(ControllerEmulationMouseSensitivitySlider, this);
             controllerEmulationMouseThreshold = new ControllerEmulationMouseThresholdProperty(ControllerEmulationMouseThresholdSlider, this);
             controllerEmulationMouseAxis = new ControllerEmulationMouseAxisProperty(ControllerEmulationMouseAxisComboBox, this);
@@ -1797,6 +1824,7 @@ namespace XboxGamingBar
                 controllerEmulationGyroActivationButton,
                 controllerEmulationDs4Orientation,
                 controllerEmulationPs4TouchpadEnabled,
+                controllerEmulationLedForwardingEnabled,
                 controllerEmulationMouseSensitivity,
                 controllerEmulationMouseThreshold,
                 controllerEmulationMouseAxis,
@@ -2028,6 +2056,8 @@ namespace XboxGamingBar
             ControllerEmulationGyroActivationButtonComboBox.LostFocus += Control_LostFocus;
             ControllerEmulationPs4TouchpadToggle.GotFocus += Control_GotFocus;
             ControllerEmulationPs4TouchpadToggle.LostFocus += Control_LostFocus;
+            ControllerEmulationLedForwardingToggle.GotFocus += Control_GotFocus;
+            ControllerEmulationLedForwardingToggle.LostFocus += Control_LostFocus;
             ControllerEmulationMouseSensitivitySlider.GotFocus += Control_GotFocus;
             ControllerEmulationMouseSensitivitySlider.LostFocus += Control_LostFocus;
             ControllerEmulationMouseThresholdSlider.GotFocus += Control_GotFocus;
@@ -2247,7 +2277,7 @@ namespace XboxGamingBar
 
             // Initialize power source profile
             PowerSourceProfileToggle.Toggled += PowerSourceProfileToggle_Toggled;
-            UpdateGlobalProfileDisplayMode();
+            SyncPowerSourceProfileToggleForCurrentContext();
 
             UpdateActiveProfileIndicator();
 
@@ -3316,6 +3346,7 @@ namespace XboxGamingBar
             if (isUpdatingPowerSourceProfileToggle)
             {
                 UpdateGlobalProfileDisplayMode();
+                UpdatePowerSourceProfileScopeText();
                 return;
             }
 
@@ -8257,6 +8288,10 @@ namespace XboxGamingBar
                     UpdateCPUCoreConfigSummary();
                     SaveCPUCoreConfigToStorage();
                     SendCPUCoreConfigToHelper();
+                    if (SaveCPUAffinity)
+                    {
+                        SaveCurrentSettingsToProfile(currentProfileName);
+                    }
                     Logger.Info($"P-Core count changed to: {activePCores}");
                 }
             }
@@ -8284,6 +8319,10 @@ namespace XboxGamingBar
                     UpdateCPUCoreConfigSummary();
                     SaveCPUCoreConfigToStorage();
                     SendCPUCoreConfigToHelper();
+                    if (SaveCPUAffinity)
+                    {
+                        SaveCurrentSettingsToProfile(currentProfileName);
+                    }
                     Logger.Info($"E-Core count changed to: {activeECores}");
                 }
             }
@@ -11392,11 +11431,19 @@ namespace XboxGamingBar
                         // Validate that at least one core type is active
                         if (pCores > 0 || eCores > 0)
                         {
-                            activePCores = pCores;
-                            activeECores = eCores;
-                            // Update UI controls
-                            UpdatePCoreComboBox();
-                            UpdateECoreComboBox();
+                            isLoadingCPUCoreConfig = true;
+                            try
+                            {
+                                activePCores = pCores;
+                                activeECores = eCores;
+                                // Update UI controls
+                                UpdatePCoreComboBox();
+                                UpdateECoreComboBox();
+                            }
+                            finally
+                            {
+                                isLoadingCPUCoreConfig = false;
+                            }
                             // Send to helper
                             SendCPUCoreConfigToHelper();
                             Logger.Info($"Applied CPU Affinity from profile: P={pCores}, E={eCores}");
@@ -14722,6 +14769,7 @@ namespace XboxGamingBar
         {
             bool hasGame = HasValidGame(currentGameName);
             bool powerSourceEnabled = hasGame && GetPerGamePowerSourceProfileEnabled(currentGameName);
+            UpdatePowerSourceProfileScopeText();
 
             if (hasGame)
             {
@@ -14832,8 +14880,11 @@ namespace XboxGamingBar
 
                 // Load profiles
                 var settings = ApplicationData.Current.LocalSettings;
-                bool hasACDC = settings.Containers.ContainsKey($"Profile_Game_{gameName}_AC");
+                bool hasAC = settings.Containers.ContainsKey($"Profile_Game_{gameName}_AC");
+                bool hasDC = settings.Containers.ContainsKey($"Profile_Game_{gameName}_DC");
+                bool hasACDC = hasAC || hasDC;
                 bool hasSingle = settings.Containers.ContainsKey($"Profile_Game_{gameName}");
+                bool gamePowerSourceSplit = GetPerGamePowerSourceProfileEnabled(gameName);
 
                 Border profileCard = new Border
                 {
@@ -14894,14 +14945,36 @@ namespace XboxGamingBar
                 titleGrid.Children.Add(deleteButton);
 
                 stackPanel.Children.Add(titleGrid);
+                stackPanel.Children.Add(new TextBlock
+                {
+                    Text = $"AC/DC split: {(gamePowerSourceSplit ? "On" : "Off")}",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
+                    Margin = new Thickness(0, 0, 0, 6)
+                });
 
-                if (hasACDC)
+                if (gamePowerSourceSplit && hasACDC)
                 {
                     // Load AC/DC profiles
                     var gameAC = new PerformanceProfile();
                     var gameDC = new PerformanceProfile();
-                    LoadProfileFromStorage($"Game_{gameName}_AC", gameAC);
-                    LoadProfileFromStorage($"Game_{gameName}_DC", gameDC);
+                    if (hasAC)
+                    {
+                        LoadProfileFromStorage($"Game_{gameName}_AC", gameAC);
+                    }
+                    else if (hasSingle)
+                    {
+                        LoadProfileFromStorage($"Game_{gameName}", gameAC);
+                    }
+
+                    if (hasDC)
+                    {
+                        LoadProfileFromStorage($"Game_{gameName}_DC", gameDC);
+                    }
+                    else if (hasSingle)
+                    {
+                        LoadProfileFromStorage($"Game_{gameName}", gameDC);
+                    }
 
                     // Create AC/DC comparison grid
                     var acDcGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
@@ -15042,11 +15115,26 @@ namespace XboxGamingBar
 
                     stackPanel.Children.Add(acDcGrid);
                 }
-                else if (hasSingle)
+                else
                 {
                     // Load single profile
                     var game = new PerformanceProfile();
-                    LoadProfileFromStorage($"Game_{gameName}", game);
+                    if (hasSingle)
+                    {
+                        LoadProfileFromStorage($"Game_{gameName}", game);
+                    }
+                    else if (hasAC)
+                    {
+                        LoadProfileFromStorage($"Game_{gameName}_AC", game);
+                    }
+                    else if (hasDC)
+                    {
+                        LoadProfileFromStorage($"Game_{gameName}_DC", game);
+                    }
+                    else
+                    {
+                        continue;
+                    }
 
                     // Create simple grid
                     var singleGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
@@ -17704,14 +17792,28 @@ namespace XboxGamingBar
         {
             Logger.Info("Named pipe disconnected from helper");
 
+            // Ignore disconnects from inactive/unloading widget instances.
+            // A new active instance will own reconnection.
+            if (isUnloading || App.GetActiveGamingWidget() != this)
+            {
+                Logger.Info($"Skipping reconnect handling (isUnloading={isUnloading}, isActive={App.GetActiveGamingWidget() == this})");
+                return;
+            }
+
             // Unregister handlers
             App.PipeMessageReceived -= PipeClient_MessageReceived;
             App.PipeDisconnected -= PipeClient_Disconnected;
 
-            // Show disconnected banner
+            // Show reconnecting state and trigger guarded reconnect flow.
             await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
             {
-                ShowConnectionBanner(BannerState.Disconnected);
+                ShowConnectionBanner(BannerState.Reconnecting);
+            });
+
+            Logger.Info("Pipe disconnected - starting automatic helper reconnection");
+            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+            {
+                _ = LaunchHelperWithGuardsAsync("Pipe disconnected");
             });
         }
 
@@ -18818,6 +18920,19 @@ namespace XboxGamingBar
                 ControllerEmulationGyroSourceComboBox.IsEnabled = enabled;
             }
 
+            if (CalibrateGyroGrid != null)
+            {
+                bool isControllerSource = ControllerEmulationGyroSourceComboBox != null &&
+                                          ControllerEmulationGyroSourceComboBox.SelectedIndex > 0;
+                CalibrateGyroGrid.Visibility = isControllerSource
+                    ? Windows.UI.Xaml.Visibility.Visible
+                    : Windows.UI.Xaml.Visibility.Collapsed;
+                if (CalibrateGyroButton != null)
+                {
+                    CalibrateGyroButton.IsEnabled = enabled && isControllerSource && App.IsConnected;
+                }
+            }
+
             if (ControllerEmulationModeComboBox != null)
             {
                 ControllerEmulationModeComboBox.IsEnabled = enabled;
@@ -18870,6 +18985,8 @@ namespace XboxGamingBar
             bool ds4MotionControlsEnabled = enabled && isDs4MotionMode;
             if (ControllerEmulationPs4TouchpadToggle != null)
                 ControllerEmulationPs4TouchpadToggle.IsEnabled = enabled && isDs4Mode;
+            if (ControllerEmulationLedForwardingToggle != null)
+                ControllerEmulationLedForwardingToggle.IsEnabled = enabled && isDs4Mode;
             if (ControllerEmulationDs4OrientationComboBox != null)
                 ControllerEmulationDs4OrientationComboBox.IsEnabled = ds4MotionControlsEnabled;
 
@@ -19012,12 +19129,26 @@ namespace XboxGamingBar
                     : Visibility.Collapsed;
             }
 
+            if (ControllerEmulationLedForwardingRow != null)
+            {
+                ControllerEmulationLedForwardingRow.Visibility = (available && isDs4Mode)
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
             if (ControllerEmulationPs4TouchpadToggle != null)
             {
+                if (ControllerEmulationLedForwardingToggle != null)
+                {
+                    ControllerEmulationPs4TouchpadToggle.XYFocusDown = ControllerEmulationLedForwardingToggle;
+                    ControllerEmulationLedForwardingToggle.XYFocusUp = ControllerEmulationPs4TouchpadToggle;
+                }
+
+                var nextAfterLed = ControllerEmulationLedForwardingToggle ?? ControllerEmulationPs4TouchpadToggle;
                 if (isDs4MotionMode && ControllerEmulationDs4OrientationComboBox != null)
                 {
-                    ControllerEmulationPs4TouchpadToggle.XYFocusDown = ControllerEmulationDs4OrientationComboBox;
-                    ControllerEmulationDs4OrientationComboBox.XYFocusUp = ControllerEmulationPs4TouchpadToggle;
+                    nextAfterLed.XYFocusDown = ControllerEmulationDs4OrientationComboBox;
+                    ControllerEmulationDs4OrientationComboBox.XYFocusUp = nextAfterLed;
                     if (AutoHibernateToggle != null)
                     {
                         ControllerEmulationDs4OrientationComboBox.XYFocusDown = AutoHibernateToggle;
@@ -19025,12 +19156,12 @@ namespace XboxGamingBar
                 }
                 else if (isStickMode && ControllerEmulationStickSensitivitySlider != null)
                 {
-                    ControllerEmulationPs4TouchpadToggle.XYFocusDown = ControllerEmulationStickSensitivitySlider;
-                    ControllerEmulationStickSensitivitySlider.XYFocusUp = ControllerEmulationPs4TouchpadToggle;
+                    nextAfterLed.XYFocusDown = ControllerEmulationStickSensitivitySlider;
+                    ControllerEmulationStickSensitivitySlider.XYFocusUp = nextAfterLed;
                 }
                 else if (AutoHibernateToggle != null)
                 {
-                    ControllerEmulationPs4TouchpadToggle.XYFocusDown = AutoHibernateToggle;
+                    nextAfterLed.XYFocusDown = AutoHibernateToggle;
                 }
             }
 
@@ -19102,6 +19233,10 @@ namespace XboxGamingBar
                 {
                     AutoHibernateToggle.XYFocusUp = ControllerEmulationDs4OrientationComboBox;
                 }
+                else if (isDs4Mode && ControllerEmulationLedForwardingToggle != null)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationLedForwardingToggle;
+                }
                 else if (isDs4Mode && ControllerEmulationPs4TouchpadToggle != null)
                 {
                     AutoHibernateToggle.XYFocusUp = ControllerEmulationPs4TouchpadToggle;
@@ -19130,6 +19265,11 @@ namespace XboxGamingBar
             UpdateControllerEmulationControlState();
             UpdateControllerEmulationMouseSettingsVisibility();
             UpdateSystemControllerEmulationNavigation();
+        }
+
+        private void ControllerEmulationGyroSourceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateControllerEmulationControlState();
         }
 
         private void ControllerEmulationGyroActivationModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -19236,6 +19376,10 @@ namespace XboxGamingBar
                 else if (isDs4MotionMode && ControllerEmulationDs4OrientationComboBox != null && ControllerEmulationDs4OrientationComboBox.IsEnabled)
                 {
                     AutoHibernateToggle.XYFocusUp = ControllerEmulationDs4OrientationComboBox;
+                }
+                else if (isDs4Mode && ControllerEmulationLedForwardingToggle != null && ControllerEmulationLedForwardingToggle.IsEnabled)
+                {
+                    AutoHibernateToggle.XYFocusUp = ControllerEmulationLedForwardingToggle;
                 }
                 else if (isDs4Mode && ControllerEmulationPs4TouchpadToggle != null && ControllerEmulationPs4TouchpadToggle.IsEnabled)
                 {
@@ -22597,6 +22741,27 @@ namespace XboxGamingBar
             // Save and rebuild
             SaveMetricsSelection();
             RebuildMetricsGrid();
+        }
+
+        private void CalibrateGyroButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "Command", (int)Shared.Enums.Command.Set },
+                    { "Function", (int)Shared.Enums.Function.ControllerEmulationCalibrateGyro },
+                    { "Content", true }
+                };
+                App.PipeClient?.SendValueSet(request);
+                Logger.Info("Sent gyro calibration request to helper");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending gyro calibration: {ex.Message}");
+            }
         }
 
         /// <summary>

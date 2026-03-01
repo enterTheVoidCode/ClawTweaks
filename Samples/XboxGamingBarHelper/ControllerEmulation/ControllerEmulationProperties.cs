@@ -521,4 +521,42 @@ namespace XboxGamingBarHelper.ControllerEmulation
             Manager?.SetVirtualABXYLayout(Value);
         }
     }
+
+    internal class ControllerEmulationLedForwardingEnabledProperty : HelperProperty<bool, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationLedForwardingEnabledProperty(bool initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationLedForwardingEnabled, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationLedForwardingEnabled changed to {Value}");
+            Manager?.SetLedForwardingEnabled(Value);
+        }
+    }
+
+    internal class ControllerEmulationCalibrateGyroProperty : HelperProperty<bool, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationCalibrateGyroProperty(ControllerEmulationManager manager)
+            : base(false, null, Function.ControllerEmulationCalibrateGyro, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            if (Value)
+            {
+                Logger.Info("ControllerEmulationCalibrateGyro triggered");
+                Manager?.CalibrateGyro();
+                SetValue(false);
+            }
+        }
+    }
 }

@@ -376,7 +376,9 @@ namespace XboxGamingBarHelper.ControllerEmulation
         }
     }
 
-    internal sealed class LegionControllerGyroSourceAdapter : IGyroSourceAdapter
+    internal interface ILegionControllerGyroSource { }
+
+    internal sealed class LegionControllerGyroSourceAdapter : IGyroSourceAdapter, ILegionControllerGyroSource
     {
         private readonly bool useLeftController;
         private bool started;
@@ -420,6 +422,72 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 parsed.AccelYG,
                 parsed.AccelZG,
                 parsed.TimestampTicksUtc);
+            return true;
+        }
+
+        public void Dispose()
+        {
+            Stop();
+        }
+    }
+
+    internal sealed class LegionControllerMixedGyroSourceAdapter : IGyroSourceAdapter, ILegionControllerGyroSource
+    {
+        private bool started;
+
+        public string Name => "Legion Controller Gyro (Mixed)";
+
+        public bool Start()
+        {
+            started = true;
+            return true;
+        }
+
+        public void Stop()
+        {
+            started = false;
+        }
+
+        public bool TryGetLatestSample(out GyroSample sample)
+        {
+            sample = default;
+            if (!started)
+            {
+                return false;
+            }
+
+            bool hasLeft = LegionButtonMonitor.TryGetLatestGyroSample(true, out LegionGyroSample left);
+            bool hasRight = LegionButtonMonitor.TryGetLatestGyroSample(false, out LegionGyroSample right);
+
+            if (hasLeft && hasRight)
+            {
+                sample = new GyroSample(
+                    (left.GyroXDegPerSecond + right.GyroXDegPerSecond) / 2f,
+                    (left.GyroYDegPerSecond + right.GyroYDegPerSecond) / 2f,
+                    (left.GyroZDegPerSecond + right.GyroZDegPerSecond) / 2f,
+                    (left.AccelXG + right.AccelXG) / 2f,
+                    (left.AccelYG + right.AccelYG) / 2f,
+                    (left.AccelZG + right.AccelZG) / 2f,
+                    Math.Max(left.TimestampTicksUtc, right.TimestampTicksUtc));
+                return true;
+            }
+
+            LegionGyroSample source;
+            if (hasLeft)
+                source = left;
+            else if (hasRight)
+                source = right;
+            else
+                return false;
+
+            sample = new GyroSample(
+                source.GyroXDegPerSecond,
+                source.GyroYDegPerSecond,
+                source.GyroZDegPerSecond,
+                source.AccelXG,
+                source.AccelYG,
+                source.AccelZG,
+                source.TimestampTicksUtc);
             return true;
         }
 

@@ -56,11 +56,11 @@
                 <SettingsSupported AppExtensionId="GamingWidgetSettings" />
                 <Window>
                   <Size>
-                    <Height>670</Height>
+                    <Height>620</Height>
                     <Width>464</Width>
-                    <MinHeight>670</MinHeight>
-                    <MinWidth>464</MinWidth>
-                    <MaxHeight>670</MaxHeight>
+                    <MinHeight>520</MinHeight>
+                    <MinWidth>400</MinWidth>
+                    <MaxHeight>800</MaxHeight>
                     <MaxWidth>900</MaxWidth>
                   </Size>
                   <ResizeSupported>

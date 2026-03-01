@@ -22,6 +22,7 @@ namespace XboxGamingBarHelper.Labs
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         public event Action<byte, byte> RumbleReceived;
+        public event Action<byte, byte, byte> LedReceived;
 
         private ViGEmClient client;
         private IVirtualGamepad virtualGamepad;
@@ -31,6 +32,7 @@ namespace XboxGamingBarHelper.Labs
         private bool isConnected = false;
         private bool isDisposed = false;
         private ushort dualShockTimestamp = 0;
+        private byte dualShockFrameCounter = 0;
         private byte dualShockTouchPacketNumber = 0;
         private byte dualShockTouchFingerId = 0;
         private bool dualShockTouchWasActive = false;
@@ -319,7 +321,10 @@ namespace XboxGamingBarHelper.Labs
                 if ((buttons & XINPUT_GAMEPAD_RIGHT_THUMB) != 0) { sharedButtons |= 0x80; }      // R3
                 rawReport[5] = sharedButtons;
 
-                rawReport[6] = touchpadButtonPressed ? (byte)0x02 : (byte)0x00; // PS / touchpad special buttons
+                // Byte 6: [7:2] frame counter, [1] touchpad click, [0] PS button
+                byte specialButtons = touchpadButtonPressed ? (byte)0x02 : (byte)0x00;
+                unchecked { dualShockFrameCounter++; }
+                rawReport[6] = (byte)(specialButtons | ((dualShockFrameCounter & 0x3F) << 2));
                 rawReport[7] = leftTrigger;
                 rawReport[8] = rightTrigger;
 
@@ -335,11 +340,21 @@ namespace XboxGamingBarHelper.Labs
                 WriteInt16(rawReport, 20, accelYRaw);
                 WriteInt16(rawReport, 22, accelZRaw);
                 rawReport[29] = 0x0B;      // DS4 "full battery" flag used by most emulators
-                rawReport[32] = dualShockTouchPacketNumber++;
-                WriteDs4TouchPacket(rawReport, 33, touchActive, touchX, touchY, ref dualShockTouchFingerId, ref dualShockTouchWasActive);
+                // DS4 USB touch layout (63-byte raw, no report ID):
+                //   [32] = number of touch data frames (always 1)
+                //   [33] = touch frame 0 counter (incrementing)
+                //   [34-37] = finger 0 (contact byte + 3 bytes 12-bit packed XY)
+                //   [38-41] = finger 1 (contact byte + 3 bytes 12-bit packed XY)
+                if (touchActive)
+                {
+                    dualShockTouchPacketNumber++;
+                }
+                rawReport[32] = 1;                              // Number of touch frames in this report
+                rawReport[33] = dualShockTouchPacketNumber;     // Touch frame counter
+                WriteDs4TouchPacket(rawReport, 34, touchActive, touchX, touchY, ref dualShockTouchFingerId, ref dualShockTouchWasActive);
                 byte inactiveFingerId = 1;
                 bool inactiveFingerState = false;
-                WriteDs4TouchPacket(rawReport, 37, false, 0, 0, ref inactiveFingerId, ref inactiveFingerState);
+                WriteDs4TouchPacket(rawReport, 38, false, 0, 0, ref inactiveFingerId, ref inactiveFingerState);
 
                 dualShockController.SubmitRawReport(rawReport);
                 return true;
@@ -372,7 +387,7 @@ namespace XboxGamingBarHelper.Labs
             }
 
             const int Ds4TouchMaxX = 1919;
-            const int Ds4TouchMaxY = 943;
+            const int Ds4TouchMaxY = 942;
 
             if (isTouching && !previousTouchState)
             {
@@ -450,6 +465,8 @@ namespace XboxGamingBarHelper.Labs
             try
             {
                 RumbleReceived?.Invoke(e.LargeMotor, e.SmallMotor);
+                var color = e.LightbarColor;
+                LedReceived?.Invoke(color.Red, color.Green, color.Blue);
             }
             catch (Exception ex)
             {
@@ -475,6 +492,7 @@ namespace XboxGamingBarHelper.Labs
             xboxController = null;
             dualShockController = null;
             dualShockTimestamp = 0;
+            dualShockFrameCounter = 0;
             dualShockTouchPacketNumber = 0;
             dualShockTouchFingerId = 0;
             dualShockTouchWasActive = false;

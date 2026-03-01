@@ -2678,7 +2678,12 @@ namespace XboxGamingBarHelper.Labs
                 bool hasPosition = xRange != 0 || yRange != 0 || xArea != 0 || yArea != 0;
                 bool touching = areaLooksValid && hasPosition;
 
-                rightTouchSample = new LegionTouchpadSample(touching, rawX, rawY, sampleTimestampUtc);
+                // Touchpad physical press: bit 0x80 at byte 19 (init) / 21 (uninit),
+                // same byte that carries front face buttons.
+                int touchPressIdx = isInitializedHeader ? 19 : 21;
+                bool pressed = bytesRead > touchPressIdx && (buffer[touchPressIdx] & 0x80) != 0;
+
+                rightTouchSample = new LegionTouchpadSample(touching, pressed, rawX, rawY, sampleTimestampUtc);
                 hasRightTouchSample = true;
             }
 
@@ -3199,17 +3204,20 @@ namespace XboxGamingBarHelper.Labs
     internal readonly struct LegionTouchpadSample
     {
         public readonly bool IsTouching;
+        public readonly bool IsPressed;
         public readonly ushort RawX;
         public readonly ushort RawY;
         public readonly long TimestampTicksUtc;
 
         public LegionTouchpadSample(
             bool isTouching,
+            bool isPressed,
             ushort rawX,
             ushort rawY,
             long timestampTicksUtc)
         {
             IsTouching = isTouching;
+            IsPressed = isPressed;
             RawX = rawX;
             RawY = rawY;
             TimestampTicksUtc = timestampTicksUtc;
