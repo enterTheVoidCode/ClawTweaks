@@ -597,6 +597,34 @@ public class LegionGoController : IDisposable
         return SendCommand(resetCommand);
     }
 
+    /// <summary>
+    /// Triggers firmware-level gyro calibration on both controllers.
+    /// Controllers must be held still during calibration.
+    ///
+    /// HID Command: 05 00 0E 06 [03=left|04=right] 01
+    /// </summary>
+    /// <returns>True if both commands sent successfully.</returns>
+    public bool CalibrateGyro()
+    {
+        bool ok = true;
+        foreach (byte ctrl in new byte[] { 0x03, 0x04 })
+        {
+            byte[] command = new byte[CommandLength];
+            command[0] = ReportId;
+            command[1] = PaddingByte;
+            command[2] = 0x0E;
+            command[3] = 0x06;
+            command[4] = ctrl;
+            command[5] = 0x01;
+
+            if (!SendCommand(command))
+                ok = false;
+
+            Thread.Sleep(CommandDelayMs);
+        }
+        return ok;
+    }
+
     #endregion
 
     #region Face Button Remapping (Nintendo Layout)

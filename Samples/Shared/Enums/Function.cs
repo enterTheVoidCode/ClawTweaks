@@ -358,5 +358,7 @@
         GPDWin5HidDebug,              // bool - enable verbose Win 5 HID TX/RX debug logging
         GPDWin5HidDevices,            // string - JSON array of deterministic Win 5 HID candidate interfaces
         ControllerEmulationRumbleProfile, // int - rumble response profile (0=Balanced, 1=Sharp, 2=Soft, 3=Impact, 4=Boosted)
+        ControllerEmulationLedForwardingEnabled, // bool - forward DS4 LED color requests from games to physical controller
+        ControllerEmulationCalibrateGyro, // bool - trigger firmware gyro calibration (fire-and-forget action)
     }
 }

@@ -819,6 +819,23 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             }
         }
 
+        public void RestoreLightSettings()
+        {
+            // Sync lightColor from the property value (widget is source of truth).
+            // The cached lightColor field may still be the default #FFFFFF if SetLightColor
+            // was never called (e.g., _hasUserModified check skipped it, or HasExplicitLighting was false).
+            string propertyColor = LegionLightColor?.Value;
+            if (!string.IsNullOrEmpty(propertyColor) && propertyColor != lightColor)
+            {
+                Logger.Info($"RestoreLightSettings: updating cached color from {lightColor} to {propertyColor} (from property)");
+                lightColor = propertyColor;
+            }
+
+            Logger.Info($"Restoring light settings: mode={lightMode}, color={lightColor}, brightness={lightBrightness}");
+            SetLightMode(lightMode);
+        }
+
+
         public void SetLightColor(string hexColor)
         {
             bool hasGoSController = isGoSControllerConnected && goSController != null;
