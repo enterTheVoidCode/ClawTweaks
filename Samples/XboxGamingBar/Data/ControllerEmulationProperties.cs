@@ -698,4 +698,132 @@ namespace XboxGamingBar.Data
             }
         }
     }
+
+    // Stick v2 slider properties
+    internal class ControllerEmulationStickMinGyroSpeedProperty : WidgetSliderProperty
+    {
+        public ControllerEmulationStickMinGyroSpeedProperty(Slider inUI, Page inOwner)
+            : base(0, Function.ControllerEmulationStickMinGyroSpeed, inUI, inOwner) { }
+    }
+
+    internal class ControllerEmulationStickMaxGyroSpeedProperty : WidgetSliderProperty
+    {
+        public ControllerEmulationStickMaxGyroSpeedProperty(Slider inUI, Page inOwner)
+            : base(220, Function.ControllerEmulationStickMaxGyroSpeed, inUI, inOwner) { }
+    }
+
+    internal class ControllerEmulationStickMinOutputProperty : WidgetSliderProperty
+    {
+        public ControllerEmulationStickMinOutputProperty(Slider inUI, Page inOwner)
+            : base(0, Function.ControllerEmulationStickMinOutput, inUI, inOwner) { }
+    }
+
+    internal class ControllerEmulationStickMaxOutputProperty : WidgetSliderProperty
+    {
+        public ControllerEmulationStickMaxOutputProperty(Slider inUI, Page inOwner)
+            : base(100, Function.ControllerEmulationStickMaxOutput, inUI, inOwner) { }
+    }
+
+    internal class ControllerEmulationStickPowerCurveProperty : WidgetSliderProperty
+    {
+        public ControllerEmulationStickPowerCurveProperty(Slider inUI, Page inOwner)
+            : base(100, Function.ControllerEmulationStickPowerCurve, inUI, inOwner) { }
+    }
+
+    internal class ControllerEmulationStickSensitivityV2Property : WidgetSliderProperty
+    {
+        public ControllerEmulationStickSensitivityV2Property(Slider inUI, Page inOwner)
+            : base(100, Function.ControllerEmulationStickSensitivityV2, inUI, inOwner) { }
+    }
+
+    internal class ControllerEmulationStickDeadzoneProperty : WidgetSliderProperty
+    {
+        public ControllerEmulationStickDeadzoneProperty(Slider inUI, Page inOwner)
+            : base(2, Function.ControllerEmulationStickDeadzone, inUI, inOwner) { }
+    }
+
+    internal class ControllerEmulationStickPrecisionSpeedProperty : WidgetSliderProperty
+    {
+        public ControllerEmulationStickPrecisionSpeedProperty(Slider inUI, Page inOwner)
+            : base(0, Function.ControllerEmulationStickPrecisionSpeed, inUI, inOwner) { }
+    }
+
+    internal class ControllerEmulationStickOutputMixProperty : WidgetSliderProperty
+    {
+        public ControllerEmulationStickOutputMixProperty(Slider inUI, Page inOwner)
+            : base(0, Function.ControllerEmulationStickOutputMix, inUI, inOwner) { }
+    }
+
+    // Stick v2 combo box properties
+    internal class ControllerEmulationStickOrientationV2Property : WidgetControlProperty<int, ComboBox>
+    {
+        public ControllerEmulationStickOrientationV2Property(ComboBox inUI, Page inOwner)
+            : base(0, Function.ControllerEmulationStickOrientationV2, inUI, inOwner)
+        {
+            if (UI != null)
+            {
+                UI.SelectionChanged += ComboBox_SelectionChanged;
+                if (UI.Items.Count > Value) UI.SelectedIndex = Value;
+            }
+        }
+
+        private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            int newIndex = UI.SelectedIndex;
+            if (newIndex >= 0 && newIndex != Value)
+            {
+                Logger.Info($"{Function} combo box updated to index {newIndex}.");
+                SetValue(newIndex);
+            }
+        }
+
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            if (UI != null && Owner != null)
+            {
+                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    if (UI.Items.Count > Value && UI.SelectedIndex != Value)
+                        UI.SelectedIndex = Value;
+                });
+            }
+        }
+    }
+
+    internal class ControllerEmulationStickConversionProperty : WidgetControlProperty<int, ComboBox>
+    {
+        public ControllerEmulationStickConversionProperty(ComboBox inUI, Page inOwner)
+            : base(0, Function.ControllerEmulationStickConversion, inUI, inOwner)
+        {
+            if (UI != null)
+            {
+                UI.SelectionChanged += ComboBox_SelectionChanged;
+                if (UI.Items.Count > Value) UI.SelectedIndex = Value;
+            }
+        }
+
+        private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            int newIndex = UI.SelectedIndex;
+            if (newIndex >= 0 && newIndex != Value)
+            {
+                Logger.Info($"{Function} combo box updated to index {newIndex}.");
+                SetValue(newIndex);
+            }
+        }
+
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            if (UI != null && Owner != null)
+            {
+                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    if (UI.Items.Count > Value && UI.SelectedIndex != Value)
+                        UI.SelectedIndex = Value;
+                });
+            }
+        }
+    }
 }

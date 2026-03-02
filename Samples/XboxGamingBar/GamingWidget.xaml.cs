@@ -908,18 +908,25 @@ namespace XboxGamingBar
         private readonly ControllerEmulationMouseInvertYProperty controllerEmulationMouseInvertY;
         private readonly ControllerEmulationMouseGainXProperty controllerEmulationMouseGainX;
         private readonly ControllerEmulationMouseGainYProperty controllerEmulationMouseGainY;
-        private readonly ControllerEmulationStickSensitivityProperty controllerEmulationStickSensitivity;
-        private readonly ControllerEmulationStickThresholdProperty controllerEmulationStickThreshold;
-        private readonly ControllerEmulationStickAxisProperty controllerEmulationStickAxis;
         private readonly ControllerEmulationStickInvertXProperty controllerEmulationStickInvertX;
         private readonly ControllerEmulationStickInvertYProperty controllerEmulationStickInvertY;
-        private readonly ControllerEmulationStickGainXProperty controllerEmulationStickGainX;
-        private readonly ControllerEmulationStickGainYProperty controllerEmulationStickGainY;
         private readonly ControllerEmulationStickSelectProperty controllerEmulationStickSelect;
-        private readonly ControllerEmulationStickExcessMoveProperty controllerEmulationStickExcessMove;
-        private readonly ControllerEmulationStickRangeProperty controllerEmulationStickRange;
         private readonly ControllerEmulationStickOnlyJoystickDataProperty controllerEmulationStickOnlyJoystickData;
         private readonly ControllerEmulationVirtualABXYLayoutProperty controllerEmulationVirtualAbxyLayout;
+        private readonly ControllerEmulationStickMinGyroSpeedProperty controllerEmulationStickMinGyroSpeed;
+        private readonly ControllerEmulationStickMaxGyroSpeedProperty controllerEmulationStickMaxGyroSpeed;
+        private readonly ControllerEmulationStickMinOutputProperty controllerEmulationStickMinOutput;
+        private readonly ControllerEmulationStickMaxOutputProperty controllerEmulationStickMaxOutput;
+        private readonly ControllerEmulationStickPowerCurveProperty controllerEmulationStickPowerCurve;
+        private readonly ControllerEmulationStickSensitivityV2Property controllerEmulationStickSensitivityV2;
+        private readonly ControllerEmulationStickDeadzoneProperty controllerEmulationStickDeadzone;
+        private readonly ControllerEmulationStickPrecisionSpeedProperty controllerEmulationStickPrecisionSpeed;
+        private readonly ControllerEmulationStickOutputMixProperty controllerEmulationStickOutputMix;
+        private readonly ControllerEmulationStickOrientationV2Property controllerEmulationStickOrientationV2;
+        private readonly ControllerEmulationStickConversionProperty controllerEmulationStickConversion;
+        private bool isGyroActivationExpanded;
+        private bool isFeaturesExpanded;
+        private bool isJoystickOutputExpanded;
         private bool controllerEmulationSupported = false;
         private bool isApplyingGpdRestoreDefaults = false;
         private readonly GPDFanCurveGraphProperty gpdFanCurveGraph;
@@ -1524,17 +1531,21 @@ namespace XboxGamingBar
             controllerEmulationMouseInvertY = new ControllerEmulationMouseInvertYProperty(ControllerEmulationMouseInvertYToggle, this);
             controllerEmulationMouseGainX = new ControllerEmulationMouseGainXProperty(ControllerEmulationMouseGainXSlider, this);
             controllerEmulationMouseGainY = new ControllerEmulationMouseGainYProperty(ControllerEmulationMouseGainYSlider, this);
-            controllerEmulationStickSensitivity = new ControllerEmulationStickSensitivityProperty(ControllerEmulationStickSensitivitySlider, this);
-            controllerEmulationStickThreshold = new ControllerEmulationStickThresholdProperty(ControllerEmulationStickThresholdSlider, this);
-            controllerEmulationStickAxis = new ControllerEmulationStickAxisProperty(ControllerEmulationStickAxisComboBox, this);
             controllerEmulationStickInvertX = new ControllerEmulationStickInvertXProperty(ControllerEmulationStickInvertXToggle, this);
             controllerEmulationStickInvertY = new ControllerEmulationStickInvertYProperty(ControllerEmulationStickInvertYToggle, this);
-            controllerEmulationStickGainX = new ControllerEmulationStickGainXProperty(ControllerEmulationStickGainXSlider, this);
-            controllerEmulationStickGainY = new ControllerEmulationStickGainYProperty(ControllerEmulationStickGainYSlider, this);
             controllerEmulationStickSelect = new ControllerEmulationStickSelectProperty(ControllerEmulationStickSelectComboBox, this);
-            controllerEmulationStickExcessMove = new ControllerEmulationStickExcessMoveProperty(ControllerEmulationStickExcessMoveToggle, this);
-            controllerEmulationStickRange = new ControllerEmulationStickRangeProperty(ControllerEmulationStickRangeSlider, this);
             controllerEmulationStickOnlyJoystickData = new ControllerEmulationStickOnlyJoystickDataProperty(ControllerEmulationStickOnlyJoystickToggle, this);
+            controllerEmulationStickMinGyroSpeed = new ControllerEmulationStickMinGyroSpeedProperty(StickMinGyroSpeedSlider, this);
+            controllerEmulationStickMaxGyroSpeed = new ControllerEmulationStickMaxGyroSpeedProperty(StickMaxGyroSpeedSlider, this);
+            controllerEmulationStickMinOutput = new ControllerEmulationStickMinOutputProperty(StickMinOutputSlider, this);
+            controllerEmulationStickMaxOutput = new ControllerEmulationStickMaxOutputProperty(StickMaxOutputSlider, this);
+            controllerEmulationStickPowerCurve = new ControllerEmulationStickPowerCurveProperty(StickPowerCurveSlider, this);
+            controllerEmulationStickSensitivityV2 = new ControllerEmulationStickSensitivityV2Property(StickSensitivityV2Slider, this);
+            controllerEmulationStickDeadzone = new ControllerEmulationStickDeadzoneProperty(StickDeadzoneSlider, this);
+            controllerEmulationStickPrecisionSpeed = new ControllerEmulationStickPrecisionSpeedProperty(StickPrecisionSpeedSlider, this);
+            controllerEmulationStickOutputMix = new ControllerEmulationStickOutputMixProperty(StickOutputMixSlider, this);
+            controllerEmulationStickOrientationV2 = new ControllerEmulationStickOrientationV2Property(StickOrientationV2ComboBox, this);
+            controllerEmulationStickConversion = new ControllerEmulationStickConversionProperty(StickConversionComboBox, this);
             controllerEmulationVirtualAbxyLayout = new ControllerEmulationVirtualABXYLayoutProperty(ControllerEmulationVirtualAbxyLayoutComboBox, this);
             gpdFanCurveGraph = new GPDFanCurveGraphProperty(this);
             gpdFanCurveGraph.SetGraphUpdateCallback(OnGPDFanCurveUpdated);
@@ -1832,17 +1843,21 @@ namespace XboxGamingBar
                 controllerEmulationMouseInvertY,
                 controllerEmulationMouseGainX,
                 controllerEmulationMouseGainY,
-                controllerEmulationStickSensitivity,
-                controllerEmulationStickThreshold,
-                controllerEmulationStickAxis,
                 controllerEmulationStickInvertX,
                 controllerEmulationStickInvertY,
-                controllerEmulationStickGainX,
-                controllerEmulationStickGainY,
                 controllerEmulationStickSelect,
-                controllerEmulationStickExcessMove,
-                controllerEmulationStickRange,
                 controllerEmulationStickOnlyJoystickData,
+                controllerEmulationStickMinGyroSpeed,
+                controllerEmulationStickMaxGyroSpeed,
+                controllerEmulationStickMinOutput,
+                controllerEmulationStickMaxOutput,
+                controllerEmulationStickPowerCurve,
+                controllerEmulationStickSensitivityV2,
+                controllerEmulationStickDeadzone,
+                controllerEmulationStickPrecisionSpeed,
+                controllerEmulationStickOutputMix,
+                controllerEmulationStickOrientationV2,
+                controllerEmulationStickConversion,
                 controllerEmulationVirtualAbxyLayout,
                 gpdFanCurveGraph,
                 gpdCPUTemp,
@@ -2072,26 +2087,40 @@ namespace XboxGamingBar
             ControllerEmulationMouseGainXSlider.LostFocus += Control_LostFocus;
             ControllerEmulationMouseGainYSlider.GotFocus += Control_GotFocus;
             ControllerEmulationMouseGainYSlider.LostFocus += Control_LostFocus;
-            ControllerEmulationStickSensitivitySlider.GotFocus += Control_GotFocus;
-            ControllerEmulationStickSensitivitySlider.LostFocus += Control_LostFocus;
-            ControllerEmulationStickThresholdSlider.GotFocus += Control_GotFocus;
-            ControllerEmulationStickThresholdSlider.LostFocus += Control_LostFocus;
-            ControllerEmulationStickAxisComboBox.GotFocus += Control_GotFocus;
-            ControllerEmulationStickAxisComboBox.LostFocus += Control_LostFocus;
+            StickConversionComboBox.GotFocus += Control_GotFocus;
+            StickConversionComboBox.LostFocus += Control_LostFocus;
+            StickOrientationV2ComboBox.GotFocus += Control_GotFocus;
+            StickOrientationV2ComboBox.LostFocus += Control_LostFocus;
+            StickSensitivityV2Slider.GotFocus += Control_GotFocus;
+            StickSensitivityV2Slider.LostFocus += Control_LostFocus;
             ControllerEmulationStickInvertXToggle.GotFocus += Control_GotFocus;
             ControllerEmulationStickInvertXToggle.LostFocus += Control_LostFocus;
             ControllerEmulationStickInvertYToggle.GotFocus += Control_GotFocus;
             ControllerEmulationStickInvertYToggle.LostFocus += Control_LostFocus;
-            ControllerEmulationStickGainXSlider.GotFocus += Control_GotFocus;
-            ControllerEmulationStickGainXSlider.LostFocus += Control_LostFocus;
-            ControllerEmulationStickGainYSlider.GotFocus += Control_GotFocus;
-            ControllerEmulationStickGainYSlider.LostFocus += Control_LostFocus;
+            StickMinGyroSpeedSlider.GotFocus += Control_GotFocus;
+            StickMinGyroSpeedSlider.LostFocus += Control_LostFocus;
+            StickMaxGyroSpeedSlider.GotFocus += Control_GotFocus;
+            StickMaxGyroSpeedSlider.LostFocus += Control_LostFocus;
+            StickMinOutputSlider.GotFocus += Control_GotFocus;
+            StickMinOutputSlider.LostFocus += Control_LostFocus;
+            StickMaxOutputSlider.GotFocus += Control_GotFocus;
+            StickMaxOutputSlider.LostFocus += Control_LostFocus;
+            StickPowerCurveSlider.GotFocus += Control_GotFocus;
+            StickPowerCurveSlider.LostFocus += Control_LostFocus;
+            StickDeadzoneSlider.GotFocus += Control_GotFocus;
+            StickDeadzoneSlider.LostFocus += Control_LostFocus;
+            StickPrecisionSpeedSlider.GotFocus += Control_GotFocus;
+            StickPrecisionSpeedSlider.LostFocus += Control_LostFocus;
+            StickOutputMixSlider.GotFocus += Control_GotFocus;
+            StickOutputMixSlider.LostFocus += Control_LostFocus;
             ControllerEmulationStickSelectComboBox.GotFocus += Control_GotFocus;
             ControllerEmulationStickSelectComboBox.LostFocus += Control_LostFocus;
-            ControllerEmulationStickExcessMoveToggle.GotFocus += Control_GotFocus;
-            ControllerEmulationStickExcessMoveToggle.LostFocus += Control_LostFocus;
-            ControllerEmulationStickRangeSlider.GotFocus += Control_GotFocus;
-            ControllerEmulationStickRangeSlider.LostFocus += Control_LostFocus;
+            GyroActivationExpandToggle.GotFocus += Control_GotFocus;
+            GyroActivationExpandToggle.LostFocus += Control_LostFocus;
+            FeaturesExpandToggle.GotFocus += Control_GotFocus;
+            FeaturesExpandToggle.LostFocus += Control_LostFocus;
+            JoystickOutputExpandToggle.GotFocus += Control_GotFocus;
+            JoystickOutputExpandToggle.LostFocus += Control_LostFocus;
             ControllerEmulationStickOnlyJoystickToggle.GotFocus += Control_GotFocus;
             ControllerEmulationStickOnlyJoystickToggle.LostFocus += Control_LostFocus;
             ControllerEmulationVirtualAbxyLayoutComboBox.GotFocus += Control_GotFocus;
@@ -7586,43 +7615,95 @@ namespace XboxGamingBar
             }
         }
 
-        private void ControllerEmulationStickSensitivitySlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        private void GyroActivationExpandToggle_Click(object sender, RoutedEventArgs e)
         {
-            if (ControllerEmulationStickSensitivityValue != null)
+            isGyroActivationExpanded = !isGyroActivationExpanded;
+            if (GyroActivationContent != null)
+                GyroActivationContent.Visibility = isGyroActivationExpanded ? Visibility.Visible : Visibility.Collapsed;
+            if (GyroActivationExpandIcon != null)
+                GyroActivationExpandIcon.Glyph = isGyroActivationExpanded ? "\uE70E" : "\uE70D";
+        }
+
+        private void FeaturesExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isFeaturesExpanded = !isFeaturesExpanded;
+            if (FeaturesContent != null)
+                FeaturesContent.Visibility = isFeaturesExpanded ? Visibility.Visible : Visibility.Collapsed;
+            if (FeaturesExpandIcon != null)
+                FeaturesExpandIcon.Glyph = isFeaturesExpanded ? "\uE70E" : "\uE70D";
+        }
+
+        private void JoystickOutputExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isJoystickOutputExpanded = !isJoystickOutputExpanded;
+            if (JoystickOutputContent != null)
+                JoystickOutputContent.Visibility = isJoystickOutputExpanded ? Visibility.Visible : Visibility.Collapsed;
+            if (JoystickOutputExpandIcon != null)
+                JoystickOutputExpandIcon.Glyph = isJoystickOutputExpanded ? "\uE70E" : "\uE70D";
+        }
+
+        private void StickSensitivityV2Slider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (StickSensitivityV2ValueText != null)
+                StickSensitivityV2ValueText.Text = $"{(e.NewValue / 100.0):0.00}x";
+        }
+
+        private void StickMinGyroSpeedSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (StickMinGyroSpeedValueText != null)
+                StickMinGyroSpeedValueText.Text = $"{(int)e.NewValue}\u00B0/s";
+        }
+
+        private void StickMaxGyroSpeedSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (StickMaxGyroSpeedValueText != null)
+                StickMaxGyroSpeedValueText.Text = $"{(int)e.NewValue}\u00B0/s";
+        }
+
+        private void StickMinOutputSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (StickMinOutputValueText != null)
+                StickMinOutputValueText.Text = $"{(int)e.NewValue}%";
+        }
+
+        private void StickMaxOutputSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (StickMaxOutputValueText != null)
+                StickMaxOutputValueText.Text = $"{(int)e.NewValue}%";
+        }
+
+        private void StickPowerCurveSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (StickPowerCurveValueText != null)
+                StickPowerCurveValueText.Text = $"{(e.NewValue / 100.0):0.0}";
+        }
+
+        private void StickDeadzoneSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (StickDeadzoneValueText != null)
+                StickDeadzoneValueText.Text = $"{(int)e.NewValue}\u00B0/s";
+        }
+
+        private void StickPrecisionSpeedSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (StickPrecisionSpeedValueText != null)
             {
-                ControllerEmulationStickSensitivityValue.Text = ((int)e.NewValue).ToString();
+                int val = (int)e.NewValue;
+                StickPrecisionSpeedValueText.Text = val == 0 ? "Off" : $"{val}\u00B0/s";
             }
         }
 
-        private void ControllerEmulationStickThresholdSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        private void StickOutputMixSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
-            if (ControllerEmulationStickThresholdValue != null)
+            if (StickOutputMixValueText != null)
             {
-                ControllerEmulationStickThresholdValue.Text = ((int)e.NewValue).ToString();
-            }
-        }
-
-        private void ControllerEmulationStickGainXSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
-        {
-            if (ControllerEmulationStickGainXValue != null)
-            {
-                ControllerEmulationStickGainXValue.Text = ((int)e.NewValue).ToString();
-            }
-        }
-
-        private void ControllerEmulationStickGainYSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
-        {
-            if (ControllerEmulationStickGainYValue != null)
-            {
-                ControllerEmulationStickGainYValue.Text = ((int)e.NewValue).ToString();
-            }
-        }
-
-        private void ControllerEmulationStickRangeSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
-        {
-            if (ControllerEmulationStickRangeValue != null)
-            {
-                ControllerEmulationStickRangeValue.Text = $"{(e.NewValue / 100.0):0.00}";
+                int val = (int)e.NewValue;
+                if (val > 0)
+                    StickOutputMixValueText.Text = $"H+{val}";
+                else if (val < 0)
+                    StickOutputMixValueText.Text = $"V+{-val}";
+                else
+                    StickOutputMixValueText.Text = "Balanced";
             }
         }
 
@@ -18982,39 +19063,66 @@ namespace XboxGamingBar
             if (ControllerEmulationMouseGainYSlider != null)
                 ControllerEmulationMouseGainYSlider.IsEnabled = mouseControlsEnabled;
 
-            bool ds4MotionControlsEnabled = enabled && isDs4MotionMode;
+            // Features group - enable/disable controls based on mode
             if (ControllerEmulationPs4TouchpadToggle != null)
                 ControllerEmulationPs4TouchpadToggle.IsEnabled = enabled && isDs4Mode;
             if (ControllerEmulationLedForwardingToggle != null)
                 ControllerEmulationLedForwardingToggle.IsEnabled = enabled && isDs4Mode;
-            if (ControllerEmulationDs4OrientationComboBox != null)
-                ControllerEmulationDs4OrientationComboBox.IsEnabled = ds4MotionControlsEnabled;
+            if (ControllerEmulationRumbleProfileComboBox != null)
+                ControllerEmulationRumbleProfileComboBox.IsEnabled = enabled && isVirtualGamepadMode;
+            if (ControllerEmulationVirtualAbxyLayoutComboBox != null)
+                ControllerEmulationVirtualAbxyLayoutComboBox.IsEnabled = enabled && isVirtualGamepadMode;
+            if (ControllerEmulationStickOnlyJoystickToggle != null)
+                ControllerEmulationStickOnlyJoystickToggle.IsEnabled = enabled && isStickMode;
 
+            // DS4 Orientation - in Gyro Activation group, only for DS4 modes
+            if (ControllerEmulationDs4OrientationComboBox != null)
+                ControllerEmulationDs4OrientationComboBox.IsEnabled = enabled && isDs4Mode;
+            if (ControllerEmulationDs4OrientationRow != null)
+                ControllerEmulationDs4OrientationRow.Visibility = isDs4Mode ? Visibility.Visible : Visibility.Collapsed;
+
+            // Touchpad/LED rows - show only for DS4 modes
+            if (ControllerEmulationPs4TouchpadRow != null)
+                ControllerEmulationPs4TouchpadRow.Visibility = isDs4Mode ? Visibility.Visible : Visibility.Collapsed;
+            if (ControllerEmulationLedForwardingRow != null)
+                ControllerEmulationLedForwardingRow.Visibility = isDs4Mode ? Visibility.Visible : Visibility.Collapsed;
+
+            // Joystick Output group - visible only for stick modes
+            if (JoystickOutputGroupHeader != null)
+                JoystickOutputGroupHeader.Visibility = isStickMode ? Visibility.Visible : Visibility.Collapsed;
+            if (!isStickMode && JoystickOutputContent != null)
+                JoystickOutputContent.Visibility = Visibility.Collapsed;
+
+            // Enable/disable all stick v2 controls
             bool stickControlsEnabled = enabled && isStickMode;
-            if (ControllerEmulationStickSensitivitySlider != null)
-                ControllerEmulationStickSensitivitySlider.IsEnabled = stickControlsEnabled;
-            if (ControllerEmulationStickThresholdSlider != null)
-                ControllerEmulationStickThresholdSlider.IsEnabled = stickControlsEnabled;
-            if (ControllerEmulationStickAxisComboBox != null)
-                ControllerEmulationStickAxisComboBox.IsEnabled = stickControlsEnabled;
+            if (ControllerEmulationStickSelectComboBox != null)
+                ControllerEmulationStickSelectComboBox.IsEnabled = stickControlsEnabled;
+            if (StickConversionComboBox != null)
+                StickConversionComboBox.IsEnabled = stickControlsEnabled;
+            if (StickOrientationV2ComboBox != null)
+                StickOrientationV2ComboBox.IsEnabled = stickControlsEnabled;
             if (ControllerEmulationStickInvertXToggle != null)
                 ControllerEmulationStickInvertXToggle.IsEnabled = stickControlsEnabled;
             if (ControllerEmulationStickInvertYToggle != null)
                 ControllerEmulationStickInvertYToggle.IsEnabled = stickControlsEnabled;
-            if (ControllerEmulationStickGainXSlider != null)
-                ControllerEmulationStickGainXSlider.IsEnabled = stickControlsEnabled;
-            if (ControllerEmulationStickGainYSlider != null)
-                ControllerEmulationStickGainYSlider.IsEnabled = stickControlsEnabled;
-            if (ControllerEmulationStickSelectComboBox != null)
-                ControllerEmulationStickSelectComboBox.IsEnabled = stickControlsEnabled;
-            if (ControllerEmulationStickExcessMoveToggle != null)
-                ControllerEmulationStickExcessMoveToggle.IsEnabled = stickControlsEnabled;
-            if (ControllerEmulationStickRangeSlider != null)
-                ControllerEmulationStickRangeSlider.IsEnabled = stickControlsEnabled;
-            if (ControllerEmulationStickOnlyJoystickToggle != null)
-                ControllerEmulationStickOnlyJoystickToggle.IsEnabled = stickControlsEnabled;
-            if (ControllerEmulationVirtualAbxyLayoutComboBox != null)
-                ControllerEmulationVirtualAbxyLayoutComboBox.IsEnabled = stickControlsEnabled;
+            if (StickSensitivityV2Slider != null)
+                StickSensitivityV2Slider.IsEnabled = stickControlsEnabled;
+            if (StickMinGyroSpeedSlider != null)
+                StickMinGyroSpeedSlider.IsEnabled = stickControlsEnabled;
+            if (StickMaxGyroSpeedSlider != null)
+                StickMaxGyroSpeedSlider.IsEnabled = stickControlsEnabled;
+            if (StickMinOutputSlider != null)
+                StickMinOutputSlider.IsEnabled = stickControlsEnabled;
+            if (StickMaxOutputSlider != null)
+                StickMaxOutputSlider.IsEnabled = stickControlsEnabled;
+            if (StickPowerCurveSlider != null)
+                StickPowerCurveSlider.IsEnabled = stickControlsEnabled;
+            if (StickDeadzoneSlider != null)
+                StickDeadzoneSlider.IsEnabled = stickControlsEnabled;
+            if (StickPrecisionSpeedSlider != null)
+                StickPrecisionSpeedSlider.IsEnabled = stickControlsEnabled;
+            if (StickOutputMixSlider != null)
+                StickOutputMixSlider.IsEnabled = stickControlsEnabled;
 
             // Keep Legion remap advanced controls aligned with current emulation toggles
             // even when startup/property sync order suppresses Toggle events.
@@ -19085,9 +19193,7 @@ namespace XboxGamingBar
 
         private void UpdateControllerEmulationMouseSettingsVisibility()
         {
-            if (ControllerEmulationMouseSettingsPanel == null &&
-                ControllerEmulationDs4MotionSettingsPanel == null &&
-                ControllerEmulationStickSettingsPanel == null)
+            if (ControllerEmulationMouseSettingsPanel == null)
             {
                 return;
             }
@@ -19101,73 +19207,10 @@ namespace XboxGamingBar
 
             bool isMouseMode = ControllerEmulationModeComboBox != null &&
                                ControllerEmulationModeComboBox.SelectedIndex == 0;
-            bool isDs4MotionMode = ControllerEmulationModeComboBox != null &&
-                                   ControllerEmulationModeComboBox.SelectedIndex == 2;
-            bool isDs4Mode = ControllerEmulationModeComboBox != null &&
-                             (ControllerEmulationModeComboBox.SelectedIndex == 2 || ControllerEmulationModeComboBox.SelectedIndex == 3);
-            bool isStickMode = ControllerEmulationModeComboBox != null &&
-                               (ControllerEmulationModeComboBox.SelectedIndex == 1 || ControllerEmulationModeComboBox.SelectedIndex == 3);
 
             if (ControllerEmulationMouseSettingsPanel != null)
             {
                 ControllerEmulationMouseSettingsPanel.Visibility = (available && isMouseMode)
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
-            }
-
-            if (ControllerEmulationDs4MotionSettingsPanel != null)
-            {
-                ControllerEmulationDs4MotionSettingsPanel.Visibility = (available && isDs4Mode)
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
-            }
-
-            if (ControllerEmulationDs4OrientationRow != null)
-            {
-                ControllerEmulationDs4OrientationRow.Visibility = isDs4MotionMode
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
-            }
-
-            if (ControllerEmulationLedForwardingRow != null)
-            {
-                ControllerEmulationLedForwardingRow.Visibility = (available && isDs4Mode)
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
-            }
-
-            if (ControllerEmulationPs4TouchpadToggle != null)
-            {
-                if (ControllerEmulationLedForwardingToggle != null)
-                {
-                    ControllerEmulationPs4TouchpadToggle.XYFocusDown = ControllerEmulationLedForwardingToggle;
-                    ControllerEmulationLedForwardingToggle.XYFocusUp = ControllerEmulationPs4TouchpadToggle;
-                }
-
-                var nextAfterLed = ControllerEmulationLedForwardingToggle ?? ControllerEmulationPs4TouchpadToggle;
-                if (isDs4MotionMode && ControllerEmulationDs4OrientationComboBox != null)
-                {
-                    nextAfterLed.XYFocusDown = ControllerEmulationDs4OrientationComboBox;
-                    ControllerEmulationDs4OrientationComboBox.XYFocusUp = nextAfterLed;
-                    if (AutoHibernateToggle != null)
-                    {
-                        ControllerEmulationDs4OrientationComboBox.XYFocusDown = AutoHibernateToggle;
-                    }
-                }
-                else if (isStickMode && ControllerEmulationStickSensitivitySlider != null)
-                {
-                    nextAfterLed.XYFocusDown = ControllerEmulationStickSensitivitySlider;
-                    ControllerEmulationStickSensitivitySlider.XYFocusUp = nextAfterLed;
-                }
-                else if (AutoHibernateToggle != null)
-                {
-                    nextAfterLed.XYFocusDown = AutoHibernateToggle;
-                }
-            }
-
-            if (ControllerEmulationStickSettingsPanel != null)
-            {
-                ControllerEmulationStickSettingsPanel.Visibility = (available && isStickMode)
                     ? Visibility.Visible
                     : Visibility.Collapsed;
             }
@@ -19177,45 +19220,18 @@ namespace XboxGamingBar
             {
                 firstModeDetailControl = ControllerEmulationMouseSensitivitySlider;
             }
-            else if (isDs4Mode && ControllerEmulationPs4TouchpadToggle != null)
+            else if (GyroActivationExpandToggle != null)
             {
-                firstModeDetailControl = ControllerEmulationPs4TouchpadToggle;
-            }
-            else if (isStickMode && ControllerEmulationStickSensitivitySlider != null)
-            {
-                firstModeDetailControl = ControllerEmulationStickSensitivitySlider;
+                firstModeDetailControl = GyroActivationExpandToggle;
             }
 
             if (ControllerEmulationModeComboBox != null)
             {
-                Control lastPrimaryControl = ControllerEmulationModeComboBox;
-
-                if (ControllerEmulationRumbleProfileComboBox != null && ControllerEmulationRumbleProfileComboBox.IsEnabled)
-                {
-                    ControllerEmulationModeComboBox.XYFocusDown = ControllerEmulationRumbleProfileComboBox;
-                    ControllerEmulationRumbleProfileComboBox.XYFocusUp = ControllerEmulationModeComboBox;
-                    lastPrimaryControl = ControllerEmulationRumbleProfileComboBox;
-                }
-
-                if (ControllerEmulationGyroActivationModeComboBox != null && ControllerEmulationGyroActivationModeComboBox.IsEnabled)
-                {
-                    lastPrimaryControl.XYFocusDown = ControllerEmulationGyroActivationModeComboBox;
-                    ControllerEmulationGyroActivationModeComboBox.XYFocusUp = lastPrimaryControl;
-                    lastPrimaryControl = ControllerEmulationGyroActivationModeComboBox;
-
-                    if (ControllerEmulationGyroActivationButtonComboBox != null && ControllerEmulationGyroActivationButtonComboBox.IsEnabled)
-                    {
-                        lastPrimaryControl.XYFocusDown = ControllerEmulationGyroActivationButtonComboBox;
-                        ControllerEmulationGyroActivationButtonComboBox.XYFocusUp = lastPrimaryControl;
-                        lastPrimaryControl = ControllerEmulationGyroActivationButtonComboBox;
-                    }
-                }
-
-                lastPrimaryControl.XYFocusDown = firstModeDetailControl;
+                ControllerEmulationModeComboBox.XYFocusDown = firstModeDetailControl;
                 if (firstModeDetailControl is Control firstControl &&
                     !ReferenceEquals(firstModeDetailControl, AutoHibernateToggle))
                 {
-                    firstControl.XYFocusUp = lastPrimaryControl;
+                    firstControl.XYFocusUp = ControllerEmulationModeComboBox;
                 }
             }
 
@@ -19225,33 +19241,17 @@ namespace XboxGamingBar
                 {
                     AutoHibernateToggle.XYFocusUp = ControllerEmulationMouseGainYSlider;
                 }
-                else if (isStickMode && ControllerEmulationVirtualAbxyLayoutComboBox != null)
+                else if (JoystickOutputExpandToggle != null)
                 {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationVirtualAbxyLayoutComboBox;
+                    AutoHibernateToggle.XYFocusUp = JoystickOutputExpandToggle;
                 }
-                else if (isDs4MotionMode && ControllerEmulationDs4OrientationComboBox != null)
+                else if (FeaturesExpandToggle != null)
                 {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationDs4OrientationComboBox;
+                    AutoHibernateToggle.XYFocusUp = FeaturesExpandToggle;
                 }
-                else if (isDs4Mode && ControllerEmulationLedForwardingToggle != null)
+                else if (GyroActivationExpandToggle != null)
                 {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationLedForwardingToggle;
-                }
-                else if (isDs4Mode && ControllerEmulationPs4TouchpadToggle != null)
-                {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationPs4TouchpadToggle;
-                }
-                else if (ControllerEmulationGyroActivationButtonComboBox != null && ControllerEmulationGyroActivationButtonComboBox.IsEnabled)
-                {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationGyroActivationButtonComboBox;
-                }
-                else if (ControllerEmulationGyroActivationModeComboBox != null && ControllerEmulationGyroActivationModeComboBox.IsEnabled)
-                {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationGyroActivationModeComboBox;
-                }
-                else if (ControllerEmulationRumbleProfileComboBox != null && ControllerEmulationRumbleProfileComboBox.IsEnabled)
-                {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationRumbleProfileComboBox;
+                    AutoHibernateToggle.XYFocusUp = GyroActivationExpandToggle;
                 }
                 else
                 {
@@ -19311,21 +19311,8 @@ namespace XboxGamingBar
                 ControllerEmulationGyroSourceComboBox.IsEnabled &&
                 ControllerEmulationModeComboBox != null &&
                 ControllerEmulationModeComboBox.IsEnabled;
-            bool activationModeControlEnabled =
-                emulationCardExpanded &&
-                ControllerEmulationGyroActivationModeComboBox != null &&
-                ControllerEmulationGyroActivationModeComboBox.IsEnabled;
-            bool activationButtonControlEnabled =
-                emulationCardExpanded &&
-                ControllerEmulationGyroActivationButtonComboBox != null &&
-                ControllerEmulationGyroActivationButtonComboBox.IsEnabled;
-
             bool isMouseMode = ControllerEmulationModeComboBox != null &&
                                ControllerEmulationModeComboBox.SelectedIndex == 0;
-            bool isDs4MotionMode = ControllerEmulationModeComboBox != null &&
-                                   ControllerEmulationModeComboBox.SelectedIndex == 2;
-            bool isDs4Mode = ControllerEmulationModeComboBox != null &&
-                             (ControllerEmulationModeComboBox.SelectedIndex == 2 || ControllerEmulationModeComboBox.SelectedIndex == 3);
             bool isStickMode = ControllerEmulationModeComboBox != null &&
                                (ControllerEmulationModeComboBox.SelectedIndex == 1 || ControllerEmulationModeComboBox.SelectedIndex == 3);
 
@@ -19369,33 +19356,17 @@ namespace XboxGamingBar
                 {
                     AutoHibernateToggle.XYFocusUp = ControllerEmulationMouseGainYSlider;
                 }
-                else if (isStickMode && ControllerEmulationVirtualAbxyLayoutComboBox != null && ControllerEmulationVirtualAbxyLayoutComboBox.IsEnabled)
+                else if (isStickMode && JoystickOutputExpandToggle != null)
                 {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationVirtualAbxyLayoutComboBox;
+                    AutoHibernateToggle.XYFocusUp = JoystickOutputExpandToggle;
                 }
-                else if (isDs4MotionMode && ControllerEmulationDs4OrientationComboBox != null && ControllerEmulationDs4OrientationComboBox.IsEnabled)
+                else if (FeaturesExpandToggle != null)
                 {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationDs4OrientationComboBox;
+                    AutoHibernateToggle.XYFocusUp = FeaturesExpandToggle;
                 }
-                else if (isDs4Mode && ControllerEmulationLedForwardingToggle != null && ControllerEmulationLedForwardingToggle.IsEnabled)
+                else if (GyroActivationExpandToggle != null)
                 {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationLedForwardingToggle;
-                }
-                else if (isDs4Mode && ControllerEmulationPs4TouchpadToggle != null && ControllerEmulationPs4TouchpadToggle.IsEnabled)
-                {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationPs4TouchpadToggle;
-                }
-                else if (activationButtonControlEnabled)
-                {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationGyroActivationButtonComboBox;
-                }
-                else if (activationModeControlEnabled)
-                {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationGyroActivationModeComboBox;
-                }
-                else if (ControllerEmulationRumbleProfileComboBox != null && ControllerEmulationRumbleProfileComboBox.IsEnabled)
-                {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationRumbleProfileComboBox;
+                    AutoHibernateToggle.XYFocusUp = GyroActivationExpandToggle;
                 }
                 else
                 {

@@ -46,17 +46,29 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private bool mouseInvertY;
         private int mouseGainX;
         private int mouseGainY;
-        private int stickSensitivity;
-        private int stickThreshold;
-        private int stickAxis;
+        private int stickSensitivity;  // legacy, kept for LoadSettings compat
+        private int stickThreshold;    // legacy
+        private int stickAxis;         // legacy
         private bool stickInvertX;
         private bool stickInvertY;
-        private int stickGainX;
-        private int stickGainY;
+        private int stickGainX;        // legacy
+        private int stickGainY;        // legacy
         private int stickSelect;
-        private bool stickExcessMove;
-        private int stickRange;
+        private bool stickExcessMove;  // legacy
+        private int stickRange;        // legacy
         private bool stickOnlyJoystickData;
+        // Stick v2 fields
+        private int stickMinGyroSpeed;
+        private int stickMaxGyroSpeed;
+        private int stickMinOutput;
+        private int stickMaxOutput;
+        private int stickPowerCurve;
+        private int stickSensitivityV2;
+        private int stickDeadzone;
+        private int stickPrecisionSpeed;
+        private int stickOutputMix;
+        private int stickOrientationV2;
+        private int stickConversion;
         private int virtualAbxyLayout;
         private bool hideStockController;
         private int hideTarget;
@@ -101,6 +113,13 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private float mouseFilteredDerivativeVertical;
         private bool mouseFilterInitialized;
         private long mouseLastSampleTicksUtc;
+        private float stickFilteredHorizontal;
+        private float stickFilteredVertical;
+        private float stickFilteredDerivativeHorizontal;
+        private float stickFilteredDerivativeVertical;
+        private bool stickFilterInitialized;
+        private long stickLastSampleTicksUtc;
+        private long stickLastDiagLogTicksUtc;
         private short lastGyroStickX;
         private short lastGyroStickY;
         private bool hasLastGyroStick;
@@ -131,9 +150,9 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private const short Ds4DefaultAccelZRaw = -8192;
         private const float MousePixelsPerDegree = 24.0f;
         private const float MouseSensitivityPower = 1.35f;
-        private const float MouseOneEuroMinCutoff = 1.2f;
-        private const float MouseOneEuroBeta = 0.25f;
-        private const float MouseOneEuroDerivativeCutoff = 1.5f;
+        private const float OneEuroMinCutoff = 1.2f;
+        private const float OneEuroBeta = 0.25f;
+        private const float OneEuroDerivativeCutoff = 1.5f;
         private const float MouseResidualCutoffDegPerSecond = 0.12f;
         private const float MouseOutlierMaxDeltaDegPerSecond = 420.0f;
         private const float MouseMaxDegPerSecond = 720.0f;
@@ -348,6 +367,17 @@ namespace XboxGamingBarHelper.ControllerEmulation
         public readonly ControllerEmulationVirtualABXYLayoutProperty ControllerEmulationVirtualABXYLayout;
         public readonly ControllerEmulationLedForwardingEnabledProperty ControllerEmulationLedForwardingEnabled;
         public readonly ControllerEmulationCalibrateGyroProperty ControllerEmulationCalibrateGyro;
+        public readonly ControllerEmulationStickMinGyroSpeedProperty ControllerEmulationStickMinGyroSpeed;
+        public readonly ControllerEmulationStickMaxGyroSpeedProperty ControllerEmulationStickMaxGyroSpeed;
+        public readonly ControllerEmulationStickMinOutputProperty ControllerEmulationStickMinOutput;
+        public readonly ControllerEmulationStickMaxOutputProperty ControllerEmulationStickMaxOutput;
+        public readonly ControllerEmulationStickPowerCurveProperty ControllerEmulationStickPowerCurve;
+        public readonly ControllerEmulationStickSensitivityV2Property ControllerEmulationStickSensitivityV2;
+        public readonly ControllerEmulationStickDeadzoneProperty ControllerEmulationStickDeadzone;
+        public readonly ControllerEmulationStickPrecisionSpeedProperty ControllerEmulationStickPrecisionSpeed;
+        public readonly ControllerEmulationStickOutputMixProperty ControllerEmulationStickOutputMix;
+        public readonly ControllerEmulationStickOrientationV2Property ControllerEmulationStickOrientationV2;
+        public readonly ControllerEmulationStickConversionProperty ControllerEmulationStickConversion;
 
         public IEnumerable<IProperty> Properties
         {
@@ -386,6 +416,17 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 yield return ControllerEmulationVirtualABXYLayout;
                 yield return ControllerEmulationLedForwardingEnabled;
                 yield return ControllerEmulationCalibrateGyro;
+                yield return ControllerEmulationStickMinGyroSpeed;
+                yield return ControllerEmulationStickMaxGyroSpeed;
+                yield return ControllerEmulationStickMinOutput;
+                yield return ControllerEmulationStickMaxOutput;
+                yield return ControllerEmulationStickPowerCurve;
+                yield return ControllerEmulationStickSensitivityV2;
+                yield return ControllerEmulationStickDeadzone;
+                yield return ControllerEmulationStickPrecisionSpeed;
+                yield return ControllerEmulationStickOutputMix;
+                yield return ControllerEmulationStickOrientationV2;
+                yield return ControllerEmulationStickConversion;
             }
         }
 
@@ -435,6 +476,17 @@ namespace XboxGamingBarHelper.ControllerEmulation
             ControllerEmulationVirtualABXYLayout = new ControllerEmulationVirtualABXYLayoutProperty(virtualAbxyLayout, this);
             ControllerEmulationLedForwardingEnabled = new ControllerEmulationLedForwardingEnabledProperty(ledForwardingEnabled, this);
             ControllerEmulationCalibrateGyro = new ControllerEmulationCalibrateGyroProperty(this);
+            ControllerEmulationStickMinGyroSpeed = new ControllerEmulationStickMinGyroSpeedProperty(stickMinGyroSpeed, this);
+            ControllerEmulationStickMaxGyroSpeed = new ControllerEmulationStickMaxGyroSpeedProperty(stickMaxGyroSpeed, this);
+            ControllerEmulationStickMinOutput = new ControllerEmulationStickMinOutputProperty(stickMinOutput, this);
+            ControllerEmulationStickMaxOutput = new ControllerEmulationStickMaxOutputProperty(stickMaxOutput, this);
+            ControllerEmulationStickPowerCurve = new ControllerEmulationStickPowerCurveProperty(stickPowerCurve, this);
+            ControllerEmulationStickSensitivityV2 = new ControllerEmulationStickSensitivityV2Property(stickSensitivityV2, this);
+            ControllerEmulationStickDeadzone = new ControllerEmulationStickDeadzoneProperty(stickDeadzone, this);
+            ControllerEmulationStickPrecisionSpeed = new ControllerEmulationStickPrecisionSpeedProperty(stickPrecisionSpeed, this);
+            ControllerEmulationStickOutputMix = new ControllerEmulationStickOutputMixProperty(stickOutputMix, this);
+            ControllerEmulationStickOrientationV2 = new ControllerEmulationStickOrientationV2Property(stickOrientationV2, this);
+            ControllerEmulationStickConversion = new ControllerEmulationStickConversionProperty(stickConversion, this);
 
             SubscribeForegroundSignal();
 
@@ -935,6 +987,107 @@ namespace XboxGamingBarHelper.ControllerEmulation
             stickOnlyJoystickData = value;
             SaveSettings();
             Logger.Info($"Controller emulation stick only joystick data set to {stickOnlyJoystickData}");
+        }
+
+        public void SetStickMinGyroSpeed(int value)
+        {
+            int normalized = Math.Max(0, Math.Min(100, value));
+            if (stickMinGyroSpeed == normalized) return;
+            stickMinGyroSpeed = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation stick min gyro speed set to {stickMinGyroSpeed}");
+        }
+
+        public void SetStickMaxGyroSpeed(int value)
+        {
+            int normalized = Math.Max(50, Math.Min(720, value));
+            if (stickMaxGyroSpeed == normalized) return;
+            stickMaxGyroSpeed = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation stick max gyro speed set to {stickMaxGyroSpeed}");
+        }
+
+        public void SetStickMinOutput(int value)
+        {
+            int normalized = Math.Max(0, Math.Min(100, value));
+            if (stickMinOutput == normalized) return;
+            stickMinOutput = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation stick min output set to {stickMinOutput}");
+        }
+
+        public void SetStickMaxOutput(int value)
+        {
+            int normalized = Math.Max(1, Math.Min(100, value));
+            if (stickMaxOutput == normalized) return;
+            stickMaxOutput = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation stick max output set to {stickMaxOutput}");
+        }
+
+        public void SetStickPowerCurve(int value)
+        {
+            int normalized = Math.Max(10, Math.Min(400, value));
+            if (stickPowerCurve == normalized) return;
+            stickPowerCurve = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation stick power curve set to {stickPowerCurve}");
+        }
+
+        public void SetStickSensitivityV2(int value)
+        {
+            int normalized = Math.Max(1, Math.Min(400, value));
+            if (stickSensitivityV2 == normalized) return;
+            stickSensitivityV2 = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation stick sensitivity v2 set to {stickSensitivityV2}");
+        }
+
+        public void SetStickDeadzone(int value)
+        {
+            int normalized = Math.Max(0, Math.Min(50, value));
+            if (stickDeadzone == normalized) return;
+            stickDeadzone = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation stick deadzone set to {stickDeadzone}");
+        }
+
+        public void SetStickPrecisionSpeed(int value)
+        {
+            int normalized = Math.Max(0, Math.Min(100, value));
+            if (stickPrecisionSpeed == normalized) return;
+            stickPrecisionSpeed = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation stick precision speed set to {stickPrecisionSpeed}");
+        }
+
+        public void SetStickOutputMix(int value)
+        {
+            int normalized = Math.Max(-100, Math.Min(100, value));
+            if (stickOutputMix == normalized) return;
+            stickOutputMix = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation stick output mix set to {stickOutputMix}");
+        }
+
+        public void SetStickOrientationV2(int value)
+        {
+            int normalized = (value == 1) ? 1 : 0;
+            if (stickOrientationV2 == normalized) return;
+            stickOrientationV2 = normalized;
+            stickFilterInitialized = false;
+            SaveSettings();
+            Logger.Info($"Controller emulation stick orientation v2 set to {stickOrientationV2}");
+        }
+
+        public void SetStickConversion(int value)
+        {
+            int normalized = Math.Max(0, Math.Min(2, value));
+            if (stickConversion == normalized) return;
+            stickConversion = normalized;
+            stickFilterInitialized = false;
+            SaveSettings();
+            Logger.Info($"Controller emulation stick conversion set to {stickConversion}");
         }
 
         public void SetVirtualABXYLayout(int value)
@@ -1470,6 +1623,30 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     stickOnlyJoystickData = false;
                 }
 
+                // Stick v2 settings
+                stickMinGyroSpeed = LocalSettingsHelper.TryGetValue("ControllerEmulationStickMinGyroSpeed", out int savedMinGyroSpeed)
+                    ? Math.Max(0, Math.Min(100, savedMinGyroSpeed)) : 0;
+                stickMaxGyroSpeed = LocalSettingsHelper.TryGetValue("ControllerEmulationStickMaxGyroSpeed", out int savedMaxGyroSpeed)
+                    ? Math.Max(50, Math.Min(720, savedMaxGyroSpeed)) : 220;
+                stickMinOutput = LocalSettingsHelper.TryGetValue("ControllerEmulationStickMinOutput", out int savedMinOutput)
+                    ? Math.Max(0, Math.Min(100, savedMinOutput)) : 0;
+                stickMaxOutput = LocalSettingsHelper.TryGetValue("ControllerEmulationStickMaxOutput", out int savedMaxOutput)
+                    ? Math.Max(1, Math.Min(100, savedMaxOutput)) : 100;
+                stickPowerCurve = LocalSettingsHelper.TryGetValue("ControllerEmulationStickPowerCurve", out int savedPowerCurve)
+                    ? Math.Max(10, Math.Min(400, savedPowerCurve)) : 100;
+                stickSensitivityV2 = LocalSettingsHelper.TryGetValue("ControllerEmulationStickSensitivityV2", out int savedSensV2)
+                    ? Math.Max(1, Math.Min(400, savedSensV2)) : 100;
+                stickDeadzone = LocalSettingsHelper.TryGetValue("ControllerEmulationStickDeadzone", out int savedDeadzone)
+                    ? Math.Max(0, Math.Min(50, savedDeadzone)) : 2;
+                stickPrecisionSpeed = LocalSettingsHelper.TryGetValue("ControllerEmulationStickPrecisionSpeed", out int savedPrecision)
+                    ? Math.Max(0, Math.Min(100, savedPrecision)) : 0;
+                stickOutputMix = LocalSettingsHelper.TryGetValue("ControllerEmulationStickOutputMix", out int savedOutputMix)
+                    ? Math.Max(-100, Math.Min(100, savedOutputMix)) : 0;
+                stickOrientationV2 = LocalSettingsHelper.TryGetValue("ControllerEmulationStickOrientationV2", out int savedOrientV2)
+                    ? ((savedOrientV2 == 1) ? 1 : 0) : 0;
+                stickConversion = LocalSettingsHelper.TryGetValue("ControllerEmulationStickConversion", out int savedConversion)
+                    ? Math.Max(0, Math.Min(2, savedConversion)) : 0;
+
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationVirtualABXYLayout", out int savedVirtualAbxyLayout))
                 {
                     virtualAbxyLayout = NormalizeVirtualAbxyLayout(savedVirtualAbxyLayout);
@@ -1559,6 +1736,17 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 LocalSettingsHelper.SetValue("ControllerEmulationStickOnlyJoystickData", stickOnlyJoystickData);
                 LocalSettingsHelper.SetValue("ControllerEmulationVirtualABXYLayout", virtualAbxyLayout);
                 LocalSettingsHelper.SetValue("ControllerEmulationLedForwardingEnabled", ledForwardingEnabled);
+                LocalSettingsHelper.SetValue("ControllerEmulationStickMinGyroSpeed", stickMinGyroSpeed);
+                LocalSettingsHelper.SetValue("ControllerEmulationStickMaxGyroSpeed", stickMaxGyroSpeed);
+                LocalSettingsHelper.SetValue("ControllerEmulationStickMinOutput", stickMinOutput);
+                LocalSettingsHelper.SetValue("ControllerEmulationStickMaxOutput", stickMaxOutput);
+                LocalSettingsHelper.SetValue("ControllerEmulationStickPowerCurve", stickPowerCurve);
+                LocalSettingsHelper.SetValue("ControllerEmulationStickSensitivityV2", stickSensitivityV2);
+                LocalSettingsHelper.SetValue("ControllerEmulationStickDeadzone", stickDeadzone);
+                LocalSettingsHelper.SetValue("ControllerEmulationStickPrecisionSpeed", stickPrecisionSpeed);
+                LocalSettingsHelper.SetValue("ControllerEmulationStickOutputMix", stickOutputMix);
+                LocalSettingsHelper.SetValue("ControllerEmulationStickOrientationV2", stickOrientationV2);
+                LocalSettingsHelper.SetValue("ControllerEmulationStickConversion", stickConversion);
 
                 // Keep legacy keys in sync for compatibility with older builds.
                 LocalSettingsHelper.SetValue("GPDControllerEmulationGyroSource", gyroSource);
@@ -2134,6 +2322,12 @@ namespace XboxGamingBarHelper.ControllerEmulation
             lastGyroStickY = 0;
             hasLastGyroStick = false;
             lastGyroStickTicksUtc = 0;
+            stickFilteredHorizontal = 0.0f;
+            stickFilteredVertical = 0.0f;
+            stickFilteredDerivativeHorizontal = 0.0f;
+            stickFilteredDerivativeVertical = 0.0f;
+            stickFilterInitialized = false;
+            stickLastSampleTicksUtc = 0;
         }
 
         private void ResetGyroActivationRuntimeState()
@@ -2736,10 +2930,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
         {
             float dx = (rawValue - previousFilteredValue) / Math.Max(0.0005f, deltaSeconds);
 
-            float derivativeAlpha = ComputeOneEuroAlpha(MouseOneEuroDerivativeCutoff, deltaSeconds);
+            float derivativeAlpha = ComputeOneEuroAlpha(OneEuroDerivativeCutoff, deltaSeconds);
             filteredDerivative = previousFilteredDerivative + ((dx - previousFilteredDerivative) * derivativeAlpha);
 
-            float dynamicCutoff = MouseOneEuroMinCutoff + (MouseOneEuroBeta * Math.Abs(filteredDerivative));
+            float dynamicCutoff = OneEuroMinCutoff + (OneEuroBeta * Math.Abs(filteredDerivative));
             float valueAlpha = ComputeOneEuroAlpha(dynamicCutoff, deltaSeconds);
             filteredValue = previousFilteredValue + ((rawValue - previousFilteredValue) * valueAlpha);
             return filteredValue;
@@ -2918,6 +3112,26 @@ namespace XboxGamingBarHelper.ControllerEmulation
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static float MapAxisWithCurve(float degPerSec, float minSpeed, float maxSpeed)
+        {
+            float abs = Math.Abs(degPerSec);
+            if (abs <= minSpeed) return 0.0f;
+            float range = maxSpeed - minSpeed;
+            if (range <= 0.0f) return Math.Sign(degPerSec);
+            float normalized = (abs - minSpeed) / range;
+            return Math.Sign(degPerSec) * Math.Min(1.0f, normalized);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static float ApplyOutputRange(float normalized, float minOutput, float maxOutput)
+        {
+            if (normalized == 0.0f) return 0.0f;
+            float abs = Math.Abs(normalized);
+            float scaled = minOutput + (abs * (maxOutput - minOutput));
+            return Math.Sign(normalized) * Math.Min(1.0f, scaled);
+        }
+
         private void ApplyStickFromGyro(
             GyroSample sample,
             out short outputX,
@@ -2926,70 +3140,141 @@ namespace XboxGamingBarHelper.ControllerEmulation
             outputX = 0;
             outputY = 0;
 
-            float horizontal;
-            float vertical;
-
-            // Axis selection:
-            // 0 = XY (Yaw)        => Y -> X, X -> Y
-            // 1 = XZ (Roll)       => Z -> X, X -> Y
-            // 2 = Yaw + Pitch     => Y -> X, X -> Y (explicit yaw/pitch mode)
-            switch (stickAxis)
+            // Debug: log raw gyro axes periodically to diagnose axis mapping
+            if (sample.TimestampTicksUtc - stickLastDiagLogTicksUtc > TimeSpan.TicksPerSecond)
             {
-                case 1:
-                    horizontal = sample.GyroZDegPerSecond;
-                    vertical = sample.GyroXDegPerSecond;
-                    break;
-                case 2:
-                    horizontal = sample.GyroYDegPerSecond;
-                    vertical = sample.GyroXDegPerSecond;
-                    break;
-                default:
-                    horizontal = sample.GyroYDegPerSecond;
-                    vertical = sample.GyroXDegPerSecond;
-                    break;
-            }
-
-            if (stickInvertX)
-            {
-                horizontal = -horizontal;
-            }
-
-            if (stickInvertY)
-            {
-                vertical = -vertical;
-            }
-
-            float threshold = Math.Max(0.0f, stickThreshold);
-            horizontal = ApplyDeadzone(horizontal, threshold);
-            vertical = ApplyDeadzone(vertical, threshold);
-
-            horizontal = Math.Max(-MouseMaxDegPerSecond, Math.Min(MouseMaxDegPerSecond, horizontal));
-            vertical = Math.Max(-MouseMaxDegPerSecond, Math.Min(MouseMaxDegPerSecond, vertical));
-
-            float sensitivityScale = Math.Max(0.05f, stickSensitivity / 100.0f);
-            float gainXScale = stickGainX / 100.0f;
-            float gainYScale = stickGainY / 100.0f;
-            float rangeScale = stickRange / 100.0f;
-
-            float normalizedX = (horizontal / StickDegreesPerSecondAtFullDeflection) * sensitivityScale * gainXScale * rangeScale;
-            float normalizedY = ((-vertical) / StickDegreesPerSecondAtFullDeflection) * sensitivityScale * gainYScale * rangeScale;
-
-            if (stickExcessMove)
-            {
-                normalizedX = Math.Max(-1.0f, Math.Min(1.0f, normalizedX));
-                normalizedY = Math.Max(-1.0f, Math.Min(1.0f, normalizedY));
-            }
-            else
-            {
-                float magnitude = (float)Math.Sqrt((normalizedX * normalizedX) + (normalizedY * normalizedY));
-                if (magnitude > 1.0f && magnitude > 0.0f)
+                stickLastDiagLogTicksUtc = sample.TimestampTicksUtc;
+                float absX = Math.Abs(sample.GyroXDegPerSecond);
+                float absY = Math.Abs(sample.GyroYDegPerSecond);
+                float absZ = Math.Abs(sample.GyroZDegPerSecond);
+                if (absX > 5 || absY > 5 || absZ > 5)
                 {
-                    float invMagnitude = 1.0f / magnitude;
-                    normalizedX *= invMagnitude;
-                    normalizedY *= invMagnitude;
+                    Logger.Info($"StickGyroRaw: X={sample.GyroXDegPerSecond:F1} Y={sample.GyroYDegPerSecond:F1} Z={sample.GyroZDegPerSecond:F1} conv={stickConversion} orient={stickOrientationV2}");
                 }
             }
 
+            // 1. Orientation-corrected input axes
+            //    Parallel = standard (Y=Yaw, Z=Roll)
+            //    Orthogonal = swap Y↔Z for devices where IMU axes are rotated
+            float gyroX = sample.GyroXDegPerSecond;
+            float gyroY = sample.GyroYDegPerSecond;
+            float gyroZ = sample.GyroZDegPerSecond;
+
+            if (stickOrientationV2 == 1)
+            {
+                float origY = gyroY;
+                gyroY = gyroZ;
+                gyroZ = -origY;
+            }
+
+            // 2. 3DOF-to-2D conversion
+            float horizontal;
+            float vertical;
+            switch (stickConversion)
+            {
+                case 1: // Roll
+                    horizontal = gyroZ;
+                    vertical = gyroX;
+                    break;
+                case 2: // Yaw + Roll
+                    horizontal = gyroY + gyroZ;
+                    vertical = gyroX;
+                    break;
+                default: // 0 = Yaw
+                    horizontal = gyroY;
+                    vertical = gyroX;
+                    break;
+            }
+
+            // 3. Invert axes
+            if (stickInvertX) horizontal = -horizontal;
+            if (stickInvertY) vertical = -vertical;
+
+            // 4. Deadzone with smooth recovery
+            float deadzone = Math.Max(0.0f, stickDeadzone);
+            horizontal = ApplyDeadzone(horizontal, deadzone);
+            vertical = ApplyDeadzone(vertical, deadzone);
+
+            // 5. One Euro filter
+            float deltaSeconds;
+            if (stickLastSampleTicksUtc > 0 && sample.TimestampTicksUtc > stickLastSampleTicksUtc)
+            {
+                deltaSeconds = (sample.TimestampTicksUtc - stickLastSampleTicksUtc) / (float)TimeSpan.TicksPerSecond;
+                deltaSeconds = Math.Max(MinDeltaSeconds, Math.Min(MaxDeltaSeconds, deltaSeconds));
+            }
+            else
+            {
+                deltaSeconds = DefaultDeltaSeconds;
+            }
+            stickLastSampleTicksUtc = sample.TimestampTicksUtc;
+
+            if (!stickFilterInitialized)
+            {
+                stickFilteredHorizontal = horizontal;
+                stickFilteredVertical = vertical;
+                stickFilteredDerivativeHorizontal = 0.0f;
+                stickFilteredDerivativeVertical = 0.0f;
+                stickFilterInitialized = true;
+            }
+            else
+            {
+                ApplyOneEuroAxis(horizontal, stickFilteredHorizontal,
+                    stickFilteredDerivativeHorizontal, deltaSeconds,
+                    out stickFilteredHorizontal, out stickFilteredDerivativeHorizontal);
+                ApplyOneEuroAxis(vertical, stickFilteredVertical,
+                    stickFilteredDerivativeVertical, deltaSeconds,
+                    out stickFilteredVertical, out stickFilteredDerivativeVertical);
+                horizontal = stickFilteredHorizontal;
+                vertical = stickFilteredVertical;
+            }
+
+            // 6. Precision speed
+            if (stickPrecisionSpeed > 0)
+            {
+                float speed = (float)Math.Sqrt(horizontal * horizontal + vertical * vertical);
+                if (speed > 0.0f && speed < stickPrecisionSpeed)
+                {
+                    float scale = speed / stickPrecisionSpeed;
+                    horizontal *= scale;
+                    vertical *= scale;
+                }
+            }
+
+            // 7. Sensitivity
+            float sensitivity = Math.Max(0.01f, stickSensitivityV2 / 100.0f);
+            horizontal *= sensitivity;
+            vertical *= sensitivity;
+
+            // 8. Normalize to 0-1 using min/max gyro speed
+            float minSpeed = Math.Max(0.0f, stickMinGyroSpeed);
+            float maxSpeed = Math.Max(1.0f, stickMaxGyroSpeed);
+            float normalizedX = MapAxisWithCurve(horizontal, minSpeed, maxSpeed);
+            float normalizedY = MapAxisWithCurve(-vertical, minSpeed, maxSpeed);
+
+            // 9. Power curve
+            float power = Math.Max(0.1f, stickPowerCurve / 100.0f);
+            normalizedX = Math.Sign(normalizedX) * (float)Math.Pow(Math.Abs(normalizedX), power);
+            normalizedY = Math.Sign(normalizedY) * (float)Math.Pow(Math.Abs(normalizedY), power);
+
+            // 10. Output mix
+            if (stickOutputMix > 0)
+            {
+                float vertScale = 1.0f - (stickOutputMix / 100.0f);
+                normalizedY *= vertScale;
+            }
+            else if (stickOutputMix < 0)
+            {
+                float horizScale = 1.0f + (stickOutputMix / 100.0f);
+                normalizedX *= horizScale;
+            }
+
+            // 11. Output range (anti-deadzone + max output)
+            float minOut = stickMinOutput / 100.0f;
+            float maxOut = Math.Max(0.01f, stickMaxOutput / 100.0f);
+            normalizedX = ApplyOutputRange(normalizedX, minOut, maxOut);
+            normalizedY = ApplyOutputRange(normalizedY, minOut, maxOut);
+
+            // 12. Clamp and convert
             outputX = ConvertNormalizedToInt16(normalizedX);
             outputY = ConvertNormalizedToInt16(normalizedY);
         }

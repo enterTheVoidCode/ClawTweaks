@@ -559,4 +559,191 @@ namespace XboxGamingBarHelper.ControllerEmulation
             }
         }
     }
+
+    internal class ControllerEmulationStickMinGyroSpeedProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationStickMinGyroSpeedProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationStickMinGyroSpeed, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationStickMinGyroSpeed changed to {Value}");
+            Manager?.SetStickMinGyroSpeed(Value);
+        }
+    }
+
+    internal class ControllerEmulationStickMaxGyroSpeedProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationStickMaxGyroSpeedProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationStickMaxGyroSpeed, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationStickMaxGyroSpeed changed to {Value}");
+            Manager?.SetStickMaxGyroSpeed(Value);
+        }
+    }
+
+    internal class ControllerEmulationStickMinOutputProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationStickMinOutputProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationStickMinOutput, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationStickMinOutput changed to {Value}");
+            Manager?.SetStickMinOutput(Value);
+        }
+    }
+
+    internal class ControllerEmulationStickMaxOutputProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationStickMaxOutputProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationStickMaxOutput, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationStickMaxOutput changed to {Value}");
+            Manager?.SetStickMaxOutput(Value);
+        }
+    }
+
+    internal class ControllerEmulationStickPowerCurveProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationStickPowerCurveProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationStickPowerCurve, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationStickPowerCurve changed to {Value}");
+            Manager?.SetStickPowerCurve(Value);
+        }
+    }
+
+    internal class ControllerEmulationStickSensitivityV2Property : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationStickSensitivityV2Property(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationStickSensitivityV2, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationStickSensitivityV2 changed to {Value}");
+            Manager?.SetStickSensitivityV2(Value);
+        }
+    }
+
+    internal class ControllerEmulationStickDeadzoneProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationStickDeadzoneProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationStickDeadzone, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationStickDeadzone changed to {Value}");
+            Manager?.SetStickDeadzone(Value);
+        }
+    }
+
+    internal class ControllerEmulationStickPrecisionSpeedProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationStickPrecisionSpeedProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationStickPrecisionSpeed, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationStickPrecisionSpeed changed to {Value}");
+            Manager?.SetStickPrecisionSpeed(Value);
+        }
+    }
+
+    internal class ControllerEmulationStickOutputMixProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationStickOutputMixProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationStickOutputMix, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationStickOutputMix changed to {Value}");
+            Manager?.SetStickOutputMix(Value);
+        }
+    }
+
+    internal class ControllerEmulationStickOrientationV2Property : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationStickOrientationV2Property(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationStickOrientationV2, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationStickOrientationV2 changed to {Value}");
+            Manager?.SetStickOrientationV2(Value);
+        }
+    }
+
+    internal class ControllerEmulationStickConversionProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationStickConversionProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationStickConversion, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationStickConversion changed to {Value}");
+            Manager?.SetStickConversion(Value);
+        }
+    }
 }

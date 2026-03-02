@@ -3889,7 +3889,7 @@
                                               Width="220"
                                               Style="{StaticResource ModernComboBoxStyle}"
                                               XYFocusUp="{x:Bind ControllerEmulationHideStockControllerToggle}"
-                                              XYFocusDown="{x:Bind ControllerEmulationGyroSourceComboBox}"
+                                              XYFocusDown="{x:Bind GyroActivationExpandToggle}"
                                               IsEnabled="False">
                                         <ComboBoxItem Content="Auto (Native handheld only)" Tag="0" IsSelected="True"/>
                                         <ComboBoxItem Content="Native handheld controller" Tag="1"/>
@@ -3898,229 +3898,243 @@
                                     </ComboBox>
                                 </Grid>
 
-                                <Grid Margin="0,12,0,0">
+                                <!-- Gyro Activation Group -->
+                                <Grid Margin="0,16,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Gyroscope Source" FontSize="14" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Select which gyroscope to use"
-                                                   FontSize="11"
-                                                   Foreground="#888888"/>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Gyro Activation" FontSize="14" Foreground="#FFFFFF" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Source, simulation mode, and activation settings" FontSize="11" Foreground="#888888"/>
                                     </StackPanel>
-                                    <ComboBox x:Name="ControllerEmulationGyroSourceComboBox"
-                                              Grid.Column="1"
-                                              Width="180"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              XYFocusUp="{x:Bind ControllerEmulationHideStockControllerToggle}"
-                                              XYFocusDown="{x:Bind ControllerEmulationModeComboBox}"
-                                              SelectionChanged="ControllerEmulationGyroSourceComboBox_SelectionChanged"
-                                              IsEnabled="False">
-                                        <ComboBoxItem Content="Internal Handheld" Tag="0" IsSelected="True"/>
-                                        <ComboBoxItem Content="Controller (Right)" Tag="1"/>
-                                        <ComboBoxItem Content="Controller (Left)" Tag="2"/>
-                                        <ComboBoxItem Content="Controller (Mixed)" Tag="3"/>
-                                    </ComboBox>
+                                    <ToggleButton x:Name="GyroActivationExpandToggle"
+                                                  Grid.Column="1" IsChecked="False"
+                                                  VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
+                                                  Padding="8,4" Click="GyroActivationExpandToggle_Click">
+                                        <FontIcon x:Name="GyroActivationExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
                                 </Grid>
+                                <StackPanel x:Name="GyroActivationContent" Spacing="10" Margin="0,8,0,0" Visibility="Collapsed">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Gyroscope Source" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Select which gyroscope to use" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="ControllerEmulationGyroSourceComboBox"
+                                                  Grid.Column="1" Width="180"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  SelectionChanged="ControllerEmulationGyroSourceComboBox_SelectionChanged"
+                                                  IsEnabled="False">
+                                            <ComboBoxItem Content="Internal Handheld" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Controller (Right)" Tag="1"/>
+                                            <ComboBoxItem Content="Controller (Left)" Tag="2"/>
+                                            <ComboBoxItem Content="Controller (Mixed)" Tag="3"/>
+                                        </ComboBox>
+                                    </Grid>
 
-                                <Grid x:Name="CalibrateGyroGrid" Margin="0,8,0,0" Visibility="Collapsed">
+                                    <Grid x:Name="CalibrateGyroGrid" Visibility="Collapsed">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Calibrate Gyro" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Hold controllers still during calibration" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <Button x:Name="CalibrateGyroButton" Grid.Column="1"
+                                                Content="Calibrate" Style="{StaticResource ModernButtonStyle}"
+                                                Click="CalibrateGyroButton_Click" IsEnabled="False"/>
+                                    </Grid>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Gyro Simulation" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Choose how gyro motion is emulated" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="ControllerEmulationModeComboBox"
+                                                  Grid.Column="1" Width="180"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationModeComboBox_SelectionChanged">
+                                            <ComboBoxItem Content="Mouse" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Xbox (Stick)" Tag="1"/>
+                                            <ComboBoxItem Content="PS4 (Motion)" Tag="2"/>
+                                            <ComboBoxItem Content="PS4 (Stick)" Tag="3"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Gyro Activation" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Always on, hold, or toggle by button" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="ControllerEmulationGyroActivationModeComboBox"
+                                                  Grid.Column="1" Width="180"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationGyroActivationModeComboBox_SelectionChanged">
+                                            <ComboBoxItem Content="Always On" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Hold" Tag="1"/>
+                                            <ComboBoxItem Content="Toggle" Tag="2"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Activation Button" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Button used for hold or toggle activation" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="ControllerEmulationGyroActivationButtonComboBox"
+                                                  Grid.Column="1" Width="180"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  IsEnabled="False">
+                                            <ComboBoxItem Content="None" Tag="0"/>
+                                            <ComboBoxItem Content="Right Trigger" Tag="1" IsSelected="True"/>
+                                            <ComboBoxItem Content="Left Trigger" Tag="2"/>
+                                            <ComboBoxItem Content="Right Bumper" Tag="3"/>
+                                            <ComboBoxItem Content="Left Bumper" Tag="4"/>
+                                            <ComboBoxItem Content="A" Tag="5"/>
+                                            <ComboBoxItem Content="B" Tag="6"/>
+                                            <ComboBoxItem Content="X" Tag="7"/>
+                                            <ComboBoxItem Content="Y" Tag="8"/>
+                                            <ComboBoxItem Content="Right Stick Click" Tag="9"/>
+                                            <ComboBoxItem Content="Left Stick Click" Tag="10"/>
+                                            <ComboBoxItem Content="D-Pad Up" Tag="11"/>
+                                            <ComboBoxItem Content="D-Pad Down" Tag="12"/>
+                                            <ComboBoxItem Content="D-Pad Left" Tag="13"/>
+                                            <ComboBoxItem Content="D-Pad Right" Tag="14"/>
+                                            <ComboBoxItem Content="Start" Tag="15"/>
+                                            <ComboBoxItem Content="Back" Tag="16"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <Grid x:Name="ControllerEmulationDs4OrientationRow">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="DS4 Orientation" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Parallel or Orthogonal handheld posture" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="ControllerEmulationDs4OrientationComboBox"
+                                                  Grid.Column="1" Width="180"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  IsEnabled="False">
+                                            <ComboBoxItem Content="Parallel" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Orthogonal" Tag="1"/>
+                                        </ComboBox>
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- Features Group -->
+                                <Grid Margin="0,16,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Calibrate Gyro" FontSize="14" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Hold controllers still during calibration"
-                                                   FontSize="11"
-                                                   Foreground="#888888"/>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Features" FontSize="14" Foreground="#FFFFFF" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Touchpad, LED, rumble, and button layout" FontSize="11" Foreground="#888888"/>
                                     </StackPanel>
-                                    <Button x:Name="CalibrateGyroButton"
-                                            Grid.Column="1"
-                                            Content="Calibrate"
-                                            Style="{StaticResource ModernButtonStyle}"
-                                            Click="CalibrateGyroButton_Click"
-                                            IsEnabled="False"/>
+                                    <ToggleButton x:Name="FeaturesExpandToggle"
+                                                  Grid.Column="1" IsChecked="False"
+                                                  VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
+                                                  Padding="8,4" Click="FeaturesExpandToggle_Click">
+                                        <FontIcon x:Name="FeaturesExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
                                 </Grid>
-
-                                <Grid Margin="0,12,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Gyro Simulation" FontSize="14" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Choose how gyro motion is emulated"
-                                                   FontSize="11"
-                                                   Foreground="#888888"/>
-                                    </StackPanel>
-                                    <ComboBox x:Name="ControllerEmulationModeComboBox"
-                                              Grid.Column="1"
-                                              Width="180"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              XYFocusUp="{x:Bind ControllerEmulationGyroSourceComboBox}"
-                                              XYFocusDown="{x:Bind ControllerEmulationRumbleProfileComboBox}"
-                                              IsEnabled="False"
-                                              SelectionChanged="ControllerEmulationModeComboBox_SelectionChanged">
-                                        <ComboBoxItem Content="Mouse" Tag="0" IsSelected="True"/>
-                                        <ComboBoxItem Content="Xbox (Stick)" Tag="1"/>
-                                        <ComboBoxItem Content="PS4 (Motion)" Tag="2"/>
-                                        <ComboBoxItem Content="PS4 (Stick)" Tag="3"/>
-                                    </ComboBox>
-                                </Grid>
-
-                                <Grid Margin="0,12,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Rumble Profile" FontSize="14" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Tune vibration response for virtual gamepad rumble"
-                                                   FontSize="11"
-                                                   Foreground="#888888"/>
-                                    </StackPanel>
-                                    <ComboBox x:Name="ControllerEmulationRumbleProfileComboBox"
-                                              Grid.Column="1"
-                                              Width="180"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              XYFocusUp="{x:Bind ControllerEmulationModeComboBox}"
-                                              XYFocusDown="{x:Bind ControllerEmulationGyroActivationModeComboBox}"
-                                              IsEnabled="False">
-                                        <ComboBoxItem Content="Balanced" Tag="0" IsSelected="True"/>
-                                        <ComboBoxItem Content="Sharp" Tag="1"/>
-                                        <ComboBoxItem Content="Soft" Tag="2"/>
-                                        <ComboBoxItem Content="Impact" Tag="3"/>
-                                        <ComboBoxItem Content="Boosted" Tag="4"/>
-                                    </ComboBox>
-                                </Grid>
-
-                                <Grid Margin="0,12,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Gyro Activation" FontSize="14" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Always on, hold, or toggle by button"
-                                                   FontSize="11"
-                                                   Foreground="#888888"/>
-                                    </StackPanel>
-                                    <ComboBox x:Name="ControllerEmulationGyroActivationModeComboBox"
-                                              Grid.Column="1"
-                                              Width="180"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              XYFocusUp="{x:Bind ControllerEmulationRumbleProfileComboBox}"
-                                              XYFocusDown="{x:Bind ControllerEmulationGyroActivationButtonComboBox}"
-                                              IsEnabled="False"
-                                              SelectionChanged="ControllerEmulationGyroActivationModeComboBox_SelectionChanged">
-                                        <ComboBoxItem Content="Always On" Tag="0" IsSelected="True"/>
-                                        <ComboBoxItem Content="Hold" Tag="1"/>
-                                        <ComboBoxItem Content="Toggle" Tag="2"/>
-                                    </ComboBox>
-                                </Grid>
-
-                                <Grid Margin="0,12,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Activation Button" FontSize="14" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Button used for hold or toggle activation"
-                                                   FontSize="11"
-                                                   Foreground="#888888"/>
-                                    </StackPanel>
-                                    <ComboBox x:Name="ControllerEmulationGyroActivationButtonComboBox"
-                                              Grid.Column="1"
-                                              Width="180"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              XYFocusUp="{x:Bind ControllerEmulationGyroActivationModeComboBox}"
-                                              XYFocusDown="{x:Bind AutoHibernateToggle}"
-                                              IsEnabled="False">
-                                        <ComboBoxItem Content="None" Tag="0"/>
-                                        <ComboBoxItem Content="Right Trigger" Tag="1" IsSelected="True"/>
-                                        <ComboBoxItem Content="Left Trigger" Tag="2"/>
-                                        <ComboBoxItem Content="Right Bumper" Tag="3"/>
-                                        <ComboBoxItem Content="Left Bumper" Tag="4"/>
-                                        <ComboBoxItem Content="A" Tag="5"/>
-                                        <ComboBoxItem Content="B" Tag="6"/>
-                                        <ComboBoxItem Content="X" Tag="7"/>
-                                        <ComboBoxItem Content="Y" Tag="8"/>
-                                        <ComboBoxItem Content="Right Stick Click" Tag="9"/>
-                                        <ComboBoxItem Content="Left Stick Click" Tag="10"/>
-                                        <ComboBoxItem Content="D-Pad Up" Tag="11"/>
-                                        <ComboBoxItem Content="D-Pad Down" Tag="12"/>
-                                        <ComboBoxItem Content="D-Pad Left" Tag="13"/>
-                                        <ComboBoxItem Content="D-Pad Right" Tag="14"/>
-                                        <ComboBoxItem Content="Start" Tag="15"/>
-                                        <ComboBoxItem Content="Back" Tag="16"/>
-                                    </ComboBox>
-                                </Grid>
-
-                                <!-- PS4 Settings -->
-                                <StackPanel x:Name="ControllerEmulationDs4MotionSettingsPanel" Margin="0,16,0,0" Visibility="Collapsed">
-                                    <TextBlock Text="PS4 Emulation" FontSize="13" Foreground="#FFFFFF"/>
-                                    <TextBlock Text="Configure PS4-specific options for Motion and Stick modes"
-                                               FontSize="11"
-                                               Foreground="#888888"
-                                               Margin="0,0,0,6"/>
-
-                                    <Grid Margin="0,8,0,0">
+                                <StackPanel x:Name="FeaturesContent" Spacing="10" Margin="0,8,0,0" Visibility="Collapsed">
+                                    <Grid x:Name="ControllerEmulationPs4TouchpadRow">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Touchpad Emulation" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Forward right touchpad input to virtual DS4 touchpad"
-                                                       FontSize="11"
-                                                       Foreground="#888888"/>
+                                            <TextBlock Text="Forward right touchpad input to virtual DS4 touchpad" FontSize="11" Foreground="#888888"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="ControllerEmulationPs4TouchpadToggle"
-                                                      Grid.Column="1"
-                                                      IsOn="True"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      IsEnabled="False"/>
+                                                      Grid.Column="1" IsOn="True"
+                                                      Style="{StaticResource ModernToggleStyle}" IsEnabled="False"/>
                                     </Grid>
 
-                                    <Grid x:Name="ControllerEmulationLedForwardingRow" Margin="0,10,0,0">
+                                    <Grid x:Name="ControllerEmulationLedForwardingRow">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="LED Forwarding" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Forward game LED requests to physical controller"
-                                                       FontSize="11"
-                                                       Foreground="#888888"/>
+                                            <TextBlock Text="Forward game LED requests to physical controller" FontSize="11" Foreground="#888888"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="ControllerEmulationLedForwardingToggle"
-                                                      Grid.Column="1"
-                                                      IsOn="False"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      IsEnabled="False"/>
+                                                      Grid.Column="1" IsOn="False"
+                                                      Style="{StaticResource ModernToggleStyle}" IsEnabled="False"/>
                                     </Grid>
 
-                                    <Grid x:Name="ControllerEmulationDs4OrientationRow" Margin="0,10,0,0">
+                                    <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Orientation" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Parallel or Orthogonal handheld posture"
-                                                       FontSize="11"
-                                                       Foreground="#888888"/>
+                                            <TextBlock Text="Rumble Profile" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Tune vibration response for virtual gamepad rumble" FontSize="11" Foreground="#888888"/>
                                         </StackPanel>
-                                        <ComboBox x:Name="ControllerEmulationDs4OrientationComboBox"
-                                                  Grid.Column="1"
-                                                  Width="180"
+                                        <ComboBox x:Name="ControllerEmulationRumbleProfileComboBox"
+                                                  Grid.Column="1" Width="180"
                                                   Style="{StaticResource ModernComboBoxStyle}"
                                                   IsEnabled="False">
-                                            <ComboBoxItem Content="Parallel" Tag="0" IsSelected="True"/>
-                                            <ComboBoxItem Content="Orthogonal" Tag="1"/>
+                                            <ComboBoxItem Content="Balanced" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Sharp" Tag="1"/>
+                                            <ComboBoxItem Content="Soft" Tag="2"/>
+                                            <ComboBoxItem Content="Impact" Tag="3"/>
+                                            <ComboBoxItem Content="Boosted" Tag="4"/>
                                         </ComboBox>
+                                    </Grid>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Virtual ABXY Layout" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                        <ComboBox x:Name="ControllerEmulationVirtualAbxyLayoutComboBox"
+                                                  Grid.Column="1" Width="180"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  IsEnabled="False">
+                                            <ComboBoxItem Content="Xbox" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Nintendo" Tag="1"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Only Joystick Data" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                        <ToggleSwitch x:Name="ControllerEmulationStickOnlyJoystickToggle"
+                                                      Grid.Column="1" IsOn="False"
+                                                      Style="{StaticResource ModernToggleStyle}" IsEnabled="False"/>
                                     </Grid>
                                 </StackPanel>
 
@@ -4273,234 +4287,255 @@
                                             ValueChanged="ControllerEmulationMouseGainYSlider_ValueChanged"/>
                                 </StackPanel>
 
-                                <!-- Stick Emulation Settings -->
-                                <StackPanel x:Name="ControllerEmulationStickSettingsPanel" Margin="0,16,0,0" Visibility="Collapsed">
-                                    <TextBlock Text="Stick Emulation" FontSize="13" Foreground="#FFFFFF"/>
-                                    <TextBlock Text="Tune gyro-to-stick behavior"
-                                               FontSize="11"
-                                               Foreground="#888888"
-                                               Margin="0,0,0,6"/>
-
-                                    <Grid Margin="0,8,0,0">
+                                <!-- Joystick Output Group -->
+                                <Grid x:Name="JoystickOutputGroupHeader" Margin="0,16,0,0" Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Joystick Output" FontSize="14" Foreground="#FFFFFF" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Gyro-to-stick pipeline settings" FontSize="11" Foreground="#888888"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="JoystickOutputExpandToggle"
+                                                  Grid.Column="1" IsChecked="False"
+                                                  VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
+                                                  Padding="8,4" Click="JoystickOutputExpandToggle_Click">
+                                        <FontIcon x:Name="JoystickOutputExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+                                <StackPanel x:Name="JoystickOutputContent" Spacing="10" Margin="0,8,0,0" Visibility="Collapsed">
+                                    <!-- Send to Joystick -->
+                                    <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Joystick Sensitivity" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="ControllerEmulationStickSensitivityValue"
-                                                   Grid.Column="1"
-                                                   Text="100"
-                                                   FontSize="13"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-                                    <Slider x:Name="ControllerEmulationStickSensitivitySlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="1" Maximum="400"
-                                            TickFrequency="1"
-                                            SnapsTo="Ticks"
-                                            Value="100"
-                                            IsEnabled="False"
-                                            ValueChanged="ControllerEmulationStickSensitivitySlider_ValueChanged"/>
-
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Joystick Threshold" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="ControllerEmulationStickThresholdValue"
-                                                   Grid.Column="1"
-                                                   Text="2"
-                                                   FontSize="13"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-                                    <Slider x:Name="ControllerEmulationStickThresholdSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="20"
-                                            TickFrequency="1"
-                                            SnapsTo="Ticks"
-                                            Value="2"
-                                            IsEnabled="False"
-                                            ValueChanged="ControllerEmulationStickThresholdSlider_ValueChanged"/>
-
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Axis Select" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Choose gyro axes for stick output"
-                                                       FontSize="11"
-                                                       Foreground="#888888"/>
-                                        </StackPanel>
-                                        <ComboBox x:Name="ControllerEmulationStickAxisComboBox"
-                                                  Grid.Column="1"
-                                                  Width="180"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  IsEnabled="False">
-                                            <ComboBoxItem Content="XY (Yaw)" Tag="0" IsSelected="True"/>
-                                            <ComboBoxItem Content="XZ (Roll)" Tag="1"/>
-                                            <ComboBoxItem Content="Yaw + Pitch" Tag="2"/>
-                                        </ComboBox>
-                                    </Grid>
-
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Invert Horizontal" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                        <ToggleSwitch x:Name="ControllerEmulationStickInvertXToggle"
-                                                      Grid.Column="1"
-                                                      IsOn="False"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      IsEnabled="False"/>
-                                    </Grid>
-
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Invert Vertical" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                        <ToggleSwitch x:Name="ControllerEmulationStickInvertYToggle"
-                                                      Grid.Column="1"
-                                                      IsOn="False"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      IsEnabled="False"/>
-                                    </Grid>
-
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Horizontal Gain" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="ControllerEmulationStickGainXValue"
-                                                   Grid.Column="1"
-                                                   Text="100"
-                                                   FontSize="13"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-                                    <Slider x:Name="ControllerEmulationStickGainXSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="25" Maximum="400"
-                                            TickFrequency="1"
-                                            SnapsTo="Ticks"
-                                            Value="100"
-                                            IsEnabled="False"
-                                            ValueChanged="ControllerEmulationStickGainXSlider_ValueChanged"/>
-
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Vertical Gain" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="ControllerEmulationStickGainYValue"
-                                                   Grid.Column="1"
-                                                   Text="100"
-                                                   FontSize="13"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-                                    <Slider x:Name="ControllerEmulationStickGainYSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="25" Maximum="400"
-                                            TickFrequency="1"
-                                            SnapsTo="Ticks"
-                                            Value="100"
-                                            IsEnabled="False"
-                                            ValueChanged="ControllerEmulationStickGainYSlider_ValueChanged"/>
-
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Stick Select" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Send to Joystick" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
                                         <ComboBox x:Name="ControllerEmulationStickSelectComboBox"
-                                                  Grid.Column="1"
-                                                  Width="180"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  IsEnabled="False">
+                                                  Grid.Column="1" Width="180"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False">
                                             <ComboBoxItem Content="Left" Tag="0"/>
                                             <ComboBoxItem Content="Right" Tag="1" IsSelected="True"/>
                                         </ComboBox>
                                     </Grid>
 
-                                    <Grid Margin="0,10,0,0">
+                                    <!-- 3DOF to 2D Conversion -->
+                                    <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Excess Move" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                        <ToggleSwitch x:Name="ControllerEmulationStickExcessMoveToggle"
-                                                      Grid.Column="1"
-                                                      IsOn="False"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      IsEnabled="False"/>
-                                    </Grid>
-
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Joystick Range" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="ControllerEmulationStickRangeValue"
-                                                   Grid.Column="1"
-                                                   Text="1.00"
-                                                   FontSize="13"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-                                    <Slider x:Name="ControllerEmulationStickRangeSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="200"
-                                            TickFrequency="1"
-                                            SnapsTo="Ticks"
-                                            Value="100"
-                                            IsEnabled="False"
-                                            ValueChanged="ControllerEmulationStickRangeSlider_ValueChanged"/>
-
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Only Joystick Data" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                        <ToggleSwitch x:Name="ControllerEmulationStickOnlyJoystickToggle"
-                                                      Grid.Column="1"
-                                                      IsOn="False"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      IsEnabled="False"/>
-                                    </Grid>
-
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Virtual ABXY Layout" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                        <ComboBox x:Name="ControllerEmulationVirtualAbxyLayoutComboBox"
-                                                  Grid.Column="1"
-                                                  Width="180"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  IsEnabled="False">
-                                            <ComboBoxItem Content="Xbox" Tag="0" IsSelected="True"/>
-                                            <ComboBoxItem Content="Nintendo" Tag="1"/>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="3DOF to 2D Conversion" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Map gyro axes to stick output" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="StickConversionComboBox"
+                                                  Grid.Column="1" Width="180"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False">
+                                            <ComboBoxItem Content="Yaw" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Roll" Tag="1"/>
+                                            <ComboBoxItem Content="Yaw + Roll" Tag="2"/>
                                         </ComboBox>
                                     </Grid>
+
+                                    <!-- Orientation -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Gyro Orientation" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Handheld posture for stick output" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="StickOrientationV2ComboBox"
+                                                  Grid.Column="1" Width="180"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False">
+                                            <ComboBoxItem Content="Parallel" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Orthogonal" Tag="1"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- Invert Y -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Invert Y Output" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                        <ToggleSwitch x:Name="ControllerEmulationStickInvertYToggle"
+                                                      Grid.Column="1" IsOn="False"
+                                                      Style="{StaticResource ModernToggleStyle}" IsEnabled="False"/>
+                                    </Grid>
+
+                                    <!-- Invert X -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Invert X Output" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                        <ToggleSwitch x:Name="ControllerEmulationStickInvertXToggle"
+                                                      Grid.Column="1" IsOn="False"
+                                                      Style="{StaticResource ModernToggleStyle}" IsEnabled="False"/>
+                                    </Grid>
+
+                                    <!-- Sensitivity -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Sensitivity" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="StickSensitivityV2ValueText" Grid.Column="1" Text="1.00x"
+                                                   FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="StickSensitivityV2Slider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="1" Maximum="400" TickFrequency="1" SnapsTo="Ticks" Value="100"
+                                            IsEnabled="False" ValueChanged="StickSensitivityV2Slider_ValueChanged"/>
+
+                                    <!-- Min Gyro Input Speed -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Min Gyro Input Speed" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Ignore motion below this speed" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="StickMinGyroSpeedValueText" Grid.Column="1" Text="0°/s"
+                                                   FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="StickMinGyroSpeedSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="100" TickFrequency="1" SnapsTo="Ticks" Value="0"
+                                            IsEnabled="False" ValueChanged="StickMinGyroSpeedSlider_ValueChanged"/>
+
+                                    <!-- Max Gyro Input Speed -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Max Gyro Input Speed" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Speed for full stick deflection" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="StickMaxGyroSpeedValueText" Grid.Column="1" Text="220°/s"
+                                                   FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="StickMaxGyroSpeedSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="50" Maximum="720" TickFrequency="1" SnapsTo="Ticks" Value="220"
+                                            IsEnabled="False" ValueChanged="StickMaxGyroSpeedSlider_ValueChanged"/>
+
+                                    <!-- Min Joystick Output (anti-deadzone) -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Min Joystick Output" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Anti-deadzone: minimum output when moving" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="StickMinOutputValueText" Grid.Column="1" Text="0%"
+                                                   FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="StickMinOutputSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="100" TickFrequency="1" SnapsTo="Ticks" Value="0"
+                                            IsEnabled="False" ValueChanged="StickMinOutputSlider_ValueChanged"/>
+
+                                    <!-- Max Joystick Output -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Max Joystick Output" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="StickMaxOutputValueText" Grid.Column="1" Text="100%"
+                                                   FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="StickMaxOutputSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="1" Maximum="100" TickFrequency="1" SnapsTo="Ticks" Value="100"
+                                            IsEnabled="False" ValueChanged="StickMaxOutputSlider_ValueChanged"/>
+
+                                    <!-- Power Curve -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Power Curve" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="0.1 = aggressive, 1.0 = linear, 4.0 = relaxed" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="StickPowerCurveValueText" Grid.Column="1" Text="1.0"
+                                                   FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="StickPowerCurveSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="10" Maximum="400" TickFrequency="1" SnapsTo="Ticks" Value="100"
+                                            IsEnabled="False" ValueChanged="StickPowerCurveSlider_ValueChanged"/>
+
+                                    <!-- Gyro Speed Deadzone -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Gyro Speed Deadzone" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Smooth recovery above threshold" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="StickDeadzoneValueText" Grid.Column="1" Text="2°/s"
+                                                   FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="StickDeadzoneSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="50" TickFrequency="1" SnapsTo="Ticks" Value="2"
+                                            IsEnabled="False" ValueChanged="StickDeadzoneSlider_ValueChanged"/>
+
+                                    <!-- Precision Speed -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Precision Speed" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Reduces sensitivity below this speed" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="StickPrecisionSpeedValueText" Grid.Column="1" Text="Off"
+                                                   FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="StickPrecisionSpeedSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="100" TickFrequency="1" SnapsTo="Ticks" Value="0"
+                                            IsEnabled="False" ValueChanged="StickPrecisionSpeedSlider_ValueChanged"/>
+
+                                    <!-- Output Mix -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Output Mix" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Balance between vertical and horizontal output" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="StickOutputMixValueText" Grid.Column="1" Text="Balanced"
+                                                   FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="StickOutputMixSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="-100" Maximum="100" TickFrequency="1" SnapsTo="Ticks" Value="0"
+                                            IsEnabled="False" ValueChanged="StickOutputMixSlider_ValueChanged"/>
                                 </StackPanel>
                             </StackPanel>
                         </StackPanel>
