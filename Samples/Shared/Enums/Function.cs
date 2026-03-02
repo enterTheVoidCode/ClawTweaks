@@ -360,5 +360,16 @@
         ControllerEmulationRumbleProfile, // int - rumble response profile (0=Balanced, 1=Sharp, 2=Soft, 3=Impact, 4=Boosted)
         ControllerEmulationLedForwardingEnabled, // bool - forward DS4 LED color requests from games to physical controller
         ControllerEmulationCalibrateGyro, // bool - trigger firmware gyro calibration (fire-and-forget action)
+        ControllerEmulationStickMinGyroSpeed,      // int - min gyro input speed in deg/s (0-100, default 0)
+        ControllerEmulationStickMaxGyroSpeed,      // int - max gyro speed for full deflection in deg/s (50-720, default 220)
+        ControllerEmulationStickMinOutput,         // int - min joystick output percent (0-100, default 0) — anti-deadzone
+        ControllerEmulationStickMaxOutput,         // int - max joystick output percent (1-100, default 100)
+        ControllerEmulationStickPowerCurve,        // int - 10-400 = 0.1x-4.0x (default 100 = 1.0 linear)
+        ControllerEmulationStickSensitivityV2,     // int - 1-400 = 0.01x-4.00x (default 100 = 1.00x)
+        ControllerEmulationStickDeadzone,          // int - 0-50 deg/s deadzone with smooth recovery (default 2)
+        ControllerEmulationStickPrecisionSpeed,    // int - 0-100 deg/s precision threshold (default 0 = off)
+        ControllerEmulationStickOutputMix,         // int - -100 to +100 (default 0) positive reduces vertical, negative reduces horizontal
+        ControllerEmulationStickOrientationV2,     // int - 0=Parallel, 1=Orthogonal (default 0) — for stick output
+        ControllerEmulationStickConversion,        // int - 0=Yaw, 1=Roll, 2=Yaw+Roll (default 0) — 3DOF to 2D mapping
     }
 }
