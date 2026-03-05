@@ -108,6 +108,8 @@ namespace XboxGamingBarHelper
         private static ControllerEmulationManager controllerEmulationManager;
         private static AutoTDPManager autoTDPManager;
         private static DefaultGameProfileManager defaultGameProfileManager;
+        private static Sidebar.SidebarManager sidebarManager;
+        private static bool sidebarMenuEnabled;
         private static List<IManager> Managers;
 
         public static OnScreenDisplayProperty onScreenDisplay;
@@ -408,6 +410,7 @@ namespace XboxGamingBarHelper
             try
             {
                 TryStartTrayIndicator();
+                TryStartSidebar();
                 await Initialize();
             }
             catch (Exception ex)
@@ -418,6 +421,7 @@ namespace XboxGamingBarHelper
             }
             finally
             {
+                sidebarManager?.Dispose();
                 DisposeTrayIndicator();
                 singleInstanceMutex?.ReleaseMutex();
                 singleInstanceMutex?.Dispose();
@@ -1278,6 +1282,9 @@ del /f /q ""%~f0"" 2>nul
             };
             // Note: defaultGameProfileManager is added in background task when ready
 
+            // Wire sidebar manager to live managers (WPF thread already running from TryStartSidebar)
+            sidebarManager?.SetManagers(performanceManager, autoTDPManager, profileManager, legionManager, controllerEmulationManager, powerManager, rtssManager, systemManager);
+
             Logger.Info("Initialize properties.");
             onScreenDisplay = new OnScreenDisplayProperty(0, null, rtssManager);
             onScreenDisplayProviders = new List<OnScreenDisplayManager>() { rtssManager, amdManager };
@@ -1773,6 +1780,31 @@ del /f /q ""%~f0"" 2>nul
             {
                 Logger.Warn($"Tray indicator startup failed: {ex.Message}");
                 _trayIndicator = null;
+            }
+        }
+
+        private static void TryStartSidebar()
+        {
+            try
+            {
+                // Load persisted sidebar state
+                sidebarMenuEnabled = Properties.Settings.Default.SidebarMenuEnabled;
+                Logger.Info($"Sidebar: Loaded persisted state: {sidebarMenuEnabled}");
+
+                sidebarManager = new Sidebar.SidebarManager();
+                if (sidebarManager.Start())
+                {
+                    Logger.Info("Sidebar manager started");
+                }
+                else
+                {
+                    Logger.Warn("Sidebar manager failed to start");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Sidebar manager startup failed: {ex.Message}");
+                sidebarManager = null;
             }
         }
 
@@ -2391,45 +2423,46 @@ Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction Silent
 
             Logger.Info($"Applying Legion controller settings from profile: {profileName}");
 
-            // Button mappings - skip default/empty mappings to avoid clearing existing button mappings
-            // A mapping like {"Type":0,"GamepadAction":0,...} represents "no mapping" and would clear the button
-            Logger.Info($"Button Y1 value: '{profile.LegionButtonY1}', IsDefault: {ButtonMappingParser.IsDefaultMapping(profile.LegionButtonY1)}");
-            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonY1))
+            // Button mappings - skip empty/null fields (not configured in profile).
+            // An explicit disabled mapping like {"Type":0,"GamepadAction":0,...} MUST be
+            // applied so the hardware clear command is sent; otherwise buttons like Desktop
+            // keep their hardware default (Xbox) even though the UI shows "Disabled".
+            if (!string.IsNullOrEmpty(profile.LegionButtonY1))
             {
                 Logger.Debug($"Applying LegionButtonY1: {profile.LegionButtonY1}");
                 legionManager.LegionButtonY1.SetValue(profile.LegionButtonY1);
             }
-            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonY2))
+            if (!string.IsNullOrEmpty(profile.LegionButtonY2))
             {
                 Logger.Debug($"Applying LegionButtonY2: {profile.LegionButtonY2}");
                 legionManager.LegionButtonY2.SetValue(profile.LegionButtonY2);
             }
-            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonY3))
+            if (!string.IsNullOrEmpty(profile.LegionButtonY3))
             {
                 Logger.Debug($"Applying LegionButtonY3: {profile.LegionButtonY3}");
                 legionManager.LegionButtonY3.SetValue(profile.LegionButtonY3);
             }
-            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonM1))
+            if (!string.IsNullOrEmpty(profile.LegionButtonM1))
             {
                 Logger.Debug($"Applying LegionButtonM1: {profile.LegionButtonM1}");
                 legionManager.LegionButtonM1.SetValue(profile.LegionButtonM1);
             }
-            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonM2))
+            if (!string.IsNullOrEmpty(profile.LegionButtonM2))
             {
                 Logger.Debug($"Applying LegionButtonM2: {profile.LegionButtonM2}");
                 legionManager.LegionButtonM2.SetValue(profile.LegionButtonM2);
             }
-            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonM3))
+            if (!string.IsNullOrEmpty(profile.LegionButtonM3))
             {
                 Logger.Debug($"Applying LegionButtonM3: {profile.LegionButtonM3}");
                 legionManager.LegionButtonM3.SetValue(profile.LegionButtonM3);
             }
-            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonDesktop))
+            if (!string.IsNullOrEmpty(profile.LegionButtonDesktop))
             {
                 Logger.Debug($"Applying LegionButtonDesktop: {profile.LegionButtonDesktop}");
                 legionManager.LegionButtonDesktop.SetValue(profile.LegionButtonDesktop);
             }
-            if (!ButtonMappingParser.IsDefaultMapping(profile.LegionButtonPage))
+            if (!string.IsNullOrEmpty(profile.LegionButtonPage))
             {
                 Logger.Debug($"Applying LegionButtonPage: {profile.LegionButtonPage}");
                 legionManager.LegionButtonPage.SetValue(profile.LegionButtonPage);
@@ -3665,6 +3698,17 @@ Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction Silent
                         bool enabled = request.Content.ToString().ToLower() == "true";
                         SetScreenSaverEnabled(enabled);
                         Logger.Info($"Pipe: Screen Saver enabled set to: {enabled}");
+                    }
+                }
+                // Sidebar Menu: Enable/disable sidebar overlay mode
+                else if (functionValue == (int)Function.SidebarMenuEnabled)
+                {
+                    if (request.Content != null)
+                    {
+                        sidebarMenuEnabled = request.Content.ToString().ToLower() == "true";
+                        Properties.Settings.Default.SidebarMenuEnabled = sidebarMenuEnabled;
+                        Properties.Settings.Default.Save();
+                        Logger.Info($"Pipe: Sidebar Menu enabled set to: {sidebarMenuEnabled}");
                     }
                 }
                 // Auto Hibernate Mode: 0=Always, 1=AC Only, 2=DC Only
@@ -5613,26 +5657,28 @@ Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction Silent
                 string lShortcut = "";
                 string lCommand = "";
 
-                if (Settings.LocalSettingsHelper.TryGetValue<int>("LegionL_Action", out var lActionVal))
-                    lAction = lActionVal;
+                bool lFound = Settings.LocalSettingsHelper.TryGetValue<int>("LegionL_Action", out var lActionVal);
+                if (lFound) lAction = lActionVal;
                 if (Settings.LocalSettingsHelper.TryGetValue<string>("LegionL_Shortcut", out var lShortcutVal))
                     lShortcut = lShortcutVal;
                 if (Settings.LocalSettingsHelper.TryGetValue<string>("LegionL_Command", out var lCommandVal))
                     lCommand = lCommandVal;
+                Logger.Info($"Labs: Read LegionL_Action={lAction} (found={lFound}), Shortcut='{lShortcut}', Command='{lCommand}'");
 
                 // Load Legion R settings
                 int rAction = 0;
                 string rShortcut = "";
                 string rCommand = "";
 
-                if (Settings.LocalSettingsHelper.TryGetValue<int>("LegionR_Action", out var rActionVal))
-                    rAction = rActionVal;
+                bool rFound = Settings.LocalSettingsHelper.TryGetValue<int>("LegionR_Action", out var rActionVal);
+                if (rFound) rAction = rActionVal;
                 if (Settings.LocalSettingsHelper.TryGetValue<string>("LegionR_Shortcut", out var rShortcutVal))
                     rShortcut = rShortcutVal;
                 if (Settings.LocalSettingsHelper.TryGetValue<string>("LegionR_Command", out var rCommandVal))
                     rCommand = rCommandVal;
+                Logger.Info($"Labs: Read LegionR_Action={rAction} (found={rFound}), Shortcut='{rShortcut}', Command='{rCommand}'");
 
-                // Apply Legion L if not disabled
+                // Apply Legion L settings (always configure, even when disabled, to clear any stale state)
                 if (lAction > 0)
                 {
                     // Map action index to actionType: 1=Xbox Guide(0), 2=Shortcut(1), 3=Command(2), 4=FocusGoTweaks(3)
@@ -5641,8 +5687,13 @@ Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction Silent
                     bool success = ConfigureLegionButtonRemap("L", true, actionType, shortcutOrCommand);
                     Logger.Info($"Labs: Loaded Legion L remap from settings - Action={lAction}, Success={success}");
                 }
+                else
+                {
+                    ConfigureLegionButtonRemap("L", false, 0, "");
+                    Logger.Info("Labs: Legion L remap disabled (Action=0)");
+                }
 
-                // Apply Legion R if not disabled
+                // Apply Legion R settings (always configure, even when disabled, to clear any stale state)
                 if (rAction > 0)
                 {
                     int actionType = rAction - 1;
@@ -5650,10 +5701,10 @@ Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction Silent
                     bool success = ConfigureLegionButtonRemap("R", true, actionType, shortcutOrCommand);
                     Logger.Info($"Labs: Loaded Legion R remap from settings - Action={rAction}, Success={success}");
                 }
-
-                if (lAction == 0 && rAction == 0)
+                else
                 {
-                    Logger.Info("Labs: No Legion button remap settings found in LocalSettings");
+                    ConfigureLegionButtonRemap("R", false, 0, "");
+                    Logger.Info("Labs: Legion R remap disabled (Action=0)");
                 }
             }
             catch (Exception ex)
@@ -5695,7 +5746,7 @@ Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction Silent
                 if (Settings.LocalSettingsHelper.TryGetValue<string>("ScrollClick_Command", out var clickCommandVal))
                     clickCommand = clickCommandVal;
 
-                // Apply Scroll Up/Down if not disabled (unified action for both directions)
+                // Apply Scroll Up/Down settings (always configure, even when disabled, to clear stale state)
                 if (scrollAction > 0)
                 {
                     // Map action index to actionType: 1=Xbox Guide(0), 2=Shortcut(1), 3=Command(2), 4=FocusGoTweaks(3)
@@ -5707,8 +5758,14 @@ Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction Silent
                     bool successDown = ConfigureLegionScrollRemap("Down", true, actionType, shortcutOrCommand);
                     Logger.Info($"Labs: Loaded Scroll Up/Down remap from settings - Action={scrollAction}, SuccessUp={successUp}, SuccessDown={successDown}");
                 }
+                else
+                {
+                    ConfigureLegionScrollRemap("Up", false, 0, "");
+                    ConfigureLegionScrollRemap("Down", false, 0, "");
+                    Logger.Info("Labs: Scroll Up/Down remap disabled (Action=0)");
+                }
 
-                // Apply Scroll Click if not disabled
+                // Apply Scroll Click settings (always configure, even when disabled, to clear stale state)
                 if (clickAction > 0)
                 {
                     int actionType = clickAction - 1;
@@ -5716,10 +5773,10 @@ Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction Silent
                     bool success = ConfigureLegionScrollRemap("Click", true, actionType, shortcutOrCommand);
                     Logger.Info($"Labs: Loaded Scroll Click remap from settings - Action={clickAction}, Success={success}");
                 }
-
-                if (scrollAction == 0 && clickAction == 0)
+                else
                 {
-                    Logger.Info("Labs: No Legion scroll wheel remap settings found in LocalSettings");
+                    ConfigureLegionScrollRemap("Click", false, 0, "");
+                    Logger.Info("Labs: Scroll Click remap disabled (Action=0)");
                 }
             }
             catch (Exception ex)
@@ -6025,6 +6082,15 @@ Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction Silent
                     return;
                 }
                 lastFocusWidgetTime = now;
+
+                // If sidebar mode is enabled, toggle sidebar instead of opening Game Bar
+                Logger.Info($"FocusGoTweaks: sidebarMenuEnabled={sidebarMenuEnabled}, sidebarManager={sidebarManager != null}");
+                if (sidebarMenuEnabled && sidebarManager != null)
+                {
+                    sidebarManager.Toggle();
+                    Logger.Info("Sidebar: Toggled sidebar overlay");
+                    return;
+                }
 
                 // Open Game Bar (required for widget activation)
                 SendKeyboardShortcutViaInputInjector("Win+G");
