@@ -18079,6 +18079,7 @@ namespace XboxGamingBar
                 Logger.Info("[PIPE] Sending Quick Metrics and Screen Saver enabled states to helper...");
                 SendQuickMetricsEnabledToHelper();
                 SendScreenSaverEnabledToHelper();
+                SendSidebarMenuEnabledToHelper();
 
                 await Task.Delay(200);
                 isInitialSync = false;
@@ -21684,6 +21685,8 @@ namespace XboxGamingBar
         private bool quickMetricsEnabled = false;
         private bool isUpdatingMetricCheckboxes = false;
         private bool screenSaverEnabled = false;
+        private bool sidebarMenuEnabled = false;
+        private const string SidebarMenuEnabledKey = "SidebarMenuEnabled";
         private const string ScreenSaverEnabledKey = "QS_ScreenSaverEnabled";
         private const int ScreenSaverTimeoutSeconds = 60;
         private DispatcherTimer screenSaverCountdownTimer;
@@ -22084,6 +22087,13 @@ namespace XboxGamingBar
                     {
                         StartScreenSaverCountdown();
                     }
+                }
+
+                // Load Sidebar Menu toggle state
+                if (settings.Values.TryGetValue(SidebarMenuEnabledKey, out object sbVal) && sbVal is bool sbEnabled)
+                {
+                    sidebarMenuEnabled = sbEnabled;
+                    SidebarMenuToggle.IsOn = sidebarMenuEnabled;
                 }
 
                 // Load Quick Metrics selection
@@ -22781,6 +22791,36 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Error sending Screen Saver enabled state: {ex.Message}");
+            }
+        }
+
+        private void SidebarMenuToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            sidebarMenuEnabled = SidebarMenuToggle.IsOn;
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values[SidebarMenuEnabledKey] = sidebarMenuEnabled;
+            SendSidebarMenuEnabledToHelper();
+            Logger.Info($"Sidebar Menu toggled: {sidebarMenuEnabled}");
+        }
+
+        private void SendSidebarMenuEnabledToHelper()
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "Command", (int)Shared.Enums.Command.Set },
+                    { "Function", (int)Shared.Enums.Function.SidebarMenuEnabled },
+                    { "Content", sidebarMenuEnabled }
+                };
+                App.PipeClient?.SendValueSet(request);
+                Logger.Info($"Sent Sidebar Menu enabled state to helper: {sidebarMenuEnabled}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending Sidebar Menu enabled state: {ex.Message}");
             }
         }
 
@@ -26227,6 +26267,17 @@ namespace XboxGamingBar
                 var json = allSettings.Stringify();
                 System.IO.File.WriteAllText(settingsPath, json);
 
+                // Also write to LocalState path — the elevated helper's fallback reads from
+                // LocalState/settings.json, not LocalCache/settings.json
+                try
+                {
+                    var localStatePath = System.IO.Path.Combine(
+                        ApplicationData.Current.LocalFolder.Path,
+                        "settings.json");
+                    System.IO.File.WriteAllText(localStatePath, json);
+                }
+                catch { /* Best-effort; UWP LocalSettings is the primary path */ }
+
                 Logger.Info($"Saved {settingsToSave.Count} settings to fallback JSON file");
             }
             catch (Exception ex)
@@ -26345,16 +26396,13 @@ namespace XboxGamingBar
 
         private async void ApplyLegionRemapSettingsToHelper()
         {
-            // Apply Legion L if not disabled
-            if (LegionLActionComboBox?.SelectedIndex > 0)
-                ApplyLegionButtonConfig(true);
+            // Always send L/R config to helper (including disabled state) to clear any stale monitor config
+            ApplyLegionButtonConfig(true);
 
             // Small delay between requests
             await Task.Delay(100);
 
-            // Apply Legion R if not disabled
-            if (LegionRActionComboBox?.SelectedIndex > 0)
-                ApplyLegionButtonConfig(false);
+            ApplyLegionButtonConfig(false);
         }
 
         private async void ApplyLegionButtonConfig(bool isLegionL)
@@ -26655,15 +26703,12 @@ namespace XboxGamingBar
 
         private async void ApplyScrollRemapSettingsToHelper()
         {
-            // Apply Scroll (unified) if not disabled
-            if (ScrollActionComboBox?.SelectedIndex > 0)
-                ApplyScrollWheelConfig("Scroll");
+            // Always send scroll config to helper (including disabled state) to clear any stale monitor config
+            ApplyScrollWheelConfig("Scroll");
 
             await Task.Delay(100);
 
-            // Apply Scroll Click if not disabled
-            if (ScrollClickActionComboBox?.SelectedIndex > 0)
-                ApplyScrollWheelConfig("Click");
+            ApplyScrollWheelConfig("Click");
         }
 
         private async void ApplyScrollWheelConfig(string direction)

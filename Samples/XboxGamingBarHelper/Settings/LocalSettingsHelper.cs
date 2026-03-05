@@ -25,11 +25,12 @@ namespace XboxGamingBarHelper.Settings
             try
             {
                 _ = ApplicationData.Current.LocalSettings;
+                Logger.Info("LocalSettingsHelper: Using UWP ApplicationData.Current.LocalSettings");
             }
             catch
             {
                 _useLocalSettings = false;
-                Logger.Info("LocalSettings not available, using file-based fallback");
+                Logger.Info("LocalSettingsHelper: LocalSettings not available, using file-based fallback");
                 InitializeFallback();
             }
         }
