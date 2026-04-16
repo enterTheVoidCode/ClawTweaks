@@ -552,6 +552,12 @@
     <Compile Include="Devices\Libraries\GPD\GPDWin5Controller.cs" />
     <Compile Include="Devices\Libraries\GPD\GPDWin5Keycodes.cs" />
     <Compile Include="ControllerEmulation\ControllerEmulationManager.cs" />
+    <Compile Include="ControllerEmulation\ControllerEmulationManager.Setters.cs" />
+    <Compile Include="ControllerEmulation\ControllerEmulationManager.Normalize.cs" />
+    <Compile Include="ControllerEmulation\ControllerEmulationManager.GyroMouse.cs" />
+    <Compile Include="ControllerEmulation\ControllerEmulationManager.GyroStick.cs" />
+    <Compile Include="ControllerEmulation\ControllerEmulationManager.GyroActivation.cs" />
+    <Compile Include="ControllerEmulation\ControllerEmulationManager.GyroSource.cs" />
     <Compile Include="ControllerEmulation\ControllerEmulationProperties.cs" />
     <Compile Include="ControllerEmulation\ControllerSuppressionManager.cs" />
     <Compile Include="ControllerEmulation\GyroSourceAdapters.cs" />
