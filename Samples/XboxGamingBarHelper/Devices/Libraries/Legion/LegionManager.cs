@@ -1759,14 +1759,14 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 if (mappingType == 0)
                 {
                     // Gamepad: use RemapActionHelper to convert to HID button code
-                    if (values.Length > 0 && values[0] == 0)
+                    if (values.Length == 0 || values[0] == 0)
                     {
                         // Disabled - clear the mapping
                         controller.ClearGamepadButtonMapping(button);
                         Logger.Info($"{button} mapping cleared (disabled)");
                         return;
                     }
-                    var action = RemapActionHelper.GetByIndex(values.Length > 0 ? values[0] : 0);
+                    var action = RemapActionHelper.GetByIndex(values[0]);
                     mappings = new byte[] { (byte)action };
                 }
                 else

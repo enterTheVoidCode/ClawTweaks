@@ -60,7 +60,7 @@
                     <Width>464</Width>
                     <MinHeight>520</MinHeight>
                     <MinWidth>400</MinWidth>
-                    <MaxHeight>800</MaxHeight>
+                    <MaxHeight>1080</MaxHeight>
                     <MaxWidth>900</MaxWidth>
                   </Size>
                   <ResizeSupported>

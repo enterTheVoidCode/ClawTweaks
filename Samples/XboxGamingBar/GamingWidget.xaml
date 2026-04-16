@@ -2448,17 +2448,15 @@
                                     <Slider x:Name="AMDRadeonChillMinFPSSlider"
                                             Style="{StaticResource ModernSliderStyle}"
                                             Minimum="30" Maximum="300"
-                                            TickFrequency="10"
-                                            SnapsTo="Ticks"
-                                            TickPlacement="BottomRight"
+                                            StepFrequency="1"
+                                            SnapsTo="StepValues"
                                             Header="Min FPS"
                                             IsEnabled="False"/>
                                     <Slider x:Name="AMDRadeonChillMaxFPSSlider"
                                             Style="{StaticResource ModernSliderStyle}"
                                             Minimum="30" Maximum="300"
-                                            TickFrequency="10"
-                                            SnapsTo="Ticks"
-                                            TickPlacement="BottomRight"
+                                            StepFrequency="1"
+                                            SnapsTo="StepValues"
                                             Header="Max FPS"
                                             IsEnabled="False"/>
                                 </StackPanel>
@@ -4786,6 +4784,23 @@
                                             Margin="0,8,0,0"
                                             Style="{StaticResource StandaloneButtonStyle}"
                                             Click="PrepareForUninstallButton_Click"/>
+
+                                    <!-- Sidebar Menu (Beta) Toggle -->
+                                    <Grid Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Sidebar Menu (Beta)" FontSize="14" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Show overlay instead of Game Bar on Focus GoTweaks" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="SidebarMenuToggle"
+                                                      Grid.Column="1"
+                                                      OnContent="" OffContent=""
+                                                      IsOn="False"
+                                                      Toggled="SidebarMenuToggle_Toggled"/>
+                                    </Grid>
 
                                     <!-- Enable Debug Tools Toggle -->
                                     <Grid Margin="0,16,0,0">
