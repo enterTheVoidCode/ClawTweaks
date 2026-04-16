@@ -1680,12 +1680,20 @@ del /f /q ""%~f0"" 2>nul
             // Load and apply Legion scroll wheel remap settings from LocalSettings
             LoadLegionScrollRemapSettings();
 
-            // Apply AutoTDP settings from current profile after widget sync
-            // This ensures profile values override any stale LocalSettings sent by widget during initial connection
+            // Restore all global profile settings (TDP, AutoTDP, CPUBoost, EPP, Legion mode, etc.)
+            // on startup so saved values are applied to hardware after device restart.
             if (profileManager?.CurrentProfile != null)
             {
-                Logger.Info($"Applying AutoTDP settings from profile on startup: {profileManager.CurrentProfile.GameId.Name}");
-                ApplyAutoTDPSettingsFromProfile();
+                Logger.Info($"Restoring global profile settings on startup: {profileManager.CurrentProfile.GameId.Name}");
+                isApplyingProfile = true;
+                try
+                {
+                    RestoreGlobalProfileSettings();
+                }
+                finally
+                {
+                    isApplyingProfile = false;
+                }
             }
 
             Logger.Info($"[TIMING] Helper fully initialized and ready");

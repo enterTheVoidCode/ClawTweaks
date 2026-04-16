@@ -31,8 +31,13 @@ namespace XboxGamingBarHelper.Settings
             {
                 _useLocalSettings = false;
                 Logger.Info("LocalSettingsHelper: LocalSettings not available, using file-based fallback");
-                InitializeFallback();
             }
+
+            // Always initialize fallback file storage so settings persist across context changes.
+            // The helper may start in MSIX package context (UWP LocalSettings available) or as a
+            // deployed scheduled task (no package identity). Both must read/write the same JSON file
+            // to ensure settings like TDP method survive restarts.
+            InitializeFallback();
         }
 
         private static void InitializeFallback()
@@ -224,14 +229,16 @@ namespace XboxGamingBarHelper.Settings
                 {
                     var settings = ApplicationData.Current.LocalSettings;
                     settings.Values[key] = value;
-                    return;
                 }
                 catch
                 {
-                    // Fall through to fallback
+                    // Fall through to fallback only
                 }
             }
 
+            // Always save to fallback file for cross-context persistence.
+            // The helper may run in package context (UWP) or deployed context (scheduled task),
+            // and settings must be readable from either.
             if (_fallbackSettings != null)
             {
                 _fallbackSettings[key] = value;
