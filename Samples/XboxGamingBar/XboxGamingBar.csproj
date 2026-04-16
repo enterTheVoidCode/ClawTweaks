@@ -266,6 +266,42 @@
     <Compile Include="GamingWidget.xaml.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="GamingWidget.OSDCustomization.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GamingWidget.ControllerProfileStorage.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GamingWidget.ScrollWheelRemap.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GamingWidget.LegionGo.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GamingWidget.HotkeyEventHandlers.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GamingWidget.HotkeysUIHandlers.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GamingWidget.OsPowerMode.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GamingWidget.SteamGameIcons.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GamingWidget.Labs.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GamingWidget.AutoTDP.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GamingWidget.QuickSettings.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GamingWidget.ScaleTab.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Converter\MegahertzStringConverter.cs" />
     <Compile Include="GamingWidgetSettings.xaml.cs">
       <DependentUpon>GamingWidgetSettings.xaml</DependentUpon>
