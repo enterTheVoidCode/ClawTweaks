@@ -546,3 +546,10 @@ Samples/XboxGamingBarHelper/ADLXDepends/SWIGTYPE_p_unsigned_int.cs
 Samples/XboxGamingBarHelper/ADLXDepends/SWIGTYPE_p_unsigned_short.cs
 Samples/XboxGamingBarHelper/ADLXDepends/SWIGTYPE_p_void.cs
 Samples/XboxGamingBarHelper/ADLXDepends/SWIGTYPE_p_wchar_t.cs
+
+# Claude Code files
+CLAUDE.md
+LegionGoLibrary.cs
+.claude/
+nuget.exe
+tools/

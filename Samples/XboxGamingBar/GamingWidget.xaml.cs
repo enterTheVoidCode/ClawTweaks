@@ -16015,6 +16015,9 @@ namespace XboxGamingBar
             {
                 Logger.Info($"Running as a Xbox Game Bar widget. Widget type: {widget.GetType().FullName}");
 
+                // Update max window size at runtime to override any cached manifest values
+                widget.MaxWindowSize = new Windows.Foundation.Size(900, 1080);
+
                 Logger.Info("Calling widget.CenterWindowAsync()...");
                 await widget.CenterWindowAsync();
                 Logger.Info("widget.CenterWindowAsync() completed.");
@@ -17578,13 +17581,25 @@ namespace XboxGamingBar
             await widget.ActivateSettingsAsync();
         }
 
-        private void GamingWidget_VisibleChanged(XboxGameBarWidget sender, object args)
+        private bool hasAppliedInitialSize = false;
+
+        private async void GamingWidget_VisibleChanged(XboxGameBarWidget sender, object args)
         {
             try
             {
                 bool isVisible = sender?.Visible ?? false;
                 Logger.Info($"GamingWidget_VisibleChanged: Visible={isVisible}, DisplayMode={sender?.GameBarDisplayMode.ToString() ?? "Unknown"}");
                 UpdateGameBarForegroundSignal("VisibleChanged");
+
+                // Resize to full height on first activation.
+                // Delay to let Game Bar finish restoring its cached layout first.
+                if (isVisible && !hasAppliedInitialSize && sender != null)
+                {
+                    hasAppliedInitialSize = true;
+                    await Task.Delay(500);
+                    var success = await sender.TryResizeWindowAsync(new Windows.Foundation.Size(464, 1080));
+                    Logger.Info($"Initial TryResizeWindowAsync(464x1080): success={success}");
+                }
             }
             catch (Exception ex)
             {
