@@ -160,6 +160,8 @@
       <HintPath>C:\Program Files (x86)\Windows Kits\10\UnionMetadata\10.0.26100.0\Windows.winmd</HintPath>
     </Reference>
     <Reference Include="WindowsBase" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="PresentationCore" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ADLXDepends\ADLX.cs" />
@@ -442,6 +444,18 @@
     <Compile Include="Services\ScheduledTaskService.cs" />
     <Compile Include="Services\SystemRestoreService.cs" />
     <Compile Include="IPC\NamedPipeServer.cs" />
+    <Compile Include="Sidebar\SidebarTab.cs" />
+    <Compile Include="Sidebar\QuickTab.cs" />
+    <Compile Include="Sidebar\PerformanceTab.cs" />
+    <Compile Include="Sidebar\ProfilesTab.cs" />
+    <Compile Include="Sidebar\DisplayTab.cs" />
+    <Compile Include="Sidebar\LegionTab.cs" />
+    <Compile Include="Sidebar\SidebarWindow.cs" />
+    <Compile Include="Sidebar\SidebarManager.cs" />
+    <Compile Include="Sidebar\SidebarInputHandler.cs" />
+    <Compile Include="Sidebar\Audio\CoreAudioInterop.cs" />
+    <Compile Include="Sidebar\Audio\AudioManager.cs" />
+    <Compile Include="Sidebar\BrightnessManager.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
