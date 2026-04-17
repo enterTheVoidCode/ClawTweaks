@@ -1,5 +1,6 @@
 ﻿using NLog;
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Xml;
 using System.Xml.Serialization;
@@ -9,6 +10,14 @@ namespace Shared.Utilities
     public static class XmlHelper
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        // XmlSerializer construction is expensive (it generates runtime assemblies).
+        // Cache by type so repeated save/load calls reuse the same serializer.
+        private static readonly ConcurrentDictionary<Type, XmlSerializer> SerializerCache
+            = new ConcurrentDictionary<Type, XmlSerializer>();
+
+        private static XmlSerializer GetSerializer(Type type)
+            => SerializerCache.GetOrAdd(type, t => new XmlSerializer(t));
 
         public static string ToXMLString<T>(T obj, bool compact = false)
         {
@@ -22,7 +31,7 @@ namespace Shared.Utilities
             using (var stringWriter = new StringWriter())
             using (var xmlWriter = XmlWriter.Create(stringWriter, settings))
             {
-                var serializer = new XmlSerializer(typeof(T));
+                var serializer = GetSerializer(typeof(T));
                 serializer.Serialize(xmlWriter, obj);
                 return stringWriter.ToString();
             }
@@ -45,7 +54,7 @@ namespace Shared.Utilities
             using (var stringWriter = new StringWriter())
             using (var xmlWriter = XmlWriter.Create(stringWriter, settings))
             {
-                var serializer = new XmlSerializer(obj.GetType());
+                var serializer = GetSerializer(obj.GetType());
                 serializer.Serialize(xmlWriter, obj);
                 return stringWriter.ToString();
             }
@@ -59,7 +68,7 @@ namespace Shared.Utilities
                 return default;
             }
 
-            var serializer = new XmlSerializer(typeof(T));
+            var serializer = GetSerializer(typeof(T));
             var reader = new StringReader(xmlString);
             try
             {
@@ -86,7 +95,7 @@ namespace Shared.Utilities
                     Logger.Info($"New folder {directoryName} created.");
                 }
 
-                var serializer = new XmlSerializer(typeof(T));
+                var serializer = GetSerializer(typeof(T));
                 using (var writer = new StreamWriter(path))
                 {
                     serializer.Serialize(writer, obj);
@@ -111,7 +120,7 @@ namespace Shared.Utilities
 
             try
             {
-                var serializer = new XmlSerializer(typeof(T));
+                var serializer = GetSerializer(typeof(T));
                 using (var reader = new StreamReader(path))
                 {
                     var obj = (T)serializer.Deserialize(reader);
