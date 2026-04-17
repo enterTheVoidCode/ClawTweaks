@@ -106,6 +106,7 @@ namespace XboxGamingBarHelper
         private static LegionManager legionManager;
         private static GPDManager gpdManager;
         private static ControllerEmulationManager controllerEmulationManager;
+        private static XboxGamingBarHelper.ControllerEmulation.Viiper.ViiperEmulationManager viiperEmulationManager;
         private static AutoTDPManager autoTDPManager;
         private static DefaultGameProfileManager defaultGameProfileManager;
         private static Sidebar.SidebarManager sidebarManager;
@@ -900,6 +901,9 @@ namespace XboxGamingBarHelper
             // Initialize handheld-agnostic controller emulation manager.
             controllerEmulationManager = new ControllerEmulationManager(legionManager, gpdManager, settingsManager);
 
+            // Initialize VIIPER emulation manager (Phase 2/3 scaffolding; toggle-driven).
+            viiperEmulationManager = new XboxGamingBarHelper.ControllerEmulation.Viiper.ViiperEmulationManager(settingsManager);
+
             // PawnIO/RyzenSMU initialization for anti-cheat compatible TDP control
             // Priority: Legion WMI > PawnIO/RyzenSMU > RyzenAdj (deprecated, WinRing0 not bundled)
             // Uses official signed module from release 0.2.1
@@ -1526,6 +1530,10 @@ namespace XboxGamingBarHelper
             settingsManager = null;
             legionManager = null;
             controllerEmulationManager = null;
+
+            try { viiperEmulationManager?.Dispose(); }
+            catch (Exception ex) { Logger.Warn($"viiperEmulationManager.Dispose threw: {ex.Message}"); }
+            viiperEmulationManager = null;
 
             Logger.Info("All managers disposed.");
         }

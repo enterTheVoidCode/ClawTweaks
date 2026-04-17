@@ -500,6 +500,12 @@
     <Compile Include="Settings\UseManufacturerWMIProperty.cs" />
     <Compile Include="Settings\TdpMethodProperty.cs" />
     <Compile Include="Settings\EmulationBackendProperty.cs" />
+    <Compile Include="ControllerEmulation\Viiper\LibViiper.cs" />
+    <Compile Include="ControllerEmulation\Viiper\ViiperService.cs" />
+    <Compile Include="ControllerEmulation\Viiper\ViiperModels.cs" />
+    <Compile Include="ControllerEmulation\Viiper\VirtualButtonNames.cs" />
+    <Compile Include="ControllerEmulation\Viiper\InputStateSnapshot.cs" />
+    <Compile Include="ControllerEmulation\Viiper\ViiperEmulationManager.cs" />
     <Compile Include="Settings\UsbipInstalledProperty.cs" />
     <Compile Include="Settings\ProfileMatchByExeProperty.cs" />
     <Compile Include="Settings\ProfileCustomGamePathProperty.cs" />
@@ -616,6 +622,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="libryzenadj.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="libviiper.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <!-- WinRing0 files removed - deprecated TDP method
