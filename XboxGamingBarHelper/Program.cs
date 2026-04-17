@@ -1081,6 +1081,10 @@ namespace XboxGamingBarHelper
                 settingsManager.TdpMethod,
                 settingsManager.EmulationBackend,
                 settingsManager.UsbipInstalled,
+                settingsManager.ViiperDeviceType,
+                settingsManager.ViiperInputSource,
+                settingsManager.ViiperGyroSource,
+                settingsManager.ViiperSteamSubDevice,
                 // Profile Detection Settings
                 settingsManager.ProfileMatchByExe,
                 settingsManager.ProfileCustomGamePath,

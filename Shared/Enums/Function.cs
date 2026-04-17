@@ -376,5 +376,9 @@
         // VIIPER (experimental new emulation backend)
         Settings_EmulationBackend,                 // int (EmulationBackend enum) - Legacy=0, Viiper=1 (global, persisted)
         Viiper_UsbipInstalled,                     // bool - whether usbip-win2 driver is installed
+        Viiper_DeviceType,                         // string - virtual device type (xbox360, dualshock4, dualsenseedge, xboxelite2, steam-generic, switchpro, joycon-pair)
+        Viiper_InputSource,                        // string - input source ("XInput" or "LegionHid")
+        Viiper_GyroSource,                         // string - gyro source ("Left", "Right", "Handheld", "None")
+        Viiper_SteamSubDevice,                     // string - Steam sub-device PID selector (generic, steam-deck, legion-go, etc.)
     }
 }

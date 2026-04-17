@@ -77,6 +77,31 @@ namespace XboxGamingBarHelper.Settings
             get { return usbipInstalled; }
         }
 
+        // VIIPER emulation configuration (global, persisted)
+        private readonly ViiperDeviceTypeProperty viiperDeviceType;
+        public ViiperDeviceTypeProperty ViiperDeviceType
+        {
+            get { return viiperDeviceType; }
+        }
+
+        private readonly ViiperInputSourceProperty viiperInputSource;
+        public ViiperInputSourceProperty ViiperInputSource
+        {
+            get { return viiperInputSource; }
+        }
+
+        private readonly ViiperGyroSourceProperty viiperGyroSource;
+        public ViiperGyroSourceProperty ViiperGyroSource
+        {
+            get { return viiperGyroSource; }
+        }
+
+        private readonly ViiperSteamSubDeviceProperty viiperSteamSubDevice;
+        public ViiperSteamSubDeviceProperty ViiperSteamSubDevice
+        {
+            get { return viiperSteamSubDevice; }
+        }
+
         // Profile Detection Settings
         private readonly ProfileMatchByExeProperty profileMatchByExe;
         public ProfileMatchByExeProperty ProfileMatchByExe
@@ -113,6 +138,10 @@ namespace XboxGamingBarHelper.Settings
             tdpMethod = new TdpMethodProperty(this);
             emulationBackend = new EmulationBackendProperty(this);
             usbipInstalled = new UsbipInstalledProperty(this);
+            viiperDeviceType = new ViiperDeviceTypeProperty(this);
+            viiperInputSource = new ViiperInputSourceProperty(this);
+            viiperGyroSource = new ViiperGyroSourceProperty(this);
+            viiperSteamSubDevice = new ViiperSteamSubDeviceProperty(this);
             // Profile Detection Settings
             profileMatchByExe = new ProfileMatchByExeProperty(this);
             profileCustomGamePath = new ProfileCustomGamePathProperty(this);

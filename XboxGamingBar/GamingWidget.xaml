@@ -4854,6 +4854,59 @@
                                         </StackPanel>
                                     </Border>
 
+                                    <!-- VIIPER configuration section, visible only when toggle is on -->
+                                    <StackPanel x:Name="ViiperConfigSection" Visibility="Collapsed" Margin="0,12,0,0">
+                                        <Border Background="#1E2A3E" BorderBrush="#3D5A80" BorderThickness="1" CornerRadius="6" Padding="12">
+                                            <StackPanel>
+                                                <TextBlock Text="VIIPER Device Configuration" FontSize="13" FontWeight="SemiBold" Foreground="#4AB3F4"/>
+                                                <TextBlock Text="Changes take effect immediately (hot-swap)." FontSize="11" Foreground="#888888" Margin="0,2,0,10"/>
+
+                                                <!-- Device type -->
+                                                <TextBlock Text="Virtual device" FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,4"/>
+                                                <ComboBox x:Name="ViiperDeviceTypeComboBox" HorizontalAlignment="Stretch">
+                                                    <ComboBoxItem Content="Xbox 360" Tag="xbox360"/>
+                                                    <ComboBoxItem Content="DualShock 4" Tag="dualshock4"/>
+                                                    <ComboBoxItem Content="DualSense Edge" Tag="dualsenseedge"/>
+                                                    <ComboBoxItem Content="Xbox Elite 2" Tag="xboxelite2"/>
+                                                    <ComboBoxItem Content="Steam Controller" Tag="steam-generic"/>
+                                                    <ComboBoxItem Content="Switch Pro" Tag="switchpro"/>
+                                                    <ComboBoxItem Content="Joy-Con pair" Tag="joycon-pair"/>
+                                                </ComboBox>
+
+                                                <!-- Steam sub-device, visible when Steam family is selected -->
+                                                <StackPanel x:Name="ViiperSteamSubDevicePanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                                    <TextBlock Text="Steam sub-device" FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,4"/>
+                                                    <ComboBox x:Name="ViiperSteamSubDeviceComboBox" HorizontalAlignment="Stretch">
+                                                        <ComboBoxItem Content="Generic" Tag="generic"/>
+                                                        <ComboBoxItem Content="Steam Deck" Tag="steam-deck"/>
+                                                        <ComboBoxItem Content="Legion Go" Tag="legion-go"/>
+                                                        <ComboBoxItem Content="Legion Go S" Tag="legion-go-s"/>
+                                                        <ComboBoxItem Content="Legion Go 2" Tag="legion-go-2"/>
+                                                        <ComboBoxItem Content="ROG Ally" Tag="rog-ally"/>
+                                                        <ComboBoxItem Content="MSI Claw" Tag="msi-claw"/>
+                                                        <ComboBoxItem Content="Zotac Zone" Tag="zotac-zone"/>
+                                                    </ComboBox>
+                                                </StackPanel>
+
+                                                <!-- Input source -->
+                                                <TextBlock Text="Input source" FontSize="12" Foreground="#CCCCCC" Margin="0,12,0,4"/>
+                                                <ComboBox x:Name="ViiperInputSourceComboBox" HorizontalAlignment="Stretch">
+                                                    <ComboBoxItem Content="XInput (any controller)" Tag="XInput"/>
+                                                    <ComboBoxItem Content="Legion Go HID (native)" Tag="LegionHid"/>
+                                                </ComboBox>
+
+                                                <!-- Gyro source -->
+                                                <TextBlock Text="Gyro source" FontSize="12" Foreground="#CCCCCC" Margin="0,12,0,4"/>
+                                                <ComboBox x:Name="ViiperGyroSourceComboBox" HorizontalAlignment="Stretch">
+                                                    <ComboBoxItem Content="None" Tag="None"/>
+                                                    <ComboBoxItem Content="Left controller" Tag="Left"/>
+                                                    <ComboBoxItem Content="Right controller" Tag="Right"/>
+                                                    <ComboBoxItem Content="Handheld (device IMU)" Tag="Handheld"/>
+                                                </ComboBox>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+
                                     <!-- PawnIO Debug Tools (visible when Debug Tools enabled) -->
                                     <StackPanel x:Name="PawnIODebugTools" Visibility="Collapsed" Margin="0,12,0,0">
                                         <Border Background="#402020" CornerRadius="6" Padding="12" Margin="0,0,0,8">

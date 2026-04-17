@@ -31,11 +31,25 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         {
             settingsManager = inSettingsManager;
             forwarder = new ViiperInputForwarder(service);
-            if (settingsManager != null && settingsManager.EmulationBackend != null)
+            if (settingsManager != null)
             {
-                settingsManager.EmulationBackend.PropertyChanged += OnBackendChanged;
+                if (settingsManager.EmulationBackend != null)
+                {
+                    settingsManager.EmulationBackend.PropertyChanged += OnBackendChanged;
+                }
+                if (settingsManager.ViiperDeviceType != null)
+                {
+                    settingsManager.ViiperDeviceType.PropertyChanged += OnDeviceConfigChanged;
+                }
+                if (settingsManager.ViiperSteamSubDevice != null)
+                {
+                    settingsManager.ViiperSteamSubDevice.PropertyChanged += OnDeviceConfigChanged;
+                }
                 // Apply initial state.
-                ApplyBackend(settingsManager.EmulationBackend.Value);
+                if (settingsManager.EmulationBackend != null)
+                {
+                    ApplyBackend(settingsManager.EmulationBackend.Value);
+                }
             }
         }
 
@@ -91,17 +105,20 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             }
             activeBusId = DefaultBusId;
 
-            // Create the initial virtual device (Xbox 360 for Phase 5a).
-            var addResult = service.AddDevice(activeBusId, DefaultDeviceType);
+            // Create the initial virtual device using current settings.
+            string targetType;
+            ushort vid, pid;
+            ResolveDeviceTargets(out targetType, out vid, out pid);
+            var addResult = service.AddDevice(activeBusId, targetType, vid, pid);
             if (!addResult.Success)
             {
-                Logger.Warn($"VIIPER failed to add {DefaultDeviceType} device; tearing down.");
+                Logger.Warn($"VIIPER failed to add {targetType} device; tearing down.");
                 service.RemoveBus(activeBusId);
                 service.Dispose();
                 return false;
             }
             activeDeviceId = addResult.DeviceId;
-            activeDeviceType = DefaultDeviceType;
+            activeDeviceType = targetType;
 
             // Start forwarding physical XInput -> virtual device.
             uint xinputIdx = ViiperInputForwarder.DetectPhysicalXInputIndex();
@@ -110,6 +127,59 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             isRunning = true;
             Logger.Info($"VIIPER emulation manager started (bus={activeBusId}, dev={activeDeviceId}, type={activeDeviceType}, xinput={xinputIdx})");
             return true;
+        }
+
+        /// <summary>
+        /// Determines the (deviceType, vid, pid) tuple to create based on current settings.
+        /// </summary>
+        private void ResolveDeviceTargets(out string targetType, out ushort vid, out ushort pid)
+        {
+            targetType = DefaultDeviceType;
+            vid = 0;
+            pid = 0;
+
+            if (settingsManager?.ViiperDeviceType != null && !string.IsNullOrEmpty(settingsManager.ViiperDeviceType.Value))
+            {
+                targetType = settingsManager.ViiperDeviceType.Value;
+            }
+
+            // Steam controller family: need to resolve sub-device PID.
+            bool isSteam = targetType == "steam-generic"
+                || targetType == "steam-controller"
+                || targetType == "steamdeck-generic";
+            if (isSteam && settingsManager?.ViiperSteamSubDevice != null)
+            {
+                ViiperSteamSubDeviceProperty.TryGetSteamVidPid(settingsManager.ViiperSteamSubDevice.Value, out vid, out pid);
+            }
+        }
+
+        private void OnDeviceConfigChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (!isRunning) return; // Will be picked up on next Start().
+            try
+            {
+                string newType;
+                ushort vid, pid;
+                ResolveDeviceTargets(out newType, out vid, out pid);
+                if (newType == activeDeviceType && vid == 0 && pid == 0)
+                {
+                    return;
+                }
+                Logger.Info($"VIIPER hot-swap: {activeDeviceType} -> {newType} (vid=0x{vid:X4}, pid=0x{pid:X4})");
+                var swap = service.SwitchDeviceType(activeBusId, activeDeviceId, newType, vid, pid);
+                if (!swap.Success)
+                {
+                    Logger.Warn("VIIPER hot-swap failed; previous device left in place.");
+                    return;
+                }
+                activeDeviceId = swap.DeviceId;
+                activeDeviceType = newType;
+                forwarder.UpdateTarget(activeBusId, activeDeviceId, activeDeviceType);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "VIIPER hot-swap threw");
+            }
         }
 
         public void Stop()
@@ -143,9 +213,20 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         {
             if (disposing)
             {
-                if (settingsManager != null && settingsManager.EmulationBackend != null)
+                if (settingsManager != null)
                 {
-                    settingsManager.EmulationBackend.PropertyChanged -= OnBackendChanged;
+                    if (settingsManager.EmulationBackend != null)
+                    {
+                        settingsManager.EmulationBackend.PropertyChanged -= OnBackendChanged;
+                    }
+                    if (settingsManager.ViiperDeviceType != null)
+                    {
+                        settingsManager.ViiperDeviceType.PropertyChanged -= OnDeviceConfigChanged;
+                    }
+                    if (settingsManager.ViiperSteamSubDevice != null)
+                    {
+                        settingsManager.ViiperSteamSubDevice.PropertyChanged -= OnDeviceConfigChanged;
+                    }
                 }
                 Stop();
                 try { forwarder?.Dispose(); }

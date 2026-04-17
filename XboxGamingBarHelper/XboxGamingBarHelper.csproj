@@ -509,6 +509,10 @@
     <Compile Include="ControllerEmulation\Viiper\XInputNative.cs" />
     <Compile Include="ControllerEmulation\Viiper\ViiperInputForwarder.cs" />
     <Compile Include="Settings\UsbipInstalledProperty.cs" />
+    <Compile Include="Settings\ViiperDeviceTypeProperty.cs" />
+    <Compile Include="Settings\ViiperInputSourceProperty.cs" />
+    <Compile Include="Settings\ViiperGyroSourceProperty.cs" />
+    <Compile Include="Settings\ViiperSteamSubDeviceProperty.cs" />
     <Compile Include="Settings\ProfileMatchByExeProperty.cs" />
     <Compile Include="Settings\ProfileCustomGamePathProperty.cs" />
     <Compile Include="Settings\ProfileGamesOnlyProperty.cs" />
