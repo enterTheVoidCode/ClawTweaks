@@ -943,6 +943,10 @@ namespace XboxGamingBar
         private readonly TdpMethodProperty tdpMethod;
         private readonly EmulationBackendProperty emulationBackend;
         private readonly UsbipInstalledProperty usbipInstalled;
+        private readonly ViiperStringComboProperty viiperDeviceType;
+        private readonly ViiperStringComboProperty viiperInputSource;
+        private readonly ViiperStringComboProperty viiperGyroSource;
+        private readonly ViiperStringComboProperty viiperSteamSubDevice;
         private readonly WinRing0AvailableProperty winRing0Available;
         private readonly PawnIOInstalledProperty pawnIOInstalled;
         private readonly InstallPawnIOProperty installPawnIO;
@@ -1571,9 +1575,15 @@ namespace XboxGamingBar
             tdpMethod = new TdpMethodProperty(TdpMethodComboBox, this);
             emulationBackend = new EmulationBackendProperty(ViiperEmulationToggle, this);
             usbipInstalled = new UsbipInstalledProperty();
+            viiperDeviceType = new ViiperStringComboProperty("xbox360", Shared.Enums.Function.Viiper_DeviceType, ViiperDeviceTypeComboBox, this);
+            viiperInputSource = new ViiperStringComboProperty("XInput", Shared.Enums.Function.Viiper_InputSource, ViiperInputSourceComboBox, this);
+            viiperGyroSource = new ViiperStringComboProperty("Left", Shared.Enums.Function.Viiper_GyroSource, ViiperGyroSourceComboBox, this);
+            viiperSteamSubDevice = new ViiperStringComboProperty("legion-go", Shared.Enums.Function.Viiper_SteamSubDevice, ViiperSteamSubDeviceComboBox, this);
             // Show USBIP install card only when VIIPER toggle is on AND driver is missing
-            emulationBackend.PropertyChanged += (s, e) => UpdateUsbipCardVisibility();
+            emulationBackend.PropertyChanged += (s, e) => { UpdateUsbipCardVisibility(); UpdateViiperConfigVisibility(); };
             usbipInstalled.PropertyChanged += (s, e) => UpdateUsbipCardVisibility();
+            // Show Steam sub-device picker only when a Steam device type is selected
+            viiperDeviceType.PropertyChanged += (s, e) => UpdateViiperConfigVisibility();
             winRing0Available = new WinRing0AvailableProperty(this);
             pawnIOInstalled = new PawnIOInstalledProperty(this);
             installPawnIO = new InstallPawnIOProperty(this);
@@ -1758,6 +1768,10 @@ namespace XboxGamingBar
                 tdpMethod,
                 emulationBackend,
                 usbipInstalled,
+                viiperDeviceType,
+                viiperInputSource,
+                viiperGyroSource,
+                viiperSteamSubDevice,
                 winRing0Available,
                 pawnIOInstalled,
                 installPawnIO,

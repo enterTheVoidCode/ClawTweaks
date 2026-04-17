@@ -26,5 +26,31 @@ namespace XboxGamingBar
                     : Visibility.Collapsed;
             });
         }
+
+        /// <summary>
+        /// Shows the VIIPER device configuration section when the toggle is on,
+        /// and further shows the Steam sub-device picker only when a Steam device type
+        /// is selected.
+        /// </summary>
+        private async void UpdateViiperConfigVisibility()
+        {
+            if (ViiperConfigSection == null || emulationBackend == null)
+            {
+                return;
+            }
+
+            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                bool backendOn = emulationBackend.Value;
+                ViiperConfigSection.Visibility = backendOn ? Visibility.Visible : Visibility.Collapsed;
+
+                if (ViiperSteamSubDevicePanel != null && viiperDeviceType != null)
+                {
+                    string t = viiperDeviceType.Value ?? string.Empty;
+                    bool isSteam = t == "steam-generic" || t == "steam-controller" || t == "steamdeck-generic";
+                    ViiperSteamSubDevicePanel.Visibility = (backendOn && isSteam) ? Visibility.Visible : Visibility.Collapsed;
+                }
+            });
+        }
     }
 }
