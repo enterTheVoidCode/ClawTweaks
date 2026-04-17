@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using Shared.Enums;
 using System;
+using System.IO;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Settings
@@ -11,6 +12,23 @@ namespace XboxGamingBarHelper.Settings
     /// </summary>
     internal class UsbipInstalledProperty : HelperProperty<bool, SettingsManager>
     {
+        // Real service names installed by usbip-win2 (verified on a live install).
+        private static readonly string[] ServiceKeyNames = new[]
+        {
+            "usbip2_ude",      // primary — USB Device Emulation (driver)
+            "usbip2_filter",   // upper filter driver
+            "mausbip",         // MsUsbIp service
+            // Historical / alternate names, kept for safety:
+            "usbip2vhci",
+            "VHCI",
+        };
+
+        private static readonly string[] BinaryPaths = new[]
+        {
+            @"C:\Program Files\USBip\usbip.exe",
+            @"C:\Program Files (x86)\USBip\usbip.exe",
+        };
+
         public UsbipInstalledProperty(SettingsManager inManager)
             : base(Detect(), null, Function.Viiper_UsbipInstalled, inManager)
         {
@@ -32,18 +50,28 @@ namespace XboxGamingBarHelper.Settings
 
         private static bool Detect()
         {
-            // usbip-win2 installs the usbip2vhci kernel service. Presence of its service key
-            // in the registry is a reliable indicator (works without requiring elevation to query).
+            // Any one of these signals is enough. We're intentionally permissive so partial
+            // installs or newer release builds (which might rename one service) still pass.
             try
             {
-                using (var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\usbip2vhci"))
+                foreach (var name in ServiceKeyNames)
                 {
-                    if (key != null) return true;
+                    using (var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\" + name))
+                    {
+                        if (key != null)
+                        {
+                            Logger.Debug($"usbip-win2 detected via service key: {name}");
+                            return true;
+                        }
+                    }
                 }
-                // Fallback: older builds used different service names.
-                using (var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\VHCI"))
+                foreach (var path in BinaryPaths)
                 {
-                    if (key != null) return true;
+                    if (File.Exists(path))
+                    {
+                        Logger.Debug($"usbip-win2 detected via binary: {path}");
+                        return true;
+                    }
                 }
             }
             catch (Exception ex)
