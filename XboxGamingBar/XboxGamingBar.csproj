@@ -317,6 +317,15 @@
     <Compile Include="Features\OSD\GamingWidget.OSDCustomization.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\OSD\GamingWidget.PowerPlans.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\OSD\GamingWidget.SavedProfiles.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\OSD\GamingWidget.PowerPlanApplication.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\Controller\GamingWidget.ControllerProfileStorage.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
@@ -345,6 +354,18 @@
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\QuickSettings\GamingWidget.QuickSettings.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\QuickSettings\GamingWidget.QuickSettings.Actions.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\QuickSettings\GamingWidget.QuickSettings.Grid.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\QuickSettings\GamingWidget.QuickSettings.TileStates.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\QuickSettings\GamingWidget.QuickSettings.Metrics.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Scale\GamingWidget.ScaleTab.cs">
