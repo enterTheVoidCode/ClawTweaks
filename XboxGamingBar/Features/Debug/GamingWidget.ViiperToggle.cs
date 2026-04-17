@@ -28,13 +28,14 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Shows the VIIPER device configuration section when the toggle is on,
-        /// and further shows the Steam sub-device picker only when a Steam device type
-        /// is selected.
+        /// Swaps the Controller Emulation card body between the legacy ControllerEmulationContent
+        /// and the new ViiperEmulationContent based on the backend toggle state. When expanded,
+        /// only one of the two is visible at a time — they are not run concurrently.
+        /// Also manages the Steam sub-device sub-panel visibility inside the VIIPER panel.
         /// </summary>
         private async void UpdateViiperConfigVisibility()
         {
-            if (ViiperConfigSection == null || emulationBackend == null)
+            if (emulationBackend == null)
             {
                 return;
             }
@@ -42,7 +43,36 @@ namespace XboxGamingBar
             await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 bool backendOn = emulationBackend.Value;
-                ViiperConfigSection.Visibility = backendOn ? Visibility.Visible : Visibility.Collapsed;
+
+                // Determine whether the Controller Emulation card is currently expanded.
+                // ControllerEmulationContent's visibility is driven by ControllerEmulationExpandButton_Click;
+                // we preserve that visibility state and only swap which body shows.
+                bool cardExpanded = ControllerEmulationContent != null
+                    && ControllerEmulationContent.Visibility == Visibility.Visible;
+
+                if (backendOn)
+                {
+                    // VIIPER backend owns the card body.
+                    if (ControllerEmulationContent != null) ControllerEmulationContent.Visibility = Visibility.Collapsed;
+                    if (ViiperEmulationContent != null)
+                    {
+                        // Mirror the expand state. If the card was collapsed, keep VIIPER panel collapsed too.
+                        ViiperEmulationContent.Visibility = cardExpanded || LastCardExpandedBeforeHide
+                            ? Visibility.Visible
+                            : Visibility.Collapsed;
+                    }
+                }
+                else
+                {
+                    // Legacy backend owns the card body.
+                    if (ViiperEmulationContent != null) ViiperEmulationContent.Visibility = Visibility.Collapsed;
+                    if (ControllerEmulationContent != null)
+                    {
+                        ControllerEmulationContent.Visibility = cardExpanded || LastCardExpandedBeforeHide
+                            ? Visibility.Visible
+                            : Visibility.Collapsed;
+                    }
+                }
 
                 if (ViiperSteamSubDevicePanel != null && viiperDeviceType != null)
                 {
@@ -52,5 +82,9 @@ namespace XboxGamingBar
                 }
             });
         }
+
+        // Track whether the user had the Controller Emulation card expanded so that we can
+        // restore the expanded body after switching backends.
+        private bool LastCardExpandedBeforeHide;
     }
 }

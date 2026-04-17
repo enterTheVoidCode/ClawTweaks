@@ -1025,10 +1025,21 @@ namespace XboxGamingBar
         private void ControllerEmulationExpandButton_Click(object sender, RoutedEventArgs e)
         {
             isControllerEmulationExpanded = !isControllerEmulationExpanded;
+            LastCardExpandedBeforeHide = isControllerEmulationExpanded;
+
+            // Show whichever backend's body the user has selected (legacy vs VIIPER).
+            bool viiperActive = emulationBackend != null && emulationBackend.Value;
 
             if (ControllerEmulationContent != null)
             {
-                ControllerEmulationContent.Visibility = isControllerEmulationExpanded
+                ControllerEmulationContent.Visibility = (isControllerEmulationExpanded && !viiperActive)
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            if (ViiperEmulationContent != null)
+            {
+                ViiperEmulationContent.Visibility = (isControllerEmulationExpanded && viiperActive)
                     ? Visibility.Visible
                     : Visibility.Collapsed;
             }
