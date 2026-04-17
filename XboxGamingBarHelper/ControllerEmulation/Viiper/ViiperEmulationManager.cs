@@ -45,6 +45,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 {
                     settingsManager.ViiperSteamSubDevice.PropertyChanged += OnDeviceConfigChanged;
                 }
+                if (settingsManager.ViiperInputSource != null)
+                {
+                    settingsManager.ViiperInputSource.PropertyChanged += OnInputSourceChanged;
+                }
                 // Apply initial state.
                 if (settingsManager.EmulationBackend != null)
                 {
@@ -120,8 +124,9 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             activeDeviceId = addResult.DeviceId;
             activeDeviceType = targetType;
 
-            // Start forwarding physical XInput -> virtual device.
+            // Start forwarding physical input -> virtual device.
             uint xinputIdx = ViiperInputForwarder.DetectPhysicalXInputIndex();
+            forwarder.SetInputSource(ResolveInputSource());
             forwarder.Start(xinputIdx, activeBusId, activeDeviceId, activeDeviceType);
 
             isRunning = true;
@@ -151,6 +156,20 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             {
                 ViiperSteamSubDeviceProperty.TryGetSteamVidPid(settingsManager.ViiperSteamSubDevice.Value, out vid, out pid);
             }
+        }
+
+        private ViiperInputSourceKind ResolveInputSource()
+        {
+            var value = settingsManager?.ViiperInputSource?.Value ?? "XInput";
+            return string.Equals(value, "LegionHid", StringComparison.OrdinalIgnoreCase)
+                ? ViiperInputSourceKind.LegionHid
+                : ViiperInputSourceKind.XInput;
+        }
+
+        private void OnInputSourceChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            try { forwarder.SetInputSource(ResolveInputSource()); }
+            catch (Exception ex) { Logger.Warn($"OnInputSourceChanged threw: {ex.Message}"); }
         }
 
         private void OnDeviceConfigChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -226,6 +245,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                     if (settingsManager.ViiperSteamSubDevice != null)
                     {
                         settingsManager.ViiperSteamSubDevice.PropertyChanged -= OnDeviceConfigChanged;
+                    }
+                    if (settingsManager.ViiperInputSource != null)
+                    {
+                        settingsManager.ViiperInputSource.PropertyChanged -= OnInputSourceChanged;
                     }
                 }
                 Stop();

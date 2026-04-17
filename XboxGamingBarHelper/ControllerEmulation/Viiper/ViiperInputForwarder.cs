@@ -1,9 +1,17 @@
 using System;
 using System.Threading;
 using NLog;
+using XboxGamingBarHelper.Labs;
 
 namespace XboxGamingBarHelper.ControllerEmulation.Viiper
 {
+    /// <summary>Which physical controller source drives the VIIPER forwarder.</summary>
+    internal enum ViiperInputSourceKind
+    {
+        XInput = 0,
+        LegionHid = 1,
+    }
+
     /// <summary>
     /// Phase 5a: minimal XInput -> VIIPER forwarding loop.
     /// Polls XInput for a single physical controller and forwards the state to a
@@ -23,10 +31,73 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         private uint busId;
         private uint deviceId;
         private string targetType = "xbox360";
+        private volatile ViiperInputSourceKind inputSource = ViiperInputSourceKind.XInput;
 
         public ViiperInputForwarder(ViiperService inService)
         {
             service = inService;
+            if (service != null)
+            {
+                service.FeedbackReceived += OnFeedbackReceived;
+            }
+        }
+
+        /// <summary>
+        /// Called by the native thread when the virtual device receives a rumble/LED report
+        /// from the consuming application. We parse the relevant motor bytes based on the
+        /// current device type and forward them to the physical XInput controller.
+        /// </summary>
+        private void OnFeedbackReceived(uint cbBusId, uint cbDeviceId, byte[] data)
+        {
+            if (!running || data == null || data.Length == 0) return;
+            // Ignore late events from a hot-swapped-out device.
+            if (cbBusId != busId || cbDeviceId != deviceId) return;
+
+            byte rumbleLarge = 0;
+            byte rumbleSmall = 0;
+            switch (targetType)
+            {
+                case "xbox360":
+                    if (data.Length >= 2) { rumbleLarge = data[0]; rumbleSmall = data[1]; }
+                    break;
+                case "dualshock4":
+                    if (data.Length >= 2) { rumbleSmall = data[0]; rumbleLarge = data[1]; }
+                    break;
+                case "dualsenseedge":
+                    if (data.Length >= 2) { rumbleSmall = data[0]; rumbleLarge = data[1]; }
+                    break;
+                case "xboxelite2":
+                case "xbox-one":
+                case "xbox-elite":
+                case "steamdeck-generic":
+                case "steam-generic":
+                case "steam-controller":
+                    if (data.Length >= 2) { rumbleLarge = data[0]; rumbleSmall = data[1]; }
+                    break;
+                case "switchpro":
+                case "joycon-left":
+                case "joycon-right":
+                case "joycon-pair":
+                    if (data.Length >= 2) { rumbleLarge = data[0]; rumbleSmall = data[1]; }
+                    break;
+                default:
+                    return;
+            }
+
+            // XInput only forwards rumble when the physical source is XInput.
+            // Legion HID rumble forwarding lands in a later phase (needs LegionControllerService).
+            if (inputSource != ViiperInputSourceKind.XInput) return;
+
+            try
+            {
+                var vib = new ViiperXInputVibration
+                {
+                    LeftMotorSpeed = (ushort)(rumbleLarge * 257),   // 0-255 -> 0-65535
+                    RightMotorSpeed = (ushort)(rumbleSmall * 257),
+                };
+                ViiperXInput.SetState(physicalIndex, ref vib);
+            }
+            catch (Exception ex) { Logger.Debug($"XInput SetState rumble failed: {ex.Message}"); }
         }
 
         /// <summary>Discover which XInput index (0-3) has a connected physical controller.</summary>
@@ -71,6 +142,13 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             Logger.Info($"VIIPER forwarder target updated: bus={busId}, dev={deviceId}, type={targetType}");
         }
 
+        public void SetInputSource(ViiperInputSourceKind kind)
+        {
+            if (inputSource == kind) return;
+            inputSource = kind;
+            Logger.Info($"VIIPER forwarder input source -> {kind}");
+        }
+
         public void Stop()
         {
             if (!running) return;
@@ -84,45 +162,86 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             }
             catch (Exception ex) { Logger.Warn($"VIIPER forwarder join threw: {ex.Message}"); }
             pollThread = null;
+
+            // Clear any lingering rumble on the physical controller.
+            try
+            {
+                var zero = new ViiperXInputVibration();
+                ViiperXInput.SetState(physicalIndex, ref zero);
+            }
+            catch { }
+
             Logger.Info("VIIPER forwarder stopped");
         }
 
-        public void Dispose() => Stop();
+        public void Dispose()
+        {
+            Stop();
+            if (service != null)
+            {
+                service.FeedbackReceived -= OnFeedbackReceived;
+            }
+        }
 
         private void PollLoop()
         {
-            var state = new ViiperXInputState();
+            var xiState = new ViiperXInputState();
             uint lastPacket = unchecked((uint)-1);
+            long lastLegionTicks = 0;
             int errorCount = 0;
 
             while (running)
             {
                 try
                 {
-                    var rc = ViiperXInput.GetState(physicalIndex, ref state);
-                    if (rc != ViiperXInput.ErrorSuccess)
+                    if (inputSource == ViiperInputSourceKind.LegionHid)
                     {
-                        if (errorCount++ < 5 && Logger.IsDebugEnabled)
+                        LegionGamepadSample sample;
+                        if (!LegionButtonMonitor.TryGetLatestGamepadSample(out sample))
                         {
-                            Logger.Debug($"XInput.GetState({physicalIndex}) rc=0x{rc:X8}");
+                            Thread.Sleep(8);
+                            continue;
                         }
-                        Thread.Sleep(16);
-                        continue;
-                    }
-                    errorCount = 0;
+                        if (sample.TimestampTicksUtc == lastLegionTicks)
+                        {
+                            Thread.Sleep(4);
+                            continue;
+                        }
+                        lastLegionTicks = sample.TimestampTicksUtc;
 
-                    // Skip redundant sends.
-                    if (state.PacketNumber == lastPacket)
-                    {
-                        Thread.Sleep(4);
-                        continue;
+                        var gp = ConvertLegionToXInputGamepad(sample);
+                        byte[] data = BuildDeviceInput(gp);
+                        if (data != null && data.Length > 0)
+                        {
+                            service.SetInput(busId, deviceId, data);
+                        }
                     }
-                    lastPacket = state.PacketNumber;
-
-                    byte[] data = BuildDeviceInput(state.Gamepad);
-                    if (data != null && data.Length > 0)
+                    else // XInput
                     {
-                        service.SetInput(busId, deviceId, data);
+                        var rc = ViiperXInput.GetState(physicalIndex, ref xiState);
+                        if (rc != ViiperXInput.ErrorSuccess)
+                        {
+                            if (errorCount++ < 5 && Logger.IsDebugEnabled)
+                            {
+                                Logger.Debug($"XInput.GetState({physicalIndex}) rc=0x{rc:X8}");
+                            }
+                            Thread.Sleep(16);
+                            continue;
+                        }
+                        errorCount = 0;
+
+                        if (xiState.PacketNumber == lastPacket)
+                        {
+                            Thread.Sleep(4);
+                            continue;
+                        }
+                        lastPacket = xiState.PacketNumber;
+
+                        byte[] data = BuildDeviceInput(xiState.Gamepad);
+                        if (data != null && data.Length > 0)
+                        {
+                            service.SetInput(busId, deviceId, data);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -132,6 +251,25 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 }
                 Thread.Sleep(4);
             }
+        }
+
+        /// <summary>
+        /// Adapts a Legion Go HID gamepad sample to the XInput-shaped struct the
+        /// wire-format builders already consume. The Buttons bitfield from the Legion
+        /// monitor is already XInput-compatible.
+        /// </summary>
+        private static ViiperXInputGamepad ConvertLegionToXInputGamepad(LegionGamepadSample s)
+        {
+            return new ViiperXInputGamepad
+            {
+                Buttons = s.Buttons,
+                LeftTrigger = s.LeftTrigger,
+                RightTrigger = s.RightTrigger,
+                ThumbLX = s.LeftStickX,
+                ThumbLY = s.LeftStickY,
+                ThumbRX = s.RightStickX,
+                ThumbRY = s.RightStickY,
+            };
         }
 
         private byte[] BuildDeviceInput(ViiperXInputGamepad gp)
