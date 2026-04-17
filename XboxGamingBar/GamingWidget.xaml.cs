@@ -941,6 +941,8 @@ namespace XboxGamingBar
 
         // Settings properties
         private readonly TdpMethodProperty tdpMethod;
+        private readonly EmulationBackendProperty emulationBackend;
+        private readonly UsbipInstalledProperty usbipInstalled;
         private readonly WinRing0AvailableProperty winRing0Available;
         private readonly PawnIOInstalledProperty pawnIOInstalled;
         private readonly InstallPawnIOProperty installPawnIO;
@@ -1567,6 +1569,11 @@ namespace XboxGamingBar
 
             // Settings properties
             tdpMethod = new TdpMethodProperty(TdpMethodComboBox, this);
+            emulationBackend = new EmulationBackendProperty(ViiperEmulationToggle, this);
+            usbipInstalled = new UsbipInstalledProperty();
+            // Show USBIP install card only when VIIPER toggle is on AND driver is missing
+            emulationBackend.PropertyChanged += (s, e) => UpdateUsbipCardVisibility();
+            usbipInstalled.PropertyChanged += (s, e) => UpdateUsbipCardVisibility();
             winRing0Available = new WinRing0AvailableProperty(this);
             pawnIOInstalled = new PawnIOInstalledProperty(this);
             installPawnIO = new InstallPawnIOProperty(this);
@@ -1749,6 +1756,8 @@ namespace XboxGamingBar
                 legionPowerLight,
                 legionChargeLimit,
                 tdpMethod,
+                emulationBackend,
+                usbipInstalled,
                 winRing0Available,
                 pawnIOInstalled,
                 installPawnIO,

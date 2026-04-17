@@ -116,6 +116,8 @@
     <Compile Include="Data\ForegroundAppProperty.cs" />
     <Compile Include="Data\UseManufacturerWMIProperty.cs" />
     <Compile Include="Data\TdpMethodProperty.cs" />
+    <Compile Include="Data\EmulationBackendProperty.cs" />
+    <Compile Include="Data\UsbipInstalledProperty.cs" />
     <Compile Include="Data\WinRing0AvailableProperty.cs" />
     <Compile Include="Data\PawnIOInstalledProperty.cs" />
     <Compile Include="Data\InstallPawnIOProperty.cs" />
@@ -348,6 +350,9 @@
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Debug\GamingWidget.PawnIODebug.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\Debug\GamingWidget.ViiperToggle.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Debug\GamingWidget.DebugPanel.cs">
