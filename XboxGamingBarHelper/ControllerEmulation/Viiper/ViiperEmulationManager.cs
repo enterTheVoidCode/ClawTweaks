@@ -16,16 +16,21 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         private new static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         private const uint DefaultBusId = 1;
+        private const string DefaultDeviceType = "xbox360";
 
         private readonly SettingsManager settingsManager;
         private readonly ViiperService service = new ViiperService();
+        private readonly ViiperInputForwarder forwarder;
 
         private bool isRunning;
         private uint activeBusId;
+        private uint activeDeviceId;
+        private string activeDeviceType = DefaultDeviceType;
 
         public ViiperEmulationManager(SettingsManager inSettingsManager)
         {
             settingsManager = inSettingsManager;
+            forwarder = new ViiperInputForwarder(service);
             if (settingsManager != null && settingsManager.EmulationBackend != null)
             {
                 settingsManager.EmulationBackend.PropertyChanged += OnBackendChanged;
@@ -84,10 +89,26 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 service.Dispose();
                 return false;
             }
-
             activeBusId = DefaultBusId;
+
+            // Create the initial virtual device (Xbox 360 for Phase 5a).
+            var addResult = service.AddDevice(activeBusId, DefaultDeviceType);
+            if (!addResult.Success)
+            {
+                Logger.Warn($"VIIPER failed to add {DefaultDeviceType} device; tearing down.");
+                service.RemoveBus(activeBusId);
+                service.Dispose();
+                return false;
+            }
+            activeDeviceId = addResult.DeviceId;
+            activeDeviceType = DefaultDeviceType;
+
+            // Start forwarding physical XInput -> virtual device.
+            uint xinputIdx = ViiperInputForwarder.DetectPhysicalXInputIndex();
+            forwarder.Start(xinputIdx, activeBusId, activeDeviceId, activeDeviceType);
+
             isRunning = true;
-            Logger.Info($"VIIPER emulation manager started (bus={activeBusId})");
+            Logger.Info($"VIIPER emulation manager started (bus={activeBusId}, dev={activeDeviceId}, type={activeDeviceType}, xinput={xinputIdx})");
             return true;
         }
 
@@ -95,12 +116,25 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         {
             if (!isRunning) return;
 
+            try { forwarder.Stop(); }
+            catch (Exception ex) { Logger.Warn($"forwarder.Stop threw: {ex.Message}"); }
+
+            try
+            {
+                if (activeDeviceId != 0)
+                {
+                    service.RemoveDevice(activeBusId, activeDeviceId);
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"RemoveDevice threw: {ex.Message}"); }
+
             try { service.RemoveBus(activeBusId); }
             catch (Exception ex) { Logger.Warn($"RemoveBus threw: {ex.Message}"); }
 
             try { service.Dispose(); }
             catch (Exception ex) { Logger.Warn($"VIIPER Dispose threw: {ex.Message}"); }
 
+            activeDeviceId = 0;
             isRunning = false;
             Logger.Info("VIIPER emulation manager stopped");
         }
@@ -114,6 +148,8 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                     settingsManager.EmulationBackend.PropertyChanged -= OnBackendChanged;
                 }
                 Stop();
+                try { forwarder?.Dispose(); }
+                catch (Exception ex) { Logger.Warn($"forwarder.Dispose threw: {ex.Message}"); }
             }
             base.Dispose(disposing);
         }
