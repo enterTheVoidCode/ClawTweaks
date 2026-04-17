@@ -266,88 +266,88 @@
     <Compile Include="GamingWidget.xaml.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.PawnIODebug.cs">
+    <Compile Include="Features\Debug\GamingWidget.PawnIODebug.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.DebugPanel.cs">
+    <Compile Include="Features\Debug\GamingWidget.DebugPanel.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.TriggerTravel.cs">
+    <Compile Include="Features\Controller\GamingWidget.TriggerTravel.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.DesktopControlsPreset.cs">
+    <Compile Include="Features\Controller\GamingWidget.DesktopControlsPreset.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.NintendoLayoutPreset.cs">
+    <Compile Include="Features\Controller\GamingWidget.NintendoLayoutPreset.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.GpdFanCurve.cs">
+    <Compile Include="Features\Devices\GamingWidget.GpdFanCurve.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.KeyDropdowns.cs">
+    <Compile Include="Features\Hotkeys\GamingWidget.KeyDropdowns.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.DisplayOSDHandlers.cs">
+    <Compile Include="Features\OSD\GamingWidget.DisplayOSDHandlers.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.QuickSettingsHelpers.cs">
+    <Compile Include="Features\QuickSettings\GamingWidget.QuickSettingsHelpers.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.FanCurveGraph.cs">
+    <Compile Include="Features\OSD\GamingWidget.FanCurveGraph.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.TdpCustomPresets.cs">
+    <Compile Include="Features\Performance\GamingWidget.TdpCustomPresets.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.TdpBoost.cs">
+    <Compile Include="Features\Performance\GamingWidget.TdpBoost.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.Advanced.cs">
+    <Compile Include="Features\Performance\GamingWidget.Advanced.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.GpdTabCallbacks.cs">
+    <Compile Include="Features\Devices\GamingWidget.GpdTabCallbacks.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.GpdTabEventHandlers.cs">
+    <Compile Include="Features\Devices\GamingWidget.GpdTabEventHandlers.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.GamepadButtonRemapping.cs">
+    <Compile Include="Features\Controller\GamingWidget.GamepadButtonRemapping.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.OSDCustomization.cs">
+    <Compile Include="Features\OSD\GamingWidget.OSDCustomization.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.ControllerProfileStorage.cs">
+    <Compile Include="Features\Controller\GamingWidget.ControllerProfileStorage.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.ScrollWheelRemap.cs">
+    <Compile Include="Features\Controller\GamingWidget.ScrollWheelRemap.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.LegionGo.cs">
+    <Compile Include="Features\Devices\GamingWidget.LegionGo.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.HotkeyEventHandlers.cs">
+    <Compile Include="Features\Hotkeys\GamingWidget.HotkeyEventHandlers.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.HotkeysUIHandlers.cs">
+    <Compile Include="Features\Hotkeys\GamingWidget.HotkeysUIHandlers.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.OsPowerMode.cs">
+    <Compile Include="Features\Performance\GamingWidget.OsPowerMode.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.SteamGameIcons.cs">
+    <Compile Include="Features\Other\GamingWidget.SteamGameIcons.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.Labs.cs">
+    <Compile Include="Features\Labs\GamingWidget.Labs.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.AutoTDP.cs">
+    <Compile Include="Features\Performance\GamingWidget.AutoTDP.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.QuickSettings.cs">
+    <Compile Include="Features\QuickSettings\GamingWidget.QuickSettings.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
-    <Compile Include="GamingWidget.ScaleTab.cs">
+    <Compile Include="Features\Scale\GamingWidget.ScaleTab.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Converter\MegahertzStringConverter.cs" />
