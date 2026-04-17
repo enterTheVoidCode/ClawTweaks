@@ -372,5 +372,9 @@
         ControllerEmulationStickOrientationV2,     // int - 0=Parallel, 1=Orthogonal (default 0) — for stick output
         ControllerEmulationStickConversion,        // int - 0=Yaw, 1=Roll, 2=Yaw+Roll (default 0) — 3DOF to 2D mapping
         SidebarMenuEnabled,                        // bool - widget sends to helper to enable/disable sidebar overlay
+
+        // VIIPER (experimental new emulation backend)
+        Settings_EmulationBackend,                 // int (EmulationBackend enum) - Legacy=0, Viiper=1 (global, persisted)
+        Viiper_UsbipInstalled,                     // bool - whether usbip-win2 driver is installed
     }
 }

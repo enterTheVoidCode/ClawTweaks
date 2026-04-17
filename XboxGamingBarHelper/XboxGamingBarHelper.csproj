@@ -499,6 +499,8 @@
     <Compile Include="Settings\AutoHibernateIdleMinutesProperty.cs" />
     <Compile Include="Settings\UseManufacturerWMIProperty.cs" />
     <Compile Include="Settings\TdpMethodProperty.cs" />
+    <Compile Include="Settings\EmulationBackendProperty.cs" />
+    <Compile Include="Settings\UsbipInstalledProperty.cs" />
     <Compile Include="Settings\ProfileMatchByExeProperty.cs" />
     <Compile Include="Settings\ProfileCustomGamePathProperty.cs" />
     <Compile Include="Settings\ProfileGamesOnlyProperty.cs" />

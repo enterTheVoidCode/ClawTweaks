@@ -64,6 +64,19 @@ namespace XboxGamingBarHelper.Settings
             get { return tdpMethod; }
         }
 
+        // Controller emulation backend selection (Legacy ViGEm vs VIIPER)
+        private readonly EmulationBackendProperty emulationBackend;
+        public EmulationBackendProperty EmulationBackend
+        {
+            get { return emulationBackend; }
+        }
+
+        private readonly UsbipInstalledProperty usbipInstalled;
+        public UsbipInstalledProperty UsbipInstalled
+        {
+            get { return usbipInstalled; }
+        }
+
         // Profile Detection Settings
         private readonly ProfileMatchByExeProperty profileMatchByExe;
         public ProfileMatchByExeProperty ProfileMatchByExe
@@ -98,6 +111,8 @@ namespace XboxGamingBarHelper.Settings
             isForeground = new IsForegroundProperty(this);
             useManufacturerWMI = new UseManufacturerWMIProperty(this);
             tdpMethod = new TdpMethodProperty(this);
+            emulationBackend = new EmulationBackendProperty(this);
+            usbipInstalled = new UsbipInstalledProperty(this);
             // Profile Detection Settings
             profileMatchByExe = new ProfileMatchByExeProperty(this);
             profileCustomGamePath = new ProfileCustomGamePathProperty(this);

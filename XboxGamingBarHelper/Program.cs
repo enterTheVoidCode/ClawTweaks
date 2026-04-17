@@ -1075,6 +1075,8 @@ namespace XboxGamingBarHelper
                 settingsManager.OnScreenDisplayProvider,
                 settingsManager.UseManufacturerWMI,
                 settingsManager.TdpMethod,
+                settingsManager.EmulationBackend,
+                settingsManager.UsbipInstalled,
                 // Profile Detection Settings
                 settingsManager.ProfileMatchByExe,
                 settingsManager.ProfileCustomGamePath,
