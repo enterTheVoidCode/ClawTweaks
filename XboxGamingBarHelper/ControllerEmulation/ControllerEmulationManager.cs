@@ -33,6 +33,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private readonly LegionManager legionManager;
 
         private bool enabled;
+        // Runtime-only flag — when true, the VIIPER emulation backend has taken over and
+        // this legacy manager must not forward input. Not persisted: the user's saved
+        // `enabled` value is preserved for when VIIPER is toggled back off.
+        private bool suppressedByViiper;
         private int gyroSource;
         private int mode;
         private int rumbleProfile;

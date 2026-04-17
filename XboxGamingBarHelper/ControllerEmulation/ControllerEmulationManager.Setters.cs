@@ -173,6 +173,18 @@ namespace XboxGamingBarHelper.ControllerEmulation
             ApplyCurrentConfiguration(enabled ? "enabled changed: on" : "enabled changed: off");
         }
 
+        /// <summary>
+        /// Runtime mutual-exclusion with the VIIPER backend. When set to true, this manager
+        /// stops forwarding immediately; when cleared, it re-applies its persisted configuration.
+        /// The user's saved <see cref="SetEnabled"/> value is untouched either way.
+        /// </summary>
+        public void SetSuppressedByViiper(bool value)
+        {
+            if (suppressedByViiper == value) return;
+            suppressedByViiper = value;
+            ApplyCurrentConfiguration(value ? "suppressed by VIIPER" : "VIIPER suppression cleared");
+        }
+
         public void SetHideStockController(bool value)
         {
             if (hideStockController == value)

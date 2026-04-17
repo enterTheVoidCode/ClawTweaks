@@ -19,6 +19,7 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         private const string DefaultDeviceType = "xbox360";
 
         private readonly SettingsManager settingsManager;
+        private readonly ControllerEmulationManager legacyManager;
         private readonly ViiperService service = new ViiperService();
         private readonly ViiperInputForwarder forwarder;
 
@@ -27,9 +28,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         private uint activeDeviceId;
         private string activeDeviceType = DefaultDeviceType;
 
-        public ViiperEmulationManager(SettingsManager inSettingsManager)
+        public ViiperEmulationManager(SettingsManager inSettingsManager, ControllerEmulationManager inLegacyManager)
         {
             settingsManager = inSettingsManager;
+            legacyManager = inLegacyManager;
             forwarder = new ViiperInputForwarder(service);
             if (settingsManager != null)
             {
@@ -71,6 +73,12 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
 
         private void ApplyBackend(bool useViiper)
         {
+            // Mutual exclusion: legacy ControllerEmulationManager is suppressed whenever
+            // VIIPER is the active backend. Clearing the suppression re-applies the user's
+            // saved legacy configuration.
+            try { legacyManager?.SetSuppressedByViiper(useViiper); }
+            catch (Exception ex) { Logger.Warn($"legacyManager.SetSuppressedByViiper threw: {ex.Message}"); }
+
             if (useViiper)
             {
                 Start();

@@ -696,6 +696,15 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 return;
             }
 
+            if (suppressedByViiper)
+            {
+                StopForwarding();
+                suppressionPausedForGameBar = false;
+                suppressionPauseUntilTicksUtc = 0;
+                Logger.Info($"Controller emulation suppressed by VIIPER backend ({reason}); legacy forwarding stopped");
+                return;
+            }
+
             // Controller emulation is intentionally software-only and independent from
             // per-device firmware gyro settings exposed in the Legion tab.
             bool backendApplied = true;
