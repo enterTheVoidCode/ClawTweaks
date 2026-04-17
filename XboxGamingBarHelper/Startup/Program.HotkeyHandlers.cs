@@ -386,6 +386,168 @@ namespace XboxGamingBarHelper
                 Logger.Error($"ToggleDesktopControls: Error toggling desktop controls: {ex.Message}");
             }
         }
+
+
+        /// <summary>
+        /// Parse and send a keyboard shortcut using InputInjector (works in widget context unlike SendInput)
+        /// </summary>
+        private static void SendKeyboardShortcutViaInputInjector(string shortcut)
+        {
+            if (inputInjector == null)
+            {
+                Logger.Error("InputInjector not available - falling back to User32.SendKeyboardShortcut");
+                Windows.User32.SendKeyboardShortcut(shortcut);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(shortcut))
+            {
+                Logger.Warn("Empty shortcut string provided");
+                return;
+            }
+
+            try
+            {
+                var parts = shortcut.Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
+                var keyInfos = new List<InjectedInputKeyboardInfo>();
+                var modifierKeys = new List<ushort>();
+                var mainKeys = new List<ushort>(); // Support multiple non-modifier keys
+
+                foreach (var part in parts)
+                {
+                    var trimmed = part.Trim();
+                    var upper = trimmed.ToUpperInvariant();
+                    ushort vk = 0;
+
+                    if (upper == "CTRL" || upper == "CONTROL" || upper == "LCTRL" || upper == "LCONTROL")
+                        vk = (ushort)VirtualKey.LeftControl;
+                    else if (upper == "RCTRL" || upper == "RCONTROL")
+                        vk = (ushort)VirtualKey.RightControl;
+                    else if (upper == "ALT" || upper == "LALT")
+                        vk = (ushort)VirtualKey.LeftMenu;
+                    else if (upper == "RALT")
+                        vk = (ushort)VirtualKey.RightMenu;
+                    else if (upper == "SHIFT" || upper == "LSHIFT")
+                        vk = (ushort)VirtualKey.LeftShift;
+                    else if (upper == "RSHIFT")
+                        vk = (ushort)VirtualKey.RightShift;
+                    else if (upper == "WIN" || upper == "WINDOWS" || upper == "LWIN" || upper == "LMETA" || upper == "META")
+                        vk = (ushort)VirtualKey.LeftWindows;
+                    else if (upper == "RWIN" || upper == "RMETA")
+                        vk = (ushort)VirtualKey.RightWindows;
+                    else if (upper == "TAB")
+                        vk = (ushort)VirtualKey.Tab;
+                    else if (upper == "ENTER" || upper == "RETURN")
+                        vk = (ushort)VirtualKey.Enter;
+                    else if (upper == "ESCAPE" || upper == "ESC")
+                        vk = (ushort)VirtualKey.Escape;
+                    else if (upper == "SPACE")
+                        vk = (ushort)VirtualKey.Space;
+                    else if (upper == "BACKSPACE" || upper == "BACK")
+                        vk = (ushort)VirtualKey.Back;
+                    else if (upper == "DELETE" || upper == "DEL")
+                        vk = (ushort)VirtualKey.Delete;
+                    else if (upper == "HOME")
+                        vk = (ushort)VirtualKey.Home;
+                    else if (upper == "END")
+                        vk = (ushort)VirtualKey.End;
+                    else if (upper == "PGUP" || upper == "PAGEUP")
+                        vk = (ushort)VirtualKey.PageUp;
+                    else if (upper == "PGDN" || upper == "PAGEDOWN")
+                        vk = (ushort)VirtualKey.PageDown;
+                    else if (upper == "INSERT" || upper == "INS")
+                        vk = (ushort)VirtualKey.Insert;
+                    else if (upper == "UP")
+                        vk = (ushort)VirtualKey.Up;
+                    else if (upper == "DOWN")
+                        vk = (ushort)VirtualKey.Down;
+                    else if (upper == "LEFT")
+                        vk = (ushort)VirtualKey.Left;
+                    else if (upper == "RIGHT")
+                        vk = (ushort)VirtualKey.Right;
+                    else if (upper == "PAUSE")
+                        vk = (ushort)VirtualKey.Pause;
+                    else if (upper == "PRINTSCREEN" || upper == "PRTSC")
+                        vk = (ushort)VirtualKey.Snapshot;
+                    else if (upper == "VOLUME_UP" || upper == "VOLUMEUP")
+                        vk = 0xAF; // VK_VOLUME_UP
+                    else if (upper == "VOLUME_DOWN" || upper == "VOLUMEDOWN")
+                        vk = 0xAE; // VK_VOLUME_DOWN
+                    else if (upper == "VOLUME_MUTE" || upper == "VOLUMEMUTE" || upper == "MUTE")
+                        vk = 0xAD; // VK_VOLUME_MUTE
+                    else if (trimmed == "[" || upper == "LEFTBRACKET")
+                        vk = 0xDB; // VK_OEM_4 (left bracket)
+                    else if (trimmed == "]" || upper == "RIGHTBRACKET")
+                        vk = 0xDD; // VK_OEM_6 (right bracket)
+                    else if (upper.Length == 1)
+                    {
+                        char c = upper[0];
+                        if (c >= 'A' && c <= 'Z')
+                            vk = (ushort)(VirtualKey.A + (c - 'A'));
+                        else if (c >= '0' && c <= '9')
+                            vk = (ushort)(VirtualKey.Number0 + (c - '0'));
+                    }
+                    else if (upper.StartsWith("F") && upper.Length <= 3)
+                    {
+                        if (int.TryParse(upper.Substring(1), out int fNum) && fNum >= 1 && fNum <= 24)
+                            vk = (ushort)(VirtualKey.F1 + (fNum - 1));
+                    }
+
+                    if (vk == 0)
+                    {
+                        Logger.Warn($"Unknown key in shortcut: {trimmed}");
+                        continue;
+                    }
+
+                    // Check if modifier
+                    if (upper == "CTRL" || upper == "CONTROL" || upper == "LCTRL" || upper == "LCONTROL" ||
+                        upper == "RCTRL" || upper == "RCONTROL" ||
+                        upper == "ALT" || upper == "LALT" || upper == "RALT" ||
+                        upper == "SHIFT" || upper == "LSHIFT" || upper == "RSHIFT" ||
+                        upper == "WIN" || upper == "WINDOWS" || upper == "LWIN" || upper == "RWIN" ||
+                        upper == "LMETA" || upper == "RMETA" || upper == "META")
+                    {
+                        modifierKeys.Add(vk);
+                    }
+                    else
+                    {
+                        mainKeys.Add(vk); // Add to list instead of overwriting
+                    }
+                }
+
+                // Build key sequence: press modifiers, press all main keys, release all main keys in reverse, release modifiers
+                // Press modifiers
+                foreach (var mod in modifierKeys)
+                {
+                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mod, KeyOptions = InjectedInputKeyOptions.None });
+                }
+
+                // Press all main keys
+                foreach (var key in mainKeys)
+                {
+                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = key, KeyOptions = InjectedInputKeyOptions.None });
+                }
+
+                // Release all main keys in reverse order
+                for (int i = mainKeys.Count - 1; i >= 0; i--)
+                {
+                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mainKeys[i], KeyOptions = InjectedInputKeyOptions.KeyUp });
+                }
+
+                // Release modifiers in reverse order
+                for (int i = modifierKeys.Count - 1; i >= 0; i--)
+                {
+                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = modifierKeys[i], KeyOptions = InjectedInputKeyOptions.KeyUp });
+                }
+
+                inputInjector.InjectKeyboardInput(keyInfos);
+                Logger.Info($"Sent keyboard shortcut via InputInjector: {shortcut} (modifiers: {modifierKeys.Count}, keys: {mainKeys.Count})");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending keyboard shortcut '{shortcut}': {ex.Message}");
+            }
+        }
     }
 
     /// <summary>
@@ -457,5 +619,6 @@ namespace XboxGamingBarHelper
                 Logger.Error($"Failed to launch TabTip.exe: {ex.Message}");
             }
         }
+
     }
 }

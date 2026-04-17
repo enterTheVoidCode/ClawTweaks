@@ -457,15 +457,16 @@
     <Compile Include="Sidebar\Audio\AudioManager.cs" />
     <Compile Include="Sidebar\BrightnessManager.cs" />
     <Compile Include="Program.cs" />
-    <Compile Include="Program.TrayAndSidebar.cs" />
-    <Compile Include="Program.ProfileHandlers.cs" />
-    <Compile Include="Program.PipeHandlers.cs" />
-    <Compile Include="Program.PropertyHandlers.cs" />
-    <Compile Include="Program.LegionControllerHandlers.cs" />
-    <Compile Include="Program.HotkeyHandlers.cs" />
-    <Compile Include="Program.Labs.cs" />
-    <Compile Include="Program.ScreenSaver.cs" />
-    <Compile Include="Program.AutoHibernate.cs" />
+    <Compile Include="Startup\Program.PackageLifecycle.cs" />
+    <Compile Include="Startup\Program.TrayAndSidebar.cs" />
+    <Compile Include="Startup\Program.ProfileHandlers.cs" />
+    <Compile Include="Startup\Program.PipeHandlers.cs" />
+    <Compile Include="Startup\Program.PropertyHandlers.cs" />
+    <Compile Include="Startup\Program.LegionControllerHandlers.cs" />
+    <Compile Include="Startup\Program.HotkeyHandlers.cs" />
+    <Compile Include="Startup\Program.Labs.cs" />
+    <Compile Include="Startup\Program.ScreenSaver.cs" />
+    <Compile Include="Startup\Program.AutoHibernate.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
       <AutoGen>True</AutoGen>
