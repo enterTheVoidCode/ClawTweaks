@@ -1,6 +1,9 @@
 ﻿using NLog;
 using Shared.Utilities;
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using System.Xml.Serialization;
 
 namespace Shared.Data
@@ -1275,22 +1278,76 @@ namespace Shared.Data
             return XmlHelper.ToXMLString(this, true);
         }
 
+        /// <summary>
+        /// Save debounce state keyed by file path. A GameProfile setter typically changes one
+        /// field at a time, and UI sliders can fire dozens of setters per second. Writing the
+        /// full XML to disk each time is wasteful. We instead update the cache synchronously
+        /// (so reads are always consistent) and schedule the disk write after a short delay,
+        /// collapsing bursts of changes into a single write.
+        /// </summary>
+        private const int SaveDebounceMs = 250;
+        private static readonly ConcurrentDictionary<string, GameProfile> PendingWrites
+            = new ConcurrentDictionary<string, GameProfile>(System.StringComparer.OrdinalIgnoreCase);
+        private static readonly ConcurrentDictionary<string, Timer> PendingTimers
+            = new ConcurrentDictionary<string, Timer>(System.StringComparer.OrdinalIgnoreCase);
+
         public void Save()
         {
+            // Update cache synchronously so other code sees the latest state immediately.
             lock (ProfileLock)
             {
                 if (cache != null)
                 {
                     cache[GameId] = this;
                 }
+            }
 
-                if (string.IsNullOrEmpty(Path))
-                {
-                    // Logger.Warn($"Can't save profile {GameId.Name} due to empty path.");
-                    return;
-                }
+            if (string.IsNullOrEmpty(Path))
+            {
+                return;
+            }
 
-                XmlHelper.ToXMLFile(this, Path);
+            // Queue the disk write; coalesce bursts of changes into a single debounced write.
+            PendingWrites[Path] = this;
+
+            var newTimer = new Timer(FlushPendingWrite, Path, SaveDebounceMs, Timeout.Infinite);
+            if (PendingTimers.TryGetValue(Path, out var existing))
+            {
+                // Cancel and dispose the previous timer to reset the debounce window.
+                existing.Dispose();
+            }
+            PendingTimers[Path] = newTimer;
+        }
+
+        /// <summary>
+        /// Timer callback: flushes the pending profile snapshot for <paramref name="state"/> (a file path) to disk.
+        /// </summary>
+        private static void FlushPendingWrite(object state)
+        {
+            var path = (string)state;
+            if (!PendingWrites.TryRemove(path, out var profile))
+            {
+                return;
+            }
+            if (PendingTimers.TryRemove(path, out var timer))
+            {
+                timer.Dispose();
+            }
+
+            lock (ProfileLock)
+            {
+                XmlHelper.ToXMLFile(profile, path);
+            }
+        }
+
+        /// <summary>
+        /// Forces any pending debounced saves to flush immediately. Useful on shutdown.
+        /// </summary>
+        public static void FlushAllPendingWrites()
+        {
+            foreach (var path in PendingWrites.Keys)
+            {
+                FlushPendingWrite(path);
             }
         }
     }

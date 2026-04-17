@@ -1159,7 +1159,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                             accelY = ConvertToDs4Accel(isLegionController ? accelZValue : accelYValue);
                             accelZ = ConvertToDs4Accel(isLegionController ? accelYValue : accelZValue);
 
-                            if (gyroDiagLogCounter++ % 500 == 0)
+                            if (Logger.IsDebugEnabled && gyroDiagLogCounter++ % 500 == 0)
                             {
                                 Logger.Debug($"DS4 motion: gyro=({gyroXValue:F1},{gyroYValue:F1},{gyroZValue:F1})°/s accel=({accelXValue:F2},{accelYValue:F2},{accelZValue:F2})G ds4=({gyroX},{gyroY},{gyroZ},{accelX},{accelY},{accelZ})");
                             }

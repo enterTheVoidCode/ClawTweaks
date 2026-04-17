@@ -157,7 +157,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             isTouching = touchSample.IsTouching;
             isPressed = touchSample.IsPressed;
 
-            if (isTouching && touchDiagLogCounter++ % 250 == 0)
+            if (Logger.IsDebugEnabled && isTouching && touchDiagLogCounter++ % 250 == 0)
             {
                 Logger.Debug($"DS4 touch: raw=({touchSample.RawX},{touchSample.RawY}) ds4=({x},{y}) pressed={isPressed}");
             }

@@ -29,8 +29,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
             outputX = 0;
             outputY = 0;
 
-            // Debug: log raw gyro axes periodically to diagnose axis mapping
-            if (sample.TimestampTicksUtc - stickLastDiagLogTicksUtc > TimeSpan.TicksPerSecond)
+            // Debug: log raw gyro axes periodically to diagnose axis mapping.
+            // Gated by IsDebugEnabled so the string interpolation only runs when Debug logging is active.
+            if (Logger.IsDebugEnabled
+                && sample.TimestampTicksUtc - stickLastDiagLogTicksUtc > TimeSpan.TicksPerSecond)
             {
                 stickLastDiagLogTicksUtc = sample.TimestampTicksUtc;
                 float absX = Math.Abs(sample.GyroXDegPerSecond);
@@ -38,7 +40,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 float absZ = Math.Abs(sample.GyroZDegPerSecond);
                 if (absX > 5 || absY > 5 || absZ > 5)
                 {
-                    Logger.Info($"StickGyroRaw: X={sample.GyroXDegPerSecond:F1} Y={sample.GyroYDegPerSecond:F1} Z={sample.GyroZDegPerSecond:F1} conv={stickConversion} orient={stickOrientationV2}");
+                    Logger.Debug($"StickGyroRaw: X={sample.GyroXDegPerSecond:F1} Y={sample.GyroYDegPerSecond:F1} Z={sample.GyroZDegPerSecond:F1} conv={stickConversion} orient={stickOrientationV2}");
                 }
             }
 

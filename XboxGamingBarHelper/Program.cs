@@ -484,6 +484,10 @@ namespace XboxGamingBarHelper
             _isShuttingDown = true;
             DisposeTrayIndicator();
 
+            // Flush any pending debounced profile writes so we don't lose the last tick of changes.
+            try { Shared.Data.GameProfile.FlushAllPendingWrites(); }
+            catch (Exception ex) { Logger.Error(ex, "Error flushing pending profile writes"); }
+
             try
             {
                 // Dispose managers
