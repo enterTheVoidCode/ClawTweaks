@@ -16,6 +16,9 @@
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
+
+# Exception: widget Features/Debug/ is source code, not build output
+!XboxGamingBar/Features/Debug/
 [Rr]eleases/
 x64/
 x86/
