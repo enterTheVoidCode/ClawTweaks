@@ -3707,6 +3707,30 @@
                                     </ToggleButton>
                                 </Grid>
 
+                                <!-- Master "Enable Controller Emulation" toggle. Lives outside both
+                                     ControllerEmulationContent (legacy body) and ViiperEmulationContent
+                                     (VIIPER body) so it's always visible regardless of which backend
+                                     the user has selected. -->
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Enable Controller Emulation" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Turn virtual emulation runtime on or off"
+                                                   FontSize="11"
+                                                   Foreground="#888888"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="ControllerEmulationEnabledToggle"
+                                                  Grid.Column="1"
+                                                  IsOn="False"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"
+                                                  Toggled="ControllerEmulationEnabledToggle_Toggled"
+                                                  XYFocusUp="{x:Bind ControllerEmulationExpandButton}"/>
+                                </Grid>
+
                                 <StackPanel x:Name="ControllerEmulationContent" Visibility="Collapsed" Margin="0,12,0,0">
                                 <Border Background="#1A1A2E" CornerRadius="4" Padding="10" Margin="0,10,0,0">
                                     <StackPanel>
@@ -3808,27 +3832,6 @@
                                         </Grid>
                                     </StackPanel>
                                 </Border>
-
-                                <Grid Margin="0,12,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Enable Controller Emulation" FontSize="14" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Turn virtual emulation runtime on or off"
-                                                   FontSize="11"
-                                                   Foreground="#888888"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="ControllerEmulationEnabledToggle"
-                                                  Grid.Column="1"
-                                                  IsOn="False"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"
-                                                  Toggled="ControllerEmulationEnabledToggle_Toggled"
-                                                  XYFocusUp="{x:Bind ControllerEmulationExpandButton}"
-                                                  XYFocusDown="{x:Bind ControllerEmulationImprovedInputToggle}"/>
-                                </Grid>
 
                                 <Grid Margin="0,12,0,0">
                                     <Grid.ColumnDefinitions>
