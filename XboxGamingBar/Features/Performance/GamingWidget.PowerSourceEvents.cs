@@ -135,24 +135,23 @@ namespace XboxGamingBar
                     // This ensures we use the new profile's TDP after profile switch completes
                     int currentTdpValue = (int)TDPSlider.Value;
 
-                    // Reapply TDP - use the current Performance tab TDP value
-                    if (tdp != null)
+                    // Ask the helper to re-push current TDP to hardware via a dedicated pipe
+                    // message. The previous N-1/N trick corrupted global.xml by briefly
+                    // writing TDP-1 (profile persistence rounded to that transient value
+                    // whenever widget re-init / reboot landed during the 100 ms gap).
+                    try
                     {
-                        // Set guard flag to prevent saving TDP-1 to profile
-                        isApplyingHelperUpdate = true;
-                        try
+                        if (App.IsConnected)
                         {
-                            // Force reapply by sending different value to helper first, then the real value
-                            // This ensures the helper doesn't skip due to "equals current value"
-                            tdp.SetValue(currentTdpValue - 1);
-                            await System.Threading.Tasks.Task.Delay(100);
-                            tdp.SetValue(currentTdpValue);
-                            Logger.Info($"Power source change: Reapplied TDP {currentTdpValue}W after 5 seconds");
+                            var request = new Windows.Foundation.Collections.ValueSet();
+                            request.Add("ReapplyTDP", true);
+                            await App.SendMessageAsync(request);
+                            Logger.Info($"Power source change: Asked helper to reapply current TDP ({currentTdpValue}W)");
                         }
-                        finally
-                        {
-                            isApplyingHelperUpdate = false;
-                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Power source change: ReapplyTDP send failed: {ex.Message}");
                     }
                 };
                 powerSourceTdpReapplyTimer.Start();

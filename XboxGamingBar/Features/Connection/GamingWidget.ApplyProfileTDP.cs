@@ -287,6 +287,33 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Reads the helper heartbeat and returns true if the reported version matches this
+        /// widget. Used to abort stale deferred retry tasks in the version-mismatch branch
+        /// of OnPipeConnectedAsync when a parallel invocation has already landed on the
+        /// correct-version helper.
+        /// </summary>
+        private async Task<bool> IsConnectedHelperVersionCurrentAsync()
+        {
+            try
+            {
+                var localFolder = Windows.Storage.ApplicationData.Current.LocalFolder;
+                var heartbeatFile = await localFolder.TryGetItemAsync("helper_heartbeat.json");
+                if (heartbeatFile == null) return false;
+
+                string content = await Windows.Storage.FileIO.ReadTextAsync((Windows.Storage.StorageFile)heartbeatFile);
+                var versionMatch = System.Text.RegularExpressions.Regex.Match(content, @"""version"":""([^""]+)""");
+                if (!versionMatch.Success) return false;
+
+                return versionMatch.Groups[1].Value == GetWidgetVersion();
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"IsConnectedHelperVersionCurrentAsync check failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Request the helper to exit gracefully. Used when version mismatch is detected.
         /// </summary>
         private async Task RequestHelperExitAsync()

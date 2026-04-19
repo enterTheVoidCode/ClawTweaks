@@ -103,7 +103,11 @@ namespace XboxGamingBar
             {
                 var container = settings.Containers[$"Profile_{profileName}"];
 
-                profile.TDP = container.Values.ContainsKey("TDP") ? (double)container.Values["TDP"] : 15;
+                // When the widget-side Profile_* LocalSettings container doesn't have a TDP
+                // entry, fall back to the helper's current TDP (authoritative across reboots
+                // via global.xml) rather than a hardcoded 15 W — otherwise non-Legion devices
+                // reset TDP to 15 on every cold start (issues #74, #79).
+                profile.TDP = container.Values.ContainsKey("TDP") ? (double)container.Values["TDP"] : (tdp?.Value ?? 15);
                 // Use current system values as defaults for EPP and CPU Boost (synced from helper)
                 profile.CPUBoost = container.Values.ContainsKey("CPUBoost") ? (bool)container.Values["CPUBoost"] : (cpuBoost?.Value ?? false);
                 profile.CPUEPP = container.Values.ContainsKey("CPUEPP") ? (double)container.Values["CPUEPP"] : (cpuEPP?.Value ?? 80);

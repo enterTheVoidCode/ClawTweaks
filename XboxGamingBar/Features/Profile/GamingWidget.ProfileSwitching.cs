@@ -369,8 +369,15 @@ namespace XboxGamingBar
                     // This prevents TDP from being ignored when switching from preset mode to Custom mode
                     // For non-Legion devices: send TDP value immediately
                     // Skip sending when helper triggered the profile switch (isApplyingHelperUpdate) —
-                    // the helper already sent the correct TDP via pipe, don't overwrite with stale LocalSettings value
-                    if (legionGoDetected?.Value != true && !isApplyingHelperUpdate)
+                    // the helper already sent the correct TDP via pipe, don't overwrite with stale LocalSettings value.
+                    // Also skip on isInitialSync (first LoadProfileSettings at widget construction time):
+                    // helper is the source of truth for TDP across restarts (global.xml), and the widget
+                    // may have a stale or default value from LocalSettings here — pushing it would clobber
+                    // the helper's just-restored value. Issues #74 and #79 symptom: TDP resets to the
+                    // hardcoded 15 W default after every reboot because widget-owned TDP is skipped in
+                    // batch sync, then this push overwrites helper's global.xml value before the user
+                    // even touches the slider.
+                    if (legionGoDetected?.Value != true && !isApplyingHelperUpdate && !isInitialSync)
                     {
                         tdp?.ForceSetValue((int)profile.TDP);
                     }

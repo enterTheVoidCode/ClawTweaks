@@ -381,5 +381,10 @@
         Viiper_GyroSource,                         // string - gyro source ("Left", "Right", "Handheld", "None")
         Viiper_SteamSubDevice,                     // string - Steam sub-device PID selector (generic, steam-deck, legion-go, etc.)
         Viiper_GuideButtonMode,                    // string - "Native" (send device Guide/PS) or "GameBar" (send Win+G on Mode/Guide press)
+        Viiper_SwapRumbleMotors,                   // bool  - swap large/small motor values before forwarding rumble feedback
+        Viiper_RumbleIntensity,                    // int (0-200) - percentage multiplier applied to rumble motor values (100 = unity)
+        Viiper_GyroAxisMapX,                       // string - which source axis feeds the emulated device's IMU X channel ("X","Y","Z","-X","-Y","-Z")
+        Viiper_GyroAxisMapY,                       // string - IMU Y channel mapping (same options)
+        Viiper_GyroAxisMapZ,                       // string - IMU Z channel mapping (same options)
     }
 }

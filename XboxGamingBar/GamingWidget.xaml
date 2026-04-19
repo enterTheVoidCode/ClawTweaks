@@ -4557,7 +4557,6 @@
                                             <ComboBoxItem Content="Xbox Elite 2" Tag="xboxelite2"/>
                                             <ComboBoxItem Content="Steam Controller" Tag="steam-generic"/>
                                             <ComboBoxItem Content="Switch Pro" Tag="switchpro"/>
-                                            <ComboBoxItem Content="Joy-Con pair" Tag="joycon-pair"/>
                                         </ComboBox>
 
                                         <StackPanel x:Name="ViiperSteamSubDevicePanel" Visibility="Collapsed" Margin="0,12,0,0">
@@ -4588,11 +4587,91 @@
                                             <ComboBoxItem Content="Handheld (device IMU)" Tag="Handheld"/>
                                         </ComboBox>
 
+                                        <!-- IMU Axis Mapping — per-axis source selector (with optional flip).
+                                             Applies to both gyro and accel so the output vectors stay coherent. -->
+                                        <TextBlock Text="IMU axis mapping" FontSize="12" Foreground="#CCCCCC" Margin="0,12,0,4"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="X→" FontSize="11" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <ComboBox x:Name="ViiperGyroAxisMapXComboBox" Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,0,6,0" FontSize="12">
+                                                <ComboBoxItem Content="X"  Tag="X"/>
+                                                <ComboBoxItem Content="Y"  Tag="Y"/>
+                                                <ComboBoxItem Content="Z"  Tag="Z"/>
+                                                <ComboBoxItem Content="-X" Tag="-X"/>
+                                                <ComboBoxItem Content="-Y" Tag="-Y"/>
+                                                <ComboBoxItem Content="-Z" Tag="-Z"/>
+                                            </ComboBox>
+                                            <TextBlock Grid.Column="2" Text="Y→" FontSize="11" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <ComboBox x:Name="ViiperGyroAxisMapYComboBox" Grid.Column="3" HorizontalAlignment="Stretch" Margin="0,0,6,0" FontSize="12">
+                                                <ComboBoxItem Content="X"  Tag="X"/>
+                                                <ComboBoxItem Content="Y"  Tag="Y"/>
+                                                <ComboBoxItem Content="Z"  Tag="Z"/>
+                                                <ComboBoxItem Content="-X" Tag="-X"/>
+                                                <ComboBoxItem Content="-Y" Tag="-Y"/>
+                                                <ComboBoxItem Content="-Z" Tag="-Z"/>
+                                            </ComboBox>
+                                            <TextBlock Grid.Column="4" Text="Z→" FontSize="11" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <ComboBox x:Name="ViiperGyroAxisMapZComboBox" Grid.Column="5" HorizontalAlignment="Stretch" FontSize="12">
+                                                <ComboBoxItem Content="X"  Tag="X"/>
+                                                <ComboBoxItem Content="Y"  Tag="Y"/>
+                                                <ComboBoxItem Content="Z"  Tag="Z"/>
+                                                <ComboBoxItem Content="-X" Tag="-X"/>
+                                                <ComboBoxItem Content="-Y" Tag="-Y"/>
+                                                <ComboBoxItem Content="-Z" Tag="-Z"/>
+                                            </ComboBox>
+                                        </Grid>
+
                                         <TextBlock Text="Guide/Mode button" FontSize="12" Foreground="#CCCCCC" Margin="0,12,0,4"/>
                                         <ComboBox x:Name="ViiperGuideButtonModeComboBox" HorizontalAlignment="Stretch">
                                             <ComboBoxItem Content="Native (emulated device Guide/PS)" Tag="Native"/>
                                             <ComboBoxItem Content="Open Xbox Game Bar (Win+G)" Tag="GameBar"/>
                                         </ComboBox>
+                                        <TextBlock x:Name="ViiperLegionLDisabledHint"
+                                                   Text="Legion L is disabled in Special Remapping — set it to &quot;Guide&quot; to route the Xbox button through the emulated device."
+                                                   FontSize="11"
+                                                   Foreground="#FFB060"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,0"
+                                                   Visibility="Collapsed"/>
+
+                                        <!-- Swap rumble motors -->
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Swap rumble motors"
+                                                       Grid.Column="0"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="13"
+                                                       Foreground="#CCCCCC"/>
+                                            <ToggleSwitch x:Name="ViiperSwapRumbleMotorsToggle"
+                                                          Grid.Column="1"
+                                                          Style="{StaticResource ModernToggleStyle}"
+                                                          IsOn="False"/>
+                                        </Grid>
+
+                                        <!-- Rumble intensity -->
+                                        <StackPanel Margin="0,8,0,0">
+                                            <Grid>
+                                                <TextBlock Text="Rumble intensity" FontSize="13" Foreground="#CCCCCC"/>
+                                                <TextBlock x:Name="ViiperRumbleIntensityValue"
+                                                           Text="100%"
+                                                           Style="{StaticResource CardValueStyle}"/>
+                                            </Grid>
+                                            <Slider x:Name="ViiperRumbleIntensitySlider"
+                                                    Style="{StaticResource ModernSliderStyle}"
+                                                    Minimum="0" Maximum="200"
+                                                    Value="100"
+                                                    StepFrequency="5"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -6583,6 +6662,21 @@
                                         <x:String>M3</x:String>
                                     </ComboBox>
                                 </Grid>
+
+                                <!-- Gyro Calibration -->
+                                <StackPanel Margin="0,4,0,0">
+                                    <Button x:Name="LegionCalibrateGyroButton"
+                                            Content="Calibrate gyro"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            HorizontalAlignment="Stretch"
+                                            Click="LegionCalibrateGyroButton_Click"/>
+                                    <TextBlock x:Name="LegionCalibrateGyroStatus"
+                                               Text="Hold the controllers still and press the button — bias is captured by the controller firmware."
+                                               FontSize="11"
+                                               Foreground="#888888"
+                                               TextWrapping="Wrap"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -6714,7 +6808,7 @@
                                                   Grid.Column="1"
                                                   Style="{StaticResource ModernComboBoxStyle}">
                                             <ComboBoxItem Content="Disabled" IsSelected="True"/>
-                                            <ComboBoxItem Content="Xbox Guide"/>
+                                            <ComboBoxItem Content="Guide"/>
                                             <ComboBoxItem Content="Keyboard Shortcut"/>
                                             <ComboBoxItem Content="Run Command"/>
                                             <ComboBoxItem Content="Focus GoTweaks"/>
