@@ -902,7 +902,8 @@ namespace XboxGamingBarHelper
             controllerEmulationManager = new ControllerEmulationManager(legionManager, gpdManager, settingsManager);
 
             // Initialize VIIPER emulation manager (toggle-driven; mutually exclusive with legacy).
-            viiperEmulationManager = new XboxGamingBarHelper.ControllerEmulation.Viiper.ViiperEmulationManager(settingsManager, controllerEmulationManager);
+            // legionManager is passed so VIIPER can forward LED color reports to the Legion stick lights.
+            viiperEmulationManager = new XboxGamingBarHelper.ControllerEmulation.Viiper.ViiperEmulationManager(settingsManager, controllerEmulationManager, legionManager);
 
             // PawnIO/RyzenSMU initialization for anti-cheat compatible TDP control
             // Priority: Legion WMI > PawnIO/RyzenSMU > RyzenAdj (deprecated, WinRing0 not bundled)

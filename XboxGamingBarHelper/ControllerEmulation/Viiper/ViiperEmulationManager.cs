@@ -1,6 +1,7 @@
 using System;
 using NLog;
 using XboxGamingBarHelper.Core;
+using XboxGamingBarHelper.Devices.Libraries.Legion;
 using XboxGamingBarHelper.Settings;
 
 namespace XboxGamingBarHelper.ControllerEmulation.Viiper
@@ -28,11 +29,11 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         private uint activeDeviceId;
         private string activeDeviceType = DefaultDeviceType;
 
-        public ViiperEmulationManager(SettingsManager inSettingsManager, ControllerEmulationManager inLegacyManager)
+        public ViiperEmulationManager(SettingsManager inSettingsManager, ControllerEmulationManager inLegacyManager, LegionManager inLegionManager)
         {
             settingsManager = inSettingsManager;
             legacyManager = inLegacyManager;
-            forwarder = new ViiperInputForwarder(service);
+            forwarder = new ViiperInputForwarder(service, inLegionManager);
             if (settingsManager != null)
             {
                 if (settingsManager.EmulationBackend != null)
@@ -50,6 +51,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 if (settingsManager.ViiperInputSource != null)
                 {
                     settingsManager.ViiperInputSource.PropertyChanged += OnInputSourceChanged;
+                }
+                if (settingsManager.ViiperGyroSource != null)
+                {
+                    settingsManager.ViiperGyroSource.PropertyChanged += OnGyroSourceChanged;
                 }
                 // Apply initial state.
                 if (settingsManager.EmulationBackend != null)
@@ -135,6 +140,7 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             // Start forwarding physical input -> virtual device.
             uint xinputIdx = ViiperInputForwarder.DetectPhysicalXInputIndex();
             forwarder.SetInputSource(ResolveInputSource());
+            forwarder.SetGyroSource(ResolveGyroSource());
             forwarder.Start(xinputIdx, activeBusId, activeDeviceId, activeDeviceType);
 
             isRunning = true;
@@ -178,6 +184,24 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         {
             try { forwarder.SetInputSource(ResolveInputSource()); }
             catch (Exception ex) { Logger.Warn($"OnInputSourceChanged threw: {ex.Message}"); }
+        }
+
+        private ViiperGyroSourceKind ResolveGyroSource()
+        {
+            var value = settingsManager?.ViiperGyroSource?.Value ?? "None";
+            switch (value)
+            {
+                case "Left":     return ViiperGyroSourceKind.Left;
+                case "Right":    return ViiperGyroSourceKind.Right;
+                case "Handheld": return ViiperGyroSourceKind.Handheld;
+                default:         return ViiperGyroSourceKind.None;
+            }
+        }
+
+        private void OnGyroSourceChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            try { forwarder.SetGyroSource(ResolveGyroSource()); }
+            catch (Exception ex) { Logger.Warn($"OnGyroSourceChanged threw: {ex.Message}"); }
         }
 
         private void OnDeviceConfigChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -257,6 +281,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                     if (settingsManager.ViiperInputSource != null)
                     {
                         settingsManager.ViiperInputSource.PropertyChanged -= OnInputSourceChanged;
+                    }
+                    if (settingsManager.ViiperGyroSource != null)
+                    {
+                        settingsManager.ViiperGyroSource.PropertyChanged -= OnGyroSourceChanged;
                     }
                 }
                 Stop();
