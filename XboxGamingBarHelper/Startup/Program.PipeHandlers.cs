@@ -778,7 +778,7 @@ namespace XboxGamingBarHelper
 
                     try
                     {
-                        const string appPackagesPath = @"C:\Users\diego\OneDrive\Desktop\Diego\projects\XboxGamingBar\Samples\XboxGamingBarPackage\AppPackages";
+                        const string appPackagesPath = @"C:\Users\diego\OneDrive\Desktop\Diego\projects\XboxGamingBar\XboxGamingBarPackage\AppPackages";
 
                         if (!Directory.Exists(appPackagesPath))
                         {
