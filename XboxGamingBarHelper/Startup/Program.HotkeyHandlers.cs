@@ -391,6 +391,11 @@ namespace XboxGamingBarHelper
         /// <summary>
         /// Parse and send a keyboard shortcut using InputInjector (works in widget context unlike SendInput)
         /// </summary>
+        internal static void SendKeyboardShortcut(string shortcut) => SendKeyboardShortcutViaInputInjector(shortcut);
+
+        /// <summary>
+        /// Parse and send a keyboard shortcut using InputInjector (works in widget context unlike SendInput)
+        /// </summary>
         private static void SendKeyboardShortcutViaInputInjector(string shortcut)
         {
             if (inputInjector == null)

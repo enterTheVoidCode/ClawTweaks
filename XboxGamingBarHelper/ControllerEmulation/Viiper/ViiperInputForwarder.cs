@@ -13,6 +13,15 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         LegionHid = 1,
     }
 
+    /// <summary>How a Guide/Mode press is handled by the forwarder.</summary>
+    internal enum ViiperGuideButtonMode
+    {
+        /// <summary>Forward to the emulated device's native Guide/PS button.</summary>
+        Native = 0,
+        /// <summary>Suppress the native Guide press and fire Win+G to open Xbox Game Bar.</summary>
+        GameBar = 1,
+    }
+
     /// <summary>Which IMU source (if any) feeds the gyro bytes of the VIIPER wire format.</summary>
     internal enum ViiperGyroSourceKind
     {
@@ -67,11 +76,23 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         private string targetType = "xbox360";
         private volatile ViiperInputSourceKind inputSource = ViiperInputSourceKind.XInput;
         private volatile ViiperGyroSourceKind gyroSource = ViiperGyroSourceKind.None;
+        private volatile ViiperGuideButtonMode guideMode = ViiperGuideButtonMode.Native;
+
+        // Edge-detection state for the Guide/Mode -> Win+G shortcut. We only fire the
+        // shortcut on press-transition, not on every poll while the button is held.
+        private bool guideWasPressed;
+        private long lastGuideShortcutTicks;
+        private const long GuideShortcutMinIntervalTicks = TimeSpan.TicksPerSecond;
 
         // Latest aux buttons sampled from Legion HID this cycle (0 when the active source
         // doesn't expose them, e.g. plain XInput). Read by the DS4/DSE wire builders to map
         // Legion Y1/Y2/Y3/M3/Mode/Share onto the virtual device's extended button bits.
         private ushort currentAuxButtons;
+
+        // Latest touchpad sample from Legion HID, written into the DS4/DSE wire format.
+        private bool currentTouchActive;
+        private ushort currentTouchX;
+        private ushort currentTouchY;
 
         // IMU axis counts/second and counts/G for Legion Go BMI323:
         //   gyro: 16 counts per deg/sec
@@ -232,6 +253,13 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             Logger.Info($"VIIPER forwarder gyro source -> {kind}");
         }
 
+        public void SetGuideButtonMode(ViiperGuideButtonMode mode)
+        {
+            if (guideMode == mode) return;
+            guideMode = mode;
+            Logger.Info($"VIIPER forwarder guide-button mode -> {mode}");
+        }
+
         /// <summary>
         /// Fetches the current gyro/accel sample from the selected source, converted to DS4
         /// wire-format int16 counts. Returns false when no source is selected, the source
@@ -341,7 +369,36 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                         lastLegionTicks = sample.TimestampTicksUtc;
                         currentAuxButtons = sample.AuxButtons;
 
+                        // Guide-button mode: if the user wants Mode/Guide to open Xbox Game
+                        // Bar instead of the emulated PS/Guide button, fire Win+G on press
+                        // edge and strip the press from the outgoing state.
+                        bool guidePressed = ((sample.Buttons & ViiperXInput.Guide) != 0)
+                                         || ((sample.AuxButtons & LegionAux.Mode) != 0);
+                        ApplyGuideModeEdge(guidePressed);
+                        if (guideMode == ViiperGuideButtonMode.GameBar)
+                        {
+                            currentAuxButtons &= unchecked((ushort)~LegionAux.Mode);
+                        }
+
+                        // Latest right-touchpad state from Legion HID (DS4/DSE wire format
+                        // expects touchpad coordinates as 12-bit packed values).
+                        LegionTouchpadSample touch;
+                        if (LegionButtonMonitor.TryGetLatestRightTouchpadSample(out touch))
+                        {
+                            currentTouchActive = touch.IsTouching;
+                            currentTouchX = touch.RawX;
+                            currentTouchY = touch.RawY;
+                        }
+                        else
+                        {
+                            currentTouchActive = false;
+                        }
+
                         var gp = ConvertLegionToXInputGamepad(sample);
+                        if (guideMode == ViiperGuideButtonMode.GameBar)
+                        {
+                            gp.Buttons &= unchecked((ushort)~ViiperXInput.Guide);
+                        }
                         byte[] data = BuildDeviceInput(gp);
                         if (data != null && data.Length > 0)
                         {
@@ -369,8 +426,17 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                         }
                         lastPacket = xiState.PacketNumber;
                         currentAuxButtons = 0;  // XInput has no Legion aux buttons.
+                        currentTouchActive = false;
 
-                        byte[] data = BuildDeviceInput(xiState.Gamepad);
+                        bool guidePressed = (xiState.Gamepad.Buttons & ViiperXInput.Guide) != 0;
+                        ApplyGuideModeEdge(guidePressed);
+
+                        var gp = xiState.Gamepad;
+                        if (guideMode == ViiperGuideButtonMode.GameBar)
+                        {
+                            gp.Buttons &= unchecked((ushort)~ViiperXInput.Guide);
+                        }
+                        byte[] data = BuildDeviceInput(gp);
                         if (data != null && data.Length > 0)
                         {
                             service.SetInput(busId, deviceId, data);
@@ -384,6 +450,30 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 }
                 Thread.Sleep(4);
             }
+        }
+
+        /// <summary>
+        /// Detects a press-edge on the Guide/Mode button. In GameBar mode, fires a
+        /// single Win+G keystroke via the helper's input-injector path. Rate-limited
+        /// so a held button doesn't spam the shortcut.
+        /// </summary>
+        private void ApplyGuideModeEdge(bool isPressed)
+        {
+            bool edge = isPressed && !guideWasPressed;
+            guideWasPressed = isPressed;
+            if (!edge) return;
+            if (guideMode != ViiperGuideButtonMode.GameBar) return;
+
+            long now = DateTime.UtcNow.Ticks;
+            if ((now - lastGuideShortcutTicks) < GuideShortcutMinIntervalTicks) return;
+            lastGuideShortcutTicks = now;
+
+            try
+            {
+                Logger.Info("VIIPER guide-button: firing Win+G");
+                Program.SendKeyboardShortcut("Win+G");
+            }
+            catch (Exception ex) { Logger.Warn($"Guide Win+G failed: {ex.Message}"); }
         }
 
         /// <summary>
@@ -483,6 +573,16 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             data[7] = gp.LeftTrigger;
             data[8] = gp.RightTrigger;
 
+            // Touchpad bytes (DS4): X at 9-10, Y at 11-12, active flag at 13.
+            if (currentTouchActive)
+            {
+                ushort tx = ScaleTouchAxis(currentTouchX, 1919);
+                ushort ty = ScaleTouchAxis(currentTouchY, 942);
+                WriteU16(data, 9, tx);
+                WriteU16(data, 11, ty);
+                data[13] = 1;
+            }
+
             // IMU bytes at offsets 19-30 (gyroX,Y,Z then accelX,Y,Z as int16).
             short gx, gy, gz, ax, ay, az;
             if (TryBuildImuCounts(out gx, out gy, out gz, out ax, out ay, out az))
@@ -540,6 +640,16 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             data[9] = gp.LeftTrigger;
             data[10] = gp.RightTrigger;
 
+            // Touchpad bytes (DSE): X at 11-12, Y at 13-14, active flag at 15.
+            if (currentTouchActive)
+            {
+                ushort tx = ScaleTouchAxis(currentTouchX, 1920);
+                ushort ty = ScaleTouchAxis(currentTouchY, 1080);
+                WriteU16(data, 11, tx);
+                WriteU16(data, 13, ty);
+                data[15] = 1;
+            }
+
             // DSE IMU bytes at offsets 21..32.
             short gx, gy, gz, ax, ay, az;
             if (TryBuildImuCounts(out gx, out gy, out gz, out ax, out ay, out az))
@@ -552,6 +662,18 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 WriteI16(data, 31, ScaleDs4Accel(az));
             }
             return data;
+        }
+
+        /// <summary>
+        /// Legion touchpad raw range is 0-1023 (10-bit). DS4 host expects 0-1919x942,
+        /// DSE expects 0-1920x1080. Scale linearly and clamp.
+        /// </summary>
+        private static ushort ScaleTouchAxis(ushort raw, int maxOut)
+        {
+            int scaled = raw * maxOut / 1023;
+            if (scaled < 0) return 0;
+            if (scaled > maxOut) return (ushort)maxOut;
+            return (ushort)scaled;
         }
 
         private static byte[] BuildXboxElite2Input(ViiperXInputGamepad gp)

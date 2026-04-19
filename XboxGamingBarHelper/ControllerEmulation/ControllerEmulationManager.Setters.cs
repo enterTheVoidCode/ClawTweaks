@@ -171,6 +171,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             enabled = value;
             SaveSettings();
             ApplyCurrentConfiguration(enabled ? "enabled changed: on" : "enabled changed: off");
+            RaiseEmulationEnabledChanged();
         }
 
         /// <summary>

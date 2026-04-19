@@ -86,6 +86,37 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
         private ViGEmController virtualController;
         private readonly ControllerSuppressionManager suppressionManager;
+
+        /// <summary>
+        /// Exposes the internal HidHide suppression manager so other emulation backends
+        /// (VIIPER) can share the same underlying hide/unhide infrastructure and avoid
+        /// fighting each other over the same physical device IDs.
+        /// </summary>
+        internal ControllerSuppressionManager SuppressionManager => suppressionManager;
+
+        /// <summary>The detected handheld device type (Legion Go, GPD, etc.).</summary>
+        internal SharedDeviceType HandheldDeviceType => deviceType;
+
+        /// <summary>Current HideTarget setting (0=all gamepads, 1=matching VID:PID only, etc.).</summary>
+        internal int HideTarget => hideTarget;
+
+        /// <summary>
+        /// Master "Enable Controller Emulation" switch from the widget's Controller Emulation
+        /// card. The VIIPER backend observes this so flipping the backend-selector toggle in
+        /// Debug doesn't auto-start VIIPER — the user still has to enable emulation explicitly.
+        /// </summary>
+        internal bool EmulationEnabled => enabled;
+
+        /// <summary>
+        /// Fires when <see cref="EmulationEnabled"/> changes. Subscribed by the VIIPER backend.
+        /// </summary>
+        internal event Action<bool> EmulationEnabledChanged;
+
+        private void RaiseEmulationEnabledChanged()
+        {
+            try { EmulationEnabledChanged?.Invoke(enabled); }
+            catch (Exception ex) { Logger.Warn($"EmulationEnabledChanged handler threw: {ex.Message}"); }
+        }
         private IGyroSourceAdapter gyroSourceAdapter;
         private Thread forwardingThread;
         private volatile bool forwardingRunning;

@@ -102,6 +102,12 @@ namespace XboxGamingBarHelper.Settings
             get { return viiperSteamSubDevice; }
         }
 
+        private readonly ViiperGuideButtonModeProperty viiperGuideButtonMode;
+        public ViiperGuideButtonModeProperty ViiperGuideButtonMode
+        {
+            get { return viiperGuideButtonMode; }
+        }
+
         // Profile Detection Settings
         private readonly ProfileMatchByExeProperty profileMatchByExe;
         public ProfileMatchByExeProperty ProfileMatchByExe
@@ -142,6 +148,7 @@ namespace XboxGamingBarHelper.Settings
             viiperInputSource = new ViiperInputSourceProperty(this);
             viiperGyroSource = new ViiperGyroSourceProperty(this);
             viiperSteamSubDevice = new ViiperSteamSubDeviceProperty(this);
+            viiperGuideButtonMode = new ViiperGuideButtonModeProperty(this);
             // Profile Detection Settings
             profileMatchByExe = new ProfileMatchByExeProperty(this);
             profileCustomGamePath = new ProfileCustomGamePathProperty(this);

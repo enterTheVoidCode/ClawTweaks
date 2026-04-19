@@ -947,6 +947,7 @@ namespace XboxGamingBar
         private readonly ViiperStringComboProperty viiperInputSource;
         private readonly ViiperStringComboProperty viiperGyroSource;
         private readonly ViiperStringComboProperty viiperSteamSubDevice;
+        private readonly ViiperStringComboProperty viiperGuideButtonMode;
         private readonly WinRing0AvailableProperty winRing0Available;
         private readonly PawnIOInstalledProperty pawnIOInstalled;
         private readonly InstallPawnIOProperty installPawnIO;
@@ -1579,6 +1580,7 @@ namespace XboxGamingBar
             viiperInputSource = new ViiperStringComboProperty("XInput", Shared.Enums.Function.Viiper_InputSource, ViiperInputSourceComboBox, this);
             viiperGyroSource = new ViiperStringComboProperty("Left", Shared.Enums.Function.Viiper_GyroSource, ViiperGyroSourceComboBox, this);
             viiperSteamSubDevice = new ViiperStringComboProperty("legion-go", Shared.Enums.Function.Viiper_SteamSubDevice, ViiperSteamSubDeviceComboBox, this);
+            viiperGuideButtonMode = new ViiperStringComboProperty("Native", Shared.Enums.Function.Viiper_GuideButtonMode, ViiperGuideButtonModeComboBox, this);
             // Show USBIP install card only when VIIPER toggle is on AND driver is missing
             emulationBackend.PropertyChanged += (s, e) => { UpdateUsbipCardVisibility(); UpdateViiperConfigVisibility(); };
             usbipInstalled.PropertyChanged += (s, e) => UpdateUsbipCardVisibility();
@@ -1772,6 +1774,7 @@ namespace XboxGamingBar
                 viiperInputSource,
                 viiperGyroSource,
                 viiperSteamSubDevice,
+                viiperGuideButtonMode,
                 winRing0Available,
                 pawnIOInstalled,
                 installPawnIO,

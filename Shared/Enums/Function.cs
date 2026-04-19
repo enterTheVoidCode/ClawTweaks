@@ -380,5 +380,6 @@
         Viiper_InputSource,                        // string - input source ("XInput" or "LegionHid")
         Viiper_GyroSource,                         // string - gyro source ("Left", "Right", "Handheld", "None")
         Viiper_SteamSubDevice,                     // string - Steam sub-device PID selector (generic, steam-deck, legion-go, etc.)
+        Viiper_GuideButtonMode,                    // string - "Native" (send device Guide/PS) or "GameBar" (send Win+G on Mode/Guide press)
     }
 }

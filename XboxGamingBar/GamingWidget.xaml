@@ -4584,6 +4584,12 @@
                                             <ComboBoxItem Content="Right controller" Tag="Right"/>
                                             <ComboBoxItem Content="Handheld (device IMU)" Tag="Handheld"/>
                                         </ComboBox>
+
+                                        <TextBlock Text="Guide/Mode button" FontSize="12" Foreground="#CCCCCC" Margin="0,12,0,4"/>
+                                        <ComboBox x:Name="ViiperGuideButtonModeComboBox" HorizontalAlignment="Stretch">
+                                            <ComboBoxItem Content="Native (emulated device Guide/PS)" Tag="Native"/>
+                                            <ComboBoxItem Content="Open Xbox Game Bar (Win+G)" Tag="GameBar"/>
+                                        </ComboBox>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>

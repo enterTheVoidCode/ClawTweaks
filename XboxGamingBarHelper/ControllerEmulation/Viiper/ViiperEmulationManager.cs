@@ -28,12 +28,21 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         private uint activeBusId;
         private uint activeDeviceId;
         private string activeDeviceType = DefaultDeviceType;
+        private bool viiperOwnsSuppression;
 
         public ViiperEmulationManager(SettingsManager inSettingsManager, ControllerEmulationManager inLegacyManager, LegionManager inLegionManager)
         {
             settingsManager = inSettingsManager;
             legacyManager = inLegacyManager;
             forwarder = new ViiperInputForwarder(service, inLegionManager);
+            if (legacyManager != null)
+            {
+                // VIIPER respects the same "Enable Controller Emulation" toggle the legacy
+                // backend observes — it is the master on/off switch for whichever backend
+                // is selected. Flipping the Debug-panel backend selector alone should not
+                // auto-start emulation.
+                legacyManager.EmulationEnabledChanged += OnEmulationEnabledChanged;
+            }
             if (settingsManager != null)
             {
                 if (settingsManager.EmulationBackend != null)
@@ -55,6 +64,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 if (settingsManager.ViiperGyroSource != null)
                 {
                     settingsManager.ViiperGyroSource.PropertyChanged += OnGyroSourceChanged;
+                }
+                if (settingsManager.ViiperGuideButtonMode != null)
+                {
+                    settingsManager.ViiperGuideButtonMode.PropertyChanged += OnGuideModeChanged;
                 }
                 // Apply initial state.
                 if (settingsManager.EmulationBackend != null)
@@ -84,7 +97,24 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             try { legacyManager?.SetSuppressedByViiper(useViiper); }
             catch (Exception ex) { Logger.Warn($"legacyManager.SetSuppressedByViiper threw: {ex.Message}"); }
 
-            if (useViiper)
+            // VIIPER only runs when BOTH the backend selector is on AND the master
+            // "Enable Controller Emulation" switch is on.
+            bool emulationEnabled = legacyManager?.EmulationEnabled ?? true;
+            if (useViiper && emulationEnabled)
+            {
+                Start();
+            }
+            else
+            {
+                Stop();
+            }
+        }
+
+        private void OnEmulationEnabledChanged(bool emulationEnabled)
+        {
+            bool backendOn = settingsManager?.EmulationBackend?.Value ?? false;
+            if (!backendOn) return; // legacy path handles its own state
+            if (emulationEnabled)
             {
                 Start();
             }
@@ -122,6 +152,24 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             }
             activeBusId = DefaultBusId;
 
+            // Enable HidHide so the stock physical controller is hidden from games while
+            // VIIPER is active. Reuses the existing ControllerSuppressionManager instance
+            // owned by the legacy manager — sharing the same underlying hide/unhide state
+            // prevents both backends from fighting over the same device IDs.
+            try
+            {
+                var suppression = legacyManager?.SuppressionManager;
+                if (suppression != null)
+                {
+                    bool ok = suppression.Enable(
+                        legacyManager.HandheldDeviceType,
+                        legacyManager.HideTarget);
+                    Logger.Info($"VIIPER: HidHide suppression enable => {ok}");
+                    viiperOwnsSuppression = ok;
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"VIIPER HidHide Enable threw: {ex.Message}"); }
+
             // Create the initial virtual device using current settings.
             string targetType;
             ushort vid, pid;
@@ -141,6 +189,7 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             uint xinputIdx = ViiperInputForwarder.DetectPhysicalXInputIndex();
             forwarder.SetInputSource(ResolveInputSource());
             forwarder.SetGyroSource(ResolveGyroSource());
+            forwarder.SetGuideButtonMode(ResolveGuideMode());
             forwarder.Start(xinputIdx, activeBusId, activeDeviceId, activeDeviceType);
 
             isRunning = true;
@@ -204,6 +253,20 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             catch (Exception ex) { Logger.Warn($"OnGyroSourceChanged threw: {ex.Message}"); }
         }
 
+        private ViiperGuideButtonMode ResolveGuideMode()
+        {
+            var value = settingsManager?.ViiperGuideButtonMode?.Value ?? "Native";
+            return string.Equals(value, "GameBar", StringComparison.OrdinalIgnoreCase)
+                ? ViiperGuideButtonMode.GameBar
+                : ViiperGuideButtonMode.Native;
+        }
+
+        private void OnGuideModeChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            try { forwarder.SetGuideButtonMode(ResolveGuideMode()); }
+            catch (Exception ex) { Logger.Warn($"OnGuideModeChanged threw: {ex.Message}"); }
+        }
+
         private void OnDeviceConfigChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (!isRunning) return; // Will be picked up on next Start().
@@ -240,6 +303,17 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             try { forwarder.Stop(); }
             catch (Exception ex) { Logger.Warn($"forwarder.Stop threw: {ex.Message}"); }
 
+            if (viiperOwnsSuppression)
+            {
+                try
+                {
+                    legacyManager?.SuppressionManager?.Disable();
+                    Logger.Info("VIIPER: HidHide suppression disabled");
+                }
+                catch (Exception ex) { Logger.Warn($"VIIPER HidHide Disable threw: {ex.Message}"); }
+                viiperOwnsSuppression = false;
+            }
+
             try
             {
                 if (activeDeviceId != 0)
@@ -264,6 +338,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         {
             if (disposing)
             {
+                if (legacyManager != null)
+                {
+                    legacyManager.EmulationEnabledChanged -= OnEmulationEnabledChanged;
+                }
                 if (settingsManager != null)
                 {
                     if (settingsManager.EmulationBackend != null)
@@ -285,6 +363,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                     if (settingsManager.ViiperGyroSource != null)
                     {
                         settingsManager.ViiperGyroSource.PropertyChanged -= OnGyroSourceChanged;
+                    }
+                    if (settingsManager.ViiperGuideButtonMode != null)
+                    {
+                        settingsManager.ViiperGuideButtonMode.PropertyChanged -= OnGuideModeChanged;
                     }
                 }
                 Stop();

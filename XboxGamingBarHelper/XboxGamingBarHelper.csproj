@@ -513,6 +513,7 @@
     <Compile Include="Settings\ViiperInputSourceProperty.cs" />
     <Compile Include="Settings\ViiperGyroSourceProperty.cs" />
     <Compile Include="Settings\ViiperSteamSubDeviceProperty.cs" />
+    <Compile Include="Settings\ViiperGuideButtonModeProperty.cs" />
     <Compile Include="Settings\ProfileMatchByExeProperty.cs" />
     <Compile Include="Settings\ProfileCustomGamePathProperty.cs" />
     <Compile Include="Settings\ProfileGamesOnlyProperty.cs" />
