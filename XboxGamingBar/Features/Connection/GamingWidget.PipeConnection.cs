@@ -130,7 +130,105 @@ namespace XboxGamingBar
             await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 ShowConnectionBanner(BannerState.Disconnected);
+                // Kick on the heartbeat watcher so we auto-reconnect if the helper
+                // appears later (e.g. long UAC prompt during update-debug completes
+                // just after we gave up).
+                StartHeartbeatWatcher();
             });
+        }
+
+        /// <summary>
+        /// Polls helper_heartbeat.json every few seconds while we're in the
+        /// "Disconnected" state. When the heartbeat's mtime or pid changes we
+        /// assume a fresh helper has come up and fire a new pipe-connect attempt,
+        /// so the user doesn't have to close/reopen the widget when UAC approval
+        /// or slow setup pushed the helper past our retry budget.
+        /// </summary>
+        private void StartHeartbeatWatcher()
+        {
+            if (heartbeatWatcherTimer != null) return; // already running
+
+            // Capture the CURRENT heartbeat snapshot so we only react to FRESHER
+            // heartbeats, not the stale one that was there when we gave up.
+            (heartbeatWatcherLastMtimeTicks, heartbeatWatcherLastPid) = ReadHeartbeatSnapshot();
+
+            heartbeatWatcherTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            heartbeatWatcherTimer.Tick += HeartbeatWatcher_Tick;
+            heartbeatWatcherTimer.Start();
+            Logger.Info($"Heartbeat watcher started (baseline mtime={heartbeatWatcherLastMtimeTicks}, pid={heartbeatWatcherLastPid})");
+        }
+
+        /// <summary>Stops the heartbeat watcher; called once we're connected again.</summary>
+        private void StopHeartbeatWatcher()
+        {
+            if (heartbeatWatcherTimer == null) return;
+            heartbeatWatcherTimer.Stop();
+            heartbeatWatcherTimer.Tick -= HeartbeatWatcher_Tick;
+            heartbeatWatcherTimer = null;
+            Logger.Info("Heartbeat watcher stopped");
+        }
+
+        private void HeartbeatWatcher_Tick(object sender, object e)
+        {
+            // If we got connected via some other path, shut down.
+            if (App.IsConnected)
+            {
+                StopHeartbeatWatcher();
+                return;
+            }
+            if (heartbeatWatcherReconnectInFlight) return;
+
+            var (mtime, pid) = ReadHeartbeatSnapshot();
+            // Nothing there yet — keep polling quietly.
+            if (pid == 0 || mtime == 0) return;
+            // Same file we've already seen — nothing changed on the helper side.
+            if (mtime == heartbeatWatcherLastMtimeTicks && pid == heartbeatWatcherLastPid) return;
+
+            Logger.Info($"Heartbeat watcher detected helper activity (pid={pid}, mtime={mtime}); retrying pipe connect");
+            heartbeatWatcherLastMtimeTicks = mtime;
+            heartbeatWatcherLastPid = pid;
+            heartbeatWatcherReconnectInFlight = true;
+
+            // Hide the "Disconnected" banner and switch to the Reconnecting state
+            // for the duration of the retry so the user sees progress.
+            ShowConnectionBanner(BannerState.Reconnecting);
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await TryConnectPipeAsync();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Heartbeat-watcher reconnect attempt threw: {ex.Message}");
+                }
+                finally
+                {
+                    heartbeatWatcherReconnectInFlight = false;
+                }
+            });
+        }
+
+        private static (long mtimeTicks, int pid) ReadHeartbeatSnapshot()
+        {
+            try
+            {
+                var path = Path.Combine(ApplicationData.Current.LocalFolder.Path, "helper_heartbeat.json");
+                if (!File.Exists(path)) return (0, 0);
+                var info = new FileInfo(path);
+                long mtime = info.LastWriteTimeUtc.Ticks;
+                int pid = 0;
+                try
+                {
+                    var json = File.ReadAllText(path);
+                    var m = Regex.Match(json, @"""pid""\s*:\s*(\d+)");
+                    if (m.Success && int.TryParse(m.Groups[1].Value, out int parsedPid)) pid = parsedPid;
+                }
+                catch { /* mid-write is fine — mtime alone flags a change */ }
+                return (mtime, pid);
+            }
+            catch { return (0, 0); }
         }
 
         /// <summary>

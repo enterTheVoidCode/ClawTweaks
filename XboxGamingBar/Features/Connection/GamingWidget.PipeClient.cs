@@ -89,6 +89,27 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Helper pushes DriverUpdatesAvailable as an unsolicited message
+                // after its startup driver probe completes. Light up the Quick
+                // tab tile; no other state needs updating yet.
+                if (message.TryGetValue("DriverUpdatesAvailable", out object countObj))
+                {
+                    int count = 0;
+                    try { count = Convert.ToInt32(countObj); } catch { }
+                    UpdateDriverUpdatesTile(count);
+                    return;
+                }
+
+                // Helper pushes GoTweaksUpdate (JSON blob) after startup
+                // self-update probe. Also delivered as a response to an
+                // explicit CheckGoTweaksUpdate request.
+                if (message.TryGetValue("GoTweaksUpdate", out object goTweaksPayload)
+                    && goTweaksPayload is string gtJson)
+                {
+                    HandleGoTweaksUpdatePush(gtJson);
+                    return;
+                }
+
                 // Skip TDP and CurrentTDP updates during Sticky TDP reapply
                 if (isStickyTDPReapplying && message.ContainsKey("Function"))
                 {
