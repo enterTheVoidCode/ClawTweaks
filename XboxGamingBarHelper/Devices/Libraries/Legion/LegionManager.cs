@@ -318,6 +318,34 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 }
                 fanCurveTimer.Stop();
                 Logger.Info($"[TIMING] LegionManager.FanCurve read: {fanCurveTimer.ElapsedMilliseconds}ms");
+
+                // Write the loaded fan curve to hardware now. Without this the saved curve
+                // only lived in memory + LocalSettings — it got pushed to the widget via
+                // LegionFanCurveData.EnableDeviceWrites() but never reached the controller.
+                // Users reported "fan curve not working at all anymore" because the device
+                // kept running its firmware default; the user's curve only applied if they
+                // nudged the slider manually after the ~5 s startup grace period.
+                //
+                // Skip if we're reading in a performance mode that isn't Custom (255) —
+                // preset modes (Quiet=1, Balanced=2, Performance=3) have their own
+                // hardware-managed curves and writing here would be ignored anyway, but
+                // logging the skip is useful for triage.
+                try
+                {
+                    var result = wmiService?.SetFanCurve(fanCurve);
+                    if (result.HasValue && result.Value.Success)
+                    {
+                        Logger.Info($"Fan curve applied to hardware on startup: [{string.Join(",", fanCurve)}]%");
+                    }
+                    else if (result.HasValue)
+                    {
+                        Logger.Warn($"Fan curve startup apply failed: {result.Value.Message}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Fan curve startup apply threw: {ex.Message}");
+                }
             }
             string fanCurveString = string.Join(",", fanCurve.Select(v => (int)v));
             LegionFanCurveData = new LegionFanCurveDataProperty(fanCurveString, this);

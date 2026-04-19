@@ -1409,6 +1409,46 @@ namespace XboxGamingBarHelper
             _managersReady = true;
             Logger.Info("Managers ready - BatchGet requests will now be processed");
 
+            // Kick off a background Lenovo driver-update probe so the widget
+            // can show an "N updates available" tile the moment it opens.
+            // Only for Legion devices — non-Lenovo machines return IsLenovo=false
+            // from the WMI check anyway, so CheckAsync is a no-op, but we guard
+            // on the LegionManager flag so we don't even burn the HTTP request
+            // on unrelated handhelds. Fire-and-forget: failure just means no
+            // tile, which is the same as the pre-feature behaviour.
+            if (legionManager != null && legionManager.LegionGoDetected != null && legionManager.LegionGoDetected.Value)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var result = await Services.LenovoDriverCheckService.CheckAsync();
+                        int updateCount = result?.Drivers?.Count(d => d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable) ?? 0;
+                        Logger.Info($"Startup driver probe complete — {updateCount} update(s) available out of {result?.Drivers?.Count ?? 0} total");
+                        PushDriverUpdatesAvailable(updateCount);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Startup driver probe failed: {ex.Message}");
+                    }
+                });
+            }
+
+            // GoTweaks self-update check runs on every device type — the app
+            // itself can be updated regardless of which handheld it's on.
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var result = await Services.GoTweaksUpdateService.CheckAsync(helperVersion);
+                    PushGoTweaksUpdate(result);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Startup GoTweaks update probe failed: {ex.Message}");
+                }
+            });
+
             // Wait for widget connection (non-blocking if already connected)
             var connectTimer = System.Diagnostics.Stopwatch.StartNew();
             await WaitForWidgetConnection(true);
@@ -1501,7 +1541,18 @@ namespace XboxGamingBarHelper
 
                 foreach (var manager in Managers)
                 {
-                    manager.Update();
+                    // One manager's exception must not take down the helper —
+                    // that used to happen when RTSS wasn't fully initialised
+                    // on startup and OSD.ctor threw FileNotFoundException.
+                    // Log and continue so sibling managers keep ticking.
+                    try
+                    {
+                        manager.Update();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Manager {manager?.GetType().Name} Update() threw: {ex.Message}");
+                    }
                 }
             }
 

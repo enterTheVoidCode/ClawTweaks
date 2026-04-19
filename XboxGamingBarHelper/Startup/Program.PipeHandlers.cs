@@ -447,6 +447,187 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Handle Lenovo driver-update check. Widget button fires this, helper
+                // resolves the machine type + BIOS version via WMI and best-effort-fetches
+                // the live driver list from Lenovo's public pcsupport API. Response is
+                // serialized JSON so the widget can render it without knowing the helper's
+                // internal data model.
+                if (pipeMsg.Extra.ContainsKey("CheckDriverUpdates"))
+                {
+                    try
+                    {
+                        // If the startup probe has already populated a result,
+                        // and the widget's request carries no explicit "Force"
+                        // hint, serve the cached result so the user sees the
+                        // list instantly instead of waiting for another live
+                        // Lenovo fetch.
+                        bool force = false;
+                        if (pipeMsg.Extra.TryGetValue("ForceRefresh", out var forceObj))
+                        {
+                            if (forceObj is bool fb) force = fb;
+                            else if (forceObj is string fs) bool.TryParse(fs, out force);
+                        }
+                        var probe = (!force && Services.LenovoDriverCheckService.LastResult != null)
+                            ? Services.LenovoDriverCheckService.LastResult
+                            : await Services.LenovoDriverCheckService.CheckAsync();
+                        var json = probe.ToJson();
+                        var response = new global::Windows.Foundation.Collections.ValueSet
+                        {
+                            { "DriverUpdateResult", json },
+                        };
+                        if (pipeServer != null && pipeServer.IsConnected)
+                        {
+                            var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                            responseMsg.RequestId = pipeMsg.RequestId;
+                            pipeServer.SendMessage(responseMsg.ToJson());
+                        }
+                        Logger.Info($"Pipe: CheckDriverUpdates — MT={probe.MachineTypeCode}, BIOS={probe.BiosVersion}, live={probe.LiveFetchSucceeded}, count={probe.Drivers.Count}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: CheckDriverUpdates threw: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // GoTweaks self-update check. Widget explicitly asks; helper
+                // serves the cached startup-probe result unless ForceRefresh=true.
+                if (pipeMsg.Extra.ContainsKey("CheckGoTweaksUpdate"))
+                {
+                    try
+                    {
+                        bool force = false;
+                        if (pipeMsg.Extra.TryGetValue("ForceRefresh", out var forceObj))
+                        {
+                            if (forceObj is bool fb) force = fb;
+                            else if (forceObj is string fs) bool.TryParse(fs, out force);
+                        }
+                        var result = (!force && Services.GoTweaksUpdateService.LastResult != null)
+                            ? Services.GoTweaksUpdateService.LastResult
+                            : await Services.GoTweaksUpdateService.CheckAsync(helperVersion);
+                        if (pipeServer != null && pipeServer.IsConnected)
+                        {
+                            var response = new global::Windows.Foundation.Collections.ValueSet
+                            {
+                                { "GoTweaksUpdate", result.ToJson() },
+                            };
+                            var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                            responseMsg.RequestId = pipeMsg.RequestId;
+                            pipeServer.SendMessage(responseMsg.ToJson());
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: CheckGoTweaksUpdate threw: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                if (pipeMsg.Extra.ContainsKey("InstallGoTweaksUpdate"))
+                {
+                    string resultJson;
+                    try
+                    {
+                        string gtUrl = null;
+                        if (pipeMsg.Extra.TryGetValue("InstallGoTweaksUpdate", out var urlObj))
+                            gtUrl = urlObj?.ToString();
+                        resultJson = await Services.GoTweaksUpdateService.InstallAsync(gtUrl);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: InstallGoTweaksUpdate threw: {ex.Message}");
+                        resultJson = "{\"success\":false,\"message\":\"" + ex.Message.Replace("\"", "'") + "\"}";
+                    }
+                    if (pipeServer != null && pipeServer.IsConnected)
+                    {
+                        var response = new global::Windows.Foundation.Collections.ValueSet
+                        {
+                            { "GoTweaksUpdateInstallResult", resultJson },
+                        };
+                        var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                        responseMsg.RequestId = pipeMsg.RequestId;
+                        pipeServer.SendMessage(responseMsg.ToJson());
+                    }
+                    return;
+                }
+
+                // Handle "update all" batch install. Widget sends an array of
+                // Lenovo download URLs; helper downloads them in parallel (bounded)
+                // and launches each installer sequentially so they don't fight
+                // over the Windows Installer mutex.
+                if (pipeMsg.Extra.ContainsKey("BatchInstallDrivers"))
+                {
+                    string batchResult;
+                    try
+                    {
+                        var urls = new List<string>();
+                        if (pipeMsg.Extra.TryGetValue("BatchInstallDrivers", out var urlsObj) && urlsObj is string joined)
+                        {
+                            // Widget serialises as newline-joined string — ValueSet doesn't
+                            // support nested arrays cleanly across the pipe contract.
+                            foreach (var line in joined.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                            {
+                                var trimmed = line.Trim();
+                                if (trimmed.Length > 0) urls.Add(trimmed);
+                            }
+                        }
+                        batchResult = await Services.LenovoDriverCheckService.BatchInstallAsync(urls);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: BatchInstallDrivers threw: {ex.Message}");
+                        batchResult = "{\"success\":false,\"message\":\"" + ex.Message.Replace("\"", "'") + "\"}";
+                    }
+                    if (pipeServer != null && pipeServer.IsConnected)
+                    {
+                        var response = new global::Windows.Foundation.Collections.ValueSet
+                        {
+                            { "DriverBatchInstallResult", batchResult },
+                        };
+                        var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                        responseMsg.RequestId = pipeMsg.RequestId;
+                        pipeServer.SendMessage(responseMsg.ToJson());
+                    }
+                    return;
+                }
+
+                // Handle driver-install request. Widget sends a Lenovo download URL;
+                // helper downloads the file to a per-session temp folder and launches
+                // it. The helper runs elevated so Lenovo EXE installers that require
+                // admin work without a second UAC prompt. Response signals start
+                // success/failure only — we don't wait for the installer to finish.
+                if (pipeMsg.Extra.ContainsKey("InstallDriverUpdate"))
+                {
+                    string resultJson;
+                    try
+                    {
+                        string installUrl = null;
+                        if (pipeMsg.Extra.TryGetValue("InstallDriverUpdate", out var urlObj))
+                        {
+                            installUrl = urlObj?.ToString();
+                        }
+                        resultJson = await Services.LenovoDriverCheckService.InstallDriverAsync(installUrl);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: InstallDriverUpdate threw: {ex.Message}");
+                        resultJson = "{\"success\":false,\"message\":\"" + ex.Message.Replace("\"", "'") + "\"}";
+                    }
+                    if (pipeServer != null && pipeServer.IsConnected)
+                    {
+                        var response = new global::Windows.Foundation.Collections.ValueSet
+                        {
+                            { "DriverInstallResult", resultJson },
+                        };
+                        var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                        responseMsg.RequestId = pipeMsg.RequestId;
+                        pipeServer.SendMessage(responseMsg.ToJson());
+                    }
+                    return;
+                }
+
                 // Handle "reapply TDP to hardware" request. After a power source change or
                 // Custom-mode re-entry, Windows/Legion firmware may silently reset TDP limits
                 // even though our cached value hasn't changed. Widget asks the helper to
@@ -1185,6 +1366,57 @@ namespace XboxGamingBarHelper
                 return false;
             }
             return pipeServer.SendMessage(message.ToJson());
+        }
+
+        /// <summary>
+        /// Pushes an unsolicited GoTweaks self-update payload to the widget.
+        /// Widget renders a Quick-tab banner + GoTweaks Update card when
+        /// IsUpdateAvailable is true (unless the user has set HideBanner).
+        /// </summary>
+        public static bool PushGoTweaksUpdate(Services.GoTweaksUpdateResult result)
+        {
+            try
+            {
+                if (pipeServer == null || !pipeServer.IsConnected) return false;
+                if (result == null) return false;
+                var payload = new global::Windows.Foundation.Collections.ValueSet
+                {
+                    { "GoTweaksUpdate", result.ToJson() },
+                };
+                var msg = Shared.IPC.PipeMessage.FromValueSet(payload);
+                return pipeServer.SendMessage(msg.ToJson());
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"PushGoTweaksUpdate failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Pushes an unsolicited "DriverUpdatesAvailable" message to the widget
+        /// after the startup driver probe completes. The widget uses this to
+        /// light up the Quick tab tile without having to ask. If the widget
+        /// isn't connected yet (launch race), this is best-effort — we'll also
+        /// push again if the widget later sends CheckDriverUpdates.
+        /// </summary>
+        public static bool PushDriverUpdatesAvailable(int count)
+        {
+            try
+            {
+                if (pipeServer == null || !pipeServer.IsConnected) return false;
+                var payload = new global::Windows.Foundation.Collections.ValueSet
+                {
+                    { "DriverUpdatesAvailable", count },
+                };
+                var msg = Shared.IPC.PipeMessage.FromValueSet(payload);
+                return pipeServer.SendMessage(msg.ToJson());
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"PushDriverUpdatesAvailable failed: {ex.Message}");
+                return false;
+            }
         }
 
         /// <summary>

@@ -462,6 +462,87 @@
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
 
+                        <!-- Driver updates tile (Legion devices only, visible only when count > 0).
+                             Helper pushes DriverUpdatesAvailable after its startup probe; the
+                             click handler jumps to the Legion tab's Driver Updates section. -->
+                        <Button x:Name="QuickDriverUpdatesTile"
+                                Visibility="Collapsed"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                Padding="14,10"
+                                Margin="0,0,0,8"
+                                Background="#2A2032"
+                                BorderBrush="#FFB060"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Click="QuickDriverUpdatesTile_Click">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Background="#FFB060" CornerRadius="14" Width="28" Height="28" VerticalAlignment="Center">
+                                    <TextBlock x:Name="QuickDriverUpdatesCountText"
+                                               Text="0"
+                                               FontSize="13"
+                                               FontWeight="Bold"
+                                               Foreground="#1A1A1A"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="QuickDriverUpdatesTitleText"
+                                               Text="Driver updates available"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="#F0F0F0"/>
+                                    <TextBlock Text="Tap to view on the Legion tab"
+                                               FontSize="11"
+                                               Foreground="#A0A0A0"/>
+                                </StackPanel>
+                                <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
+
+                        <!-- GoTweaks self-update banner: helper pushes GoTweaksUpdate
+                             after its startup probe. Tap to trigger the install (the
+                             helper downloads the signed .msixbundle and runs
+                             Add-AppxPackage). Hidden when no update or when the user
+                             opted into "Hide update banner". -->
+                        <Button x:Name="QuickGoTweaksUpdateTile"
+                                Visibility="Collapsed"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                Padding="14,10"
+                                Margin="0,0,0,8"
+                                Background="#202A38"
+                                BorderBrush="#7EB6FF"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Click="QuickGoTweaksUpdateTile_Click">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <FontIcon Grid.Column="0" Glyph="&#xE896;" FontSize="20" Foreground="#7EB6FF" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="QuickGoTweaksTitleText"
+                                               Text="GoTweaks update available"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="#F0F0F0"/>
+                                    <TextBlock x:Name="QuickGoTweaksSubtitleText"
+                                               Text="Tap to install"
+                                               FontSize="11"
+                                               Foreground="#A0A0A0"/>
+                                </StackPanel>
+                                <FontIcon Grid.Column="2" Glyph="&#xE896;" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
+
                         <!-- Quick Metrics Row (compact stats display - dynamically populated) -->
                         <Border x:Name="QuickMetricsRow"
                                 Background="#1A1C1E"
@@ -477,6 +558,64 @@
 
                         <!-- Dynamic Tiles Container - tiles generated in code-behind -->
                         <StackPanel x:Name="QuickSettingsTilesContainer"/>
+
+                        <!-- GoTweaks Updates: installed version / latest release /
+                             checkboxes for auto-install and banner hide. Always visible
+                             (not device-specific). -->
+                        <TextBlock Text="GOTWEAKS UPDATES" Style="{StaticResource SectionHeaderStyle}" Margin="0,16,0,0"/>
+                        <Border x:Name="GoTweaksUpdateCard" Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="130"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Installed" FontSize="13" Foreground="#AAAAAA"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="GoTweaksInstalledVersionText" Text="—" FontSize="13" Foreground="#E0E0E0"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Latest" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="GoTweaksLatestVersionText" Text="Checking…" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0"/>
+                                </Grid>
+
+                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+                                    <Button x:Name="GoTweaksCheckButton"
+                                            Content="Check for update"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Click="GoTweaksCheckButton_Click"/>
+                                    <Button x:Name="GoTweaksInstallButton"
+                                            Content="Install update"
+                                            Visibility="Collapsed"
+                                            Style="{StaticResource ModernButtonStyle}"
+                                            Click="GoTweaksInstallButton_Click"/>
+                                </StackPanel>
+
+                                <TextBlock x:Name="GoTweaksStatusText"
+                                           Text=""
+                                           FontSize="11"
+                                           Foreground="#888888"
+                                           TextWrapping="Wrap"
+                                           Margin="0,8,0,0"/>
+
+                                <CheckBox x:Name="GoTweaksUpdateOnStartCheckbox"
+                                          Content="Install GoTweaks updates on start"
+                                          IsChecked="False"
+                                          FontSize="12"
+                                          Foreground="#AAAAAA"
+                                          Margin="0,8,0,0"
+                                          Checked="GoTweaksUpdateOnStartCheckbox_Changed"
+                                          Unchecked="GoTweaksUpdateOnStartCheckbox_Changed"/>
+                                <CheckBox x:Name="GoTweaksHideBannerCheckbox"
+                                          Content="Hide GoTweaks update banner on Quick tab"
+                                          IsChecked="False"
+                                          FontSize="12"
+                                          Foreground="#AAAAAA"
+                                          Checked="GoTweaksHideBannerCheckbox_Changed"
+                                          Unchecked="GoTweaksHideBannerCheckbox_Changed"/>
+                            </StackPanel>
+                        </Border>
 
                         <!-- Customize Button -->
                         <Button x:Name="QuickSettingsCustomizeButton"
@@ -7518,6 +7657,150 @@
                                            FontSize="14"
                                            Foreground="#A0A0A0"
                                            Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Driver Updates Card (Lenovo): machine type + installed BIOS +
+                             direct link to the correct Lenovo downloads page, with a
+                             best-effort live driver list fetched from pcsupport.lenovo.com -->
+                        <TextBlock Text="DRIVER UPDATES" Style="{StaticResource SectionHeaderStyle}"/>
+                        <Border x:Name="DriverUpdatesCard" Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Lenovo Driver Updates" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Check Lenovo's driver page for this machine type"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="DriverUpdatesExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="True"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="DriverUpdatesExpandToggle_Click">
+                                        <FontIcon x:Name="DriverUpdatesExpandIcon" Glyph="&#xE70E;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+                                <StackPanel x:Name="DriverUpdatesContent" Spacing="10" Margin="0,12,0,0">
+                                    <!-- Machine info: two rows of label:value -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Machine type" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="DriverUpdatesMachineType" Text="—" FontSize="13" Foreground="#E0E0E0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Model" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="DriverUpdatesModel" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Installed BIOS" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="DriverUpdatesBios" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0"/>
+                                    </Grid>
+
+                                    <!-- Actions row -->
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button x:Name="DriverUpdatesCheckButton"
+                                                Content="Check for updates"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesCheckButton_Click"/>
+                                        <Button x:Name="DriverUpdatesUpdateAllButton"
+                                                Content="Update all"
+                                                Visibility="Collapsed"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesUpdateAllButton_Click"/>
+                                        <Button x:Name="DriverUpdatesOpenPageButton"
+                                                Content="Open Lenovo driver page"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesOpenPageButton_Click"/>
+                                    </StackPanel>
+
+                                    <TextBlock x:Name="DriverUpdatesStatusText"
+                                               Text="Click Check for updates to query Lenovo."
+                                               FontSize="11"
+                                               Foreground="#888888"
+                                               TextWrapping="Wrap"/>
+
+                                    <!-- Category filter: utilities/diagnostics hidden by default -->
+                                    <CheckBox x:Name="DriverUpdatesShowUtilitiesCheckbox"
+                                              Content="Show utilities and diagnostics"
+                                              IsChecked="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesShowUtilitiesCheckbox_Changed"
+                                              Unchecked="DriverUpdatesShowUtilitiesCheckbox_Changed"/>
+
+                                    <!-- Auto-install + banner-hide preferences. Persisted in
+                                         LocalSettings. UpdateOnStart triggers Update-all the
+                                         moment the helper pushes a non-zero driver-update count. -->
+                                    <CheckBox x:Name="DriverUpdatesUpdateOnStartCheckbox"
+                                              Content="Install driver updates on start"
+                                              IsChecked="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesUpdateOnStartCheckbox_Changed"
+                                              Unchecked="DriverUpdatesUpdateOnStartCheckbox_Changed"/>
+                                    <CheckBox x:Name="DriverUpdatesHideBannerCheckbox"
+                                              Content="Hide driver-update banner on Quick tab"
+                                              IsChecked="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesHideBannerCheckbox_Changed"
+                                              Unchecked="DriverUpdatesHideBannerCheckbox_Changed"/>
+
+                                    <!-- Live driver list (populated when the pcsupport API responds) -->
+                                    <ItemsControl x:Name="DriverUpdatesList" Visibility="Collapsed">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#1A1A2E" CornerRadius="4" Padding="10,8" Margin="0,4,0,0">
+                                                    <StackPanel>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="13" Foreground="#E0E0E0" TextWrapping="Wrap"/>
+                                                            <!-- Status chip: color comes from StatusColor ("#55C855" up-to-date, "#FFB060" update, "#888" unknown/not-installed) -->
+                                                            <Border Grid.Column="1" Background="{Binding StatusColor}" CornerRadius="10" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding StatusLabel}" FontSize="10" Foreground="#FFFFFF"/>
+                                                            </Border>
+                                                        </Grid>
+                                                        <TextBlock FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                            <Run Text="{Binding Category}"/><Run Text=" • "/><Run Text="{Binding Severity}"/>
+                                                        </TextBlock>
+                                                        <TextBlock FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                            <Run Text="Installed:"/><Run Text=" "/><Run Text="{Binding InstalledVersion}"/><Run Text="  →  "/><Run Text="Latest:"/><Run Text=" "/><Run Text="{Binding Version}"/>
+                                                        </TextBlock>
+                                                        <Grid Margin="0,4,0,0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding ReleaseDate, FallbackValue=''}" FontSize="10" Foreground="#666666" VerticalAlignment="Center"/>
+                                                            <Button Grid.Column="1"
+                                                                    Content="{Binding InstallButtonLabel}"
+                                                                    Tag="{Binding DownloadUrl}"
+                                                                    Visibility="{Binding InstallButtonVisibility}"
+                                                                    Style="{StaticResource ModernButtonStyle}"
+                                                                    FontSize="11"
+                                                                    Padding="10,4"
+                                                                    Click="DriverInstallButton_Click"/>
+                                                        </Grid>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 

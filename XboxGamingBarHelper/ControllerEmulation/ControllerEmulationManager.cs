@@ -532,8 +532,29 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
             Logger.Info($"ControllerEmulationManager initialized. DeviceType={deviceType}, Supported={isSupported}, Enabled={enabled}, HideStockController={hideStockController}, HideTarget={hideTarget}, ImprovedInput={improvedInputRead}, GyroSource={gyroSource}, Mode={mode}, RumbleProfile={rumbleProfile}, GyroActivationMode={gyroActivationMode}, GyroActivationButton={gyroActivationButton}, Ds4Orientation={ds4Orientation}, Ps4TouchpadEnabled={ps4TouchpadEnabled}");
 
-            // Apply persisted settings on startup when supported.
-            ApplyCurrentConfiguration("startup");
+            // Apply persisted settings on startup when supported — deferred.
+            //
+            // ApplyCurrentConfiguration drives HidHide suppression + VIIPER
+            // USBIP bus bring-up, which does a PnP cycle-port on the Legion
+            // controller HID stack and takes ~6–8 s of real time. Running it
+            // synchronously here blocked the helper's main Initialize() path
+            // for that whole window, keeping _managersReady=false and making
+            // the widget display "Not Connected" / spinners on launch for
+            // ~14 s total (managers core was only 400 ms). Move the apply to
+            // the thread pool so the property list is complete immediately —
+            // the side effects settle in the background and UI is free to
+            // bind and render while HidHide churns.
+            _ = System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    ApplyCurrentConfiguration("startup");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"ControllerEmulationManager: deferred startup apply failed — {ex.Message}");
+                }
+            });
         }
 
         public override void Update()

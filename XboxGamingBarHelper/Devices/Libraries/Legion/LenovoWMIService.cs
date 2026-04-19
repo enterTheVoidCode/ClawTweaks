@@ -480,7 +480,18 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
 
         /// <summary>
         /// Sets a custom fan curve via LENOVO_FAN_METHOD.Fan_Set_Table.
-        /// Uses 40-byte FanTable format: 10 fan speeds as 4-byte DWORDs (2 bytes value + 2 bytes padding).
+        ///
+        /// Uses the 64-byte FanTable layout the Lenovo WMI interface actually accepts on
+        /// Legion Go firmware (confirmed by WMI returning "Invalid parameter" on the
+        /// prior 40-byte HandheldCompanion-style layout):
+        ///     [0]   FSTM = 0x01  (table mode: custom)
+        ///     [1]   FSID = 0x00  (fan id; 0 = combined)
+        ///     [2..5] FSTL = 0x00000000  (length/flags)
+        ///     [6..25] 10 × ushort fan speeds (percent 0–100)
+        ///     [26..63] zero padding
+        /// The previous "fix" that swapped to a 40-byte 10×DWORD layout matched another
+        /// project's docs but Legion Go's firmware rejects every Fan_Set_Table call at
+        /// that size, which is why users reported fan curve "not working at all anymore".
         /// </summary>
         /// <param name="fanSpeeds">Array of exactly 10 fan speed percentages (0-100)</param>
         /// <returns>Tuple containing success status and message</returns>
@@ -498,15 +509,19 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
 
             try
             {
-                // Build fan table bytes - matching HandheldCompanion FanTable format
-                var fanTableBytes = new byte[40]; // 10 * 4 bytes
-                for (int i = 0; i < 10; i++)
+                // Build the 64-byte FanTable (see method doc for layout).
+                var fanTableBytes = new byte[64];
+                using (var ms = new System.IO.MemoryStream(fanTableBytes))
+                using (var writer = new System.IO.BinaryWriter(ms))
                 {
-                    var bytes = BitConverter.GetBytes(fanSpeeds[i]);
-                    fanTableBytes[i * 4] = bytes[0];
-                    fanTableBytes[i * 4 + 1] = bytes[1];
-                    fanTableBytes[i * 4 + 2] = 0;
-                    fanTableBytes[i * 4 + 3] = 0;
+                    writer.Write((byte)1);   // FSTM = 1 (custom table mode)
+                    writer.Write((byte)0);   // FSID = 0 (combined fans)
+                    writer.Write((uint)0);   // FSTL = 0 (4 bytes)
+                    for (int i = 0; i < 10; i++)
+                    {
+                        writer.Write(fanSpeeds[i]); // 2 bytes each, 20 bytes total
+                    }
+                    // Remaining bytes stay zero (padding to 64).
                 }
 
                 using (var searcher = new ManagementObjectSearcher(WMI_NAMESPACE, "SELECT * FROM LENOVO_FAN_METHOD"))
@@ -549,13 +564,15 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                             if (outParams != null)
                             {
                                 var tableBytes = (byte[])outParams["FanTable"];
-                                if (tableBytes != null && tableBytes.Length >= 40) // 10 * 4 bytes
+                                // 64-byte layout: 6-byte header (FSTM + FSID + FSTL) followed
+                                // by 10 × ushort fan speeds at offset 6. Matches the write
+                                // side's SetFanCurve layout.
+                                if (tableBytes != null && tableBytes.Length >= 26)
                                 {
-                                    // Parse 40-byte format: 10 DWORDs (2 bytes value + 2 bytes padding each)
                                     var fanSpeeds = new ushort[10];
                                     for (int i = 0; i < 10; i++)
                                     {
-                                        fanSpeeds[i] = BitConverter.ToUInt16(tableBytes, i * 4);
+                                        fanSpeeds[i] = BitConverter.ToUInt16(tableBytes, 6 + i * 2);
                                     }
                                     _lastSetFanCurve = fanSpeeds;
                                     return (true, $"Fan curve: [{string.Join(", ", fanSpeeds)}]%", fanSpeeds);

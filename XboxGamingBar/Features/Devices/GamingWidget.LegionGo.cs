@@ -230,6 +230,775 @@ namespace XboxGamingBar
             }
         }
 
+        // ---- Driver Updates (Lenovo) --------------------------------------------------
+
+        private void DriverUpdatesExpandToggle_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            if (DriverUpdatesContent == null || DriverUpdatesExpandIcon == null) return;
+            bool expand = DriverUpdatesExpandToggle?.IsChecked == true;
+            DriverUpdatesContent.Visibility = expand ? Visibility.Visible : Visibility.Collapsed;
+            // \uE70E = chevron down (collapsed), \uE70D = chevron up (expanded)
+            DriverUpdatesExpandIcon.Glyph = expand ? "\uE70E" : "\uE70D";
+        }
+
+        private async void DriverUpdatesCheckButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            if (DriverUpdatesCheckButton == null) return;
+
+            string originalContent = DriverUpdatesCheckButton.Content?.ToString() ?? "Check for updates";
+            DriverUpdatesCheckButton.IsEnabled = false;
+            DriverUpdatesCheckButton.Content = "Checking…";
+            if (DriverUpdatesStatusText != null)
+                DriverUpdatesStatusText.Text = "Reading machine info and contacting Lenovo…";
+            if (DriverUpdatesList != null)
+                DriverUpdatesList.Visibility = Visibility.Collapsed;
+
+            try
+            {
+                if (!App.IsConnected)
+                {
+                    if (DriverUpdatesStatusText != null)
+                        DriverUpdatesStatusText.Text = "Helper not connected. Try again once the widget reconnects.";
+                    return;
+                }
+
+                var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("CheckDriverUpdates", true);
+                var response = await App.SendMessageAsync(request);
+                if (response == null)
+                {
+                    if (DriverUpdatesStatusText != null)
+                        DriverUpdatesStatusText.Text = "No response from helper.";
+                    return;
+                }
+
+                if (!response.TryGetValue("DriverUpdateResult", out var payloadObj) || !(payloadObj is string payload))
+                {
+                    if (DriverUpdatesStatusText != null)
+                        DriverUpdatesStatusText.Text = "Helper returned an unexpected response shape.";
+                    return;
+                }
+
+                RenderDriverUpdateResult(payload);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"DriverUpdatesCheckButton_Click failed: {ex.Message}");
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = $"Check failed: {ex.Message}";
+            }
+            finally
+            {
+                DriverUpdatesCheckButton.IsEnabled = true;
+                DriverUpdatesCheckButton.Content = originalContent;
+            }
+        }
+
+        private async void DriverUpdatesOpenPageButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            try
+            {
+                // If we already know the MT code from a previous Check, use that URL
+                // directly; otherwise ask the helper for a fresh snapshot so we can
+                // route to the correct machine-specific page.
+                string url = _lastDriverPageUrl;
+                if (string.IsNullOrEmpty(url) && App.IsConnected)
+                {
+                    var request = new Windows.Foundation.Collections.ValueSet();
+                    request.Add("CheckDriverUpdates", true);
+                    var response = await App.SendMessageAsync(request);
+                    if (response != null && response.TryGetValue("DriverUpdateResult", out var payloadObj) && payloadObj is string payload)
+                    {
+                        RenderDriverUpdateResult(payload);
+                        url = _lastDriverPageUrl;
+                    }
+                }
+                if (string.IsNullOrEmpty(url))
+                {
+                    url = "https://pcsupport.lenovo.com/";
+                }
+                await Windows.System.Launcher.LaunchUriAsync(new Uri(url));
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"DriverUpdatesOpenPageButton_Click failed: {ex.Message}");
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = $"Couldn't open browser: {ex.Message}";
+            }
+        }
+
+        private string _lastDriverPageUrl;
+
+        /// <summary>
+        /// Parses the helper's DriverUpdateResult JSON (shipped over the pipe as a
+        /// camelCase JSON string) and writes it into the UI. Uses Windows.Data.Json
+        /// because the UWP widget targets C# 7.3 without System.Text.Json. Defensive
+        /// against missing fields — any field the helper couldn't populate shows "—".
+        /// </summary>
+        private void RenderDriverUpdateResult(string json)
+        {
+            try
+            {
+                if (!Windows.Data.Json.JsonObject.TryParse(json, out var root))
+                {
+                    if (DriverUpdatesStatusText != null)
+                        DriverUpdatesStatusText.Text = "Helper returned a response the widget couldn't parse.";
+                    return;
+                }
+
+                string GetStr(string name) =>
+                    (root.TryGetValue(name, out var v) && v.ValueType == Windows.Data.Json.JsonValueType.String)
+                        ? v.GetString() ?? "" : "";
+                bool GetBool(string name) =>
+                    root.TryGetValue(name, out var v) && v.ValueType == Windows.Data.Json.JsonValueType.Boolean && v.GetBoolean();
+
+                string mt = GetStr("machineTypeCode");
+                string model = GetStr("model");
+                string modelVersion = GetStr("modelVersion");
+                string bios = GetStr("biosVersion");
+                string pageUrl = GetStr("driverPageUrl");
+                bool isLenovo = GetBool("isLenovo");
+                bool liveFetch = GetBool("liveFetchSucceeded");
+                string error = GetStr("errorMessage");
+
+                _lastDriverPageUrl = string.IsNullOrEmpty(pageUrl) ? "https://pcsupport.lenovo.com/" : pageUrl;
+                if (DriverUpdatesMachineType != null) DriverUpdatesMachineType.Text = string.IsNullOrEmpty(mt) ? "—" : mt;
+                if (DriverUpdatesModel != null)
+                {
+                    string modelText = string.IsNullOrEmpty(model) ? (string.IsNullOrEmpty(modelVersion) ? "—" : modelVersion) : model;
+                    DriverUpdatesModel.Text = modelText;
+                }
+                if (DriverUpdatesBios != null) DriverUpdatesBios.Text = string.IsNullOrEmpty(bios) ? "—" : bios;
+
+                if (!isLenovo)
+                {
+                    if (DriverUpdatesStatusText != null)
+                        DriverUpdatesStatusText.Text = string.IsNullOrEmpty(error)
+                            ? "This feature only works on Lenovo devices."
+                            : $"Not a Lenovo device: {error}";
+                    if (DriverUpdatesList != null) DriverUpdatesList.Visibility = Visibility.Collapsed;
+                    return;
+                }
+
+                // Render the driver list if we got one. If Lenovo's API didn't respond
+                // (live fetch failed or returned empty), fall back to prompting the
+                // user to open the driver page in a browser.
+                var items = new System.Collections.Generic.List<DriverDisplay>();
+                if (root.TryGetValue("drivers", out var driversVal) && driversVal.ValueType == Windows.Data.Json.JsonValueType.Array)
+                {
+                    foreach (var elem in driversVal.GetArray())
+                    {
+                        if (elem.ValueType != Windows.Data.Json.JsonValueType.Object) continue;
+                        var d = elem.GetObject();
+                        string GetD(string key) =>
+                            (d.TryGetValue(key, out var vv) && vv.ValueType == Windows.Data.Json.JsonValueType.String)
+                                ? vv.GetString() ?? "" : "";
+                        int statusCode = 0;
+                        if (d.TryGetValue("updateStatus", out var usVal) && usVal.ValueType == Windows.Data.Json.JsonValueType.Number)
+                            statusCode = (int)usVal.GetNumber();
+                        string installed = GetD("installedVersion");
+                        string downloadUrl = GetD("downloadUrl");
+                        var (installLabel, installVis) = InstallButtonForStatus(statusCode, downloadUrl);
+                        items.Add(new DriverDisplay
+                        {
+                            Name = GetD("name"),
+                            Category = GetD("category"),
+                            Version = GetD("version"),
+                            ReleaseDate = GetD("releaseDate"),
+                            DownloadUrl = downloadUrl,
+                            Severity = SeverityLabel(GetD("severity")),
+                            InstalledVersion = string.IsNullOrWhiteSpace(installed) ? "—" : installed,
+                            StatusLabel = StatusLabelFor(statusCode),
+                            StatusColor = StatusColorFor(statusCode),
+                            InstallButtonLabel = installLabel,
+                            InstallButtonVisibility = installVis,
+                        });
+                    }
+                }
+
+                // Remember the full list so the utilities/diagnostics checkbox
+                // can filter it on the fly without another helper round-trip.
+                _allDriverDisplays = items;
+
+                // Restore checkbox state from LocalSettings (first render after
+                // widget startup) — no-op on later renders since the state
+                // already matches.
+                if (DriverUpdatesShowUtilitiesCheckbox != null)
+                {
+                    var persisted = DriverUpdatesShowUtilities;
+                    if ((DriverUpdatesShowUtilitiesCheckbox.IsChecked == true) != persisted)
+                        DriverUpdatesShowUtilitiesCheckbox.IsChecked = persisted;
+                }
+
+                ApplyDriverFilters();
+                UpdateUpdateAllButtonVisibility();
+
+                if (DriverUpdatesStatusText != null)
+                {
+                    if (items.Count > 0)
+                    {
+                        int upToDate = 0, update = 0, unknown = 0, notInstalled = 0;
+                        foreach (var it in items)
+                        {
+                            switch (it.StatusLabel)
+                            {
+                                case "Up to date": upToDate++; break;
+                                case "Update": update++; break;
+                                case "Not installed": notInstalled++; break;
+                                default: unknown++; break;
+                            }
+                        }
+                        DriverUpdatesStatusText.Text = $"{items.Count} drivers checked — {upToDate} up to date, {update} update available, {notInstalled} not installed, {unknown} unknown.";
+                    }
+                    else if (liveFetch)
+                    {
+                        DriverUpdatesStatusText.Text = "Lenovo returned no drivers for this machine type.";
+                    }
+                    else
+                    {
+                        DriverUpdatesStatusText.Text = "Lenovo's live driver list is unreachable. Use Open Lenovo driver page to browse on lenovo.com.";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"RenderDriverUpdateResult parse failed: {ex.Message}");
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = $"Couldn't parse response: {ex.Message}";
+            }
+        }
+
+        private sealed class DriverDisplay
+        {
+            public string Name { get; set; }
+            public string Category { get; set; }
+            public string Version { get; set; }
+            public string ReleaseDate { get; set; }
+            public string DownloadUrl { get; set; }
+            /// <summary>Human-readable severity label ("Critical", "Recommended", "Optional").</summary>
+            public string Severity { get; set; }
+            /// <summary>Installed driver version on this device (or "—" when unmatched).</summary>
+            public string InstalledVersion { get; set; }
+            /// <summary>Short badge label ("Up to date", "Update", "Not installed", "Unknown").</summary>
+            public string StatusLabel { get; set; }
+            /// <summary>Solid-color hex (#AARRGGBB) for the status pill background.</summary>
+            public Windows.UI.Xaml.Media.Brush StatusColor { get; set; }
+            /// <summary>"Install" when missing, "Update" when outdated — empty when neither applies (hides the button).</summary>
+            public string InstallButtonLabel { get; set; }
+            /// <summary>Visibility of the Install/Update button — hidden when the driver is up-to-date or has no download URL.</summary>
+            public Windows.UI.Xaml.Visibility InstallButtonVisibility { get; set; }
+        }
+
+        // Cached full driver list so the "Show utilities and diagnostics"
+        // checkbox can toggle visibility without re-querying the helper.
+        // Populated by RenderDriverUpdateResult, consumed by ApplyDriverFilters.
+        private System.Collections.Generic.List<DriverDisplay> _allDriverDisplays = new System.Collections.Generic.List<DriverDisplay>();
+
+        // Categories suppressed by default. User toggles via the checkbox —
+        // persisted in LocalSettings so the preference survives widget
+        // restarts without needing a dedicated property.
+        private static readonly System.Collections.Generic.HashSet<string> _lowSignalDriverCategories =
+            new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+            {
+                "Diagnostic",
+                "Software and Utilities",
+                "Tool",
+            };
+
+        private const string DriverUpdatesShowUtilitiesKey = "DriverUpdates_ShowUtilities";
+        private const string DriverUpdatesUpdateOnStartKey = "DriverUpdates_UpdateOnStart";
+        private const string DriverUpdatesHideBannerKey    = "DriverUpdates_HideBanner";
+
+        // Tracks whether we've already fired Update-all for this helper
+        // session — otherwise every subsequent push (reconnect, manual
+        // re-check) would re-kick the installers.
+        private bool _driverAutoUpdateFiredThisSession;
+
+        private static bool GetBoolSetting(string key, bool defaultValue)
+        {
+            try
+            {
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                if (settings.Values.TryGetValue(key, out var v) && v is bool b) return b;
+            }
+            catch { }
+            return defaultValue;
+        }
+
+        private static void SetBoolSetting(string key, bool value)
+        {
+            try { Windows.Storage.ApplicationData.Current.LocalSettings.Values[key] = value; }
+            catch { }
+        }
+
+        private bool DriverUpdatesUpdateOnStart
+        {
+            get => GetBoolSetting(DriverUpdatesUpdateOnStartKey, false);
+            set => SetBoolSetting(DriverUpdatesUpdateOnStartKey, value);
+        }
+        private bool DriverUpdatesHideBanner
+        {
+            get => GetBoolSetting(DriverUpdatesHideBannerKey, false);
+            set => SetBoolSetting(DriverUpdatesHideBannerKey, value);
+        }
+
+        private void DriverUpdatesUpdateOnStartCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            if (DriverUpdatesUpdateOnStartCheckbox == null) return;
+            DriverUpdatesUpdateOnStart = DriverUpdatesUpdateOnStartCheckbox.IsChecked == true;
+        }
+
+        private void DriverUpdatesHideBannerCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            if (DriverUpdatesHideBannerCheckbox == null) return;
+            DriverUpdatesHideBanner = DriverUpdatesHideBannerCheckbox.IsChecked == true;
+            // Re-evaluate tile visibility right now so the setting has an
+            // immediate effect without waiting for the next helper push.
+            if (QuickDriverUpdatesTile != null && DriverUpdatesHideBanner)
+            {
+                QuickDriverUpdatesTile.Visibility = Windows.UI.Xaml.Visibility.Collapsed;
+            }
+        }
+
+        private bool DriverUpdatesShowUtilities
+        {
+            get
+            {
+                try
+                {
+                    var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                    if (settings.Values.TryGetValue(DriverUpdatesShowUtilitiesKey, out var v) && v is bool b) return b;
+                }
+                catch { }
+                return false;
+            }
+            set
+            {
+                try
+                {
+                    Windows.Storage.ApplicationData.Current.LocalSettings.Values[DriverUpdatesShowUtilitiesKey] = value;
+                }
+                catch { }
+            }
+        }
+
+        /// <summary>
+        /// Called from the pipe-message handler when the helper pushes a
+        /// startup-probe result. Shows/hides the Quick-tab tile and updates
+        /// the count badge on the UI thread.
+        /// </summary>
+        internal async void UpdateDriverUpdatesTile(int count)
+        {
+            try
+            {
+                bool hideBanner = DriverUpdatesHideBanner;
+                bool updateOnStart = DriverUpdatesUpdateOnStart;
+
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    if (QuickDriverUpdatesTile == null) return;
+                    // Sync the checkboxes themselves with persisted state so
+                    // the user sees the current setting on first render.
+                    if (DriverUpdatesUpdateOnStartCheckbox != null && DriverUpdatesUpdateOnStartCheckbox.IsChecked != updateOnStart)
+                        DriverUpdatesUpdateOnStartCheckbox.IsChecked = updateOnStart;
+                    if (DriverUpdatesHideBannerCheckbox != null && DriverUpdatesHideBannerCheckbox.IsChecked != hideBanner)
+                        DriverUpdatesHideBannerCheckbox.IsChecked = hideBanner;
+
+                    bool visible = count > 0
+                                   && legionGoDetected != null
+                                   && legionGoDetected.Value
+                                   && !hideBanner;
+                    QuickDriverUpdatesTile.Visibility = visible
+                        ? Windows.UI.Xaml.Visibility.Visible
+                        : Windows.UI.Xaml.Visibility.Collapsed;
+                    if (QuickDriverUpdatesCountText != null)
+                        QuickDriverUpdatesCountText.Text = count.ToString();
+                    if (QuickDriverUpdatesTitleText != null)
+                        QuickDriverUpdatesTitleText.Text = count == 1
+                            ? "1 driver update available"
+                            : count + " driver updates available";
+
+                    // Keep the in-card "Update all" button in sync with the
+                    // same count — it's visible whenever there's at least one
+                    // installable row (Install or Update).
+                    UpdateUpdateAllButtonVisibility();
+                });
+
+                // Pre-populate the driver list so a later tile/tab click shows
+                // it instantly instead of requiring another Check-for-updates
+                // press. Helper serves this from its startup-probe cache so
+                // there's no Lenovo round-trip here.
+                if (count > 0 && (_allDriverDisplays == null || _allDriverDisplays.Count == 0))
+                {
+                    await PrefetchDriverUpdatesAsync();
+                }
+
+                // Auto-install if the user has opted in AND we haven't already
+                // fired this session. Guard with a one-shot flag so a reconnect
+                // or manual re-check doesn't trigger another install pass.
+                if (updateOnStart && count > 0 && !_driverAutoUpdateFiredThisSession)
+                {
+                    _driverAutoUpdateFiredThisSession = true;
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
+                    {
+                        try
+                        {
+                            DriverUpdatesUpdateAllButton_Click(
+                                DriverUpdatesUpdateAllButton ?? new Windows.UI.Xaml.Controls.Button(),
+                                new Windows.UI.Xaml.RoutedEventArgs());
+                        }
+                        catch (Exception ex) { Logger.Warn($"Auto Update-all failed: {ex.Message}"); }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"UpdateDriverUpdatesTile failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Shows "Update all" button when any cached driver row has a button
+        /// visible (i.e. Install or Update status with a download URL).
+        /// </summary>
+        private void UpdateUpdateAllButtonVisibility()
+        {
+            if (DriverUpdatesUpdateAllButton == null) return;
+            bool anyInstallable = false;
+            foreach (var d in _allDriverDisplays)
+            {
+                if (d.InstallButtonVisibility == Windows.UI.Xaml.Visibility.Visible
+                    && !string.IsNullOrWhiteSpace(d.DownloadUrl))
+                {
+                    anyInstallable = true;
+                    break;
+                }
+            }
+            DriverUpdatesUpdateAllButton.Visibility = anyInstallable
+                ? Windows.UI.Xaml.Visibility.Visible
+                : Windows.UI.Xaml.Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// Clicking the Quick-tab driver-updates tile programmatically checks
+        /// the Legion nav radio button, which NavRadioButton_Checked picks up
+        /// and uses to switch to the Legion tab (scrolling to top).
+        /// </summary>
+        private async void QuickDriverUpdatesTile_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            try
+            {
+                // Switch to Legion tab first (idempotent if already selected).
+                if (LegionNavItem != null && LegionNavItem.IsChecked != true)
+                {
+                    LegionNavItem.IsChecked = true;
+                }
+
+                // If we haven't yet populated the driver list in this session
+                // (widget was re-opened since the helper pushed the count),
+                // request from helper now. Helper serves from cache after the
+                // first live fetch, so this is cheap — no Lenovo round-trip.
+                if (_allDriverDisplays == null || _allDriverDisplays.Count == 0)
+                {
+                    await PrefetchDriverUpdatesAsync();
+                }
+
+                // Let XAML lay out and the ScrollViewer recognise its new
+                // content before we try to bring the card into view — otherwise
+                // the viewport math is still pointing at the old tab.
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
+                {
+                    try
+                    {
+                        if (DriverUpdatesCard != null)
+                        {
+                            DriverUpdatesCard.StartBringIntoView(new Windows.UI.Xaml.BringIntoViewOptions
+                            {
+                                VerticalAlignmentRatio = 0.0,
+                                AnimationDesired = true,
+                            });
+                        }
+                        else if (LegionScrollViewer != null)
+                        {
+                            // Fallback: no x:Name match, just scroll to the
+                            // bottom since the card sits at the end of the tab.
+                            LegionScrollViewer.ChangeView(null, LegionScrollViewer.ExtentHeight, null, false);
+                        }
+                    }
+                    catch (Exception ex) { Logger.Debug($"Scroll-to-card failed: {ex.Message}"); }
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"QuickDriverUpdatesTile_Click failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Silently fetches the driver list from the helper cache and renders it
+        /// without toggling any button states. Used when the user clicks the
+        /// Quick-tab tile for the first time — they expect to see the list
+        /// already populated, not have to press "Check for updates" again.
+        /// </summary>
+        private async Task PrefetchDriverUpdatesAsync()
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+                var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("CheckDriverUpdates", true);
+                var response = await App.SendMessageAsync(request);
+                if (response == null) return;
+                if (response.TryGetValue("DriverUpdateResult", out var payloadObj) && payloadObj is string payload)
+                {
+                    RenderDriverUpdateResult(payload);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"PrefetchDriverUpdatesAsync failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// "Update all" click: collect every row that has an Install/Update
+        /// button visible, send all URLs in one batch pipe message to the
+        /// helper. Helper downloads them in parallel then launches sequentially.
+        /// </summary>
+        private async void DriverUpdatesUpdateAllButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            if (DriverUpdatesUpdateAllButton == null) return;
+            var urls = new System.Collections.Generic.List<string>();
+            foreach (var d in _allDriverDisplays)
+            {
+                if (d.InstallButtonVisibility == Windows.UI.Xaml.Visibility.Visible
+                    && !string.IsNullOrWhiteSpace(d.DownloadUrl))
+                {
+                    urls.Add(d.DownloadUrl);
+                }
+            }
+            if (urls.Count == 0)
+            {
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = "Nothing to install.";
+                return;
+            }
+
+            string originalLabel = DriverUpdatesUpdateAllButton.Content?.ToString() ?? "Update all";
+            DriverUpdatesUpdateAllButton.IsEnabled = false;
+            DriverUpdatesUpdateAllButton.Content = $"Updating {urls.Count}\u2026";
+            if (DriverUpdatesStatusText != null)
+                DriverUpdatesStatusText.Text = $"Downloading {urls.Count} installers\u2026";
+
+            try
+            {
+                if (!App.IsConnected)
+                {
+                    if (DriverUpdatesStatusText != null)
+                        DriverUpdatesStatusText.Text = "Helper not connected — can't install.";
+                    return;
+                }
+
+                var request = new Windows.Foundation.Collections.ValueSet();
+                // ValueSet can't nest arrays across the pipe contract — join
+                // with newlines, helper splits on \n.
+                request.Add("BatchInstallDrivers", string.Join("\n", urls));
+                var response = await App.SendMessageAsync(request);
+
+                string message = "Done.";
+                if (response != null && response.TryGetValue("DriverBatchInstallResult", out var payloadObj) && payloadObj is string payload)
+                {
+                    try
+                    {
+                        if (Windows.Data.Json.JsonObject.TryParse(payload, out var root))
+                        {
+                            string msg = root.TryGetValue("message", out var m)
+                                         && m.ValueType == Windows.Data.Json.JsonValueType.String
+                                         ? m.GetString() : "";
+                            if (!string.IsNullOrWhiteSpace(msg)) message = msg;
+                        }
+                    }
+                    catch (Exception ex) { Logger.Warn($"Batch install parse failed: {ex.Message}"); }
+                }
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = message;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"DriverUpdatesUpdateAllButton_Click failed: {ex.Message}");
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = $"Update all failed: {ex.Message}";
+            }
+            finally
+            {
+                DriverUpdatesUpdateAllButton.Content = originalLabel;
+                DriverUpdatesUpdateAllButton.IsEnabled = true;
+            }
+        }
+
+        private void DriverUpdatesShowUtilitiesCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            if (DriverUpdatesShowUtilitiesCheckbox == null) return;
+            DriverUpdatesShowUtilities = DriverUpdatesShowUtilitiesCheckbox.IsChecked == true;
+            ApplyDriverFilters();
+        }
+
+        /// <summary>
+        /// Filters <see cref="_allDriverDisplays"/> by the utilities/diagnostics
+        /// checkbox and rebinds the visible list. Kept separate from the
+        /// parse path so the checkbox can toggle without re-hitting Lenovo.
+        /// </summary>
+        private void ApplyDriverFilters()
+        {
+            if (DriverUpdatesList == null) return;
+            bool showUtilities = DriverUpdatesShowUtilities;
+
+            var visible = new System.Collections.Generic.List<DriverDisplay>();
+            foreach (var d in _allDriverDisplays)
+            {
+                if (!showUtilities && _lowSignalDriverCategories.Contains(d.Category ?? ""))
+                    continue;
+                visible.Add(d);
+            }
+
+            DriverUpdatesList.ItemsSource = visible;
+            DriverUpdatesList.Visibility = visible.Count > 0
+                ? Windows.UI.Xaml.Visibility.Visible
+                : Windows.UI.Xaml.Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// Click handler for the per-row Install/Update button. Sends the
+        /// download URL to the helper, which runs elevated and can launch
+        /// the Lenovo installer without an extra UAC prompt. Updates the
+        /// button label to "Installing…" during the pipe round-trip so the
+        /// user has feedback while the download runs.
+        /// </summary>
+        private async void DriverInstallButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            var button = sender as Windows.UI.Xaml.Controls.Button;
+            if (button == null) return;
+            var url = button.Tag as string;
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = "No download URL for that driver.";
+                return;
+            }
+
+            string originalLabel = button.Content?.ToString() ?? "Install";
+            button.IsEnabled = false;
+            button.Content = "Installing\u2026";
+
+            try
+            {
+                if (!App.IsConnected)
+                {
+                    if (DriverUpdatesStatusText != null)
+                        DriverUpdatesStatusText.Text = "Helper not connected — can't install.";
+                    return;
+                }
+
+                var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("InstallDriverUpdate", url);
+                var response = await App.SendMessageAsync(request);
+                string message = "Install started.";
+                if (response != null && response.TryGetValue("DriverInstallResult", out var payloadObj) && payloadObj is string payload)
+                {
+                    try
+                    {
+                        if (Windows.Data.Json.JsonObject.TryParse(payload, out var root))
+                        {
+                            bool success = root.TryGetValue("success", out var s) &&
+                                           s.ValueType == Windows.Data.Json.JsonValueType.Boolean && s.GetBoolean();
+                            string msg = root.TryGetValue("message", out var m) &&
+                                         m.ValueType == Windows.Data.Json.JsonValueType.String ? m.GetString() : "";
+                            message = string.IsNullOrWhiteSpace(msg)
+                                ? (success ? "Installer launched." : "Install failed.")
+                                : msg;
+                        }
+                    }
+                    catch (Exception ex) { Logger.Warn($"DriverInstallButton parse failed: {ex.Message}"); }
+                }
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = message;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"DriverInstallButton_Click failed: {ex.Message}");
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = $"Install failed: {ex.Message}";
+            }
+            finally
+            {
+                button.Content = originalLabel;
+                button.IsEnabled = true;
+            }
+        }
+
+        /// <summary>
+        /// Returns ("Install", Visible) for NotInstalled drivers, ("Update",
+        /// Visible) for UpdateAvailable, and ("", Collapsed) otherwise.
+        /// No button for up-to-date / unknown status since there's nothing
+        /// actionable to download.
+        /// </summary>
+        private static (string label, Windows.UI.Xaml.Visibility vis) InstallButtonForStatus(int statusCode, string downloadUrl)
+        {
+            if (string.IsNullOrWhiteSpace(downloadUrl))
+                return ("", Windows.UI.Xaml.Visibility.Collapsed);
+            switch (statusCode)
+            {
+                case 2: return ("Update", Windows.UI.Xaml.Visibility.Visible);   // UpdateAvailable
+                case 3: return ("Install", Windows.UI.Xaml.Visibility.Visible);  // NotInstalled
+                default: return ("", Windows.UI.Xaml.Visibility.Collapsed);
+            }
+        }
+
+        /// <summary>
+        /// Maps Lenovo's numeric severity type (1/2/3) from the per-package XML
+        /// into a short human label for the widget. Unknown values pass through
+        /// so we don't hide information if Lenovo adds a new level.
+        /// </summary>
+        private static string SeverityLabel(string raw)
+        {
+            switch (raw?.Trim())
+            {
+                case "1": return "Critical";
+                case "2": return "Recommended";
+                case "3": return "Optional";
+                default:  return string.IsNullOrWhiteSpace(raw) ? "" : raw;
+            }
+        }
+
+        // UpdateStatus enum mirrors DriverUpdateStatus in the helper:
+        //   0 = Unknown, 1 = UpToDate, 2 = UpdateAvailable, 3 = NotInstalled
+        private static string StatusLabelFor(int code)
+        {
+            switch (code)
+            {
+                case 1: return "Up to date";
+                case 2: return "Update";
+                case 3: return "Not installed";
+                default: return "Unknown";
+            }
+        }
+
+        private static Windows.UI.Xaml.Media.Brush StatusColorFor(int code)
+        {
+            // Green for up-to-date, orange for "update available", dark gray
+            // for not-installed / unknown. Matches the rest of the widget's
+            // status chip palette.
+            byte r, g, b;
+            switch (code)
+            {
+                case 1: r = 0x55; g = 0xC8; b = 0x55; break; // #55C855 success green
+                case 2: r = 0xFF; g = 0xB0; b = 0x60; break; // #FFB060 warning orange
+                case 3: r = 0x66; g = 0x66; b = 0x66; break; // #666666 neutral gray
+                default: r = 0x55; g = 0x55; b = 0x55; break; // #555555 unknown
+            }
+            return new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, r, g, b));
+        }
+
         private void SetControllerBatterySectionVisibility(bool visible)
         {
             if (ControllerBatterySection != null)

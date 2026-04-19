@@ -540,7 +540,24 @@ namespace XboxGamingBarHelper.RTSS
 
             if (rtssOSD == null)
             {
-                rtssOSD = new OSD(OSDAppName);
+                // Guard: RTSSHelper.IsRunning() can return true before RTSS has
+                // mapped its shared-memory segment (startup race), or the
+                // segment can vanish if RTSS is killed mid-update. The OSD
+                // ctor calls openSharedMemory() which throws
+                // FileNotFoundException (HRESULT 0x80070002) in that window.
+                // That exception previously bubbled all the way to Main and
+                // killed the helper on launch when RTSS wasn't fully up —
+                // bail out of this tick instead and retry next time.
+                try
+                {
+                    rtssOSD = new OSD(OSDAppName);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"RTSS OSD unavailable (shared memory not ready): {ex.Message}");
+                    rtssState = RivatunerStatisticsServerState.NotRunning;
+                    return;
+                }
             }
 
             // Update clock display settings based on config

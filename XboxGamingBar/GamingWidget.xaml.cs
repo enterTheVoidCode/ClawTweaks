@@ -677,6 +677,17 @@ namespace XboxGamingBar
         private const int ReconnectionTimeoutSeconds = 5;
         private DispatcherTimer reconnectionTimeoutTimer = null;
 
+        // Post-give-up heartbeat watcher. After TryConnectPipeAsync exhausts its retry
+        // budget (typically because a UAC elevation prompt sat unattended during a
+        // helper upgrade), this timer polls helper_heartbeat.json every ~3 s and fires
+        // a fresh connect attempt when the file mtime or pid changes, so the widget
+        // auto-reconnects when the helper finally comes up without the user having to
+        // close/reopen it.
+        private DispatcherTimer heartbeatWatcherTimer = null;
+        private long heartbeatWatcherLastMtimeTicks = 0;
+        private int heartbeatWatcherLastPid = 0;
+        private volatile bool heartbeatWatcherReconnectInFlight = false;
+
         // Hotkey watchers for Xbox controller button combos
         private XboxGameBarHotkeyWatcher hotkeyMenuA = null;
         private XboxGameBarHotkeyWatcher hotkeyMenuB = null;
@@ -3119,6 +3130,8 @@ namespace XboxGamingBar
 
             // Stop reconnection timeout timer - connection established
             StopReconnectionTimeoutTimer();
+            // Stop the post-give-up heartbeat watcher too; we're connected now.
+            StopHeartbeatWatcher();
 
             // Verify we connected to the correct helper version by reading heartbeat
             // This prevents issues during upgrades where we connect to the old dying helper

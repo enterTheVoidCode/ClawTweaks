@@ -424,6 +424,9 @@
     <Compile Include="Features\Devices\GamingWidget.LegionGo.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\GoTweaksUpdate\GamingWidget.GoTweaksUpdate.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\Hotkeys\GamingWidget.HotkeyEventHandlers.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
