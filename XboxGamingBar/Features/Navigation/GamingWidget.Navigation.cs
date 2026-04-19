@@ -153,19 +153,42 @@ namespace XboxGamingBar
             ApplyThemeToVisualTree(SystemScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
         }
 
+        // Trigger-press edge tracking for tab navigation. Holding LT/RT would otherwise
+        // auto-repeat (WasKeyDown=true) and cycle tabs continuously. We require the user
+        // to release the trigger before accepting another press, and also apply a small
+        // minimum interval as a belt-and-suspenders debounce.
+        private bool ltTriggerHeld;
+        private bool rtTriggerHeld;
+        private DateTime lastTriggerNavigateUtc = DateTime.MinValue;
+        private static readonly TimeSpan TriggerNavigateDebounce = TimeSpan.FromMilliseconds(150);
+
         private void GamingWidget_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            // Handle LT (Left Trigger) and RT (Right Trigger) for tab navigation
-            // Using PreviewKeyDown to intercept before ScrollViewer handles it
+            // Handle LT (Left Trigger) and RT (Right Trigger) for tab navigation.
+            // Using PreviewKeyDown to intercept before ScrollViewer handles it.
+            // Skip when the key is auto-repeating while still held — only the initial
+            // press-edge should advance a tab. One press == one tab.
             if (e.Key == VirtualKey.GamepadLeftTrigger)
             {
-                NavigateToPreviousTab();
+                if (!ltTriggerHeld && !e.KeyStatus.WasKeyDown
+                    && (DateTime.UtcNow - lastTriggerNavigateUtc) >= TriggerNavigateDebounce)
+                {
+                    ltTriggerHeld = true;
+                    lastTriggerNavigateUtc = DateTime.UtcNow;
+                    NavigateToPreviousTab();
+                }
                 e.Handled = true;
                 return;
             }
             else if (e.Key == VirtualKey.GamepadRightTrigger)
             {
-                NavigateToNextTab();
+                if (!rtTriggerHeld && !e.KeyStatus.WasKeyDown
+                    && (DateTime.UtcNow - lastTriggerNavigateUtc) >= TriggerNavigateDebounce)
+                {
+                    rtTriggerHeld = true;
+                    lastTriggerNavigateUtc = DateTime.UtcNow;
+                    NavigateToNextTab();
+                }
                 e.Handled = true;
                 return;
             }
@@ -183,6 +206,40 @@ namespace XboxGamingBar
                     FocusManager.TryMoveFocus(FocusNavigationDirection.Down);
                 }
             }
+        }
+
+        private void GamingWidget_PreviewKeyUp(object sender, KeyRoutedEventArgs e)
+        {
+            // Clear the press-edge state so the next LT/RT press advances exactly one
+            // tab. Without this, auto-repeat during a held trigger would cycle through
+            // the entire tab strip.
+            if (e.Key == VirtualKey.GamepadLeftTrigger)
+            {
+                ltTriggerHeld = false;
+            }
+            else if (e.Key == VirtualKey.GamepadRightTrigger)
+            {
+                rtTriggerHeld = false;
+            }
+        }
+
+        /// <summary>
+        /// Forcibly clears any held LT/RT press-edge state. Called when the widget gains
+        /// focus or when VIIPER/controller emulation toggles. HidHide CyclePort on the
+        /// physical pad during emulation setup can leave the OS believing RT/LT is
+        /// stuck-down (no KeyUp arrives because the device disappeared between events),
+        /// which would otherwise leave tab nav wedged until the user gets a fresh KeyUp.
+        /// Resetting here lets the very next physical press act as a clean press-edge.
+        /// </summary>
+        internal void ResetTriggerTabNavState()
+        {
+            if (ltTriggerHeld || rtTriggerHeld)
+            {
+                Logger.Info("Clearing stuck LT/RT tab-nav state (focus/emulation transition)");
+            }
+            ltTriggerHeld = false;
+            rtTriggerHeld = false;
+            lastTriggerNavigateUtc = DateTime.MinValue;
         }
 
         private bool IsInNavigationArea(FrameworkElement element)

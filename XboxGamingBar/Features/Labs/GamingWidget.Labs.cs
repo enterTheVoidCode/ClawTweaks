@@ -72,6 +72,10 @@ namespace XboxGamingBar
             // Mark Labs section as initialized (enables event handlers)
             labsSectionInitialized = true;
 
+            // Sync the "Legion L is disabled" hint in the Controller Emulation card with
+            // the freshly-loaded Legion L action state.
+            UpdateViiperLegionLDisabledHint();
+
             // Apply saved settings to helper (after connection is established)
             _ = Task.Run(async () =>
             {
@@ -289,6 +293,24 @@ namespace XboxGamingBar
                 ApplyLegionButtonConfig(true);
 
             UpdateLegionRemapDescription();
+            UpdateViiperLegionLDisabledHint();
+        }
+
+        /// <summary>
+        /// Shows the "Legion L is disabled" warning in the Controller Emulation card's
+        /// Guide/Mode section when the user has Guide mode set to Native but the Legion L
+        /// Special Remapping action is set to Disabled — otherwise Native mode can't route
+        /// the Xbox button through the emulated device.
+        /// </summary>
+        internal void UpdateViiperLegionLDisabledHint()
+        {
+            if (ViiperLegionLDisabledHint == null) return;
+
+            int legionLAction = LegionLActionComboBox?.SelectedIndex ?? 0;
+            string guideMode = (ViiperGuideButtonModeComboBox?.SelectedItem as ComboBoxItem)?.Tag as string;
+
+            bool show = legionLAction == 0 && string.Equals(guideMode, "Native", StringComparison.Ordinal);
+            ViiperLegionLDisabledHint.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void LegionLShortcutApplyButton_Click(object sender, RoutedEventArgs e)
@@ -367,72 +389,127 @@ namespace XboxGamingBar
         /// <summary>
         /// Saves settings to the JSON fallback file that the elevated helper can read.
         /// The elevated helper runs without package identity and can't access ApplicationData.Current.LocalSettings.
+        ///
+        /// Coordinates with the helper's writer via a named cross-process mutex and uses an
+        /// atomic temp-file-rename write so a concurrent reader can never see a truncated
+        /// file and then clobber the helper's persisted keys (e.g. EmulationBackend,
+        /// Viiper_* settings). If the existing file can't be parsed, we DO NOT start from
+        /// a blank slate — that would wipe every helper-owned key. We skip the save instead
+        /// and let the next write retry.
         /// </summary>
         private void SaveToFallbackSettingsFile(Dictionary<string, object> settingsToSave)
         {
+            var localCachePath = System.IO.Path.Combine(
+                ApplicationData.Current.LocalCacheFolder.Path,
+                "settings.json");
+            var localStatePath = System.IO.Path.Combine(
+                ApplicationData.Current.LocalFolder.Path,
+                "settings.json");
+
+            System.Threading.Mutex mutex = null;
+            bool locked = false;
             try
             {
-                var settingsPath = System.IO.Path.Combine(
-                    ApplicationData.Current.LocalCacheFolder.Path,
-                    "settings.json");
+                mutex = new System.Threading.Mutex(false, @"Global\GoTweaksSettingsFileMutex");
+                try { locked = mutex.WaitOne(2000); }
+                catch (System.Threading.AbandonedMutexException) { locked = true; }
 
-                // Load existing settings or create new
-                Windows.Data.Json.JsonObject allSettings;
-                if (System.IO.File.Exists(settingsPath))
+                // Prefer LocalState as the canonical source — the helper writes there.
+                // Only fall back to LocalCache if LocalState doesn't exist yet.
+                Windows.Data.Json.JsonObject allSettings = null;
+                string sourcePath = System.IO.File.Exists(localStatePath) ? localStatePath
+                                  : System.IO.File.Exists(localCachePath) ? localCachePath
+                                  : null;
+                if (sourcePath != null)
                 {
-                    var existingJson = System.IO.File.ReadAllText(settingsPath);
-                    if (Windows.Data.Json.JsonObject.TryParse(existingJson, out var parsed))
+                    try
                     {
-                        allSettings = parsed;
+                        var existingJson = System.IO.File.ReadAllText(sourcePath);
+                        if (Windows.Data.Json.JsonObject.TryParse(existingJson, out var parsed))
+                        {
+                            allSettings = parsed;
+                        }
+                        else if (!string.IsNullOrWhiteSpace(existingJson))
+                        {
+                            // Parse failed on non-empty content — likely read a partial write.
+                            // Do NOT overwrite with a blank dict; try once more after a brief delay.
+                            System.Threading.Thread.Sleep(75);
+                            existingJson = System.IO.File.ReadAllText(sourcePath);
+                            if (Windows.Data.Json.JsonObject.TryParse(existingJson, out var retried))
+                            {
+                                allSettings = retried;
+                            }
+                            else
+                            {
+                                Logger.Warn($"Settings file at {sourcePath} failed to parse twice — skipping fallback save to avoid clobbering helper-owned keys");
+                                return;
+                            }
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        allSettings = new Windows.Data.Json.JsonObject();
+                        Logger.Warn($"Read of {sourcePath} failed ({ex.Message}) — skipping fallback save");
+                        return;
                     }
                 }
-                else
+                if (allSettings == null)
                 {
                     allSettings = new Windows.Data.Json.JsonObject();
                 }
 
-                // Merge in the new settings
+                // Merge in the widget's new settings.
                 foreach (var kvp in settingsToSave)
                 {
                     if (kvp.Value is int intVal)
-                    {
                         allSettings[kvp.Key] = Windows.Data.Json.JsonValue.CreateNumberValue(intVal);
-                    }
                     else if (kvp.Value is string strVal)
-                    {
                         allSettings[kvp.Key] = Windows.Data.Json.JsonValue.CreateStringValue(strVal);
-                    }
                     else if (kvp.Value is bool boolVal)
-                    {
                         allSettings[kvp.Key] = Windows.Data.Json.JsonValue.CreateBooleanValue(boolVal);
-                    }
                 }
 
-                // Save back with indentation
                 var json = allSettings.Stringify();
-                System.IO.File.WriteAllText(settingsPath, json);
+                // Atomic write to both locations via temp+rename so concurrent readers never
+                // see a truncated file.
+                WriteJsonAtomically(localCachePath, json);
+                WriteJsonAtomically(localStatePath, json);
 
-                // Also write to LocalState path — the elevated helper's fallback reads from
-                // LocalState/settings.json, not LocalCache/settings.json
-                try
-                {
-                    var localStatePath = System.IO.Path.Combine(
-                        ApplicationData.Current.LocalFolder.Path,
-                        "settings.json");
-                    System.IO.File.WriteAllText(localStatePath, json);
-                }
-                catch { /* Best-effort; UWP LocalSettings is the primary path */ }
-
-                Logger.Info($"Saved {settingsToSave.Count} settings to fallback JSON file");
+                Logger.Info($"Saved {settingsToSave.Count} settings to fallback JSON file (preserved {allSettings.Count - settingsToSave.Count} existing keys)");
             }
             catch (Exception ex)
             {
                 Logger.Error($"Failed to save to fallback settings file: {ex.Message}");
             }
+            finally
+            {
+                if (mutex != null)
+                {
+                    try { if (locked) mutex.ReleaseMutex(); } catch { }
+                    mutex.Dispose();
+                }
+            }
+        }
+
+        private static void WriteJsonAtomically(string path, string json)
+        {
+            try
+            {
+                var tempPath = path + ".tmp";
+                System.IO.File.WriteAllText(tempPath, json);
+                try
+                {
+                    if (System.IO.File.Exists(path))
+                        System.IO.File.Replace(tempPath, path, null);
+                    else
+                        System.IO.File.Move(tempPath, path);
+                }
+                catch
+                {
+                    System.IO.File.Copy(tempPath, path, overwrite: true);
+                    try { System.IO.File.Delete(tempPath); } catch { }
+                }
+            }
+            catch { /* best-effort per target */ }
         }
 
         private void SaveLegionRemapSettings()

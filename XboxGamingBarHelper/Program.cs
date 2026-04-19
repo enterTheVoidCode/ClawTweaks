@@ -751,6 +751,34 @@ namespace XboxGamingBarHelper
                 Logger.Warn($"Could not set DLL directory: {ex.Message}");
             }
 
+            // RESOLVE OUR VERSION AND WRITE FRESH HEARTBEAT BEFORE OPENING THE PIPE.
+            // The widget's update-debug flow has an old helper v(N) in place, launches our
+            // new helper v(N+1) which replaces it. The widget reads the "version" field of
+            // helper_heartbeat.json to decide whether it has connected to the correct helper.
+            // If we open the pipe server before our new version has been written to the
+            // heartbeat, the widget connects, reads the OLD helper's stale version from
+            // the file, flags it as "wrong helper version", disconnects, and retries — and
+            // keeps retrying for the whole managers-initialization window (~15 s), showing
+            // the "Initial setup in progress" banner forever. Writing the heartbeat with
+            // our version first guarantees the widget's very first version check sees the
+            // correct value.
+            try
+            {
+                var packageVersion = Package.Current.Id.Version;
+                helperVersion = $"{packageVersion.Major}.{packageVersion.Minor}.{packageVersion.Build}.{packageVersion.Revision}";
+            }
+            catch
+            {
+                try
+                {
+                    var deployedVersion = Services.HelperDeploymentService.GetDeployedVersion();
+                    if (!string.IsNullOrEmpty(deployedVersion)) helperVersion = deployedVersion;
+                }
+                catch { /* fall back to "0.0.0.0" default */ }
+            }
+            Logger.Info($"GoTweaks Helper starting v{helperVersion} — writing initial heartbeat");
+            WriteHeartbeat();
+
             // START PIPE SERVER EARLY - Widget can connect while managers initialize
             // BatchGet requests will return "NotReady" until _managersReady is true
             var pipeTimer = System.Diagnostics.Stopwatch.StartNew();
@@ -1087,6 +1115,11 @@ namespace XboxGamingBarHelper
                 settingsManager.ViiperGyroSource,
                 settingsManager.ViiperSteamSubDevice,
                 settingsManager.ViiperGuideButtonMode,
+                settingsManager.ViiperSwapRumbleMotors,
+                settingsManager.ViiperRumbleIntensity,
+                settingsManager.ViiperGyroAxisMapX,
+                settingsManager.ViiperGyroAxisMapY,
+                settingsManager.ViiperGyroAxisMapZ,
                 // Profile Detection Settings
                 settingsManager.ProfileMatchByExe,
                 settingsManager.ProfileCustomGamePath,

@@ -119,6 +119,8 @@
     <Compile Include="Data\EmulationBackendProperty.cs" />
     <Compile Include="Data\UsbipInstalledProperty.cs" />
     <Compile Include="Data\ViiperStringComboProperty.cs" />
+    <Compile Include="Data\ViiperSwapRumbleMotorsProperty.cs" />
+    <Compile Include="Data\ViiperRumbleIntensityProperty.cs" />
     <Compile Include="Data\WinRing0AvailableProperty.cs" />
     <Compile Include="Data\PawnIOInstalledProperty.cs" />
     <Compile Include="Data\InstallPawnIOProperty.cs" />

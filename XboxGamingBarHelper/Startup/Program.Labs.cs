@@ -675,6 +675,24 @@ namespace XboxGamingBarHelper
             }
         }
 
+        /// <summary>
+        /// Called when a controller-emulation backend (VIIPER or legacy) changes state.
+        /// Pokes the LegionButtonMonitor so it tears down the dedicated Guide-only ViGEm
+        /// pad immediately when emulation takes over, and rebuilds it when emulation goes
+        /// away — no ~500 ms wait for the next reconcile tick.
+        /// </summary>
+        internal static void NotifyGuideRouteChanged()
+        {
+            try
+            {
+                legionButtonMonitor?.ForceReconcileGuideRoute();
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Labs: NotifyGuideRouteChanged threw: {ex.Message}");
+            }
+        }
+
         private static void LegionButtonMonitor_BatteryUpdated(object sender, LegionButtonBatteryEventArgs e)
         {
             try

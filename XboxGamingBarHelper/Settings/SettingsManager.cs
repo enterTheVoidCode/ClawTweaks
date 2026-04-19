@@ -108,6 +108,36 @@ namespace XboxGamingBarHelper.Settings
             get { return viiperGuideButtonMode; }
         }
 
+        private readonly ViiperSwapRumbleMotorsProperty viiperSwapRumbleMotors;
+        public ViiperSwapRumbleMotorsProperty ViiperSwapRumbleMotors
+        {
+            get { return viiperSwapRumbleMotors; }
+        }
+
+        private readonly ViiperRumbleIntensityProperty viiperRumbleIntensity;
+        public ViiperRumbleIntensityProperty ViiperRumbleIntensity
+        {
+            get { return viiperRumbleIntensity; }
+        }
+
+        private readonly ViiperGyroAxisMapProperty viiperGyroAxisMapX;
+        public ViiperGyroAxisMapProperty ViiperGyroAxisMapX
+        {
+            get { return viiperGyroAxisMapX; }
+        }
+
+        private readonly ViiperGyroAxisMapProperty viiperGyroAxisMapY;
+        public ViiperGyroAxisMapProperty ViiperGyroAxisMapY
+        {
+            get { return viiperGyroAxisMapY; }
+        }
+
+        private readonly ViiperGyroAxisMapProperty viiperGyroAxisMapZ;
+        public ViiperGyroAxisMapProperty ViiperGyroAxisMapZ
+        {
+            get { return viiperGyroAxisMapZ; }
+        }
+
         // Profile Detection Settings
         private readonly ProfileMatchByExeProperty profileMatchByExe;
         public ProfileMatchByExeProperty ProfileMatchByExe
@@ -149,6 +179,11 @@ namespace XboxGamingBarHelper.Settings
             viiperGyroSource = new ViiperGyroSourceProperty(this);
             viiperSteamSubDevice = new ViiperSteamSubDeviceProperty(this);
             viiperGuideButtonMode = new ViiperGuideButtonModeProperty(this);
+            viiperSwapRumbleMotors = new ViiperSwapRumbleMotorsProperty(this);
+            viiperRumbleIntensity = new ViiperRumbleIntensityProperty(this);
+            viiperGyroAxisMapX = new ViiperGyroAxisMapProperty(this, Shared.Enums.Function.Viiper_GyroAxisMapX, "ViiperGyroAxisMapX", "X");
+            viiperGyroAxisMapY = new ViiperGyroAxisMapProperty(this, Shared.Enums.Function.Viiper_GyroAxisMapY, "ViiperGyroAxisMapY", "Y");
+            viiperGyroAxisMapZ = new ViiperGyroAxisMapProperty(this, Shared.Enums.Function.Viiper_GyroAxisMapZ, "ViiperGyroAxisMapZ", "Z");
             // Profile Detection Settings
             profileMatchByExe = new ProfileMatchByExeProperty(this);
             profileCustomGamePath = new ProfileCustomGamePathProperty(this);

@@ -948,6 +948,11 @@ namespace XboxGamingBar
         private readonly ViiperStringComboProperty viiperGyroSource;
         private readonly ViiperStringComboProperty viiperSteamSubDevice;
         private readonly ViiperStringComboProperty viiperGuideButtonMode;
+        private readonly ViiperSwapRumbleMotorsProperty viiperSwapRumbleMotors;
+        private readonly ViiperRumbleIntensityProperty viiperRumbleIntensity;
+        private readonly ViiperStringComboProperty viiperGyroAxisMapX;
+        private readonly ViiperStringComboProperty viiperGyroAxisMapY;
+        private readonly ViiperStringComboProperty viiperGyroAxisMapZ;
         private readonly WinRing0AvailableProperty winRing0Available;
         private readonly PawnIOInstalledProperty pawnIOInstalled;
         private readonly InstallPawnIOProperty installPawnIO;
@@ -1310,8 +1315,16 @@ namespace XboxGamingBar
             this.Unloaded += GamingWidget_Unloaded;
             Logger.Info("Registered Loaded and Unloaded event handlers.");
 
-            // Register for LT/RT tab navigation (PreviewKeyDown to intercept before scrolling)
+            // Register for LT/RT tab navigation (PreviewKeyDown to intercept before scrolling).
+            // PreviewKeyUp is used to clear the press-edge state so the next press advances
+            // exactly one tab — without it, holding a trigger would cycle tabs continuously.
             this.PreviewKeyDown += GamingWidget_PreviewKeyDown;
+            this.PreviewKeyUp += GamingWidget_PreviewKeyUp;
+            // Clear any latched LT/RT "held" state whenever the widget regains focus.
+            // HidHide CyclePort during emulation setup can hide the physical pad while
+            // a trigger was physically pressed; the KeyUp never arrives so the widget
+            // thinks the trigger is still down. Refreshing on focus is a clean escape.
+            this.GotFocus += (s, args) => ResetTriggerTabNavState();
 
             var propertiesTimer = Stopwatch.StartNew();
             tdp = new TDPProperty(4, TDPSlider, this);
@@ -1581,8 +1594,26 @@ namespace XboxGamingBar
             viiperGyroSource = new ViiperStringComboProperty("Left", Shared.Enums.Function.Viiper_GyroSource, ViiperGyroSourceComboBox, this);
             viiperSteamSubDevice = new ViiperStringComboProperty("legion-go", Shared.Enums.Function.Viiper_SteamSubDevice, ViiperSteamSubDeviceComboBox, this);
             viiperGuideButtonMode = new ViiperStringComboProperty("Native", Shared.Enums.Function.Viiper_GuideButtonMode, ViiperGuideButtonModeComboBox, this);
+            viiperSwapRumbleMotors = new ViiperSwapRumbleMotorsProperty(ViiperSwapRumbleMotorsToggle, this);
+            viiperRumbleIntensity = new ViiperRumbleIntensityProperty(100, ViiperRumbleIntensitySlider, this);
+            viiperGyroAxisMapX = new ViiperStringComboProperty("X", Shared.Enums.Function.Viiper_GyroAxisMapX, ViiperGyroAxisMapXComboBox, this);
+            viiperGyroAxisMapY = new ViiperStringComboProperty("Y", Shared.Enums.Function.Viiper_GyroAxisMapY, ViiperGyroAxisMapYComboBox, this);
+            viiperGyroAxisMapZ = new ViiperStringComboProperty("Z", Shared.Enums.Function.Viiper_GyroAxisMapZ, ViiperGyroAxisMapZComboBox, this);
+            // Keep the "nn%" label in sync as the user drags.
+            if (ViiperRumbleIntensitySlider != null)
+            {
+                ViiperRumbleIntensitySlider.ValueChanged += (s, e) =>
+                {
+                    if (ViiperRumbleIntensityValue != null)
+                        ViiperRumbleIntensityValue.Text = ((int)ViiperRumbleIntensitySlider.Value) + "%";
+                };
+            }
+            // Refresh the "Legion L disabled" warning when either the Guide mode changes or
+            // the VIIPER backend toggles on.
+            if (ViiperGuideButtonModeComboBox != null)
+                ViiperGuideButtonModeComboBox.SelectionChanged += (s, e) => UpdateViiperLegionLDisabledHint();
             // Show USBIP install card only when VIIPER toggle is on AND driver is missing
-            emulationBackend.PropertyChanged += (s, e) => { UpdateUsbipCardVisibility(); UpdateViiperConfigVisibility(); };
+            emulationBackend.PropertyChanged += (s, e) => { UpdateUsbipCardVisibility(); UpdateViiperConfigVisibility(); UpdateViiperLegionLDisabledHint(); };
             usbipInstalled.PropertyChanged += (s, e) => UpdateUsbipCardVisibility();
             // Show Steam sub-device picker only when a Steam device type is selected
             viiperDeviceType.PropertyChanged += (s, e) => UpdateViiperConfigVisibility();
@@ -3115,6 +3146,27 @@ namespace XboxGamingBar
 
                             // Wait a bit for the old helper to finish exiting
                             await Task.Delay(3000);
+
+                            // Re-check state after the delay: overlapping invocations of this
+                            // branch (one per OnPipeConnectedAsync hit on the dying helper) each
+                            // schedule a deferred Upgrading banner. If a later attempt has since
+                            // reached a correct-version helper, bail out — otherwise we'd re-show
+                            // "Upgrading" and then TryConnectPipeAsync returns "Pipe already
+                            // connected" without firing OnPipeConnectedAsync again, leaving the
+                            // banner stuck until restart.
+                            if (App.PipeClient?.IsConnected == true)
+                            {
+                                bool currentHelperMatches = await IsConnectedHelperVersionCurrentAsync();
+                                if (currentHelperMatches)
+                                {
+                                    Logger.Info("Version-mismatch retry aborted: already connected to correct-version helper");
+                                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                                    {
+                                        HideConnectionBanner();
+                                    });
+                                    return;
+                                }
+                            }
 
                             // Show reconnecting banner and retry
                             await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>

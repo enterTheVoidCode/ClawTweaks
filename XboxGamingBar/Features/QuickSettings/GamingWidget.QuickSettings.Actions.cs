@@ -330,15 +330,21 @@ namespace XboxGamingBar
                         // This ensures we use the current profile's TDP if profile switched
                         int currentTdpValue = (int)(TDPSlider?.Value ?? 15);
 
-                        // Reapply using current Performance tab TDP value
-                        if (tdp != null)
+                        // Ask helper to re-push current TDP to hardware. The previous
+                        // N-1/N trick corrupted global.xml by briefly writing TDP-1.
+                        try
                         {
-                            // Force reapply by sending different value to helper first, then the real value
-                            // This ensures the helper doesn't skip due to "equals current value"
-                            tdp.SetValue(currentTdpValue - 1);
-                            await System.Threading.Tasks.Task.Delay(100);
-                            tdp.SetValue(currentTdpValue);
-                            Logger.Info($"Quick Settings: Reapplied TDP {currentTdpValue}W after Custom mode switch");
+                            if (App.IsConnected)
+                            {
+                                var request = new Windows.Foundation.Collections.ValueSet();
+                                request.Add("ReapplyTDP", true);
+                                await App.SendMessageAsync(request);
+                                Logger.Info($"Quick Settings: Asked helper to reapply current TDP ({currentTdpValue}W)");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"Quick Settings: ReapplyTDP send failed: {ex.Message}");
                         }
                     }
                 };

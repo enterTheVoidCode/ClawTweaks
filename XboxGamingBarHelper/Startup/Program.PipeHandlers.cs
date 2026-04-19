@@ -447,6 +447,50 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Handle "reapply TDP to hardware" request. After a power source change or
+                // Custom-mode re-entry, Windows/Legion firmware may silently reset TDP limits
+                // even though our cached value hasn't changed. Widget asks the helper to
+                // re-push the current TDP to hardware without going through the property
+                // system's equality check. Must NOT modify the profile's saved TDP (the old
+                // N-1/N trick did and corrupted global.xml by 1 W).
+                if (pipeMsg.Extra.ContainsKey("ReapplyTDP"))
+                {
+                    try
+                    {
+                        if (performanceManager != null && !performanceManager.IsAutoTDPActive)
+                        {
+                            int currentTdp = performanceManager.TDP.Value;
+                            Logger.Info($"Pipe: ReapplyTDP request — re-pushing current {currentTdp}W to hardware");
+                            performanceManager.SetTDP(currentTdp);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: ReapplyTDP threw: {ex.Message}");
+                    }
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+
+                // Handle gyro-calibration request. Widget fires this as a one-shot while
+                // the user holds the Legion controllers still; helper sends the HID
+                // output report to the controllers' firmware to capture a fresh bias.
+                if (pipeMsg.Extra.ContainsKey("CalibrateLegionGyro"))
+                {
+                    try
+                    {
+                        var monitor = legionButtonMonitor;
+                        bool ok = monitor != null && monitor.CalibrateGyro(true, true);
+                        Logger.Info($"Pipe: CalibrateLegionGyro request -> {(ok ? "sent" : "failed")}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: CalibrateLegionGyro threw: {ex.Message}");
+                    }
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+
                 // Handle exit helper request (for version mismatch restart - legacy)
                 if (pipeMsg.Extra.ContainsKey("ExitHelper"))
                 {

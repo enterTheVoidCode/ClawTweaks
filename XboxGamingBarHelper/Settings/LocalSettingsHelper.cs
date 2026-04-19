@@ -57,15 +57,7 @@ namespace XboxGamingBarHelper.Settings
                 // Migrate from old LocalCache location (if present) to LocalState/GoTweaks.
                 TryMigrateLegacySettings(localAppData, settingsFolder);
 
-                if (File.Exists(_fallbackSettingsPath))
-                {
-                    var json = File.ReadAllText(_fallbackSettingsPath);
-                    _fallbackSettings = JsonSerializer.Deserialize<Dictionary<string, object>>(json) ?? new Dictionary<string, object>();
-                }
-                else
-                {
-                    _fallbackSettings = new Dictionary<string, object>();
-                }
+                _fallbackSettings = TryLoadSettingsDict(_fallbackSettingsPath) ?? new Dictionary<string, object>();
             }
             catch (Exception ex)
             {
@@ -156,19 +148,86 @@ namespace XboxGamingBarHelper.Settings
             }
         }
 
+        // Cross-process mutex name for settings.json writes. The widget process also writes
+        // to the same file; without synchronization, a reader can see a truncated file and
+        // a writer can lose keys. Both processes use this mutex.
+        private const string SettingsFileMutexName = @"Global\GoTweaksSettingsFileMutex";
+
+        /// <summary>
+        /// Reads and parses the settings file, returning null if it can't be read or parsed.
+        /// Retries once after a short delay when parse fails on non-empty content so a
+        /// concurrent mid-write by the widget doesn't destroy our loaded state.
+        /// </summary>
+        private static Dictionary<string, object> TryLoadSettingsDict(string path)
+        {
+            if (!File.Exists(path)) return null;
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                try
+                {
+                    var json = File.ReadAllText(path);
+                    if (string.IsNullOrWhiteSpace(json)) return null;
+                    try
+                    {
+                        var parsed = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+                        if (parsed != null) return parsed;
+                    }
+                    catch (JsonException)
+                    {
+                        // Likely a truncated partial write from another process. Wait briefly and retry.
+                        if (attempt == 0) { System.Threading.Thread.Sleep(75); continue; }
+                        Logger.Warn($"Settings file at {path} failed to parse twice; treating as empty.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Failed to read settings file at {path}: {ex.Message}");
+                    return null;
+                }
+            }
+            return null;
+        }
+
         private static void SaveFallback()
         {
             if (_fallbackSettingsPath == null || _fallbackSettings == null)
                 return;
 
+            System.Threading.Mutex mutex = null;
+            bool locked = false;
             try
             {
+                mutex = new System.Threading.Mutex(false, SettingsFileMutexName);
+                try { locked = mutex.WaitOne(2000); } catch (System.Threading.AbandonedMutexException) { locked = true; }
+
                 var json = JsonSerializer.Serialize(_fallbackSettings);
-                File.WriteAllText(_fallbackSettingsPath, json);
+                // Atomic write: stage to a temp sibling, then rename over the target. This
+                // prevents another process from reading a half-written file and wiping keys.
+                var tempPath = _fallbackSettingsPath + ".tmp";
+                File.WriteAllText(tempPath, json);
+                try
+                {
+                    if (File.Exists(_fallbackSettingsPath)) File.Replace(tempPath, _fallbackSettingsPath, null);
+                    else File.Move(tempPath, _fallbackSettingsPath);
+                }
+                catch
+                {
+                    // Replace can fail across some filesystems; fall back to copy+delete.
+                    File.Copy(tempPath, _fallbackSettingsPath, overwrite: true);
+                    try { File.Delete(tempPath); } catch { }
+                }
             }
             catch (Exception ex)
             {
                 Logger.Debug($"Failed to save fallback settings: {ex.Message}");
+            }
+            finally
+            {
+                if (mutex != null)
+                {
+                    try { if (locked) mutex.ReleaseMutex(); } catch { }
+                    mutex.Dispose();
+                }
             }
         }
 

@@ -116,6 +116,11 @@ namespace XboxGamingBarHelper.ControllerEmulation
         {
             try { EmulationEnabledChanged?.Invoke(enabled); }
             catch (Exception ex) { Logger.Warn($"EmulationEnabledChanged handler threw: {ex.Message}"); }
+
+            // Tell Labs/LegionButtonMonitor to reconsider whether a dedicated Guide-only
+            // ViGEm pad is still needed (the legacy backend may now own the Guide route).
+            try { Program.NotifyGuideRouteChanged(); }
+            catch (Exception ex) { Logger.Debug($"Program.NotifyGuideRouteChanged threw: {ex.Message}"); }
         }
         private IGyroSourceAdapter gyroSourceAdapter;
         private Thread forwardingThread;

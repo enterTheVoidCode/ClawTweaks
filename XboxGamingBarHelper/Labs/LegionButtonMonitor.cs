@@ -881,6 +881,26 @@ namespace XboxGamingBarHelper.Labs
         }
 
         /// <summary>
+        /// Force an immediate dedicated-Guide-pad reconciliation. Called from outside the
+        /// monitor loop (e.g. when VIIPER emulation toggles or the legacy emulation manager
+        /// fires EmulationEnabledChanged) so a dangling virtual pad is torn down without
+        /// waiting for the next ~500ms reconcile tick.
+        /// </summary>
+        public void ForceReconcileGuideRoute()
+        {
+            if (!isRunning) return;
+            try
+            {
+                _lastGuideRouteReconcileTimeUtc = DateTime.MinValue; // bypass the interval gate
+                EnsureViGEmController();
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"LegionButtonMonitor.ForceReconcileGuideRoute threw: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Reconcile dedicated Guide ViGEm ownership without forcing creation retries.
         /// This keeps only one virtual Xbox controller active when controller emulation is handling Guide.
         /// </summary>
@@ -918,7 +938,16 @@ namespace XboxGamingBarHelper.Labs
             (scrollDownEnabled && scrollDownActionType == LegionButtonAction.XboxGuide) ||
             (scrollClickEnabled && scrollClickActionType == LegionButtonAction.XboxGuide);
 
-        public bool NeedsViGEm => HasGuideActionConfigured && !ControllerEmulationManager.CanHandleExternalGuide();
+        /// <summary>
+        /// A dedicated Guide-only ViGEm pad is only needed when a Guide action is mapped
+        /// AND neither emulation backend is ready to deliver the press through its own
+        /// virtual pad. When either the legacy ControllerEmulationManager or the VIIPER
+        /// forwarder is active, the Guide press is routed there and the dedicated pad
+        /// should be torn down to avoid leaving a dangling virtual Xbox controller.
+        /// </summary>
+        public bool NeedsViGEm => HasGuideActionConfigured
+            && !ControllerEmulationManager.CanHandleExternalGuide()
+            && !XboxGamingBarHelper.ControllerEmulation.Viiper.ViiperInputForwarder.CanHandleExternalGuide();
 
         /// <summary>
         /// Get whether any button is configured.
@@ -1380,6 +1409,13 @@ namespace XboxGamingBarHelper.Labs
             switch (actionType)
             {
                 case LegionButtonAction.XboxGuide:
+                    // VIIPER backend intercept for scroll-triggered Guide (Native → injects
+                    // a short Guide press into the emulated wire state; GameBar → Win+G).
+                    if (XboxGamingBarHelper.ControllerEmulation.Viiper.ViiperInputForwarder.TryHandleGuidePressFromLabs())
+                    {
+                        Logger.Info($"LegionButtonMonitor: Routed scroll XboxGuide to VIIPER backend ({actionName})");
+                        break;
+                    }
                     if (vigemController != null)
                     {
                         // Press and release Guide button quickly for scroll actions
@@ -1899,6 +1935,45 @@ namespace XboxGamingBarHelper.Labs
             bool rightHq = SendOutputReport(handle, rightHighQuality, "right gyro high-quality mode");
 
             return leftPowered && rightPowered && leftHq && rightHq;
+        }
+
+        /// <summary>
+        /// Sends the gyro-calibration HID output report to the Legion Go controllers.
+        /// Uses the working HID handle if one is open, otherwise returns false without
+        /// throwing. The user must hold the controllers still during this window so the
+        /// controller firmware can capture a fresh gyro bias.
+        ///
+        /// Wire format (from the VIIPER Controller reference):
+        ///   [0]=0x05 (ReportID) [1]=0x00 [2]=0x0E (gyro command family)
+        ///   [3]=0x06 (calibrate sub-command) [4]=0x03|0x04 (L/R) [5]=0x01
+        /// </summary>
+        public bool CalibrateGyro(bool left, bool right)
+        {
+            if (!left && !right)
+            {
+                Logger.Warn("LegionButtonMonitor.CalibrateGyro called with no target — skipping");
+                return false;
+            }
+            var handle = hidHandle;
+            if (handle == null || handle.IsInvalid)
+            {
+                Logger.Warn("LegionButtonMonitor.CalibrateGyro: no open HID handle");
+                return false;
+            }
+
+            bool ok = true;
+            if (left)
+            {
+                byte[] cmd = { 0x05, 0x00, 0x0E, 0x06, LEGION_CONTROLLER_LEFT_ID, 0x01 };
+                ok &= SendOutputReport(handle, cmd, "gyro calibrate left");
+            }
+            if (right)
+            {
+                byte[] cmd = { 0x05, 0x00, 0x0E, 0x06, LEGION_CONTROLLER_RIGHT_ID, 0x01 };
+                ok &= SendOutputReport(handle, cmd, "gyro calibrate right");
+            }
+            Logger.Info($"LegionButtonMonitor.CalibrateGyro left={left}, right={right}, ok={ok}");
+            return ok;
         }
 
         private void DisableHighQualityGyroReports(SafeFileHandle handle)
@@ -3025,6 +3100,16 @@ namespace XboxGamingBarHelper.Labs
                 switch (actionType)
                 {
                     case LegionButtonAction.XboxGuide:
+                        // VIIPER backend intercept: when the VIIPER forwarder is active, route
+                        // the press through its Guide-button mode (Native → emulated Guide press
+                        // held while physically held, GameBar → Win+G). Skip the legacy ViGEm
+                        // path when VIIPER consumes it.
+                        if (XboxGamingBarHelper.ControllerEmulation.Viiper.ViiperInputForwarder.TryHandleGuideButtonFromLabs(true))
+                        {
+                            Logger.Info($"LegionButtonMonitor: Routed XboxGuide press to VIIPER backend for {buttonName}");
+                            break;
+                        }
+
                         if (ControllerEmulationManager.TrySetGuideFromExternal(true))
                         {
                             Logger.Info($"LegionButtonMonitor: Routed SetGuide(true) to controller emulation virtual pad for {buttonName}");
@@ -3104,6 +3189,13 @@ namespace XboxGamingBarHelper.Labs
                 // Button released - only release Xbox Guide if that's the action
                 if (actionType == LegionButtonAction.XboxGuide)
                 {
+                    // VIIPER intercept for release (match the press path).
+                    if (XboxGamingBarHelper.ControllerEmulation.Viiper.ViiperInputForwarder.TryHandleGuideButtonFromLabs(false))
+                    {
+                        Logger.Info($"LegionButtonMonitor: Routed XboxGuide release to VIIPER backend for {buttonName}");
+                        return;
+                    }
+
                     if (ControllerEmulationManager.TrySetGuideFromExternal(false))
                     {
                         Logger.Info($"LegionButtonMonitor: Routed SetGuide(false) to controller emulation virtual pad for {buttonName}");

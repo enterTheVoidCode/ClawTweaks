@@ -176,6 +176,51 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Fires a one-shot "CalibrateLegionGyro" pipe message. The helper sends the
+        /// HID output report to both controllers; the controller firmware captures the
+        /// new bias while the user holds the pads still.
+        /// </summary>
+        private async void LegionCalibrateGyroButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            Logger.Info("Legion gyro calibration requested from widget");
+
+            // Brief UI feedback: disable the button while the request is in flight.
+            Button button = LegionCalibrateGyroButton;
+            string originalText = button?.Content?.ToString() ?? "Calibrate gyro";
+            if (button != null) { button.IsEnabled = false; button.Content = "Calibrating…"; }
+            if (LegionCalibrateGyroStatus != null)
+                LegionCalibrateGyroStatus.Text = "Hold the controllers still…";
+
+            try
+            {
+                if (App.PipeClient?.IsConnected == true)
+                {
+                    var request = new Windows.Foundation.Collections.ValueSet();
+                    request.Add("CalibrateLegionGyro", true);
+                    await App.SendMessageAsync(request);
+                    if (LegionCalibrateGyroStatus != null)
+                        LegionCalibrateGyroStatus.Text = "Calibration command sent. Keep the pads still for a moment.";
+                }
+                else
+                {
+                    if (LegionCalibrateGyroStatus != null)
+                        LegionCalibrateGyroStatus.Text = "Not connected to helper — try again after reconnecting.";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"CalibrateLegionGyro send failed: {ex.Message}");
+                if (LegionCalibrateGyroStatus != null)
+                    LegionCalibrateGyroStatus.Text = $"Calibration send failed: {ex.Message}";
+            }
+            finally
+            {
+                await Task.Delay(1200);
+                if (button != null) { button.IsEnabled = true; button.Content = originalText; }
+            }
+        }
+
         private void SetScrollWheelSectionVisibility(bool visible)
         {
             if (ScrollWheelSection != null)

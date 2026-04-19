@@ -69,6 +69,26 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 {
                     settingsManager.ViiperGuideButtonMode.PropertyChanged += OnGuideModeChanged;
                 }
+                if (settingsManager.ViiperSwapRumbleMotors != null)
+                {
+                    settingsManager.ViiperSwapRumbleMotors.PropertyChanged += OnSwapRumbleMotorsChanged;
+                }
+                if (settingsManager.ViiperRumbleIntensity != null)
+                {
+                    settingsManager.ViiperRumbleIntensity.PropertyChanged += OnRumbleIntensityChanged;
+                }
+                if (settingsManager.ViiperGyroAxisMapX != null)
+                {
+                    settingsManager.ViiperGyroAxisMapX.PropertyChanged += OnGyroAxisMapChanged;
+                }
+                if (settingsManager.ViiperGyroAxisMapY != null)
+                {
+                    settingsManager.ViiperGyroAxisMapY.PropertyChanged += OnGyroAxisMapChanged;
+                }
+                if (settingsManager.ViiperGyroAxisMapZ != null)
+                {
+                    settingsManager.ViiperGyroAxisMapZ.PropertyChanged += OnGyroAxisMapChanged;
+                }
                 // Apply initial state.
                 if (settingsManager.EmulationBackend != null)
                 {
@@ -190,10 +210,20 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             forwarder.SetInputSource(ResolveInputSource());
             forwarder.SetGyroSource(ResolveGyroSource());
             forwarder.SetGuideButtonMode(ResolveGuideMode());
+            forwarder.SetSwapRumbleMotors(settingsManager?.ViiperSwapRumbleMotors?.Value ?? false);
+            forwarder.SetRumbleIntensity(settingsManager?.ViiperRumbleIntensity?.Value ?? 100);
+            forwarder.SetGyroAxisMapping(
+                settingsManager?.ViiperGyroAxisMapX?.Value ?? "X",
+                settingsManager?.ViiperGyroAxisMapY?.Value ?? "Y",
+                settingsManager?.ViiperGyroAxisMapZ?.Value ?? "Z");
             forwarder.Start(xinputIdx, activeBusId, activeDeviceId, activeDeviceType);
 
             isRunning = true;
             Logger.Info($"VIIPER emulation manager started (bus={activeBusId}, dev={activeDeviceId}, type={activeDeviceType}, xinput={xinputIdx})");
+
+            // Tell Labs/LegionButtonMonitor to tear down the dedicated Guide-only ViGEm pad
+            // now that VIIPER will deliver the Guide press through its emulated device.
+            Program.NotifyGuideRouteChanged();
             return true;
         }
 
@@ -267,23 +297,79 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             catch (Exception ex) { Logger.Warn($"OnGuideModeChanged threw: {ex.Message}"); }
         }
 
+        private void OnSwapRumbleMotorsChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            try { forwarder.SetSwapRumbleMotors(settingsManager?.ViiperSwapRumbleMotors?.Value ?? false); }
+            catch (Exception ex) { Logger.Warn($"OnSwapRumbleMotorsChanged threw: {ex.Message}"); }
+        }
+
+        private void OnRumbleIntensityChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            try { forwarder.SetRumbleIntensity(settingsManager?.ViiperRumbleIntensity?.Value ?? 100); }
+            catch (Exception ex) { Logger.Warn($"OnRumbleIntensityChanged threw: {ex.Message}"); }
+        }
+
+        private void OnGyroAxisMapChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            try
+            {
+                forwarder.SetGyroAxisMapping(
+                    settingsManager?.ViiperGyroAxisMapX?.Value ?? "X",
+                    settingsManager?.ViiperGyroAxisMapY?.Value ?? "Y",
+                    settingsManager?.ViiperGyroAxisMapZ?.Value ?? "Z");
+            }
+            catch (Exception ex) { Logger.Warn($"OnGyroAxisMapChanged threw: {ex.Message}"); }
+        }
+
         private void OnDeviceConfigChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (!isRunning) return; // Will be picked up on next Start().
+
+            string oldType = activeDeviceType;
+            string newType;
+            ushort vid, pid;
+            ResolveDeviceTargets(out newType, out vid, out pid);
+            if (newType == activeDeviceType && vid == 0 && pid == 0)
+            {
+                return;
+            }
+
+            Logger.Info($"VIIPER hot-swap: {activeDeviceType} -> {newType} (vid=0x{vid:X4}, pid=0x{pid:X4})");
+
+            // Pause the forwarder for the whole swap: RemoveDevice is instant but AddDevice
+            // can take 1-2 seconds (USBIP round-trip). Without this gate the poll loop
+            // floods the log with "invalid input size" warnings and may push a wrong-format
+            // packet at the new device before we can flip targetType.
+            forwarder.SetPaused(true);
             try
             {
-                string newType;
-                ushort vid, pid;
-                ResolveDeviceTargets(out newType, out vid, out pid);
-                if (newType == activeDeviceType && vid == 0 && pid == 0)
-                {
-                    return;
-                }
-                Logger.Info($"VIIPER hot-swap: {activeDeviceType} -> {newType} (vid=0x{vid:X4}, pid=0x{pid:X4})");
                 var swap = service.SwitchDeviceType(activeBusId, activeDeviceId, newType, vid, pid);
                 if (!swap.Success)
                 {
-                    Logger.Warn("VIIPER hot-swap failed; previous device left in place.");
+                    Logger.Warn($"VIIPER hot-swap failed ({oldType} -> {newType}); attempting to re-add old device to recover.");
+                    // RemoveDevice already succeeded inside SwitchDeviceType, so the old
+                    // pad is gone. Re-add the old type with fresh vid/pid so the user
+                    // isn't left with no virtual controller.
+                    ushort oldVid = 0, oldPid = 0;
+                    if (oldType == "steam-generic" || oldType == "steam-controller" || oldType == "steamdeck-generic")
+                    {
+                        ViiperSteamSubDeviceProperty.TryGetSteamVidPid(
+                            settingsManager?.ViiperSteamSubDevice?.Value ?? "generic",
+                            out oldVid, out oldPid);
+                    }
+                    var recover = service.AddDevice(activeBusId, oldType, oldVid, oldPid);
+                    if (recover.Success)
+                    {
+                        activeDeviceId = recover.DeviceId;
+                        activeDeviceType = oldType;
+                        forwarder.UpdateTarget(activeBusId, activeDeviceId, activeDeviceType);
+                        Logger.Info($"VIIPER hot-swap recovery: restored {oldType} device (dev={activeDeviceId})");
+                    }
+                    else
+                    {
+                        Logger.Warn($"VIIPER hot-swap recovery failed — no virtual device active.");
+                        activeDeviceId = 0;
+                    }
                     return;
                 }
                 activeDeviceId = swap.DeviceId;
@@ -293,6 +379,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             catch (Exception ex)
             {
                 Logger.Error(ex, "VIIPER hot-swap threw");
+            }
+            finally
+            {
+                forwarder.SetPaused(false);
             }
         }
 
@@ -332,6 +422,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             activeDeviceId = 0;
             isRunning = false;
             Logger.Info("VIIPER emulation manager stopped");
+
+            // Emulation just went away — tell Labs to re-spin the dedicated Guide-only
+            // ViGEm pad if a Guide action is still mapped.
+            Program.NotifyGuideRouteChanged();
         }
 
         protected override void Dispose(bool disposing)

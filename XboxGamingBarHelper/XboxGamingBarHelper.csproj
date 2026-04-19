@@ -514,6 +514,9 @@
     <Compile Include="Settings\ViiperGyroSourceProperty.cs" />
     <Compile Include="Settings\ViiperSteamSubDeviceProperty.cs" />
     <Compile Include="Settings\ViiperGuideButtonModeProperty.cs" />
+    <Compile Include="Settings\ViiperSwapRumbleMotorsProperty.cs" />
+    <Compile Include="Settings\ViiperRumbleIntensityProperty.cs" />
+    <Compile Include="Settings\ViiperGyroAxisMapProperty.cs" />
     <Compile Include="Settings\ProfileMatchByExeProperty.cs" />
     <Compile Include="Settings\ProfileCustomGamePathProperty.cs" />
     <Compile Include="Settings\ProfileGamesOnlyProperty.cs" />

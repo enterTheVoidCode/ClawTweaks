@@ -64,6 +64,7 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         private readonly LegionManager legionManager;
         private Thread pollThread;
         private volatile bool running;
+        private volatile bool paused;
 
         private uint physicalIndex;
         private uint busId;
@@ -77,12 +78,35 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         private volatile ViiperInputSourceKind inputSource = ViiperInputSourceKind.XInput;
         private volatile ViiperGyroSourceKind gyroSource = ViiperGyroSourceKind.None;
         private volatile ViiperGuideButtonMode guideMode = ViiperGuideButtonMode.Native;
+        private volatile bool swapRumbleMotors;
+        // Percent ×10 so we can apply it with integer math (1000 == unity). Range 0..2000.
+        private volatile int rumbleIntensityScaled = 1000;
+
+        // IMU axis remap: each output axis reads source[src] × sign. Packed (src, sign) per
+        // axis. Identity: X→(0,+1), Y→(1,+1), Z→(2,+1). Accel uses the same map as gyro
+        // (the reference app keeps them locked together; only the 3 gyro selectors are
+        // exposed in the UI).
+        private volatile int axisMapXSrc = 0, axisMapXSign = 1;
+        private volatile int axisMapYSrc = 1, axisMapYSign = 1;
+        private volatile int axisMapZSrc = 2, axisMapZSign = 1;
 
         // Edge-detection state for the Guide/Mode -> Win+G shortcut. We only fire the
         // shortcut on press-transition, not on every poll while the button is held.
         private bool guideWasPressed;
         private long lastGuideShortcutTicks;
         private const long GuideShortcutMinIntervalTicks = TimeSpan.TicksPerSecond;
+
+        // When a Labs action (e.g. Legion L -> XboxGuide) intercepts a press that in Native
+        // mode should become the emulated device's Guide/PS button, we track the press
+        // state explicitly. The wire builders OR Guide into the buttons while the physical
+        // button is held. A short minimum-hold covers press/release callbacks that don't
+        // fire in strict order (e.g. ultra-short taps).
+        private bool labsGuideHeld;
+        private long labsGuideMinReleaseTicks;
+        private const int LabsGuideMinHoldMilliseconds = 60;
+
+        // Singleton so Labs-side code can reach the active forwarder without circular DI.
+        private static ViiperInputForwarder activeInstance;
 
         // Latest aux buttons sampled from Legion HID this cycle (0 when the active source
         // doesn't expose them, e.g. plain XInput). Read by the DS4/DSE wire builders to map
@@ -161,21 +185,34 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                     return;
             }
 
-            // XInput only forwards rumble when the physical source is XInput.
-            // Legion HID rumble forwarding lands in a later phase (needs LegionControllerService).
-            if (inputSource == ViiperInputSourceKind.XInput)
+            // Always forward rumble to the physical XInput controller. The user's pad is
+            // almost always XInput-visible (Legion Go controllers expose XInput alongside
+            // their native HID), so rumble should reach the hardware regardless of which
+            // input source we're READING gamepad state from. Previously this was gated on
+            // inputSource == XInput, which meant Legion-HID users got no rumble at all.
+            try
             {
-                try
+                // Apply user-configurable swap and intensity multiplier. Swap first so
+                // intensity scales whichever motor ends up on each side.
+                byte large = rumbleLarge;
+                byte small = rumbleSmall;
+                if (swapRumbleMotors)
                 {
-                    var vib = new ViiperXInputVibration
-                    {
-                        LeftMotorSpeed = (ushort)(rumbleLarge * 257),   // 0-255 -> 0-65535
-                        RightMotorSpeed = (ushort)(rumbleSmall * 257),
-                    };
-                    ViiperXInput.SetState(physicalIndex, ref vib);
+                    byte tmp = large; large = small; small = tmp;
                 }
-                catch (Exception ex) { Logger.Debug($"XInput SetState rumble failed: {ex.Message}"); }
+                int scaled = rumbleIntensityScaled; // snapshot to avoid volatile read race
+                int leftSpeed = (large * 257 * scaled) / 1000;
+                int rightSpeed = (small * 257 * scaled) / 1000;
+                if (leftSpeed > 65535) leftSpeed = 65535;
+                if (rightSpeed > 65535) rightSpeed = 65535;
+                var vib = new ViiperXInputVibration
+                {
+                    LeftMotorSpeed = (ushort)leftSpeed,
+                    RightMotorSpeed = (ushort)rightSpeed,
+                };
+                ViiperXInput.SetState(physicalIndex, ref vib);
             }
+            catch (Exception ex) { Logger.Debug($"XInput SetState rumble failed: {ex.Message}"); }
 
             // LED color forwarding — the emulated device's RGB lightbar is pushed to the
             // Legion Go stick lights. Throttle: skip when unchanged and rate-limit writes.
@@ -220,6 +257,7 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             deviceId = inDeviceId;
             targetType = string.IsNullOrEmpty(inTargetType) ? "xbox360" : inTargetType;
 
+            activeInstance = this;
             running = true;
             pollThread = new Thread(PollLoop)
             {
@@ -237,6 +275,21 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             deviceId = newDeviceId;
             targetType = string.IsNullOrEmpty(newTypeName) ? "xbox360" : newTypeName;
             Logger.Info($"VIIPER forwarder target updated: bus={busId}, dev={deviceId}, type={targetType}");
+        }
+
+        /// <summary>
+        /// Gates the poll loop from pushing input while a hot-swap is in flight. Between
+        /// RemoveDevice() and AddDevice() (which can take ~2 seconds on the USBIP side)
+        /// the virtual device doesn't exist, so continuing to send packets floods the
+        /// log with "invalid input size" warnings and wastes CPU. Also kicks in when the
+        /// new device's wire format differs from the old one so we never deliver a
+        /// wrong-format packet to the new device before UpdateTarget switches builders.
+        /// </summary>
+        public void SetPaused(bool paused)
+        {
+            if (this.paused == paused) return;
+            this.paused = paused;
+            Logger.Info($"VIIPER forwarder paused -> {paused}");
         }
 
         public void SetInputSource(ViiperInputSourceKind kind)
@@ -258,6 +311,169 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             if (guideMode == mode) return;
             guideMode = mode;
             Logger.Info($"VIIPER forwarder guide-button mode -> {mode}");
+        }
+
+        public void SetSwapRumbleMotors(bool swap)
+        {
+            if (swapRumbleMotors == swap) return;
+            swapRumbleMotors = swap;
+            Logger.Info($"VIIPER forwarder swap-rumble-motors -> {swap}");
+        }
+
+        /// <summary>Sets the rumble intensity multiplier (percent, 0..200).</summary>
+        public void SetRumbleIntensity(int percent)
+        {
+            if (percent < 0) percent = 0;
+            if (percent > 200) percent = 200;
+            int scaled = percent * 10; // Keep one decimal of resolution in integer math.
+            if (rumbleIntensityScaled == scaled) return;
+            rumbleIntensityScaled = scaled;
+            Logger.Info($"VIIPER forwarder rumble-intensity -> {percent}%");
+        }
+
+        /// <summary>Sets the IMU axis remap. Each arg is "X", "Y", "Z", "-X", "-Y", or "-Z".</summary>
+        public void SetGyroAxisMapping(string mapX, string mapY, string mapZ)
+        {
+            int sx, sgnX, sy, sgnY, sz, sgnZ;
+            ParseAxisMap(mapX, out sx, out sgnX);
+            ParseAxisMap(mapY, out sy, out sgnY);
+            ParseAxisMap(mapZ, out sz, out sgnZ);
+            axisMapXSrc = sx; axisMapXSign = sgnX;
+            axisMapYSrc = sy; axisMapYSign = sgnY;
+            axisMapZSrc = sz; axisMapZSign = sgnZ;
+            Logger.Info($"VIIPER forwarder gyro-axis-map -> X={mapX}, Y={mapY}, Z={mapZ}");
+        }
+
+        private static void ParseAxisMap(string value, out int src, out int sign)
+        {
+            switch (value)
+            {
+                case "X":  src = 0; sign =  1; return;
+                case "Y":  src = 1; sign =  1; return;
+                case "Z":  src = 2; sign =  1; return;
+                case "-X": src = 0; sign = -1; return;
+                case "-Y": src = 1; sign = -1; return;
+                case "-Z": src = 2; sign = -1; return;
+                default:   src = 0; sign =  1; return;
+            }
+        }
+
+        /// <summary>
+        /// Called from the Labs Legion-button action path when a user-mapped "Xbox Guide"
+        /// press or release fires on a physical Legion button. Routes the event through
+        /// the user's current VIIPER Guide-button mode:
+        ///   • Native  → holds the emulated device's Guide/PS button while physically held
+        ///   • GameBar → fires a single Win+G on press-edge (release is a no-op)
+        /// Returns true if VIIPER consumed the event so the caller skips its legacy path.
+        /// </summary>
+        /// <summary>
+        /// True when the VIIPER forwarder is up and will consume a Labs Guide press
+        /// (either by routing it to the emulated device's Guide/PS button in Native mode
+        /// or by firing Win+G in GameBar mode). LegionButtonMonitor uses this to decide
+        /// whether a dedicated Guide-only ViGEm controller is still needed.
+        /// </summary>
+        public static bool CanHandleExternalGuide()
+        {
+            var instance = activeInstance;
+            return instance != null && instance.running;
+        }
+
+        public static bool TryHandleGuideButtonFromLabs(bool pressed)
+        {
+            var instance = activeInstance;
+            if (instance == null || !instance.running) return false;
+
+            if (instance.guideMode == ViiperGuideButtonMode.Native)
+            {
+                if (pressed)
+                {
+                    instance.labsGuideHeld = true;
+                    instance.labsGuideMinReleaseTicks = DateTime.UtcNow.Ticks
+                        + TimeSpan.FromMilliseconds(LabsGuideMinHoldMilliseconds).Ticks;
+                    Logger.Info("VIIPER guide-press handled from Labs (Native, hold while pressed)");
+                }
+                else
+                {
+                    instance.labsGuideHeld = false;
+                    Logger.Info("VIIPER guide-release handled from Labs (Native)");
+                }
+                return true;
+            }
+
+            if (instance.guideMode == ViiperGuideButtonMode.GameBar)
+            {
+                if (!pressed) return true; // consume release, nothing to do
+                long now = DateTime.UtcNow.Ticks;
+                if ((now - instance.lastGuideShortcutTicks) >= GuideShortcutMinIntervalTicks)
+                {
+                    instance.lastGuideShortcutTicks = now;
+                    try
+                    {
+                        Logger.Info("VIIPER guide-press handled from Labs (GameBar, firing Win+G)");
+                        Program.SendKeyboardShortcut("Win+G");
+                    }
+                    catch (Exception ex) { Logger.Warn($"Labs guide Win+G failed: {ex.Message}"); }
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>Legacy single-shot press entry point — kept for callers that only
+        /// fire on press (e.g. scroll actions). Emits a synthetic short hold.</summary>
+        public static bool TryHandleGuidePressFromLabs()
+        {
+            bool handled = TryHandleGuideButtonFromLabs(true);
+            if (handled)
+            {
+                // Auto-release after the minimum hold window on a background thread so
+                // scroll-style one-shot actions still produce a clean press+release.
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    await System.Threading.Tasks.Task.Delay(LabsGuideMinHoldMilliseconds);
+                    TryHandleGuideButtonFromLabs(false);
+                });
+            }
+            return handled;
+        }
+
+        private bool IsGuideHoldActive()
+            => labsGuideHeld || DateTime.UtcNow.Ticks < labsGuideMinReleaseTicks;
+
+        /// <summary>
+        /// Translates LegionButtonMonitor.AuxButtons (its own bitmap layout) into the
+        /// reference VIIPER LegionAux layout used by all wire builders in this file.
+        /// Without this translation, every paddle, Mode, and Share bit would alias to
+        /// the wrong LegionAux value and the DSE/DS4/Elite2/Switch/etc. paddle mappings
+        /// would be completely scrambled.
+        /// </summary>
+        private static ushort TranslateMonitorAuxToLegionAux(ushort monitorAux)
+        {
+            // LegionButtonMonitor bitmap (from LegionButtonMonitor.cs:68-75):
+            //   MODE=0x0001, SHARE=0x0002, EXTRA_L1=0x0004 (back L upper = Y1),
+            //   EXTRA_L2=0x0008 (back L lower = Y2), EXTRA_R1=0x0010 (back R upper = Y3),
+            //   EXTRA_RM1=0x0020 (M1 side grip L), EXTRA_R2=0x0040 (back R lower = M3),
+            //   EXTRA_R3=0x0080 (M2 side grip R).
+            const ushort MON_MODE   = 0x0001;
+            const ushort MON_SHARE  = 0x0002;
+            const ushort MON_Y1     = 0x0004;
+            const ushort MON_Y2     = 0x0008;
+            const ushort MON_Y3     = 0x0010;
+            const ushort MON_M1     = 0x0020;
+            const ushort MON_M3     = 0x0040;
+            const ushort MON_M2     = 0x0080;
+
+            ushort result = 0;
+            if ((monitorAux & MON_Y1)    != 0) result |= LegionAux.Y1;
+            if ((monitorAux & MON_Y2)    != 0) result |= LegionAux.Y2;
+            if ((monitorAux & MON_Y3)    != 0) result |= LegionAux.Y3;
+            if ((monitorAux & MON_M3)    != 0) result |= LegionAux.M3;
+            if ((monitorAux & MON_M1)    != 0) result |= LegionAux.M1;
+            if ((monitorAux & MON_M2)    != 0) result |= LegionAux.M2;
+            if ((monitorAux & MON_MODE)  != 0) result |= LegionAux.Mode;
+            if ((monitorAux & MON_SHARE) != 0) result |= LegionAux.Share;
+            return result;
         }
 
         /// <summary>
@@ -284,13 +500,43 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 return false;
             }
 
-            gyroXRaw = SaturateToShort(sample.GyroXDegPerSecond * GyroDpsToRawCounts);
-            gyroYRaw = SaturateToShort(sample.GyroYDegPerSecond * GyroDpsToRawCounts);
-            gyroZRaw = SaturateToShort(sample.GyroZDegPerSecond * GyroDpsToRawCounts);
-            accelXRaw = SaturateToShort(sample.AccelXG * AccelGToRawCounts);
-            accelYRaw = SaturateToShort(sample.AccelYG * AccelGToRawCounts);
-            accelZRaw = SaturateToShort(sample.AccelZG * AccelGToRawCounts);
+            short gX = SaturateToShort(sample.GyroXDegPerSecond * GyroDpsToRawCounts);
+            short gY = SaturateToShort(sample.GyroYDegPerSecond * GyroDpsToRawCounts);
+            short gZ = SaturateToShort(sample.GyroZDegPerSecond * GyroDpsToRawCounts);
+            short aX = SaturateToShort(sample.AccelXG * AccelGToRawCounts);
+            short aY = SaturateToShort(sample.AccelYG * AccelGToRawCounts);
+            short aZ = SaturateToShort(sample.AccelZG * AccelGToRawCounts);
+
+            // Apply user-selectable axis remap. Each output channel pulls from source[src]
+            // and optionally flips sign. Accel tracks the same map as gyro so the vectors
+            // stay coherent (matches the reference VIIPER Controller app behavior).
+            int xSrc = axisMapXSrc, xSign = axisMapXSign;
+            int ySrc = axisMapYSrc, ySign = axisMapYSign;
+            int zSrc = axisMapZSrc, zSign = axisMapZSign;
+            gyroXRaw = SignedClampToShort(PickAxis(gX, gY, gZ, xSrc) * xSign);
+            gyroYRaw = SignedClampToShort(PickAxis(gX, gY, gZ, ySrc) * ySign);
+            gyroZRaw = SignedClampToShort(PickAxis(gX, gY, gZ, zSrc) * zSign);
+            accelXRaw = SignedClampToShort(PickAxis(aX, aY, aZ, xSrc) * xSign);
+            accelYRaw = SignedClampToShort(PickAxis(aX, aY, aZ, ySrc) * ySign);
+            accelZRaw = SignedClampToShort(PickAxis(aX, aY, aZ, zSrc) * zSign);
             return true;
+        }
+
+        private static short PickAxis(short x, short y, short z, int src)
+        {
+            switch (src)
+            {
+                case 0:  return x;
+                case 1:  return y;
+                default: return z;
+            }
+        }
+
+        private static short SignedClampToShort(int value)
+        {
+            if (value > short.MaxValue) return short.MaxValue;
+            if (value < short.MinValue) return short.MinValue;
+            return (short)value;
         }
 
         private static short SaturateToShort(float value)
@@ -312,6 +558,7 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         {
             if (!running) return;
             running = false;
+            if (activeInstance == this) activeInstance = null;
             try
             {
                 if (pollThread != null && pollThread.IsAlive)
@@ -353,6 +600,16 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             {
                 try
                 {
+                    // Pause gate: while the manager is hot-swapping the virtual device,
+                    // skip pumping input. This avoids thousands of "invalid input size"
+                    // warnings during the 1-2 second window between RemoveDevice() and
+                    // AddDevice() completing, and prevents the first post-swap packet
+                    // from being built with the old targetType.
+                    if (paused)
+                    {
+                        Thread.Sleep(10);
+                        continue;
+                    }
                     if (inputSource == ViiperInputSourceKind.LegionHid)
                     {
                         LegionGamepadSample sample;
@@ -367,13 +624,16 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                             continue;
                         }
                         lastLegionTicks = sample.TimestampTicksUtc;
-                        currentAuxButtons = sample.AuxButtons;
+                        // LegionButtonMonitor uses its own AuxButtons bitmap — translate into
+                        // the reference LegionAux layout so downstream wire builders see the
+                        // correct paddle/Mode/Share bits.
+                        currentAuxButtons = TranslateMonitorAuxToLegionAux(sample.AuxButtons);
 
                         // Guide-button mode: if the user wants Mode/Guide to open Xbox Game
                         // Bar instead of the emulated PS/Guide button, fire Win+G on press
                         // edge and strip the press from the outgoing state.
                         bool guidePressed = ((sample.Buttons & ViiperXInput.Guide) != 0)
-                                         || ((sample.AuxButtons & LegionAux.Mode) != 0);
+                                         || ((currentAuxButtons & LegionAux.Mode) != 0);
                         ApplyGuideModeEdge(guidePressed);
                         if (guideMode == ViiperGuideButtonMode.GameBar)
                         {
@@ -398,6 +658,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                         if (guideMode == ViiperGuideButtonMode.GameBar)
                         {
                             gp.Buttons &= unchecked((ushort)~ViiperXInput.Guide);
+                        }
+                        else if (IsGuideHoldActive())
+                        {
+                            gp.Buttons |= ViiperXInput.Guide;
                         }
                         byte[] data = BuildDeviceInput(gp);
                         if (data != null && data.Length > 0)
@@ -435,6 +699,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                         if (guideMode == ViiperGuideButtonMode.GameBar)
                         {
                             gp.Buttons &= unchecked((ushort)~ViiperXInput.Guide);
+                        }
+                        else if (IsGuideHoldActive())
+                        {
+                            gp.Buttons |= ViiperXInput.Guide;
                         }
                         byte[] data = BuildDeviceInput(gp);
                         if (data != null && data.Length > 0)
@@ -512,9 +780,61 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 case "steam-generic":
                 case "steam-controller":
                     return BuildXboxElite2Input(gp);
+                case "switchpro":
+                case "joycon-left":
+                case "joycon-right":
+                    return BuildSwitchProInput(gp);
                 default:
                     return BuildXbox360Input(gp);
             }
+        }
+
+        /// <summary>
+        /// Switch Pro / Joy-Con wire format (24 bytes). libviiper's switchpro InputState
+        /// requires ≥24 bytes; falling through to BuildXbox360Input sent only 20 bytes
+        /// and every poll logged "switchpro: input state too short: 20 &lt; 24".
+        /// Button positions are mapped positionally (Xbox A → Switch B since both are
+        /// the bottom face button).
+        /// </summary>
+        private static byte[] BuildSwitchProInput(ViiperXInputGamepad gp)
+        {
+            var data = new byte[24];
+            uint buttons = 0;
+
+            // Face buttons — positional.
+            if ((gp.Buttons & ViiperXInput.A) != 0) buttons |= 0x000004;  // B (bottom)
+            if ((gp.Buttons & ViiperXInput.B) != 0) buttons |= 0x000008;  // A (right)
+            if ((gp.Buttons & ViiperXInput.X) != 0) buttons |= 0x000001;  // Y (left)
+            if ((gp.Buttons & ViiperXInput.Y) != 0) buttons |= 0x000002;  // X (top)
+            if ((gp.Buttons & ViiperXInput.LB) != 0) buttons |= 0x400000; // L
+            if ((gp.Buttons & ViiperXInput.RB) != 0) buttons |= 0x000040; // R
+
+            // Switch has no analog triggers — map >50% press to ZL/ZR digital.
+            if (gp.LeftTrigger > 128) buttons |= 0x800000;  // ZL
+            if (gp.RightTrigger > 128) buttons |= 0x000080; // ZR
+
+            if ((gp.Buttons & ViiperXInput.Back) != 0) buttons |= 0x000100;       // Minus
+            if ((gp.Buttons & ViiperXInput.Start) != 0) buttons |= 0x000200;      // Plus
+            if ((gp.Buttons & ViiperXInput.Guide) != 0) buttons |= 0x001000;      // Home
+            if ((gp.Buttons & ViiperXInput.LeftThumb) != 0) buttons |= 0x000800;
+            if ((gp.Buttons & ViiperXInput.RightThumb) != 0) buttons |= 0x000400;
+
+            if ((gp.Buttons & ViiperXInput.DPadUp) != 0)    buttons |= 0x020000;
+            if ((gp.Buttons & ViiperXInput.DPadDown) != 0)  buttons |= 0x010000;
+            if ((gp.Buttons & ViiperXInput.DPadLeft) != 0)  buttons |= 0x080000;
+            if ((gp.Buttons & ViiperXInput.DPadRight) != 0) buttons |= 0x040000;
+
+            WriteU32(data, 0, buttons);
+
+            WriteI16(data, 4, gp.ThumbLX);
+            WriteI16(data, 6, gp.ThumbLY);
+            WriteI16(data, 8, gp.ThumbRX);
+            WriteI16(data, 10, gp.ThumbRY);
+
+            // Bytes 12-23 are IMU (gyro XYZ + accel XYZ as int16). Leave zeroed here;
+            // if the caller wants gyro on Switch output, TryBuildImuCounts can populate
+            // these exactly like the DSE path. Future enhancement.
+            return data;
         }
 
         // -------------------------------------------------------------------
@@ -676,7 +996,19 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             return (ushort)scaled;
         }
 
-        private static byte[] BuildXboxElite2Input(ViiperXInputGamepad gp)
+        /// <summary>
+        /// Xbox Elite 2 wire format (33 bytes). Also used for Steam Generic, Steam Deck,
+        /// and Steam Controller targets since libviiper routes those through the Elite 2
+        /// InputState. Reads <see cref="currentAuxButtons"/> so Legion Go back-paddles
+        /// (Y1/Y2/Y3/M3), Mode and Share reach the virtual pad — without this, Steam-
+        /// target emulation was silent on every back-paddle press (issue reported via
+        /// Steam Generic / Steam Deck Go S profiles).
+        ///
+        /// Paddle bit layout matches the reference VIIPER app (aligned with HHD):
+        ///   Y1 → P1 (0x1000), Y3 → P2 (0x2000), Y2 → P3 (0x4000), M3 → P4 (0x8000).
+        /// Mode → Guide (0x0400); Share → reserved bit at data[13] |= 0x01.
+        /// </summary>
+        private byte[] BuildXboxElite2Input(ViiperXInputGamepad gp)
         {
             var data = new byte[33];
             ushort buttons = 0;
@@ -691,6 +1023,21 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             if ((gp.Buttons & ViiperXInput.LeftThumb) != 0) buttons |= 0x0100;
             if ((gp.Buttons & ViiperXInput.RightThumb) != 0) buttons |= 0x0200;
             if ((gp.Buttons & ViiperXInput.Guide) != 0) buttons |= 0x0400;
+
+            // Legion aux → Elite 2 paddles + Guide.
+            // libviiper's Steam path decodes the P-bits as:
+            //   P1 → R5 (right lower), P2 → L5 (left lower),
+            //   P3 → R4 (right upper), P4 → L4 (left upper).
+            // To land each physical Legion paddle on its matching position we therefore
+            // send Y1→P4, Y3→P3, Y2→P2, M3→P1 — both the L/R and the upper/lower pair
+            // are flipped vs. the HHD order I originally ported, confirmed empirically
+            // by re-testing on Steam Generic / Steam Deck / GO S targets.
+            ushort aux = currentAuxButtons;
+            if ((aux & LegionAux.Mode) != 0) buttons |= 0x0400; // Mode → Guide
+            if ((aux & LegionAux.Y1) != 0)   buttons |= 0x8000; // Y1 (back L upper) → P4 (L4)
+            if ((aux & LegionAux.Y3) != 0)   buttons |= 0x4000; // Y3 (back R upper) → P3 (R4)
+            if ((aux & LegionAux.Y2) != 0)   buttons |= 0x2000; // Y2 (back L lower) → P2 (L5)
+            if ((aux & LegionAux.M3) != 0)   buttons |= 0x1000; // M3 (back R lower) → P1 (R5)
             WriteU16(data, 0, buttons);
 
             data[2] = gp.LeftTrigger;
@@ -707,6 +1054,9 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             if ((gp.Buttons & ViiperXInput.DPadLeft) != 0) dpad |= 0x04;
             if ((gp.Buttons & ViiperXInput.DPadRight) != 0) dpad |= 0x08;
             data[12] = dpad;
+
+            // Share → reserved bit at byte 13 (matches reference app's mapping).
+            if ((aux & LegionAux.Share) != 0) data[13] |= 0x01;
             return data;
         }
 
