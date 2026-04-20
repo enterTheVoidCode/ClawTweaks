@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -82,6 +83,25 @@ namespace XboxGamingBarHelper.Labs
         // Detected controller mode
         private bool isDetachedMode = false;
         private int currentButtonByte = BUTTON_BYTE_ATTACHED;
+
+        // VID/PID combinations whose firmware ignores our init command (observed on
+        // Legion Go 8ASP2 / 83N0). Skip the init write on subsequent probes for these
+        // devices and go straight to the detached/uninitialized fallback to avoid
+        // burning ~300ms per reconnect on the same failed init pattern.
+        private static readonly HashSet<uint> _initFutileDevices = new HashSet<uint>();
+        private static readonly object _initFutileLock = new object();
+
+        private static bool IsInitFutile(ushort vid, ushort pid)
+        {
+            uint key = ((uint)vid << 16) | pid;
+            lock (_initFutileLock) { return _initFutileDevices.Contains(key); }
+        }
+
+        private static void MarkInitFutile(ushort vid, ushort pid)
+        {
+            uint key = ((uint)vid << 16) | pid;
+            lock (_initFutileLock) { _initFutileDevices.Add(key); }
+        }
 
         // Configuration for Legion L button
         private bool legionLEnabled = false;
@@ -2121,7 +2141,8 @@ namespace XboxGamingBarHelper.Labs
                             }
                             else if (isUninitialized)
                             {
-                                if (!initializationAttempted && hasWriteAccess)
+                                bool initFutile = IsInitFutile(vendorId, productId);
+                                if (!initializationAttempted && hasWriteAccess && !initFutile)
                                 {
                                     // Controller is uninitialized - send initialization command
                                     Logger.Info("LegionButtonMonitor: Controller is uninitialized (04:3C:74), sending init command...");
@@ -2137,15 +2158,23 @@ namespace XboxGamingBarHelper.Labs
                                 }
                                 else
                                 {
-                                    // Either we have no write access, or init was attempted and the
-                                    // device didn't transition to 04:00:A1. On some Go 2 variants
-                                    // (e.g. 83N0 / 8ASP2) the firmware keeps the tablet/uninitialized
-                                    // layout even after a successful init write. The monitor loop
-                                    // already handles both headers by switching currentButtonByte, so
-                                    // accept 04:3C:74 as a valid layout instead of rejecting.
-                                    string reason = hasWriteAccess
-                                        ? "init attempted but device stayed in uninitialized mode"
-                                        : "no write access to send init";
+                                    // Either we have no write access, init was attempted and the
+                                    // device didn't transition to 04:00:A1, or we already learned
+                                    // this VID/PID's firmware ignores the init command. On some Go 2
+                                    // variants (e.g. 83N0 / 8ASP2) the firmware keeps the tablet
+                                    // layout regardless. The monitor loop handles both headers by
+                                    // switching currentButtonByte, so accept 04:3C:74 as a valid
+                                    // layout instead of rejecting.
+                                    string reason;
+                                    if (!hasWriteAccess) reason = "no write access to send init";
+                                    else if (initFutile) reason = "previously learned init is ignored on this VID/PID";
+                                    else
+                                    {
+                                        reason = "init attempted but device stayed in uninitialized mode";
+                                        // Cache the result so subsequent reconnects skip the futile
+                                        // ~300ms init+settle and go straight to the fallback.
+                                        MarkInitFutile(vendorId, productId);
+                                    }
                                     Logger.Warn($"LegionButtonMonitor: Using fallback (detached) layout — {reason}");
                                     isDetachedMode = true;
                                     currentButtonByte = BUTTON_BYTE_DETACHED;

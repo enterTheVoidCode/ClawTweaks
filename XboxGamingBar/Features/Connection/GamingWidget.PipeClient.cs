@@ -121,18 +121,31 @@ namespace XboxGamingBar
                     }
                 }
 
-                // Set flag to prevent auto-save when helper updates slider values
-                isApplyingHelperUpdate = true;
-                try
+                // Dispatch the whole property-update path to the UI thread. NamedPipeClient
+                // delivers MessageReceived on a background reader thread; GenericProperty.SetValue
+                // fires InvokePropertyChanged synchronously, and several subscribers (color picker
+                // sync, visibility toggles, ComboBox.SelectedIndex=...) touch XAML. Those throw
+                // RPC_E_WRONG_THREAD when invoked off the UI apartment (seen consistently in
+                // live logs around TDP / LightBrightness debounce-cancel paths). Dispatching
+                // here keeps the whole property tree on the UI thread.
+                if (Dispatcher == null)
                 {
-                    // Handle the message via the properties system
-                    properties.HandlePipeMessage(message);
-                    await Task.Delay(50);
+                    // Fallback: no dispatcher available (widget torn down); skip.
+                    return;
                 }
-                finally
+
+                await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
-                    isApplyingHelperUpdate = false;
-                }
+                    isApplyingHelperUpdate = true;
+                    try
+                    {
+                        properties.HandlePipeMessage(message);
+                    }
+                    finally
+                    {
+                        isApplyingHelperUpdate = false;
+                    }
+                });
             }
             catch (Exception ex)
             {

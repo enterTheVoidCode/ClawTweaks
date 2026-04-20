@@ -1712,6 +1712,35 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Re-pushes the currently active controller profile (button mappings, controller
+        /// settings, lighting) to the helper. Called from OnPipeConnectedAsync to recover
+        /// from the cold-start race where ApplyControllerProfile fires during widget
+        /// constructor before App.IsConnected becomes true — those early sends silently
+        /// drop into a not-yet-connected pipe and the helper never learns the user's
+        /// saved button remaps / gyro / vibration / triggers settings until the next
+        /// manual interaction.
+        /// </summary>
+        internal void ResendActiveControllerProfileToHelper()
+        {
+            try
+            {
+                var profile = (LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName))
+                    ? gameControllerProfile
+                    : globalControllerProfile;
+                if (profile == null) return;
+
+                Logger.Info("Re-pushing active controller profile to helper after pipe connect (recovery from cold-start race)");
+                SendButtonMappingsToHelper(profile);
+                SendControllerSettingsToHelper(profile);
+                SendLightingToHelper(profile);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ResendActiveControllerProfileToHelper failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Sends lighting settings to the helper via IPC
         /// </summary>
         private void SendLightingToHelper(ControllerProfile profile)
@@ -1723,6 +1752,23 @@ namespace XboxGamingBar
                 if (!profile.HasExplicitLighting)
                 {
                     Logger.Info($"Skipping lighting update - profile has no explicit lighting settings");
+                    return;
+                }
+
+                // Defensive: if the saved color is pure white with default mode/brightness/speed,
+                // treat the profile as accidentally-flagged-explicit (we've seen the pre-fix race
+                // poison Global with #FFFFFF + HasExplicitLighting=true) and skip the push.
+                // A user genuinely picking white will have changed at least one other lighting
+                // field too, so this only filters the corruption pattern, not real choices.
+                bool isDefaultWhite = profile.LightColorR == 0xFF
+                                   && profile.LightColorG == 0xFF
+                                   && profile.LightColorB == 0xFF
+                                   && profile.LightMode == 1
+                                   && profile.LightSpeed == 50
+                                   && profile.LightBrightness >= 9; // default brightness range
+                if (isDefaultWhite)
+                {
+                    Logger.Warn($"Skipping lighting push - profile color is default white with default mode/speed (likely from a poisoned save). Adjust any lighting setting to re-enable.");
                     return;
                 }
 

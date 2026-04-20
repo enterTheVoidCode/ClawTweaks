@@ -519,9 +519,32 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
 
         private (bool Success, string Message) SendCommand(byte[] command)
         {
+            // If we lost the handle (e.g. HidHide cycle-port from VIIPER enabling, USB
+            // re-enumeration, sleep/wake), try to reconnect once before giving up. Without
+            // this the helper kept reporting "Controller not connected" indefinitely after
+            // VIIPER suppression landed, even though the device was back on the bus.
             if (!_isConnected || _deviceHandle == IntPtr.Zero)
-                return (false, "Controller not connected");
+            {
+                if (!TryReopenAfterStaleHandle("pre-send"))
+                {
+                    return (false, "Controller not connected");
+                }
+            }
 
+            var (sendOk, sendMsg) = SendCommandOnce(command);
+            if (sendOk) return (sendOk, sendMsg);
+
+            // Write failed: handle may have been invalidated by a cycle-port between the
+            // last successful write and now. Reopen and retry once.
+            if (TryReopenAfterStaleHandle("post-send"))
+            {
+                return SendCommandOnce(command);
+            }
+            return (sendOk, sendMsg);
+        }
+
+        private (bool Success, string Message) SendCommandOnce(byte[] command)
+        {
             try
             {
                 // Pad command to 64 bytes (HID report size)
@@ -546,12 +569,30 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 }
 
                 int error = Marshal.GetLastWin32Error();
+                _isConnected = false; // Mark stale so next call triggers reconnect path
                 return (false, $"Failed to send command (Error: {error})");
             }
             catch (Exception ex)
             {
+                _isConnected = false;
                 return (false, $"Error sending command: {ex.Message}");
             }
+        }
+
+        private bool TryReopenAfterStaleHandle(string reason)
+        {
+            // Close any stale handle silently before reconnecting
+            if (_deviceHandle != IntPtr.Zero && _deviceHandle != INVALID_HANDLE_VALUE)
+            {
+                CloseHandle(_deviceHandle);
+                _deviceHandle = IntPtr.Zero;
+            }
+            _isConnected = false;
+
+            // No logging here — this class is logging-free by convention; callers (LegionManager)
+            // log success/failure based on the returned tuple from SendCommand.
+            var (ok, _) = Connect();
+            return ok;
         }
 
         #endregion

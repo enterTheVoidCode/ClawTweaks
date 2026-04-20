@@ -3397,6 +3397,12 @@ namespace XboxGamingBar
                     Logger.Info("[PIPE] Inside dispatcher - calling UpdateProfileDisplay()");
                     UpdateProfileDisplay();
                     RefreshLegionEnhancedRemapUi();
+
+                    // Recover from the cold-start race: ApplyControllerProfile fires during
+                    // widget constructor before App.IsConnected, so its Send* calls drop
+                    // into a not-yet-connected pipe. Re-push now that the pipe is up.
+                    ResendActiveControllerProfileToHelper();
+
                     Logger.Info("[PIPE] Inside dispatcher - post-sync UI updates complete");
                 });
                 Logger.Info("[PIPE] Post-sync initialization complete");
