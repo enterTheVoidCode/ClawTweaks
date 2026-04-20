@@ -7743,8 +7743,8 @@
                                          LocalSettings. UpdateOnStart triggers Update-all the
                                          moment the helper pushes a non-zero driver-update count. -->
                                     <CheckBox x:Name="DriverUpdatesUpdateOnStartCheckbox"
-                                              Content="Install driver updates on start"
-                                              IsChecked="False"
+                                              Content="Check for driver updates on start"
+                                              IsChecked="True"
                                               FontSize="12"
                                               Foreground="#AAAAAA"
                                               Checked="DriverUpdatesUpdateOnStartCheckbox_Changed"
