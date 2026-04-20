@@ -105,9 +105,27 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 if (settingsManager.EmulationBackend != null)
                 {
                     var backendValue = settingsManager.EmulationBackend.Value;
-                    _ = System.Threading.Tasks.Task.Run(() =>
+                    _ = System.Threading.Tasks.Task.Run(async () =>
                     {
-                        try { ApplyBackend(backendValue); }
+                        try
+                        {
+                            // SERIALISE with ControllerEmulationManager's
+                            // deferred startup apply. Both tasks used to fire
+                            // concurrently on the thread pool and race on the
+                            // single HidHide suppression state: VIIPER enabled
+                            // + cycle-ported correctly, then 140ms later the
+                            // legacy manager's Apply disabled HidHide and its
+                            // own re-enum request failed (Windows refuses a
+                            // second cycle-port on the same device within that
+                            // window), leaving the physical Legion controller
+                            // visible to games next to the VIIPER virtual one
+                            // (verified on reboot 2026-04-19 20:11:46 log).
+                            // Waiting on the shared semaphore guarantees
+                            // ControllerEmulationManager's legacy-settle pass
+                            // finishes before VIIPER asserts its HidHide state.
+                            await XboxGamingBarHelper.ControllerEmulation.ControllerEmulationStartupLock.WaitForLegacyApplyAsync();
+                            ApplyBackend(backendValue);
+                        }
                         catch (Exception ex) { Logger.Warn($"ViiperEmulationManager deferred startup ApplyBackend failed: {ex.Message}"); }
                     });
                 }

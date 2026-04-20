@@ -554,6 +554,13 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 {
                     Logger.Warn($"ControllerEmulationManager: deferred startup apply failed — {ex.Message}");
                 }
+                finally
+                {
+                    // Signal ViiperEmulationManager's startup apply that the
+                    // legacy settle is complete, so VIIPER can assert its
+                    // HidHide state without getting overwritten mid-cycle-port.
+                    ControllerEmulationStartupLock.MarkLegacyApplyComplete();
+                }
             });
         }
 

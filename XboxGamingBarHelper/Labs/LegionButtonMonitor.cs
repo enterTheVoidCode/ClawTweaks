@@ -2579,6 +2579,27 @@ namespace XboxGamingBarHelper.Labs
                             }
                         }
                     }
+                    catch (ObjectDisposedException)
+                    {
+                        // HID handle torn down during a disconnect/reconnect
+                        // or HidHide cycle-port (we lose the file handle when
+                        // Windows re-enumerates the device). The reconnect
+                        // path later in the loop rebuilds the stream, so this
+                        // is normal transient noise — Warn, not Error.
+                        Logger.Warn($"LegionButtonMonitor: HID handle disposed during monitor loop (iteration {loopIteration}); will reconnect");
+                        consecutiveFailures++;
+                        Thread.Sleep(500);
+                    }
+                    catch (NullReferenceException)
+                    {
+                        // Same transient class: a field (stream/device/reader)
+                        // was nulled by the reconnect path between the null
+                        // check and the use. Downgraded to Warn so reboots
+                        // don't flood the log with iteration NREs.
+                        Logger.Warn($"LegionButtonMonitor: transient null during monitor loop (iteration {loopIteration}); will reconnect");
+                        consecutiveFailures++;
+                        Thread.Sleep(500);
+                    }
                     catch (Exception ex)
                     {
                         Logger.Error($"LegionButtonMonitor: Exception in monitor loop (iteration {loopIteration}): {ex.Message}\n{ex.StackTrace}");

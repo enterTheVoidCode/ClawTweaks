@@ -436,6 +436,16 @@ namespace XboxGamingBarHelper.Systems
                         Logger.Debug($"RTSS AppEntry: ProcessId={entry.ProcessId}, Name={entry.Name}, InstantaneousFrames={entry.InstantaneousFrames}");
                     }
                 }
+                catch (System.IO.FileNotFoundException)
+                {
+                    // RTSS.exe is running but hasn't mapped its shared-memory
+                    // segment yet (startup race) OR it was just killed between
+                    // IsRunning() and GetAppEntries. Transient — we retry on
+                    // the next tick. Downgraded from Error to Debug so the
+                    // helper log isn't noisy on every reboot while the OSD
+                    // attaches.
+                    Logger.Debug("RTSS shared-memory segment not ready — game detection will retry next tick");
+                }
                 catch (Exception e)
                 {
                     Logger.Error($"Can't connect to Rivatuner Statistics Server: {e}");
