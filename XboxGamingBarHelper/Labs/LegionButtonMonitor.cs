@@ -2130,32 +2130,33 @@ namespace XboxGamingBarHelper.Labs
                                     Logger.Info($"LegionButtonMonitor: Init command result: {initResult}");
                                     if (initResult)
                                     {
-                                        Thread.Sleep(100); // Give controller time to switch modes
+                                        Thread.Sleep(300); // Give controller time to switch modes
                                     }
                                     // Continue reading to check if initialization worked
                                     continue;
                                 }
-                                else if (!hasWriteAccess)
+                                else
                                 {
-                                    // No write access - use fallback mode for uninitialized controller
-                                    Logger.Warn("LegionButtonMonitor: Controller is uninitialized but no write access - using fallback mode");
+                                    // Either we have no write access, or init was attempted and the
+                                    // device didn't transition to 04:00:A1. On some Go 2 variants
+                                    // (e.g. 83N0 / 8ASP2) the firmware keeps the tablet/uninitialized
+                                    // layout even after a successful init write. The monitor loop
+                                    // already handles both headers by switching currentButtonByte, so
+                                    // accept 04:3C:74 as a valid layout instead of rejecting.
+                                    string reason = hasWriteAccess
+                                        ? "init attempted but device stayed in uninitialized mode"
+                                        : "no write access to send init";
+                                    Logger.Warn($"LegionButtonMonitor: Using fallback (detached) layout — {reason}");
                                     isDetachedMode = true;
                                     currentButtonByte = BUTTON_BYTE_DETACHED;
                                     Logger.Info($"LegionButtonMonitor: Probe success (fallback/uninitialized mode) - {bytesRead} bytes, header: 04:3C:74, btn byte: {currentButtonByte}");
                                     return true;
                                 }
-                                else
-                                {
-                                    // Initialization was attempted but controller is still in uninitialized mode
-                                    // Don't use fallback - the format is different and would cause issues
-                                    Logger.Error("LegionButtonMonitor: Controller failed to initialize, cannot use uninitialized format");
-                                    return false;
-                                }
                             }
                         }
 
                         wrongFormatCount++;
-                        Logger.Debug($"LegionButtonMonitor: Probe attempt {attempt + 1} - got {bytesRead} bytes, header: {buffer[0]:X2}:{buffer[1]:X2}:{buffer[2]:X2}");
+                        Logger.Info($"LegionButtonMonitor: Probe attempt {attempt + 1} - got {bytesRead} bytes, header: {buffer[0]:X2}:{buffer[1]:X2}:{buffer[2]:X2}");
 
                         // Reduced from 3 to 2 - fail faster on wrong devices
                         if (wrongFormatCount >= 2)
