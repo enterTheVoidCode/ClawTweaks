@@ -89,10 +89,27 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 {
                     settingsManager.ViiperGyroAxisMapZ.PropertyChanged += OnGyroAxisMapChanged;
                 }
-                // Apply initial state.
+                // Apply initial state — deferred.
+                //
+                // ApplyBackend(true) walks through Start() which enables
+                // HidHide suppression (Nefarius SetVariable + PnP cycle-port)
+                // and creates the VIIPER USBIP bus / waits for Windows to
+                // enumerate the virtual device. On Legion Go 2 that chain
+                // costs ~6s of wall-clock time and used to block helper
+                // Initialize() — keeping _managersReady=false, which makes
+                // the widget show "Not Connected" spinners for ~12 s on
+                // launch. Nothing downstream on the main init path needs
+                // VIIPER running (no property reads from it), so the
+                // startup apply runs on the thread pool and the bus stands
+                // itself up in the background.
                 if (settingsManager.EmulationBackend != null)
                 {
-                    ApplyBackend(settingsManager.EmulationBackend.Value);
+                    var backendValue = settingsManager.EmulationBackend.Value;
+                    _ = System.Threading.Tasks.Task.Run(() =>
+                    {
+                        try { ApplyBackend(backendValue); }
+                        catch (Exception ex) { Logger.Warn($"ViiperEmulationManager deferred startup ApplyBackend failed: {ex.Message}"); }
+                    });
                 }
             }
         }

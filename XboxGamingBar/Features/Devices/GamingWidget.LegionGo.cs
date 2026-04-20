@@ -506,13 +506,13 @@ namespace XboxGamingBar
             };
 
         private const string DriverUpdatesShowUtilitiesKey = "DriverUpdates_ShowUtilities";
+        // Kept for back-compat — same storage key, new meaning: "CheckOnStart".
+        // Historically this was "UpdateOnStart" (auto-install). Changed after
+        // users asked for a way to skip the Lenovo check entirely — the name
+        // stays so existing LocalSettings values carry over. Default true so
+        // first-install users still see the banner after startup probe.
         private const string DriverUpdatesUpdateOnStartKey = "DriverUpdates_UpdateOnStart";
         private const string DriverUpdatesHideBannerKey    = "DriverUpdates_HideBanner";
-
-        // Tracks whether we've already fired Update-all for this helper
-        // session — otherwise every subsequent push (reconnect, manual
-        // re-check) would re-kick the installers.
-        private bool _driverAutoUpdateFiredThisSession;
 
         private static bool GetBoolSetting(string key, bool defaultValue)
         {
@@ -531,9 +531,11 @@ namespace XboxGamingBar
             catch { }
         }
 
-        private bool DriverUpdatesUpdateOnStart
+        private bool DriverUpdatesCheckOnStart
         {
-            get => GetBoolSetting(DriverUpdatesUpdateOnStartKey, false);
+            // Default true: users who haven't explicitly opted out expect the
+            // helper's startup probe to populate the banner automatically.
+            get => GetBoolSetting(DriverUpdatesUpdateOnStartKey, true);
             set => SetBoolSetting(DriverUpdatesUpdateOnStartKey, value);
         }
         private bool DriverUpdatesHideBanner
@@ -542,10 +544,26 @@ namespace XboxGamingBar
             set => SetBoolSetting(DriverUpdatesHideBannerKey, value);
         }
 
-        private void DriverUpdatesUpdateOnStartCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private async void DriverUpdatesUpdateOnStartCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
             if (DriverUpdatesUpdateOnStartCheckbox == null) return;
-            DriverUpdatesUpdateOnStart = DriverUpdatesUpdateOnStartCheckbox.IsChecked == true;
+            bool on = DriverUpdatesUpdateOnStartCheckbox.IsChecked == true;
+            DriverUpdatesCheckOnStart = on;
+            // Forward to helper so its next startup honours the toggle.
+            // Helper persists via its own LocalSettingsHelper (separate store
+            // from widget LocalSettings) and reads the value before running
+            // the probe, so the following launch skips the Lenovo fetch when
+            // the box is unchecked.
+            try
+            {
+                if (App.IsConnected)
+                {
+                    var req = new Windows.Foundation.Collections.ValueSet();
+                    req.Add("SetDriverCheckOnStart", on);
+                    await App.SendMessageAsync(req);
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"SetDriverCheckOnStart forward failed: {ex.Message}"); }
         }
 
         private void DriverUpdatesHideBannerCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
@@ -592,15 +610,15 @@ namespace XboxGamingBar
             try
             {
                 bool hideBanner = DriverUpdatesHideBanner;
-                bool updateOnStart = DriverUpdatesUpdateOnStart;
+                bool checkOnStart = DriverUpdatesCheckOnStart;
 
                 await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                 {
                     if (QuickDriverUpdatesTile == null) return;
                     // Sync the checkboxes themselves with persisted state so
                     // the user sees the current setting on first render.
-                    if (DriverUpdatesUpdateOnStartCheckbox != null && DriverUpdatesUpdateOnStartCheckbox.IsChecked != updateOnStart)
-                        DriverUpdatesUpdateOnStartCheckbox.IsChecked = updateOnStart;
+                    if (DriverUpdatesUpdateOnStartCheckbox != null && DriverUpdatesUpdateOnStartCheckbox.IsChecked != checkOnStart)
+                        DriverUpdatesUpdateOnStartCheckbox.IsChecked = checkOnStart;
                     if (DriverUpdatesHideBannerCheckbox != null && DriverUpdatesHideBannerCheckbox.IsChecked != hideBanner)
                         DriverUpdatesHideBannerCheckbox.IsChecked = hideBanner;
 
@@ -631,24 +649,6 @@ namespace XboxGamingBar
                 if (count > 0 && (_allDriverDisplays == null || _allDriverDisplays.Count == 0))
                 {
                     await PrefetchDriverUpdatesAsync();
-                }
-
-                // Auto-install if the user has opted in AND we haven't already
-                // fired this session. Guard with a one-shot flag so a reconnect
-                // or manual re-check doesn't trigger another install pass.
-                if (updateOnStart && count > 0 && !_driverAutoUpdateFiredThisSession)
-                {
-                    _driverAutoUpdateFiredThisSession = true;
-                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
-                    {
-                        try
-                        {
-                            DriverUpdatesUpdateAllButton_Click(
-                                DriverUpdatesUpdateAllButton ?? new Windows.UI.Xaml.Controls.Button(),
-                                new Windows.UI.Xaml.RoutedEventArgs());
-                        }
-                        catch (Exception ex) { Logger.Warn($"Auto Update-all failed: {ex.Message}"); }
-                    });
                 }
             }
             catch (Exception ex)

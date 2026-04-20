@@ -491,6 +491,32 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Persists the user's "Check for driver updates on start"
+                // preference on the helper side. Widget writes here whenever
+                // the checkbox flips; helper re-reads at next launch before
+                // scheduling the Lenovo probe, so flipping the box off keeps
+                // the helper from hitting pcsupport.lenovo.com on boot.
+                if (pipeMsg.Extra.ContainsKey("SetDriverCheckOnStart"))
+                {
+                    try
+                    {
+                        bool val = true;
+                        if (pipeMsg.Extra.TryGetValue("SetDriverCheckOnStart", out var v))
+                        {
+                            if (v is bool b) val = b;
+                            else if (v is string s) bool.TryParse(s, out val);
+                        }
+                        Settings.LocalSettingsHelper.SetValue("DriverCheckOnStart", val);
+                        Logger.Info($"Pipe: SetDriverCheckOnStart = {val}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: SetDriverCheckOnStart threw: {ex.Message}");
+                    }
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+
                 // GoTweaks self-update check. Widget explicitly asks; helper
                 // serves the cached startup-probe result unless ForceRefresh=true.
                 if (pipeMsg.Extra.ContainsKey("CheckGoTweaksUpdate"))

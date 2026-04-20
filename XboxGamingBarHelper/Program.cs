@@ -951,40 +951,49 @@ namespace XboxGamingBarHelper
             );
 
             // Start Legion button monitor for battery monitoring (even when button remap is disabled)
-            // This allows controller battery to be monitored without requiring button remapping
+            // This allows controller battery to be monitored without requiring button remapping.
+            //
+            // Deferred to the thread pool — the monitor iterates up to 4
+            // candidate HID paths and each firmware "init" command that gets
+            // rejected costs ~1s, for a combined ~2.2s on Legion Go 2. None
+            // of the values it produces (VID:PID, controller battery) are
+            // referenced by the property list at construction time; they
+            // sync into legionManager's properties as soon as the real HID
+            // device is found, and a zero-filled initial state is correct
+            // in the meantime.
             if (legionManager.LegionGoDetected.Value)
             {
-                try
+                _ = Task.Run(() =>
                 {
-                    // Load cached HID device path for faster startup
-                    LegionButtonMonitor.LoadCachedDevicePathFromSettings();
-
-                    LegionButtonMonitor monitor = EnsureLegionButtonMonitor();
-
-                    if (monitor.StartForBatteryMonitoring())
+                    try
                     {
-                        Logger.Info("Legion button monitor started for battery monitoring");
-                        // Update VID:PID in LegionManager
-                        var vidPid = monitor.DetectedVidPid;
-                        Logger.Info($"Legion button monitor VID:PID after start: '{vidPid}'");
-                        if (!string.IsNullOrEmpty(vidPid))
+                        LegionButtonMonitor.LoadCachedDevicePathFromSettings();
+                        LegionButtonMonitor monitor = EnsureLegionButtonMonitor();
+
+                        if (monitor.StartForBatteryMonitoring())
                         {
-                            legionManager.UpdateControllerVidPid(vidPid);
+                            Logger.Info("Legion button monitor started for battery monitoring");
+                            var vidPid = monitor.DetectedVidPid;
+                            Logger.Info($"Legion button monitor VID:PID after start: '{vidPid}'");
+                            if (!string.IsNullOrEmpty(vidPid))
+                            {
+                                legionManager.UpdateControllerVidPid(vidPid);
+                            }
+                            else
+                            {
+                                Logger.Warn("Legion button monitor VID:PID is empty after start");
+                            }
                         }
                         else
                         {
-                            Logger.Warn("Legion button monitor VID:PID is empty after start");
+                            Logger.Warn("Failed to start Legion button monitor for battery monitoring");
                         }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        Logger.Warn("Failed to start Legion button monitor for battery monitoring");
+                        Logger.Error($"Error initializing Legion button monitor for battery: {ex.Message}");
                     }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"Error initializing Legion button monitor for battery: {ex.Message}");
-                }
+                });
             }
 
             // Set AutoTDPManager reference in RTSSManager for AutoTDP OSD support
@@ -1418,20 +1427,41 @@ namespace XboxGamingBarHelper
             // tile, which is the same as the pre-feature behaviour.
             if (legionManager != null && legionManager.LegionGoDetected != null && legionManager.LegionGoDetected.Value)
             {
-                _ = Task.Run(async () =>
+                // Per-user opt-out for the Lenovo startup probe. Widget's
+                // "Check for driver updates on start" checkbox writes this
+                // via pipe → Settings.LocalSettingsHelper → settings.json,
+                // and we read it synchronously here before spawning the task.
+                // Default true keeps the tile-on-launch UX for untouched
+                // installs.
+                bool checkOnStart = true;
+                try
                 {
-                    try
+                    if (Settings.LocalSettingsHelper.TryGetValue<bool>("DriverCheckOnStart", out var persisted))
+                        checkOnStart = persisted;
+                }
+                catch { }
+
+                if (checkOnStart)
+                {
+                    _ = Task.Run(async () =>
                     {
-                        var result = await Services.LenovoDriverCheckService.CheckAsync();
-                        int updateCount = result?.Drivers?.Count(d => d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable) ?? 0;
-                        Logger.Info($"Startup driver probe complete — {updateCount} update(s) available out of {result?.Drivers?.Count ?? 0} total");
-                        PushDriverUpdatesAvailable(updateCount);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Warn($"Startup driver probe failed: {ex.Message}");
-                    }
-                });
+                        try
+                        {
+                            var result = await Services.LenovoDriverCheckService.CheckAsync();
+                            int updateCount = result?.Drivers?.Count(d => d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable) ?? 0;
+                            Logger.Info($"Startup driver probe complete — {updateCount} update(s) available out of {result?.Drivers?.Count ?? 0} total");
+                            PushDriverUpdatesAvailable(updateCount);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"Startup driver probe failed: {ex.Message}");
+                        }
+                    });
+                }
+                else
+                {
+                    Logger.Info("Startup driver probe skipped (user disabled 'Check for driver updates on start')");
+                }
             }
 
             // GoTweaks self-update check runs on every device type — the app
