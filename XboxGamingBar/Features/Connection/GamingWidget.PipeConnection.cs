@@ -193,7 +193,14 @@ namespace XboxGamingBar
             // for the duration of the retry so the user sees progress.
             ShowConnectionBanner(BannerState.Reconnecting);
 
-            _ = Task.Run(async () =>
+            // Run the reconnect on the UI dispatcher — TryConnectPipeAsync
+            // eventually fires OnPipeConnectedAsync which touches Xaml
+            // properties and Windows.Data.Json parsers, both of which are
+            // WinRT single-apartment and reject calls from threadpool
+            // threads (RPC_E_WRONG_THREAD, HRESULT 0x8001010E). Observed
+            // after a long UAC gap during helper updates: the connect
+            // itself succeeded but the post-connect sync exploded.
+            var _ignored = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
             {
                 try
                 {

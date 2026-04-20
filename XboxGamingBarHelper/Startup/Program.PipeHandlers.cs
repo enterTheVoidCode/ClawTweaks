@@ -517,6 +517,29 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Persists the user's "Check for updates on start" preference
+                // for the GoTweaks self-update probe. Mirrors SetDriverCheckOnStart.
+                if (pipeMsg.Extra.ContainsKey("SetGoTweaksCheckOnStart"))
+                {
+                    try
+                    {
+                        bool val = true;
+                        if (pipeMsg.Extra.TryGetValue("SetGoTweaksCheckOnStart", out var v))
+                        {
+                            if (v is bool b) val = b;
+                            else if (v is string s) bool.TryParse(s, out val);
+                        }
+                        Settings.LocalSettingsHelper.SetValue("GoTweaksCheckOnStart", val);
+                        Logger.Info($"Pipe: SetGoTweaksCheckOnStart = {val}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: SetGoTweaksCheckOnStart threw: {ex.Message}");
+                    }
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+
                 // GoTweaks self-update check. Widget explicitly asks; helper
                 // serves the cached startup-probe result unless ForceRefresh=true.
                 if (pipeMsg.Extra.ContainsKey("CheckGoTweaksUpdate"))

@@ -335,8 +335,21 @@ namespace XboxGamingBar
         /// because the UWP widget targets C# 7.3 without System.Text.Json. Defensive
         /// against missing fields — any field the helper couldn't populate shows "—".
         /// </summary>
-        private void RenderDriverUpdateResult(string json)
+        private async void RenderDriverUpdateResult(string json)
         {
+            // Windows.Data.Json + Xaml property setters both require the UI
+            // thread (WinRT single-apartment). This method is reachable from
+            // the pipe-read threadpool path (PrefetchDriverUpdatesAsync /
+            // UpdateDriverUpdatesTile on startup push) so force a dispatch
+            // before we touch either. Without this the heartbeat-watcher
+            // reconnect after a long UAC gap threw RPC_E_WRONG_THREAD and
+            // left the driver list empty.
+            if (Dispatcher != null && !Dispatcher.HasThreadAccess)
+            {
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal,
+                    () => RenderDriverUpdateResult(json));
+                return;
+            }
             try
             {
                 if (!Windows.Data.Json.JsonObject.TryParse(json, out var root))
@@ -658,25 +671,53 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Shows "Update all" button when any cached driver row has a button
-        /// visible (i.e. Install or Update status with a download URL).
+        /// A row qualifies for "Update all" only when:
+        ///   1. It has UpdateAvailable status (not NotInstalled — installing
+        ///      drivers Windows doesn't have yet would be surprising, and the
+        ///      user wasn't asking for that).
+        ///   2. It's currently visible in the list — the utilities/diagnostics
+        ///      filter + Tool category exclusion on the card shouldn't leak
+        ///      into a bulk install. User's previous run launched all 24
+        ///      candidate installers at once, including hidden ones, which
+        ///      was the opposite of what they asked for.
+        /// </summary>
+        private bool IsUpdateAllCandidate(DriverDisplay d)
+        {
+            if (d == null) return false;
+            // Status label is set by StatusLabelFor — "Update" is the
+            // UpdateAvailable case, "Install" is NotInstalled, "Up to date"
+            // is UpToDate, "Unknown" otherwise.
+            if (!string.Equals(d.StatusLabel, "Update", StringComparison.Ordinal)) return false;
+            if (string.IsNullOrWhiteSpace(d.DownloadUrl)) return false;
+            // Respect the "Show utilities and diagnostics" checkbox: when
+            // unchecked we hide those categories + Tool from the list, so
+            // Update-all must hide them too.
+            if (!DriverUpdatesShowUtilities && _lowSignalDriverCategories.Contains(d.Category ?? "")) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// Shows "Update all" button when at least one visible row is an
+        /// actionable UpdateAvailable (the same set IsUpdateAllCandidate
+        /// returns true for — keeps the button visibility consistent with
+        /// what the button would actually install).
         /// </summary>
         private void UpdateUpdateAllButtonVisibility()
         {
             if (DriverUpdatesUpdateAllButton == null) return;
-            bool anyInstallable = false;
+            int updateCount = 0;
             foreach (var d in _allDriverDisplays)
             {
-                if (d.InstallButtonVisibility == Windows.UI.Xaml.Visibility.Visible
-                    && !string.IsNullOrWhiteSpace(d.DownloadUrl))
-                {
-                    anyInstallable = true;
-                    break;
-                }
+                if (IsUpdateAllCandidate(d)) updateCount++;
             }
-            DriverUpdatesUpdateAllButton.Visibility = anyInstallable
+            DriverUpdatesUpdateAllButton.Visibility = updateCount > 0
                 ? Windows.UI.Xaml.Visibility.Visible
                 : Windows.UI.Xaml.Visibility.Collapsed;
+            // Surface the count so the user knows exactly what "Update all"
+            // is about to touch — no more surprise 24-installer launches.
+            DriverUpdatesUpdateAllButton.Content = updateCount > 1
+                ? $"Update all ({updateCount})"
+                : "Update all";
         }
 
         /// <summary>
@@ -771,16 +812,17 @@ namespace XboxGamingBar
             var urls = new System.Collections.Generic.List<string>();
             foreach (var d in _allDriverDisplays)
             {
-                if (d.InstallButtonVisibility == Windows.UI.Xaml.Visibility.Visible
-                    && !string.IsNullOrWhiteSpace(d.DownloadUrl))
-                {
-                    urls.Add(d.DownloadUrl);
-                }
+                // Update-all is strictly VISIBLE + UpdateAvailable. We
+                // deliberately don't touch NotInstalled rows (the user
+                // doesn't necessarily want Windows to gain drivers it
+                // hasn't picked up yet) and we respect the category filter
+                // (hidden utilities/diagnostics/tools never get queued).
+                if (IsUpdateAllCandidate(d)) urls.Add(d.DownloadUrl);
             }
             if (urls.Count == 0)
             {
                 if (DriverUpdatesStatusText != null)
-                    DriverUpdatesStatusText.Text = "Nothing to install.";
+                    DriverUpdatesStatusText.Text = "No visible driver updates to install.";
                 return;
             }
 
@@ -865,6 +907,10 @@ namespace XboxGamingBar
             DriverUpdatesList.Visibility = visible.Count > 0
                 ? Windows.UI.Xaml.Visibility.Visible
                 : Windows.UI.Xaml.Visibility.Collapsed;
+
+            // Eligible-for-Update-all set tracks the same filter, so refresh
+            // the button + its count label whenever the filter flips.
+            UpdateUpdateAllButtonVisibility();
         }
 
         /// <summary>

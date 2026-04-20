@@ -1466,18 +1466,36 @@ namespace XboxGamingBarHelper
 
             // GoTweaks self-update check runs on every device type — the app
             // itself can be updated regardless of which handheld it's on.
-            _ = Task.Run(async () =>
+            // Opt-out via the System tab's "Check for updates on start"
+            // checkbox — widget writes GoTweaksCheckOnStart via pipe →
+            // LocalSettingsHelper → settings.json, we honour it here.
+            bool goTweaksCheckOnStart = true;
+            try
             {
-                try
+                if (Settings.LocalSettingsHelper.TryGetValue<bool>("GoTweaksCheckOnStart", out var gtPersisted))
+                    goTweaksCheckOnStart = gtPersisted;
+            }
+            catch { }
+
+            if (goTweaksCheckOnStart)
+            {
+                _ = Task.Run(async () =>
                 {
-                    var result = await Services.GoTweaksUpdateService.CheckAsync(helperVersion);
-                    PushGoTweaksUpdate(result);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Warn($"Startup GoTweaks update probe failed: {ex.Message}");
-                }
-            });
+                    try
+                    {
+                        var result = await Services.GoTweaksUpdateService.CheckAsync(helperVersion);
+                        PushGoTweaksUpdate(result);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Startup GoTweaks update probe failed: {ex.Message}");
+                    }
+                });
+            }
+            else
+            {
+                Logger.Info("Startup GoTweaks update probe skipped (user disabled 'Check for updates on start')");
+            }
 
             // Wait for widget connection (non-blocking if already connected)
             var connectTimer = System.Diagnostics.Stopwatch.StartNew();
