@@ -136,36 +136,44 @@ namespace XboxGamingBar
                 Foreground = tile.IsAction
                     ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 150, 200))  // Light purple for action
                     : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136)),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 2, 0, 0)
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0),
+                TextWrapping = TextWrapping.NoWrap
             };
 
-            // For Profile tile, wrap in Canvas for scrolling long names
-            if (tile.Id == "Profile")
-            {
-                var transform = new TranslateTransform { X = 0 };
-                stateText.RenderTransform = transform;
-                stateText.Margin = new Thickness(0); // Remove margin, Canvas handles positioning
+            // Wrap every tile's state text in a Canvas that clips to the tile's
+            // available width and supports marquee scrolling when the text overflows.
+            // Width binds to the parent Grid column via HorizontalAlignment=Stretch +
+            // SizeChanged so the clip geometry tracks column resizes (3/4/5 cols).
+            var transform = new TranslateTransform { X = 0 };
+            stateText.RenderTransform = transform;
 
-                var canvas = new Canvas
+            var canvas = new Canvas
+            {
+                Height = 18,
+                Margin = new Thickness(0, 2, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            canvas.Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, 0, 18) };
+            canvas.Children.Add(stateText);
+
+            // Keep the clip rect in sync with the actual laid-out width so scroll
+            // calculations reflect the real tile width at 3/4/5 column settings.
+            canvas.SizeChanged += (s, e) =>
+            {
+                if (e.NewSize.Width > 0)
                 {
-                    Width = 90, // Tile width for text
-                    Height = 18,
-                    Margin = new Thickness(0, 2, 0, 0),
-                    HorizontalAlignment = HorizontalAlignment.Center
-                };
-                canvas.Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, 90, 18) };
-                canvas.Children.Add(stateText);
+                    canvas.Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, 18) };
+                    // Re-evaluate scroll state now that the available width changed
+                    UpdateTileScrollAnimation(tile);
+                }
+            };
 
-                content.Children.Add(canvas);
+            content.Children.Add(canvas);
 
-                tile.StateTextCanvas = canvas;
-                tile.StateTextTransform = transform;
-            }
-            else
-            {
-                content.Children.Add(stateText);
-            }
+            tile.StateTextCanvas = canvas;
+            tile.StateTextTransform = transform;
 
             button.Content = content;
             button.Click += QuickSettingsTile_Click;
@@ -177,39 +185,47 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Updates the scroll animation for the Profile tile's state text.
-        /// If text is wider than the canvas, starts a scrolling animation.
+        /// Updates the scroll animation for a tile's state text.
+        /// If the rendered text is wider than the tile's column, marquees it
+        /// left-right-left on a loop so the full value is readable. Otherwise
+        /// centers it. Safe to call repeatedly — it stops any existing storyboard
+        /// before starting a new one. Replaces the old Profile-only variant now
+        /// that every tile gets the same scrolling treatment.
         /// </summary>
-        private void UpdateProfileTileScrollAnimation(TileDefinition profileTile)
+        private void UpdateTileScrollAnimation(TileDefinition tile)
         {
-            if (profileTile?.StateText == null || profileTile.StateTextCanvas == null || profileTile.StateTextTransform == null)
+            if (tile?.StateText == null || tile.StateTextCanvas == null || tile.StateTextTransform == null)
                 return;
 
             // Stop any existing animation
-            if (profileTile.ScrollStoryboard != null)
+            if (tile.ScrollStoryboard != null)
             {
-                profileTile.ScrollStoryboard.Stop();
-                profileTile.ScrollStoryboard = null;
+                tile.ScrollStoryboard.Stop();
+                tile.ScrollStoryboard = null;
             }
 
             // Reset transform
-            profileTile.StateTextTransform.X = 0;
+            tile.StateTextTransform.X = 0;
 
-            // Measure text width
-            profileTile.StateText.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
-            double textWidth = profileTile.StateText.DesiredSize.Width;
-            double canvasWidth = profileTile.StateTextCanvas.Width;
+            // Measure text width at its natural size
+            tile.StateText.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            double textWidth = tile.StateText.DesiredSize.Width;
 
-            // If text fits, no animation needed
+            // Prefer the actual laid-out width; fall back to the declared Width
+            // when the canvas hasn't had its first layout pass yet.
+            double canvasWidth = tile.StateTextCanvas.ActualWidth;
+            if (canvasWidth <= 0) canvasWidth = tile.StateTextCanvas.Width;
+            if (canvasWidth <= 0) return; // Not yet laid out — SizeChanged will retry
+
+            // If text fits, no animation needed — just center it
             if (textWidth <= canvasWidth)
             {
-                // Center the text
-                Canvas.SetLeft(profileTile.StateText, (canvasWidth - textWidth) / 2);
+                Canvas.SetLeft(tile.StateText, (canvasWidth - textWidth) / 2);
                 return;
             }
 
             // Text is too wide - set up scrolling animation
-            Canvas.SetLeft(profileTile.StateText, 0);
+            Canvas.SetLeft(tile.StateText, 0);
 
             // Calculate scroll distance and duration
             double scrollDistance = textWidth - canvasWidth + 10; // Extra padding
@@ -262,11 +278,11 @@ namespace XboxGamingBar
                 Value = 0
             });
 
-            Storyboard.SetTarget(animation, profileTile.StateTextTransform);
+            Storyboard.SetTarget(animation, tile.StateTextTransform);
             Storyboard.SetTargetProperty(animation, "X");
             storyboard.Children.Add(animation);
 
-            profileTile.ScrollStoryboard = storyboard;
+            tile.ScrollStoryboard = storyboard;
             storyboard.Begin();
         }
 
@@ -408,8 +424,11 @@ namespace XboxGamingBar
                         profileTile.TileButton.Background = perGame ? tileOnBrush : tileOffBrush;
                     }
 
-                    // Update scroll animation for long profile names
-                    UpdateProfileTileScrollAnimation(profileTile);
+                    // Update scroll animation for long profile names (per-tile loop
+                    // below also runs this for every tile, but re-running it here
+                    // keeps the profile tile responsive to name changes without
+                    // waiting for the next tile-state refresh pass).
+                    UpdateTileScrollAnimation(profileTile);
                 }
 
                 // Performance Overlay tile
@@ -802,6 +821,17 @@ namespace XboxGamingBar
                     batteryTile.StateText.Text = stateText;
                     batteryTile.StateText.Foreground = accentForeground;
                     batteryTile.TileButton.Background = bgBrush;
+                }
+
+                // Re-evaluate scrolling for every tile whose state text may have
+                // changed above. Text that fits centers; text that overflows the
+                // tile's column starts the marquee loop.
+                foreach (var t in qsTileDefinitions)
+                {
+                    if (t?.StateText != null && t.StateTextCanvas != null)
+                    {
+                        UpdateTileScrollAnimation(t);
+                    }
                 }
 
                 Logger.Debug("Quick Settings tile states updated");
