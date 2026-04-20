@@ -965,6 +965,7 @@ namespace XboxGamingBar
         private readonly ViiperStringComboProperty viiperGyroAxisMapY;
         private readonly ViiperStringComboProperty viiperGyroAxisMapZ;
         private readonly WinRing0AvailableProperty winRing0Available;
+        private readonly PawnIOAvailableProperty pawnIOAvailable;
         private readonly PawnIOInstalledProperty pawnIOInstalled;
         private readonly InstallPawnIOProperty installPawnIO;
         private readonly ViGEmBusInstalledProperty vigemBusInstalled;
@@ -1629,6 +1630,7 @@ namespace XboxGamingBar
             // Show Steam sub-device picker only when a Steam device type is selected
             viiperDeviceType.PropertyChanged += (s, e) => UpdateViiperConfigVisibility();
             winRing0Available = new WinRing0AvailableProperty(this);
+            pawnIOAvailable = new PawnIOAvailableProperty();
             pawnIOInstalled = new PawnIOInstalledProperty(this);
             installPawnIO = new InstallPawnIOProperty(this);
             vigemBusInstalled = new ViGEmBusInstalledProperty(this);
@@ -1795,6 +1797,7 @@ namespace XboxGamingBar
                 legionLightMode,
                 legionLightColor,
                 legionLightBrightness,
+                legionLightSpeed,
                 legionPerformanceMode,
                 legionCustomTDPSlow,
                 legionCustomTDPFast,
@@ -1807,8 +1810,37 @@ namespace XboxGamingBar
                 legionFanCurveVisible,
                 legionGyroEnabled,
                 legionVibration,
+                legionVibrationMode,
                 legionPowerLight,
                 legionChargeLimit,
+                legionTouchpadVibration,
+                legionNintendoLayout,
+                legionControllerProfile,
+                legionGamepadMapping,
+                legionButtonY1,
+                legionButtonY2,
+                legionButtonY3,
+                legionButtonM1,
+                legionButtonM2,
+                legionButtonM3,
+                legionButtonDesktop,
+                legionButtonPage,
+                legionGyroTarget,
+                legionGyroSensitivityX,
+                legionGyroSensitivityY,
+                legionGyroInvertX,
+                legionGyroInvertY,
+                legionGyroMappingType,
+                legionGyroActivationMode,
+                legionGyroActivationButton,
+                legionGyroDeadzone,
+                legionLeftStickDeadzone,
+                legionRightStickDeadzone,
+                legionLeftTriggerStart,
+                legionLeftTriggerEnd,
+                legionRightTriggerStart,
+                legionRightTriggerEnd,
+                legionHairTriggers,
                 tdpMethod,
                 emulationBackend,
                 usbipInstalled,
@@ -1817,7 +1849,13 @@ namespace XboxGamingBar
                 viiperGyroSource,
                 viiperSteamSubDevice,
                 viiperGuideButtonMode,
+                viiperSwapRumbleMotors,
+                viiperRumbleIntensity,
+                viiperGyroAxisMapX,
+                viiperGyroAxisMapY,
+                viiperGyroAxisMapZ,
                 winRing0Available,
+                pawnIOAvailable,
                 pawnIOInstalled,
                 installPawnIO,
                 vigemBusInstalled,

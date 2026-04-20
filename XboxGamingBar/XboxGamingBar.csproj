@@ -122,6 +122,7 @@
     <Compile Include="Data\ViiperSwapRumbleMotorsProperty.cs" />
     <Compile Include="Data\ViiperRumbleIntensityProperty.cs" />
     <Compile Include="Data\WinRing0AvailableProperty.cs" />
+    <Compile Include="Data\PawnIOAvailableProperty.cs" />
     <Compile Include="Data\PawnIOInstalledProperty.cs" />
     <Compile Include="Data\InstallPawnIOProperty.cs" />
     <Compile Include="Data\ViGEmBusInstalledProperty.cs" />
