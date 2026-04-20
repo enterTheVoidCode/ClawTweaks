@@ -1538,6 +1538,21 @@ namespace XboxGamingBarHelper.AutoTDP
                 StatusText = "[SARSA] Stabilizing";
             }
 
+            // Symmetric overshoot gate: Block TDP INCREASE when we're already well above
+            // the user's target. Guards against two real failure modes:
+            //   (1) SARSA exploration picking +1W while FPS is 30-60% above target
+            //   (2) weighted-average smoothing lagging a spike from cold-start FPS readings
+            // Both were seen in live logs (Diablo II 95 FPS @ 60 target still getting +1W).
+            // Uses both raw instantaneous and smoothed FPS so a single noisy sample can't trip it.
+            double userTargetFPS = targetFPS.Value;
+            if (tdpDelta > 0 && userTargetFPS > 0 &&
+                instantFPS > userTargetFPS * 1.15 && smoothedFPS > userTargetFPS)
+            {
+                Logger.Info($"AutoTDP [SARSA]: FPS {instantFPS:F0} >15% above target {userTargetFPS:F0} (smooth={smoothedFPS:F0}), blocking TDP increase");
+                tdpDelta = 0;
+                StatusText = "[SARSA] Overshoot";
+            }
+
             // Ceiling mode safeguards
             if (headroomExhausted && optimalCeilingTDP > 0)
             {

@@ -52,25 +52,26 @@ namespace XboxGamingBar.Data
             Logger.Info($"[TIMING] Individual sync {count} properties: {syncTimer.ElapsedMilliseconds}ms ({syncTimer.ElapsedMilliseconds / Math.Max(1, count)}ms avg)");
         }
 
-        // Properties that should NOT be synced from helper during initial startup only.
-        // Widget loads these from profiles first, so helper's values would be stale/defaults.
-        // After initial sync, these ARE synced (e.g., when reconnecting, helper has current state).
-        private static readonly HashSet<Function> WidgetOwnedPropertiesInitial = new HashSet<Function>
+        // Reserved for future startup-only skipping. Currently empty — lighting moved to
+        // NeverSyncFromHelper because the "helper has current state after initial sync"
+        // assumption is unreliable: if the first send races pipe connect, the helper's
+        // default (#FFFFFF) leaks back into the widget on the next batch sync and then
+        // into the profile on the next SaveControllerProfile, turning the lights white.
+        private static readonly HashSet<Function> WidgetOwnedPropertiesInitial = new HashSet<Function>();
+
+        // Properties that should NEVER be synced from helper - widget is always the source of truth.
+        // The helper applies values to hardware but doesn't persist them across restarts,
+        // so the widget (which loads from controller profiles) is authoritative.
+        private static readonly HashSet<Function> NeverSyncFromHelper = new HashSet<Function>
         {
-            // Lighting - loaded from controller profiles
+            // OSD level - loaded from LocalSettings (PerformanceOverlayLevel)
+            Function.OSD,
+            // Lighting - loaded from controller profiles; helper defaults to #FFFFFF
             Function.LegionLightMode,
             Function.LegionLightColor,
             Function.LegionLightBrightness,
             Function.LegionLightSpeed,
             Function.LegionPowerLight
-        };
-
-        // Properties that should NEVER be synced from helper - widget is always the source of truth.
-        // These are stored in LocalSettings and helper should only receive values, not send them back.
-        private static readonly HashSet<Function> NeverSyncFromHelper = new HashSet<Function>
-        {
-            // OSD level - loaded from LocalSettings (PerformanceOverlayLevel)
-            Function.OSD
         };
 
         // Set to true during initial startup to skip widget-owned property sync (widget loaded from profiles/settings)
