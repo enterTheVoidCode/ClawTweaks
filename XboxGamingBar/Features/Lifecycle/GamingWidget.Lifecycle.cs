@@ -156,7 +156,10 @@ namespace XboxGamingBar
             }
             catch (Exception ex)
             {
-                Logger.Error($"Error during deactivation: {ex.Message}");
+                // Expected when Game Bar has already torn down the old instance — accessing
+                // Dispatcher on a detached Page throws RCW separated. Nothing to clean up
+                // anyway; the new active instance owns the timers now.
+                Logger.Debug($"Deactivation cleanup skipped (instance already detached): {ex.Message}");
             }
         }
 

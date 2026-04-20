@@ -97,6 +97,11 @@ namespace XboxGamingBar
             {
                 if (string.IsNullOrEmpty(json)) return;
 
+                // Skip if Game Bar has replaced this widget instance. Otherwise the
+                // dispatched UpdateMetricsDisplay below will hit detached XAML elements
+                // and throw "COM object that has been separated from its underlying RCW".
+                if (App.GetActiveGamingWidget() != this) return;
+
                 // Parse all metrics from JSON
                 var matches = System.Text.RegularExpressions.Regex.Matches(json,
                     @"""(\w+)""\s*:\s*(-?\d+\.?\d*|true|false)");
