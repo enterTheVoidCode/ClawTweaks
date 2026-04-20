@@ -559,64 +559,6 @@
                         <!-- Dynamic Tiles Container - tiles generated in code-behind -->
                         <StackPanel x:Name="QuickSettingsTilesContainer"/>
 
-                        <!-- GoTweaks Updates: installed version / latest release /
-                             checkboxes for auto-install and banner hide. Always visible
-                             (not device-specific). -->
-                        <TextBlock Text="GOTWEAKS UPDATES" Style="{StaticResource SectionHeaderStyle}" Margin="0,16,0,0"/>
-                        <Border x:Name="GoTweaksUpdateCard" Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="130"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Installed" FontSize="13" Foreground="#AAAAAA"/>
-                                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="GoTweaksInstalledVersionText" Text="—" FontSize="13" Foreground="#E0E0E0"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Latest" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="GoTweaksLatestVersionText" Text="Checking…" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0"/>
-                                </Grid>
-
-                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
-                                    <Button x:Name="GoTweaksCheckButton"
-                                            Content="Check for update"
-                                            Style="{StaticResource ModernButtonStyle}"
-                                            Click="GoTweaksCheckButton_Click"/>
-                                    <Button x:Name="GoTweaksInstallButton"
-                                            Content="Install update"
-                                            Visibility="Collapsed"
-                                            Style="{StaticResource ModernButtonStyle}"
-                                            Click="GoTweaksInstallButton_Click"/>
-                                </StackPanel>
-
-                                <TextBlock x:Name="GoTweaksStatusText"
-                                           Text=""
-                                           FontSize="11"
-                                           Foreground="#888888"
-                                           TextWrapping="Wrap"
-                                           Margin="0,8,0,0"/>
-
-                                <CheckBox x:Name="GoTweaksUpdateOnStartCheckbox"
-                                          Content="Install GoTweaks updates on start"
-                                          IsChecked="False"
-                                          FontSize="12"
-                                          Foreground="#AAAAAA"
-                                          Margin="0,8,0,0"
-                                          Checked="GoTweaksUpdateOnStartCheckbox_Changed"
-                                          Unchecked="GoTweaksUpdateOnStartCheckbox_Changed"/>
-                                <CheckBox x:Name="GoTweaksHideBannerCheckbox"
-                                          Content="Hide GoTweaks update banner on Quick tab"
-                                          IsChecked="False"
-                                          FontSize="12"
-                                          Foreground="#AAAAAA"
-                                          Checked="GoTweaksHideBannerCheckbox_Changed"
-                                          Unchecked="GoTweaksHideBannerCheckbox_Changed"/>
-                            </StackPanel>
-                        </Border>
-
                         <!-- Customize Button -->
                         <Button x:Name="QuickSettingsCustomizeButton"
                                 Content="Customize"
@@ -5025,6 +4967,27 @@
                                                 Style="{StaticResource StandaloneButtonStyle}"
                                                 Click="CheckForUpdateDebugButton_Click"/>
                                     </Grid>
+
+                                    <!-- GoTweaks self-update preferences. Shared with the
+                                         Quick-tab update banner: the helper's startup
+                                         probe is gated by "Check for updates on start",
+                                         and the banner is hidden when "Hide banner" is
+                                         on. Persisted per-user in LocalSettings. -->
+                                    <CheckBox x:Name="GoTweaksUpdateOnStartCheckbox"
+                                              Content="Check for updates on start"
+                                              IsChecked="True"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Margin="0,8,0,0"
+                                              Checked="GoTweaksUpdateOnStartCheckbox_Changed"
+                                              Unchecked="GoTweaksUpdateOnStartCheckbox_Changed"/>
+                                    <CheckBox x:Name="GoTweaksHideBannerCheckbox"
+                                              Content="Hide GoTweaks update banner on Quick tab"
+                                              IsChecked="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="GoTweaksHideBannerCheckbox_Changed"
+                                              Unchecked="GoTweaksHideBannerCheckbox_Changed"/>
 
                                     <!-- Export Default Game Profiles Button -->
                                     <Button x:Name="ExportDGPsButton"
