@@ -124,6 +124,15 @@ namespace XboxGamingBar
             }
         }
 
+        // Guard: UseCustomTDPPresetsToggle / UseLenovoModesToggle fire their
+        // Toggled events during XAML load (before GamingWidget_Loaded runs
+        // LoadTdpPresetsSettings). At that moment tdpPresets is still the
+        // empty field initializer and the toggle handler calls Save — which
+        // overwrites LocalSettings["TdpPresets_Data"] with an empty array,
+        // wiping the user's saved presets. Flip this to true only after
+        // LoadTdpPresetsSettings completes so pre-load Save calls bail out.
+        private bool _tdpPresetsLoaded;
+
         private void LoadTdpPresetsSettings()
         {
             try
@@ -191,10 +200,25 @@ namespace XboxGamingBar
                 Logger.Error($"Error loading TDP presets settings: {ex.Message}");
                 tdpPresets = Shared.Data.TdpPreset.GetDefaultPresets();
             }
+            finally
+            {
+                // Gate Save only after Load has finished (including the fallback
+                // to defaults on exception) so subsequent Toggled events can
+                // persist normally. See the field comment for why this matters.
+                _tdpPresetsLoaded = true;
+            }
         }
 
         private void SaveTdpPresetsSettings()
         {
+            // Skip Saves that fire during XAML load, before LoadTdpPresetsSettings
+            // has populated tdpPresets. Otherwise the empty field-initialized
+            // list clobbers the user's saved data on LocalSettings.
+            if (!_tdpPresetsLoaded)
+            {
+                Logger.Debug("SaveTdpPresetsSettings: skipped (pre-load toggle event)");
+                return;
+            }
             try
             {
                 var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
