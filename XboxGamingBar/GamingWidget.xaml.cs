@@ -3376,6 +3376,13 @@ namespace XboxGamingBar
                 SendSidebarMenuEnabledToHelper();
                 SendProfileSaveFlagsToHelper();
                 SendPowerSourceProfileConfigToHelper();
+                // Without this, the helper's ControllerHotkeyMonitor only learns the
+                // widget's View+ABXY / Menu+DPad bindings on the next dropdown change.
+                // Before that, helper-side detection sits at the default-all-disabled
+                // state — which is fine in desktop mode (the widget's own watcher
+                // fires) but breaks every hotkey in FSE where the widget is suspended
+                // and only the helper is polling XInput. Issue #79 (kingvall).
+                SendControllerHotkeyConfigToHelper();
 
                 await Task.Delay(200);
                 isInitialSync = false;
