@@ -3375,6 +3375,7 @@ namespace XboxGamingBar
                 SendScreenSaverEnabledToHelper();
                 SendSidebarMenuEnabledToHelper();
                 SendProfileSaveFlagsToHelper();
+                SendPowerSourceProfileConfigToHelper();
 
                 await Task.Delay(200);
                 isInitialSync = false;

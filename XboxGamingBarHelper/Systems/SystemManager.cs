@@ -17,10 +17,22 @@ using Microsoft.Win32;
 namespace XboxGamingBarHelper.Systems
 {
     public delegate void ResumeFromSleepEventHandler(object sender);
+    public delegate void PowerSourceChangedEventHandler(object sender, global::Windows.System.Power.PowerSupplyStatus newStatus);
 
     internal class SystemManager : Manager
     {
         public event ResumeFromSleepEventHandler ResumeFromSleep;
+
+        /// <summary>
+        /// Raised when the AC/DC line status transitions (Adequate ↔ NotPresent/Inadequate).
+        /// Deduplicated against <see cref="lastPowerSupplyStatus"/> so battery-level ticks that
+        /// also produce StatusChange callbacks don't fire this every few seconds.
+        /// Needed because the widget is UWP and can't observe these events when suspended (issue #72).
+        /// </summary>
+        public event PowerSourceChangedEventHandler PowerSourceChanged;
+
+        private global::Windows.System.Power.PowerSupplyStatus lastPowerSupplyStatus = global::Windows.System.Power.PowerSupplyStatus.NotPresent;
+        private bool hasSeenInitialPowerSupplyStatus = false;
         private static readonly string[] IgnoredProcesses =
         {
             // Windows shell and system processes - never games
@@ -241,7 +253,29 @@ namespace XboxGamingBarHelper.Systems
                     Logger.Info($"System is going to sleep/hibernate at: {DateTime.Now}");
                     break;
                 case PowerModes.StatusChange:
-                    Logger.Debug($"Power mode status change detected: {DateTime.Now}");
+                    // StatusChange fires on AC/DC line transitions AND on battery percentage
+                    // changes. Dedupe against the last observed PowerSupplyStatus so we only
+                    // raise PowerSourceChanged on actual AC↔DC transitions.
+                    try
+                    {
+                        var currentStatus = global::Windows.System.Power.PowerManager.PowerSupplyStatus;
+                        if (!hasSeenInitialPowerSupplyStatus)
+                        {
+                            lastPowerSupplyStatus = currentStatus;
+                            hasSeenInitialPowerSupplyStatus = true;
+                            Logger.Debug($"Initial power supply status captured: {currentStatus}");
+                        }
+                        else if (currentStatus != lastPowerSupplyStatus)
+                        {
+                            Logger.Info($"AC/DC transition: {lastPowerSupplyStatus} -> {currentStatus}");
+                            lastPowerSupplyStatus = currentStatus;
+                            PowerSourceChanged?.Invoke(this, currentStatus);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"PowerModeChanged StatusChange handler threw: {ex.Message}");
+                    }
                     break;
             }
         }

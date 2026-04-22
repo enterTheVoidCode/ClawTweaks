@@ -465,6 +465,7 @@
     <Compile Include="Startup\Program.PipeHandlers.cs" />
     <Compile Include="Startup\Program.PropertyHandlers.cs" />
     <Compile Include="Startup\Program.LegionControllerHandlers.cs" />
+    <Compile Include="Startup\Program.PowerSourceHandler.cs" />
     <Compile Include="Startup\Program.HotkeyHandlers.cs" />
     <Compile Include="Startup\Program.Labs.cs" />
     <Compile Include="Startup\Program.ScreenSaver.cs" />

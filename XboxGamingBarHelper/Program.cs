@@ -1324,6 +1324,7 @@ namespace XboxGamingBarHelper
             Logger.Info("Initialize callbacks.");
             systemManager.RunningGame.PropertyChanged += RunningGame_PropertyChanged;
             systemManager.ResumeFromSleep += SystemManager_ResumeFromSleep;
+            systemManager.PowerSourceChanged += SystemManager_PowerSourceChanged;
             profileManager.PerGameProfile.PropertyChanged += PerGameProfile_PropertyChanged;
             performanceManager.TDP.PropertyChanged += TDP_PropertyChanged;
             performanceManager.TDPBoostEnabled.PropertyChanged += TDPBoostEnabled_PropertyChanged;

@@ -899,6 +899,16 @@ namespace XboxGamingBarHelper
                         ApplyProfileSaveFlags(request.Content.ToString());
                     }
                 }
+                // Power Source Profile Config: mirror of the widget's AC/DC power-plan
+                // auto-switch settings. Helper uses these on SystemManager.PowerSourceChanged
+                // so the switch still happens while the widget is suspended (issue #72).
+                else if (functionValue == (int)Function.PowerSourceProfileConfig)
+                {
+                    if (request.Content != null)
+                    {
+                        ApplyPowerSourceProfileConfig(request.Content.ToString());
+                    }
+                }
                 // Quick Metrics: Enable/disable metrics push timer
                 else if (functionValue == (int)Function.QuickMetricsEnabled)
                 {
