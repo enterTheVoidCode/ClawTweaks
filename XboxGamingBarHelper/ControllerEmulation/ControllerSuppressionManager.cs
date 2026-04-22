@@ -867,39 +867,66 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 return;
             }
 
+            IReadOnlyCollection<string> desiredAppPaths;
             try
             {
-                IReadOnlyCollection<string> desiredAppPaths = EnumerateAllowedApplicationPaths();
-                if (desiredAppPaths.Count == 0)
-                {
-                    return;
-                }
+                desiredAppPaths = EnumerateAllowedApplicationPaths();
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"HidHide app path enumeration failed: {ex.Message}");
+                return;
+            }
 
-                HashSet<string> registered = new HashSet<string>(
+            if (desiredAppPaths.Count == 0)
+            {
+                return;
+            }
+
+            HashSet<string> registered;
+            try
+            {
+                registered = new HashSet<string>(
                     service.ApplicationPaths ?? Array.Empty<string>(),
                     StringComparer.OrdinalIgnoreCase);
-                int addedCount = 0;
-                foreach (string appPath in desiredAppPaths)
-                {
-                    if (registered.Contains(appPath))
-                    {
-                        continue;
-                    }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"HidHide app path query failed: {ex.Message}");
+                return;
+            }
 
+            // Register each path in its own try so one bad entry (e.g. Gaming App
+            // exe not installed, GameInputService path missing) can't abort the rest.
+            // Previously a single PathNotFound threw out of the loop with the helper
+            // still unregistered, leading to "Controller not connected" once VIIPER
+            // enabled HidHide suppression (helper saw the hidden device too).
+            int addedCount = 0;
+            int failedCount = 0;
+            foreach (string appPath in desiredAppPaths)
+            {
+                if (registered.Contains(appPath)) continue;
+
+                try
+                {
                     service.AddApplicationPath(appPath);
                     registered.Add(appPath);
                     addedCount++;
                 }
-
-                appRegistered = true;
-                if (addedCount > 0)
+                catch (Exception ex)
                 {
-                    Logger.Info($"HidHide application registration completed via API (added {addedCount} app path(s))");
+                    failedCount++;
+                    Logger.Debug($"HidHide AddApplicationPath failed for '{appPath}': {ex.Message}");
                 }
             }
-            catch (Exception ex)
+
+            // Treat as registered once the helper's own path made it in, even if some
+            // optional third-party paths failed. Re-entering this method is cheap since
+            // the registered-set check above skips already-added entries.
+            appRegistered = true;
+            if (addedCount > 0 || failedCount > 0)
             {
-                Logger.Warn($"HidHide app registration via API failed: {ex.Message}");
+                Logger.Info($"HidHide application registration via API: added {addedCount}, failed {failedCount}");
             }
         }
 
