@@ -106,10 +106,21 @@ namespace XboxGamingBar
                 Style = Resources["QuickSettingsTileStyle"] as Style,
                 Background = bgBrush,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch
+                VerticalAlignment = VerticalAlignment.Stretch,
+                // Override QuickSettingsTileStyle's Center default so the ContentPresenter
+                // actually hands the inner StackPanel the full tile width (minus the style's
+                // 12,16 padding). Without this, Center alignment sizes the ContentPresenter to
+                // the StackPanel's DesiredSize — which is the widest child (the Center-aligned
+                // label), leaving the state-text Canvas squeezed and the marquee scrolling in
+                // a narrow strip while the tile itself looks mostly empty.
+                HorizontalContentAlignment = HorizontalAlignment.Stretch
             };
 
-            var content = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+            // Stretch so the state-text Canvas below gets the full tile width to scroll in
+            // (otherwise the StackPanel sizes to its widest child — usually the centered label —
+            // and marquees scroll in a narrow strip). Icon and label stay Center-aligned per-child
+            // so the tile still looks centered.
+            var content = new StackPanel { HorizontalAlignment = HorizontalAlignment.Stretch };
 
             content.Children.Add(new FontIcon
             {
