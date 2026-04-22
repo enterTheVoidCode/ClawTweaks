@@ -39,6 +39,86 @@ namespace XboxGamingBarHelper
 {
     internal partial class Program
     {
+        // Snapshot of the widget's Profiles-tab save checkboxes. Defaults match the widget's
+        // initial-field defaults so any handler that runs before the widget has pushed flags
+        // falls back to the same behavior the UI shows to the user.
+        // - true  => setting is captured per-game; mid-session writes land in CurrentProfile.
+        // - false => setting is global; mid-session writes land in GlobalProfile regardless of
+        //            whether a game is active, so reboots don't pull stale per-game values back.
+        private static class ProfileSaveFlagsState
+        {
+            public static bool TDP = true;
+            public static bool CPUBoost = true;
+            public static bool CPUEPP = true;
+            public static bool CPUState = true;
+            public static bool AMDFeatures = false;
+            public static bool FPSLimit = true;
+            public static bool AutoTDP = true;
+            public static bool OSPowerMode = true;
+            public static bool HDR = false;
+            public static bool Resolution = false;
+            public static bool RefreshRate = false;
+            public static bool StickyTDP = false;
+            public static bool OverlayLevel = false;
+            public static bool CPUAffinity = false;
+            public static bool NintendoLayout = false;
+            public static bool Vibration = false;
+            public static bool Lighting = false;
+            public static bool ButtonMappings = false;
+        }
+
+        internal static void ApplyProfileSaveFlags(string configJson)
+        {
+            try
+            {
+                var cfg = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, bool>>(configJson);
+                if (cfg == null) return;
+                if (cfg.TryGetValue("TDP", out var v1)) ProfileSaveFlagsState.TDP = v1;
+                if (cfg.TryGetValue("CPUBoost", out var v2)) ProfileSaveFlagsState.CPUBoost = v2;
+                if (cfg.TryGetValue("CPUEPP", out var v3)) ProfileSaveFlagsState.CPUEPP = v3;
+                if (cfg.TryGetValue("CPUState", out var v4)) ProfileSaveFlagsState.CPUState = v4;
+                if (cfg.TryGetValue("AMDFeatures", out var v5)) ProfileSaveFlagsState.AMDFeatures = v5;
+                if (cfg.TryGetValue("FPSLimit", out var v6)) ProfileSaveFlagsState.FPSLimit = v6;
+                if (cfg.TryGetValue("AutoTDP", out var v7)) ProfileSaveFlagsState.AutoTDP = v7;
+                if (cfg.TryGetValue("OSPowerMode", out var v8)) ProfileSaveFlagsState.OSPowerMode = v8;
+                if (cfg.TryGetValue("HDR", out var v9)) ProfileSaveFlagsState.HDR = v9;
+                if (cfg.TryGetValue("Resolution", out var v10)) ProfileSaveFlagsState.Resolution = v10;
+                if (cfg.TryGetValue("RefreshRate", out var v11)) ProfileSaveFlagsState.RefreshRate = v11;
+                if (cfg.TryGetValue("StickyTDP", out var v12)) ProfileSaveFlagsState.StickyTDP = v12;
+                if (cfg.TryGetValue("OverlayLevel", out var v13)) ProfileSaveFlagsState.OverlayLevel = v13;
+                if (cfg.TryGetValue("CPUAffinity", out var v14)) ProfileSaveFlagsState.CPUAffinity = v14;
+                if (cfg.TryGetValue("NintendoLayout", out var v15)) ProfileSaveFlagsState.NintendoLayout = v15;
+                if (cfg.TryGetValue("Vibration", out var v16)) ProfileSaveFlagsState.Vibration = v16;
+                if (cfg.TryGetValue("Lighting", out var v17)) ProfileSaveFlagsState.Lighting = v17;
+                if (cfg.TryGetValue("ButtonMappings", out var v18)) ProfileSaveFlagsState.ButtonMappings = v18;
+                Logger.Info("Applied ProfileSaveFlags from widget "
+                    + $"(AutoTDP={ProfileSaveFlagsState.AutoTDP}, NintendoLayout={ProfileSaveFlagsState.NintendoLayout}, "
+                    + $"Vibration={ProfileSaveFlagsState.Vibration}, Lighting={ProfileSaveFlagsState.Lighting}, "
+                    + $"ButtonMappings={ProfileSaveFlagsState.ButtonMappings})");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ApplyProfileSaveFlags: {ex.Message}");
+            }
+        }
+
+        // Routes a setting save to CurrentProfile (per-game capture) when saveToProfile is true,
+        // else to GlobalProfile (treat as device-wide). Caller supplies a setter action for each
+        // target; the target's own setter handles the equality check and debounced Save().
+        private static void RouteProfileSave(bool saveToProfile, string settingName,
+            Action<Profile.GameProfileProperty> onCurrent, Action<Shared.Data.GameProfile> onGlobal)
+        {
+            if (saveToProfile)
+            {
+                Logger.Info($"Saving {settingName} to profile {profileManager.CurrentProfile.GameId.Name}");
+                onCurrent(profileManager.CurrentProfile);
+            }
+            else
+            {
+                Logger.Info($"Saving {settingName} to global (per-game capture disabled)");
+                onGlobal(profileManager.GlobalProfile);
+            }
+        }
 
         private static void AutoTDPSetting_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
@@ -59,46 +139,55 @@ namespace XboxGamingBarHelper
             if (profileManager?.CurrentProfile == null || autoTDPManager == null)
                 return;
 
-            var profileName = profileManager.CurrentProfile.GameId.Name;
+            // All AutoTDP* settings share a single flag (ProfileSaveAutoTDP). When it's false the
+            // writes land in GlobalProfile so a disabled toggle in-game doesn't sit on top of a
+            // stale enabled-True in GlobalProfile that then resurfaces on reboot.
+            bool saveToProfile = ProfileSaveFlagsState.AutoTDP;
 
-            // Save the AutoTDP setting to the current profile (global or per-game)
             if (sender == autoTDPManager.Enabled)
             {
-                Logger.Info($"Saving AutoTDPEnabled to profile {profileName}");
-                profileManager.CurrentProfile.AutoTDPEnabled = autoTDPManager.Enabled.Value;
+                RouteProfileSave(saveToProfile, "AutoTDPEnabled",
+                    cur => cur.AutoTDPEnabled = autoTDPManager.Enabled.Value,
+                    glo => glo.AutoTDPEnabled = autoTDPManager.Enabled.Value);
             }
             else if (sender == autoTDPManager.TargetFPS)
             {
-                Logger.Info($"Saving AutoTDPTargetFPS to profile {profileName}");
-                profileManager.CurrentProfile.AutoTDPTargetFPS = autoTDPManager.TargetFPS.Value;
+                RouteProfileSave(saveToProfile, "AutoTDPTargetFPS",
+                    cur => cur.AutoTDPTargetFPS = autoTDPManager.TargetFPS.Value,
+                    glo => glo.AutoTDPTargetFPS = autoTDPManager.TargetFPS.Value);
             }
             else if (sender == autoTDPManager.MinTDP)
             {
-                Logger.Info($"Saving AutoTDPMinTDP to profile {profileName}");
-                profileManager.CurrentProfile.AutoTDPMinTDP = autoTDPManager.MinTDP.Value;
+                RouteProfileSave(saveToProfile, "AutoTDPMinTDP",
+                    cur => cur.AutoTDPMinTDP = autoTDPManager.MinTDP.Value,
+                    glo => glo.AutoTDPMinTDP = autoTDPManager.MinTDP.Value);
             }
             else if (sender == autoTDPManager.MaxTDP)
             {
-                Logger.Info($"Saving AutoTDPMaxTDP to profile {profileName}");
-                profileManager.CurrentProfile.AutoTDPMaxTDP = autoTDPManager.MaxTDP.Value;
+                RouteProfileSave(saveToProfile, "AutoTDPMaxTDP",
+                    cur => cur.AutoTDPMaxTDP = autoTDPManager.MaxTDP.Value,
+                    glo => glo.AutoTDPMaxTDP = autoTDPManager.MaxTDP.Value);
             }
             else if (sender == autoTDPManager.UseMLMode)
             {
                 // Legacy: sync UseMLMode to profile for backwards compatibility
-                Logger.Info($"Saving AutoTDPUseMLMode to profile {profileName}");
-                profileManager.CurrentProfile.AutoTDPUseMLMode = autoTDPManager.UseMLMode.Value;
+                RouteProfileSave(saveToProfile, "AutoTDPUseMLMode",
+                    cur => cur.AutoTDPUseMLMode = autoTDPManager.UseMLMode.Value,
+                    glo => glo.AutoTDPUseMLMode = autoTDPManager.UseMLMode.Value);
             }
             else if (sender == autoTDPManager.ControllerType)
             {
-                Logger.Info($"Saving AutoTDPControllerType to profile {profileName}");
-                profileManager.CurrentProfile.AutoTDPControllerType = autoTDPManager.ControllerType.Value;
-                // Also sync legacy UseMLMode for backwards compatibility
-                profileManager.CurrentProfile.AutoTDPUseMLMode = autoTDPManager.ControllerType.Value > 0;
+                RouteProfileSave(saveToProfile, "AutoTDPControllerType",
+                    cur => { cur.AutoTDPControllerType = autoTDPManager.ControllerType.Value;
+                             cur.AutoTDPUseMLMode = autoTDPManager.ControllerType.Value > 0; },
+                    glo => { glo.AutoTDPControllerType = autoTDPManager.ControllerType.Value;
+                             glo.AutoTDPUseMLMode = autoTDPManager.ControllerType.Value > 0; });
             }
             else if (sender == autoTDPManager.PauseWhenUnfocused)
             {
-                Logger.Info($"Saving AutoTDPPauseWhenUnfocused to profile {profileName}");
-                profileManager.CurrentProfile.AutoTDPPauseWhenUnfocused = autoTDPManager.PauseWhenUnfocused.Value;
+                RouteProfileSave(saveToProfile, "AutoTDPPauseWhenUnfocused",
+                    cur => cur.AutoTDPPauseWhenUnfocused = autoTDPManager.PauseWhenUnfocused.Value,
+                    glo => glo.AutoTDPPauseWhenUnfocused = autoTDPManager.PauseWhenUnfocused.Value);
             }
         }
 

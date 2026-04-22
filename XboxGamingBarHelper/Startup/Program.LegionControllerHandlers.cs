@@ -56,49 +56,60 @@ namespace XboxGamingBarHelper
                 return;
             }
 
+            // Per-setting routing: buttons/gamepad-mapping/nintendo/vibration/lighting consult the
+            // widget's save-flags. Gyro, stick deadzones, triggers, joystick-as-mouse, and
+            // LegionControllerProfileEnabled stay per-game (CurrentProfile) — no flag exists yet.
             var profileName = profileManager.CurrentProfile.GameId.Name;
+            bool saveButtonsToProfile = ProfileSaveFlagsState.ButtonMappings;
 
-            // Save the controller setting to the current profile (global or per-game)
             // Button mappings
             if (sender == legionManager?.LegionButtonY1)
             {
-                Logger.Info($"Saving LegionButtonY1 to profile {profileName}");
-                profileManager.CurrentProfile.LegionButtonY1 = legionManager.LegionButtonY1.Value;
+                RouteProfileSave(saveButtonsToProfile, "LegionButtonY1",
+                    cur => cur.LegionButtonY1 = legionManager.LegionButtonY1.Value,
+                    glo => glo.LegionButtonY1 = legionManager.LegionButtonY1.Value);
             }
             else if (sender == legionManager?.LegionButtonY2)
             {
-                Logger.Info($"Saving LegionButtonY2 to profile {profileName}");
-                profileManager.CurrentProfile.LegionButtonY2 = legionManager.LegionButtonY2.Value;
+                RouteProfileSave(saveButtonsToProfile, "LegionButtonY2",
+                    cur => cur.LegionButtonY2 = legionManager.LegionButtonY2.Value,
+                    glo => glo.LegionButtonY2 = legionManager.LegionButtonY2.Value);
             }
             else if (sender == legionManager?.LegionButtonY3)
             {
-                Logger.Info($"Saving LegionButtonY3 to profile {profileName}");
-                profileManager.CurrentProfile.LegionButtonY3 = legionManager.LegionButtonY3.Value;
+                RouteProfileSave(saveButtonsToProfile, "LegionButtonY3",
+                    cur => cur.LegionButtonY3 = legionManager.LegionButtonY3.Value,
+                    glo => glo.LegionButtonY3 = legionManager.LegionButtonY3.Value);
             }
             else if (sender == legionManager?.LegionButtonM1)
             {
-                Logger.Info($"Saving LegionButtonM1 to profile {profileName}");
-                profileManager.CurrentProfile.LegionButtonM1 = legionManager.LegionButtonM1.Value;
+                RouteProfileSave(saveButtonsToProfile, "LegionButtonM1",
+                    cur => cur.LegionButtonM1 = legionManager.LegionButtonM1.Value,
+                    glo => glo.LegionButtonM1 = legionManager.LegionButtonM1.Value);
             }
             else if (sender == legionManager?.LegionButtonM2)
             {
-                Logger.Info($"Saving LegionButtonM2 to profile {profileName}");
-                profileManager.CurrentProfile.LegionButtonM2 = legionManager.LegionButtonM2.Value;
+                RouteProfileSave(saveButtonsToProfile, "LegionButtonM2",
+                    cur => cur.LegionButtonM2 = legionManager.LegionButtonM2.Value,
+                    glo => glo.LegionButtonM2 = legionManager.LegionButtonM2.Value);
             }
             else if (sender == legionManager?.LegionButtonM3)
             {
-                Logger.Info($"Saving LegionButtonM3 to profile {profileName}");
-                profileManager.CurrentProfile.LegionButtonM3 = legionManager.LegionButtonM3.Value;
+                RouteProfileSave(saveButtonsToProfile, "LegionButtonM3",
+                    cur => cur.LegionButtonM3 = legionManager.LegionButtonM3.Value,
+                    glo => glo.LegionButtonM3 = legionManager.LegionButtonM3.Value);
             }
             else if (sender == legionManager?.LegionButtonDesktop)
             {
-                Logger.Info($"Saving LegionButtonDesktop to profile {profileName}");
-                profileManager.CurrentProfile.LegionButtonDesktop = legionManager.LegionButtonDesktop.Value;
+                RouteProfileSave(saveButtonsToProfile, "LegionButtonDesktop",
+                    cur => cur.LegionButtonDesktop = legionManager.LegionButtonDesktop.Value,
+                    glo => glo.LegionButtonDesktop = legionManager.LegionButtonDesktop.Value);
             }
             else if (sender == legionManager?.LegionButtonPage)
             {
-                Logger.Info($"Saving LegionButtonPage to profile {profileName}");
-                profileManager.CurrentProfile.LegionButtonPage = legionManager.LegionButtonPage.Value;
+                RouteProfileSave(saveButtonsToProfile, "LegionButtonPage",
+                    cur => cur.LegionButtonPage = legionManager.LegionButtonPage.Value,
+                    glo => glo.LegionButtonPage = legionManager.LegionButtonPage.Value);
             }
             // Gyro settings
             else if (sender == legionManager?.LegionGyroActivationButton)
@@ -194,27 +205,32 @@ namespace XboxGamingBarHelper
                 Logger.Info($"Saving LegionJoystickMouseSens to profile {profileName}");
                 profileManager.CurrentProfile.LegionJoystickMouseSens = legionManager.LegionJoystickMouseSens.Value;
             }
-            // Gamepad mapping
+            // Gamepad mapping (covered by the ButtonMappings flag alongside the Y/M/Desktop/Page buttons)
             else if (sender == legionManager?.LegionGamepadMapping)
             {
-                Logger.Info($"Saving LegionGamepadMapping to profile {profileName}");
-                profileManager.CurrentProfile.LegionGamepadMapping = legionManager.LegionGamepadMapping.Value;
+                RouteProfileSave(saveButtonsToProfile, "LegionGamepadMapping",
+                    cur => cur.LegionGamepadMapping = legionManager.LegionGamepadMapping.Value,
+                    glo => glo.LegionGamepadMapping = legionManager.LegionGamepadMapping.Value);
             }
-            // Other controller settings
+            // Nintendo layout — device-wide by default so a per-game toggle doesn't sit on top of
+            // a stale True in GlobalProfile that then reappears after every reboot.
             else if (sender == legionManager?.LegionNintendoLayout)
             {
-                Logger.Info($"Saving LegionNintendoLayout to profile {profileName}");
-                profileManager.CurrentProfile.LegionNintendoLayout = legionManager.LegionNintendoLayout.Value;
+                RouteProfileSave(ProfileSaveFlagsState.NintendoLayout, "LegionNintendoLayout",
+                    cur => cur.LegionNintendoLayout = legionManager.LegionNintendoLayout.Value,
+                    glo => glo.LegionNintendoLayout = legionManager.LegionNintendoLayout.Value);
             }
             else if (sender == legionManager?.LegionVibration)
             {
-                Logger.Info($"Saving LegionVibration to profile {profileName}");
-                profileManager.CurrentProfile.LegionVibration = legionManager.LegionVibration.Value;
+                RouteProfileSave(ProfileSaveFlagsState.Vibration, "LegionVibration",
+                    cur => cur.LegionVibration = legionManager.LegionVibration.Value,
+                    glo => glo.LegionVibration = legionManager.LegionVibration.Value);
             }
             else if (sender == legionManager?.LegionVibrationMode)
             {
-                Logger.Info($"Saving LegionVibrationMode to profile {profileName}");
-                profileManager.CurrentProfile.LegionVibrationMode = legionManager.LegionVibrationMode.Value;
+                RouteProfileSave(ProfileSaveFlagsState.Vibration, "LegionVibrationMode",
+                    cur => cur.LegionVibrationMode = legionManager.LegionVibrationMode.Value,
+                    glo => glo.LegionVibrationMode = legionManager.LegionVibrationMode.Value);
             }
             else if (sender == legionManager?.LegionControllerProfileEnabled)
             {
@@ -234,31 +250,36 @@ namespace XboxGamingBarHelper
                     Logger.Debug($"Also saved LegionPerformanceMode to GlobalProfile directly: {legionManager.LegionPerformanceMode.Value}");
                 }
             }
-            // Lighting settings
+            // Lighting settings — share a single Lighting flag
             else if (sender == legionManager?.LegionLightMode)
             {
-                Logger.Info($"Saving LegionLightMode to profile {profileName}");
-                profileManager.CurrentProfile.LegionLightMode = legionManager.LegionLightMode.Value;
+                RouteProfileSave(ProfileSaveFlagsState.Lighting, "LegionLightMode",
+                    cur => cur.LegionLightMode = legionManager.LegionLightMode.Value,
+                    glo => glo.LegionLightMode = legionManager.LegionLightMode.Value);
             }
             else if (sender == legionManager?.LegionLightColor)
             {
-                Logger.Info($"Saving LegionLightColor to profile {profileName}");
-                profileManager.CurrentProfile.LegionLightColor = legionManager.LegionLightColor.Value;
+                RouteProfileSave(ProfileSaveFlagsState.Lighting, "LegionLightColor",
+                    cur => cur.LegionLightColor = legionManager.LegionLightColor.Value,
+                    glo => glo.LegionLightColor = legionManager.LegionLightColor.Value);
             }
             else if (sender == legionManager?.LegionLightBrightness)
             {
-                Logger.Info($"Saving LegionLightBrightness to profile {profileName}");
-                profileManager.CurrentProfile.LegionLightBrightness = legionManager.LegionLightBrightness.Value;
+                RouteProfileSave(ProfileSaveFlagsState.Lighting, "LegionLightBrightness",
+                    cur => cur.LegionLightBrightness = legionManager.LegionLightBrightness.Value,
+                    glo => glo.LegionLightBrightness = legionManager.LegionLightBrightness.Value);
             }
             else if (sender == legionManager?.LegionLightSpeed)
             {
-                Logger.Info($"Saving LegionLightSpeed to profile {profileName}");
-                profileManager.CurrentProfile.LegionLightSpeed = legionManager.LegionLightSpeed.Value;
+                RouteProfileSave(ProfileSaveFlagsState.Lighting, "LegionLightSpeed",
+                    cur => cur.LegionLightSpeed = legionManager.LegionLightSpeed.Value,
+                    glo => glo.LegionLightSpeed = legionManager.LegionLightSpeed.Value);
             }
             else if (sender == legionManager?.LegionPowerLight)
             {
-                Logger.Info($"Saving LegionPowerLight to profile {profileName}");
-                profileManager.CurrentProfile.LegionPowerLight = legionManager.LegionPowerLight.Value;
+                RouteProfileSave(ProfileSaveFlagsState.Lighting, "LegionPowerLight",
+                    cur => cur.LegionPowerLight = legionManager.LegionPowerLight.Value,
+                    glo => glo.LegionPowerLight = legionManager.LegionPowerLight.Value);
             }
         }
 

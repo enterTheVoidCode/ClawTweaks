@@ -897,6 +897,24 @@ namespace XboxGamingBar
             }
         }
 
+        private bool isLegionControllerProfileScopeExpanded = false;
+
+        private void LegionControllerProfileScopeExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            isLegionControllerProfileScopeExpanded = !isLegionControllerProfileScopeExpanded;
+
+            if (LegionControllerProfileScopeContent != null)
+            {
+                LegionControllerProfileScopeContent.Visibility = isLegionControllerProfileScopeExpanded ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (LegionControllerProfileScopeExpandIcon != null)
+            {
+                // E70D = ChevronDown, E70E = ChevronUp
+                LegionControllerProfileScopeExpandIcon.Glyph = isLegionControllerProfileScopeExpanded ? "" : "";
+            }
+        }
+
         private void GyroSettingsExpandToggle_Click(object sender, RoutedEventArgs e)
         {
             isGyroSettingsExpanded = !isGyroSettingsExpanded;

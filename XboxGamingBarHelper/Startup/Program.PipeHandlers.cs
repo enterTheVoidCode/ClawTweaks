@@ -889,6 +889,16 @@ namespace XboxGamingBarHelper
                         ApplyControllerHotkeyConfig(configJson);
                     }
                 }
+                // Profile Save Flags: which settings the widget wants captured per-game vs.
+                // left as device-wide globals. Routes helper-side writes in the AutoTDP and
+                // Legion controller setting handlers.
+                else if (functionValue == (int)Function.ProfileSaveFlags)
+                {
+                    if (request.Content != null)
+                    {
+                        ApplyProfileSaveFlags(request.Content.ToString());
+                    }
+                }
                 // Quick Metrics: Enable/disable metrics push timer
                 else if (functionValue == (int)Function.QuickMetricsEnabled)
                 {

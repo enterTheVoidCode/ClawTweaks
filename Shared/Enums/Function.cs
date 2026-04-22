@@ -289,6 +289,10 @@
         // Controller Hotkey Settings (synced from widget to helper for XInput monitoring)
         ControllerHotkeyConfig,         // string - JSON config for controller button combos (Menu+DPad, View+ABXY)
 
+        // Profile Save Flags (widget's Profiles-tab checkboxes). Helper routes per-setting
+        // writes to GlobalProfile when the matching flag is false, CurrentProfile when true.
+        ProfileSaveFlags,               // string - JSON map of flag name -> bool; sent on startup + on checkbox change
+
         // Debug/Development
         CheckLocalUpdate,               // Trigger: check for local AppPackages update (Debug)
         InstallUpdate,                  // Trigger: download and install update (Content = URL or local path)
