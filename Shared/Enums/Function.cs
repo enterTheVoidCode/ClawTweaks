@@ -293,6 +293,12 @@
         // writes to GlobalProfile when the matching flag is false, CurrentProfile when true.
         ProfileSaveFlags,               // string - JSON map of flag name -> bool; sent on startup + on checkbox change
 
+        // Power Source Profile Config. Widget is a UWP that's suspended when Game Bar is
+        // dismissed, so AC/DC transitions happening while the user is in a game are dropped.
+        // Helper owns a mirror of the widget's power-plan auto-switch settings and acts on
+        // SystemEvents.PowerModeChanged StatusChange transitions independently.
+        PowerSourceProfileConfig,       // string - JSON: AutoSwitchEnabled, AcGuid, DcGuid
+
         // Debug/Development
         CheckLocalUpdate,               // Trigger: check for local AppPackages update (Debug)
         InstallUpdate,                  // Trigger: download and install update (Content = URL or local path)

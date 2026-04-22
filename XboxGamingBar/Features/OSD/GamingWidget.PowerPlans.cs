@@ -199,6 +199,7 @@ namespace XboxGamingBar
                 {
                     acPowerPlanGuid = planGuid;
                     SavePowerPlanSettings();
+                    SendPowerSourceProfileConfigToHelper();
 
                     // If currently on AC power, apply the plan immediately
                     if (powerPlanAutoSwitch && PowerManager.PowerSupplyStatus == PowerSupplyStatus.Adequate)
@@ -221,6 +222,7 @@ namespace XboxGamingBar
                 {
                     dcPowerPlanGuid = planGuid;
                     SavePowerPlanSettings();
+                    SendPowerSourceProfileConfigToHelper();
 
                     // If currently on battery, apply the plan immediately
                     if (powerPlanAutoSwitch && PowerManager.PowerSupplyStatus != PowerSupplyStatus.Adequate)
@@ -239,8 +241,40 @@ namespace XboxGamingBar
 
             powerPlanAutoSwitch = PowerPlanAutoSwitchToggle?.IsOn ?? false;
             SavePowerPlanSettings();
+            SendPowerSourceProfileConfigToHelper();
 
             Logger.Info($"Power Plan auto-switch set to: {powerPlanAutoSwitch}");
+        }
+
+        /// <summary>
+        /// Mirrors the widget's AC/DC power-plan auto-switch config to the helper so the
+        /// helper can act on AC/DC transitions even while the widget is suspended (issue #72).
+        /// Sent on pipe connect and on any change to the three inputs that feed the decision.
+        /// </summary>
+        internal void SendPowerSourceProfileConfigToHelper()
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+
+                var jsonObj = new Windows.Data.Json.JsonObject();
+                jsonObj["AutoSwitchEnabled"] = Windows.Data.Json.JsonValue.CreateBooleanValue(powerPlanAutoSwitch);
+                jsonObj["AcGuid"] = Windows.Data.Json.JsonValue.CreateStringValue(acPowerPlanGuid.ToString());
+                jsonObj["DcGuid"] = Windows.Data.Json.JsonValue.CreateStringValue(dcPowerPlanGuid.ToString());
+
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "Command", (int)Shared.Enums.Command.Set },
+                    { "Function", (int)Shared.Enums.Function.PowerSourceProfileConfig },
+                    { "Content", jsonObj.Stringify() },
+                };
+                App.PipeClient?.SendValueSet(request);
+                Logger.Info($"Sent PowerSourceProfileConfig to helper (autoSwitch={powerPlanAutoSwitch}, ac={acPowerPlanGuid}, dc={dcPowerPlanGuid})");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending PowerSourceProfileConfig: {ex.Message}");
+            }
         }
 
     }
