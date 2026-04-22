@@ -704,25 +704,21 @@ namespace XboxGamingBar
                 // Small delay to let the UI settle first
                 await Task.Delay(2000);
 
-                using (var httpClient = new HttpClient())
+                var packageVersion = Package.Current.Id.Version;
+                var currentVersion = $"v{packageVersion.Major}.{packageVersion.Minor}.{packageVersion.Build}.{packageVersion.Revision}";
+
+                string remoteVersion = null;
+                string remoteZipUrl = null;
+                try
                 {
-                    httpClient.DefaultRequestHeaders.Add("User-Agent", "GoTweaks-UpdateChecker");
-                    var response = await httpClient.GetStringAsync("https://api.github.com/repos/corando98/GoTweaks/releases/latest");
-
-                    // Parse JSON response
-                    var jsonObject = Windows.Data.Json.JsonObject.Parse(response);
-                    var latestVersion = jsonObject.GetNamedString("tag_name", "");
-
-                    // Get current version
-                    var packageVersion = Package.Current.Id.Version;
-                    var currentVersion = $"v{packageVersion.Major}.{packageVersion.Minor}.{packageVersion.Build}.{packageVersion.Revision}";
-
-                    Logger.Info($"Startup update check: current={currentVersion}, latest={latestVersion}");
-
-                    if (!string.IsNullOrEmpty(latestVersion) && IsNewerVersion(latestVersion, currentVersion))
+                    using (var httpClient = new HttpClient())
                     {
-                        // Find the .zip asset download URL
-                        string zipUrl = null;
+                        httpClient.DefaultRequestHeaders.Add("User-Agent", "GoTweaks-UpdateChecker");
+                        var response = await httpClient.GetStringAsync("https://api.github.com/repos/corando98/GoTweaks/releases/latest");
+
+                        var jsonObject = Windows.Data.Json.JsonObject.Parse(response);
+                        remoteVersion = jsonObject.GetNamedString("tag_name", "");
+
                         if (jsonObject.ContainsKey("assets"))
                         {
                             var assets = jsonObject.GetNamedArray("assets");
@@ -732,26 +728,89 @@ namespace XboxGamingBar
                                 var name = assetObj.GetNamedString("name", "");
                                 if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                                 {
-                                    zipUrl = assetObj.GetNamedString("browser_download_url", "");
+                                    remoteZipUrl = assetObj.GetNamedString("browser_download_url", "");
                                     break;
                                 }
                             }
                         }
-
-                        // Show update banner
-                        await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-                        {
-                            _pendingUpdateZipUrl = zipUrl;
-                            _pendingUpdateVersion = latestVersion;
-                            ShowUpdateBanner(latestVersion);
-                        });
-
-                        Logger.Info($"Update available: {latestVersion}, zip URL: {zipUrl ?? "not found"}");
                     }
-                    else
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Startup update check: remote check failed: {ex.Message}");
+                }
+
+                // Probe the helper's local AppPackages folder for a newer debug build so the
+                // developer iteration loop (build → install) surfaces an update banner without
+                // having to click "Check for Update (Debug)". Silently skipped if the helper
+                // isn't connected yet.
+                string localVersionStr = null;
+                string localMsixPath = null;
+                string localFolderName = null;
+                try
+                {
+                    if (App.IsConnected)
                     {
-                        Logger.Info("No update available");
+                        var localMsg = new Windows.Foundation.Collections.ValueSet
+                        {
+                            { "Command", (int)Shared.Enums.Command.Get },
+                            { "Function", (int)Shared.Enums.Function.CheckLocalUpdate },
+                        };
+                        var localResult = await App.SendMessageAsync(localMsg);
+                        if (localResult != null
+                            && !localResult.ContainsKey("Error")
+                            && localResult.TryGetValue("LatestVersion", out object lvObj)
+                            && localResult.TryGetValue("MsixbundlePath", out object lpObj))
+                        {
+                            localVersionStr = lvObj?.ToString();
+                            localMsixPath = lpObj?.ToString();
+                            localFolderName = localResult.TryGetValue("FolderName", out object lfObj) ? lfObj?.ToString() : "";
+                        }
                     }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Startup update check: local debug probe failed: {ex.Message}");
+                }
+
+                Logger.Info($"Startup update check: current={currentVersion}, remote={remoteVersion ?? "(n/a)"}, local={(localVersionStr != null ? "v" + localVersionStr : "(n/a)")}");
+
+                // Pick whichever source is newer than current and newer than the other source.
+                // Local debug wins ties against remote — the developer who has a fresher build
+                // in AppPackages almost always wants to test that first.
+                bool remoteIsNewer = !string.IsNullOrEmpty(remoteVersion) && IsNewerVersion(remoteVersion, currentVersion);
+                bool localIsNewer = !string.IsNullOrEmpty(localVersionStr)
+                    && Version.TryParse(localVersionStr, out var localParsed)
+                    && localParsed > new Version(packageVersion.Major, packageVersion.Minor, packageVersion.Build, packageVersion.Revision);
+
+                bool preferLocal = localIsNewer && (!remoteIsNewer
+                    || string.IsNullOrEmpty(remoteVersion)
+                    || IsNewerVersion("v" + localVersionStr, remoteVersion));
+
+                if (preferLocal)
+                {
+                    var localBannerVersion = $"v{localVersionStr} [Debug]";
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        _pendingUpdateZipUrl = localMsixPath; // local .msixbundle
+                        _pendingUpdateVersion = localBannerVersion;
+                        ShowUpdateBanner(localBannerVersion);
+                    });
+                    Logger.Info($"Update available (local debug): {localBannerVersion}, folder={localFolderName}, path={localMsixPath}");
+                }
+                else if (remoteIsNewer)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        _pendingUpdateZipUrl = remoteZipUrl;
+                        _pendingUpdateVersion = remoteVersion;
+                        ShowUpdateBanner(remoteVersion);
+                    });
+                    Logger.Info($"Update available (remote): {remoteVersion}, zip URL: {remoteZipUrl ?? "not found"}");
+                }
+                else
+                {
+                    Logger.Info("No update available");
                 }
             }
             catch (Exception ex)
