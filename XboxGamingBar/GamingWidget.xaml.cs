@@ -1257,6 +1257,13 @@ namespace XboxGamingBar
         private bool _saveStickyTDP = false;
         private bool _saveOverlayLevel = false;
         private bool _saveCPUAffinity = false;
+        // Legion device-wide settings default to false so they behave as global device
+        // settings rather than per-game; the helper routes writes to GlobalProfile when these
+        // are false and still applies from the game profile only when the game stored a value.
+        private bool _saveNintendoLayout = false;
+        private bool _saveVibration = false;
+        private bool _saveLighting = false;
+        private bool _saveButtonMappings = false;
 
         private bool SaveTDP => _saveTDP;
         private bool SaveCPUBoost => _saveCPUBoost;
@@ -1272,6 +1279,10 @@ namespace XboxGamingBar
         private bool SaveStickyTDP => _saveStickyTDP;
         private bool SaveOverlayLevel => _saveOverlayLevel;
         private bool SaveCPUAffinity => _saveCPUAffinity;
+        private bool SaveNintendoLayout => _saveNintendoLayout;
+        private bool SaveVibration => _saveVibration;
+        private bool SaveLighting => _saveLighting;
+        private bool SaveButtonMappings => _saveButtonMappings;
 
         private bool isLoadingProfileSettings = false;
 
@@ -3363,6 +3374,7 @@ namespace XboxGamingBar
                 SendQuickMetricsEnabledToHelper();
                 SendScreenSaverEnabledToHelper();
                 SendSidebarMenuEnabledToHelper();
+                SendProfileSaveFlagsToHelper();
 
                 await Task.Delay(200);
                 isInitialSync = false;

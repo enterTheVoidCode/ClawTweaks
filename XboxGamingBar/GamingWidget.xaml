@@ -5967,6 +5967,68 @@
                                            Style="{StaticResource CardCaptionStyle}"
                                            TextWrapping="Wrap"
                                            Margin="0,8,0,0"/>
+
+                                <!-- Per-game capture scope: user picks which categories the per-game
+                                     profile should override. Unchecked categories stay global even
+                                     when the master Per-Game Controller Profile toggle is on. -->
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="Customize per-game capture"
+                                               Style="{StaticResource CardCaptionStyle}"
+                                               VerticalAlignment="Center"/>
+                                    <ToggleButton x:Name="LegionControllerProfileScopeExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="LegionControllerProfileScopeExpandToggle_Click">
+                                        <FontIcon x:Name="LegionControllerProfileScopeExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+                                <StackPanel x:Name="LegionControllerProfileScopeContent" Margin="0,8,0,0" Visibility="Collapsed">
+                                    <TextBlock Text="Checked = captured per-game. Unchecked = stays global (applies to every game)."
+                                               Style="{StaticResource CardCaptionStyle}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,0,0,6"/>
+                                    <CheckBox x:Name="ProfileSaveNintendoLayoutCheckBox"
+                                              Content="Nintendo Layout"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveVibrationCheckBox"
+                                              Content="Vibration"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveLightingCheckBox"
+                                              Content="Lighting"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveButtonMappingsCheckBox"
+                                              Content="Button Mappings"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 

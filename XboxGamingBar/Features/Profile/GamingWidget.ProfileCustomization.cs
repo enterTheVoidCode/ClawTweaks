@@ -91,6 +91,10 @@ namespace XboxGamingBar
                 _saveStickyTDP = settings.Values.ContainsKey("ProfileSaveStickyTDP") ? (bool)settings.Values["ProfileSaveStickyTDP"] : false;
                 _saveOverlayLevel = settings.Values.ContainsKey("ProfileSaveOverlayLevel") ? (bool)settings.Values["ProfileSaveOverlayLevel"] : false;
                 _saveCPUAffinity = settings.Values.ContainsKey("ProfileSaveCPUAffinity") ? (bool)settings.Values["ProfileSaveCPUAffinity"] : false;
+                _saveNintendoLayout = settings.Values.ContainsKey("ProfileSaveNintendoLayout") ? (bool)settings.Values["ProfileSaveNintendoLayout"] : false;
+                _saveVibration = settings.Values.ContainsKey("ProfileSaveVibration") ? (bool)settings.Values["ProfileSaveVibration"] : false;
+                _saveLighting = settings.Values.ContainsKey("ProfileSaveLighting") ? (bool)settings.Values["ProfileSaveLighting"] : false;
+                _saveButtonMappings = settings.Values.ContainsKey("ProfileSaveButtonMappings") ? (bool)settings.Values["ProfileSaveButtonMappings"] : false;
 
                 // Update UI checkboxes
                 if (ProfileSaveTDPCheckBox != null) ProfileSaveTDPCheckBox.IsChecked = _saveTDP;
@@ -107,6 +111,10 @@ namespace XboxGamingBar
                 if (ProfileSaveStickyTDPCheckBox != null) ProfileSaveStickyTDPCheckBox.IsChecked = _saveStickyTDP;
                 if (ProfileSaveOverlayLevelCheckBox != null) ProfileSaveOverlayLevelCheckBox.IsChecked = _saveOverlayLevel;
                 if (ProfileSaveCPUAffinityCheckBox != null) ProfileSaveCPUAffinityCheckBox.IsChecked = _saveCPUAffinity;
+                if (ProfileSaveNintendoLayoutCheckBox != null) ProfileSaveNintendoLayoutCheckBox.IsChecked = _saveNintendoLayout;
+                if (ProfileSaveVibrationCheckBox != null) ProfileSaveVibrationCheckBox.IsChecked = _saveVibration;
+                if (ProfileSaveLightingCheckBox != null) ProfileSaveLightingCheckBox.IsChecked = _saveLighting;
+                if (ProfileSaveButtonMappingsCheckBox != null) ProfileSaveButtonMappingsCheckBox.IsChecked = _saveButtonMappings;
             }
             finally
             {
@@ -133,6 +141,10 @@ namespace XboxGamingBar
             settings.Values["ProfileSaveStickyTDP"] = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveOverlayLevel"] = ProfileSaveOverlayLevelCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveCPUAffinity"] = ProfileSaveCPUAffinityCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveNintendoLayout"] = ProfileSaveNintendoLayoutCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveVibration"] = ProfileSaveVibrationCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveLighting"] = ProfileSaveLightingCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveButtonMappings"] = ProfileSaveButtonMappingsCheckBox?.IsChecked ?? false;
         }
 
         private void ProfileSettingCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -142,6 +154,7 @@ namespace XboxGamingBar
             // Update backing fields from UI checkboxes
             SyncProfileSettingsBackingFields();
             SaveProfileCustomizationSettings();
+            SendProfileSaveFlagsToHelper();
             Logger.Info($"Profile customization settings updated");
         }
 
@@ -152,7 +165,55 @@ namespace XboxGamingBar
             // Update backing fields from UI checkboxes
             SyncProfileSettingsBackingFields();
             SaveProfileCustomizationSettings();
+            SendProfileSaveFlagsToHelper();
             Logger.Info($"Profile customization settings updated");
+        }
+
+        /// <summary>
+        /// Pushes the current per-setting save flags to the helper so it can route writes:
+        /// true => write to CurrentProfile (per-game if active, else global), false => write to
+        /// GlobalProfile regardless of the active profile. Sent on startup and on any checkbox
+        /// change. Helper stores a snapshot and consults it from AutoTDP / Legion save handlers.
+        /// </summary>
+        internal void SendProfileSaveFlagsToHelper()
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+
+                var jsonObj = new Windows.Data.Json.JsonObject();
+                jsonObj["TDP"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveTDP);
+                jsonObj["CPUBoost"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveCPUBoost);
+                jsonObj["CPUEPP"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveCPUEPP);
+                jsonObj["CPUState"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveCPUState);
+                jsonObj["AMDFeatures"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveAMDFeatures);
+                jsonObj["FPSLimit"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveFPSLimit);
+                jsonObj["AutoTDP"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveAutoTDP);
+                jsonObj["OSPowerMode"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveOSPowerMode);
+                jsonObj["HDR"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveHDR);
+                jsonObj["Resolution"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveResolution);
+                jsonObj["RefreshRate"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveRefreshRate);
+                jsonObj["StickyTDP"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveStickyTDP);
+                jsonObj["OverlayLevel"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveOverlayLevel);
+                jsonObj["CPUAffinity"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveCPUAffinity);
+                jsonObj["NintendoLayout"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveNintendoLayout);
+                jsonObj["Vibration"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveVibration);
+                jsonObj["Lighting"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveLighting);
+                jsonObj["ButtonMappings"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveButtonMappings);
+
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "Command", (int)Shared.Enums.Command.Set },
+                    { "Function", (int)Shared.Enums.Function.ProfileSaveFlags },
+                    { "Content", jsonObj.Stringify() },
+                };
+                App.PipeClient?.SendValueSet(request);
+                Logger.Info("Sent ProfileSaveFlags to helper");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending ProfileSaveFlags: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -175,6 +236,10 @@ namespace XboxGamingBar
             _saveStickyTDP = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
             _saveOverlayLevel = ProfileSaveOverlayLevelCheckBox?.IsChecked ?? false;
             _saveCPUAffinity = ProfileSaveCPUAffinityCheckBox?.IsChecked ?? false;
+            _saveNintendoLayout = ProfileSaveNintendoLayoutCheckBox?.IsChecked ?? false;
+            _saveVibration = ProfileSaveVibrationCheckBox?.IsChecked ?? false;
+            _saveLighting = ProfileSaveLightingCheckBox?.IsChecked ?? false;
+            _saveButtonMappings = ProfileSaveButtonMappingsCheckBox?.IsChecked ?? false;
         }
 
     }
