@@ -2450,6 +2450,19 @@ namespace XboxGamingBar
                 // In Custom mode, enable if tdp property is ready
                 TDPSlider.IsEnabled = tdp != null;
 
+                // Reset the "Limits" line — when switching into Custom mode the non-Custom
+                // branch above (or the widget's initial default-to-Balanced state) leaves
+                // a stale "Balanced mode" string here. CurrentTDPProperty pushes the real
+                // hardware values from the helper, but only on the next CurrentTDP update,
+                // which can be deferred until the user applies a setting. Pre-fill from the
+                // helper's last-known value if BatchGet already populated it; otherwise
+                // show a neutral placeholder so the user doesn't think the helper is in
+                // Balanced when it isn't.
+                if (CurrentTDPValueText != null)
+                {
+                    CurrentTDPValueText.Text = !string.IsNullOrEmpty(currentTdp?.Value) ? currentTdp.Value : "-- W";
+                }
+
                 // Re-enable TDP Boost, AutoTDP, and Sticky TDP controls in Custom mode
                 if (TDPBoostToggle != null) TDPBoostToggle.IsEnabled = true;
                 if (AutoTDPToggle != null) AutoTDPToggle.IsEnabled = true;

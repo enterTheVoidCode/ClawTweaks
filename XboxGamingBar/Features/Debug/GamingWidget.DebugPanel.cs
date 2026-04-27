@@ -783,9 +783,12 @@ namespace XboxGamingBar
                     && Version.TryParse(localVersionStr, out var localParsed)
                     && localParsed > new Version(packageVersion.Major, packageVersion.Minor, packageVersion.Build, packageVersion.Revision);
 
+                // Tie-breaking on equal versions: prefer local. IsNewerVersion returns false
+                // for equal versions, so we use !IsNewerVersion(remote, local) which is
+                // true when remote ≤ local (i.e., local wins on ties).
                 bool preferLocal = localIsNewer && (!remoteIsNewer
                     || string.IsNullOrEmpty(remoteVersion)
-                    || IsNewerVersion("v" + localVersionStr, remoteVersion));
+                    || !IsNewerVersion(remoteVersion, "v" + localVersionStr));
 
                 if (preferLocal)
                 {

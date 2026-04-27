@@ -223,10 +223,14 @@ namespace XboxGamingBar
             double textWidth = tile.StateText.DesiredSize.Width;
 
             // Prefer the actual laid-out width; fall back to the declared Width
-            // when the canvas hasn't had its first layout pass yet.
+            // when the canvas hasn't had its first layout pass yet. The declared
+            // Width defaults to NaN in XAML, and `NaN <= 0` is false, so guard
+            // against NaN/Infinity explicitly — otherwise it propagates into
+            // TimeSpan.FromSeconds below and throws.
             double canvasWidth = tile.StateTextCanvas.ActualWidth;
-            if (canvasWidth <= 0) canvasWidth = tile.StateTextCanvas.Width;
-            if (canvasWidth <= 0) return; // Not yet laid out — SizeChanged will retry
+            if (!(canvasWidth > 0)) canvasWidth = tile.StateTextCanvas.Width;
+            if (!(canvasWidth > 0)) return; // Not yet laid out — SizeChanged will retry
+            if (!(textWidth >= 0) || double.IsInfinity(textWidth)) return;
 
             // If text fits, no animation needed — just center it
             if (textWidth <= canvasWidth)

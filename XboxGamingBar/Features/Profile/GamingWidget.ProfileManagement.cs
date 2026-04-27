@@ -88,6 +88,12 @@ namespace XboxGamingBar
                 }
 
                 Logger.Info($"Loaded game AC/DC profiles for {currentGameName}");
+                // Sync the per-state values down to the helper so it can apply them on
+                // AC/DC transitions without the widget being awake. Without this the
+                // helper would push its cached (current-state) TDP and the user would see
+                // the slider update but hardware lag (the bug surfaced in build 2070
+                // testing on 2026-04-25).
+                SendPowerSourceProfileValuesToHelper();
             }
             else
             {
@@ -140,6 +146,51 @@ namespace XboxGamingBar
                     LoadProfileFromStorage($"Game_{currentGameName}", gameProfile);
                     Logger.Info($"Loaded existing game profile for {currentGameName}");
                 }
+            }
+
+            // Stamp the running game's exe path into every container we just created or
+            // loaded for this title. Used by the Profiles tab to group multiple titles
+            // that share an exe (e.g. emulators like Citron / RetroArch where each game
+            // produces a different window title) under a single collapsed parent card.
+            EnsureGameExePathStored(currentGameName);
+        }
+
+        /// <summary>
+        /// Writes the current running game's full exe path into every Profile_Game_<name>
+        /// container that exists for the given title (single, _AC, _DC). Idempotent —
+        /// safe to call repeatedly. Skipped silently when the running game's path is
+        /// not available (game closed mid-load, race during startup).
+        /// </summary>
+        private void EnsureGameExePathStored(string gameName)
+        {
+            try
+            {
+                if (runningGame == null) return;
+                var rg = runningGame.Value; // RunningGame is a struct, can't ?.
+                if (rg == null || !rg.IsValid() || rg.GameId == null) return;
+                string exePath = rg.GameId.Path;
+                if (string.IsNullOrEmpty(exePath)) return;
+                if (string.IsNullOrEmpty(gameName)) return;
+
+                var settings = ApplicationData.Current.LocalSettings;
+                foreach (var suffix in new[] { "", "_AC", "_DC" })
+                {
+                    var key = $"Profile_Game_{gameName}{suffix}";
+                    if (settings.Containers.ContainsKey(key))
+                    {
+                        var existing = settings.Containers[key].Values.ContainsKey("GameExePath")
+                            ? settings.Containers[key].Values["GameExePath"] as string
+                            : null;
+                        if (existing != exePath)
+                        {
+                            settings.Containers[key].Values["GameExePath"] = exePath;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"EnsureGameExePathStored({gameName}) failed: {ex.Message}");
             }
         }
 

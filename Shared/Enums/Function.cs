@@ -299,6 +299,14 @@
         // SystemEvents.PowerModeChanged StatusChange transitions independently.
         PowerSourceProfileConfig,       // string - JSON: AutoSwitchEnabled, AcGuid, DcGuid
 
+        // Per-state TDP/boost values for the active profile, sent by the widget so the
+        // helper can apply them on AC/DC transitions without depending on the widget being
+        // awake. Sent whenever the active profile or its AC/DC sub-profile changes. Helper
+        // caches both AC and DC values and picks the right set when SystemManager fires
+        // PowerSourceChanged. JSON keys: AcTdp, DcTdp, AcTdpBoost, DcTdpBoost (all optional;
+        // null/missing = no override for that field).
+        PowerSourceProfileValues,       // string - JSON: AC/DC TDP and TDPBoost values
+
         // Debug/Development
         CheckLocalUpdate,               // Trigger: check for local AppPackages update (Debug)
         InstallUpdate,                  // Trigger: download and install update (Content = URL or local path)
