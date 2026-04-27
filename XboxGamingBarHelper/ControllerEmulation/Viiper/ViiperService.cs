@@ -123,6 +123,15 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 return new ViiperAddDeviceResult(false, 0);
             }
             Logger.Info($"VIIPER device added: {typeName} (bus={busId}, dev={deviceId}, vid=0x{vid:X4}, pid=0x{pid:X4})");
+
+            // NOTE: do NOT call viiper_device_attach here. libviiper's viiper_device_add[_ex]
+            // already attaches the device internally — calling attach a second time produces
+            // a *duplicate* USBIP attachment, surfacing two emulated controllers to Windows
+            // (caught during local test of build 2067 with steam-generic mode). Diagnostic
+            // visibility for "did Windows actually see the device?" comes from the existing
+            // ViiperInputForwarder 5s stats line: reportsSent > 0 + user reports no input
+            // means attach worked but downstream consumption didn't.
+
             RegisterFeedbackCallback(busId, deviceId);
             return new ViiperAddDeviceResult(true, deviceId);
         }

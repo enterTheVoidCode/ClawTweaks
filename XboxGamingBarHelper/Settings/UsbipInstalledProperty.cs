@@ -2,6 +2,8 @@ using Microsoft.Win32;
 using Shared.Enums;
 using System;
 using System.IO;
+using System.ServiceProcess;
+using System.Threading.Tasks;
 using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Settings
@@ -52,6 +54,15 @@ namespace XboxGamingBarHelper.Settings
         {
             // Any one of these signals is enough. We're intentionally permissive so partial
             // installs or newer release builds (which might rename one service) still pass.
+            //
+            // Diagnostic note: registry-key existence proves the service is *registered*, not
+            // *running*. Walk every signal (don't short-circuit) and log each at Info level so
+            // production logs show which detection paths fired and the runtime state of any
+            // services we find. A service registered but Stopped/Disabled is a strong hint
+            // that VIIPER's USBIP client side isn't actually wired up — see issue #79
+            // vvalente30, where "no input from VIIPER" coincided with no visibility into
+            // whether the USBIP driver was loaded.
+            bool found = false;
             try
             {
                 foreach (var name in ServiceKeyNames)
@@ -60,8 +71,9 @@ namespace XboxGamingBarHelper.Settings
                     {
                         if (key != null)
                         {
-                            Logger.Debug($"usbip-win2 detected via service key: {name}");
-                            return true;
+                            string state = QueryServiceState(name);
+                            Logger.Info($"usbip-win2 service registered: '{name}' state={state}");
+                            found = true;
                         }
                     }
                 }
@@ -69,16 +81,57 @@ namespace XboxGamingBarHelper.Settings
                 {
                     if (File.Exists(path))
                     {
-                        Logger.Debug($"usbip-win2 detected via binary: {path}");
-                        return true;
+                        Logger.Info($"usbip-win2 binary present: {path}");
+                        found = true;
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Debug($"UsbipInstalled detection failed: {ex.Message}");
+                Logger.Warn($"UsbipInstalled detection failed: {ex.Message}");
             }
-            return false;
+            return found;
+        }
+
+        /// <summary>
+        /// Returns "Status/StartType" (e.g., "Running/Manual", "Stopped/Disabled") for the
+        /// given driver service. "Stopped/Disabled" is the case we most want to surface: a
+        /// service registered in the SCM but configured to never start, which silently
+        /// breaks USBIP without any error from libviiper.
+        ///
+        /// SCM queries can block if the service control manager is unresponsive (rare,
+        /// but observed during heavy boot contention). Run on a worker task with a
+        /// short timeout so a hung SCM never delays helper startup — diagnostic logs
+        /// are valuable, but never at the cost of pushing back the helper's main work.
+        /// </summary>
+        private static string QueryServiceState(string serviceName)
+        {
+            const int TimeoutMs = 1500;
+            try
+            {
+                var task = Task.Run(() =>
+                {
+                    using (var sc = new ServiceController(serviceName))
+                    {
+                        return $"{sc.Status}/{sc.StartType}";
+                    }
+                });
+                if (!task.Wait(TimeoutMs))
+                {
+                    return "scm-timeout";
+                }
+                return task.Result;
+            }
+            catch (AggregateException ae) when (ae.InnerException is InvalidOperationException)
+            {
+                // SCM doesn't know the service even though the registry key exists —
+                // partial install or rename in flight.
+                return "not-in-scm";
+            }
+            catch (Exception ex)
+            {
+                return $"query-error:{ex.GetType().Name}";
+            }
         }
     }
 }

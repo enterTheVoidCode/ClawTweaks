@@ -233,6 +233,25 @@ namespace XboxGamingBarHelper.Systems
             coreParkingPercent = new CoreParkingPercentProperty(this);
             forceParkMode = new ForceParkModeProperty(this);
 
+            // Seed the AC/DC dedupe baseline from the live PowerManager status now,
+            // before subscribing. Otherwise the lazy-on-first-event capture below loses
+            // the *real* first AC↔DC transition: PowerModes.StatusChange fires
+            // continuously for battery-percent updates, so the first one we see is
+            // almost always a battery-level tick rather than the actual transition,
+            // and the lazy capture would silently absorb the new state without raising
+            // PowerSourceChanged.
+            try
+            {
+                lastPowerSupplyStatus = global::Windows.System.Power.PowerManager.PowerSupplyStatus;
+                hasSeenInitialPowerSupplyStatus = true;
+                Logger.Debug($"SystemManager seeded initial power supply status: {lastPowerSupplyStatus}");
+            }
+            catch (Exception ex)
+            {
+                // Fall back to lazy capture on first StatusChange.
+                Logger.Warn($"SystemManager: failed to seed initial PowerSupplyStatus, will capture on first StatusChange: {ex.Message}");
+            }
+
             // Subscribe to system power events for sleep/wake detection
             SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
             // Subscribe to display change events for dock/undock detection

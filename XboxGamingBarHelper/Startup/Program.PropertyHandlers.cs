@@ -56,9 +56,12 @@ namespace XboxGamingBarHelper
                 return;
             }
 
-            Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s CPU State to Max={powerManager.MaxCPUState.Value}%, Min={powerManager.MinCPUState.Value}%.");
-            profileManager.CurrentProfile.MaxCPUState = powerManager.MaxCPUState.Value;
-            profileManager.CurrentProfile.MinCPUState = powerManager.MinCPUState.Value;
+            // TEST [ProfileSaveFlags-CPUState]: With ProfileSaveCPUState unchecked, change
+            // Min/Max CPU State sliders in-game. Verify the change goes to GlobalProfile, not
+            // the per-game profile. Pre-flag baseline: always wrote to CurrentProfile.
+            RouteProfileSave(ProfileSaveFlagsState.CPUState, "CPUState",
+                cur => { cur.MaxCPUState = powerManager.MaxCPUState.Value; cur.MinCPUState = powerManager.MinCPUState.Value; },
+                glo => { glo.MaxCPUState = powerManager.MaxCPUState.Value; glo.MinCPUState = powerManager.MinCPUState.Value; });
         }
 
         private static void SystemManager_ResumeFromSleep(object sender)
@@ -99,8 +102,12 @@ namespace XboxGamingBarHelper
                 return;
             }
 
-            Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s CPU Boost from {profileManager.CurrentProfile.CPUBoost} to {powerManager.CPUBoost}.");
-            profileManager.CurrentProfile.CPUBoost = powerManager.CPUBoost;
+            // TEST [ProfileSaveFlags-CPUBoost]: With ProfileSaveCPUBoost unchecked, toggle
+            // CPU Boost in-game. Verify the change goes to GlobalProfile, not the per-game
+            // profile. Pre-flag baseline: always wrote to CurrentProfile.
+            RouteProfileSave(ProfileSaveFlagsState.CPUBoost, "CPUBoost",
+                cur => cur.CPUBoost = powerManager.CPUBoost,
+                glo => glo.CPUBoost = powerManager.CPUBoost);
         }
 
         private static void CPUEPP_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -119,8 +126,12 @@ namespace XboxGamingBarHelper
                 return;
             }
 
-            Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s CPU EPP from {profileManager.CurrentProfile.CPUEPP} to {powerManager.CPUEPP}.");
-            profileManager.CurrentProfile.CPUEPP = powerManager.CPUEPP;
+            // TEST [ProfileSaveFlags-CPUEPP]: With ProfileSaveCPUEPP unchecked, change CPU EPP
+            // in-game. Verify the change goes to GlobalProfile, not the per-game profile.
+            // Pre-flag baseline: always wrote to CurrentProfile.
+            RouteProfileSave(ProfileSaveFlagsState.CPUEPP, "CPUEPP",
+                cur => cur.CPUEPP = powerManager.CPUEPP,
+                glo => glo.CPUEPP = powerManager.CPUEPP);
         }
 
         private static void AutoHibernateEnabled_PropertyChanged(object sender, PropertyChangedEventArgs e)

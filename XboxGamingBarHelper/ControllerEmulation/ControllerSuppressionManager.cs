@@ -913,10 +913,28 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     registered.Add(appPath);
                     addedCount++;
                 }
+                catch (Exception ex) when (
+                    ex is System.IO.FileNotFoundException
+                    || ex is System.IO.DirectoryNotFoundException
+                    || (ex is ArgumentException && ex.Message.IndexOf("doesn't exist", StringComparison.OrdinalIgnoreCase) >= 0)
+                    || (ex is ArgumentException && ex.Message.IndexOf("does not exist", StringComparison.OrdinalIgnoreCase) >= 0)
+                    || !File.Exists(appPath))
+                {
+                    // Expected on systems without optional third-party apps (Lenovo Gaming App,
+                    // GameInputService, etc.) — keep at Debug so non-Lenovo users don't see a
+                    // wall of warnings every helper boot. We catch FileNotFound and the
+                    // HidHide-API-throws-ArgumentException-with-"doesn't exist"-message variant,
+                    // and as a final guard fall through to Debug for any exception when the
+                    // path itself doesn't exist on disk.
+                    failedCount++;
+                    Logger.Debug($"HidHide AddApplicationPath skipped (path missing) for '{appPath}': {ex.GetType().Name}: {ex.Message}");
+                }
                 catch (Exception ex)
                 {
+                    // Real failures (permission issues, HidHide service errors, etc.) stay at
+                    // Warn so we can diagnose them in production logs.
                     failedCount++;
-                    Logger.Debug($"HidHide AddApplicationPath failed for '{appPath}': {ex.Message}");
+                    Logger.Warn($"HidHide AddApplicationPath failed for '{appPath}': {ex.GetType().Name}: {ex.Message}");
                 }
             }
 

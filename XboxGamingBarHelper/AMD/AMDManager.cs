@@ -242,6 +242,11 @@ namespace XboxGamingBarHelper.AMD
 
         private long lastUpdate;
 
+        // Set in Dispose so the deferred RSR cold-boot retry task knows to exit
+        // rather than calling IsSupported on disposed ADLX interfaces (potential
+        // access violation in unmanaged code, not a catchable exception).
+        private volatile bool _disposed;
+
         public AMDManager() : base()
         {
             try
@@ -520,6 +525,67 @@ namespace XboxGamingBarHelper.AMD
 
             Logger.Info("AMD Manager initialized successfully.");
 
+            // Cold-boot recovery for RSR (issue #79 / Rayekkk):
+            // On Windows cold boot the AMD driver may not have fully initialized
+            // its RSR feature when this constructor runs. GetRadeonSuperResolution
+            // returns a usable interface but IsSupported() returns non-ADLX_OK,
+            // which we map to false — and amdRadeonSuperResolutionSupported then
+            // stays false for the helper's lifetime, showing "N/A" in the widget.
+            // The 3DSettingsChangedListener only refreshes Enabled, never Supported,
+            // so the user has to reinstall (which restarts the helper later, when
+            // the driver is ready). RIS/Anti-Lag don't hit this because they're
+            // queried inside the GPU-enumeration block above, which gives the
+            // driver extra time to settle. Retry IsSupported a few times with
+            // backoff and push the update to the widget if it flips true.
+            if (amdRadeonSuperResolutionSetting != null && !amdRadeonSuperResolutionSupported.Value)
+            {
+                Task.Run(async () =>
+                {
+                    int[] backoffMs = new[] { 2000, 5000, 15000 };
+                    foreach (var delay in backoffMs)
+                    {
+                        await Task.Delay(delay);
+                        // Bail out if the manager was disposed while we slept.
+                        // After Dispose the underlying ADLX interfaces are torn down,
+                        // and IsSupported on a disposed wrapper can crash unmanaged code
+                        // (not a catchable .NET exception).
+                        if (_disposed)
+                        {
+                            Logger.Debug("RSR cold-boot retry aborted — AMDManager disposed.");
+                            return;
+                        }
+                        try
+                        {
+                            if (!amdRadeonSuperResolutionSetting.IsSupported())
+                            {
+                                continue;
+                            }
+
+                            Logger.Info($"RSR Supported flipped to true on cold-boot retry after ~{delay}ms — refreshing widget state.");
+                            amdRadeonSuperResolutionSupported.SetValue(true);
+
+                            bool isEnabledNow = amdRadeonSuperResolutionSetting.IsEnabled();
+                            if (isEnabledNow != amdRadeonSuperResolutionEnabled.Value)
+                            {
+                                amdRadeonSuperResolutionEnabled.SetValue(isEnabledNow);
+                            }
+
+                            int sharpnessNow = amdRadeonSuperResolutionSetting.GetSharpness();
+                            if (sharpnessNow != amdRadeonSuperResolutionSharpness.Value)
+                            {
+                                amdRadeonSuperResolutionSharpness.SetValue(sharpnessNow);
+                            }
+                            return;
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"RSR cold-boot retry failed (delay={delay}ms): {ex.Message}");
+                        }
+                    }
+                    Logger.Info("RSR cold-boot retry sequence finished without flipping to supported.");
+                });
+            }
+
             amdFluidMotionFrameEnabled.PropertyChanged += AmdFluidMotionFrameEnabled;
             amdRadeonAntiLagEnabled.PropertyChanged += AmdRadeonAntiLagEnabled;
             amdRadeonBoostEnabled.PropertyChanged += AmdRadeonBoostEnabled;
@@ -704,6 +770,10 @@ namespace XboxGamingBarHelper.AMD
         {
             if (disposing)
             {
+                // Signal the deferred RSR retry task to bail out before we tear down
+                // the ADLX interfaces below. volatile so the retry task observes it
+                // promptly when it wakes from Task.Delay.
+                _disposed = true;
                 Logger.Info("AMDManager: Disposing ADLX resources");
                 adlxDisplayServices?.Dispose();
                 adlxInternalGPU?.Dispose();

@@ -1354,7 +1354,15 @@ namespace XboxGamingBar
             currentTdp = new CurrentTDPProperty(CurrentTDPValueText, this);
             osd = new OSDProperty(0, PerformanceOverlaySlider, this);
             runningGame = new RunningGameProperty(RunningGameText, PerGameProfileToggle, DetectedGameText, this);
-            runningGame.SetGameDetectionCallback(UpdatePerformanceTabXYNavigation);
+            // Callback fires after RunningGameProperty updates DetectedGameText.Text on the
+            // UI thread. Re-evaluate the marquee scroll so long window titles (e.g. Windows
+            // Terminal showing the current task) scroll instead of truncating. Also keeps
+            // the existing XY-navigation refresh for game-detection state changes.
+            runningGame.SetGameDetectionCallback(() =>
+            {
+                UpdatePerformanceTabXYNavigation();
+                UpdateDetectedGameScrollAnimation();
+            });
             perGameProfile = new PerGameProfileProperty(PerGameProfileToggle, this);
             cpuBoost = new CPUBoostProperty(CPUBoostToggle, this);
             cpuEPP = new CPUEPPProperty(80, CPUEPPSlider, this);
@@ -2479,6 +2487,11 @@ namespace XboxGamingBar
 
                 SyncPowerSourceProfileToggleForCurrentContext();
                 UpdateActiveProfileIndicator();
+                // Refresh the active profile card so it hides immediately when the
+                // user flips the toggle off — otherwise the card lingers showing
+                // per-game default values that aren't actually being applied.
+                UpdateGameProfileCardVisibility();
+                UpdateProfileDisplay();
             }
             finally
             {
@@ -2796,13 +2809,139 @@ namespace XboxGamingBar
             SwitchProfile();
         }
 
+        // Marquee storyboards for header text fields. Cached so successive calls can
+        // stop the previous animation cleanly before starting a new one (text changed /
+        // canvas resized). Keyed by Canvas so multiple call sites (active profile name,
+        // detected-game name) can share the helper without trampling each other.
+        private readonly Dictionary<Canvas, Storyboard> activeMarqueeStoryboards = new Dictionary<Canvas, Storyboard>();
+        // Tracks which canvases we've already wired SizeChanged on so we don't
+        // double-subscribe across repeated Update calls.
+        private readonly HashSet<Canvas> marqueeSizeChangedHooked = new HashSet<Canvas>();
+
         /// <summary>
-        /// Previously handled scrolling animation for the active profile text.
-        /// Now a no-op since we use TextTrimming instead.
+        /// Marquee-scrolls a TextBlock inside a Canvas when the rendered text width
+        /// exceeds the canvas slot width. Mirrors the Quick Settings tile scroll
+        /// behavior at GamingWidget.QuickSettings.TileStates.cs:206 — same keyframe
+        /// shape, NaN guards, and 30 px/sec speed. When the text fits, just
+        /// left-aligns it. Idempotent: safe to call repeatedly when the text or
+        /// canvas size changes.
+        /// </summary>
+        private void UpdateMarqueeScrollAnimation(TextBlock text, Canvas canvas, TranslateTransform transform)
+        {
+            if (text == null || canvas == null || transform == null) return;
+
+            // First call wires SizeChanged so the clip rect tracks the laid-out
+            // canvas width and the marquee re-evaluates when the column changes.
+            if (!marqueeSizeChangedHooked.Contains(canvas))
+            {
+                marqueeSizeChangedHooked.Add(canvas);
+                canvas.SizeChanged += (s, e) =>
+                {
+                    if (e.NewSize.Width > 0 && canvas != null)
+                    {
+                        canvas.Clip = new Windows.UI.Xaml.Media.RectangleGeometry
+                        {
+                            Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, canvas.Height)
+                        };
+                        UpdateMarqueeScrollAnimation(text, canvas, transform);
+                    }
+                };
+            }
+
+            // Stop any existing animation for this canvas before recomputing.
+            if (activeMarqueeStoryboards.TryGetValue(canvas, out var existing) && existing != null)
+            {
+                existing.Stop();
+                activeMarqueeStoryboards.Remove(canvas);
+            }
+            transform.X = 0;
+
+            // Measure text at its natural size.
+            text.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            double textWidth = text.DesiredSize.Width;
+
+            // Prefer ActualWidth, fall back to declared Width. Both can be NaN
+            // (XAML default) before first layout, so use `!(x > 0)` to reject NaN
+            // — the same guard pattern from build 2061 that fixed the TimeSpan-NaN
+            // throw in UpdateTileScrollAnimation.
+            double canvasWidth = canvas.ActualWidth;
+            if (!(canvasWidth > 0)) canvasWidth = canvas.Width;
+            if (!(canvasWidth > 0)) return;
+            if (!(textWidth >= 0) || double.IsInfinity(textWidth)) return;
+
+            // Fits: just left-align (matches the original TextBlock layout).
+            if (textWidth <= canvasWidth)
+            {
+                Canvas.SetLeft(text, 0);
+                return;
+            }
+
+            // Doesn't fit: scroll left → pause → scroll right → pause → repeat.
+            Canvas.SetLeft(text, 0);
+            double scrollDistance = textWidth - canvasWidth + 10;
+            const double scrollSpeed = 30; // pixels per second
+            double scrollDuration = scrollDistance / scrollSpeed;
+
+            var storyboard = new Storyboard();
+            var animation = new DoubleAnimationUsingKeyFrames
+            {
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            animation.KeyFrames.Add(new DiscreteDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.Zero),
+                Value = 0
+            });
+            animation.KeyFrames.Add(new DiscreteDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(1.5)),
+                Value = 0
+            });
+            animation.KeyFrames.Add(new LinearDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(1.5 + scrollDuration)),
+                Value = -scrollDistance
+            });
+            animation.KeyFrames.Add(new DiscreteDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(3 + scrollDuration)),
+                Value = -scrollDistance
+            });
+            animation.KeyFrames.Add(new LinearDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(3 + scrollDuration * 2)),
+                Value = 0
+            });
+            animation.KeyFrames.Add(new DiscreteDoubleKeyFrame
+            {
+                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(4.5 + scrollDuration * 2)),
+                Value = 0
+            });
+            Storyboard.SetTarget(animation, transform);
+            Storyboard.SetTargetProperty(animation, "X");
+            storyboard.Children.Add(animation);
+
+            activeMarqueeStoryboards[canvas] = storyboard;
+            storyboard.Begin();
+        }
+
+        /// <summary>
+        /// Marquees the active profile name. Called from UpdateActiveProfileIndicator
+        /// every time the displayed profile / game name changes.
         /// </summary>
         private void UpdateActiveProfileScrollAnimation()
         {
-            // No longer needed - using TextTrimming instead of scrolling animation
+            UpdateMarqueeScrollAnimation(ActiveProfileText, ActiveProfileTextCanvas, ActiveProfileTextTransform);
+        }
+
+        /// <summary>
+        /// Marquees the detected-game name shown next to the per-game-profile toggle on
+        /// the Performance tab. Called from the RunningGameProperty's game-detection
+        /// callback so the scroll evaluates whenever the displayed game name changes.
+        /// </summary>
+        private void UpdateDetectedGameScrollAnimation()
+        {
+            UpdateMarqueeScrollAnimation(DetectedGameText, DetectedGameTextCanvas, DetectedGameTextTransform);
         }
 
         private void AddTextBlock(Grid grid, int row, int column, string text, int fontSize, string colorHex,
@@ -3376,6 +3515,7 @@ namespace XboxGamingBar
                 SendSidebarMenuEnabledToHelper();
                 SendProfileSaveFlagsToHelper();
                 SendPowerSourceProfileConfigToHelper();
+                SendPowerSourceProfileValuesToHelper();
                 // Without this, the helper's ControllerHotkeyMonitor only learns the
                 // widget's View+ABXY / Menu+DPad bindings on the next dropdown change.
                 // Before that, helper-side detection sits at the default-all-disabled

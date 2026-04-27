@@ -909,6 +909,15 @@ namespace XboxGamingBarHelper
                         ApplyPowerSourceProfileConfig(request.Content.ToString());
                     }
                 }
+                // Per-state TDP / TDPBoost values from the widget. Cached so the helper
+                // can apply them on AC/DC transitions independent of widget lifecycle.
+                else if (functionValue == (int)Function.PowerSourceProfileValues)
+                {
+                    if (request.Content != null)
+                    {
+                        ApplyPowerSourceProfileValues(request.Content.ToString());
+                    }
+                }
                 // Quick Metrics: Enable/disable metrics push timer
                 else if (functionValue == (int)Function.QuickMetricsEnabled)
                 {
@@ -1072,11 +1081,20 @@ namespace XboxGamingBarHelper
 
                     try
                     {
-                        const string appPackagesPath = @"C:\Users\diego\OneDrive\Desktop\Diego\projects\XboxGamingBar\XboxGamingBarPackage\AppPackages";
+                        // Resolve the AppPackages probe directory in this order:
+                        //   1. GOTWEAKS_APPPACKAGES_DIR env var (overrides everything — useful
+                        //      for any developer with a non-default checkout location).
+                        //   2. Walk up from the deployed helper's source-tree, looking for a
+                        //      "XboxGamingBarPackage\AppPackages" directory. This works on the
+                        //      author's machine and any contributor working from a clone.
+                        // On a normal user's installed system, both will fail and we return a
+                        // clear "Error" — the widget's debug-panel update probe handles that
+                        // gracefully (this whole code path is debug-only UX).
+                        string appPackagesPath = ResolveAppPackagesProbeDir();
 
-                        if (!Directory.Exists(appPackagesPath))
+                        if (string.IsNullOrEmpty(appPackagesPath) || !Directory.Exists(appPackagesPath))
                         {
-                            response.Add("Error", $"AppPackages folder not found:\n{appPackagesPath}");
+                            response.Add("Error", $"AppPackages folder not found (set GOTWEAKS_APPPACKAGES_DIR env var to override).\nTried: {appPackagesPath ?? "<none resolved>"}");
                         }
                         else
                         {
@@ -1659,6 +1677,76 @@ namespace XboxGamingBarHelper
             {
                 Logger.Error($"Failed to send pipe ack: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Locates the AppPackages probe directory for the debug-panel "check local update"
+        /// action. Strategy in order:
+        ///   1. GOTWEAKS_APPPACKAGES_DIR env var — explicit override for any contributor.
+        ///   2. Walk up from the helper exe — works only when the helper runs out of the
+        ///      build output under the source tree (rare; the deployed helper lives in
+        ///      LocalCache and is too far from the source for this to hit).
+        ///   3. Probe a list of common developer checkout layouts under %USERPROFILE%.
+        ///      This is the path that works for the deployed helper on a dev machine.
+        /// On a normal user's installed system all three fail and we return null — the
+        /// caller surfaces a clear error and the rest of the system is unaffected (this
+        /// whole code path is debug-only UX behind the Debug panel).
+        /// </summary>
+        private static string ResolveAppPackagesProbeDir()
+        {
+            try
+            {
+                string envOverride = Environment.GetEnvironmentVariable("GOTWEAKS_APPPACKAGES_DIR");
+                if (!string.IsNullOrEmpty(envOverride))
+                {
+                    return envOverride;
+                }
+
+                // Walk up from the helper exe — covers the rare case where the helper
+                // is run directly from the source-tree build output without deploy.
+                string exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+                if (!string.IsNullOrEmpty(exeDir))
+                {
+                    var dir = new DirectoryInfo(exeDir);
+                    for (int i = 0; i < 8 && dir != null; i++, dir = dir.Parent)
+                    {
+                        string candidate = Path.Combine(dir.FullName, "XboxGamingBarPackage", "AppPackages");
+                        if (Directory.Exists(candidate))
+                        {
+                            return candidate;
+                        }
+                    }
+                }
+
+                // Probe common dev-checkout paths under the logged-in user's profile.
+                // The scheduled-task helper runs elevated as the same user, so
+                // Environment.SpecialFolder.UserProfile resolves to the developer's profile.
+                string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                if (!string.IsNullOrEmpty(userProfile))
+                {
+                    string[] roots =
+                    {
+                        Path.Combine(userProfile, "OneDrive", "Desktop", "Diego", "projects", "XboxGamingBar"),
+                        Path.Combine(userProfile, "Desktop", "Diego", "projects", "XboxGamingBar"),
+                        Path.Combine(userProfile, "source", "repos", "XboxGamingBar"),
+                        Path.Combine(userProfile, "projects", "XboxGamingBar"),
+                        Path.Combine(userProfile, "repos", "XboxGamingBar"),
+                    };
+                    foreach (var root in roots)
+                    {
+                        string candidate = Path.Combine(root, "XboxGamingBarPackage", "AppPackages");
+                        if (Directory.Exists(candidate))
+                        {
+                            return candidate;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"ResolveAppPackagesProbeDir: {ex.Message}");
+            }
+            return null;
         }
 
     }

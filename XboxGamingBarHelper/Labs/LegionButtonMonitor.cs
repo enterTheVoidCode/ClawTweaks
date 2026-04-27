@@ -2630,6 +2630,21 @@ namespace XboxGamingBarHelper.Labs
                         consecutiveFailures++;
                         Thread.Sleep(500);
                     }
+                    catch (ArgumentNullException ex) when (ex.ParamName == "pHandle" || ex.ParamName == "handle" || ex.ParamName == "SafeHandle" || (ex.StackTrace != null && ex.StackTrace.Contains("SafeHandleAddRef")))
+                    {
+                        // P/Invoke marshaller throws this when a torn-down
+                        // SafeFileHandle gets passed to ReadFile during a
+                        // disconnect/reconnect race. Functionally identical to
+                        // ObjectDisposedException above — the reconnect path
+                        // rebuilds the handle. Filter is scoped to the SafeHandle
+                        // case so user-supplied callbacks (ProcessButtonAction,
+                        // BatteryUpdated, parsers) that throw ArgumentNullException
+                        // for their own reasons still surface in the generic catch
+                        // below with full diagnostics.
+                        Logger.Warn($"LegionButtonMonitor: transient null handle during monitor loop (iteration {loopIteration}); will reconnect");
+                        consecutiveFailures++;
+                        Thread.Sleep(500);
+                    }
                     catch (Exception ex)
                     {
                         Logger.Error($"LegionButtonMonitor: Exception in monitor loop (iteration {loopIteration}): {ex.Message}\n{ex.StackTrace}");

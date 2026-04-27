@@ -596,8 +596,60 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             long lastLegionTicks = 0;
             int errorCount = 0;
 
+            // Diagnostic counters: emit a periodic stats line so we can tell the
+            // difference between "no input arriving" (legion sample stale / XInput
+            // packet not advancing), "input arriving but not forwarded" (reports sent
+            // is zero), and "forwarded but not visible to Windows" (reports sent > 0
+            // yet user reports no input — see issue #79 vvalente30). Without this,
+            // SetInput failures are logged but successes are silent, and the LegionHid
+            // path simply skips on stale samples without any trace.
+            int statsLegionFreshSamples = 0;
+            int statsLegionStaleSamples = 0;
+            int statsLegionMissingSamples = 0;
+            int statsXInputFreshPackets = 0;
+            int statsXInputStalePackets = 0;
+            int statsXInputErrors = 0;
+            int statsReportsSent = 0;
+            int statsReportsFailed = 0;
+            long statsWindowStartTicks = DateTime.UtcNow.Ticks;
+            const long StatsWindowTicks = TimeSpan.TicksPerSecond * 5;
+
             while (running)
             {
+                long nowTicks = DateTime.UtcNow.Ticks;
+                if (nowTicks - statsWindowStartTicks >= StatsWindowTicks)
+                {
+                    bool anyActivity = statsReportsSent > 0
+                        || statsReportsFailed > 0
+                        || statsLegionFreshSamples > 0
+                        || statsLegionStaleSamples > 0
+                        || statsLegionMissingSamples > 0
+                        || statsXInputFreshPackets > 0
+                        || statsXInputStalePackets > 0
+                        || statsXInputErrors > 0;
+                    if (anyActivity)
+                    {
+                        Logger.Info(
+                            "VIIPER forwarder 5s stats: source={0}, type={1}, " +
+                            "reportsSent={2}, reportsFailed={3}, " +
+                            "legionFresh={4}, legionStale={5}, legionMissing={6}, " +
+                            "xinputFresh={7}, xinputStale={8}, xinputErrors={9}",
+                            inputSource, targetType,
+                            statsReportsSent, statsReportsFailed,
+                            statsLegionFreshSamples, statsLegionStaleSamples, statsLegionMissingSamples,
+                            statsXInputFreshPackets, statsXInputStalePackets, statsXInputErrors);
+                    }
+                    statsLegionFreshSamples = 0;
+                    statsLegionStaleSamples = 0;
+                    statsLegionMissingSamples = 0;
+                    statsXInputFreshPackets = 0;
+                    statsXInputStalePackets = 0;
+                    statsXInputErrors = 0;
+                    statsReportsSent = 0;
+                    statsReportsFailed = 0;
+                    statsWindowStartTicks = nowTicks;
+                }
+
                 try
                 {
                     // Pause gate: while the manager is hot-swapping the virtual device,
@@ -615,15 +667,18 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                         LegionGamepadSample sample;
                         if (!LegionButtonMonitor.TryGetLatestGamepadSample(out sample))
                         {
+                            statsLegionMissingSamples++;
                             Thread.Sleep(8);
                             continue;
                         }
                         if (sample.TimestampTicksUtc == lastLegionTicks)
                         {
+                            statsLegionStaleSamples++;
                             Thread.Sleep(4);
                             continue;
                         }
                         lastLegionTicks = sample.TimestampTicksUtc;
+                        statsLegionFreshSamples++;
                         // LegionButtonMonitor uses its own AuxButtons bitmap — translate into
                         // the reference LegionAux layout so downstream wire builders see the
                         // correct paddle/Mode/Share bits.
@@ -666,7 +721,8 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                         byte[] data = BuildDeviceInput(gp);
                         if (data != null && data.Length > 0)
                         {
-                            service.SetInput(busId, deviceId, data);
+                            if (service.SetInput(busId, deviceId, data)) statsReportsSent++;
+                            else statsReportsFailed++;
                         }
                     }
                     else // XInput
@@ -674,6 +730,7 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                         var rc = ViiperXInput.GetState(physicalIndex, ref xiState);
                         if (rc != ViiperXInput.ErrorSuccess)
                         {
+                            statsXInputErrors++;
                             if (errorCount++ < 5 && Logger.IsDebugEnabled)
                             {
                                 Logger.Debug($"XInput.GetState({physicalIndex}) rc=0x{rc:X8}");
@@ -685,10 +742,12 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
 
                         if (xiState.PacketNumber == lastPacket)
                         {
+                            statsXInputStalePackets++;
                             Thread.Sleep(4);
                             continue;
                         }
                         lastPacket = xiState.PacketNumber;
+                        statsXInputFreshPackets++;
                         currentAuxButtons = 0;  // XInput has no Legion aux buttons.
                         currentTouchActive = false;
 
@@ -707,7 +766,8 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                         byte[] data = BuildDeviceInput(gp);
                         if (data != null && data.Length > 0)
                         {
-                            service.SetInput(busId, deviceId, data);
+                            if (service.SetInput(busId, deviceId, data)) statsReportsSent++;
+                            else statsReportsFailed++;
                         }
                     }
                 }

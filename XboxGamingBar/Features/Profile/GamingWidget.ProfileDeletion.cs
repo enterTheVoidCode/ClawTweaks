@@ -53,6 +53,25 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Delete handler for the bin button on the active "Now Playing" profile card.
+        /// Reuses DeleteGameProfile against the currently-detected game so the user
+        /// doesn't have to leave the running game to clean up its profile (the active
+        /// game's card is always pinned at the top and never appears in the saved-
+        /// profiles list below). After deletion, the per-game profile container is
+        /// gone and the next per-game-profile-toggle event will recreate a fresh one.
+        /// </summary>
+        private void DeleteActiveProfileButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(currentGameName) || !HasValidGame(currentGameName))
+            {
+                Logger.Info("DeleteActiveProfileButton_Click ignored - no valid current game");
+                return;
+            }
+            Logger.Info($"Delete active profile button clicked for: {currentGameName}");
+            DeleteGameProfile(currentGameName);
+        }
+
         private void CleanupInvalidProfiles()
         {
             var settings = ApplicationData.Current.LocalSettings;

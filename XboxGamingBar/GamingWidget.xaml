@@ -841,13 +841,31 @@
                                                FontSize="12"
                                                Foreground="#AAAAAA"
                                                Margin="4,1,0,0"/>
-                                    <TextBlock x:Name="ActiveProfileText"
-                                               Text="Global Settings"
-                                               FontSize="14"
-                                               FontWeight="SemiBold"
-                                               Foreground="#00C8FF"
-                                               TextTrimming="CharacterEllipsis"
-                                               Margin="4,4,0,0"/>
+                                    <!--
+                                        Active profile name. Wrapped in a Canvas so long
+                                        names (e.g. detected window titles like Windows
+                                        Terminal showing the current task) marquee-scroll
+                                        instead of truncating with an ellipsis. Mirrors
+                                        the Quick Settings tile scroll pattern in
+                                        Features/QuickSettings/GamingWidget.QuickSettings.TileStates.cs.
+                                    -->
+                                    <Canvas x:Name="ActiveProfileTextCanvas"
+                                            Height="20"
+                                            Margin="4,4,0,0"
+                                            HorizontalAlignment="Stretch">
+                                        <Canvas.Clip>
+                                            <RectangleGeometry Rect="0,0,0,20"/>
+                                        </Canvas.Clip>
+                                        <TextBlock x:Name="ActiveProfileText"
+                                                   Text="Global Settings"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#00C8FF">
+                                            <TextBlock.RenderTransform>
+                                                <TranslateTransform x:Name="ActiveProfileTextTransform"/>
+                                            </TextBlock.RenderTransform>
+                                        </TextBlock>
+                                    </Canvas>
                                 </StackPanel>
 
                                 <!-- Per-Game Profile Toggle -->
@@ -860,12 +878,30 @@
                                         <TextBlock Text="Use per-game profile"
                                                    FontSize="12"
                                                    Foreground="#FFFFFF"/>
-                                        <TextBlock x:Name="DetectedGameText"
-                                                   Text="No game detected"
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   MaxWidth="200"/>
+                                        <!--
+                                            Detected-game name next to the per-game toggle.
+                                            Wrapped in a Canvas so long window titles (e.g.
+                                            Windows Terminal showing the foreground task)
+                                            marquee-scroll instead of truncating. Same
+                                            UpdateMarqueeScrollAnimation pattern used for
+                                            ActiveProfileText above and the QS tiles.
+                                        -->
+                                        <Canvas x:Name="DetectedGameTextCanvas"
+                                                Height="16"
+                                                MaxWidth="200"
+                                                HorizontalAlignment="Left">
+                                            <Canvas.Clip>
+                                                <RectangleGeometry Rect="0,0,200,16"/>
+                                            </Canvas.Clip>
+                                            <TextBlock x:Name="DetectedGameText"
+                                                       Text="No game detected"
+                                                       FontSize="11"
+                                                       Foreground="#888888">
+                                                <TextBlock.RenderTransform>
+                                                    <TranslateTransform x:Name="DetectedGameTextTransform"/>
+                                                </TextBlock.RenderTransform>
+                                            </TextBlock>
+                                        </Canvas>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="PerGameProfileToggle"
                                                   Grid.Column="1"
@@ -2090,11 +2126,46 @@
                             <StackPanel>
                                 <!-- Game Profile with Power Source -->
                                 <StackPanel x:Name="GameProfileWithPowerSource" Visibility="Collapsed">
-                                    <TextBlock x:Name="GameProfileTitleWithPower"
-                                               Text="Game"
-                                               Style="{StaticResource CardTitleStyle}"
-                                               Foreground="#FFA500"
-                                               FontSize="14"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0"
+                                                    Orientation="Horizontal"
+                                                    Spacing="8"
+                                                    VerticalAlignment="Center">
+                                            <Border Background="#005C2E"
+                                                    CornerRadius="10"
+                                                    Padding="6,1,6,1"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="Now Playing"
+                                                           FontSize="9"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#A8FFC9"/>
+                                            </Border>
+                                            <TextBlock x:Name="GameProfileTitleWithPower"
+                                                       Text="Game"
+                                                       Style="{StaticResource CardTitleStyle}"
+                                                       Foreground="#FFA500"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <Button x:Name="DeleteActiveProfileButtonWithPower"
+                                                Grid.Column="1"
+                                                Content="🗑️"
+                                                FontSize="12"
+                                                Width="28"
+                                                Height="28"
+                                                Padding="0"
+                                                Background="#64FF0000"
+                                                Foreground="White"
+                                                BorderBrush="Transparent"
+                                                BorderThickness="2"
+                                                VerticalAlignment="Center"
+                                                Click="DeleteActiveProfileButton_Click"/>
+                                    </Grid>
                                     <Grid Margin="0,8,0,0">
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
@@ -2187,11 +2258,46 @@
 
                                 <!-- Game Profile without Power Source -->
                                 <StackPanel x:Name="GameProfileWithoutPowerSource" Visibility="Collapsed">
-                                    <TextBlock x:Name="GameProfileTitleNoPower"
-                                               Text="Game"
-                                               Style="{StaticResource CardTitleStyle}"
-                                               Foreground="#FFA500"
-                                               FontSize="14"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0"
+                                                    Orientation="Horizontal"
+                                                    Spacing="8"
+                                                    VerticalAlignment="Center">
+                                            <Border Background="#005C2E"
+                                                    CornerRadius="10"
+                                                    Padding="6,1,6,1"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="Now Playing"
+                                                           FontSize="9"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#A8FFC9"/>
+                                            </Border>
+                                            <TextBlock x:Name="GameProfileTitleNoPower"
+                                                       Text="Game"
+                                                       Style="{StaticResource CardTitleStyle}"
+                                                       Foreground="#FFA500"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <Button x:Name="DeleteActiveProfileButtonNoPower"
+                                                Grid.Column="1"
+                                                Content="🗑️"
+                                                FontSize="12"
+                                                Width="28"
+                                                Height="28"
+                                                Padding="0"
+                                                Background="#64FF0000"
+                                                Foreground="White"
+                                                BorderBrush="Transparent"
+                                                BorderThickness="2"
+                                                VerticalAlignment="Center"
+                                                Click="DeleteActiveProfileButton_Click"/>
+                                    </Grid>
                                     <Grid Margin="0,8,0,0">
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
@@ -2257,11 +2363,33 @@
                         </Border>
 
                         <!-- Saved Profiles Section -->
-                        <TextBlock Text="Saved Profiles"
-                                   FontSize="16"
-                                   Foreground="#00C8FF"
-                                   FontWeight="SemiBold"
-                                   Margin="0,24,0,8"/>
+                        <Grid Margin="0,24,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Saved Profiles"
+                                       FontSize="16"
+                                       Foreground="#00C8FF"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <!--
+                                Sort dropdown for the saved-profiles list. Selection is
+                                persisted to LocalSettings["ProfileSortMode"] so it
+                                survives across widget re-opens. Tags are read by the
+                                C# code-behind in UpdateAllGameProfilesDisplay to drive
+                                ordering.
+                            -->
+                            <ComboBox x:Name="ProfileSortComboBox"
+                                      Grid.Column="1"
+                                      Width="150"
+                                      SelectionChanged="ProfileSortComboBox_SelectionChanged"
+                                      Style="{StaticResource ModernComboBoxStyle}">
+                                <ComboBoxItem Tag="name" Content="Name (A→Z)" IsSelected="True"/>
+                                <ComboBoxItem Tag="modified" Content="Last Modified"/>
+                                <ComboBoxItem Tag="tdp" Content="TDP (high → low)"/>
+                            </ComboBox>
+                        </Grid>
 
                         <!-- Container for dynamically created game profile cards -->
                         <StackPanel x:Name="AllGameProfilesContainer"/>

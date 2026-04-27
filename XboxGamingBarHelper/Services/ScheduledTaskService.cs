@@ -35,6 +35,15 @@ namespace XboxGamingBarHelper.Services
         private const int ProcessTimeoutMs = 10000;
 
         /// <summary>
+        /// Set after CreateOrUpdateTask runs in this process. Used to break a potential
+        /// recreate loop when ConfigureTaskSettings cannot flip the AC-only battery flags
+        /// (e.g., Group Policy enforcing DisallowStartIfOnBatteries=true). Without this
+        /// guard, IsTaskConfiguredCorrectly would keep returning false on the same boot
+        /// after recreate, churning the task repeatedly.
+        /// </summary>
+        private static bool _hasAttemptedRecreateThisSession;
+
+        /// <summary>
         /// Checks if the scheduled task exists
         /// </summary>
         public static bool IsTaskInstalled()
@@ -110,18 +119,46 @@ namespace XboxGamingBarHelper.Services
                     // The deployed helper uses Named Pipes to communicate, which doesn't require package context
                     string expectedPath = HelperDeploymentService.DeployedExePath;
 
-                    bool isCorrect = string.Equals(taskPath, expectedPath, StringComparison.OrdinalIgnoreCase);
-
-                    if (!isCorrect)
+                    bool pathOk = string.Equals(taskPath, expectedPath, StringComparison.OrdinalIgnoreCase);
+                    if (!pathOk)
                     {
                         Logger.Info($"Task path mismatch: Task={taskPath}, Expected={expectedPath}");
-                    }
-                    else
-                    {
-                        Logger.Debug($"Task configured correctly: {taskPath}");
+                        return false;
                     }
 
-                    return isCorrect;
+                    // Also verify the battery conditions are disabled. schtasks /Create defaults
+                    // DisallowStartIfOnBatteries=true and StopIfGoingOnBatteries=true. We flip
+                    // them off in ConfigureTaskSettings() via a follow-up PowerShell call, but
+                    // that flip can fail silently (timing race with Get-ScheduledTask, or PS
+                    // exit non-zero just logs a warning). When it fails, the helper won't run
+                    // on battery — which has bitten at least one user in the wild (issue #79
+                    // vvalente30). Treat any leftover AC-only condition as a misconfigured
+                    // task so the caller recreates it.
+                    bool acOnlyDisallowed = Regex.IsMatch(output,
+                        @"<DisallowStartIfOnBatteries>\s*true\s*</DisallowStartIfOnBatteries>",
+                        RegexOptions.IgnoreCase);
+                    bool acOnlyStops = Regex.IsMatch(output,
+                        @"<StopIfGoingOnBatteries>\s*true\s*</StopIfGoingOnBatteries>",
+                        RegexOptions.IgnoreCase);
+
+                    if (acOnlyDisallowed || acOnlyStops)
+                    {
+                        if (_hasAttemptedRecreateThisSession)
+                        {
+                            // We already recreated the task this process lifetime but the AC-only
+                            // flags came back, which means ConfigureTaskSettings's PowerShell flip
+                            // is being blocked (most likely cause: Group Policy enforcement).
+                            // Don't churn the task on every helper restart — accept the current
+                            // state and warn the user. Helper may not run on battery in this case.
+                            Logger.Warn($"Task still has AC-only battery conditions after recreate attempt this session (DisallowStart={acOnlyDisallowed}, StopOnBattery={acOnlyStops}) — likely Group Policy enforced. Accepting current state to avoid recreate loop. Helper may not run on battery.");
+                            return true;
+                        }
+                        Logger.Info($"Task has AC-only battery conditions (DisallowStart={acOnlyDisallowed}, StopOnBattery={acOnlyStops}) — will recreate to clear them.");
+                        return false;
+                    }
+
+                    Logger.Debug($"Task configured correctly: {taskPath}");
+                    return true;
                 }
             }
             catch (Exception ex)
@@ -143,6 +180,10 @@ namespace XboxGamingBarHelper.Services
         {
             try
             {
+                // Mark before any work so the recreate-loop guard in IsTaskConfiguredCorrectly
+                // trips on the next call this session, even if we throw partway through.
+                _hasAttemptedRecreateThisSession = true;
+
                 // Use deployed path - MSIX executables can't run from scheduled tasks
                 // The deployed helper uses Named Pipes to communicate with the widget
                 string exePath = HelperDeploymentService.DeployedExePath;

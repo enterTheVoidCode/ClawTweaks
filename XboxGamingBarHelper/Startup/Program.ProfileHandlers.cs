@@ -92,7 +92,9 @@ namespace XboxGamingBarHelper
                 if (cfg.TryGetValue("Lighting", out var v17)) ProfileSaveFlagsState.Lighting = v17;
                 if (cfg.TryGetValue("ButtonMappings", out var v18)) ProfileSaveFlagsState.ButtonMappings = v18;
                 Logger.Info("Applied ProfileSaveFlags from widget "
-                    + $"(AutoTDP={ProfileSaveFlagsState.AutoTDP}, NintendoLayout={ProfileSaveFlagsState.NintendoLayout}, "
+                    + $"(TDP={ProfileSaveFlagsState.TDP}, CPUBoost={ProfileSaveFlagsState.CPUBoost}, "
+                    + $"CPUEPP={ProfileSaveFlagsState.CPUEPP}, CPUState={ProfileSaveFlagsState.CPUState}, "
+                    + $"AutoTDP={ProfileSaveFlagsState.AutoTDP}, NintendoLayout={ProfileSaveFlagsState.NintendoLayout}, "
                     + $"Vibration={ProfileSaveFlagsState.Vibration}, Lighting={ProfileSaveFlagsState.Lighting}, "
                     + $"ButtonMappings={ProfileSaveFlagsState.ButtonMappings})");
             }
@@ -729,8 +731,13 @@ namespace XboxGamingBarHelper
                 return;
             }
 
-            Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s TDP from {profileManager.CurrentProfile.TDP} to {performanceManager.TDP}.");
-            profileManager.CurrentProfile.TDP = performanceManager.TDP;
+            // TEST [ProfileSaveFlags-TDP]: With ProfileSaveTDP unchecked in the widget, change
+            // TDP while a per-game profile is active. Expect the change to land in GlobalProfile
+            // (and the per-game TDP to remain whatever was saved before). Pre-flag baseline:
+            // always wrote to CurrentProfile regardless of flag.
+            RouteProfileSave(ProfileSaveFlagsState.TDP, "TDP",
+                cur => cur.TDP = performanceManager.TDP,
+                glo => glo.TDP = performanceManager.TDP);
         }
 
         private static void TDPBoostEnabled_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -756,8 +763,14 @@ namespace XboxGamingBarHelper
                 return;
             }
 
-            Logger.Info($"Set current profile {profileManager.CurrentProfile.GameId.Name}'s TDPBoostEnabled from {profileManager.CurrentProfile.TDPBoostEnabled} to {performanceManager.TDPBoostEnabled.Value}.");
-            profileManager.CurrentProfile.TDPBoostEnabled = performanceManager.TDPBoostEnabled.Value;
+            // TEST [ProfileSaveFlags-TDP]: TDPBoost (CPU long/short-term boost FPPT/SPPT) is
+            // grouped under the TDP flag — there's no separate ProfileSaveTDPBoost checkbox,
+            // and StickyTDP in the widget refers to a different feature (auto-restore TDP after
+            // mode change). With ProfileSaveTDP unchecked, toggle TDP Boost in-game and verify
+            // the change goes to GlobalProfile, not the per-game profile.
+            RouteProfileSave(ProfileSaveFlagsState.TDP, "TDPBoostEnabled",
+                cur => cur.TDPBoostEnabled = performanceManager.TDPBoostEnabled.Value,
+                glo => glo.TDPBoostEnabled = performanceManager.TDPBoostEnabled.Value);
         }
 
         private static void RunningGame_PropertyChanged(object sender, PropertyChangedEventArgs e)
