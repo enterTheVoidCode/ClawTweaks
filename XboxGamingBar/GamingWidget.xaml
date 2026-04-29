@@ -2574,20 +2574,63 @@
 
                         <!-- Fluid Motion Frames Card -->
                         <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Fluid Motion Frames" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Frame generation" Style="{StaticResource CardCaptionStyle}"/>
-                                </StackPanel>
-                                <ToggleSwitch x:Name="AMDFluidMotionFrameToggle"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False"/>
-                            </Grid>
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Fluid Motion Frames" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Frame generation" Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="AMDFluidMotionFrameToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"/>
+                                </Grid>
+                                <!-- AFMF 2.x extended controls (ADLX 1.5+). Visible when AFMF is on,
+                                     each ComboBox is enabled only when the v1 interface is live. -->
+                                <ComboBox x:Name="AMDFluidMotionFrameAlgorithmComboBox"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          Header="Algorithm"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Visibility="{Binding ElementName=AMDFluidMotionFrameToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <ComboBoxItem Content="Auto"/>
+                                    <ComboBoxItem Content="Enhanced"/>
+                                    <ComboBoxItem Content="Standard"/>
+                                </ComboBox>
+                                <ComboBox x:Name="AMDFluidMotionFrameSearchModeComboBox"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          Header="Search mode"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Visibility="{Binding ElementName=AMDFluidMotionFrameToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <ComboBoxItem Content="Auto"/>
+                                    <ComboBoxItem Content="Standard"/>
+                                    <ComboBoxItem Content="High"/>
+                                </ComboBox>
+                                <ComboBox x:Name="AMDFluidMotionFramePerformanceModeComboBox"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          Header="Performance mode"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Visibility="{Binding ElementName=AMDFluidMotionFrameToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <ComboBoxItem Content="Auto"/>
+                                    <ComboBoxItem Content="Quality"/>
+                                    <ComboBoxItem Content="Performance"/>
+                                </ComboBox>
+                                <ComboBox x:Name="AMDFluidMotionFrameFastMotionResponseComboBox"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          Header="Fast motion response"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Visibility="{Binding ElementName=AMDFluidMotionFrameToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <ComboBoxItem Content="Repeat frames"/>
+                                    <ComboBoxItem Content="Blended frames"/>
+                                </ComboBox>
+                            </StackPanel>
                         </Border>
 
                         <!-- Anti-Lag Card -->

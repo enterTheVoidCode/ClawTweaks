@@ -95,6 +95,8 @@
     <Compile Include="Data\AutoHibernateIdleMinutesProperty.cs" />
     <Compile Include="Data\AMD\AMDFluidMotionFrameEnabledProperty.cs" />
     <Compile Include="Data\AMD\AMDFluidMotionFrameSupportedProperty.cs" />
+    <Compile Include="Data\AMD\AMDFluidMotionFrameComboProperty.cs" />
+    <Compile Include="Data\AMD\AMDFluidMotionFrameV1SupportedProperty.cs" />
     <Compile Include="Data\AMD\AMDRadeonBoostEnabledProperty.cs" />
     <Compile Include="Data\AMD\AMDRadeonBoostResolutionProperty.cs" />
     <Compile Include="Data\AMD\AMDRadeonBoostSupportedProperty.cs" />
