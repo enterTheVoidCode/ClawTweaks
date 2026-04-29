@@ -57,13 +57,13 @@ public class IADLX3DTessellation : IADLXInterface {
     return ret;
   }
 
-  public virtual ADLX_RESULT GetMode(SWIGTYPE_p_ADLX_TESSELLATION_MODE currentMode) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DTessellation_GetMode(swigCPtr, SWIGTYPE_p_ADLX_TESSELLATION_MODE.getCPtr(currentMode));
+  public virtual ADLX_RESULT GetMode(SWIGTYPE_p_adlx__ADLX_TESSELLATION_MODE currentMode) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DTessellation_GetMode(swigCPtr, SWIGTYPE_p_adlx__ADLX_TESSELLATION_MODE.getCPtr(currentMode));
     return ret;
   }
 
-  public virtual ADLX_RESULT GetLevel(SWIGTYPE_p_ADLX_TESSELLATION_LEVEL currentLevel) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DTessellation_GetLevel(swigCPtr, SWIGTYPE_p_ADLX_TESSELLATION_LEVEL.getCPtr(currentLevel));
+  public virtual ADLX_RESULT GetLevel(SWIGTYPE_p_adlx__ADLX_TESSELLATION_LEVEL currentLevel) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DTessellation_GetLevel(swigCPtr, SWIGTYPE_p_adlx__ADLX_TESSELLATION_LEVEL.getCPtr(currentLevel));
     return ret;
   }
 

@@ -62,8 +62,8 @@ public class IADLX3DWaitForVerticalRefresh : IADLXInterface {
     return ret;
   }
 
-  public virtual ADLX_RESULT GetMode(SWIGTYPE_p_ADLX_WAIT_FOR_VERTICAL_REFRESH_MODE currentMode) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DWaitForVerticalRefresh_GetMode(swigCPtr, SWIGTYPE_p_ADLX_WAIT_FOR_VERTICAL_REFRESH_MODE.getCPtr(currentMode));
+  public virtual ADLX_RESULT GetMode(SWIGTYPE_p_adlx__ADLX_WAIT_FOR_VERTICAL_REFRESH_MODE currentMode) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DWaitForVerticalRefresh_GetMode(swigCPtr, SWIGTYPE_p_adlx__ADLX_WAIT_FOR_VERTICAL_REFRESH_MODE.getCPtr(currentMode));
     return ret;
   }
 

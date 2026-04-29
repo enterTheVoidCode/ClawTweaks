@@ -56,8 +56,8 @@ public class IADLXSystem : global::System.IDisposable {
     }
   }
 
-  public virtual ADLX_RESULT HybridGraphicsType(SWIGTYPE_p_ADLX_HG_TYPE hgType) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXSystem_HybridGraphicsType(swigCPtr, SWIGTYPE_p_ADLX_HG_TYPE.getCPtr(hgType));
+  public virtual ADLX_RESULT HybridGraphicsType(SWIGTYPE_p_adlx__ADLX_HG_TYPE hgType) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXSystem_HybridGraphicsType(swigCPtr, SWIGTYPE_p_adlx__ADLX_HG_TYPE.getCPtr(hgType));
     return ret;
   }
 

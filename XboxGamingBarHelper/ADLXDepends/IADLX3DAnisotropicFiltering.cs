@@ -62,8 +62,8 @@ public class IADLX3DAnisotropicFiltering : IADLXInterface {
     return ret;
   }
 
-  public virtual ADLX_RESULT GetLevel(SWIGTYPE_p_ADLX_ANISOTROPIC_FILTERING_LEVEL currentLevel) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DAnisotropicFiltering_GetLevel(swigCPtr, SWIGTYPE_p_ADLX_ANISOTROPIC_FILTERING_LEVEL.getCPtr(currentLevel));
+  public virtual ADLX_RESULT GetLevel(SWIGTYPE_p_adlx__ADLX_ANISOTROPIC_FILTERING_LEVEL currentLevel) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DAnisotropicFiltering_GetLevel(swigCPtr, SWIGTYPE_p_adlx__ADLX_ANISOTROPIC_FILTERING_LEVEL.getCPtr(currentLevel));
     return ret;
   }
 

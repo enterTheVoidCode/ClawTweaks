@@ -29,6 +29,12 @@
         AMDRadeonSuperResolutionSharpness,
         AMDFluidMotionFrameSupported,
         AMDFluidMotionFrameEnabled,
+        // AFMF 2.x extended controls (ADLX 1.5+, gated on V1Supported)
+        AMDFluidMotionFrameV1Supported,         // bool — IADLX3DAMDFluidMotionFrames1 available on this driver
+        AMDFluidMotionFrameAlgorithm,           // int — 0=Auto, 1=Enhanced, 2=Standard
+        AMDFluidMotionFrameSearchMode,          // int — 0=Auto, 1=Standard, 2=High
+        AMDFluidMotionFramePerformanceMode,     // int — 0=Auto, 1=Quality, 2=Performance
+        AMDFluidMotionFrameFastMotionResponse,  // int — 0=RepeatFrames, 1=BlendedFrames
         AMDRadeonAntiLagSupported,
         AMDRadeonAntiLagEnabled,
         AMDRadeonBoostSupported,

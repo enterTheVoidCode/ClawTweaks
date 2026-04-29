@@ -57,13 +57,13 @@ public class IADLXGPU : IADLXInterface {
     return ret;
   }
 
-  public virtual ADLX_RESULT ASICFamilyType(SWIGTYPE_p_ADLX_ASIC_FAMILY_TYPE asicFamilyType) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXGPU_ASICFamilyType(swigCPtr, SWIGTYPE_p_ADLX_ASIC_FAMILY_TYPE.getCPtr(asicFamilyType));
+  public virtual ADLX_RESULT ASICFamilyType(SWIGTYPE_p_adlx__ADLX_ASIC_FAMILY_TYPE asicFamilyType) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXGPU_ASICFamilyType(swigCPtr, SWIGTYPE_p_adlx__ADLX_ASIC_FAMILY_TYPE.getCPtr(asicFamilyType));
     return ret;
   }
 
-  public virtual ADLX_RESULT Type(SWIGTYPE_p_ADLX_GPU_TYPE gpuType) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXGPU_Type(swigCPtr, SWIGTYPE_p_ADLX_GPU_TYPE.getCPtr(gpuType));
+  public virtual ADLX_RESULT Type(SWIGTYPE_p_adlx__ADLX_GPU_TYPE gpuType) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXGPU_Type(swigCPtr, SWIGTYPE_p_adlx__ADLX_GPU_TYPE.getCPtr(gpuType));
     return ret;
   }
 

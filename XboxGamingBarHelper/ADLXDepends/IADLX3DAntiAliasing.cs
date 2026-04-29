@@ -57,18 +57,18 @@ public class IADLX3DAntiAliasing : IADLXInterface {
     return ret;
   }
 
-  public virtual ADLX_RESULT GetMode(SWIGTYPE_p_ADLX_ANTI_ALIASING_MODE currentMode) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DAntiAliasing_GetMode(swigCPtr, SWIGTYPE_p_ADLX_ANTI_ALIASING_MODE.getCPtr(currentMode));
+  public virtual ADLX_RESULT GetMode(SWIGTYPE_p_adlx__ADLX_ANTI_ALIASING_MODE currentMode) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DAntiAliasing_GetMode(swigCPtr, SWIGTYPE_p_adlx__ADLX_ANTI_ALIASING_MODE.getCPtr(currentMode));
     return ret;
   }
 
-  public virtual ADLX_RESULT GetLevel(SWIGTYPE_p_ADLX_ANTI_ALIASING_LEVEL currentLevel) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DAntiAliasing_GetLevel(swigCPtr, SWIGTYPE_p_ADLX_ANTI_ALIASING_LEVEL.getCPtr(currentLevel));
+  public virtual ADLX_RESULT GetLevel(SWIGTYPE_p_adlx__ADLX_ANTI_ALIASING_LEVEL currentLevel) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DAntiAliasing_GetLevel(swigCPtr, SWIGTYPE_p_adlx__ADLX_ANTI_ALIASING_LEVEL.getCPtr(currentLevel));
     return ret;
   }
 
-  public virtual ADLX_RESULT GetMethod(SWIGTYPE_p_ADLX_ANTI_ALIASING_METHOD currentMethod) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DAntiAliasing_GetMethod(swigCPtr, SWIGTYPE_p_ADLX_ANTI_ALIASING_METHOD.getCPtr(currentMethod));
+  public virtual ADLX_RESULT GetMethod(SWIGTYPE_p_adlx__ADLX_ANTI_ALIASING_METHOD currentMethod) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DAntiAliasing_GetMethod(swigCPtr, SWIGTYPE_p_adlx__ADLX_ANTI_ALIASING_METHOD.getCPtr(currentMethod));
     return ret;
   }
 

@@ -46,6 +46,25 @@ namespace XboxGamingBarHelper.AMD
             get { return amdFluidMotionFrameSetting; }
         }
 
+        // ADLX 1.5+: AFMF 2.x extended controls (Algorithm / SearchMode / PerformanceMode
+        // / FastMotionResponse). Null on drivers that don't implement
+        // IADLX3DAMDFluidMotionFrames1 — callers must IsAvailable-check before reading.
+        private readonly AMDFluidMotionFrameSettingV1 amdFluidMotionFrameSettingV1;
+        public AMDFluidMotionFrameSettingV1 AMDFluidMotionFrameSettingV1
+        {
+            get { return amdFluidMotionFrameSettingV1; }
+        }
+
+        // ADLX 1.5+: VGM (Variable Graphics Memory / UMA carveout). Acquired via
+        // IADLXSystem3.GetVariableGraphicsMemory(). Null on systems where the driver
+        // doesn't expose ADLX 1.5; on supported APUs (Legion Go 2 Z2 Extreme, etc.)
+        // returns the list of allocation options (Auto + fixed Custom sizes).
+        private readonly AMDVariableGraphicsMemorySetting amdVariableGraphicsMemorySetting;
+        public AMDVariableGraphicsMemorySetting AMDVariableGraphicsMemorySetting
+        {
+            get { return amdVariableGraphicsMemorySetting; }
+        }
+
         private readonly AMDRadeonAntiLagSetting amdRadeonAntiLagSetting;
         public AMDRadeonAntiLagSetting AMDRadeonAntiLagSetting
         {
@@ -111,6 +130,36 @@ namespace XboxGamingBarHelper.AMD
         public AMDFluidMotionFrameEnabledProperty AMDFluidMotionFrameEnabled
         {
             get { return amdFluidMotionFrameEnabled; }
+        }
+
+        private readonly AMDFluidMotionFrameV1SupportedProperty amdFluidMotionFrameV1Supported;
+        public AMDFluidMotionFrameV1SupportedProperty AMDFluidMotionFrameV1Supported
+        {
+            get { return amdFluidMotionFrameV1Supported; }
+        }
+
+        private readonly AMDFluidMotionFrameAlgorithmProperty amdFluidMotionFrameAlgorithm;
+        public AMDFluidMotionFrameAlgorithmProperty AMDFluidMotionFrameAlgorithm
+        {
+            get { return amdFluidMotionFrameAlgorithm; }
+        }
+
+        private readonly AMDFluidMotionFrameSearchModeProperty amdFluidMotionFrameSearchMode;
+        public AMDFluidMotionFrameSearchModeProperty AMDFluidMotionFrameSearchMode
+        {
+            get { return amdFluidMotionFrameSearchMode; }
+        }
+
+        private readonly AMDFluidMotionFramePerformanceModeProperty amdFluidMotionFramePerformanceMode;
+        public AMDFluidMotionFramePerformanceModeProperty AMDFluidMotionFramePerformanceMode
+        {
+            get { return amdFluidMotionFramePerformanceMode; }
+        }
+
+        private readonly AMDFluidMotionFrameFastMotionResponseProperty amdFluidMotionFrameFastMotionResponse;
+        public AMDFluidMotionFrameFastMotionResponseProperty AMDFluidMotionFrameFastMotionResponse
+        {
+            get { return amdFluidMotionFrameFastMotionResponse; }
         }
 
         private readonly AMDRadeonAntiLagSupportedProperty amdRadeonAntiLagSupported;
@@ -382,6 +431,86 @@ namespace XboxGamingBarHelper.AMD
             amdFluidMotionFrameSetting = new AMDFluidMotionFrameSetting(threeDFluidMotionFrame);
             amdFluidMotionFrameSupported = new AMDFluidMotionFrameSupportedProperty(amdFluidMotionFrameSetting.IsSupported(), this);
             amdFluidMotionFrameEnabled = new AMDFluidMotionFrameEnabledProperty(amdFluidMotionFrameSetting.IsEnabled(), this);
+
+            // ADLX 1.5+ AFMF 2.x extended controls. Construct the v1 wrapper from the
+            // same C++ pointer the v0 wrapper holds — IADLX3DAMDFluidMotionFrames1
+            // inherits from IADLX3DAMDFluidMotionFrames in the SDK, so the cast is
+            // structurally valid. On drivers without AFMF 2.x support, the underlying
+            // vtable methods return ADLX_NOT_SUPPORTED, which AMDFluidMotionFrameSettingV1
+            // surfaces as default values. Initial probe with IsAlgorithmSupported logs
+            // whether v1 is actually live so we can correlate widget UI state with
+            // driver capability.
+            try
+            {
+                var afmfV1Raw = ADLXPINVOKE.threeDAMDFluidMotionFramesP_Ptr_value(
+                    SWIGTYPE_p_p_adlx__IADLX3DAMDFluidMotionFrames.getCPtr(threeDFluidMotionFramePointer));
+                if (afmfV1Raw != System.IntPtr.Zero)
+                {
+                    var afmfV1Iface = new IADLX3DAMDFluidMotionFrames1(afmfV1Raw, false);
+                    amdFluidMotionFrameSettingV1 = new AMDFluidMotionFrameSettingV1(afmfV1Iface);
+                    bool algoSupported = amdFluidMotionFrameSettingV1.IsAlgorithmSupported();
+                    Logger.Info($"AFMF v1 (extended controls) wrapper constructed (algorithmSupported={algoSupported}, "
+                        + $"algo={amdFluidMotionFrameSettingV1.GetAlgorithm()}, "
+                        + $"searchMode={amdFluidMotionFrameSettingV1.GetSearchMode()}, "
+                        + $"performanceMode={amdFluidMotionFrameSettingV1.GetPerformanceMode()}, "
+                        + $"fastMotionResponse={amdFluidMotionFrameSettingV1.GetFastMotionResponse()})");
+                }
+                else
+                {
+                    Logger.Warn("AFMF v1: underlying pointer is null, leaving v1 wrapper unset");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Logger.Warn($"AFMF v1 wrapper init threw {ex.GetType().Name}: {ex.Message} — extended controls unavailable");
+            }
+
+            // ADLX 1.5+: VGM (Variable Graphics Memory) probe — DISABLED in 2093 after
+            // 2092's QueryInterface(IADLXSystem3, ppVoid) approach hung AMDManager init,
+            // causing a helper crash-loop. The Marshal.AllocHGlobal + manually-constructed
+            // SWIGTYPE_p_p_void path apparently doesn't survive ADLX's expectations on
+            // this driver — the call never returns, AMDManager never DONE, bootstrapper
+            // respawns the helper. Need a different approach (likely add proper
+            // %pointer_functions(void*, ...) to SWIG and regenerate) before we can
+            // re-attempt VGM. The raw-cast version from 2087/2091 returned
+            // ADLX_INVALID_ARGS without hanging, so it's at least safe — but useless,
+            // since the VGM call routes to the wrong vtable. Pure no-op for now to
+            // unblock the helper.
+
+            // GPU Tuning probe was REMOVED in 2090 — both 2088 (with DDR + tuning probes)
+            // and 2089 (tuning only) crashed at AMDManager init with AccessViolation
+            // inside ADLX. The cause is unclear: GetGPUTuningServices is on IADLXSystem
+            // (no risky cast), but something in this path (regenerated SWIG bindings,
+            // AMDXyz vtable layout on Legion Go 2's specific driver) blows up. Need to
+            // rebuild from a cleaner known-good state before reintroducing tuning probes.
+            //
+            // DDR (Dynamic Refresh Rate Control) probe was also removed in 2089 — the
+            // IADLXDisplayServices3 cast trick is unsafe (DisplayServices3 isn't
+            // layout-compatible with DisplayServices on this driver). Both probes need
+            // proper QueryInterface routing rather than raw pointer reuse.
+
+            // AFMF 2.x extended-control properties. Always constructed so the propertyList
+            // 2088 produced an AccessViolation at AMDManager init. The IADLXSystem3 cast
+            // trick (reusing the IADLXSystem raw pointer) worked for the VGM probe
+            // because AMD's runtime System object happens to be System3-layout
+            // compatible, but IADLXDisplayServices is NOT layout-compatible with
+            // IADLXDisplayServices3 — calling GetDynamicRefreshRateControl on the v0
+            // pointer dereferences garbage at offset (3.h)0x… in the vtable. Proper
+            // QueryInterface routing needed before re-introducing this probe.
+
+            // AFMF 2.x extended-control properties. Always constructed so the propertyList
+            // in Program.cs has them registered for pipe routing; values come from the v1
+            // wrapper when available and defaults when not, with V1Supported gating the UI.
+            bool v1Available = amdFluidMotionFrameSettingV1 != null && amdFluidMotionFrameSettingV1.IsAlgorithmSupported();
+            amdFluidMotionFrameV1Supported = new AMDFluidMotionFrameV1SupportedProperty(v1Available, this);
+            amdFluidMotionFrameAlgorithm = new AMDFluidMotionFrameAlgorithmProperty(
+                v1Available ? (int)amdFluidMotionFrameSettingV1.GetAlgorithm() : 0, this);
+            amdFluidMotionFrameSearchMode = new AMDFluidMotionFrameSearchModeProperty(
+                v1Available ? (int)amdFluidMotionFrameSettingV1.GetSearchMode() : 0, this);
+            amdFluidMotionFramePerformanceMode = new AMDFluidMotionFramePerformanceModeProperty(
+                v1Available ? (int)amdFluidMotionFrameSettingV1.GetPerformanceMode() : 0, this);
+            amdFluidMotionFrameFastMotionResponse = new AMDFluidMotionFrameFastMotionResponseProperty(
+                v1Available ? (int)amdFluidMotionFrameSettingV1.GetFastMotionResponse() : 0, this);
 
             // GPU-specific 3D settings - only initialize if we have a GPU
             if (adlxInternalGPU != null)

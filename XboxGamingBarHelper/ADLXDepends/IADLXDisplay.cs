@@ -57,13 +57,13 @@ public class IADLXDisplay : IADLXInterface {
     return ret;
   }
 
-  public virtual ADLX_RESULT DisplayType(SWIGTYPE_p_ADLX_DISPLAY_TYPE displayType) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXDisplay_DisplayType(swigCPtr, SWIGTYPE_p_ADLX_DISPLAY_TYPE.getCPtr(displayType));
+  public virtual ADLX_RESULT DisplayType(SWIGTYPE_p_adlx__ADLX_DISPLAY_TYPE displayType) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXDisplay_DisplayType(swigCPtr, SWIGTYPE_p_adlx__ADLX_DISPLAY_TYPE.getCPtr(displayType));
     return ret;
   }
 
-  public virtual ADLX_RESULT ConnectorType(SWIGTYPE_p_ADLX_DISPLAY_CONNECTOR_TYPE connectType) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXDisplay_ConnectorType(swigCPtr, SWIGTYPE_p_ADLX_DISPLAY_CONNECTOR_TYPE.getCPtr(connectType));
+  public virtual ADLX_RESULT ConnectorType(SWIGTYPE_p_adlx__ADLX_DISPLAY_CONNECTOR_TYPE connectType) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXDisplay_ConnectorType(swigCPtr, SWIGTYPE_p_adlx__ADLX_DISPLAY_CONNECTOR_TYPE.getCPtr(connectType));
     return ret;
   }
 
@@ -92,8 +92,8 @@ public class IADLXDisplay : IADLXInterface {
     return ret;
   }
 
-  public virtual ADLX_RESULT ScanType(SWIGTYPE_p_ADLX_DISPLAY_SCAN_TYPE scanType) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXDisplay_ScanType(swigCPtr, SWIGTYPE_p_ADLX_DISPLAY_SCAN_TYPE.getCPtr(scanType));
+  public virtual ADLX_RESULT ScanType(SWIGTYPE_p_adlx__ADLX_DISPLAY_SCAN_TYPE scanType) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXDisplay_ScanType(swigCPtr, SWIGTYPE_p_adlx__ADLX_DISPLAY_SCAN_TYPE.getCPtr(scanType));
     return ret;
   }
 

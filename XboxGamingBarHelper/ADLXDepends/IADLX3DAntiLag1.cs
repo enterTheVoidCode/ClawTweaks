@@ -52,8 +52,8 @@ public class IADLX3DAntiLag1 : IADLX3DAntiLag {
     return ret;
   }
 
-  public virtual ADLX_RESULT GetLevel(SWIGTYPE_p_ADLX_ANTILAG_STATE level) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DAntiLag1_GetLevel(swigCPtr, SWIGTYPE_p_ADLX_ANTILAG_STATE.getCPtr(level));
+  public virtual ADLX_RESULT GetLevel(SWIGTYPE_p_adlx__ADLX_ANTILAG_STATE level) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLX3DAntiLag1_GetLevel(swigCPtr, SWIGTYPE_p_adlx__ADLX_ANTILAG_STATE.getCPtr(level));
     return ret;
   }
 

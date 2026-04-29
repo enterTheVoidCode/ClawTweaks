@@ -52,8 +52,8 @@ public class IADLXGPU1 : IADLXGPU {
     return ret;
   }
 
-  public virtual ADLX_RESULT PCIBusType(SWIGTYPE_p_ADLX_PCI_BUS_TYPE busType) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXGPU1_PCIBusType(swigCPtr, SWIGTYPE_p_ADLX_PCI_BUS_TYPE.getCPtr(busType));
+  public virtual ADLX_RESULT PCIBusType(SWIGTYPE_p_adlx__ADLX_PCI_BUS_TYPE busType) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXGPU1_PCIBusType(swigCPtr, SWIGTYPE_p_adlx__ADLX_PCI_BUS_TYPE.getCPtr(busType));
     return ret;
   }
 
@@ -62,8 +62,8 @@ public class IADLXGPU1 : IADLXGPU {
     return ret;
   }
 
-  public virtual ADLX_RESULT MultiGPUMode(SWIGTYPE_p_ADLX_MGPU_MODE mode) {
-    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXGPU1_MultiGPUMode(swigCPtr, SWIGTYPE_p_ADLX_MGPU_MODE.getCPtr(mode));
+  public virtual ADLX_RESULT MultiGPUMode(SWIGTYPE_p_adlx__ADLX_MGPU_MODE mode) {
+    ADLX_RESULT ret = (ADLX_RESULT)ADLXPINVOKE.IADLXGPU1_MultiGPUMode(swigCPtr, SWIGTYPE_p_adlx__ADLX_MGPU_MODE.getCPtr(mode));
     return ret;
   }
 
