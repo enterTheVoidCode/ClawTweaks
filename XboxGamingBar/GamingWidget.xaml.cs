@@ -1338,6 +1338,13 @@ namespace XboxGamingBar
             xamlTimer.Stop();
             Logger.Info($"[TIMING] InitializeComponent: {xamlTimer.ElapsedMilliseconds}ms");
 
+            // Restore the GoTweaks self-update + Lenovo driver-update checkboxes from
+            // LocalSettings now, independent of any helper push. The push-driven sync
+            // paths only fire when the helper actually returns a result (update available,
+            // driver list parsed) — without this call, the XAML defaults stay visible on
+            // every cold start where no push arrives, making toggles look unsaved.
+            SyncUpdatePreferenceCheckboxesFromLocalSettings();
+
             // Register for lifecycle events
             this.Loaded += GamingWidget_Loaded;
             this.Unloaded += GamingWidget_Unloaded;
