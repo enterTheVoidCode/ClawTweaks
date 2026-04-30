@@ -1456,6 +1456,21 @@ namespace XboxGamingBarHelper
                             var result = await Services.LenovoDriverCheckService.CheckAsync();
                             int updateCount = result?.Drivers?.Count(d => d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable) ?? 0;
                             Logger.Info($"Startup driver probe complete — {updateCount} update(s) available out of {result?.Drivers?.Count ?? 0} total");
+                            // Mirror the per-update diagnostic from the CheckDriverUpdates pipe
+                            // handler so users don't have to click "Check for updates" in the
+                            // widget to get matchedDevice/matchedProvider/matchScore data into
+                            // the helper log. The startup probe runs on every helper boot, so
+                            // any wrong-driver-row match shows up automatically next restart.
+                            if (result?.Drivers != null)
+                            {
+                                foreach (var d in result.Drivers)
+                                {
+                                    if (d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable)
+                                    {
+                                        Logger.Info($"  Driver flagged update: name='{d.Name}', category='{d.Category}', installed='{d.InstalledVersion}', catalog='{d.Version}', matchedDevice='{d.MatchedDeviceName}', matchedProvider='{d.MatchedProvider}', matchScore={d.MatchScore}");
+                                    }
+                                }
+                            }
                             PushDriverUpdatesAvailable(updateCount);
                         }
                         catch (Exception ex)

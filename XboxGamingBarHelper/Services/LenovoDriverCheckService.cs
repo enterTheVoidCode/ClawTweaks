@@ -836,10 +836,12 @@ namespace XboxGamingBarHelper.Services
         private sealed class InstalledDriverIndex
         {
             public readonly List<InstalledDriver> Drivers;
+            public readonly List<InstalledApp> Apps;
             public readonly string BiosVersion;
-            public InstalledDriverIndex(List<InstalledDriver> drivers, string biosVersion)
+            public InstalledDriverIndex(List<InstalledDriver> drivers, List<InstalledApp> apps, string biosVersion)
             {
                 Drivers = drivers;
+                Apps = apps ?? new List<InstalledApp>();
                 BiosVersion = biosVersion ?? "";
             }
         }
@@ -850,6 +852,23 @@ namespace XboxGamingBarHelper.Services
             public string DriverProviderName;
             public string DriverVersion;
             public string DriverDate;
+            public HashSet<string> NameTokens;
+        }
+
+        /// <summary>
+        /// An entry from the Add/Remove Programs uninstall registry. Bundle-style
+        /// driver installers (AMD Chipset Software, Realtek Audio Driver, NVIDIA
+        /// app suites) register here with a single DisplayName + DisplayVersion
+        /// instead of as a single PnP row, so this is where we find the version
+        /// the catalog wants to compare against. Without this lookup the fuzzy
+        /// matcher falls onto a sub-component PnP driver (AMD SMBUS, Realtek
+        /// Audio Universal Service) whose version is unrelated to the bundle's.
+        /// </summary>
+        private sealed class InstalledApp
+        {
+            public string DisplayName;
+            public string DisplayVersion;
+            public string Publisher;
             public HashSet<string> NameTokens;
         }
 
@@ -883,8 +902,71 @@ namespace XboxGamingBarHelper.Services
             {
                 Logger.Warn($"Win32_PnPSignedDriver query failed: {ex.Message}");
             }
-            Logger.Info($"Installed driver index: {drivers.Count} signed PnP drivers loaded");
-            return new InstalledDriverIndex(drivers, biosVersion);
+            var apps = BuildInstalledAppIndex();
+            Logger.Info($"Installed driver index: {drivers.Count} signed PnP drivers loaded, {apps.Count} apps loaded from uninstall registry");
+            return new InstalledDriverIndex(drivers, apps, biosVersion);
+        }
+
+        /// <summary>
+        /// Walks the standard Add/Remove Programs uninstall registry hives so
+        /// catalog entries that map to bundle installers (e.g. "AMD Chipset
+        /// Driver" → "AMD Chipset Software" with a version like 7.06.02.123;
+        /// "Realtek Audio Driver" → "Realtek Audio Driver" with the actual codec
+        /// version 6.x.x.x) can be matched against the right installed version
+        /// instead of a sub-component PnP driver. Both 32- and 64-bit views are
+        /// scanned because some Lenovo-bundled installers register only under
+        /// WOW6432Node.
+        /// </summary>
+        private static List<InstalledApp> BuildInstalledAppIndex()
+        {
+            var apps = new List<InstalledApp>();
+            string[] registryPaths =
+            {
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+                @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+            };
+            foreach (var path in registryPaths)
+            {
+                try
+                {
+                    using var hive = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(path);
+                    if (hive == null) continue;
+                    foreach (var subName in hive.GetSubKeyNames())
+                    {
+                        try
+                        {
+                            using var sub = hive.OpenSubKey(subName);
+                            if (sub == null) continue;
+                            string displayName = (sub.GetValue("DisplayName") as string)?.Trim() ?? "";
+                            string displayVersion = (sub.GetValue("DisplayVersion") as string)?.Trim() ?? "";
+                            if (string.IsNullOrEmpty(displayName) || string.IsNullOrEmpty(displayVersion)) continue;
+                            // Skip Windows updates / hotfixes — they spam the registry and
+                            // never match a Lenovo catalog entry by name.
+                            if (displayName.StartsWith("Update for Microsoft", StringComparison.OrdinalIgnoreCase)
+                                || displayName.StartsWith("Security Update", StringComparison.OrdinalIgnoreCase)
+                                || subName.StartsWith("KB", StringComparison.OrdinalIgnoreCase))
+                                continue;
+                            string publisher = (sub.GetValue("Publisher") as string)?.Trim() ?? "";
+                            apps.Add(new InstalledApp
+                            {
+                                DisplayName = displayName,
+                                DisplayVersion = displayVersion,
+                                Publisher = publisher,
+                                NameTokens = TokeniseLower(displayName + " " + publisher),
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Debug($"Uninstall registry sub-key '{subName}' read failed: {ex.Message}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"Uninstall registry hive open failed for '{path}': {ex.Message}");
+                }
+            }
+            return apps;
         }
 
         private static HashSet<string> TokeniseLower(string s)
@@ -945,8 +1027,15 @@ namespace XboxGamingBarHelper.Services
                 new[] { "cardreader", "reader" },
                 // Fingerprint reader: catalog "fingerprinter" (typo in Lenovo's catalog), Windows says "fingerprint" / "biometric".
                 new[] { "fingerprint", "fingerprinter", "biometric" },
-                // Chipset: various AMD chipset sub-components name themselves "amdchipset" / "smbus" / "gpio".
-                new[] { "chipset", "smbus" },
+                // Chipset: was treating "smbus" as a synonym so AMD's SMBUS
+                // sub-component would match "AMD Chipset Driver" catalog rows,
+                // but that's the wrong match — SMBUS is one of ~10 components
+                // in the chipset bundle and its version (2.0.0.x) bears no
+                // relation to the bundle version (5.x / 7.x). The bundle's
+                // "AMD Chipset Software" entry in the uninstall registry
+                // carries the right version, picked up by BuildInstalledAppIndex.
+                // Synonym set kept for future expansion (keep "chipset" alone).
+                new[] { "chipset" },
             };
             var map = new Dictionary<string, string[]>(StringComparer.Ordinal);
             foreach (var g in groups)
@@ -1001,8 +1090,14 @@ namespace XboxGamingBarHelper.Services
                 return;
             }
 
-            InstalledDriver best = null;
-            int bestScore = 0;
+            // Pre-extract the catalog version's numeric prefix once so the
+            // tie-break below can compare it against each candidate's version
+            // without re-parsing per iteration.
+            var catalogVersionPrefix = ParseVersion(ExtractLatestVersion(entry.Version));
+
+            InstalledDriver bestDriver = null;
+            int bestDriverScore = 0;
+            int bestDriverVerAffinity = -1;
             foreach (var d in index.Drivers)
             {
                 int overlap = 0;
@@ -1010,32 +1105,94 @@ namespace XboxGamingBarHelper.Services
                 {
                     if (d.NameTokens.Contains(tok)) overlap++;
                 }
-                if (overlap > bestScore)
+                if (overlap == 0) continue;
+                int affinity = VersionPrefixMatch(d.DriverVersion, catalogVersionPrefix);
+                // Prefer higher token overlap; on ties prefer the candidate whose
+                // version's leading numeric tuple shares more components with
+                // the catalog version. Catches the Realtek case where "Realtek
+                // High Definition Audio" 6.0.9879.1 and "Realtek Audio Universal
+                // Service" 1.0.890.0 both score 4 on token overlap, and PnP
+                // iteration order alone picked the latter — but the codec
+                // driver's 6.x.y.z shares all four components with catalog
+                // RTK_6.0.9879.1, so the version-affinity tie-break flips to
+                // the codec.
+                if (overlap > bestDriverScore
+                    || (overlap == bestDriverScore && affinity > bestDriverVerAffinity))
                 {
-                    bestScore = overlap;
-                    best = d;
+                    bestDriverScore = overlap;
+                    bestDriverVerAffinity = affinity;
+                    bestDriver = d;
                 }
             }
 
-            // Require at least 2 shared non-stop-word tokens to count as a
-            // match. One shared token (e.g. "realtek") matches too many
-            // unrelated devices.
-            if (best == null || bestScore < 2)
+            // Also score the catalog name against the uninstall-registry app list.
+            // For bundle-style installers (AMD Chipset Software, Realtek Audio
+            // Driver) this is where the version string Lenovo's catalog actually
+            // wants to compare against lives — the PnP list only has the bundle's
+            // sub-components and matches them with versions unrelated to the
+            // bundle itself.
+            InstalledApp bestApp = null;
+            int bestAppScore = 0;
+            int bestAppVerAffinity = -1;
+            foreach (var a in index.Apps)
+            {
+                int overlap = 0;
+                foreach (var tok in entryTokens)
+                {
+                    if (a.NameTokens.Contains(tok)) overlap++;
+                }
+                if (overlap == 0) continue;
+                int affinity = VersionPrefixMatch(a.DisplayVersion, catalogVersionPrefix);
+                if (overlap > bestAppScore
+                    || (overlap == bestAppScore && affinity > bestAppVerAffinity))
+                {
+                    bestAppScore = overlap;
+                    bestAppVerAffinity = affinity;
+                    bestApp = a;
+                }
+            }
+
+            // Pick the source whose score is higher. Apps win ties because
+            // bundle installers carry the version string Lenovo's catalog is
+            // explicitly authoring against — the PnP sub-component matches
+            // that tied with them by token count are typically components of
+            // the same bundle (AMD Chipset Software → AMD SMBUS scoring 3 vs
+            // AMD Chipset Software scoring 3) and a sub-component's version
+            // bears no fixed relationship to the bundle version. Both must
+            // still meet the 2-token-minimum threshold or we treat as
+            // not-installed (avoids 1-shared-token false matches like generic
+            // "realtek" hitting unrelated Realtek-prefixed apps).
+            const int MinTokensForMatch = 2;
+            bool driverEligible = bestDriver != null && bestDriverScore >= MinTokensForMatch;
+            bool appEligible = bestApp != null && bestAppScore >= MinTokensForMatch;
+
+            if (!driverEligible && !appEligible)
             {
                 entry.InstalledVersion = "";
                 entry.UpdateStatus = DriverUpdateStatus.NotInstalled;
                 return;
             }
 
-            entry.InstalledVersion = best.DriverVersion;
-            entry.MatchedDeviceName = best.DeviceName ?? "";
-            entry.MatchedProvider = best.DriverProviderName ?? "";
-            entry.MatchScore = bestScore;
+            bool useApp = appEligible && (!driverEligible || bestAppScore >= bestDriverScore);
+            if (useApp)
+            {
+                entry.InstalledVersion = bestApp.DisplayVersion;
+                entry.MatchedDeviceName = bestApp.DisplayName ?? "";
+                entry.MatchedProvider = bestApp.Publisher ?? "";
+                entry.MatchScore = bestAppScore;
+            }
+            else
+            {
+                entry.InstalledVersion = bestDriver.DriverVersion;
+                entry.MatchedDeviceName = bestDriver.DeviceName ?? "";
+                entry.MatchedProvider = bestDriver.DriverProviderName ?? "";
+                entry.MatchScore = bestDriverScore;
+            }
             // Pass raw catalog Version (could be "Realtek_10.0.26200.21385",
             // "Genesys_1.1.55.0;Realtek_10.0.26200.21385", etc.). CompareVersions
             // splits internally and picks the candidate whose major.minor
             // matches the installed driver's first two fields.
-            entry.UpdateStatus = CompareVersions(best.DriverVersion, entry.Version);
+            entry.UpdateStatus = CompareVersions(entry.InstalledVersion, entry.Version);
         }
 
         private static bool LooksLikeBios(string s)
@@ -1102,6 +1259,28 @@ namespace XboxGamingBarHelper.Services
                 if (dots > bestDots) { best = all[i]; bestDots = dots; }
             }
             return best;
+        }
+
+        /// <summary>
+        /// Counts how many leading numeric components the candidate's version
+        /// shares with the catalog's parsed version. Used as a tie-break when
+        /// two PnP/app candidates score equally on token overlap — same-codec
+        /// driver versions cluster numerically (Realtek High Definition Audio
+        /// 6.0.9879.1 vs the same catalog 6.0.9879.1 → affinity 4) while a
+        /// companion service in the same vendor namespace doesn't (Realtek
+        /// Audio Universal Service 1.0.890.0 vs catalog 6.0.9879.1 →
+        /// affinity 0). Returns 0 if either side is unparseable, so the
+        /// tie-break degrades to first-found behaviour rather than throwing.
+        /// </summary>
+        private static int VersionPrefixMatch(string candidateVersion, long[] catalogParts)
+        {
+            if (catalogParts == null || catalogParts.Length == 0) return 0;
+            var c = ParseVersion(candidateVersion);
+            if (c == null) return 0;
+            int len = Math.Min(c.Length, catalogParts.Length);
+            int i = 0;
+            while (i < len && c[i] == catalogParts[i]) i++;
+            return i;
         }
 
         private static int CountDots(string s)
