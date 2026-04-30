@@ -1028,6 +1028,9 @@ namespace XboxGamingBarHelper.Services
             }
 
             entry.InstalledVersion = best.DriverVersion;
+            entry.MatchedDeviceName = best.DeviceName ?? "";
+            entry.MatchedProvider = best.DriverProviderName ?? "";
+            entry.MatchScore = bestScore;
             // Pass raw catalog Version (could be "Realtek_10.0.26200.21385",
             // "Genesys_1.1.55.0;Realtek_10.0.26200.21385", etc.). CompareVersions
             // splits internally and picks the candidate whose major.minor
@@ -1135,17 +1138,50 @@ namespace XboxGamingBarHelper.Services
                     .Where(c => c.Parts != null)
                     .ToList();
 
-                // Prefer a candidate whose first two fields match the installed
-                // version — that's the same vendor/driver component.
-                var majorMinorMatch = candidates.FirstOrDefault(c =>
-                    c.Parts.Length >= 2 && inst.Length >= 2 &&
-                    c.Parts[0] == inst[0] && c.Parts[1] == inst[1]);
+                // 1) Exact-tuple match wins. Catches the multi-vendor catalog case
+                // ("Elan_3.4.12404.14001;Goodix_3.4.523.1010" vs installed
+                // "3.4.523.1010") cleanly: when the installed version IS one of the
+                // catalog vendors verbatim, treat it as up-to-date without falling
+                // into the ambiguous major.minor branch below — which used to pick
+                // the first candidate sharing major.minor (Elan), then compare
+                // 523 < 12404 and flag it as an update for Goodix users.
+                var exactMatch = candidates.FirstOrDefault(c =>
+                    c.Parts.Length == inst.Length &&
+                    c.Parts.SequenceEqual(inst));
+                if (exactMatch != null)
+                {
+                    return DriverUpdateStatus.UpToDate;
+                }
 
-                var chosen = majorMinorMatch != null
-                    ? majorMinorMatch.Parts
-                    : (candidates.Count > 0
+                // 2) Among candidates that share major.minor with installed, prefer
+                // the one whose third field (build) is closest. Same-vendor versions
+                // in Lenovo's multi-vendor catalogs cluster — Goodix's older builds
+                // are near 3.4.523.x, Elan's near 3.4.12404.x — so this picks the
+                // right vendor when installed sits between them but isn't an exact
+                // match for either.
+                var majorMinorMatches = candidates.Where(c =>
+                    c.Parts.Length >= 2 && inst.Length >= 2 &&
+                    c.Parts[0] == inst[0] && c.Parts[1] == inst[1]).ToList();
+
+                long[] chosen;
+                if (majorMinorMatches.Count == 1)
+                {
+                    chosen = majorMinorMatches[0].Parts;
+                }
+                else if (majorMinorMatches.Count > 1)
+                {
+                    chosen = majorMinorMatches
+                        .OrderBy(c => (c.Parts.Length >= 3 && inst.Length >= 3)
+                            ? Math.Abs(c.Parts[2] - inst[2])
+                            : long.MaxValue)
+                        .First().Parts;
+                }
+                else
+                {
+                    chosen = candidates.Count > 0
                         ? candidates.OrderByDescending(c => c.Parts.Length).First().Parts
-                        : null);
+                        : null;
+                }
 
                 if (chosen != null)
                 {
@@ -1255,5 +1291,11 @@ namespace XboxGamingBarHelper.Services
         public string InstalledVersion { get; set; } = "";
         /// <summary>Comparison status vs <see cref="Version"/>. Serialises as an int the widget interprets.</summary>
         public DriverUpdateStatus UpdateStatus { get; set; } = DriverUpdateStatus.Unknown;
+        /// <summary>PnP DeviceName the fuzzy-match picked. Diagnostic-only; serialised but the widget ignores it.</summary>
+        public string MatchedDeviceName { get; set; } = "";
+        /// <summary>PnP DriverProviderName for the matched driver. Diagnostic — helps spot wrong-vendor matches without re-running the user.</summary>
+        public string MatchedProvider { get; set; } = "";
+        /// <summary>Token-overlap score (entry-name tokens shared with the matched PnP driver). Diagnostic.</summary>
+        public int MatchScore { get; set; }
     }
 }

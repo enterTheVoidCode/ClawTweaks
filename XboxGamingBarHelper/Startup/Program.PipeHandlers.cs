@@ -487,11 +487,14 @@ namespace XboxGamingBarHelper
                         // flagged outdated" reports without round-tripping with the user for
                         // Device Manager screenshots. Catalog version is the raw multi-vendor
                         // string; installed is whatever PnP reported on the matched driver.
+                        // matchedDevice/matchedProvider/matchScore expose the fuzzy-match
+                        // pick so wrong-driver matches (e.g. "AMD Chipset Driver" matching
+                        // some other AMD-prefixed PnP entry) surface in the log directly.
                         foreach (var d in probe.Drivers)
                         {
                             if (d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable)
                             {
-                                Logger.Info($"  Driver flagged update: name='{d.Name}', category='{d.Category}', installed='{d.InstalledVersion}', catalog='{d.Version}'");
+                                Logger.Info($"  Driver flagged update: name='{d.Name}', category='{d.Category}', installed='{d.InstalledVersion}', catalog='{d.Version}', matchedDevice='{d.MatchedDeviceName}', matchedProvider='{d.MatchedProvider}', matchScore={d.MatchScore}");
                             }
                         }
                     }
