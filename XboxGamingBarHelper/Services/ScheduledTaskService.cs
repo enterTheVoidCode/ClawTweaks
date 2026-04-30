@@ -246,23 +246,50 @@ namespace XboxGamingBarHelper.Services
         }
 
         /// <summary>
-        /// Configures additional task settings (battery, time limit, multiple instances)
+        /// Configures additional task settings (battery, time limit, multiple instances).
+        ///
+        /// Why the script does more than mutate $task.Settings:
+        /// - The original mutate-and-Set-ScheduledTask formulation could silently leave
+        ///   DisallowStartIfOnBatteries=true if Set-ScheduledTask returned successfully but
+        ///   didn't actually persist the property change (seen in the wild — issue #79
+        ///   vvalente30 reported the AC-only flag being re-enabled after an MSIX upgrade,
+        ///   which removes the task on package events and recreates it via this code path).
+        /// - We now build a fresh settings object via New-ScheduledTaskSettingsSet and pass
+        ///   it explicitly via -Settings, then re-query and verify the battery flags are
+        ///   actually $false. PS exits non-zero on verify failure so the C# side can log it
+        ///   loudly instead of swallowing the failure.
+        /// - A short retry loop on Get-ScheduledTask handles the small window after schtasks
+        ///   /Create where the cmdlet's view of the task can lag.
         /// </summary>
         private static void ConfigureTaskSettings()
         {
             try
             {
-                var psScript = $@"
-$task = Get-ScheduledTask -TaskName 'GoTweaksHelper' -TaskPath '\GoTweaks\' -ErrorAction SilentlyContinue
-if ($task) {{
-    $task.Settings.DisallowStartIfOnBatteries = $false
-    $task.Settings.StopIfGoingOnBatteries = $false
-    $task.Settings.ExecutionTimeLimit = 'PT0S'
-    $task.Settings.MultipleInstances = 'IgnoreNew'
-    $task.Settings.StartWhenAvailable = $true
-    Set-ScheduledTask -InputObject $task | Out-Null
-    Write-Host 'Task settings configured'
-}}
+                var psScript = @"
+$ErrorActionPreference = 'Stop'
+$task = $null
+for ($i = 0; $i -lt 10; $i++) {
+    $task = Get-ScheduledTask -TaskName 'GoTweaksHelper' -TaskPath '\GoTweaks\' -ErrorAction SilentlyContinue
+    if ($task) { break }
+    Start-Sleep -Milliseconds 200
+}
+if (-not $task) {
+    Write-Error 'Get-ScheduledTask returned null after schtasks /Create'
+    exit 2
+}
+$settings = New-ScheduledTaskSettingsSet `
+    -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries `
+    -ExecutionTimeLimit (New-TimeSpan -Seconds 0) `
+    -MultipleInstances IgnoreNew `
+    -StartWhenAvailable
+Set-ScheduledTask -TaskName 'GoTweaksHelper' -TaskPath '\GoTweaks\' -Settings $settings | Out-Null
+$verify = Get-ScheduledTask -TaskName 'GoTweaksHelper' -TaskPath '\GoTweaks\'
+if ($verify.Settings.DisallowStartIfOnBatteries -or $verify.Settings.StopIfGoingOnBatteries) {
+    Write-Error (""Verify failed: DisallowStart="" + $verify.Settings.DisallowStartIfOnBatteries + "" StopOnBattery="" + $verify.Settings.StopIfGoingOnBatteries)
+    exit 3
+}
+Write-Host 'Task settings configured and verified'
 ";
 
                 var psInfo = new ProcessStartInfo
@@ -283,16 +310,21 @@ if ($task) {{
                         return;
                     }
 
+                    string output = process.StandardOutput.ReadToEnd();
+                    string error = process.StandardError.ReadToEnd();
                     process.WaitForExit(ProcessTimeoutMs);
 
                     if (process.ExitCode != 0)
                     {
-                        string error = process.StandardError.ReadToEnd();
-                        Logger.Warn($"PowerShell task settings warning: {error}");
+                        // Bubble up at Error level. The task will likely be AC-only and the
+                        // bootstrapper's IsTaskConfiguredCorrectly check will recreate it on
+                        // the next helper start — but if this keeps failing across recreates
+                        // we want it visible in the log, not buried as a warning.
+                        Logger.Error($"PowerShell task settings failed (ExitCode={process.ExitCode}): stderr={error.Trim()} stdout={output.Trim()}");
                     }
                     else
                     {
-                        Logger.Debug("Task settings configured successfully");
+                        Logger.Info($"Task settings configured successfully: {output.Trim()}");
                     }
                 }
             }
