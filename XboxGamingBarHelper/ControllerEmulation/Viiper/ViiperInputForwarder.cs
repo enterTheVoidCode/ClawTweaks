@@ -108,6 +108,16 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         // Singleton so Labs-side code can reach the active forwarder without circular DI.
         private static ViiperInputForwarder activeInstance;
 
+        // Rumble feedback counters. Incremented on the libviiper callback thread inside
+        // OnFeedbackReceived; drained and logged from PollLoop's 5s stats window. Used
+        // to triage "rumble silent" reports — distinguishes (a) game never sent rumble
+        // events, (b) events arrived but ViiperXInput.SetState rejected them, (c) events
+        // forwarded fine but the user can't feel them (then look at where physicalIndex
+        // resolved to in DetectPhysicalXInputIndex's log line).
+        private int statsRumbleEventsReceived;
+        private int statsRumbleForwardedOk;
+        private int statsRumbleForwardedErr;
+
         // Latest aux buttons sampled from Legion HID this cycle (0 when the active source
         // doesn't expose them, e.g. plain XInput). Read by the DS4/DSE wire builders to map
         // Legion Y1/Y2/Y3/M3/Mode/Share onto the virtual device's extended button bits.
@@ -145,6 +155,7 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             if (!running || data == null || data.Length == 0) return;
             // Ignore late events from a hot-swapped-out device.
             if (cbBusId != busId || cbDeviceId != deviceId) return;
+            System.Threading.Interlocked.Increment(ref statsRumbleEventsReceived);
 
             byte rumbleLarge = 0;
             byte rumbleSmall = 0;
@@ -210,9 +221,21 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                     LeftMotorSpeed = (ushort)leftSpeed,
                     RightMotorSpeed = (ushort)rightSpeed,
                 };
-                ViiperXInput.SetState(physicalIndex, ref vib);
+                uint rc = ViiperXInput.SetState(physicalIndex, ref vib);
+                if (rc == ViiperXInput.ErrorSuccess)
+                {
+                    System.Threading.Interlocked.Increment(ref statsRumbleForwardedOk);
+                }
+                else
+                {
+                    System.Threading.Interlocked.Increment(ref statsRumbleForwardedErr);
+                }
             }
-            catch (Exception ex) { Logger.Debug($"XInput SetState rumble failed: {ex.Message}"); }
+            catch (Exception ex)
+            {
+                System.Threading.Interlocked.Increment(ref statsRumbleForwardedErr);
+                Logger.Debug($"XInput SetState rumble failed: {ex.Message}");
+            }
 
             // LED color forwarding — the emulated device's RGB lightbar is pushed to the
             // Legion Go stick lights. Throttle: skip when unchanged and rate-limit writes.
@@ -237,15 +260,27 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         /// <summary>Discover which XInput index (0-3) has a connected physical controller.</summary>
         public static uint DetectPhysicalXInputIndex()
         {
+            // Log every slot's state, not just the first hit. When a user reports
+            // "no input after toggle" or "rumble silent" we need to know whether
+            // (a) the helper's XInput sees the physical Legion at all (HidHide
+            //     allowlist working), and
+            // (b) the picked slot is the physical or VIIPER's virtual device.
+            // Without this, debug requires an OS-level XInput probe outside the app.
             var state = new ViiperXInputState();
+            uint pick = 0;
+            bool picked = false;
+            var connected = new System.Collections.Generic.List<uint>();
             for (uint i = 0; i < 4; i++)
             {
                 if (ViiperXInput.GetState(i, ref state) == ViiperXInput.ErrorSuccess)
                 {
-                    return i;
+                    connected.Add(i);
+                    if (!picked) { pick = i; picked = true; }
                 }
             }
-            return 0;
+            string slots = connected.Count == 0 ? "(none)" : string.Join(",", connected);
+            Logger.Info($"DetectPhysicalXInputIndex: connectedSlots=[{slots}], picked={(picked ? pick.ToString() : "0 (default — none connected)")}");
+            return picked ? pick : 0u;
         }
 
         public void Start(uint inPhysicalIndex, uint inBusId, uint inDeviceId, string inTargetType)
@@ -275,6 +310,22 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             deviceId = newDeviceId;
             targetType = string.IsNullOrEmpty(newTypeName) ? "xbox360" : newTypeName;
             Logger.Info($"VIIPER forwarder target updated: bus={busId}, dev={deviceId}, type={targetType}");
+        }
+
+        /// <summary>
+        /// Updates the XInput user index the forwarder reads from and writes rumble to.
+        /// Used post-Start by ViiperEmulationManager to re-pin to the physical Legion's
+        /// slot once Labs/LegionButtonMonitor has disposed its dedicated Guide-only
+        /// ViGEm pad — that disposal can only happen after Start sets running=true
+        /// (so CanHandleExternalGuide flips true), so the index detected pre-Start
+        /// often points at the about-to-be-disposed Labs pad and goes ERROR_DEVICE_NOT_
+        /// CONNECTED a few hundred ms later.
+        /// </summary>
+        public void UpdatePhysicalIndex(uint newPhysicalIndex)
+        {
+            uint old = physicalIndex;
+            physicalIndex = newPhysicalIndex;
+            Logger.Info($"VIIPER forwarder physicalIndex updated: {old} -> {newPhysicalIndex}");
         }
 
         /// <summary>
@@ -619,6 +670,9 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 long nowTicks = DateTime.UtcNow.Ticks;
                 if (nowTicks - statsWindowStartTicks >= StatsWindowTicks)
                 {
+                    int rumbleRx = System.Threading.Interlocked.Exchange(ref statsRumbleEventsReceived, 0);
+                    int rumbleOk = System.Threading.Interlocked.Exchange(ref statsRumbleForwardedOk, 0);
+                    int rumbleErr = System.Threading.Interlocked.Exchange(ref statsRumbleForwardedErr, 0);
                     bool anyActivity = statsReportsSent > 0
                         || statsReportsFailed > 0
                         || statsLegionFreshSamples > 0
@@ -626,18 +680,24 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                         || statsLegionMissingSamples > 0
                         || statsXInputFreshPackets > 0
                         || statsXInputStalePackets > 0
-                        || statsXInputErrors > 0;
+                        || statsXInputErrors > 0
+                        || rumbleRx > 0
+                        || rumbleOk > 0
+                        || rumbleErr > 0;
                     if (anyActivity)
                     {
                         Logger.Info(
-                            "VIIPER forwarder 5s stats: source={0}, type={1}, " +
+                            "VIIPER forwarder 5s stats: source={0}, type={1}, physicalIdx={10}, " +
                             "reportsSent={2}, reportsFailed={3}, " +
                             "legionFresh={4}, legionStale={5}, legionMissing={6}, " +
-                            "xinputFresh={7}, xinputStale={8}, xinputErrors={9}",
+                            "xinputFresh={7}, xinputStale={8}, xinputErrors={9}, " +
+                            "rumbleRx={11}, rumbleOk={12}, rumbleErr={13}",
                             inputSource, targetType,
                             statsReportsSent, statsReportsFailed,
                             statsLegionFreshSamples, statsLegionStaleSamples, statsLegionMissingSamples,
-                            statsXInputFreshPackets, statsXInputStalePackets, statsXInputErrors);
+                            statsXInputFreshPackets, statsXInputStalePackets, statsXInputErrors,
+                            physicalIndex,
+                            rumbleRx, rumbleOk, rumbleErr);
                     }
                     statsLegionFreshSamples = 0;
                     statsLegionStaleSamples = 0;

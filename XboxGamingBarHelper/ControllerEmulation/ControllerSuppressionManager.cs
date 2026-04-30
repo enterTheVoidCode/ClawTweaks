@@ -942,9 +942,20 @@ namespace XboxGamingBarHelper.ControllerEmulation
             // optional third-party paths failed. Re-entering this method is cheap since
             // the registered-set check above skips already-added entries.
             appRegistered = true;
+
+            // Confirm the helper's own exe path is on the allowlist after this pass.
+            // Without this, "added 0 failed 0" looks identical whether the helper is
+            // present or absent — we want to see the steady-state in logs so VIIPER /
+            // controller-emulation reports can be triaged without re-running the user.
+            string helperPath = Process.GetCurrentProcess().MainModule?.FileName;
+            bool helperOnAllowlist = !string.IsNullOrWhiteSpace(helperPath) && registered.Contains(helperPath);
             if (addedCount > 0 || failedCount > 0)
             {
-                Logger.Info($"HidHide application registration via API: added {addedCount}, failed {failedCount}");
+                Logger.Info($"HidHide application registration via API: added {addedCount}, failed {failedCount}, helperAllowlisted={helperOnAllowlist}, totalAllowed={registered.Count}");
+            }
+            else
+            {
+                Logger.Info($"HidHide application allowlist already current: helperAllowlisted={helperOnAllowlist}, totalAllowed={registered.Count}");
             }
         }
 
