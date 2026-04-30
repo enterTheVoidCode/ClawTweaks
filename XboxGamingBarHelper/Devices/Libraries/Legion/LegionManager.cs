@@ -357,6 +357,48 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             LegionGyroEnabled = new LegionGyroEnabledProperty(gyroEnabled, this);
             LegionVibration = new LegionVibrationProperty(vibrationLevel, this);
             LegionPowerLight = new LegionPowerLightProperty(powerLightEnabled, this);
+
+            // Battery charge limit lives in the EC and persists across reboots, so we
+            // need to read the current hardware state — without this the helper always
+            // initializes with chargeLimitEnabled=false, the widget syncs false, and
+            // the toggle shows Off even when the limit is actually applied. Users see
+            // that as "the toggle never saves" because re-enabling is a no-op (the EC
+            // already has it set), and the same Off-on-restart loop repeats.
+            try
+            {
+                const int chargeLimitTimeoutMs = 2000;
+                var chargeLimitTask = Task.Run(() =>
+                {
+                    try { return wmiService?.GetBatteryChargeLimit(); }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"GetBatteryChargeLimit exception: {ex.Message}");
+                        return null;
+                    }
+                });
+
+                if (chargeLimitTask.Wait(chargeLimitTimeoutMs))
+                {
+                    var r = chargeLimitTask.Result;
+                    if (r.HasValue && r.Value.Success && r.Value.Result.HasValue)
+                    {
+                        chargeLimitEnabled = r.Value.Result.Value == 1;
+                        Logger.Info($"Battery charge limit (80%) read from EC: {(chargeLimitEnabled ? "Enabled" : "Disabled")}");
+                    }
+                    else
+                    {
+                        Logger.Warn($"GetBatteryChargeLimit failed, defaulting to Disabled: {r?.Message}");
+                    }
+                }
+                else
+                {
+                    Logger.Warn($"GetBatteryChargeLimit timed out after {chargeLimitTimeoutMs}ms, defaulting to Disabled");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Charge limit startup read threw: {ex.Message}");
+            }
             LegionChargeLimit = new LegionChargeLimitProperty(chargeLimitEnabled, this);
 
             // Initialize controller remapping properties (JSON ButtonMapping format)
