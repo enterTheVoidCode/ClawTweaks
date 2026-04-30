@@ -559,6 +559,7 @@ namespace XboxGamingBar
 
         private async void DriverUpdatesUpdateOnStartCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
+            if (_isLoadingUpdatePreferenceCheckboxes) return;
             if (DriverUpdatesUpdateOnStartCheckbox == null) return;
             bool on = DriverUpdatesUpdateOnStartCheckbox.IsChecked == true;
             DriverUpdatesCheckOnStart = on;
@@ -581,6 +582,7 @@ namespace XboxGamingBar
 
         private void DriverUpdatesHideBannerCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
+            if (_isLoadingUpdatePreferenceCheckboxes) return;
             if (DriverUpdatesHideBannerCheckbox == null) return;
             DriverUpdatesHideBanner = DriverUpdatesHideBannerCheckbox.IsChecked == true;
             // Re-evaluate tile visibility right now so the setting has an
@@ -880,6 +882,7 @@ namespace XboxGamingBar
 
         private void DriverUpdatesShowUtilitiesCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
+            if (_isLoadingUpdatePreferenceCheckboxes) return;
             if (DriverUpdatesShowUtilitiesCheckbox == null) return;
             DriverUpdatesShowUtilities = DriverUpdatesShowUtilitiesCheckbox.IsChecked == true;
             ApplyDriverFilters();

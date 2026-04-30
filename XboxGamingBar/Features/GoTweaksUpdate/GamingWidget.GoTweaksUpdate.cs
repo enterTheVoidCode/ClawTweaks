@@ -23,6 +23,44 @@ namespace XboxGamingBar
         private string _goTweaksDownloadUrl;
         private string _goTweaksReleasePageUrl;
 
+        // Set while SyncUpdatePreferenceCheckboxesFromLocalSettings programmatically
+        // assigns IsChecked on the five update-preference checkboxes (GoTweaks +
+        // Lenovo driver updates). Their Checked/Unchecked handlers early-return
+        // when this is true so the init-time restore doesn't write back to
+        // LocalSettings or pipe a redundant Set*OnStart message to the helper.
+        private bool _isLoadingUpdatePreferenceCheckboxes;
+
+        /// <summary>
+        /// Restores the five update-preference checkboxes (two GoTweaks self-update
+        /// + three Lenovo driver-update) from LocalSettings during widget init.
+        /// The push-driven sync paths (HandleGoTweaksUpdatePush, UpdateDriverUpdatesTile,
+        /// RenderDriverUpdateResult) only run when the helper actually delivers a
+        /// result, so without this call the XAML defaults win on every cold start
+        /// where no update is available — making toggles look unsaved even though
+        /// LocalSettings holds the correct value.
+        /// </summary>
+        private void SyncUpdatePreferenceCheckboxesFromLocalSettings()
+        {
+            _isLoadingUpdatePreferenceCheckboxes = true;
+            try
+            {
+                if (GoTweaksUpdateOnStartCheckbox != null)
+                    GoTweaksUpdateOnStartCheckbox.IsChecked = GoTweaksCheckOnStart;
+                if (GoTweaksHideBannerCheckbox != null)
+                    GoTweaksHideBannerCheckbox.IsChecked = GoTweaksHideBanner;
+                if (DriverUpdatesUpdateOnStartCheckbox != null)
+                    DriverUpdatesUpdateOnStartCheckbox.IsChecked = DriverUpdatesCheckOnStart;
+                if (DriverUpdatesHideBannerCheckbox != null)
+                    DriverUpdatesHideBannerCheckbox.IsChecked = DriverUpdatesHideBanner;
+                if (DriverUpdatesShowUtilitiesCheckbox != null)
+                    DriverUpdatesShowUtilitiesCheckbox.IsChecked = DriverUpdatesShowUtilities;
+            }
+            finally
+            {
+                _isLoadingUpdatePreferenceCheckboxes = false;
+            }
+        }
+
         private bool GoTweaksCheckOnStart
         {
             // Default true: users who haven't opted out expect the banner
@@ -38,6 +76,7 @@ namespace XboxGamingBar
 
         private async void GoTweaksUpdateOnStartCheckbox_Changed(object sender, RoutedEventArgs e)
         {
+            if (_isLoadingUpdatePreferenceCheckboxes) return;
             if (GoTweaksUpdateOnStartCheckbox == null) return;
             bool on = GoTweaksUpdateOnStartCheckbox.IsChecked == true;
             GoTweaksCheckOnStart = on;
@@ -59,6 +98,7 @@ namespace XboxGamingBar
 
         private void GoTweaksHideBannerCheckbox_Changed(object sender, RoutedEventArgs e)
         {
+            if (_isLoadingUpdatePreferenceCheckboxes) return;
             if (GoTweaksHideBannerCheckbox == null) return;
             GoTweaksHideBanner = GoTweaksHideBannerCheckbox.IsChecked == true;
             if (QuickGoTweaksUpdateTile != null && GoTweaksHideBanner)
