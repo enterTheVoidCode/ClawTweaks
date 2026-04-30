@@ -482,6 +482,18 @@ namespace XboxGamingBarHelper
                             pipeServer.SendMessage(responseMsg.ToJson());
                         }
                         Logger.Info($"Pipe: CheckDriverUpdates — MT={probe.MachineTypeCode}, BIOS={probe.BiosVersion}, live={probe.LiveFetchSucceeded}, count={probe.Drivers.Count}");
+
+                        // Log each entry flagged UpdateAvailable so we can debug "up to date but
+                        // flagged outdated" reports without round-tripping with the user for
+                        // Device Manager screenshots. Catalog version is the raw multi-vendor
+                        // string; installed is whatever PnP reported on the matched driver.
+                        foreach (var d in probe.Drivers)
+                        {
+                            if (d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable)
+                            {
+                                Logger.Info($"  Driver flagged update: name='{d.Name}', category='{d.Category}', installed='{d.InstalledVersion}', catalog='{d.Version}'");
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
