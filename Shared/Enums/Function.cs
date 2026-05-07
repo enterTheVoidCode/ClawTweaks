@@ -428,5 +428,12 @@
         Viiper_GyroAxisMapY,                       // string - IMU Y channel mapping (same options)
         Viiper_GyroAxisMapZ,                       // string - IMU Z channel mapping (same options)
         Viiper_StickGyroEnabled,                   // bool  - master enable for the Gyro → Right Stick processor on no-native-motion targets (default true)
+
+        // SDR White Level Sync (Display tab, under HDR toggle)
+        // Windows exposes a static "SDR content brightness" slider in HDR mode but never ties it
+        // to the hardware backlight. When backlight changes, SDR content blows out or looks gray.
+        // Helper listens to WmiMonitorBrightnessEvent and re-writes SDR white level via
+        // DISPLAYCONFIG_SET_SDR_WHITE_LEVEL on each change.
+        SdrWhiteLevelSyncMode,                     // int (SdrWhiteLevelSyncMode enum) - 0=Off, 1=Auto (EDID + gamma), 2=Legion Go 2 preset
     }
 }
