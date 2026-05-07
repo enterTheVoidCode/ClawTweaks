@@ -921,6 +921,9 @@ namespace XboxGamingBarHelper.Windows
         private static extern int DisplayConfigSetDeviceInfo(ref DISPLAYCONFIG_SET_ADVANCED_COLOR_STATE setPacket);
 
         [DllImport("user32.dll")]
+        private static extern int DisplayConfigSetDeviceInfo(ref DISPLAYCONFIG_SET_SDR_WHITE_LEVEL setPacket);
+
+        [DllImport("user32.dll")]
         private static extern int GetDisplayConfigBufferSizes(
             uint flags,
             out uint numPathArrayElements,
@@ -940,6 +943,9 @@ namespace XboxGamingBarHelper.Windows
 
         private const int DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO = 9;
         private const int DISPLAYCONFIG_DEVICE_INFO_SET_ADVANCED_COLOR_STATE = 10;
+
+        // Undocumented but stable value used by Windows Settings / ColorControl / AutoHDRConfigurator.
+        private const int DISPLAYCONFIG_DEVICE_INFO_SET_SDR_WHITE_LEVEL = unchecked((int)0xFFFFFFFD);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct LUID
@@ -1076,6 +1082,15 @@ namespace XboxGamingBarHelper.Windows
             public uint enableAdvancedColor;
         }
 
+        // SDR white level is sent in units of 1/1000 of 80 nits (i.e. nits * 1000 / 80).
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DISPLAYCONFIG_SET_SDR_WHITE_LEVEL
+        {
+            public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+            public uint SDRWhiteLevel;
+            public byte finalValue;
+        }
+
         /// <summary>
         /// Get HDR support and enabled status for the primary display.
         /// </summary>
@@ -1180,6 +1195,61 @@ namespace XboxGamingBarHelper.Windows
             catch (Exception ex)
             {
                 Logger.Error($"SetHDREnabled exception: {ex}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Set the SDR White Level (paper-white nits) on the primary display while HDR is active.
+        /// Re-implements the same packet that Windows Settings → HDR → "SDR content brightness" writes.
+        /// nits is clamped to [80, 480]; values outside the panel's range are ignored by the driver.
+        /// </summary>
+        public static bool SetSdrWhiteLevelNits(int nits)
+        {
+            if (nits < 80) nits = 80;
+            if (nits > 480) nits = 480;
+
+            try
+            {
+                int result = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out uint pathCount, out uint modeCount);
+                if (result != ERROR_SUCCESS)
+                {
+                    Logger.Error($"GetDisplayConfigBufferSizes failed with error {result}");
+                    return false;
+                }
+
+                var paths = new DISPLAYCONFIG_PATH_INFO[pathCount];
+                var modes = new DISPLAYCONFIG_MODE_INFO[modeCount];
+
+                result = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero);
+                if (result != ERROR_SUCCESS)
+                {
+                    Logger.Error($"QueryDisplayConfig failed with error {result}");
+                    return false;
+                }
+
+                if (paths.Length == 0) return false;
+
+                var packet = new DISPLAYCONFIG_SET_SDR_WHITE_LEVEL();
+                packet.header.type = DISPLAYCONFIG_DEVICE_INFO_SET_SDR_WHITE_LEVEL;
+                packet.header.size = Marshal.SizeOf<DISPLAYCONFIG_SET_SDR_WHITE_LEVEL>();
+                packet.header.adapterId = paths[0].targetInfo.adapterId;
+                packet.header.id = paths[0].targetInfo.id;
+                packet.SDRWhiteLevel = (uint)(nits * 1000 / 80);
+                packet.finalValue = 1;
+
+                result = DisplayConfigSetDeviceInfo(ref packet);
+                if (result == ERROR_SUCCESS)
+                {
+                    Logger.Info($"SDR white level set to {nits} nits ({packet.SDRWhiteLevel}/1000 units)");
+                    return true;
+                }
+                Logger.Error($"DisplayConfigSetDeviceInfo (SDR white level) failed with error {result}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"SetSdrWhiteLevelNits exception: {ex}");
                 return false;
             }
         }
