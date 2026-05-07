@@ -87,6 +87,28 @@ namespace XboxGamingBarHelper.ControllerEmulation
         public ControllerSuppressionManager()
         {
             EnsureCliResolved(logMissing: true);
+
+            // Register the helper on the HidHide allowlist proactively at startup.
+            // Previously this only fired on first emulation Enable, which made
+            // "controller invisible to helper" bugs (vvalente30, #79) only show up
+            // mid-session and required a follow-up log to triage. By doing it here
+            // we get a definitive boot-time log line saying whether the helper is
+            // on the allowlist before any toggle happens.
+            try
+            {
+                if (TryGetApiService(out IHidHideControlService apiService, logMissing: false))
+                {
+                    EnsureApplicationRegistered(apiService);
+                }
+                else if (!string.IsNullOrEmpty(cliPath))
+                {
+                    EnsureApplicationRegistered();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"HidHide proactive app registration at startup failed: {ex.Message}");
+            }
         }
 
         internal static string GetDetectedCliPath()
@@ -862,8 +884,13 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
         private void EnsureApplicationRegistered(IHidHideControlService service)
         {
+            // Diagnostic: silent early-return here was costing us a round-trip to vvalente30
+            // when his logs showed suppression succeeding but registration never logged.
+            // Always say which branch fired so future "no input after toggle" reports
+            // can be triaged from a single helper log.
             if (appRegistered || service == null)
             {
+                Logger.Debug($"EnsureApplicationRegistered(API) skipped: appRegistered={appRegistered}, serviceNull={service == null}");
                 return;
             }
 
@@ -880,6 +907,14 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
             if (desiredAppPaths.Count == 0)
             {
+                // If this branch ever fires we have no helper exe path to register, which means
+                // HidHide will hide the controller from the helper itself once suppression engages.
+                // Surface it loudly so users with this state get a clear log signal instead of
+                // the previous "it just stops working" mystery.
+                string helperProbe;
+                try { helperProbe = Process.GetCurrentProcess().MainModule?.FileName ?? "<MainModule.FileName=null>"; }
+                catch (Exception ex) { helperProbe = $"<MainModule access failed: {ex.GetType().Name}: {ex.Message}>"; }
+                Logger.Warn($"HidHide application registration skipped: 0 paths to register (helperPath probe: {helperProbe}). Controller will be invisible to helper after suppression engages.");
                 return;
             }
 
@@ -963,6 +998,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
         {
             if (appRegistered || string.IsNullOrEmpty(cliPath))
             {
+                Logger.Debug($"EnsureApplicationRegistered(CLI) skipped: appRegistered={appRegistered}, cliPathEmpty={string.IsNullOrEmpty(cliPath)}");
                 return;
             }
 
@@ -971,6 +1007,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 IReadOnlyCollection<string> desiredAppPaths = EnumerateAllowedApplicationPaths();
                 if (desiredAppPaths.Count == 0)
                 {
+                    string helperProbe;
+                    try { helperProbe = Process.GetCurrentProcess().MainModule?.FileName ?? "<MainModule.FileName=null>"; }
+                    catch (Exception ex) { helperProbe = $"<MainModule access failed: {ex.GetType().Name}: {ex.Message}>"; }
+                    Logger.Warn($"HidHide CLI app registration skipped: 0 paths to register (helperPath probe: {helperProbe})");
                     return;
                 }
 
