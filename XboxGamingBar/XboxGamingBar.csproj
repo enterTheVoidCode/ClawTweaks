@@ -123,6 +123,8 @@
     <Compile Include="Data\ViiperStringComboProperty.cs" />
     <Compile Include="Data\ViiperSwapRumbleMotorsProperty.cs" />
     <Compile Include="Data\ViiperRumbleIntensityProperty.cs" />
+    <Compile Include="Data\ViiperMirrorLightbarToStickProperty.cs" />
+    <Compile Include="Data\ViiperStickGyroEnabledProperty.cs" />
     <Compile Include="Data\WinRing0AvailableProperty.cs" />
     <Compile Include="Data\PawnIOAvailableProperty.cs" />
     <Compile Include="Data\PawnIOInstalledProperty.cs" />
@@ -359,6 +361,9 @@
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Debug\GamingWidget.ViiperToggle.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\Debug\GamingWidget.ViiperStickGyro.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Debug\GamingWidget.DebugPanel.cs">
