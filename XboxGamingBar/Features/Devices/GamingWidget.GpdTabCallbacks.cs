@@ -165,6 +165,25 @@ namespace XboxGamingBar
             {
                 RequestControllerEmulationDriverStatus();
             }
+
+            // Quick tab tile visibility is gated on availability — refresh the grid so
+            // the Controller tile appears/disappears when the helper reports support.
+            RefreshQuickSettingsForControllerEmulation();
+        }
+
+        private void RefreshQuickSettingsForControllerEmulation()
+        {
+            if (!quickSettingsInitialized) return;
+            try
+            {
+                RebuildQuickSettingsTiles();
+                BuildSortableGrid();
+                UpdateQuickSettingsTileStates();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error refreshing Quick Settings for Controller Emulation: {ex.Message}");
+            }
         }
 
         private void UpdateControllerEmulationControlState()
@@ -361,6 +380,10 @@ namespace XboxGamingBar
             UpdateControllerEmulationStatusText();
             UpdateControllerEmulationMouseSettingsVisibility();
             UpdateSystemControllerEmulationNavigation();
+            // Keep the Quick tab Controller tile in sync with the System-tab toggle
+            // and any helper-driven changes (e.g. ControllerEmulationAvailable arrives
+            // late and needs to flip the tile from "N/A" to its actual state).
+            UpdateQuickSettingsTileStates();
         }
 
         private void ControllerEmulationImprovedInputToggle_Toggled(object sender, RoutedEventArgs e)
@@ -370,16 +393,26 @@ namespace XboxGamingBar
 
         private async void ControllerEmulationImprovedInput_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            if (Dispatcher != null)
+            // async void: any exception here escapes to the UWP runtime as 0xc000027b
+            // and terminates the process. Wrap both the await and the lambda body.
+            try
             {
-                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                if (Dispatcher != null)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { RefreshLegionEnhancedRemapUi(); }
+                        catch (Exception ex) { Logger.Warn($"RefreshLegionEnhancedRemapUi threw: {ex.GetType().Name}: {ex.Message}"); }
+                    });
+                }
+                else
                 {
                     RefreshLegionEnhancedRemapUi();
-                });
+                }
             }
-            else
+            catch (Exception ex)
             {
-                RefreshLegionEnhancedRemapUi();
+                Logger.Error($"ControllerEmulationImprovedInput_PropertyChanged outer: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
             }
         }
 

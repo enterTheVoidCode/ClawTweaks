@@ -163,6 +163,9 @@ namespace XboxGamingBar
                             case "LegionFanFullSpeed":
                                 ToggleLegionFanFullSpeed();
                                 break;
+                            case "ControllerEmulation":
+                                ToggleControllerEmulation();
+                                break;
                         }
                     }
 
@@ -1183,6 +1186,119 @@ namespace XboxGamingBar
                     LegionChargeLimitToggle.IsOn = newValue;
                 }
                 Logger.Info($"Legion Charge Limit toggled to {(newValue ? "80%" : "Off")}");
+            }
+        }
+
+        // Cycle order for the Quick-tab Controller tile.
+        //   Legacy: every supported mode (0=Mouse, 1=Xbox Stick, 2=DS4 Motion, 3=DS4 Stick).
+        //   VIIPER: every supported virtual-device tag from ViiperDeviceTypeComboBox.
+        // Both cycles end at "Off" so the user can always get the tile back to disabled.
+        private static readonly int[] ControllerEmulationLegacyCycle = new[] { 0, 1, 2, 3 };
+        private static readonly string[] ControllerEmulationViiperCycle = new[]
+        {
+            "xbox360", "dualshock4", "dualsenseedge", "xboxelite2", "steam-generic", "switchpro"
+        };
+
+        private void ToggleControllerEmulation()
+        {
+            if (controllerEmulationEnabled == null)
+            {
+                return;
+            }
+            if (controllerEmulationAvailable?.Value != true)
+            {
+                Logger.Info("Controller Emulation tile click ignored — emulation not available on this device.");
+                return;
+            }
+
+            bool isViiper = emulationBackend?.Value == true;
+            bool currentlyEnabled = controllerEmulationEnabled.Value;
+
+            if (isViiper)
+            {
+                CycleControllerEmulationViiper(currentlyEnabled);
+            }
+            else
+            {
+                CycleControllerEmulationLegacy(currentlyEnabled);
+            }
+        }
+
+        private void CycleControllerEmulationLegacy(bool currentlyEnabled)
+        {
+            int[] cycle = ControllerEmulationLegacyCycle;
+
+            if (!currentlyEnabled)
+            {
+                int firstMode = cycle[0];
+                controllerEmulationMode?.SetValue(firstMode);
+                controllerEmulationEnabled.SetValue(true);
+                if (ControllerEmulationEnabledToggle != null)
+                {
+                    ControllerEmulationEnabledToggle.IsOn = true;
+                }
+                Logger.Info($"Controller Emulation (Legacy) cycled: Off -> mode {firstMode}");
+                return;
+            }
+
+            int current = controllerEmulationMode?.Value ?? cycle[0];
+            int currentIndex = Array.IndexOf(cycle, current);
+            int nextIndex = currentIndex + 1;
+
+            if (currentIndex < 0 || nextIndex >= cycle.Length)
+            {
+                // Current mode is outside the cycle (e.g. Mouse or PS4-Stick set via System tab),
+                // or we're at the end — flip to Off.
+                controllerEmulationEnabled.SetValue(false);
+                if (ControllerEmulationEnabledToggle != null)
+                {
+                    ControllerEmulationEnabledToggle.IsOn = false;
+                }
+                Logger.Info("Controller Emulation (Legacy) cycled: -> Off");
+            }
+            else
+            {
+                int nextMode = cycle[nextIndex];
+                controllerEmulationMode?.SetValue(nextMode);
+                Logger.Info($"Controller Emulation (Legacy) cycled: mode {current} -> mode {nextMode}");
+            }
+        }
+
+        private void CycleControllerEmulationViiper(bool currentlyEnabled)
+        {
+            string[] cycle = ControllerEmulationViiperCycle;
+
+            if (!currentlyEnabled)
+            {
+                string firstDevice = cycle[0];
+                viiperDeviceType?.SetValue(firstDevice);
+                controllerEmulationEnabled.SetValue(true);
+                if (ControllerEmulationEnabledToggle != null)
+                {
+                    ControllerEmulationEnabledToggle.IsOn = true;
+                }
+                Logger.Info($"Controller Emulation (VIIPER) cycled: Off -> {firstDevice}");
+                return;
+            }
+
+            string current = viiperDeviceType?.Value ?? cycle[0];
+            int currentIndex = Array.IndexOf(cycle, current);
+            int nextIndex = currentIndex + 1;
+
+            if (currentIndex < 0 || nextIndex >= cycle.Length)
+            {
+                controllerEmulationEnabled.SetValue(false);
+                if (ControllerEmulationEnabledToggle != null)
+                {
+                    ControllerEmulationEnabledToggle.IsOn = false;
+                }
+                Logger.Info("Controller Emulation (VIIPER) cycled: -> Off");
+            }
+            else
+            {
+                string nextDevice = cycle[nextIndex];
+                viiperDeviceType?.SetValue(nextDevice);
+                Logger.Info($"Controller Emulation (VIIPER) cycled: {current} -> {nextDevice}");
             }
         }
 

@@ -282,6 +282,9 @@ namespace XboxGamingBar
             AddTileDefinition("LegionTouchpad", "Touchpad", "\uE962", order: order++);
             AddTileDefinition("LegionRemapControls", "Remap", "\uE7FC", order: order++);
             AddTileDefinition("LegionDesktopControls", "Desktop", "\uE7F4", order: order++);
+            // Quick toggle for the legacy controller emulation backend; state text shows
+            // the active backend mode (Xbox / DS4 / Mouse) when on, "Off" otherwise.
+            AddTileDefinition("ControllerEmulation", "Controller", "\uE7FC", order: order++);
 
             // Row 7 - System/Device
             AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);

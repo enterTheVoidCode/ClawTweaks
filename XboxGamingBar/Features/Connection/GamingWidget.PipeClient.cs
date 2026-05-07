@@ -238,10 +238,21 @@ namespace XboxGamingBar
             App.PipeMessageReceived -= PipeClient_MessageReceived;
             App.PipeDisconnected -= PipeClient_Disconnected;
 
+            // If the active mode had EC override on, the helper was driving 0xC6C8 every
+            // 3s. With the helper gone (crash or kill), 0xC6C8 holds whatever RPM we last
+            // wrote — fan stuck at that value until the helper reconnects or reboot.
+            // Surface a warning in the fan card so the user isn't left wondering why the
+            // fan won't ramp. Cleared on next successful pipe-connect (OnPipeConnectedAsync).
+            bool activeUnlockWasOn = legionUnlockFanCurve != null && legionUnlockFanCurve.Value;
+
             // Show reconnecting state and trigger guarded reconnect flow.
             await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
             {
                 ShowConnectionBanner(BannerState.Reconnecting);
+                if (activeUnlockWasOn && FanCurveHelperDisconnectedWarning != null)
+                {
+                    FanCurveHelperDisconnectedWarning.Visibility = Windows.UI.Xaml.Visibility.Visible;
+                }
             });
 
             Logger.Info("Pipe disconnected - starting automatic helper reconnection");
