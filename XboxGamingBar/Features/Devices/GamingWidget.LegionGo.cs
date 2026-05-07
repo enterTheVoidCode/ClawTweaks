@@ -1977,21 +1977,20 @@ namespace XboxGamingBar
                 }
             }
 
-            // Enable/disable fan curve card based on Custom mode
-            // Preset modes (Quiet, Balanced, Performance) have built-in fan curves managed by hardware
-            // Custom fan curves should only be editable in Custom mode
+            // Fan curve card stays fully interactive in every power mode now. Per-mode
+            // storage means each mode has its own saved curve + EC-override unlock state,
+            // and the user can edit any mode's slot from the dropdown without changing
+            // the running power mode. The old Custom-only gate predated per-mode storage
+            // and would mislead users into thinking fan control is only available in
+            // Custom — keep it always enabled.
             if (LegionFanCurveCard != null)
             {
-                // Don't hide the card, just disable interaction when not in Custom mode
-                LegionFanCurveCard.IsHitTestVisible = visible;
-                LegionFanCurveCard.Opacity = visible ? 1.0 : 0.5;
-                Logger.Info($"Fan curve card enabled: {visible} (Custom mode: {visible})");
+                LegionFanCurveCard.IsHitTestVisible = true;
+                LegionFanCurveCard.Opacity = 1.0;
             }
-
-            // Update the fan curve preset dropdown to show the mode restriction
             if (FanCurvePresetComboBox != null)
             {
-                FanCurvePresetComboBox.IsEnabled = visible;
+                FanCurvePresetComboBox.IsEnabled = true;
             }
         }
 
@@ -2174,6 +2173,12 @@ namespace XboxGamingBar
 
             // Update TDP slider enabled state based on mode
             UpdateTDPSliderEnabledState();
+
+            // Keep the fan-curve power-mode dropdown in sync with whatever power mode
+            // is now active. Fires for both user-driven and helper-pushed mode changes,
+            // so the fan curve dropdown follows the Lenovo button, TDP card, etc.
+            try { SyncFanCurvePresetComboToActiveMode(); }
+            catch (Exception ex) { Logger.Debug($"SyncFanCurvePresetComboToActiveMode failed: {ex.Message}"); }
         }
 
         /// <summary>

@@ -43,6 +43,18 @@ namespace XboxGamingBar
 {
     public sealed partial class GamingWidget
     {
+        // Local cache of every saved per-mode fan curve and EC-override unlock state.
+        // Helper pushes all 4 modes on connect via LegionFanCurvePerMode /
+        // LegionUnlockFanCurvePerMode; the user-selected mode in the dropdown picks
+        // which slot the graph + toggle reflect, decoupled from the actual running
+        // power mode. Outbound edits target whichever mode is selected, not active.
+        private readonly Dictionary<int, int[]> fanCurveCache = new Dictionary<int, int[]>();
+        private readonly Dictionary<int, bool> unlockCache = new Dictionary<int, bool>();
+        // Default to Balanced (the XAML dropdown default). Overwritten as soon as the
+        // helper syncs LegionPerformanceMode and we auto-jump to the active mode.
+        private int selectedFanCurveMode = 2;
+        private bool isApplyingFanCurveCacheLoad = false; // suppress UI→helper echo while loading the selected slot
+
         private void InitializeFanCurveGraph()
         {
             if (FanCurveCanvas == null || fanCurveGraphInitialized)
@@ -75,81 +87,203 @@ namespace XboxGamingBar
             // Draw the graph
             DrawGridLines();
             UpdateFanCurveGraph();
+
+            // Sync prefix label + EC floor legend with the persisted unlock state so the
+            // first render matches reality (avoids flicker on first toggle).
+            RefreshFanCurveGraphForUnlockState();
+
+            // Pick up active mode from the helper-synced LegionPerformanceMode so the
+            // dropdown starts on the running mode rather than the XAML default. After
+            // this, the cache contents (when the per-mode push lands) repaint the graph.
+            JumpFanCurveDropdownToActiveMode();
+            UpdateActiveModeLabel();
         }
 
+        // The fan-curve dropdown is a *view selector* — it picks which mode's saved
+        // curve and unlock state the user is editing. It does NOT change the running
+        // power mode. The "Active: <mode>" label next to it shows what's actually
+        // running; that label only appears when the selected mode differs from the
+        // active mode.
         private void FanCurvePresetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (isFanCurvePresetLoading) return;
 
-            if (FanCurvePresetComboBox?.SelectedItem is ComboBoxItem item && item.Tag is string presetName)
+            if (FanCurvePresetComboBox?.SelectedItem is ComboBoxItem item && item.Tag is string modeStr)
             {
-                if (presetName == "Custom") return; // User manually selected Custom, no action needed
+                if (!int.TryParse(modeStr, out int mode)) return;
+                if (mode == selectedFanCurveMode) return;
 
-                if (FanCurvePresets.TryGetValue(presetName, out int[] presetValues))
-                {
-                    currentFanCurvePreset = presetName;
-                    currentFanCurveValues = (int[])presetValues.Clone();
-                    UpdateFanCurveGraph();
+                Logger.Info($"Fan curve view switched to mode {mode} (was {selectedFanCurveMode}); active mode is {legionPerformanceMode?.Value}");
+                selectedFanCurveMode = mode;
 
-                    // Send to helper
-                    legionFanCurveGraph?.SetCurveValuesDebounced(currentFanCurveValues);
-
-                    // Save preset selection
-                    SaveFanCurvePresetSetting(presetName);
-                }
+                // Repaint graph + sync toggle from the cache for the newly selected mode.
+                ApplySelectedFanCurveModeFromCache();
+                UpdateActiveModeLabel();
+                RefreshFanCurveGraphForUnlockState();
             }
         }
 
-        private void SwitchToCustomPreset()
-        {
-            if (currentFanCurvePreset != "Custom")
-            {
-                currentFanCurvePreset = "Custom";
-                isFanCurvePresetLoading = true;
-                SelectPresetInComboBox("Custom");
-                isFanCurvePresetLoading = false;
-                SaveFanCurvePresetSetting("Custom");
-            }
-        }
+        // Stub kept so per-edit code paths still compile. With per-mode storage, manual
+        // curve edits stick in whatever mode is selected in the dropdown — no separate
+        // "Custom preset" concept anymore.
+        private void SwitchToCustomPreset() { }
 
-        private void SelectPresetInComboBox(string presetName)
+        // Auto-jump: when the running power mode changes externally (Lenovo button,
+        // TDP card, helper push), jump the dropdown to the new active mode so the
+        // user is editing the curve that's actually being applied.
+        private void JumpFanCurveDropdownToActiveMode()
         {
-            if (FanCurvePresetComboBox == null) return;
+            if (FanCurvePresetComboBox == null || legionPerformanceMode == null) return;
+            int targetMode = legionPerformanceMode.Value;
+            string targetTag = targetMode.ToString();
             foreach (ComboBoxItem item in FanCurvePresetComboBox.Items)
             {
-                if (item.Tag is string tag && tag == presetName)
+                if (item.Tag is string tag && tag == targetTag)
                 {
-                    FanCurvePresetComboBox.SelectedItem = item;
+                    if (FanCurvePresetComboBox.SelectedItem != item)
+                    {
+                        isFanCurvePresetLoading = true;
+                        try { FanCurvePresetComboBox.SelectedItem = item; }
+                        finally { isFanCurvePresetLoading = false; }
+                        selectedFanCurveMode = targetMode;
+                        ApplySelectedFanCurveModeFromCache();
+                        RefreshFanCurveGraphForUnlockState();
+                    }
+                    else if (selectedFanCurveMode != targetMode)
+                    {
+                        selectedFanCurveMode = targetMode;
+                        ApplySelectedFanCurveModeFromCache();
+                        RefreshFanCurveGraphForUnlockState();
+                    }
                     break;
                 }
             }
         }
 
-        private void SaveFanCurvePresetSetting(string presetName)
+        // Legacy entry point kept for callers that still invoke it from other partials.
+        // Same behavior as JumpFanCurveDropdownToActiveMode now (dropdown was a power-
+        // mode selector before; it's a view selector now).
+        private void SyncFanCurvePresetComboToActiveMode()
         {
-            try
-            {
-                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
-                settings.Values["FanCurvePreset"] = presetName;
-            }
-            catch { }
+            JumpFanCurveDropdownToActiveMode();
+            UpdateActiveModeLabel();
         }
 
-        private void LoadFanCurvePresetSetting()
+        // Show "Active: <mode>" only when the user is viewing a non-active mode, so
+        // there's a visual hint that edits to the current view will only kick in
+        // once that mode is selected (or via Lenovo button etc).
+        private void UpdateActiveModeLabel()
         {
+            if (FanCurveActiveModeLabel == null || legionPerformanceMode == null) return;
+            int active = legionPerformanceMode.Value;
+            if (active == selectedFanCurveMode)
+            {
+                FanCurveActiveModeLabel.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                FanCurveActiveModeLabel.Text = $"Active: {LegionModeShortName(active)}";
+                FanCurveActiveModeLabel.Visibility = Visibility.Visible;
+            }
+        }
+
+        private static string LegionModeShortName(int mode)
+        {
+            switch (mode)
+            {
+                case 1: return "Quiet";
+                case 2: return "Balanced";
+                case 3: return "Performance";
+                case 255: return "Custom";
+                default: return mode.ToString();
+            }
+        }
+
+        // Loads the cached curve + unlock state for whichever mode is selected into
+        // the graph + toggle, suppressing the UI→helper echo so swapping views never
+        // triggers a phantom save. If the cache for that mode isn't populated yet
+        // (helper hasn't pushed), fall back to the legacy active-mode value so the
+        // graph isn't blank.
+        private void ApplySelectedFanCurveModeFromCache()
+        {
+            if (!fanCurveGraphInitialized) return;
+            isApplyingFanCurveCacheLoad = true;
             try
             {
-                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
-                if (settings.Values.TryGetValue("FanCurvePreset", out object saved) && saved is string presetName)
+                if (fanCurveCache.TryGetValue(selectedFanCurveMode, out int[] cached) && cached != null && cached.Length == 10)
                 {
-                    currentFanCurvePreset = presetName;
-                    isFanCurvePresetLoading = true;
-                    SelectPresetInComboBox(presetName);
-                    isFanCurvePresetLoading = false;
+                    currentFanCurveValues = (int[])cached.Clone();
+                }
+                else if (legionFanCurveGraph != null)
+                {
+                    currentFanCurveValues = legionFanCurveGraph.GetCurveValues();
+                }
+                UpdateFanCurveGraph();
+
+                if (LegionUnlockFanCurveToggle != null)
+                {
+                    bool desired = unlockCache.TryGetValue(selectedFanCurveMode, out bool u) && u;
+                    if (LegionUnlockFanCurveToggle.IsOn != desired)
+                    {
+                        LegionUnlockFanCurveToggle.IsOn = desired;
+                    }
                 }
             }
-            catch { }
+            finally
+            {
+                isApplyingFanCurveCacheLoad = false;
+            }
         }
+
+        // Inbound from helper: per-mode fan curve push. Update the cache; if the user
+        // is currently viewing this mode, repaint the graph with the new values.
+        private void OnFanCurvePerModeReceived(int mode, int[] values)
+        {
+            if (values == null || values.Length != 10) return;
+            fanCurveCache[mode] = (int[])values.Clone();
+            if (mode == selectedFanCurveMode && fanCurveGraphInitialized)
+            {
+                isApplyingFanCurveCacheLoad = true;
+                try
+                {
+                    currentFanCurveValues = (int[])values.Clone();
+                    UpdateFanCurveGraph();
+                }
+                finally { isApplyingFanCurveCacheLoad = false; }
+            }
+        }
+
+        // Inbound from helper: per-mode unlock push. Update the cache; if the user
+        // is currently viewing this mode, sync the toggle without firing the Toggled
+        // handler (which would echo back to the helper).
+        private void OnUnlockFanCurvePerModeReceived(int mode, bool unlocked)
+        {
+            unlockCache[mode] = unlocked;
+            if (mode == selectedFanCurveMode && LegionUnlockFanCurveToggle != null)
+            {
+                if (LegionUnlockFanCurveToggle.IsOn != unlocked)
+                {
+                    isApplyingFanCurveCacheLoad = true;
+                    try { LegionUnlockFanCurveToggle.IsOn = unlocked; }
+                    finally { isApplyingFanCurveCacheLoad = false; }
+                }
+                RefreshFanCurveGraphForUnlockState();
+            }
+        }
+
+        private bool IsViewingActiveFanCurveMode()
+            => legionPerformanceMode != null && legionPerformanceMode.Value == selectedFanCurveMode;
+
+        // Legacy preset-name persistence is obsolete now (we don't store a "preset name"
+        // separately from power mode). Kept as a no-op so older code paths don't crash.
+        private void SaveFanCurvePresetSetting(string presetName) { }
+
+        // Legacy: persisted preset name was used by the old preset dropdown
+        // (Silent/Balanced/Performance/MaxCooling/Custom). The dropdown is now keyed
+        // off TdpMode and the helper is the source of truth — SyncFanCurvePresetComboToActiveMode
+        // drives the selection from legionPerformanceMode.Value. Kept as a no-op so we
+        // don't read the now-meaningless LocalSettings value.
+        private void LoadFanCurvePresetSetting() { }
 
         private void DrawGridLines()
         {
@@ -288,29 +422,69 @@ namespace XboxGamingBar
         {
             if (values == null || values.Length != 10) return;
 
-            currentFanCurveValues = values;
-            UpdateFanCurveGraph();
+            // Cache is owned by the per-mode channel (LegionFanCurvePerMode), where the
+            // mode is explicit in the payload — race-free. The legacy LegionFanCurveData
+            // channel doesn't carry a mode tag, so reading legionPerformanceMode.Value
+            // here is racy at startup / mode change. Don't write to the cache from this
+            // path; just repaint the graph if the user is viewing the (presumed) active
+            // mode and the per-mode push hasn't yet landed.
+            if (legionPerformanceMode != null && legionPerformanceMode.Value == selectedFanCurveMode)
+            {
+                currentFanCurveValues = values;
+                UpdateFanCurveGraph();
+            }
         }
 
+        // Route the graph's temperature display + indicator based on unlock state.
+        // When unlocked, the EC override loop drives the fan from CPU/Tctl (k10temp),
+        // matching what HWiNFO/Rodpad show; the displayed temp must match what's
+        // actually being used to evaluate the curve. When locked, firmware drives
+        // the fan from its own 0x01 sensor, so we show that.
         private void OnCPUTempUpdated(int tempC)
         {
-            // CPU temp is shown as reference only, fan sensor temp is used for graph indicator
-            // (CPU temp is typically 10-17°C higher than fan sensor temp)
+            // Live indicators only meaningful when the user is viewing the curve that's
+            // actually running. When viewing a non-active mode, hide the live temp dot
+            // since it can't honestly map onto an inactive curve.
+            if (!IsViewingActiveFanCurveMode()) { HideLiveIndicators(); return; }
+            if (!IsFanCurveOverrideUnlocked()) return; // ignore — fan-sensor path owns the display
+            UpdateFanCurveGraphTemp(tempC);
         }
 
         private void OnFanSensorTempUpdated(int tempC)
         {
-            // Update temperature label (this is the temp the EC uses for fan curve)
+            if (!IsViewingActiveFanCurveMode()) { HideLiveIndicators(); return; }
+            if (IsFanCurveOverrideUnlocked()) return; // ignore — CPU temp path owns the display
+            UpdateFanCurveGraphTemp(tempC);
+        }
+
+        // Hide the live temp/RPM dots + label values when viewing a non-active mode.
+        private void HideLiveIndicators()
+        {
+            if (TempIndicatorLine != null) TempIndicatorLine.Visibility = Visibility.Collapsed;
+            if (RPMIndicatorLine != null) RPMIndicatorLine.Visibility = Visibility.Collapsed;
+            if (CurrentTempLabel != null) CurrentTempLabel.Text = "--";
+            if (FanRPMLabel != null) FanRPMLabel.Text = "-- RPM";
+        }
+
+        private bool IsFanCurveOverrideUnlocked()
+            => legionUnlockFanCurve != null && legionUnlockFanCurve.Value;
+
+        private void UpdateFanCurveGraphTemp(int tempC)
+        {
             if (CurrentTempLabel != null)
             {
                 CurrentTempLabel.Text = $"{tempC}°C";
             }
-            // Update temperature indicator on graph (fan sensor temp matches the curve's X-axis)
             UpdateTemperatureIndicator(tempC);
         }
 
         private void OnFanRPMUpdated(int rpm)
         {
+            if (!IsViewingActiveFanCurveMode())
+            {
+                HideLiveIndicators();
+                return;
+            }
             if (FanRPMLabel != null)
             {
                 FanRPMLabel.Text = $"{rpm} RPM";
@@ -365,12 +539,95 @@ namespace XboxGamingBar
                 DrawGridLines();
                 UpdateFanCurveGraph();
 
-                // Re-update temp indicator if we have a value (fan sensor temp is used for graph)
-                if (legionFanSensorTemp != null && legionFanSensorTemp.Value > 0)
+                // Re-update temp indicator using whichever sensor matches the current unlock state.
+                int? activeTemp = IsFanCurveOverrideUnlocked()
+                    ? (legionCPUTemp != null && legionCPUTemp.Value > 0 ? legionCPUTemp.Value : (int?)null)
+                    : (legionFanSensorTemp != null && legionFanSensorTemp.Value > 0 ? legionFanSensorTemp.Value : (int?)null);
+                if (activeTemp.HasValue)
                 {
-                    UpdateTemperatureIndicator(legionFanSensorTemp.Value);
+                    UpdateTemperatureIndicator(activeTemp.Value);
                 }
             }
+        }
+
+        // Refreshes the graph's temp-display strip and the EC floor visibility whenever
+        // the Unlock Fan Curve Override toggle changes state. Called from the toggle's
+        // Toggled handler — that event fires for both user clicks and helper-pushed
+        // value changes, so we cover both paths.
+        private void RefreshFanCurveGraphForUnlockState()
+        {
+            // The "active mode unlock state" governs the live sensor routing (CPU vs
+            // fan sensor) and EC floor visibility — those describe what's running
+            // right now. The "selected mode unlock state" governs the X-axis label
+            // mode, since the labels describe the curve the user is editing.
+            bool activeUnlocked = IsFanCurveOverrideUnlocked();
+            bool selectedUnlocked = unlockCache.TryGetValue(selectedFanCurveMode, out bool su) && su;
+            bool viewingActive = IsViewingActiveFanCurveMode();
+
+            if (CurrentTempPrefixLabel != null)
+                CurrentTempPrefixLabel.Text = activeUnlocked ? "CPU Temp: " : "Fan Sensor Temp: ";
+
+            // EC floor line + legend make no sense once we're bypassing the firmware
+            // (active unlock on). Also hide them while editing a non-active mode since
+            // they describe the running curve, not the one being edited.
+            if (ECFloorPolyline != null)
+                ECFloorPolyline.Visibility = (activeUnlocked || !viewingActive) ? Visibility.Collapsed : Visibility.Visible;
+            if (ECFloorLegendPanel != null)
+                ECFloorLegendPanel.Visibility = (activeUnlocked || !viewingActive) ? Visibility.Collapsed : Visibility.Visible;
+
+            // Temperature axis labels are always visible now — they describe the
+            // curve's breakpoint storage (10°C…100°C) regardless of which path
+            // applies the curve. Under the locked/firmware path Lenovo may map
+            // sensor temp to curve point differently; the Info expander notes
+            // that. Showing the labels gives the user a temperature anchor while
+            // editing in any state.
+            if (FanCurveTempAxisGrid != null)
+                FanCurveTempAxisGrid.Visibility = Visibility.Visible;
+            if (FanCurveLockedAxisHint != null)
+                FanCurveLockedAxisHint.Visibility = Visibility.Collapsed;
+
+            // Hide live temp/RPM indicators when viewing a non-active mode — they
+            // can't honestly map onto a curve that isn't currently driving the fan.
+            if (!viewingActive)
+            {
+                HideLiveIndicators();
+                return;
+            }
+
+            // Push the temp value from whichever sensor owns the display now so the label
+            // and indicator switch immediately rather than waiting for the next sensor tick.
+            int? newTemp = activeUnlocked
+                ? (legionCPUTemp != null && legionCPUTemp.Value > 0 ? legionCPUTemp.Value : (int?)null)
+                : (legionFanSensorTemp != null && legionFanSensorTemp.Value > 0 ? legionFanSensorTemp.Value : (int?)null);
+            if (newTemp.HasValue)
+            {
+                UpdateFanCurveGraphTemp(newTemp.Value);
+            }
+        }
+
+        private void LegionUnlockFanCurveToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            try { RefreshFanCurveGraphForUnlockState(); }
+            catch (Exception ex) { Logger.Debug($"RefreshFanCurveGraphForUnlockState failed: {ex.Message}"); }
+
+            // Skip outbound while loading the toggle from any non-user source:
+            //   1. ApplySelectedFanCurveModeFromCache (view switch) — `isApplyingFanCurveCacheLoad`.
+            //   2. OnUnlockFanCurvePerModeReceived (per-mode push) — same flag.
+            //   3. WidgetToggleProperty syncing legacy LegionUnlockFanCurve from helper
+            //      (mode-change push) — `legionUnlockFanCurve.IsUpdatingUI`. Without
+            //      this, an external mode change would route the active-mode unlock
+            //      flip into whichever mode the user happened to have in the dropdown.
+            if (isApplyingFanCurveCacheLoad) return;
+            if (legionUnlockFanCurve != null && legionUnlockFanCurve.IsUpdatingUI) return;
+            if (LegionUnlockFanCurveToggle == null) return;
+
+            bool unlocked = LegionUnlockFanCurveToggle.IsOn;
+            unlockCache[selectedFanCurveMode] = unlocked;
+            // Send to helper keyed by the dropdown-selected mode (NOT necessarily the
+            // active mode). Helper persists in the right slot and only flips the EC
+            // override loop if the toggled mode happens to be the running power mode.
+            legionUnlockFanCurvePerMode?.SendForMode(selectedFanCurveMode, unlocked);
+            Logger.Info($"Unlock toggle set to {unlocked} for mode {selectedFanCurveMode} (active={legionPerformanceMode?.Value})");
         }
 
         private void FanCurveCanvas_PointerPressed(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -437,11 +694,17 @@ namespace XboxGamingBar
             {
                 FanCurveCanvas.ReleasePointerCapture(e.Pointer);
 
-                // Switch to Custom preset when manually dragging
-                SwitchToCustomPreset();
+                // Update the cache for whichever mode the dropdown is showing — that's
+                // the slot the edit targets (NOT necessarily the active mode).
+                fanCurveCache[selectedFanCurveMode] = (int[])currentFanCurveValues.Clone();
 
-                // Send the updated values to the helper (debounced)
-                legionFanCurveGraph.SetCurveValuesDebounced(currentFanCurveValues);
+                // Push to helper via the per-mode channel so the helper persists this
+                // edit in the right slot. Helper will only write to hardware if the
+                // edited mode happens to be the running power mode.
+                if (legionFanCurvePerMode != null)
+                {
+                    legionFanCurvePerMode.SendForMode(selectedFanCurveMode, currentFanCurveValues);
+                }
             }
 
             draggedPointIndex = -1;
