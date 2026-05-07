@@ -138,6 +138,14 @@ namespace XboxGamingBarHelper.Systems
             get { return displayOrientation; }
         }
 
+        private readonly SdrWhiteLevelSyncModeProperty sdrWhiteLevelSyncMode;
+        public SdrWhiteLevelSyncModeProperty SdrWhiteLevelSyncMode
+        {
+            get { return sdrWhiteLevelSyncMode; }
+        }
+
+        private readonly SdrWhiteLevelSyncManager sdrWhiteLevelSyncManager = new SdrWhiteLevelSyncManager();
+
         // CPU Core Configuration
         public int TotalPCores { get; private set; }
         public int TotalECores { get; private set; }
@@ -223,6 +231,10 @@ namespace XboxGamingBarHelper.Systems
             hdrEnabled = new HDREnabledProperty(hdrStatus.Enabled, this);
             Logger.Info("Check display orientation.");
             displayOrientation = new DisplayOrientationProperty(User32.GetCurrentOrientation(), this);
+
+            sdrWhiteLevelSyncMode = new SdrWhiteLevelSyncModeProperty(this);
+            sdrWhiteLevelSyncManager.SetHdrEnabled(hdrStatus.Enabled);
+            sdrWhiteLevelSyncManager.SetMode(sdrWhiteLevelSyncMode.Mode);
 
             Logger.Info("Detecting CPU core configuration.");
             DetectCPUCoreConfiguration();
@@ -356,6 +368,7 @@ namespace XboxGamingBarHelper.Systems
                 Logger.Info($"HDR status: Supported={hdrStatus.Supported}, Enabled={hdrStatus.Enabled}");
                 hdrSupported.SetValue(hdrStatus.Supported);
                 hdrEnabled.SetValue(hdrStatus.Enabled);
+                sdrWhiteLevelSyncManager.SetHdrEnabled(hdrStatus.Enabled);
 
                 // Refresh display orientation
                 var currentOrientation = User32.GetCurrentOrientation();
@@ -1414,6 +1427,16 @@ namespace XboxGamingBarHelper.Systems
             {
                 Logger.Error($"Error setting adaptive brightness: {ex.Message}");
             }
+        }
+
+        public void OnSdrWhiteLevelSyncModeChanged(Shared.Enums.SdrWhiteLevelSyncMode mode)
+        {
+            sdrWhiteLevelSyncManager.SetMode(mode);
+        }
+
+        public void OnHdrEnabledChanged(bool enabled)
+        {
+            sdrWhiteLevelSyncManager.SetHdrEnabled(enabled);
         }
 
         /// <summary>

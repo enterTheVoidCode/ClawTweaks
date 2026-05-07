@@ -268,6 +268,7 @@
     <Compile Include="Data\DisplayOrientationProperty.cs" />
     <Compile Include="Data\HDRSupportedProperty.cs" />
     <Compile Include="Data\HDREnabledProperty.cs" />
+    <Compile Include="Data\SdrWhiteLevelSyncModeProperty.cs" />
     <Compile Include="Data\RTSSInstalledProperty.cs" />
     <Compile Include="Data\FPSLimitProperty.cs" />
     <Compile Include="Data\OSPowerModeProperty.cs" />

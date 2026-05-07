@@ -615,6 +615,8 @@
     <Compile Include="Systems\HDREnabledProperty.cs" />
     <Compile Include="Systems\DisplayOrientationProperty.cs" />
     <Compile Include="Systems\HDRSupportedProperty.cs" />
+    <Compile Include="Systems\SdrWhiteLevelSyncModeProperty.cs" />
+    <Compile Include="Systems\SdrWhiteLevelSyncManager.cs" />
     <Compile Include="Systems\CPUCoreConfigProperty.cs" />
     <Compile Include="Systems\CPUCoreActiveConfigProperty.cs" />
     <Compile Include="Systems\CoreParkingPercentProperty.cs" />
