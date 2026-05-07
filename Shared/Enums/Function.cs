@@ -82,6 +82,18 @@
         LosslessScalingCreateProfile,    // Action: create profile for current game
         LosslessScalingBringToForeground, // Action: bring LS window to foreground
         LosslessScalingLaunch,           // Action: launch LS minimized (via helper)
+        LosslessScalingResetProfile,     // Action: reset current profile to LS default values
+
+        // Additional Settings.xml fields exposed in the widget Scaling tab.
+        // String enums map to LS's verbatim values (so Settings.xml round-trips cleanly).
+        LosslessScalingSyncMode,         // OFF, DEFAULT, VSYNC1..VSYNC4
+        LosslessScalingCaptureApi,       // DXGI, WGC, GDI
+        LosslessScalingDrawFps,          // bool — overlay shown by LS
+        LosslessScalingHdrSupport,       // bool
+        LosslessScalingGsyncSupport,     // bool
+        LosslessScalingResizeBeforeScaling, // bool
+        LosslessScalingLS1Type,          // BALANCED, PERFORMANCE (only meaningful when ScalingType=LS1)
+        LosslessScalingMaxFrameLatency,  // int 0..4
 
         Settings_AutoStartRTSS,
         Settings_OnScreenDisplayProvider,

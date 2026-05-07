@@ -167,6 +167,15 @@
     <Compile Include="Data\LosslessScaling\LosslessScalingCreateProfileProperty.cs" />
     <Compile Include="Data\LosslessScaling\LosslessScalingBringToForegroundProperty.cs" />
     <Compile Include="Data\LosslessScaling\LosslessScalingLaunchProperty.cs" />
+    <Compile Include="Data\LosslessScaling\LosslessScalingSyncModeProperty.cs" />
+    <Compile Include="Data\LosslessScaling\LosslessScalingCaptureApiProperty.cs" />
+    <Compile Include="Data\LosslessScaling\LosslessScalingDrawFpsProperty.cs" />
+    <Compile Include="Data\LosslessScaling\LosslessScalingHdrSupportProperty.cs" />
+    <Compile Include="Data\LosslessScaling\LosslessScalingGsyncSupportProperty.cs" />
+    <Compile Include="Data\LosslessScaling\LosslessScalingResizeBeforeScalingProperty.cs" />
+    <Compile Include="Data\LosslessScaling\LosslessScalingLS1TypeProperty.cs" />
+    <Compile Include="Data\LosslessScaling\LosslessScalingMaxFrameLatencyProperty.cs" />
+    <Compile Include="Data\LosslessScaling\LosslessScalingResetProfileProperty.cs" />
     <Compile Include="Data\Legion\LegionGoDetectedProperty.cs" />
     <Compile Include="Data\GPD\GPDDetectedProperty.cs" />
     <Compile Include="Data\GPD\GPDWin5ConnectedProperty.cs" />
