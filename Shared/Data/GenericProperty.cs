@@ -170,10 +170,23 @@ namespace Shared.Data
 
         protected bool SetValue(ValueType newValue, long updatedTime)
         {
-            // Treat 0 as "now" to prevent stale-timestamp rejection when UpdatedTime
-            // is missing from pipe messages (e.g., JSON parsing dropped it)
+            // Treat 0 as "no info" — fall through to "now" coercion ONLY when we
+            // also lack a real prior timestamp. Otherwise reject as stale: the
+            // sender's UpdatedTime=0 means either "field dropped in transit" or
+            // "BatchGet snapshot of a property the helper never explicitly set
+            // since boot." If we already have a real timestamp from a prior
+            // SyncToRemote update, that update was authoritative — don't let a
+            // racing BatchGet response clobber it (issue #79: VID:PID emptied
+            // out / controllers shown "detached" because helper's BatchGet
+            // snapshotted the property at its default-zero UpdatedTime before
+            // the post-init SyncToRemote landed at the widget).
             if (updatedTime == 0)
             {
+                if (lastUpdatedTime > 0)
+                {
+                    Logger.Debug($"Skip value {newValue} of {Function} because incoming UpdatedTime=0 (no info) and we already have a real timestamp {lastUpdatedTime}.");
+                    return false;
+                }
                 updatedTime = DateTime.Now.Ticks;
             }
 
