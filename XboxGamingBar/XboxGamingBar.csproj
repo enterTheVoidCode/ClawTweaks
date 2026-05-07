@@ -235,6 +235,7 @@
     <Compile Include="Data\Controller\ControllerConnectedLeftProperty.cs" />
     <Compile Include="Data\Controller\ControllerConnectedRightProperty.cs" />
     <Compile Include="Data\Controller\ControllerVidPidProperty.cs" />
+    <Compile Include="Data\Controller\ControllerDeviceStatusProperty.cs" />
     <Compile Include="Data\Device\DeviceDisplayNameProperty.cs" />
     <Compile Include="Data\Device\DeviceSupportsControllerRemapProperty.cs" />
     <Compile Include="Data\Device\DeviceSupportsRgbLightingProperty.cs" />

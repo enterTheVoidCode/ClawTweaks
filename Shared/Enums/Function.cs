@@ -219,6 +219,7 @@
         ControllerConnectedLeft,        // bool - whether left controller is connected (attached/detached)
         ControllerConnectedRight,       // bool - whether right controller is connected
         ControllerVidPid,               // string - detected controller VID:PID (e.g., "17EF:6182")
+        ControllerDeviceStatus,         // string - JSON snapshot of LegionGoStatus (FW, RGB, brightness, mode, speed, vibration, touchpad)
 
         // AutoTDP functions
         AutoTDPEnabled,             // bool - enable/disable AutoTDP
