@@ -141,13 +141,46 @@ namespace XboxGamingBarHelper.Profile
         }
 
         /// <summary>
-        /// Refreshes the GlobalProfile field from the dictionary cache.
-        /// Property change handlers (TDP_PropertyChanged, etc.) update CurrentProfile which is a
-        /// struct copy. Save() writes to the cache/disk, but the GlobalProfile field stays stale.
-        /// Call this before reading GlobalProfile to get the latest values.
+        /// Refreshes the GlobalProfile field from disk first, then from the in-memory
+        /// cache. Disk re-read catches edits the widget made to global.xml that the
+        /// helper's in-memory copy hasn't seen — without this, helper boots with a
+        /// snapshot of the file and never re-reads, so user-edited lighting/perf
+        /// values get reverted to the boot-time snapshot the next time the game
+        /// stops and helper applies "global" (issue #79: "stick light always
+        /// changes to dynamic, where I had it at pulse slow speed").
+        ///
+        /// Property change handlers (TDP_PropertyChanged, etc.) update CurrentProfile
+        /// which is a struct copy. Save() writes to the cache/disk, but the
+        /// GlobalProfile field stays stale. Call this before reading GlobalProfile
+        /// to get the latest values.
         /// </summary>
         public void RefreshGlobalProfile()
         {
+            // Re-read disk first. Widget edits to global.xml are otherwise invisible
+            // to helper's in-memory cache because the two processes don't share state.
+            // FlushPendingWrites first so any debounced helper-side save lands before
+            // we read (else we'd read our own pre-write snapshot).
+            try
+            {
+                var globalProfilePath = GetGlobalProfilePath();
+                Shared.Data.GameProfile.FlushAllPendingWrites();
+                if (File.Exists(globalProfilePath))
+                {
+                    var fromDisk = Shared.Utilities.XmlHelper.FromXMLFile<Shared.Data.GameProfile>(globalProfilePath);
+                    fromDisk.Path = globalProfilePath;
+                    fromDisk.Cache = gameProfiles;
+                    gameProfiles[fromDisk.GameId] = fromDisk;
+                    GlobalProfile = fromDisk;
+                    Logger.Info($"Refreshed GlobalProfile from disk: TDP={GlobalProfile.TDP}, CPUBoost={GlobalProfile.CPUBoost}, EPP={GlobalProfile.CPUEPP}, LightMode={GlobalProfile.LegionLightMode}, LightSpeed={GlobalProfile.LegionLightSpeed}");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"RefreshGlobalProfile: disk re-read failed, falling back to cache: {ex.Message}");
+            }
+
+            // Fallback: use in-memory cache (matches prior behavior on read failure).
             if (gameProfiles.TryGetValue(GlobalProfile.GameId, out GameProfile cached))
             {
                 GlobalProfile = cached;
