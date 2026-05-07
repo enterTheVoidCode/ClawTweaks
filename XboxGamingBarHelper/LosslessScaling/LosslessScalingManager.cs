@@ -125,10 +125,41 @@ namespace XboxGamingBarHelper.LosslessScaling
         private readonly LosslessScalingLaunchProperty losslessScalingLaunch;
         public LosslessScalingLaunchProperty LosslessScalingLaunch => losslessScalingLaunch;
 
+        // --- Additional Settings.xml fields (added 2026-05-01) ---
+        private readonly LosslessScalingSyncModeProperty losslessScalingSyncMode;
+        public LosslessScalingSyncModeProperty LosslessScalingSyncMode => losslessScalingSyncMode;
+
+        private readonly LosslessScalingCaptureApiProperty losslessScalingCaptureApi;
+        public LosslessScalingCaptureApiProperty LosslessScalingCaptureApi => losslessScalingCaptureApi;
+
+        private readonly LosslessScalingDrawFpsProperty losslessScalingDrawFps;
+        public LosslessScalingDrawFpsProperty LosslessScalingDrawFps => losslessScalingDrawFps;
+
+        private readonly LosslessScalingHdrSupportProperty losslessScalingHdrSupport;
+        public LosslessScalingHdrSupportProperty LosslessScalingHdrSupport => losslessScalingHdrSupport;
+
+        private readonly LosslessScalingGsyncSupportProperty losslessScalingGsyncSupport;
+        public LosslessScalingGsyncSupportProperty LosslessScalingGsyncSupport => losslessScalingGsyncSupport;
+
+        private readonly LosslessScalingResizeBeforeScalingProperty losslessScalingResizeBeforeScaling;
+        public LosslessScalingResizeBeforeScalingProperty LosslessScalingResizeBeforeScaling => losslessScalingResizeBeforeScaling;
+
+        private readonly LosslessScalingLS1TypeProperty losslessScalingLS1Type;
+        public LosslessScalingLS1TypeProperty LosslessScalingLS1Type => losslessScalingLS1Type;
+
+        private readonly LosslessScalingMaxFrameLatencyProperty losslessScalingMaxFrameLatency;
+        public LosslessScalingMaxFrameLatencyProperty LosslessScalingMaxFrameLatency => losslessScalingMaxFrameLatency;
+
+        private readonly LosslessScalingResetProfileProperty losslessScalingResetProfile;
+        public LosslessScalingResetProfileProperty LosslessScalingResetProfile => losslessScalingResetProfile;
+
         #endregion
 
         // State tracking
         private bool isScalingActive = false;
+        private int isRunningPollCount = 0;
+        private bool isRunningLastResult = false;
+        private bool isRunningLogged = false;
 
         public LosslessScalingManager() : base()
         {
@@ -168,12 +199,24 @@ namespace XboxGamingBarHelper.LosslessScaling
             losslessScalingBringToForeground = new LosslessScalingBringToForegroundProperty(false, this);
             losslessScalingLaunch = new LosslessScalingLaunchProperty(false, this);
 
+            // Additional Settings.xml-backed properties
+            losslessScalingSyncMode = new LosslessScalingSyncModeProperty(settings.SyncMode, this);
+            losslessScalingCaptureApi = new LosslessScalingCaptureApiProperty(settings.CaptureApi, this);
+            losslessScalingDrawFps = new LosslessScalingDrawFpsProperty(settings.DrawFps, this);
+            losslessScalingHdrSupport = new LosslessScalingHdrSupportProperty(settings.HdrSupport, this);
+            losslessScalingGsyncSupport = new LosslessScalingGsyncSupportProperty(settings.GsyncSupport, this);
+            losslessScalingResizeBeforeScaling = new LosslessScalingResizeBeforeScalingProperty(settings.ResizeBeforeScaling, this);
+            losslessScalingLS1Type = new LosslessScalingLS1TypeProperty(settings.LS1Type, this);
+            losslessScalingMaxFrameLatency = new LosslessScalingMaxFrameLatencyProperty(settings.MaxFrameLatency, this);
+            losslessScalingResetProfile = new LosslessScalingResetProfileProperty(false, this);
+
             // Subscribe to action properties
             losslessScalingEnabled.PropertyChanged += LosslessScalingEnabled_PropertyChanged;
             losslessScalingSaveAndRestart.PropertyChanged += LosslessScalingSaveAndRestart_PropertyChanged;
             losslessScalingCreateProfile.PropertyChanged += LosslessScalingCreateProfile_PropertyChanged;
             losslessScalingBringToForeground.PropertyChanged += LosslessScalingBringToForeground_PropertyChanged;
             losslessScalingLaunch.PropertyChanged += LosslessScalingLaunch_PropertyChanged;
+            losslessScalingResetProfile.PropertyChanged += LosslessScalingResetProfile_PropertyChanged;
 
             inputInjector = InputInjector.TryCreate();
 
@@ -239,12 +282,45 @@ namespace XboxGamingBarHelper.LosslessScaling
 
         private bool IsRunning()
         {
-            var processes = Process.GetProcessesByName(PROCESS_NAME);
-            bool isRunning = processes.Length > 0;
-            foreach (var proc in processes)
+            // vvalente30 issue #79: helper kept reporting Running=False for 10 min
+            // while LS was actually running. Either LS exe name varies between
+            // installs, or GetProcessesByName silently throws on his machine.
+            // Log the first few polls + every state transition to find out which.
+            int procCount = -1;
+            string error = null;
+            try
             {
-                proc.Dispose();
+                var processes = Process.GetProcessesByName(PROCESS_NAME);
+                procCount = processes.Length;
+                foreach (var proc in processes)
+                {
+                    proc.Dispose();
+                }
             }
+            catch (Exception ex)
+            {
+                error = $"{ex.GetType().Name}: {ex.Message}";
+            }
+
+            bool isRunning = procCount > 0;
+
+            bool stateChanged = isRunning != isRunningLastResult;
+            bool logFirstFew = isRunningPollCount < 5;
+            if (stateChanged || logFirstFew || error != null || !isRunningLogged)
+            {
+                if (error != null)
+                {
+                    Logger.Warn($"Lossless Scaling IsRunning() poll #{isRunningPollCount} threw — {error}");
+                }
+                else
+                {
+                    Logger.Info($"Lossless Scaling IsRunning() poll #{isRunningPollCount}: name='{PROCESS_NAME}' procs={procCount} → {isRunning}{(stateChanged ? " (state changed)" : "")}");
+                }
+                isRunningLogged = true;
+            }
+
+            isRunningPollCount++;
+            isRunningLastResult = isRunning;
             return isRunning;
         }
 
@@ -651,6 +727,16 @@ namespace XboxGamingBarHelper.LosslessScaling
             public string Size { get; set; } = "BALANCED";
             public bool AutoScale { get; set; } = false;
             public int AutoScaleDelay { get; set; } = 0;
+
+            // Added 2026-05-01 — additional Settings.xml fields exposed in widget
+            public string SyncMode { get; set; } = "OFF";       // OFF, DEFAULT, VSYNC1..VSYNC4
+            public string CaptureApi { get; set; } = "WGC";     // DXGI, WGC, GDI
+            public bool DrawFps { get; set; } = false;
+            public bool HdrSupport { get; set; } = false;
+            public bool GsyncSupport { get; set; } = false;
+            public bool ResizeBeforeScaling { get; set; } = false;
+            public string LS1Type { get; set; } = "BALANCED";   // BALANCED, PERFORMANCE
+            public int MaxFrameLatency { get; set; } = 1;       // 0..4
         }
 
         /// <summary>
@@ -810,6 +896,16 @@ namespace XboxGamingBarHelper.LosslessScaling
                 settings.AutoScale = bool.TryParse(profile.Element("AutoScale")?.Value?.ToLower(), out bool auto) && auto;
                 settings.AutoScaleDelay = int.TryParse(profile.Element("AutoScaleDelay")?.Value, out int delay) ? delay : 0;
 
+                // Additional Settings.xml fields
+                settings.SyncMode = profile.Element("SyncMode")?.Value ?? "OFF";
+                settings.CaptureApi = profile.Element("CaptureApi")?.Value ?? "WGC";
+                settings.DrawFps = bool.TryParse(profile.Element("DrawFps")?.Value?.ToLower(), out bool drawFps) && drawFps;
+                settings.HdrSupport = bool.TryParse(profile.Element("HdrSupport")?.Value?.ToLower(), out bool hdr) && hdr;
+                settings.GsyncSupport = bool.TryParse(profile.Element("GsyncSupport")?.Value?.ToLower(), out bool gsync) && gsync;
+                settings.ResizeBeforeScaling = bool.TryParse(profile.Element("ResizeBeforeScaling")?.Value?.ToLower(), out bool rbs) && rbs;
+                settings.LS1Type = profile.Element("LS1Type")?.Value ?? "BALANCED";
+                settings.MaxFrameLatency = int.TryParse(profile.Element("MaxFrameLatency")?.Value, out int latency) ? latency : 1;
+
                 Logger.Info($"Read settings from profile '{profileName}'");
             }
             catch (Exception ex)
@@ -858,6 +954,16 @@ namespace XboxGamingBarHelper.LosslessScaling
                 SetElementValue(profile, "LSFGSize", losslessScalingSize.Value);
                 SetElementValue(profile, "AutoScale", losslessScalingAutoScale.Value.ToString().ToLower());
                 SetElementValue(profile, "AutoScaleDelay", losslessScalingAutoScaleDelay.Value.ToString());
+
+                // Additional Settings.xml fields
+                SetElementValue(profile, "SyncMode", losslessScalingSyncMode.Value);
+                SetElementValue(profile, "CaptureApi", losslessScalingCaptureApi.Value);
+                SetElementValue(profile, "DrawFps", losslessScalingDrawFps.Value.ToString().ToLower());
+                SetElementValue(profile, "HdrSupport", losslessScalingHdrSupport.Value.ToString().ToLower());
+                SetElementValue(profile, "GsyncSupport", losslessScalingGsyncSupport.Value.ToString().ToLower());
+                SetElementValue(profile, "ResizeBeforeScaling", losslessScalingResizeBeforeScaling.Value.ToString().ToLower());
+                SetElementValue(profile, "LS1Type", losslessScalingLS1Type.Value);
+                SetElementValue(profile, "MaxFrameLatency", losslessScalingMaxFrameLatency.Value.ToString());
 
                 doc.Save(SETTINGS_PATH);
                 Logger.Info($"Settings written to profile '{profileName}'");
@@ -959,6 +1065,16 @@ namespace XboxGamingBarHelper.LosslessScaling
             losslessScalingSize.SetValue(settings.Size, now);
             losslessScalingAutoScale.SetValue(settings.AutoScale, now);
             losslessScalingAutoScaleDelay.SetValue(settings.AutoScaleDelay, now);
+
+            // Additional Settings.xml fields
+            losslessScalingSyncMode.SetValue(settings.SyncMode, now);
+            losslessScalingCaptureApi.SetValue(settings.CaptureApi, now);
+            losslessScalingDrawFps.SetValue(settings.DrawFps, now);
+            losslessScalingHdrSupport.SetValue(settings.HdrSupport, now);
+            losslessScalingGsyncSupport.SetValue(settings.GsyncSupport, now);
+            losslessScalingResizeBeforeScaling.SetValue(settings.ResizeBeforeScaling, now);
+            losslessScalingLS1Type.SetValue(settings.LS1Type, now);
+            losslessScalingMaxFrameLatency.SetValue(settings.MaxFrameLatency, now);
         }
 
         #endregion
@@ -1090,6 +1206,31 @@ namespace XboxGamingBarHelper.LosslessScaling
             catch (Exception ex)
             {
                 Logger.Error($"Error in LosslessScalingLaunch_PropertyChanged: {ex.Message}");
+            }
+        }
+
+        // Reset the active LS profile back to the LS-default values, then push
+        // the new state up to the widget so its UI reflects the reset without
+        // needing the user to switch profiles.
+        private void LosslessScalingResetProfile_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            try
+            {
+                if (!losslessScalingResetProfile.Value)
+                    return;
+
+                Logger.Info("Reset profile triggered from widget");
+                var defaults = new LosslessScalingSettings(); // class defaults double as LS defaults
+                UpdatePropertiesFromSettings(defaults);
+                // Don't write to XML here — the widget will Apply-and-Restart if the
+                // user wants the change persisted to LS. That keeps Reset reversible
+                // until the user explicitly commits.
+
+                losslessScalingResetProfile.SetValue(false, DateTime.Now.Ticks);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LosslessScalingResetProfile_PropertyChanged: {ex.Message}");
             }
         }
 

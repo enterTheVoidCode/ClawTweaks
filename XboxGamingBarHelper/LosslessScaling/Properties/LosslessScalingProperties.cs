@@ -202,4 +202,63 @@ namespace XboxGamingBarHelper.LosslessScaling.Properties
         {
         }
     }
+
+    // --- Additional Settings.xml fields (added 2026-05-01) ---
+    // Each property mirrors a single XML field on the active LS profile.
+    // The widget owns the source-of-truth for user input; helper persists it
+    // back to Settings.xml on Apply-and-Restart.
+
+    internal class LosslessScalingSyncModeProperty : HelperProperty<string, LosslessScalingManager>
+    {
+        public LosslessScalingSyncModeProperty(string inValue, LosslessScalingManager inManager)
+            : base(inValue, null, Function.LosslessScalingSyncMode, inManager) { }
+    }
+
+    internal class LosslessScalingCaptureApiProperty : HelperProperty<string, LosslessScalingManager>
+    {
+        public LosslessScalingCaptureApiProperty(string inValue, LosslessScalingManager inManager)
+            : base(inValue, null, Function.LosslessScalingCaptureApi, inManager) { }
+    }
+
+    internal class LosslessScalingDrawFpsProperty : HelperProperty<bool, LosslessScalingManager>
+    {
+        public LosslessScalingDrawFpsProperty(bool inValue, LosslessScalingManager inManager)
+            : base(inValue, null, Function.LosslessScalingDrawFps, inManager) { }
+    }
+
+    internal class LosslessScalingHdrSupportProperty : HelperProperty<bool, LosslessScalingManager>
+    {
+        public LosslessScalingHdrSupportProperty(bool inValue, LosslessScalingManager inManager)
+            : base(inValue, null, Function.LosslessScalingHdrSupport, inManager) { }
+    }
+
+    internal class LosslessScalingGsyncSupportProperty : HelperProperty<bool, LosslessScalingManager>
+    {
+        public LosslessScalingGsyncSupportProperty(bool inValue, LosslessScalingManager inManager)
+            : base(inValue, null, Function.LosslessScalingGsyncSupport, inManager) { }
+    }
+
+    internal class LosslessScalingResizeBeforeScalingProperty : HelperProperty<bool, LosslessScalingManager>
+    {
+        public LosslessScalingResizeBeforeScalingProperty(bool inValue, LosslessScalingManager inManager)
+            : base(inValue, null, Function.LosslessScalingResizeBeforeScaling, inManager) { }
+    }
+
+    internal class LosslessScalingLS1TypeProperty : HelperProperty<string, LosslessScalingManager>
+    {
+        public LosslessScalingLS1TypeProperty(string inValue, LosslessScalingManager inManager)
+            : base(inValue, null, Function.LosslessScalingLS1Type, inManager) { }
+    }
+
+    internal class LosslessScalingMaxFrameLatencyProperty : HelperProperty<int, LosslessScalingManager>
+    {
+        public LosslessScalingMaxFrameLatencyProperty(int inValue, LosslessScalingManager inManager)
+            : base(inValue, null, Function.LosslessScalingMaxFrameLatency, inManager) { }
+    }
+
+    internal class LosslessScalingResetProfileProperty : HelperProperty<bool, LosslessScalingManager>
+    {
+        public LosslessScalingResetProfileProperty(bool inValue, LosslessScalingManager inManager)
+            : base(inValue, null, Function.LosslessScalingResetProfile, inManager) { }
+    }
 }

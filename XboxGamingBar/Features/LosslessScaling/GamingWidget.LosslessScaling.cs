@@ -105,6 +105,16 @@ namespace XboxGamingBar
                         if (LosslessScalingLSFG2ModeComboBox != null) LosslessScalingLSFG2ModeComboBox.IsEnabled = enableControls;
                         if (LosslessScalingFlowScaleSlider != null) LosslessScalingFlowScaleSlider.IsEnabled = enableControls;
                         if (LosslessScalingSizeToggle != null) LosslessScalingSizeToggle.IsEnabled = enableControls;
+                        // Additional Settings.xml-backed controls (added 2026-05-01)
+                        if (LosslessScalingSyncModeComboBox != null) LosslessScalingSyncModeComboBox.IsEnabled = enableControls;
+                        if (LosslessScalingCaptureApiComboBox != null) LosslessScalingCaptureApiComboBox.IsEnabled = enableControls;
+                        if (LosslessScalingDrawFpsToggle != null) LosslessScalingDrawFpsToggle.IsEnabled = enableControls;
+                        if (LosslessScalingHdrSupportToggle != null) LosslessScalingHdrSupportToggle.IsEnabled = enableControls;
+                        if (LosslessScalingGsyncSupportToggle != null) LosslessScalingGsyncSupportToggle.IsEnabled = enableControls;
+                        if (LosslessScalingResizeBeforeToggle != null) LosslessScalingResizeBeforeToggle.IsEnabled = enableControls;
+                        if (LosslessScalingLS1TypeComboBox != null) LosslessScalingLS1TypeComboBox.IsEnabled = enableControls;
+                        if (LosslessScalingMaxFrameLatencySlider != null) LosslessScalingMaxFrameLatencySlider.IsEnabled = enableControls;
+                        if (LosslessScalingResetProfileButton != null) LosslessScalingResetProfileButton.IsEnabled = enableControls;
                         if (LosslessScalingSaveSettingsButton != null)
                         {
                             LosslessScalingSaveSettingsButton.IsEnabled = enableSaveButton;
@@ -352,10 +362,12 @@ namespace XboxGamingBar
             {
                 string selectedType = LosslessScalingScalingTypeComboBox.SelectedItem as string ?? "Off";
 
-                // Show/hide Sharpness panel (for FSR, NIS, SGSR, BCAS)
-                bool showSharpness = selectedType == "FSR" || selectedType == "NIS" || selectedType == "SGSR" || selectedType == "BCAS";
+                // Show/hide Sharpness panel (for FSR, NIS, SGSR, BCAS, LS1)
+                bool showSharpness = selectedType == "FSR" || selectedType == "NIS" || selectedType == "SGSR" || selectedType == "BCAS" || selectedType == "LS1";
                 bool showFSROptimize = selectedType == "FSR";
                 bool showAnime4K = selectedType == "Anime4K";
+                bool showLS1Type = selectedType == "LS1";
+                bool showResizeBefore = selectedType != "Off";
 
                 if (LosslessScalingSharpnessPanel != null)
                 {
@@ -372,6 +384,18 @@ namespace XboxGamingBar
                 if (LosslessScalingAnime4KPanel != null)
                 {
                     LosslessScalingAnime4KPanel.Visibility = showAnime4K ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Show/hide LS1 Type panel (LS1 only)
+                if (LosslessScalingLS1TypePanel != null)
+                {
+                    LosslessScalingLS1TypePanel.Visibility = showLS1Type ? Visibility.Visible : Visibility.Collapsed;
+                }
+
+                // Show/hide Resize Before Scale panel (any type other than Off)
+                if (LosslessScalingResizeBeforePanel != null)
+                {
+                    LosslessScalingResizeBeforePanel.Visibility = showResizeBefore ? Visibility.Visible : Visibility.Collapsed;
                 }
 
                 // Update XY navigation based on visible controls
@@ -573,6 +597,23 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Error in LosslessScalingSaveSettingsButton_Click: {ex.Message}");
+            }
+        }
+
+        // Resets the active LS profile's properties to LS-default values. The
+        // helper updates its in-memory state and pipes the new values back; the
+        // user still needs Apply-and-Restart to persist the reset to Settings.xml.
+        // That keeps Reset undoable until they explicitly commit.
+        private void LosslessScalingResetProfileButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                losslessScalingResetProfile.SetValue(true);
+                Logger.Info("Reset Lossless Scaling profile to defaults");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error in LosslessScalingResetProfileButton_Click: {ex.Message}");
             }
         }
 
