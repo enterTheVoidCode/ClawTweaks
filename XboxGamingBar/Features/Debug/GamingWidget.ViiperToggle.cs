@@ -1,18 +1,23 @@
 using System;
+using Windows.UI;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
+using Windows.UI.Xaml.Media;
 
 namespace XboxGamingBar
 {
     public sealed partial class GamingWidget
     {
         /// <summary>
-        /// Shows or hides the "usbip-win2 required" card based on the current
+        /// Shows or hides the "usbip-win2 required" warning card based on the
         /// emulation backend toggle and the helper-reported USBIP install status.
+        /// Also refreshes the always-visible status line under the VIIPER toggle —
+        /// added per issue #79 vvalente30 so users see the prereq state proactively
+        /// (not just when they flip the toggle and discover input doesn't work).
         /// </summary>
         private async void UpdateUsbipCardVisibility()
         {
-            if (UsbipInstallCard == null || emulationBackend == null || usbipInstalled == null)
+            if (emulationBackend == null || usbipInstalled == null)
             {
                 return;
             }
@@ -20,10 +25,24 @@ namespace XboxGamingBar
             await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 bool backendOn = emulationBackend.Value;
-                bool driverMissing = !usbipInstalled.Value;
-                UsbipInstallCard.Visibility = (backendOn && driverMissing)
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
+                bool installed = usbipInstalled.Value;
+
+                if (UsbipInstallCard != null)
+                {
+                    UsbipInstallCard.Visibility = (backendOn && !installed)
+                        ? Visibility.Visible
+                        : Visibility.Collapsed;
+                }
+
+                if (UsbipPrereqStatusLine != null)
+                {
+                    UsbipPrereqStatusLine.Text = installed
+                        ? "usbip-win2 driver: detected ✓"
+                        : "usbip-win2 driver: not detected — install + reboot required";
+                    UsbipPrereqStatusLine.Foreground = installed
+                        ? new SolidColorBrush(Color.FromArgb(0xFF, 0x66, 0xCC, 0x66))
+                        : new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xC1, 0x07));
+                }
             });
         }
 

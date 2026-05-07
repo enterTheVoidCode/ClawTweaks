@@ -712,6 +712,65 @@ namespace XboxGamingBar
                     }
                 }
 
+                // Controller Emulation tile — label reflects whichever backend is
+                // currently selected (Legacy ViGEm vs VIIPER). For Legacy, show the
+                // mode index (Mouse / Xbox / DS4 / DS4 Stick). For VIIPER, show the
+                // active virtual-device tag (Xbox / DS4 / DS Edge / Elite 2 / Steam /
+                // Switch). Without this split the tile always read the legacy mode
+                // and was stuck on "Xbox" while VIIPER was actually presenting a
+                // different device — see issue #79 round-2 reply.
+                if (qsTileMap.TryGetValue("ControllerEmulation", out var ceTile) && ceTile.TileButton != null)
+                {
+                    bool available = controllerEmulationAvailable?.Value == true;
+                    bool enabled = available && (controllerEmulationEnabled?.Value == true);
+                    string label;
+                    if (!available)
+                    {
+                        label = "N/A";
+                    }
+                    else if (!enabled)
+                    {
+                        label = "Off";
+                    }
+                    else if (emulationBackend?.Value == true)
+                    {
+                        // VIIPER backend — label is the active virtual device type.
+                        string device = viiperDeviceType?.Value ?? "";
+                        switch (device)
+                        {
+                            case "xbox360": label = "Xbox"; break;
+                            case "dualshock4": label = "DS4"; break;
+                            case "dualsenseedge": label = "DS Edge"; break;
+                            case "xboxelite2": label = "Elite 2"; break;
+                            case "steam-generic": label = "Steam"; break;
+                            case "switchpro": label = "Switch"; break;
+                            default: label = "On"; break;
+                        }
+                    }
+                    else
+                    {
+                        // Legacy backend — label is the ControllerEmulationMode index
+                        // (0=Mouse, 1=Xbox, 2=DS4 Motion, 3=DS4 Stick).
+                        int mode = controllerEmulationMode?.Value ?? 1;
+                        switch (mode)
+                        {
+                            case 0: label = "Mouse"; break;
+                            case 1: label = "Xbox"; break;
+                            case 2: label = "DS4"; break;
+                            case 3: label = "DS4 Stick"; break;
+                            default: label = "On"; break;
+                        }
+                    }
+                    // StateText can be null if the tile was rebuilt mid-update during a
+                    // foreground-window-change cascade — null-check before assigning.
+                    if (ceTile.StateText != null)
+                    {
+                        ceTile.StateText.Text = label;
+                        ceTile.StateText.Foreground = enabled ? accentForeground : offForeground;
+                    }
+                    ceTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
                 // Fan Full Speed tile (Legion or GPD)
                 if (qsTileMap.TryGetValue("LegionFanFullSpeed", out var fanFullSpeedTile) && fanFullSpeedTile.TileButton != null)
                 {

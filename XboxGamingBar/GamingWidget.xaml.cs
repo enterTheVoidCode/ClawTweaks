@@ -724,6 +724,7 @@ namespace XboxGamingBar
         private readonly DisplayOrientationProperty displayOrientation;
         private readonly HDRSupportedProperty hdrSupported;
         private readonly HDREnabledProperty hdrEnabled;
+        private readonly SdrWhiteLevelSyncModeProperty sdrWhiteLevelSyncMode;
         private readonly TrackedGameProperty trackedGame;
         private readonly RTSSInstalledProperty rtssInstalled;
         private readonly IsForegroundProperty isForeground;
@@ -787,6 +788,17 @@ namespace XboxGamingBar
         private readonly LosslessScalingBringToForegroundProperty losslessScalingBringToForeground;
         private readonly LosslessScalingLaunchProperty losslessScalingLaunch;
 
+        // Additional Settings.xml-backed LS properties (added 2026-05-01)
+        private readonly LosslessScalingSyncModeProperty losslessScalingSyncMode;
+        private readonly LosslessScalingCaptureApiProperty losslessScalingCaptureApi;
+        private readonly LosslessScalingDrawFpsProperty losslessScalingDrawFps;
+        private readonly LosslessScalingHdrSupportProperty losslessScalingHdrSupport;
+        private readonly LosslessScalingGsyncSupportProperty losslessScalingGsyncSupport;
+        private readonly LosslessScalingResizeBeforeScalingProperty losslessScalingResizeBeforeScaling;
+        private readonly LosslessScalingLS1TypeProperty losslessScalingLS1Type;
+        private readonly LosslessScalingMaxFrameLatencyProperty losslessScalingMaxFrameLatency;
+        private readonly LosslessScalingResetProfileProperty losslessScalingResetProfile;
+
         // Legion Go properties
         private readonly LegionGoDetectedProperty legionGoDetected;
         private readonly LegionTouchpadEnabledProperty legionTouchpadEnabled;
@@ -799,7 +811,10 @@ namespace XboxGamingBar
         private readonly LegionCustomTDPFastProperty legionCustomTDPFast;
         private readonly LegionCustomTDPPeakProperty legionCustomTDPPeak;
         private readonly LegionFanFullSpeedProperty legionFanFullSpeed;
+        private readonly LegionUnlockFanCurveProperty legionUnlockFanCurve;
         private readonly LegionFanCurveGraphProperty legionFanCurveGraph;
+        private readonly LegionFanCurvePerModeProperty legionFanCurvePerMode;
+        private readonly LegionUnlockFanCurvePerModeProperty legionUnlockFanCurvePerMode;
         private readonly LegionCPUTempProperty legionCPUTemp;
         private readonly LegionFanSensorTempProperty legionFanSensorTemp;
         private readonly LegionCPUFanRPMProperty legionCPUFanRPM;
@@ -868,6 +883,7 @@ namespace XboxGamingBar
         private readonly ControllerConnectedLeftProperty controllerConnectedLeft;
         private readonly ControllerConnectedRightProperty controllerConnectedRight;
         private readonly ControllerVidPidProperty controllerVidPid;
+        private readonly ControllerDeviceStatusProperty controllerDeviceStatus;
 
         // Device capability properties (for UI visibility based on device features)
         private readonly DeviceDisplayNameProperty deviceDisplayName;
@@ -965,6 +981,8 @@ namespace XboxGamingBar
         private readonly ViiperStringComboProperty viiperSteamSubDevice;
         private readonly ViiperStringComboProperty viiperGuideButtonMode;
         private readonly ViiperSwapRumbleMotorsProperty viiperSwapRumbleMotors;
+        private readonly ViiperMirrorLightbarToStickProperty viiperMirrorLightbarToStick;
+        private readonly ViiperStickGyroEnabledProperty viiperStickGyroEnabled;
         private readonly ViiperRumbleIntensityProperty viiperRumbleIntensity;
         private readonly ViiperStringComboProperty viiperGyroAxisMapX;
         private readonly ViiperStringComboProperty viiperGyroAxisMapY;
@@ -1393,6 +1411,7 @@ namespace XboxGamingBar
             displayOrientation = new DisplayOrientationProperty();
             hdrSupported = new HDRSupportedProperty(HDRToggle, this);
             hdrEnabled = new HDREnabledProperty(HDRToggle, this);
+            sdrWhiteLevelSyncMode = new SdrWhiteLevelSyncModeProperty(SdrWhiteLevelSyncModeComboBox, this);
             trackedGame = new TrackedGameProperty(new TrackedGame());
             rtssInstalled = new RTSSInstalledProperty(PerformanceOverlaySlider, this);
             rtssInstalled.SetAdditionalCallback(UpdateFPSLimitControls);
@@ -1459,6 +1478,17 @@ namespace XboxGamingBar
             losslessScalingBringToForeground = new LosslessScalingBringToForegroundProperty();
             losslessScalingLaunch = new LosslessScalingLaunchProperty();
 
+            // Additional Settings.xml-backed LS properties (added 2026-05-01)
+            losslessScalingSyncMode = new LosslessScalingSyncModeProperty(LosslessScalingSyncModeComboBox, this);
+            losslessScalingCaptureApi = new LosslessScalingCaptureApiProperty(LosslessScalingCaptureApiComboBox, this);
+            losslessScalingDrawFps = new LosslessScalingDrawFpsProperty(LosslessScalingDrawFpsToggle, this);
+            losslessScalingHdrSupport = new LosslessScalingHdrSupportProperty(LosslessScalingHdrSupportToggle, this);
+            losslessScalingGsyncSupport = new LosslessScalingGsyncSupportProperty(LosslessScalingGsyncSupportToggle, this);
+            losslessScalingResizeBeforeScaling = new LosslessScalingResizeBeforeScalingProperty(LosslessScalingResizeBeforeToggle, this);
+            losslessScalingLS1Type = new LosslessScalingLS1TypeProperty(LosslessScalingLS1TypeComboBox, this);
+            losslessScalingMaxFrameLatency = new LosslessScalingMaxFrameLatencyProperty(1, LosslessScalingMaxFrameLatencySlider, this);
+            losslessScalingResetProfile = new LosslessScalingResetProfileProperty();
+
             // Legion Go properties
             legionGoDetected = new LegionGoDetectedProperty(this);
             legionTouchpadEnabled = new LegionTouchpadEnabledProperty(LegionTouchpadToggle, this);
@@ -1471,10 +1501,19 @@ namespace XboxGamingBar
             legionCustomTDPFast = new LegionCustomTDPFastProperty(LegionCustomTDPFastSlider, this);
             legionCustomTDPPeak = new LegionCustomTDPPeakProperty(LegionCustomTDPPeakSlider, this);
             legionFanFullSpeed = new LegionFanFullSpeedProperty(LegionFanFullSpeedToggle, this);
+            legionUnlockFanCurve = new LegionUnlockFanCurveProperty(LegionUnlockFanCurveToggle, this);
 
             // Fan curve graph properties
             legionFanCurveGraph = new LegionFanCurveGraphProperty(this);
             legionFanCurveGraph.SetGraphUpdateCallback(OnFanCurveUpdated);
+            // Per-mode channel: helper pushes one message per TdpMode (1=Quiet, 2=Balanced,
+            // 3=Performance, 255=Custom) on connect so the widget can let the user edit any
+            // mode's curve without changing power mode. Outbound edits also go through this
+            // channel keyed by the dropdown-selected mode (not the active mode).
+            legionFanCurvePerMode = new LegionFanCurvePerModeProperty(this);
+            legionFanCurvePerMode.SetCallback(OnFanCurvePerModeReceived);
+            legionUnlockFanCurvePerMode = new LegionUnlockFanCurvePerModeProperty(this);
+            legionUnlockFanCurvePerMode.SetCallback(OnUnlockFanCurvePerModeReceived);
             legionCPUTemp = new LegionCPUTempProperty(this);
             legionCPUTemp.SetTempUpdateCallback(OnCPUTempUpdated);
             legionFanSensorTemp = new LegionFanSensorTempProperty(this);
@@ -1546,6 +1585,7 @@ namespace XboxGamingBar
             controllerConnectedLeft = new ControllerConnectedLeftProperty();
             controllerConnectedRight = new ControllerConnectedRightProperty();
             controllerVidPid = new ControllerVidPidProperty();
+            controllerDeviceStatus = new ControllerDeviceStatusProperty();
 
             // Device capability properties (for UI visibility)
             deviceDisplayName = new DeviceDisplayNameProperty(this);
@@ -1647,6 +1687,8 @@ namespace XboxGamingBar
             viiperSteamSubDevice = new ViiperStringComboProperty("legion-go", Shared.Enums.Function.Viiper_SteamSubDevice, ViiperSteamSubDeviceComboBox, this);
             viiperGuideButtonMode = new ViiperStringComboProperty("Native", Shared.Enums.Function.Viiper_GuideButtonMode, ViiperGuideButtonModeComboBox, this);
             viiperSwapRumbleMotors = new ViiperSwapRumbleMotorsProperty(ViiperSwapRumbleMotorsToggle, this);
+            viiperMirrorLightbarToStick = new ViiperMirrorLightbarToStickProperty(ViiperMirrorLightbarToStickToggle, this);
+            viiperStickGyroEnabled = new ViiperStickGyroEnabledProperty(ViiperStickGyroEnabledToggle, this);
             viiperRumbleIntensity = new ViiperRumbleIntensityProperty(100, ViiperRumbleIntensitySlider, this);
             viiperGyroAxisMapX = new ViiperStringComboProperty("X", Shared.Enums.Function.Viiper_GyroAxisMapX, ViiperGyroAxisMapXComboBox, this);
             viiperGyroAxisMapY = new ViiperStringComboProperty("Y", Shared.Enums.Function.Viiper_GyroAxisMapY, ViiperGyroAxisMapYComboBox, this);
@@ -1665,10 +1707,11 @@ namespace XboxGamingBar
             if (ViiperGuideButtonModeComboBox != null)
                 ViiperGuideButtonModeComboBox.SelectionChanged += (s, e) => UpdateViiperLegionLDisabledHint();
             // Show USBIP install card only when VIIPER toggle is on AND driver is missing
-            emulationBackend.PropertyChanged += (s, e) => { UpdateUsbipCardVisibility(); UpdateViiperConfigVisibility(); UpdateViiperLegionLDisabledHint(); };
+            emulationBackend.PropertyChanged += (s, e) => { UpdateUsbipCardVisibility(); UpdateViiperConfigVisibility(); UpdateViiperLegionLDisabledHint(); UpdateQuickSettingsTileStates(); UpdateViiperStickGyroSectionVisibility(); };
             usbipInstalled.PropertyChanged += (s, e) => UpdateUsbipCardVisibility();
             // Show Steam sub-device picker only when a Steam device type is selected
-            viiperDeviceType.PropertyChanged += (s, e) => UpdateViiperConfigVisibility();
+            viiperDeviceType.PropertyChanged += (s, e) => { UpdateViiperConfigVisibility(); UpdateQuickSettingsTileStates(); UpdateViiperStickGyroSectionVisibility(); };
+            controllerEmulationMode.PropertyChanged += (s, e) => UpdateQuickSettingsTileStates();
             winRing0Available = new WinRing0AvailableProperty(this);
             pawnIOAvailable = new PawnIOAvailableProperty();
             pawnIOInstalled = new PawnIOInstalledProperty(this);
@@ -1780,6 +1823,7 @@ namespace XboxGamingBar
                 displayOrientation,
                 hdrSupported,
                 hdrEnabled,
+                sdrWhiteLevelSyncMode,
                 trackedGame,
                 rtssInstalled,
                 isForeground,
@@ -1836,6 +1880,16 @@ namespace XboxGamingBar
                 losslessScalingAutoScaleDelay,
                 losslessScalingSaveAndRestart,
                 losslessScalingCreateProfile,
+                // Additional Settings.xml-backed LS properties (added 2026-05-01)
+                losslessScalingSyncMode,
+                losslessScalingCaptureApi,
+                losslessScalingDrawFps,
+                losslessScalingHdrSupport,
+                losslessScalingGsyncSupport,
+                losslessScalingResizeBeforeScaling,
+                losslessScalingLS1Type,
+                losslessScalingMaxFrameLatency,
+                losslessScalingResetProfile,
                 currentTdp,
                 legionGoDetected,
                 legionTouchpadEnabled,
@@ -1848,7 +1902,10 @@ namespace XboxGamingBar
                 legionCustomTDPFast,
                 legionCustomTDPPeak,
                 legionFanFullSpeed,
+                legionUnlockFanCurve,
                 legionFanCurveGraph,
+                legionFanCurvePerMode,
+                legionUnlockFanCurvePerMode,
                 legionCPUTemp,
                 legionFanSensorTemp,
                 legionCPUFanRPM,
@@ -1896,6 +1953,8 @@ namespace XboxGamingBar
                 viiperGuideButtonMode,
                 viiperSwapRumbleMotors,
                 viiperRumbleIntensity,
+                viiperMirrorLightbarToStick,
+                viiperStickGyroEnabled,
                 viiperGyroAxisMapX,
                 viiperGyroAxisMapY,
                 viiperGyroAxisMapZ,
@@ -1940,6 +1999,7 @@ namespace XboxGamingBar
                 controllerConnectedLeft,
                 controllerConnectedRight,
                 controllerVidPid,
+                controllerDeviceStatus,
                 // Device capability properties (for UI visibility)
                 deviceDisplayName,
                 deviceSupportsControllerRemap,
@@ -2285,6 +2345,10 @@ namespace XboxGamingBar
             {
                 controllerVidPid.PropertyChanged += LegionControllerVidPid_PropertyChanged;
             }
+            if (controllerDeviceStatus != null)
+            {
+                controllerDeviceStatus.PropertyChanged += LegionControllerDeviceStatus_PropertyChanged;
+            }
 
             // Subscribe to CPU core config changes
             if (cpuCoreConfig != null)
@@ -2413,6 +2477,145 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Error updating Legion controller VID:PID display: {ex.Message}");
+            }
+        }
+
+        private void LegionControllerDeviceStatus_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            // Defensive: anything thrown by RunAsync (or from the lambda below escaping)
+            // bubbles to the UWP runtime as 0xc000027b and terminates the process. Wrap
+            // both layers and log every transition so we can see which step is failing.
+            try
+            {
+                Logger.Info("LegionControllerDeviceStatus_PropertyChanged: enqueuing render");
+                var dispatcher = Dispatcher;
+                if (dispatcher == null)
+                {
+                    Logger.Warn("LegionControllerDeviceStatus_PropertyChanged: Dispatcher is null, skipping");
+                    return;
+                }
+                _ = dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    try
+                    {
+                        UpdateLegionControllerDeviceStatusDisplay();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"UpdateLegionControllerDeviceStatusDisplay (dispatcher lambda) crashed: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LegionControllerDeviceStatus_PropertyChanged outer: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        private void UpdateLegionControllerDeviceStatusDisplay()
+        {
+            try
+            {
+                Logger.Info("UpdateLegionControllerDeviceStatusDisplay: ENTER");
+                string json = controllerDeviceStatus?.Value ?? "";
+                if (string.IsNullOrEmpty(json))
+                {
+                    if (LegionControllerInfoSection != null)
+                        LegionControllerInfoSection.Visibility = Visibility.Collapsed;
+                    return;
+                }
+
+                if (!Windows.Data.Json.JsonObject.TryParse(json, out var root))
+                {
+                    Logger.Warn("ControllerDeviceStatus JSON failed to parse: " + json);
+                    return;
+                }
+
+                string GetStr(string n) =>
+                    (root.TryGetValue(n, out var v) && v.ValueType == Windows.Data.Json.JsonValueType.String)
+                        ? v.GetString() ?? "" : "";
+                int GetInt(string n) =>
+                    (root.TryGetValue(n, out var v) && v.ValueType == Windows.Data.Json.JsonValueType.Number)
+                        ? (int)v.GetNumber() : 0;
+                bool GetBool(string n) =>
+                    root.TryGetValue(n, out var v) && v.ValueType == Windows.Data.Json.JsonValueType.Boolean && v.GetBoolean();
+
+                string fw = GetStr("fw");
+                bool lightEnabled = GetBool("le");
+                int lightMode = GetInt("lm");
+                int r = GetInt("r"), g = GetInt("g"), b = GetInt("b");
+                int brightness = GetInt("br");
+                int speed = GetInt("sp");
+                int vibration = GetInt("vb");
+                bool touchpad = GetBool("tp");
+
+                Logger.Info($"UpdateLegionControllerDeviceStatusDisplay: parsed fw={fw} le={lightEnabled} lm={lightMode} br={brightness} sp={speed} vb={vibration} tp={touchpad}");
+
+                if (LegionControllerInfoSection != null)
+                    LegionControllerInfoSection.Visibility = Visibility.Visible;
+                if (LegionControllerFirmwareText != null)
+                    LegionControllerFirmwareText.Text = string.IsNullOrEmpty(fw) ? "—" : fw;
+
+                if (LegionControllerLightText != null)
+                {
+                    if (!lightEnabled)
+                    {
+                        LegionControllerLightText.Text = "Off";
+                    }
+                    else
+                    {
+                        LegionControllerLightText.Text = $"{LightModeLabel(lightMode)} · {brightness}% · speed {speed}%";
+                    }
+                }
+                if (LegionControllerLightSwatch != null)
+                {
+                    LegionControllerLightSwatch.Visibility = lightEnabled ? Visibility.Visible : Visibility.Collapsed;
+                    if (lightEnabled)
+                    {
+                        LegionControllerLightSwatch.Background = new Windows.UI.Xaml.Media.SolidColorBrush(
+                            Windows.UI.Color.FromArgb(255, (byte)r, (byte)g, (byte)b));
+                    }
+                }
+
+                if (LegionControllerVibrationText != null)
+                    LegionControllerVibrationText.Text = VibrationLabel(vibration);
+                if (LegionControllerTouchpadText != null)
+                    LegionControllerTouchpadText.Text = touchpad ? "On" : "Off";
+
+                Logger.Info("UpdateLegionControllerDeviceStatusDisplay: EXIT ok");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"UpdateLegionControllerDeviceStatusDisplay error: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        // Map raw firmware light-mode byte to a label for the Info card.
+        // Readback enum is 1-less than the setter's StickLightMode enum
+        // (Solid=1, Pulse=2, Dynamic=3, Spiral=4 on the write side).
+        private static string LightModeLabel(int raw)
+        {
+            switch (raw)
+            {
+                case 0: return "Solid";
+                case 1: return "Pulse";
+                case 2: return "Dynamic";
+                case 3: return "Spiral";
+                case 0xFF: return "Off";
+                default: return $"Mode {raw}";
+            }
+        }
+
+        // Per the device's b0:01 readback: 1=Off, 2=Weak, 3=Medium, 4=Strong.
+        private static string VibrationLabel(int raw)
+        {
+            switch (raw)
+            {
+                case 1: return "Off";
+                case 2: return "Weak";
+                case 3: return "Medium";
+                case 4: return "Strong";
+                default: return $"Level {raw}";
             }
         }
 
@@ -3347,6 +3550,14 @@ namespace XboxGamingBar
             // Stop the post-give-up heartbeat watcher too; we're connected now.
             StopHeartbeatWatcher();
 
+            // Clear the "helper disconnected with EC override active" warning now that
+            // the pipe is back. Helper restart releases 0xC6C8 via ProcessExit hook + the
+            // fresh EC tick on reconnect, so the fan will resume curve-following shortly.
+            if (FanCurveHelperDisconnectedWarning != null)
+            {
+                FanCurveHelperDisconnectedWarning.Visibility = Windows.UI.Xaml.Visibility.Collapsed;
+            }
+
             // Verify we connected to the correct helper version by reading heartbeat
             // This prevents issues during upgrades where we connect to the old dying helper
             try
@@ -3588,6 +3799,20 @@ namespace XboxGamingBar
                     // widget constructor before App.IsConnected, so its Send* calls drop
                     // into a not-yet-connected pipe. Re-push now that the pipe is up.
                     ResendActiveControllerProfileToHelper();
+
+                    // Refresh USBIP prereq status line. PropertyChanged-driven refresh misses
+                    // the case where the helper's value matches the widget's default (false),
+                    // since GenericProperty.SetValue skips NotifyPropertyChanged on equality
+                    // (see MEMORY.md GenericProperty.SetValue Equality Check Gotcha). Without
+                    // this explicit call, users on a fresh install where USBIP isn't installed
+                    // would see "checking..." forever.
+                    UpdateUsbipCardVisibility();
+
+                    // Same equality-skip gotcha applies: if helper's viiperDeviceType matches
+                    // the widget's default ("xbox360"), no PropertyChanged fires and the Gyro →
+                    // Right Stick section never appears. Call once explicitly so the section
+                    // shows on first connect when applicable.
+                    UpdateViiperStickGyroSectionVisibility();
 
                     Logger.Info("[PIPE] Inside dispatcher - post-sync UI updates complete");
                 });
