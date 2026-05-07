@@ -119,7 +119,10 @@
         LegionCustomTDPFast,        // int - Fast TDP (SPPL) in watts
         LegionCustomTDPPeak,        // int - Peak TDP (FPPT) in watts
         LegionFanFullSpeed,         // bool - fan full speed mode
-        LegionFanCurveData,         // string - fan curve data "v0,v1,v2,...,v9" (10 values 0-100)
+        LegionFanCurveData,         // string - fan curve data "v0,v1,v2,...,v9" (10 values 0-100) — represents the *active* power mode's curve (drives EC/WMI)
+        LegionUnlockFanCurve,       // bool - active power mode's EC-override unlock state (drives EC override loop)
+        LegionFanCurvePerMode,      // string - "<mode>:v0,v1,...,v9" — read/write a specific mode's saved curve without changing power mode. Helper pushes 4 messages (one per mode) on connect; widget sends one per edit.
+        LegionUnlockFanCurvePerMode,// string - "<mode>:0|1" — read/write a specific mode's unlock state. Same fan-out pattern as LegionFanCurvePerMode.
         LegionCPUCurrentTemp,       // int - current CPU temperature in Celsius (read-only from helper)
         LegionFanSensorTemp,        // int - fan control sensor temp (0x01 sensor, what EC uses for curve) (read-only from helper)
         LegionCPUFanRPM,            // int - current CPU fan speed in RPM (read-only from helper)

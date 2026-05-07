@@ -468,6 +468,88 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         }
     }
 
+    // Unlock fan curve override — when true, helper applies the curve via direct EC
+    // RPM write (Rodpad LeGo2-Fan-Control style) instead of Lenovo's WMI Fan_Set_Table.
+    // Phase 1: just plumbed through; helper logs the unlock state and falls back to WMI
+    // since the PawnIO EC module isn't built yet. Phase 2 (separate work) will load a
+    // dedicated .pawn module via PawnIOWrapper to write to EC reg 0xC6C8 directly.
+    internal class LegionUnlockFanCurveProperty : HelperProperty<bool, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionUnlockFanCurveProperty(bool initialValue, LegionManager inManager)
+            : base(initialValue, null, Function.LegionUnlockFanCurve, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionUnlockFanCurve changed to {Value} ({(Value ? "EC override path enabled (PawnIO EC module — phase 2)" : "WMI Fan_Set_Table only")})");
+            Manager?.SetFanCurveUnlocked(Value);
+        }
+    }
+
+    // Per-mode fan curve channel — payload format "<mode>:v0,v1,…,v9".
+    // Helper pushes 4 messages on connect (one per TdpMode: 1=Quiet, 2=Balanced,
+    // 3=Performance, 255=Custom) so the widget can cache every mode's saved curve and
+    // let the user edit a non-active mode without changing the running power mode.
+    // Widget→helper: same payload — helper updates the named mode's slot, persists,
+    // and only writes hardware if the named mode happens to be active.
+    internal class LegionFanCurvePerModeProperty : HelperProperty<string, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        // Tracks the last payload we *originated* (helper-side push to widget), so
+        // we don't fire the parser on our own outbound. Pre-set in PushOutbound
+        // BEFORE SetValue so the equality guard in NotifyPropertyChanged trips.
+        private string _lastOutboundValue = "";
+
+        public LegionFanCurvePerModeProperty(LegionManager inManager)
+            : base("", null, Function.LegionFanCurvePerMode, inManager) { }
+
+        // Outbound-only push from helper to widget. Marks the payload as "ours"
+        // before driving SetValue → NotifyPropertyChanged sees the match and
+        // skips the parser. The base call still pushes to the widget.
+        public void PushOutbound(string payload)
+        {
+            _lastOutboundValue = payload;
+            SetValue(payload);
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            // base.NotifyPropertyChanged sends the value over the pipe to the widget
+            // regardless of source — that's correct for both helper-originated push
+            // and widget→helper echo. The parser only runs for genuine widget edits.
+            base.NotifyPropertyChanged(propertyName);
+            if (Value == _lastOutboundValue) return;
+            Manager?.OnFanCurvePerModePayload(Value);
+        }
+    }
+
+    // Per-mode unlock channel — payload format "<mode>:0|1".
+    internal class LegionUnlockFanCurvePerModeProperty : HelperProperty<string, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private string _lastOutboundValue = "";
+
+        public LegionUnlockFanCurvePerModeProperty(LegionManager inManager)
+            : base("", null, Function.LegionUnlockFanCurvePerMode, inManager) { }
+
+        public void PushOutbound(string payload)
+        {
+            _lastOutboundValue = payload;
+            SetValue(payload);
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            if (Value == _lastOutboundValue) return;
+            Manager?.OnUnlockFanCurvePerModePayload(Value);
+        }
+    }
+
     // Fan curve data property - manages all 10 fan speed values as a comma-separated string
     internal class LegionFanCurveDataProperty : HelperProperty<string, LegionManager>
     {
@@ -483,6 +565,19 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
 
         // Default fan curve string for comparison
         private const string DEFAULT_FAN_CURVE = "44,48,55,60,71,79,87,87,100,100";
+
+        /// <summary>
+        /// Aligns Value AND _lastSentValue to <paramref name="curveStr"/> without
+        /// triggering NotifyPropertyChanged. Used after the actual-mode WMI read
+        /// settles so EnableDeviceWrites doesn't push the stale default-mode curve
+        /// the constructor was initialized with.
+        /// </summary>
+        public void AlignSilent(string curveStr)
+        {
+            if (string.IsNullOrEmpty(curveStr)) return;
+            SetValueSilent(curveStr);
+            _lastSentValue = curveStr;
+        }
 
         /// <summary>
         /// Call this after initial sync is complete to enable device writes.
@@ -514,19 +609,13 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionFanCurveData changed to {Value}, initialized={_initialized}, lastSent={_lastSentValue}");
 
-            // Only write to device if:
-            // 1. Initialized (not during startup sync)
-            // 2. Value is different from last sent (avoid redundant WMI calls)
-            // 3. Currently in Custom mode (255) - preset modes have their own built-in fan curves
+            // Always apply: SetFanCurveFromString updates the active curve in the helper,
+            // persists to the per-mode LocalSettings slot, and (if in Custom mode) writes
+            // through to the WMI Fan_Set_Table. The Custom-mode gate moved into
+            // ApplyFanCurve so the per-mode persistence + EC-override active curve update
+            // run regardless of which mode is active.
             if (_initialized && Value != _lastSentValue)
             {
-                int currentMode = Manager?.CurrentPerformanceMode ?? 2;
-                if (currentMode != 255)
-                {
-                    Logger.Info($"Fan curve change ignored - not in Custom mode (current mode: {currentMode}). Preset modes use hardware fan curves.");
-                    return;
-                }
-
                 _lastSentValue = Value;
                 Manager?.SetFanCurveFromString(Value);
             }

@@ -289,6 +289,103 @@ namespace XboxGamingBar.Data
     }
 
     /// <summary>
+    /// Per-mode fan curve channel. Payload format: "<mode>:v0,v1,...,v9".
+    /// Helper pushes 4 messages on connect (one per TdpMode); widget caches every
+    /// mode's curve so the user can edit a non-active mode without changing power
+    /// modes. Outbound sends from the widget save to that mode's slot on the helper.
+    /// </summary>
+    internal class LegionFanCurvePerModeProperty : WidgetProperty<string>
+    {
+        private readonly Page _owner;
+        private Action<int, int[]> _perModeCallback;
+
+        public LegionFanCurvePerModeProperty(Page owner)
+            : base("", null, Function.LegionFanCurvePerMode)
+        {
+            _owner = owner;
+        }
+
+        public void SetCallback(Action<int, int[]> callback) => _perModeCallback = callback;
+
+        // Send a per-mode edit to the helper. Payload is "<mode>:csv".
+        public void SendForMode(int mode, int[] values)
+        {
+            if (values == null || values.Length != 10) return;
+            string csv = string.Join(",", values);
+            SetValue($"{mode}:{csv}");
+        }
+
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            if (_perModeCallback == null || _owner == null) return;
+            string payload = Value;
+            if (string.IsNullOrEmpty(payload)) return;
+            try
+            {
+                int colon = payload.IndexOf(':');
+                if (colon <= 0) return;
+                if (!int.TryParse(payload.Substring(0, colon), out int mode)) return;
+                int[] values = LegionFanCurveGraphProperty.ParseCurveData(payload.Substring(colon + 1));
+                await _owner.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    _perModeCallback(mode, values);
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"LegionFanCurvePerModeProperty parse failed: {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Per-mode unlock channel. Payload format: "<mode>:0|1".
+    /// </summary>
+    internal class LegionUnlockFanCurvePerModeProperty : WidgetProperty<string>
+    {
+        private readonly Page _owner;
+        private Action<int, bool> _perModeCallback;
+
+        public LegionUnlockFanCurvePerModeProperty(Page owner)
+            : base("", null, Function.LegionUnlockFanCurvePerMode)
+        {
+            _owner = owner;
+        }
+
+        public void SetCallback(Action<int, bool> callback) => _perModeCallback = callback;
+
+        public void SendForMode(int mode, bool unlocked)
+        {
+            SetValue($"{mode}:{(unlocked ? 1 : 0)}");
+        }
+
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            if (_perModeCallback == null || _owner == null) return;
+            string payload = Value;
+            if (string.IsNullOrEmpty(payload)) return;
+            try
+            {
+                int colon = payload.IndexOf(':');
+                if (colon <= 0) return;
+                if (!int.TryParse(payload.Substring(0, colon), out int mode)) return;
+                string val = payload.Substring(colon + 1).Trim();
+                bool unlocked = val == "1" || string.Equals(val, "true", StringComparison.OrdinalIgnoreCase);
+                await _owner.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    _perModeCallback(mode, unlocked);
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"LegionUnlockFanCurvePerModeProperty parse failed: {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
     /// Property to tell the helper when the fan curve graph is visible.
     /// The helper only pushes CPU temp and fan RPM updates when this is true.
     /// </summary>

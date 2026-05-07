@@ -191,6 +191,7 @@
     <Compile Include="Data\Legion\LegionPerformanceModeProperty.cs" />
     <Compile Include="Data\Legion\LegionCustomTDPProperty.cs" />
     <Compile Include="Data\Legion\LegionFanFullSpeedProperty.cs" />
+    <Compile Include="Data\Legion\LegionUnlockFanCurveProperty.cs" />
     <Compile Include="Data\Legion\LegionFanCurveProperty.cs" />
     <Compile Include="Data\Legion\LegionGyroEnabledProperty.cs" />
     <Compile Include="Data\Legion\LegionVibrationProperty.cs" />
