@@ -584,6 +584,7 @@
     <Compile Include="ControllerEmulation\Viiper\ViiperEmulationManager.cs" />
     <Compile Include="ControllerEmulation\Viiper\XInputNative.cs" />
     <Compile Include="ControllerEmulation\Viiper\ViiperInputForwarder.cs" />
+    <Compile Include="ControllerEmulation\Viiper\ViiperStickGyroProcessor.cs" />
     <Compile Include="Settings\UsbipInstalledProperty.cs" />
     <Compile Include="Settings\ViiperDeviceTypeProperty.cs" />
     <Compile Include="Settings\ViiperInputSourceProperty.cs" />
@@ -592,6 +593,8 @@
     <Compile Include="Settings\ViiperGuideButtonModeProperty.cs" />
     <Compile Include="Settings\ViiperSwapRumbleMotorsProperty.cs" />
     <Compile Include="Settings\ViiperRumbleIntensityProperty.cs" />
+    <Compile Include="Settings\ViiperMirrorLightbarToStickProperty.cs" />
+    <Compile Include="Settings\ViiperStickGyroEnabledProperty.cs" />
     <Compile Include="Settings\ViiperGyroAxisMapProperty.cs" />
     <Compile Include="Settings\ProfileMatchByExeProperty.cs" />
     <Compile Include="Settings\ProfileCustomGamePathProperty.cs" />
@@ -665,6 +668,7 @@
     <Compile Include="ControllerEmulation\ControllerEmulationManager.GyroSource.cs" />
     <Compile Include="ControllerEmulation\ControllerEmulationProperties.cs" />
     <Compile Include="ControllerEmulation\ControllerSuppressionManager.cs" />
+    <Compile Include="ControllerEmulation\GyroBiasEstimator.cs" />
     <Compile Include="ControllerEmulation\GyroSourceAdapters.cs" />
     <Compile Include="DefaultGameProfiles\CpuDetector.cs" />
     <Compile Include="DefaultGameProfiles\ProfileParser.cs" />

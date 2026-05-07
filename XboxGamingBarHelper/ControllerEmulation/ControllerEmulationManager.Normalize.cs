@@ -302,6 +302,15 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 {
                     hideTarget = NormalizeHideTarget(savedHideTarget);
                 }
+                else if (deviceType == SharedDeviceType.LegionGo || deviceType == SharedDeviceType.LegionGo2)
+                {
+                    // Fresh-install default for Legion Go / Go 2: hide both the native
+                    // handheld HID and the Xbox 360 bridge. Now that the default gyro
+                    // adapter reads via LegionButtonMonitor (cached HID handle), gyro
+                    // keeps flowing while the OS-visible devices are suppressed, so
+                    // games see only the emulated pad — no double input in Steam/Game Bar.
+                    hideTarget = 3;
+                }
                 else
                 {
                     hideTarget = 0;
@@ -562,8 +571,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     ? Math.Max(-100, Math.Min(100, savedOutputMix)) : 0;
                 stickOrientationV2 = LocalSettingsHelper.TryGetValue("ControllerEmulationStickOrientationV2", out int savedOrientV2)
                     ? ((savedOrientV2 == 1) ? 1 : 0) : 0;
+                // Default 2 (Yaw + Roll) per vvalente30's recommended SteamOS-aligned settings
+                // (issue #79). Existing users with a saved value keep what they have.
                 stickConversion = LocalSettingsHelper.TryGetValue("ControllerEmulationStickConversion", out int savedConversion)
-                    ? Math.Max(0, Math.Min(2, savedConversion)) : 0;
+                    ? Math.Max(0, Math.Min(2, savedConversion)) : 2;
 
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationVirtualABXYLayout", out int savedVirtualAbxyLayout))
                 {
@@ -847,6 +858,32 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 Logger.Warn($"Controller emulation suppression unavailable ({reason}); forwarding continues without HidHide cloaking");
             }
 
+            // Post-Start re-pin (ported from ViiperEmulationManager). The initial
+            // DiscoverPreferredPhysicalXboxIndex at the top of ConfigureForwarding fires
+            // BEFORE EnableSuppression engages and BEFORE LegionButtonMonitor's Labs
+            // ViGEm pad is disposed. Either of those events can shuffle XInput slots,
+            // leaving physicalXboxUserIndex pinned to the wrong slot. The forwarder's
+            // own per-loop slot recovery covers most cases, but doing an explicit
+            // re-pick here shaves recovery latency and makes the slot transition
+            // visible in logs for "no input after toggle" triage.
+            if (targetType == ViGEmController.VirtualGamepadType.Xbox360)
+            {
+                try
+                {
+                    System.Threading.Thread.Sleep(150); // let HidHide cycle-port + Labs pad disposal settle
+                    int? repinned = DiscoverPreferredPhysicalXboxIndex(virtualXboxUserIndex);
+                    if (repinned.HasValue && repinned.Value != physicalXboxUserIndex)
+                    {
+                        Logger.Info($"Controller emulation post-Start XInput re-pin: physicalIndex {physicalXboxUserIndex} -> {repinned} (post-suppression slot reshuffle)");
+                        physicalXboxUserIndex = repinned;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"Controller emulation post-Start re-pin skipped: {ex.Message}");
+                }
+            }
+
             return gyroReady;
         }
 
@@ -1003,10 +1040,20 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private void ForwardingThreadProc()
         {
             Logger.Info("Controller emulation forwarding loop running");
+            forwardingStatsLastEmitTicksUtc = DateTime.UtcNow.Ticks;
+            forwardingIterations = 0;
+            forwardingReadOkXInput = 0;
+            forwardingReadOkLegionHid = 0;
+            forwardingReadFail = 0;
+            forwardingGyroMerged = 0;
+            forwardingGyroNoSample = 0;
+            forwardingGyroGateOff = 0;
             while (forwardingRunning)
             {
                 try
                 {
+                    forwardingIterations++;
+                    EmitForwardingStatsIfDue();
                     if (mode == 0)
                     {
                         XINPUT_STATE activationState = default;
@@ -1021,6 +1068,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                             if (xInputGetState != null)
                             {
                                 hasActivationState = TryReadPhysicalControllerState(out activationState);
+                                if (!hasActivationState) forwardingReadFail++;
                             }
                         }
 
@@ -1036,6 +1084,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
                     if (!TryReadPhysicalControllerState(out XINPUT_STATE state))
                     {
+                        forwardingReadFail++;
                         Thread.Sleep(ForwardingIntervalMs);
                         continue;
                     }
@@ -1062,6 +1111,13 @@ namespace XboxGamingBarHelper.ControllerEmulation
                             lastGyroStickTicksUtc = stickSample.TimestampTicksUtc > 0
                                 ? stickSample.TimestampTicksUtc
                                 : DateTime.UtcNow.Ticks;
+                            // Diagnostic: count only when the math produced a non-zero
+                            // contribution. Zero outputs at this step usually mean
+                            // bias-corrected sample fell entirely inside the deadzone.
+                            if (lastGyroStickX != 0 || lastGyroStickY != 0)
+                            {
+                                forwardingGyroMerged++;
+                            }
                         }
                         else if (!gyroActive)
                         {
@@ -1069,6 +1125,24 @@ namespace XboxGamingBarHelper.ControllerEmulation
                             lastGyroStickY = 0;
                             hasLastGyroStick = false;
                             lastGyroStickTicksUtc = 0;
+                            forwardingGyroGateOff++;
+                            // Feed the bias estimator while the gate is closed so
+                            // calibration is already converged when the user presses
+                            // the activation button. Otherwise Hold-mode users would
+                            // see full pre-correction drift on engage.
+                            if (TryReadGyroSample(out GyroSample idleSample))
+                            {
+                                _ = stickGyroBiasEstimator.Correct(idleSample);
+                            }
+                        }
+                        else
+                        {
+                            // gyroActive but TryReadGyroSample returned false — the
+                            // adapter isn't producing samples (LegionButtonMonitor
+                            // dead, or Windows Sensor stack timed out). Keep
+                            // hasLastGyroStick alive so the existing stale guard
+                            // can age the previous output out.
+                            forwardingGyroNoSample++;
                         }
 
                         if (hasLastGyroStick)

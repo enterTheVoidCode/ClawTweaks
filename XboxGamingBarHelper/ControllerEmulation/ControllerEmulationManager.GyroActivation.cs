@@ -88,6 +88,22 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     return (gamepad.wButtons & XINPUT_GAMEPAD_START) != 0;
                 case 16:
                     return (gamepad.wButtons & XINPUT_GAMEPAD_BACK) != 0;
+                // FR-1 (issue #79): Legion-only auxiliary buttons. Source is the cached
+                // LegionHid sample (lastLegionAuxButtons) — only updated when
+                // ShouldUseLegionHidInputPath() is true. On non-Legion devices or when
+                // improvedInputRead is off, these will read 0 and never trigger.
+                case 17:
+                    return (lastLegionAuxButtons & LEGION_AUX_EXTRA_R2) != 0;       // M3
+                case 18:
+                    return (lastLegionAuxButtons & LEGION_AUX_EXTRA_RM1) != 0;      // M1
+                case 19:
+                    return (lastLegionAuxButtons & LEGION_AUX_EXTRA_R3) != 0;       // M2
+                case 20:
+                    return (lastLegionAuxButtons & LEGION_AUX_EXTRA_L1) != 0;       // Y1
+                case 21:
+                    return (lastLegionAuxButtons & LEGION_AUX_EXTRA_L2) != 0;       // Y2
+                case 22:
+                    return (lastLegionAuxButtons & LEGION_AUX_EXTRA_R1) != 0;       // Y3
                 default:
                     return false;
             }
@@ -127,6 +143,43 @@ namespace XboxGamingBarHelper.ControllerEmulation
             }
 
             return remapped;
+        }
+
+        private void EmitForwardingStatsIfDue()
+        {
+            long nowUtc = DateTime.UtcNow.Ticks;
+            long elapsed = nowUtc - forwardingStatsLastEmitTicksUtc;
+            if (elapsed < TimeSpan.TicksPerSecond * 5) return;
+
+            int iters = forwardingIterations;
+            int okX = forwardingReadOkXInput;
+            int okHid = forwardingReadOkLegionHid;
+            int fail = forwardingReadFail;
+            int gMerged = forwardingGyroMerged;
+            int gNoSample = forwardingGyroNoSample;
+            int gGateOff = forwardingGyroGateOff;
+            double seconds = elapsed / (double)TimeSpan.TicksPerSecond;
+            string physIdx = physicalXboxUserIndex.HasValue ? physicalXboxUserIndex.Value.ToString() : "<none>";
+            string virtIdx = virtualXboxUserIndex.HasValue ? virtualXboxUserIndex.Value.ToString() : "<none>";
+            string srcPath = ShouldUseLegionHidInputPath() ? "LegionHid+XInput" : "XInput";
+            // Bias snapshot is included on every line (matches VIIPER stats)
+            // so a single grep can verify the estimator settled on a sane value.
+            string biasField = stickGyroBiasEstimator != null && stickGyroBiasEstimator.IsCalibrated
+                ? string.Format("bias=[{0:F1},{1:F1},{2:F1}]",
+                    stickGyroBiasEstimator.BiasXDegPerSec,
+                    stickGyroBiasEstimator.BiasYDegPerSec,
+                    stickGyroBiasEstimator.BiasZDegPerSec)
+                : "bias=uncal";
+            Logger.Info($"CE forwarding stats: {seconds:F1}s iters={iters} okXInput={okX} okLegionHid={okHid} fail={fail} mode={mode} source={srcPath} physIdx={physIdx} virtIdx={virtIdx} gyroMerged={gMerged} gyroGateOff={gGateOff} gyroNoSample={gNoSample} {biasField}");
+
+            forwardingStatsLastEmitTicksUtc = nowUtc;
+            forwardingIterations = 0;
+            forwardingReadOkXInput = 0;
+            forwardingReadOkLegionHid = 0;
+            forwardingReadFail = 0;
+            forwardingGyroMerged = 0;
+            forwardingGyroNoSample = 0;
+            forwardingGyroGateOff = 0;
         }
 
     }

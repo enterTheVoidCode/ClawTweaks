@@ -44,6 +44,12 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 }
             }
 
+            // 0. Bias correction — subtract the IMU's rest-state offset so a
+            //    5°/s residual on YAW doesn't survive as a 1.4% persistent right-
+            //    stick deflection in Always-On mode. Estimator updates only when
+            //    the controller is stationary; safe to call every tick.
+            sample = stickGyroBiasEstimator.Correct(sample);
+
             // 1. Orientation-corrected input axes
             //    Parallel = standard (Y=Yaw, Z=Roll)
             //    Orthogonal = swap Y↔Z for devices where IMU axes are rotated

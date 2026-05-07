@@ -75,7 +75,13 @@ namespace XboxGamingBarHelper.ControllerEmulation
                         case 1: return new LegionControllerGyroSourceAdapter(false);   // Right
                         case 2: return new LegionControllerGyroSourceAdapter(true);    // Left
                         case 3: return new LegionControllerMixedGyroSourceAdapter();   // Mixed
-                        default: return new WindowsSensorGyroSourceAdapter("Legion Internal Gyro");
+                        // Default ("Internal") reads via LegionButtonMonitor's cached HID
+                        // handle, which keeps producing samples even when HidHide hides the
+                        // native HID from the rest of the OS. The previous Windows Sensor
+                        // adapter went dark whenever HidHide hid the native device, forcing
+                        // users to leave it visible (and get double input in Steam/Game Bar)
+                        // just to keep gyro working in games.
+                        default: return new LegionControllerMixedGyroSourceAdapter();
                     }
 
                 case SharedDeviceType.LegionGoS:
@@ -988,6 +994,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
             if (ShouldUseLegionHidInputPath() && TryReadLegionHidControllerState(out selectedState))
             {
+                forwardingReadOkLegionHid++;
                 return true;
             }
 
@@ -1105,6 +1112,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
                 physicalXboxUserIndex = (int)changedIndex;
                 selectedState = changedState;
+                forwardingReadOkXInput++;
                 return true;
             }
 
@@ -1114,6 +1122,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 lastPacketByController[lockedIndex] = lockedState.dwPacketNumber;
                 physicalXboxUserIndex = (int)lockedIndex;
                 selectedState = lockedState;
+                forwardingReadOkXInput++;
                 return true;
             }
 
@@ -1122,6 +1131,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 lastPacketByController[firstConnectedIndex] = firstConnectedState.dwPacketNumber;
                 physicalXboxUserIndex = (int)firstConnectedIndex;
                 selectedState = firstConnectedState;
+                forwardingReadOkXInput++;
                 return true;
             }
 
@@ -1174,6 +1184,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
             state.Gamepad.sThumbLY = sample.LeftStickY;
             state.Gamepad.sThumbRX = sample.RightStickX;
             state.Gamepad.sThumbRY = sample.RightStickY;
+
+            // FR-1: cache aux buttons so IsGyroActivationButtonPressed can resolve
+            // the M1/M2/M3/Y1/Y2/Y3 selector indices (these aren't in XINPUT_GAMEPAD).
+            lastLegionAuxButtons = sample.AuxButtons;
 
             ApplyLegionUserspaceRemaps(sample, ref state);
             return true;

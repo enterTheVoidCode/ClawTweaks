@@ -77,6 +77,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 {
                     settingsManager.ViiperRumbleIntensity.PropertyChanged += OnRumbleIntensityChanged;
                 }
+                if (settingsManager.ViiperMirrorLightbarToStick != null)
+                {
+                    settingsManager.ViiperMirrorLightbarToStick.PropertyChanged += OnMirrorLightbarChanged;
+                }
                 if (settingsManager.ViiperGyroAxisMapX != null)
                 {
                     settingsManager.ViiperGyroAxisMapX.PropertyChanged += OnGyroAxisMapChanged;
@@ -247,6 +251,7 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             forwarder.SetGuideButtonMode(ResolveGuideMode());
             forwarder.SetSwapRumbleMotors(settingsManager?.ViiperSwapRumbleMotors?.Value ?? false);
             forwarder.SetRumbleIntensity(settingsManager?.ViiperRumbleIntensity?.Value ?? 100);
+            forwarder.SetMirrorLightbarToStick(settingsManager?.ViiperMirrorLightbarToStick?.Value ?? false);
             forwarder.SetGyroAxisMapping(
                 settingsManager?.ViiperGyroAxisMapX?.Value ?? "X",
                 settingsManager?.ViiperGyroAxisMapY?.Value ?? "Y",
@@ -362,6 +367,12 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         {
             try { forwarder.SetRumbleIntensity(settingsManager?.ViiperRumbleIntensity?.Value ?? 100); }
             catch (Exception ex) { Logger.Warn($"OnRumbleIntensityChanged threw: {ex.Message}"); }
+        }
+
+        private void OnMirrorLightbarChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            try { forwarder.SetMirrorLightbarToStick(settingsManager?.ViiperMirrorLightbarToStick?.Value ?? false); }
+            catch (Exception ex) { Logger.Warn($"OnMirrorLightbarChanged threw: {ex.Message}"); }
         }
 
         private void OnGyroAxisMapChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)

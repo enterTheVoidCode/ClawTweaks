@@ -81,6 +81,11 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         private volatile bool swapRumbleMotors;
         // Percent ×10 so we can apply it with integer math (1000 == unity). Range 0..2000.
         private volatile int rumbleIntensityScaled = 1000;
+        // When false, suppress mirroring the emulated lightbar to the Legion stick lights
+        // so the user's saved color stays untouched. Default false — the toggle has to be
+        // explicitly enabled. Prior behavior (always-on) caused users to lose their picker
+        // color the moment VIIPER asserted the DS Edge idle blue.
+        private volatile bool mirrorLightbar;
 
         // IMU axis remap: each output axis reads source[src] × sign. Packed (src, sign) per
         // axis. Identity: X→(0,+1), Y→(1,+1), Z→(2,+1). Accel uses the same map as gyro
@@ -89,6 +94,12 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         private volatile int axisMapXSrc = 0, axisMapXSign = 1;
         private volatile int axisMapYSrc = 1, axisMapYSign = 1;
         private volatile int axisMapZSrc = 2, axisMapZSign = 1;
+
+        // Synthesizes a right-stick override from gyro for target types whose wire
+        // format has no native motion field (xbox360, xboxelite2, switchpro family).
+        // For DS4 / DSE the wire format already carries IMU bytes via TryBuildImuCounts,
+        // so this processor stays dormant on those targets.
+        private readonly ViiperStickGyroProcessor stickGyro = new ViiperStickGyroProcessor();
 
         // Edge-detection state for the Guide/Mode -> Win+G shortcut. We only fire the
         // shortcut on press-transition, not on every poll while the button is held.
@@ -239,20 +250,37 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
 
             // LED color forwarding — the emulated device's RGB lightbar is pushed to the
             // Legion Go stick lights. Throttle: skip when unchanged and rate-limit writes.
-            if (haveLed && legionManager != null)
+            //
+            // Suppress the initial (0,0,0) state: most games default the emulated DS/DS Edge
+            // lightbar to black until they explicitly assert a color, and forwarding (0,0,0)
+            // at startup overwrites the user's saved Legion Go stick color (we observed this
+            // at 16:40:37 in the helper logs — VIIPER started, immediately wrote
+            // SetLightColor("#000000") with no game asserting anything). Once the game
+            // sends ANY non-zero color, start forwarding everything — including subsequent
+            // explicit (0,0,0) "off" requests.
+            if (haveLed && legionManager != null && mirrorLightbar)
             {
                 long packed = ((long)ledR << 16) | ((long)ledG << 8) | ledB;
                 long now = DateTime.UtcNow.Ticks;
                 if (packed != lastLedPacked && (now - lastLedWriteTicks) >= LedWriteMinIntervalTicks)
                 {
-                    lastLedPacked = packed;
-                    lastLedWriteTicks = now;
-                    try
+                    if (lastLedPacked < 0 && packed == 0)
                     {
-                        string hex = string.Format("#{0:X2}{1:X2}{2:X2}", ledR, ledG, ledB);
-                        legionManager.SetLightColor(hex);
+                        // First observation is black — treat as "no game assertion yet" and
+                        // record without forwarding so the user's stick color stays put.
+                        lastLedPacked = 0;
                     }
-                    catch (Exception ex) { Logger.Debug($"Legion SetLightColor failed: {ex.Message}"); }
+                    else
+                    {
+                        lastLedPacked = packed;
+                        lastLedWriteTicks = now;
+                        try
+                        {
+                            string hex = string.Format("#{0:X2}{1:X2}{2:X2}", ledR, ledG, ledB);
+                            legionManager.SetLightColor(hex);
+                        }
+                        catch (Exception ex) { Logger.Debug($"Legion SetLightColor failed: {ex.Message}"); }
+                    }
                 }
             }
         }
@@ -291,6 +319,12 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             busId = inBusId;
             deviceId = inDeviceId;
             targetType = string.IsNullOrEmpty(inTargetType) ? "xbox360" : inTargetType;
+
+            // Clear any stale filter / toggle state from a previous Start cycle.
+            // Without this, a backend swap (e.g. xbox360 → DS4 → xbox360 again)
+            // would carry over an old filter value and produce a sudden jump on
+            // the first poll under the new device.
+            stickGyro.Reset();
 
             activeInstance = this;
             running = true;
@@ -369,6 +403,18 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             if (swapRumbleMotors == swap) return;
             swapRumbleMotors = swap;
             Logger.Info($"VIIPER forwarder swap-rumble-motors -> {swap}");
+        }
+
+        /// <summary>Enable/disable mirroring the emulated DS4/DSEdge lightbar onto the Legion stick lights.</summary>
+        public void SetMirrorLightbarToStick(bool enabled)
+        {
+            if (mirrorLightbar == enabled) return;
+            mirrorLightbar = enabled;
+            // Forget the last forwarded color so the next observation re-evaluates from
+            // scratch under the new policy (avoids stale dedup state if the user toggles
+            // mid-game).
+            lastLedPacked = -1;
+            Logger.Info($"VIIPER forwarder mirror-lightbar-to-stick -> {enabled}");
         }
 
         /// <summary>Sets the rumble intensity multiplier (percent, 0..200).</summary>
@@ -620,6 +666,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             catch (Exception ex) { Logger.Warn($"VIIPER forwarder join threw: {ex.Message}"); }
             pollThread = null;
 
+            // Tear down the stick-gyro adapter so the LegionButtonMonitor reference is
+            // released. EnsureGyroAdapter rebuilds on next Start.
+            stickGyro.Shutdown();
+
             // Clear any lingering rumble on the physical controller.
             try
             {
@@ -778,6 +828,32 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                         {
                             gp.Buttons |= ViiperXInput.Guide;
                         }
+                        // Stick-gyro override: for target types with no native motion
+                        // field, synthesize a stick contribution from gyro motion so
+                        // users get the same Mode-1 ("Xbox / Stick") feel they had on
+                        // the legacy ViGEm backend. LegionHid path provides the raw
+                        // aux buttons for activation gating (M1/M2/M3/Y1/Y2/Y3). The
+                        // processor honors the user's "Send to joystick" choice via
+                        // stickGyro.RoutesToLeftStick (Left vs Right).
+                        if (ViiperStickGyroProcessor.IsApplicableForTarget(targetType) &&
+                            stickGyro.TryComputeStickOverride(gp.Buttons, gp.LeftTrigger, gp.RightTrigger,
+                                sample.AuxButtons, out short sgX, out short sgY))
+                        {
+                            if (stickGyro.RoutesToLeftStick)
+                            {
+                                ViiperStickGyroProcessor.MergeStickVectors(gp.ThumbLX, gp.ThumbLY, sgX, sgY,
+                                    out short mergedX, out short mergedY);
+                                gp.ThumbLX = mergedX;
+                                gp.ThumbLY = mergedY;
+                            }
+                            else
+                            {
+                                ViiperStickGyroProcessor.MergeStickVectors(gp.ThumbRX, gp.ThumbRY, sgX, sgY,
+                                    out short mergedX, out short mergedY);
+                                gp.ThumbRX = mergedX;
+                                gp.ThumbRY = mergedY;
+                            }
+                        }
                         byte[] data = BuildDeviceInput(gp);
                         if (data != null && data.Length > 0)
                         {
@@ -822,6 +898,28 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                         else if (IsGuideHoldActive())
                         {
                             gp.Buttons |= ViiperXInput.Guide;
+                        }
+                        // Stick-gyro override on the XInput input path. No Legion aux
+                        // buttons are available here (XInput hardware can't see them),
+                        // so activation buttons 17-22 will read 0 and never trigger.
+                        if (ViiperStickGyroProcessor.IsApplicableForTarget(targetType) &&
+                            stickGyro.TryComputeStickOverride(gp.Buttons, gp.LeftTrigger, gp.RightTrigger,
+                                0 /* no aux on XInput path */, out short sgX, out short sgY))
+                        {
+                            if (stickGyro.RoutesToLeftStick)
+                            {
+                                ViiperStickGyroProcessor.MergeStickVectors(gp.ThumbLX, gp.ThumbLY, sgX, sgY,
+                                    out short mergedXl, out short mergedYl);
+                                gp.ThumbLX = mergedXl;
+                                gp.ThumbLY = mergedYl;
+                            }
+                            else
+                            {
+                                ViiperStickGyroProcessor.MergeStickVectors(gp.ThumbRX, gp.ThumbRY, sgX, sgY,
+                                    out short mergedX, out short mergedY);
+                                gp.ThumbRX = mergedX;
+                                gp.ThumbRY = mergedY;
+                            }
                         }
                         byte[] data = BuildDeviceInput(gp);
                         if (data != null && data.Length > 0)

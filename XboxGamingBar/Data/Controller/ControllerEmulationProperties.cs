@@ -793,8 +793,10 @@ namespace XboxGamingBar.Data
 
     internal class ControllerEmulationStickConversionProperty : WidgetControlProperty<int, ComboBox>
     {
+        // Default 2 (Yaw + Roll) — matches helper Normalize.cs default for fresh installs
+        // per vvalente30's recommended SteamOS-aligned settings (issue #79).
         public ControllerEmulationStickConversionProperty(ComboBox inUI, Page inOwner)
-            : base(0, Function.ControllerEmulationStickConversion, inUI, inOwner)
+            : base(2, Function.ControllerEmulationStickConversion, inUI, inOwner)
         {
             if (UI != null)
             {

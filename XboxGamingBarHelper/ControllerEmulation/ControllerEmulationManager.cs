@@ -177,6 +177,43 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private int touchDiagLogCounter;
         private int gyroDiagLogCounter;
 
+        // Issue #79: vvalente30 reports legacy CE produces no input on his LGO2
+        // even though ViGEm connects + forwarding loop starts. These counters
+        // emit a 5s stats line so the next log shows whether reads succeeded
+        // (and from which source) or always returned no-data.
+        private long forwardingStatsLastEmitTicksUtc;
+        private int forwardingIterations;
+        private int forwardingReadOkXInput;
+        private int forwardingReadOkLegionHid;
+        private int forwardingReadFail;
+
+        // Issue #79 round 4: vvalente30 reports legacy CE gyro doesn't reach
+        // games after the #5 source swap, but his test windows were too short
+        // to confirm whether ApplyStickFromGyro produced non-zero output. Mirror
+        // the VIIPER processor's stats shape so a single grep covers both
+        // backends and the next capture tells us which step is failing.
+        // gyroMerged increments when the gyro→stick output is non-zero AND
+        // gets merged into the forwarded stick; gyroNoSample when activation
+        // is on but TryReadGyroSample returned false; gyroGateOff when the
+        // activation mode/button gate kept gyro disabled.
+        private int forwardingGyroMerged;
+        private int forwardingGyroNoSample;
+        private int forwardingGyroGateOff;
+
+        // FR-1 (issue #79): allow M1/M2/M3/Y1/Y2/Y3 to be picked as the gyro
+        // activation button. The XInput gamepad struct has no fields for these,
+        // so cache the last LegionHid sample's AuxButtons here and consult it
+        // from IsGyroActivationButtonPressed for the new indices.
+        private ushort lastLegionAuxButtons;
+
+        // Issue #79 round 4: residual IMU bias produces "camera drifts on its own"
+        // in Always-On gyro→stick. The estimator subtracts the rest-state bias
+        // before the deadzone so a 5°/s sensor offset doesn't survive as a 1.4%
+        // persistent stick deflection. Shared with the VIIPER stick-gyro
+        // processor — each pipeline owns its own instance because filter state
+        // shouldn't cross backend swaps.
+        private readonly GyroBiasEstimator stickGyroBiasEstimator = new GyroBiasEstimator();
+
         private const int ForwardingIntervalMs = 4;
         private const uint ERROR_SUCCESS = 0;
         private const float GyroDs4MaxDegPerSecond = 2000.0f;

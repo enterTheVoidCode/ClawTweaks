@@ -407,8 +407,10 @@
         Viiper_GuideButtonMode,                    // string - "Native" (send device Guide/PS) or "GameBar" (send Win+G on Mode/Guide press)
         Viiper_SwapRumbleMotors,                   // bool  - swap large/small motor values before forwarding rumble feedback
         Viiper_RumbleIntensity,                    // int (0-200) - percentage multiplier applied to rumble motor values (100 = unity)
+        Viiper_MirrorLightbarToStick,              // bool  - mirror emulated DS4/DSEdge lightbar color onto Legion Go stick lights (default true)
         Viiper_GyroAxisMapX,                       // string - which source axis feeds the emulated device's IMU X channel ("X","Y","Z","-X","-Y","-Z")
         Viiper_GyroAxisMapY,                       // string - IMU Y channel mapping (same options)
         Viiper_GyroAxisMapZ,                       // string - IMU Z channel mapping (same options)
+        Viiper_StickGyroEnabled,                   // bool  - master enable for the Gyro → Right Stick processor on no-native-motion targets (default true)
     }
 }
