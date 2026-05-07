@@ -919,6 +919,156 @@ namespace XboxGamingBarHelper.AMD
             base.Dispose(disposing);
         }
 
+        /// <summary>
+        /// Snapshot of GPU metrics returned by ADLX's IADLXGPUMetrics. Each "Has" flag
+        /// reports whether ADLX successfully populated the corresponding field — on
+        /// hardware where ADLX itself doesn't support a given metric, the call returns
+        /// non-OK and we leave the field at its default. Used as a fallback when
+        /// LibreHardwareMonitor doesn't expose the matching sensor (Mute's Legion Go 2 /
+        /// Z2-series APU showed GPU usage but no Wattage/Temperature/Clock; ADLX exposes
+        /// them when LHM doesn't).
+        /// </summary>
+        internal struct GpuMetricsSnapshot
+        {
+            public bool HasUsage;
+            public double UsagePercent;
+
+            public bool HasClockMHz;
+            public int GpuClockMHz;
+
+            public bool HasVramClockMHz;
+            public int VramClockMHz;
+
+            public bool HasTemperatureC;
+            public double GpuTemperatureC;
+
+            public bool HasPowerW;
+            public double GpuPowerW;
+
+            public bool HasVramUsedMB;
+            public int VramUsedMB;
+        }
+
+        /// <summary>
+        /// Reads the current ADLX GPU metrics for the internal GPU (or the dedicated
+        /// GPU on dGPU-only systems). Returns false if ADLX is unavailable, no GPU was
+        /// resolved, or the metrics call failed wholesale; otherwise returns true with
+        /// per-field "Has" flags indicating which metrics ADLX populated. Caller should
+        /// treat each field as "use only when Has* is true."
+        /// </summary>
+        public bool TryGetCurrentGpuMetrics(out GpuMetricsSnapshot snapshot)
+        {
+            snapshot = default;
+
+            if (adlxInitializeResult != ADLX_RESULT.ADLX_OK || adlxSystemSevices == null)
+            {
+                return false;
+            }
+
+            // Prefer iGPU (handhelds), fall back to dGPU (desktop with discrete card).
+            var gpu = adlxInternalGPU ?? adlxDedicatedGPU;
+            if (gpu == null)
+            {
+                return false;
+            }
+
+            IADLXPerformanceMonitoringServices perfServices = null;
+            IADLXGPUMetrics metrics = null;
+            SWIGTYPE_p_double dPtr = null;
+            SWIGTYPE_p_int iPtr = null;
+
+            try
+            {
+                var perfPtr = ADLX.new_performanceMonitoringSerP_Ptr();
+                try
+                {
+                    var perfResult = adlxSystemSevices.GetPerformanceMonitoringServices(perfPtr);
+                    if (perfResult != ADLX_RESULT.ADLX_OK)
+                    {
+                        return false;
+                    }
+                    perfServices = ADLX.performanceMonitoringSerP_Ptr_value(perfPtr);
+                }
+                finally
+                {
+                    ADLX.delete_performanceMonitoringSerP_Ptr(perfPtr);
+                }
+
+                if (perfServices == null)
+                {
+                    return false;
+                }
+
+                var metricsPtr = ADLX.new_gpuMetricsP_Ptr();
+                try
+                {
+                    var metricsResult = perfServices.GetCurrentGPUMetrics(gpu, metricsPtr);
+                    if (metricsResult != ADLX_RESULT.ADLX_OK)
+                    {
+                        return false;
+                    }
+                    metrics = ADLX.gpuMetricsP_Ptr_value(metricsPtr);
+                }
+                finally
+                {
+                    ADLX.delete_gpuMetricsP_Ptr(metricsPtr);
+                }
+
+                if (metrics == null)
+                {
+                    return false;
+                }
+
+                dPtr = ADLX.new_doubleP();
+                iPtr = ADLX.new_intP();
+
+                if (metrics.GPUUsage(dPtr) == ADLX_RESULT.ADLX_OK)
+                {
+                    snapshot.UsagePercent = ADLX.doubleP_value(dPtr);
+                    snapshot.HasUsage = true;
+                }
+                if (metrics.GPUClockSpeed(iPtr) == ADLX_RESULT.ADLX_OK)
+                {
+                    snapshot.GpuClockMHz = ADLX.intP_value(iPtr);
+                    snapshot.HasClockMHz = true;
+                }
+                if (metrics.GPUVRAMClockSpeed(iPtr) == ADLX_RESULT.ADLX_OK)
+                {
+                    snapshot.VramClockMHz = ADLX.intP_value(iPtr);
+                    snapshot.HasVramClockMHz = true;
+                }
+                if (metrics.GPUTemperature(dPtr) == ADLX_RESULT.ADLX_OK)
+                {
+                    snapshot.GpuTemperatureC = ADLX.doubleP_value(dPtr);
+                    snapshot.HasTemperatureC = true;
+                }
+                if (metrics.GPUPower(dPtr) == ADLX_RESULT.ADLX_OK)
+                {
+                    snapshot.GpuPowerW = ADLX.doubleP_value(dPtr);
+                    snapshot.HasPowerW = true;
+                }
+                if (metrics.GPUVRAM(iPtr) == ADLX_RESULT.ADLX_OK)
+                {
+                    snapshot.VramUsedMB = ADLX.intP_value(iPtr);
+                    snapshot.HasVramUsedMB = true;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"TryGetCurrentGpuMetrics: ADLX call threw — {ex.GetType().Name}: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                if (dPtr != null) { ADLX.delete_doubleP(dPtr); }
+                if (iPtr != null) { ADLX.delete_intP(iPtr); }
+                metrics?.Dispose();
+                perfServices?.Dispose();
+            }
+        }
+
         public override void Update()
         {
             base.Update();

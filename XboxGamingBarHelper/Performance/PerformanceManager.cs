@@ -331,6 +331,16 @@ namespace XboxGamingBarHelper.Performance
         // Legion Go support for manufacturer WMI TDP
         private LegionManager legionManager;
 
+        // AMD ADLX fallback for GPU sensors that LibreHardwareMonitor doesn't expose
+        // on certain APUs (Z2 series). Filled in via SetAMDManager after AMDManager
+        // initializes; null when ADLX isn't available, which leaves the OSD on
+        // LHM-only behavior.
+        private XboxGamingBarHelper.AMD.AMDManager amdManager;
+        // Throttle ADLX-fallback diagnostic logging to once per minute so a sustained
+        // OSD session doesn't fill the log with the same "filled GPUWattage from ADLX"
+        // line every tick.
+        private long lastAdlxFallbackLogTicksUtc;
+
         // PawnIO/RyzenSMU support for anti-cheat compatible TDP control
         private RyzenSmuService ryzenSmuService;
         private bool pawnIOAvailable;
@@ -483,6 +493,17 @@ namespace XboxGamingBarHelper.Performance
         {
             legionManager = manager;
             Logger.Info($"LegionManager reference set. Legion detected: {manager?.LegionGoDetected?.Value ?? false}");
+        }
+
+        /// <summary>
+        /// Sets the AMD Manager reference so the sensor update loop can fall back to
+        /// ADLX for GPU metrics that LibreHardwareMonitor doesn't expose on a given
+        /// APU. No-op when AMDManager is null (non-AMD systems / ADLX init failed).
+        /// </summary>
+        public void SetAMDManager(XboxGamingBarHelper.AMD.AMDManager manager)
+        {
+            amdManager = manager;
+            Logger.Info($"AMDManager reference set on PerformanceManager. ADLX GPU-metric fallback {(manager != null ? "enabled" : "disabled")}.");
         }
 
         /// <summary>
@@ -888,6 +909,22 @@ namespace XboxGamingBarHelper.Performance
                             Logger.Info($"ForceRefreshHardware: Battery sensor '{sensor.Name}' = {sensor.Value}");
                         }
                     }
+
+                    // Log GPU sensor inventory so we can diagnose OSD "GPU 71% N/A N/A N/A"
+                    // patterns (LibreHardwareMonitor not exposing temp/power/clock on
+                    // certain AMD APUs). This is the only diagnostic visible after a
+                    // hibernate resume — the original startup enumeration may have rolled
+                    // off the log file by the time the user reports the issue.
+                    if (hardware.HardwareType == HardwareType.GpuAmd ||
+                        hardware.HardwareType == HardwareType.GpuNvidia ||
+                        hardware.HardwareType == HardwareType.GpuIntel)
+                    {
+                        Logger.Info($"ForceRefreshHardware: {hardware.HardwareType} '{hardware.Name}' sensor inventory:");
+                        foreach (ISensor sensor in hardware.Sensors)
+                        {
+                            Logger.Info($"  {hardware.HardwareType} Sensor: Name='{sensor.Name}', Type={sensor.SensorType}, Value={sensor.Value}");
+                        }
+                    }
                 }
 
                 // Accept visitor to ensure all values are propagated
@@ -904,6 +941,19 @@ namespace XboxGamingBarHelper.Performance
                     Logger.Warn($"ForceRefreshHardware: Failed to get Windows API battery: {apiEx.Message}");
                 }
 
+                // After accept-visitor has populated hardwareSensors, log the registered
+                // GPU sensor objects' current values. -1 means LibreHardwareMonitor never
+                // matched the expected name+type for that slot, which is exactly the
+                // "OSD shows N/A" condition. Cross-reference with the sensor inventory
+                // above to find what name LHM uses on this hardware.
+                Logger.Info("ForceRefreshHardware: Registered GPU/VRAM sensor values after refresh:");
+                Logger.Info($"  GPUUsage         = {GPUUsage.Value} (looking for SensorType=Load on GpuAmd/GpuNvidia/GpuIntel, names: GPU Core / D3D 3D / GPU)");
+                Logger.Info($"  GPUClock         = {GPUClock.Value} (looking for SensorType=Clock, names: GPU Core)");
+                Logger.Info($"  GPUWattage       = {GPUWattage.Value} (looking for SensorType=Power, names: GPU Core / GPU Package / GPU Power)");
+                Logger.Info($"  GPUTemperature   = {GPUTemperature.Value} (looking for SensorType=Temperature, names: GPU VR SoC / GPU Core)");
+                Logger.Info($"  GPUMemoryUsed    = {GPUMemoryUsed.Value}");
+                Logger.Info($"  GPUMemoryFree    = {GPUMemoryFree.Value}");
+                Logger.Info($"  GPUMemoryClock   = {GPUMemoryClock.Value} (looking for SensorType=Clock)");
                 Logger.Info("ForceRefreshHardware: Hardware refresh complete");
             }
             catch (Exception ex)
@@ -951,6 +1001,13 @@ namespace XboxGamingBarHelper.Performance
                 }
             }
 
+            // ADLX fallback for GPU metrics that LibreHardwareMonitor didn't fill.
+            // On AMD APUs where LHM doesn't expose Power/Temperature/Clock sensor
+            // names (Z2 series, observed on Mute's Legion Go 2), ADLX still provides
+            // the values via IADLXGPUMetrics. Fill any -1 GPU/VRAM slot from ADLX
+            // before we commit pendingValues to the public sensor.Value fields.
+            FillGpuSensorsFromAdlxFallback(pendingValues);
+
             // Apply all values at once so PushQuickMetrics never sees partially-reset state
             foreach (var kvp in pendingValues)
             {
@@ -980,6 +1037,84 @@ namespace XboxGamingBarHelper.Performance
             {
                 BatteryRemainingTime.Value = calculatedTimeRemaining;
             }
+        }
+
+        /// <summary>
+        /// For GPU/VRAM sensors that LibreHardwareMonitor didn't fill (still -1 after
+        /// the per-hardware processing loop), query ADLX's IADLXGPUMetrics and use its
+        /// reading instead. This makes the OSD GPU line work on AMD APUs where LHM
+        /// exposes Load + memory but not Power/Temperature/Clock — see Mute's Legion
+        /// Go 2 Z2-series report 2026-05-04. ADLX-only metrics also stay at -1 on
+        /// systems where ADLX itself can't provide them, so the OSD still falls back
+        /// to "N/A" when neither source has the value.
+        /// </summary>
+        private void FillGpuSensorsFromAdlxFallback(Dictionary<HardwareSensor, float> pendingValues)
+        {
+            if (amdManager == null)
+            {
+                return;
+            }
+
+            // Cheap fast-path: if every GPU/VRAM slot already has a valid value from
+            // LHM, don't bother spinning up ADLX metrics this tick.
+            bool needAny =
+                IsMissing(pendingValues, GPUUsage) ||
+                IsMissing(pendingValues, GPUClock) ||
+                IsMissing(pendingValues, GPUWattage) ||
+                IsMissing(pendingValues, GPUTemperature) ||
+                IsMissing(pendingValues, GPUMemoryClock);
+            if (!needAny)
+            {
+                return;
+            }
+
+            if (!amdManager.TryGetCurrentGpuMetrics(out var snap))
+            {
+                return;
+            }
+
+            int filled = 0;
+
+            if (IsMissing(pendingValues, GPUUsage) && snap.HasUsage)
+            {
+                pendingValues[GPUUsage] = (float)snap.UsagePercent;
+                filled++;
+            }
+            if (IsMissing(pendingValues, GPUClock) && snap.HasClockMHz)
+            {
+                pendingValues[GPUClock] = snap.GpuClockMHz;
+                filled++;
+            }
+            if (IsMissing(pendingValues, GPUWattage) && snap.HasPowerW)
+            {
+                pendingValues[GPUWattage] = (float)snap.GpuPowerW;
+                filled++;
+            }
+            if (IsMissing(pendingValues, GPUTemperature) && snap.HasTemperatureC)
+            {
+                pendingValues[GPUTemperature] = (float)snap.GpuTemperatureC;
+                filled++;
+            }
+            if (IsMissing(pendingValues, GPUMemoryClock) && snap.HasVramClockMHz)
+            {
+                pendingValues[GPUMemoryClock] = snap.VramClockMHz;
+                filled++;
+            }
+
+            if (filled > 0)
+            {
+                long nowUtc = DateTime.UtcNow.Ticks;
+                if (nowUtc - lastAdlxFallbackLogTicksUtc >= TimeSpan.TicksPerMinute)
+                {
+                    lastAdlxFallbackLogTicksUtc = nowUtc;
+                    Logger.Info($"GPU sensor ADLX fallback filled {filled} value(s) this tick. usage={(snap.HasUsage ? snap.UsagePercent.ToString("F0") : "-")} clock={(snap.HasClockMHz ? snap.GpuClockMHz.ToString() : "-")}MHz temp={(snap.HasTemperatureC ? snap.GpuTemperatureC.ToString("F0") : "-")}C power={(snap.HasPowerW ? snap.GpuPowerW.ToString("F1") : "-")}W vramClock={(snap.HasVramClockMHz ? snap.VramClockMHz.ToString() : "-")}MHz");
+                }
+            }
+        }
+
+        private static bool IsMissing(Dictionary<HardwareSensor, float> pending, HardwareSensor key)
+        {
+            return pending.TryGetValue(key, out float v) && v < 0;
         }
 
         /// <summary>
