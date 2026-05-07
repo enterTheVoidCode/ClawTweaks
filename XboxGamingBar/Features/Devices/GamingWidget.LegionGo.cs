@@ -79,13 +79,22 @@ namespace XboxGamingBar
                 TdpMethodWmiItem.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
                 Logger.Info($"TDP Method WMI option visibility set to: {visible}");
 
-                // If Legion detected and WMI option now visible, select it if not already selected
-                if (visible && TdpMethodComboBox != null && TdpMethodComboBox.SelectedIndex < 0)
+                // Auto-default only BEFORE the helper has supplied a value. After
+                // helper sync, the helper's persisted choice is authoritative — its
+                // queued NotifyPropertyChanged dispatcher entry will set SelectedIndex.
+                // Racing it with SelectedIndex=0 here would push WMI=0 UP and clobber
+                // the helper's PawnIO selection (issue #79 round-3 regression).
+                bool helperOwnsTdpMethod = tdpMethod != null && tdpMethod.HasReceivedHelperSync;
+
+                // If Legion detected and WMI option now visible, select it if not already selected.
+                // Skip when helper owns the value — its sync will land the right index momentarily.
+                if (visible && TdpMethodComboBox != null && TdpMethodComboBox.SelectedIndex < 0 && !helperOwnsTdpMethod)
                 {
                     TdpMethodComboBox.SelectedIndex = 0; // ManufacturerWMI
                 }
-                // If Legion not detected and WMI was selected, switch to PawnIO
-                else if (!visible && TdpMethodComboBox != null)
+                // If Legion not detected and WMI was selected, switch to PawnIO.
+                // Same rationale: helper-driven values must not be overridden here.
+                else if (!visible && TdpMethodComboBox != null && !helperOwnsTdpMethod)
                 {
                     var selectedItem = TdpMethodComboBox.SelectedItem as ComboBoxItem;
                     if (selectedItem?.Tag is string tag && tag == "ManufacturerWMI")
@@ -1573,6 +1582,19 @@ namespace XboxGamingBar
         private void EnsureValidTdpMethodSelected()
         {
             if (TdpMethodComboBox == null) return;
+
+            // Same race as SetLegionTabVisibility (issue #79 round-3 PawnIO regression).
+            // This path runs from UpdateWinRing0Visibility / UpdatePawnIOInstalledUI,
+            // which fire during BatchSync DOWN. If the TdpMethodProperty's own
+            // NotifyPropertyChanged dispatcher entry hasn't run yet, SelectedIndex
+            // is still -1 and we'd auto-pick WMI here — fires SelectionChanged
+            // and pushes 0 UP, clobbering helper's PawnIO=1. Skip auto-pick when
+            // helper owns the value; its NPC dispatcher will land the right index.
+            if (tdpMethod != null && tdpMethod.HasReceivedHelperSync)
+            {
+                Logger.Debug("EnsureValidTdpMethodSelected: helper has synced — skipping auto-pick, helper's value will land via NotifyPropertyChanged");
+                return;
+            }
 
             var selectedItem = TdpMethodComboBox.SelectedItem as ComboBoxItem;
             var selectedIndex = TdpMethodComboBox.SelectedIndex;

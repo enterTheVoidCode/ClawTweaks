@@ -10,6 +10,19 @@ namespace XboxGamingBar.Data
     /// </summary>
     internal class TdpMethodProperty : WidgetControlProperty<int, ComboBox>
     {
+        // Goes true once the helper has pushed a value via BatchSync. Until then the
+        // ComboBox's XAML-mount SelectionChanged is a default-render artifact, not a
+        // user action, and must not push the widget's stale local default UP to helper.
+        // Exposed so other code paths (e.g., LegionGo tab visibility callback) can
+        // skip auto-defaulting when the helper has already supplied a value — the
+        // helper-driven UI sync is deferred via Dispatcher.RunAsync, so a sibling
+        // dispatcher entry that runs first must NOT race-set SelectedIndex=0.
+        internal bool HasReceivedHelperSync { get; private set; }
+
+        // Set true while NotifyPropertyChanged programmatically updates SelectedIndex,
+        // so the resulting SelectionChanged is recognized as helper-driven.
+        private bool isUpdatingUI;
+
         public TdpMethodProperty(ComboBox inUI, Page inOwner) : base((int)TdpMethod.ManufacturerWMI, Function.Settings_TdpMethod, inUI, inOwner)
         {
             if (UI != null)
@@ -18,8 +31,37 @@ namespace XboxGamingBar.Data
             }
         }
 
+        public override bool SetValue(object newValue, long updatedTime = 0)
+        {
+            // Any SetValue arriving with SuppressRemoteSync set is a helper-driven push
+            // (BatchSync DOWN). Mark the property as hydrated so subsequent
+            // SelectionChanged events can safely send user changes UP.
+            if (SuppressRemoteSync)
+            {
+                HasReceivedHelperSync = true;
+            }
+            return base.SetValue(newValue, updatedTime);
+        }
+
         private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            // Skip XAML-mount default-fire: at first ComboBox realization the control fires
+            // SelectionChanged with its default index (Manufacturer WMI = 0) before our
+            // deferred dispatcher has applied helper's actual value. Pushing 0 UP at this
+            // point overwrites helper's PawnIO selection on every widget cold-start.
+            if (!HasReceivedHelperSync)
+            {
+                Logger.Info($"{Function} SelectionChanged before first helper sync - ignoring (XAML mount artifact, idx={UI?.SelectedIndex}).");
+                return;
+            }
+
+            // Skip echoes triggered by our own programmatic SelectedIndex change in
+            // NotifyPropertyChanged (helper-driven update).
+            if (isUpdatingUI)
+            {
+                return;
+            }
+
             var selectedItem = UI.SelectedItem as ComboBoxItem;
             if (selectedItem != null)
             {
@@ -57,7 +99,15 @@ namespace XboxGamingBar.Data
                                 if (UI.SelectedIndex != i)
                                 {
                                     Logger.Info($"{Function} combo box selected {targetTag} (index={i}).");
-                                    UI.SelectedIndex = i;
+                                    isUpdatingUI = true;
+                                    try
+                                    {
+                                        UI.SelectedIndex = i;
+                                    }
+                                    finally
+                                    {
+                                        isUpdatingUI = false;
+                                    }
                                 }
                                 break;
                             }
