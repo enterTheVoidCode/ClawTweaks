@@ -198,6 +198,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         public readonly ControllerConnectedLeftProperty ControllerConnectedLeft;
         public readonly ControllerConnectedRightProperty ControllerConnectedRight;
         public readonly ControllerVidPidProperty ControllerVidPid;
+        public readonly ControllerDeviceStatusProperty ControllerDeviceStatus;
 
         // Device capability properties (for widget UI visibility)
         public readonly DeviceDisplayNameProperty DeviceDisplayName;

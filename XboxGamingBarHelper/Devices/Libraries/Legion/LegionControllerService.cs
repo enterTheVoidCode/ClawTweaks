@@ -57,10 +57,55 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         private bool _leftControllerCharging = false;
         private bool _rightControllerCharging = false;
 
+        // Device status (b0:01) — populated by the battery monitor thread when it
+        // sees a status response, signaled to ReadDeviceStatus callers via _statusWaiter.
+        private readonly object _statusLock = new object();
+        private LegionGoStatus _latestStatus;
+        private ManualResetEventSlim _statusWaiter;
+
+        // Stick-light expected state for post-write verification + passive drift detection.
+        // Profile and enable expectations are tracked separately because `SetRgbProfile`
+        // does NOT re-enable a physically-disabled light — recording profile state
+        // shouldn't imply we expect the light to be on. Only an explicit `SetRgbEnabled`
+        // updates the enabled expectation.
+        private readonly object _expectedLock = new object();
+        private bool _hasLightProfileExpectation;
+        private bool _hasLightEnabledExpectation;
+        private RgbMode _expectedMode;
+        private byte _expectedR, _expectedG, _expectedB;
+        private byte _expectedBrightness;       // 0–100
+        private byte _expectedSpeed;            // 0–100
+        private bool _expectedLightEnabled = true;
+        private System.Threading.Timer _lightVerifyTimer;
+        private int _lightVerifyInFlight;       // Interlocked guard (0/1)
+        private readonly object _driftDedupLock = new object();
+        private string _lastLightDriftDescription = ""; // suppress duplicate drift logs
+        private const int LightVerifyDebounceMs = 300;
+
         /// <summary>
         /// Event raised when controller battery status is updated.
         /// </summary>
         public event EventHandler<ControllerServiceBatteryEventArgs> BatteryUpdated;
+
+        /// <summary>
+        /// Event raised when a b0:01 device status response is received.
+        /// </summary>
+        public event EventHandler<LegionGoStatus> DeviceStatusUpdated;
+
+        /// <summary>
+        /// Event raised when a stick-light readback diverges from (or returns to)
+        /// the last value we wrote. Source identifies whether it came from the
+        /// debounced post-write verifier or the passive 5s poll.
+        /// </summary>
+        public event EventHandler<StickLightDriftEventArgs> StickLightDriftDetected;
+
+        /// <summary>
+        /// Most recent device status snapshot, or null if none received yet.
+        /// </summary>
+        public LegionGoStatus LatestDeviceStatus
+        {
+            get { lock (_statusLock) return _latestStatus; }
+        }
 
         /// <summary>
         /// Gets the left controller battery percentage (1-100), or -1 if unavailable.
@@ -616,6 +661,10 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             };
 
             var result = SendCommand(command);
+            if (result.Success)
+            {
+                RecordLightEnabledExpectation(enabled);
+            }
             return (result.Success, result.Success
                 ? $"RGB {(enabled ? "enabled" : "disabled")} for {controller} controller"
                 : result.Message);
@@ -642,8 +691,13 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             byte profile = 0x03)
         {
             // Legion Go / Legion Go 2
-            byte r_brightness = (byte)Math.Max(0, Math.Min(63, (int)(64 * brightness)));
-            byte r_speed = (byte)Math.Max(0, Math.Min(63, (int)(64 * (1 - speed))));
+            // Firmware uses raw 0–100 percent for brightness and an inverted 0–100
+            // scale for speed (raw byte = 100 − percent). Verified against b0:01
+            // readbacks: Legion Space → brightness 30 stores 0x1E (30); speed 88
+            // stores 0x0C (12 = 100−88). Earlier we used a 0–63 scale here which
+            // pinned brightness at the firmware cap regardless of the slider value.
+            byte r_brightness = (byte)Math.Max(0, Math.Min(100, (int)(100 * brightness)));
+            byte r_speed = (byte)Math.Max(0, Math.Min(100, (int)(100 * (1 - speed))));
 
             byte[] command = {
                 0x05, 0x0C, 0x72, 0x01,
@@ -657,6 +711,15 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             };
 
             var result = SendCommand(command);
+            if (result.Success)
+            {
+                // Record the *user-percent* form for comparison: brightness wire byte
+                // already equals the percent (0–100), speed wire byte is inverted
+                // (raw = 100 − percent), so flip it back before recording.
+                RecordLightProfileExpectation(mode, red, green, blue,
+                    expectedBrightnessPct: r_brightness,
+                    expectedSpeedPct: (byte)(100 - r_speed));
+            }
             return (result.Success, result.Success
                 ? $"RGB profile set: {mode}, Color: RGB({red},{green},{blue})"
                 : result.Message);
@@ -985,6 +1048,29 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                         consecutiveFailures = 0; // Reset on successful read
 
 
+                        // Check for b0:01 device status response and route through DeviceStatusUpdated.
+                        if (bytesRead >= 32 && buffer[0] == 0x04 && buffer[1] == 0x00 &&
+                            buffer[2] == 0xB0 && buffer[3] == 0x01 && buffer[4] == 0x00)
+                        {
+                            var status = LegionGoController.TryParseDeviceStatus(buffer);
+                            if (status != null)
+                            {
+                                ManualResetEventSlim waiter;
+                                lock (_statusLock)
+                                {
+                                    _latestStatus = status;
+                                    waiter = _statusWaiter;
+                                }
+                                DeviceStatusUpdated?.Invoke(this, status);
+                                waiter?.Set();
+                                // Passive drift check: compare every readback against
+                                // the last recorded write. CompareLightExpectation
+                                // suppresses duplicate logs internally.
+                                CompareLightExpectation(status, "passive poll");
+                            }
+                            continue;
+                        }
+
                         // Check for battery report format
                         // Attached mode: 04:00:A1 - battery at bytes 3-6, connection at bytes 10-11
                         // Detached mode: 04:3C:74 - battery at bytes 5-8, connection at bytes 12-13
@@ -1073,6 +1159,176 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             _rightControllerCharging = false;
         }
 
+        /// <summary>
+        /// Sends a b0:01 device-status request and waits for the response (parsed
+        /// inside the battery monitor thread). Returns null if the controller isn't
+        /// connected, the battery monitor isn't running, or the response doesn't
+        /// arrive within <paramref name="timeoutMs"/>.
+        /// </summary>
+        public LegionGoStatus ReadDeviceStatus(int timeoutMs = 500)
+        {
+            if (!_isConnected) return null;
+            // The response can only be observed by the battery monitor's read loop.
+            if (!_monitoringBattery) return null;
+
+            var waiter = new ManualResetEventSlim(false);
+            lock (_statusLock) { _statusWaiter = waiter; }
+            try
+            {
+                // 05 00 B0 01 00 [zeros] — bare status request
+                var cmd = new byte[] { 0x05, 0x00, 0xB0, 0x01, 0x00 };
+                var (ok, _) = SendCommand(cmd);
+                if (!ok) return null;
+                if (!waiter.Wait(timeoutMs)) return null;
+                lock (_statusLock) return _latestStatus;
+            }
+            finally
+            {
+                lock (_statusLock) { _statusWaiter = null; }
+                waiter.Dispose();
+            }
+        }
+
+        #endregion
+
+        #region Stick Light Write Verification
+
+        private void RecordLightProfileExpectation(RgbMode mode, byte r, byte g, byte b,
+                                                   byte expectedBrightnessPct, byte expectedSpeedPct)
+        {
+            lock (_expectedLock)
+            {
+                _hasLightProfileExpectation = true;
+                _expectedMode = mode;
+                _expectedR = r;
+                _expectedG = g;
+                _expectedB = b;
+                _expectedBrightness = expectedBrightnessPct;
+                _expectedSpeed = expectedSpeedPct;
+                // Intentionally NOT touching _expectedLightEnabled — writing a
+                // profile while the light is physically off doesn't re-enable it.
+            }
+            ScheduleLightVerify();
+        }
+
+        private void RecordLightEnabledExpectation(bool enabled)
+        {
+            lock (_expectedLock)
+            {
+                _hasLightEnabledExpectation = true;
+                _expectedLightEnabled = enabled;
+            }
+            ScheduleLightVerify();
+        }
+
+        private void ScheduleLightVerify()
+        {
+            try
+            {
+                var t = _lightVerifyTimer;
+                if (t == null)
+                {
+                    _lightVerifyTimer = new System.Threading.Timer(_ => VerifyLightAfterWrite(),
+                        null, LightVerifyDebounceMs, System.Threading.Timeout.Infinite);
+                }
+                else
+                {
+                    t.Change(LightVerifyDebounceMs, System.Threading.Timeout.Infinite);
+                }
+            }
+            catch { /* timer disposed during shutdown */ }
+        }
+
+        private void VerifyLightAfterWrite()
+        {
+            // Only one verify in flight at a time. Returns immediately if a verify
+            // (post-write or polled) already running.
+            if (Interlocked.CompareExchange(ref _lightVerifyInFlight, 1, 0) != 0) return;
+            try
+            {
+                if (!_isConnected || !_monitoringBattery) return;
+                var status = ReadDeviceStatus();
+                if (status == null) return;
+                CompareLightExpectation(status, "post-write verify");
+            }
+            catch { /* swallow — diagnostic path */ }
+            finally { System.Threading.Volatile.Write(ref _lightVerifyInFlight, 0); }
+        }
+
+        /// <summary>
+        /// Compares a fresh b0:01 status against the last recorded write expectation.
+        /// Fires <see cref="StickLightDriftDetected"/> on transitions (new mismatch or
+        /// recovery from a previously-reported mismatch). Returns true when matching.
+        /// </summary>
+        private bool CompareLightExpectation(LegionGoStatus status, string source)
+        {
+            if (status == null) return true;
+
+            bool checkProfile, checkEnabled;
+            bool expectedEnabled;
+            RgbMode expectedMode;
+            byte er, eg, eb, ebr, esp;
+            lock (_expectedLock)
+            {
+                checkProfile = _hasLightProfileExpectation;
+                checkEnabled = _hasLightEnabledExpectation;
+                if (!checkProfile && !checkEnabled) return true;
+                expectedEnabled = _expectedLightEnabled;
+                expectedMode = _expectedMode;
+                er = _expectedR; eg = _expectedG; eb = _expectedB;
+                ebr = _expectedBrightness; esp = _expectedSpeed;
+            }
+
+            var diffs = new System.Collections.Generic.List<string>();
+
+            // Only compare enable state if we explicitly recorded an expectation
+            // (via SetRgbEnabled). Recording a profile alone doesn't imply enable.
+            if (checkEnabled && expectedEnabled != status.LightEnabled)
+            {
+                diffs.Add($"enabled exp={expectedEnabled} got={status.LightEnabled}");
+            }
+
+            // Only compare profile fields when the light is currently ON. When the
+            // firmware sentinels mode/RGB/brightness/speed (lightEnabled=false), the
+            // readback values are meaningless and would always disagree with our
+            // last-set profile — pure noise.
+            if (checkProfile && status.LightEnabled)
+            {
+                int expectedRawMode = (byte)expectedMode - 1; // setter Solid=1 → readback 0
+                if (expectedRawMode != status.LightModeRaw)
+                    diffs.Add($"mode exp={expectedMode}({expectedRawMode}) got={status.LightModeRaw}");
+                if (er != status.Red || eg != status.Green || eb != status.Blue)
+                    diffs.Add($"rgb exp=({er},{eg},{eb}) got=({status.Red},{status.Green},{status.Blue})");
+                // ±1 tolerance for firmware rounding on the percent fields.
+                if (Math.Abs(ebr - status.Brightness) > 1)
+                    diffs.Add($"brightness exp={ebr} got={status.Brightness}");
+                if (Math.Abs(esp - status.Speed) > 1)
+                    diffs.Add($"speed exp={esp} got={status.Speed}");
+            }
+
+            string desc = diffs.Count == 0 ? "" : string.Join(", ", diffs);
+
+            // Dedup race: passive-poll (battery monitor thread) and post-write verify
+            // (timer thread) can call this concurrently. Lock to make the
+            // check-and-set atomic so we only fire one event per transition.
+            bool fire;
+            lock (_driftDedupLock)
+            {
+                fire = desc != _lastLightDriftDescription;
+                if (fire) _lastLightDriftDescription = desc;
+            }
+            if (fire)
+            {
+                StickLightDriftDetected?.Invoke(this, new StickLightDriftEventArgs
+                {
+                    Source = source,
+                    Description = desc,
+                    IsMismatch = diffs.Count > 0,
+                });
+            }
+            return diffs.Count == 0;
+        }
+
         #endregion
 
         /// <summary>
@@ -1102,5 +1358,17 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             RightBattery = rightBattery;
             RightCharging = rightCharging;
         }
+    }
+
+    /// <summary>
+    /// Fired when a stick-light readback diverges from (or returns to) the last value
+    /// that was written. <see cref="Source"/> is "post-write verify" or "passive poll".
+    /// <see cref="IsMismatch"/> is false when a previously-reported drift has cleared.
+    /// </summary>
+    public class StickLightDriftEventArgs : EventArgs
+    {
+        public string Source { get; set; } = "";
+        public string Description { get; set; } = "";
+        public bool IsMismatch { get; set; }
     }
 }

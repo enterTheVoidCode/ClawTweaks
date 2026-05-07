@@ -80,6 +80,11 @@ public class LegionGoController : IDisposable
     private bool _leftControllerCharging;
     private bool _rightControllerCharging;
 
+    // Device status (b0:01) read state
+    private readonly object _statusLock = new object();
+    private LegionGoStatus? _latestStatus;
+    private ManualResetEventSlim? _statusWaiter;
+
     #endregion
 
     #region Events
@@ -93,6 +98,12 @@ public class LegionGoController : IDisposable
     /// Raised when controller battery status is updated.
     /// </summary>
     public event EventHandler<ControllerBatteryEventArgs>? BatteryUpdated;
+
+    /// <summary>
+    /// Raised whenever a b0:01 device status report is received (either solicited
+    /// via <see cref="ReadDeviceStatus"/> or observed by the battery monitor).
+    /// </summary>
+    public event EventHandler<LegionGoStatus>? DeviceStatusUpdated;
 
     /// <summary>
     /// Raised when a HID command is sent or received (for debugging).
@@ -876,8 +887,10 @@ public class LegionGoController : IDisposable
         float speed = 0.5f,
         byte profile = 0x03)
     {
-        byte brightnessByte = (byte)Clamp((int)(64 * brightness), 0, 63);
-        byte speedByte = (byte)Clamp((int)(64 * (1 - speed)), 0, 63);
+        // Firmware uses raw 0–100 for brightness and inverted 0–100 for speed
+        // (raw byte = 100 − percent). Verified against b0:01 readbacks.
+        byte brightnessByte = (byte)Clamp((int)(100 * brightness), 0, 100);
+        byte speedByte = (byte)Clamp((int)(100 * (1 - speed)), 0, 100);
 
         var command = CreateCommand(
             0x0C, 0x72, 0x01,
@@ -988,6 +1001,118 @@ public class LegionGoController : IDisposable
 
     #endregion
 
+    #region Device Status (b0:01)
+
+    /// <summary>
+    /// Latest parsed device status from the most recent b0:01 response, or null
+    /// if no status has been received yet.
+    /// </summary>
+    public LegionGoStatus? LatestDeviceStatus
+    {
+        get { lock (_statusLock) return _latestStatus; }
+    }
+
+    /// <summary>
+    /// Sends a b0:01 status request and waits for the response. Returns parsed
+    /// status or null on timeout / not connected.
+    ///
+    /// Firmware takes ~150ms to populate the response, so the default timeout is
+    /// generous. Safe to call whether or not <see cref="StartBatteryMonitoring"/>
+    /// is active — when monitoring is on the battery thread routes the response
+    /// via <see cref="DeviceStatusUpdated"/>; when off this method polls the
+    /// stream directly.
+    /// </summary>
+    public LegionGoStatus? ReadDeviceStatus(int timeoutMs = 500)
+    {
+        if (!IsConnected || _stream == null)
+            return null;
+
+        var request = CreateCommand(0xB0, 0x01, 0x00);
+
+        if (_monitoringBattery)
+        {
+            var waiter = new ManualResetEventSlim(false);
+            lock (_statusLock) { _statusWaiter = waiter; }
+            try
+            {
+                if (!SendCommand(request))
+                    return null;
+                if (!waiter.Wait(timeoutMs))
+                    return null;
+                lock (_statusLock) return _latestStatus;
+            }
+            finally
+            {
+                lock (_statusLock) { _statusWaiter = null; }
+                waiter.Dispose();
+            }
+        }
+
+        if (!SendCommand(request))
+            return null;
+
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            int remaining = (int)(deadline - DateTime.UtcNow).TotalMilliseconds;
+            if (remaining <= 0) break;
+            var response = ReadResponse(Math.Min(200, remaining));
+            if (response == null) continue;
+
+            var status = TryParseDeviceStatus(response);
+            if (status != null)
+            {
+                lock (_statusLock) { _latestStatus = status; }
+                DeviceStatusUpdated?.Invoke(this, status);
+                return status;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Parses a 64-byte HID input report into a <see cref="LegionGoStatus"/>.
+    /// Returns null if the report isn't a b0:01 response.
+    ///
+    /// Byte map (offsets into the 64-byte report, validated against captured traffic):
+    ///   [0..4]   header  04 00 B0 01 00
+    ///   [8..10]  RGB     red, green, blue
+    ///   [11]     brightness (0–100, raw decimal)
+    ///   [12]     light mode (0=Solid, 1=Pulse, 2=Dynamic, 3=Spiral; setter enum − 1;
+    ///            0xFF=light disabled — sentinel; RGB/brightness/speed all reset to defaults)
+    ///   [13]     animation speed, raw = 100 − percent (so 12 → 88%, 32 → 68% default)
+    ///   [15]     vibration (2=Weak, 3=Medium*, 4=Strong)
+    ///   [18]     touchpad (1=on, 2=off)
+    ///   [21][22] battery left/right (1–100)
+    ///   [28..31] firmware version, 4 bytes (e.g. "02 51 02 1A" → "0251021A")
+    /// (* Medium not directly observed; inferred from the weak/strong contrast.)
+    /// </summary>
+    public static LegionGoStatus? TryParseDeviceStatus(byte[] response)
+    {
+        if (response == null || response.Length < 32) return null;
+        if (response[0] != 0x04 || response[1] != 0x00 ||
+            response[2] != 0xB0 || response[3] != 0x01 || response[4] != 0x00)
+            return null;
+
+        return new LegionGoStatus
+        {
+            Red = response[8],
+            Green = response[9],
+            Blue = response[10],
+            Brightness = response[11],
+            LightModeRaw = response[12],
+            Speed = (byte)Math.Max(0, Math.Min(100, 100 - response[13])),
+            VibrationRaw = response[15],
+            TouchpadEnabled = response[18] == 0x01,
+            LeftBattery = response[21],
+            RightBattery = response[22],
+            FirmwareVersion = string.Format("{0:X2}{1:X2}{2:X2}{3:X2}",
+                response[28], response[29], response[30], response[31]),
+        };
+    }
+
+    #endregion
+
     #region Battery Monitoring
 
     /// <summary>
@@ -1045,6 +1170,25 @@ public class LegionGoController : IDisposable
                 if (readCount <= 5)
                 {
                     System.Diagnostics.Debug.WriteLine($"[BatteryMonitor] Read #{readCount}: {bytesRead} bytes - {FormatHex(buffer, Math.Min(bytesRead, 10))}");
+                }
+
+                // Check for b0:01 device status response and route it via DeviceStatusUpdated.
+                if (bytesRead >= 32 && buffer[0] == 0x04 && buffer[1] == 0x00 &&
+                    buffer[2] == 0xB0 && buffer[3] == 0x01 && buffer[4] == 0x00)
+                {
+                    var status = TryParseDeviceStatus(buffer);
+                    if (status != null)
+                    {
+                        ManualResetEventSlim? waiter;
+                        lock (_statusLock)
+                        {
+                            _latestStatus = status;
+                            waiter = _statusWaiter;
+                        }
+                        DeviceStatusUpdated?.Invoke(this, status);
+                        waiter?.Set();
+                    }
+                    continue;
                 }
 
                 // Check for battery report format: 04 00 a1 ...
@@ -1205,6 +1349,52 @@ public class LegionGoController : IDisposable
 
     #endregion
 }
+
+#region Data Classes
+
+/// <summary>
+/// Snapshot of controller state read from a b0:01 status response.
+/// Raw firmware values are exposed alongside parsed booleans where the encoding
+/// is non-trivial (mode/vibration use different enums than their setters).
+/// </summary>
+public sealed class LegionGoStatus
+{
+    public byte Red { get; set; }
+    public byte Green { get; set; }
+    public byte Blue { get; set; }
+    /// <summary>Brightness 0–100 (raw decimal from firmware).</summary>
+    public byte Brightness { get; set; }
+    /// <summary>
+    /// Light mode reported by firmware. Confirmed values (mapped to GoTweaks/setter names):
+    /// 0 = Solid, 1 = Pulse, 2 = Dynamic, 3 = Spiral,
+    /// 0xFF = light disabled (sentinel — RGB also reports FF FF FF and
+    /// speed/brightness reset to defaults).
+    /// Readback values are exactly <see cref="StickLightMode"/> − 1
+    /// (setter Solid=1, Pulse=2, Dynamic=3, Spiral=4).
+    /// </summary>
+    public byte LightModeRaw { get; set; }
+    /// <summary>True when the stick light is enabled (i.e. LightModeRaw != 0xFF).</summary>
+    public bool LightEnabled => LightModeRaw != 0xFF;
+    /// <summary>
+    /// Animation speed, 0–100 (already inverted from the firmware's raw byte
+    /// which stores 100 − percent; 0 = slowest, 100 = fastest).
+    /// </summary>
+    public byte Speed { get; set; }
+    /// <summary>
+    /// Vibration level reported by firmware. Observed values: 2 = weak, 4 = strong
+    /// (3 = medium inferred). Does NOT match <see cref="VibrationLevel"/> setter enum.
+    /// </summary>
+    public byte VibrationRaw { get; set; }
+    public bool TouchpadEnabled { get; set; }
+    /// <summary>Left controller battery (1–100), 0 if absent/asleep.</summary>
+    public byte LeftBattery { get; set; }
+    /// <summary>Right controller battery (1–100), 0 if absent/asleep.</summary>
+    public byte RightBattery { get; set; }
+    /// <summary>Firmware version, e.g. "0251021A".</summary>
+    public string FirmwareVersion { get; set; } = "";
+}
+
+#endregion
 
 #region Enums
 

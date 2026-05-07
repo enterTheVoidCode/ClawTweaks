@@ -3,16 +3,25 @@ using Shared.Data;
 using Shared.Enums;
 using System;
 using System.Linq;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Storage;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.Devices;
+using XboxGamingBarHelper.Devices.Libraries.Legion;
 using XboxGamingBarHelper.Performance;
 
 namespace XboxGamingBarHelper.Devices.Libraries.Legion
 {
     internal partial class LegionManager
     {
+        // Periodic poll for b0:01 device status. Legion Space polls on demand when its
+        // UI is open; we just refresh every few seconds so the Info card stays current
+        // without burning HID bandwidth.
+        private Timer _deviceStatusPollTimer;
+        private const int DeviceStatusPollIntervalMs = 5000;
+
         /// <summary>
         /// Starts battery monitoring for the controllers using the existing controllerService connection.
         /// </summary>
@@ -23,7 +32,10 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 if (controllerService != null && isControllerConnected)
                 {
                     controllerService.BatteryUpdated += OnControllerBatteryUpdated;
+                    controllerService.DeviceStatusUpdated += OnControllerDeviceStatusUpdated;
+                    controllerService.StickLightDriftDetected += OnStickLightDriftDetected;
                     controllerService.StartBatteryMonitoring();
+                    StartDeviceStatusPolling();
                     Logger.Info("Controller battery monitoring started");
                 }
                 else
@@ -46,11 +58,131 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             {
                 try
                 {
+                    StopDeviceStatusPolling();
                     controllerService.BatteryUpdated -= OnControllerBatteryUpdated;
+                    controllerService.DeviceStatusUpdated -= OnControllerDeviceStatusUpdated;
+                    controllerService.StickLightDriftDetected -= OnStickLightDriftDetected;
                     controllerService.StopBatteryMonitoring();
                 }
                 catch { }
                 Logger.Info("Controller battery monitoring stopped");
+            }
+        }
+
+        private void StartDeviceStatusPolling()
+        {
+            try
+            {
+                _deviceStatusPollTimer?.Dispose();
+                _deviceStatusPollTimer = new Timer(_ => PollDeviceStatus(), null, 250, DeviceStatusPollIntervalMs);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to start device status polling: {ex.Message}");
+            }
+        }
+
+        private void StopDeviceStatusPolling()
+        {
+            try
+            {
+                _deviceStatusPollTimer?.Dispose();
+                _deviceStatusPollTimer = null;
+            }
+            catch { }
+        }
+
+        private void PollDeviceStatus()
+        {
+            try
+            {
+                if (controllerService == null || !isControllerConnected) return;
+                var result = controllerService.ReadDeviceStatus();
+                if (result == null)
+                {
+                    Logger.Info("PollDeviceStatus: no b0:01 response (timeout or monitor inactive)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"PollDeviceStatus error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handler for stick-light drift events. Logs WARN on a new mismatch and INFO
+        /// on recovery. Source distinguishes the debounced post-write verifier from
+        /// the passive 5s poll re-check.
+        /// </summary>
+        private void OnStickLightDriftDetected(object sender, StickLightDriftEventArgs e)
+        {
+            try
+            {
+                if (e.IsMismatch)
+                    Logger.Warn($"Stick light drift ({e.Source}): {e.Description}");
+                else
+                    Logger.Info($"Stick light matches expectation ({e.Source})");
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Handler for b0:01 device status responses. Serializes the snapshot to JSON
+        /// and ships it to the widget via the ControllerDeviceStatus property.
+        /// </summary>
+        private void OnControllerDeviceStatusUpdated(object sender, LegionGoStatus status)
+        {
+            if (status == null) return;
+            try
+            {
+                // Diagnostic — log every readback so the values can be compared
+                // to what the widget last sent. Demote to Debug once stable.
+                Logger.Info(
+                    $"b0:01 readback: fw={status.FirmwareVersion} lightEnabled={status.LightEnabled} " +
+                    $"mode={status.LightModeRaw} R={status.Red} G={status.Green} B={status.Blue} " +
+                    $"brightness={status.Brightness} speed={status.Speed} " +
+                    $"vibration={status.VibrationRaw} touchpad={status.TouchpadEnabled} " +
+                    $"battery L={status.LeftBattery} R={status.RightBattery}");
+
+                string json = JsonSerializer.Serialize(new
+                {
+                    fw = status.FirmwareVersion,
+                    le = status.LightEnabled,
+                    lm = status.LightModeRaw,
+                    r = status.Red,
+                    g = status.Green,
+                    b = status.Blue,
+                    br = status.Brightness,
+                    sp = status.Speed,
+                    vb = status.VibrationRaw,
+                    tp = status.TouchpadEnabled,
+                    bl = status.LeftBattery,
+                    brt = status.RightBattery,
+                });
+                ControllerDeviceStatus.SetValueAndSync(json);
+
+                // Reconcile the LegionTouchpadEnabled property with the hardware
+                // state reported by the readback. Touchpad state is firmware-side
+                // persistent — it survives helper restarts — so when the property
+                // disagrees with hardware (typically after a fresh helper boot
+                // before LocalSettings has caught up, or when LegionSpace / OS
+                // gestures toggle it behind our back), trust the hardware. Use
+                // SuppressHardwareApply so the resulting widget pipe sync doesn't
+                // round-trip back to a redundant SetTouchpadEnabled call.
+                if (LegionTouchpadEnabled != null && LegionTouchpadEnabled.Value != status.TouchpadEnabled)
+                {
+                    Logger.Info($"LegionTouchpadEnabled hardware reconcile: property={LegionTouchpadEnabled.Value} → readback={status.TouchpadEnabled}");
+                    touchpadEnabled = status.TouchpadEnabled;
+                    try { Settings.LocalSettingsHelper.SetValue("LegionTouchpadEnabled", status.TouchpadEnabled); }
+                    catch (Exception persistEx) { Logger.Debug($"Failed to persist LegionTouchpadEnabled during reconcile: {persistEx.Message}"); }
+                    LegionTouchpadEnabled.SuppressHardwareApply = true;
+                    try { LegionTouchpadEnabled.SetValueAndSync(status.TouchpadEnabled); }
+                    finally { LegionTouchpadEnabled.SuppressHardwareApply = false; }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to sync device status to widget: {ex.Message}");
             }
         }
 

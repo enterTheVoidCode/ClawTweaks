@@ -1369,6 +1369,22 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         }
     }
 
+    // Controller Device Status (read-only, JSON LegionGoStatus snapshot from b0:01)
+    internal class ControllerDeviceStatusProperty : HelperProperty<string, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerDeviceStatusProperty(string initialValue, LegionManager inManager) : base(initialValue, null, Function.ControllerDeviceStatus, inManager)
+        {
+        }
+
+        public void SetValueAndSync(string value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
     // Device Display Name (read-only, e.g., "Legion Go", "Legion Go 2", "Legion Go S")
     internal class DeviceDisplayNameProperty : HelperProperty<string, LegionManager>
     {
