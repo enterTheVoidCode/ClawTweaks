@@ -120,6 +120,18 @@ namespace XboxGamingBarHelper.Settings
             get { return viiperRumbleIntensity; }
         }
 
+        private readonly ViiperMirrorLightbarToStickProperty viiperMirrorLightbarToStick;
+        public ViiperMirrorLightbarToStickProperty ViiperMirrorLightbarToStick
+        {
+            get { return viiperMirrorLightbarToStick; }
+        }
+
+        private readonly ViiperStickGyroEnabledProperty viiperStickGyroEnabled;
+        public ViiperStickGyroEnabledProperty ViiperStickGyroEnabled
+        {
+            get { return viiperStickGyroEnabled; }
+        }
+
         private readonly ViiperGyroAxisMapProperty viiperGyroAxisMapX;
         public ViiperGyroAxisMapProperty ViiperGyroAxisMapX
         {
@@ -181,6 +193,8 @@ namespace XboxGamingBarHelper.Settings
             viiperGuideButtonMode = new ViiperGuideButtonModeProperty(this);
             viiperSwapRumbleMotors = new ViiperSwapRumbleMotorsProperty(this);
             viiperRumbleIntensity = new ViiperRumbleIntensityProperty(this);
+            viiperMirrorLightbarToStick = new ViiperMirrorLightbarToStickProperty(this);
+            viiperStickGyroEnabled = new ViiperStickGyroEnabledProperty(this);
             viiperGyroAxisMapX = new ViiperGyroAxisMapProperty(this, Shared.Enums.Function.Viiper_GyroAxisMapX, "ViiperGyroAxisMapX", "X");
             viiperGyroAxisMapY = new ViiperGyroAxisMapProperty(this, Shared.Enums.Function.Viiper_GyroAxisMapY, "ViiperGyroAxisMapY", "Y");
             viiperGyroAxisMapZ = new ViiperGyroAxisMapProperty(this, Shared.Enums.Function.Viiper_GyroAxisMapZ, "ViiperGyroAxisMapZ", "Z");
