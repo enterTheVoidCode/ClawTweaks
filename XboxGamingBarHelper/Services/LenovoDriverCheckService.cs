@@ -1166,8 +1166,20 @@ namespace XboxGamingBarHelper.Services
             bool driverEligible = bestDriver != null && bestDriverScore >= MinTokensForMatch;
             bool appEligible = bestApp != null && bestAppScore >= MinTokensForMatch;
 
+            // vvalente30 issue #79: AMD Chipset + Lenovo Energy Mgmt show
+            // "not recognized" on his LGO2 while corando + 1 other LGO2 user
+            // see them detected. Log the candidate compare so we can tell
+            // whether his uninstall registry / PnP layout differs.
+            string driverDesc = bestDriver != null
+                ? $"'{bestDriver.DeviceName}' v={bestDriver.DriverVersion} score={bestDriverScore} ver-affinity={bestDriverVerAffinity}"
+                : "<none>";
+            string appDesc = bestApp != null
+                ? $"'{bestApp.DisplayName}' v={bestApp.DisplayVersion} score={bestAppScore} ver-affinity={bestAppVerAffinity}"
+                : "<none>";
+
             if (!driverEligible && !appEligible)
             {
+                Logger.Info($"Lenovo driver match: '{entry.Name}' catalogVer='{entry.Version}' tokens=[{string.Join(",", entryTokens)}] bestDriver={driverDesc} bestApp={appDesc} → NotInstalled (both below {MinTokensForMatch}-token threshold)");
                 entry.InstalledVersion = "";
                 entry.UpdateStatus = DriverUpdateStatus.NotInstalled;
                 return;
@@ -1193,6 +1205,7 @@ namespace XboxGamingBarHelper.Services
             // splits internally and picks the candidate whose major.minor
             // matches the installed driver's first two fields.
             entry.UpdateStatus = CompareVersions(entry.InstalledVersion, entry.Version);
+            Logger.Info($"Lenovo driver match: '{entry.Name}' catalogVer='{entry.Version}' tokens=[{string.Join(",", entryTokens)}] bestDriver={driverDesc} bestApp={appDesc} → picked={(useApp ? "App" : "Driver")} installedVer='{entry.InstalledVersion}' status={entry.UpdateStatus}");
         }
 
         private static bool LooksLikeBios(string s)
