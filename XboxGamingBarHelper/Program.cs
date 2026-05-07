@@ -294,6 +294,32 @@ namespace XboxGamingBarHelper
             Logger.Info($"=== Helper starting, PID={Process.GetCurrentProcess().Id} ===");
             LogManager.Flush();
 
+            // Process-exit + unhandled-exception cleanup: release any active EC fan
+            // override so the fan doesn't stay stuck at the last RPM we wrote. Without
+            // this, a crash leaves 0xC6C8 holding our last value indefinitely (or until
+            // a reboot). ProcessExit covers normal shutdowns and most crashes that
+            // unwind through the runtime; UnhandledException covers the rest.
+            AppDomain.CurrentDomain.ProcessExit += (s, e) =>
+            {
+                try
+                {
+                    Logger.Warn("ProcessExit fired — releasing EC fan override before shutdown");
+                    legionManager?.EmergencyReleaseFanOverride();
+                    LogManager.Flush();
+                }
+                catch { }
+            };
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                try
+                {
+                    Logger.Error($"UnhandledException — releasing EC fan override. Exception: {e.ExceptionObject}");
+                    legionManager?.EmergencyReleaseFanOverride();
+                    LogManager.Flush();
+                }
+                catch { }
+            };
+
             // Check for export-profiles mode - exports registry game profiles to bundled JSON
             // Run this on a system with Xbox FSE enabled to generate bundled_profiles.json
             if (args.Contains("--export-profiles"))
@@ -614,7 +640,15 @@ namespace XboxGamingBarHelper
             {
                 pipeServer = new IPC.NamedPipeServer();
                 pipeServer.MessageReceived += PipeServer_MessageReceived;
-                pipeServer.Connected += (s, e) => Logger.Info("Widget connected via Named Pipe");
+                pipeServer.Connected += (s, e) =>
+                {
+                    Logger.Info("Widget connected via Named Pipe");
+                    // Snapshot every saved per-mode fan curve + unlock state so the
+                    // widget can populate its cache and let the user edit any mode
+                    // without changing the running power mode.
+                    try { legionManager?.PushAllPerModeStateToWidget(); }
+                    catch (Exception ex) { Logger.Warn($"Failed to push per-mode fan curve state on connect: {ex.Message}"); }
+                };
                 pipeServer.Disconnected += (s, e) => Logger.Info("Widget disconnected from Named Pipe");
                 pipeServer.Start();
                 Logger.Info($"Named Pipe server started: {IPC.NamedPipeServer.FullPipePath}");
@@ -920,6 +954,11 @@ namespace XboxGamingBarHelper
             // Set LegionManager reference in PerformanceManager for WMI TDP support
             performanceManager.SetLegionManager(legionManager);
 
+            // Wire ADLX-backed GPU metrics fallback so the OSD GPU line still shows
+            // Power/Temperature/Clock on hardware where LibreHardwareMonitor doesn't
+            // expose those sensors (e.g. Mute's Legion Go 2 / AMD Z2-series APU).
+            performanceManager.SetAMDManager(amdManager);
+
             // Set PerformanceManager reference in LegionManager for CPU temperature sensor access
             legionManager.SetPerformanceManager(performanceManager);
 
@@ -1059,6 +1098,7 @@ namespace XboxGamingBarHelper
                 systemManager.DisplayOrientation,
                 systemManager.HDRSupported,
                 systemManager.HDREnabled,
+                systemManager.SdrWhiteLevelSyncMode,
                 systemManager.CPUCoreConfig,
                 systemManager.CPUCoreActiveConfig,
                 systemManager.CoreParkingPercent,
@@ -1131,6 +1171,8 @@ namespace XboxGamingBarHelper
                 settingsManager.ViiperGuideButtonMode,
                 settingsManager.ViiperSwapRumbleMotors,
                 settingsManager.ViiperRumbleIntensity,
+                settingsManager.ViiperMirrorLightbarToStick,
+                settingsManager.ViiperStickGyroEnabled,
                 settingsManager.ViiperGyroAxisMapX,
                 settingsManager.ViiperGyroAxisMapY,
                 settingsManager.ViiperGyroAxisMapZ,
@@ -1235,6 +1277,9 @@ namespace XboxGamingBarHelper
                 legionManager.LegionCustomTDPPeak,
                 legionManager.LegionFanFullSpeed,
                 legionManager.LegionFanCurveData,
+                legionManager.LegionUnlockFanCurve,
+                legionManager.LegionFanCurvePerMode,
+                legionManager.LegionUnlockFanCurvePerMode,
                 legionManager.LegionCPUCurrentTemp,
                 legionManager.LegionFanSensorTemp,
                 legionManager.LegionCPUFanRPM,
@@ -1291,6 +1336,7 @@ namespace XboxGamingBarHelper
                 legionManager.ControllerConnectedLeft,
                 legionManager.ControllerConnectedRight,
                 legionManager.ControllerVidPid,
+                legionManager.ControllerDeviceStatus,
                 // Device capability properties (for UI visibility based on device features)
                 legionManager.DeviceDisplayName,
                 legionManager.DeviceSupportsControllerRemap,
