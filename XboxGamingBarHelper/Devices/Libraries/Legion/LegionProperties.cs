@@ -177,6 +177,14 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+        // When true, NotifyPropertyChanged skips the hardware re-apply step.
+        // Used by LegionManager.SyncTouchpadFromHardware to update widget UI
+        // (via the base pipe sync) without bouncing the value back to the
+        // controller — the readback is itself proof of the hardware state, so
+        // sending another SetTouchpadEnabled would just be a redundant HID
+        // round-trip and could cause an oscillation if it fails partway.
+        internal bool SuppressHardwareApply { get; set; }
+
         public LegionTouchpadEnabledProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionTouchpadEnabled, inManager)
         {
         }
@@ -185,7 +193,23 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionTouchpadEnabled changed to {Value}");
-            Manager?.SetTouchpadEnabled(Value);
+            if (!SuppressHardwareApply)
+            {
+                Manager?.SetTouchpadEnabled(Value);
+            }
+        }
+
+        /// <summary>
+        /// Push the value to the widget AND set our local Value. Used by the
+        /// hardware-readback reconcile path. Wrap with <see cref="SuppressHardwareApply"/>
+        /// = true if you don't want the change to round-trip back to the
+        /// controller — that's the typical case when the readback IS the source
+        /// of truth.
+        /// </summary>
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
         }
     }
 

@@ -235,6 +235,19 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             detectTimer.Stop();
             Logger.Info($"[TIMING] LegionManager.DetectLegionGo: {detectTimer.ElapsedMilliseconds}ms");
 
+            // Touchpad: persist user's last choice across helper restarts. Prior
+            // behavior used the hardcoded `true` default at LegionManager.cs:35
+            // every boot, so users who turned the touchpad OFF would see the
+            // widget toggle re-show as ON after restart even though hardware
+            // stayed off (touchpad state is firmware-side persistent). The first
+            // b0:01 readback further reconciles when something else (LegionSpace,
+            // OS gesture toggle) changed the hardware state behind our back.
+            if (Settings.LocalSettingsHelper.TryGetValue<bool>("LegionTouchpadEnabled", out bool savedTouchpadEnabled))
+            {
+                touchpadEnabled = savedTouchpadEnabled;
+                Logger.Info($"LegionTouchpadEnabled loaded from settings: {touchpadEnabled}");
+            }
+
             // Initialize properties (pass this as manager)
             LegionGoDetected = new LegionGoDetectedProperty(isLegionGoDetected, this);
             LegionTouchpadEnabled = new LegionTouchpadEnabledProperty(touchpadEnabled, this);
@@ -801,6 +814,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 if (result.Success)
                 {
                     touchpadEnabled = enabled;
+                    try { Settings.LocalSettingsHelper.SetValue("LegionTouchpadEnabled", enabled); }
+                    catch (Exception persistEx) { Logger.Debug($"Failed to persist LegionTouchpadEnabled: {persistEx.Message}"); }
                     Logger.Info($"Touchpad {(enabled ? "enabled" : "disabled")}");
                 }
                 else
