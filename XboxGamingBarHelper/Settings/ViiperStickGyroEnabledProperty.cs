@@ -9,13 +9,16 @@ namespace XboxGamingBarHelper.Settings
     /// processor short-circuits and the physical right stick passes through
     /// untouched — same behavior as if the section had never shipped.
     ///
-    /// Default true to preserve the always-on behavior the feature shipped with in
-    /// 0.3.2152, before the master toggle existed. Users who want raw stick
-    /// passthrough on Xbox 360 VIIPER targets can flip this from the panel UI.
+    /// Default false (issue #79 round 5): vvalente30's last good build (2137)
+    /// predated this feature entirely. Even with bias correction disabled, the
+    /// processor still runs the One-Euro filter, sensitivity scaling, deadzone,
+    /// and the new stickConversion=2 default — feel changes from "no gyro on
+    /// xbox360 VIIPER" (2137 baseline) to "smoothed-mapped gyro→stick".
+    /// Defaulting off restores 2137 behavior; users can opt in from the panel UI.
     /// </summary>
     internal class ViiperStickGyroEnabledProperty : HelperProperty<bool, SettingsManager>
     {
-        public const bool Default = true;
+        public const bool Default = false;
         private const string SettingsKey = "ViiperStickGyroEnabled";
 
         public ViiperStickGyroEnabledProperty(SettingsManager inManager)

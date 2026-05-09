@@ -81,6 +81,13 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         private long statsLastEmitTicks;
         private const long StatsEmitIntervalTicks = TimeSpan.TicksPerSecond * 5;
 
+        // Per-pipeline-stage diagnostic — fires once per second when the gate is
+        // open AND any axis is producing output, so users testing "horizontal
+        // works, vertical doesn't" can see at which stage the value dies.
+        // Throttled to avoid log spam during normal gameplay.
+        private long pipelineDiagLastTicks;
+        private const long PipelineDiagIntervalTicks = TimeSpan.TicksPerSecond;
+
         // ---- One-Euro filter state ----
         private float stickFilteredHorizontal;
         private float stickFilteredVertical;
@@ -559,6 +566,12 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
 
         private void ApplyStickFromGyro(GyroSample sample, out short outputX, out short outputY)
         {
+            // Capture the raw input before the bias-passthrough and conversion so
+            // the per-stage diagnostic below has the unmodified gyro for comparison.
+            float rawGyroX = sample.GyroXDegPerSecond;
+            float rawGyroY = sample.GyroYDegPerSecond;
+            float rawGyroZ = sample.GyroZDegPerSecond;
+
             // 0. Bias correction — see GyroBiasEstimator. Tracks rest-state IMU
             //    offset and subtracts it before the deadzone so users on the
             //    VIIPER backend don't see Always-On drift.
@@ -594,6 +607,8 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                     vertical = gyroX;
                     break;
             }
+            float postConvHorizontal = horizontal;
+            float postConvVertical = vertical;
 
             // 3. Axis invert
             if (stickInvertX) horizontal = -horizontal;
@@ -603,6 +618,8 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             float deadzone = Math.Max(0.0f, stickDeadzone);
             horizontal = ApplyDeadzone(horizontal, deadzone);
             vertical = ApplyDeadzone(vertical, deadzone);
+            float postDeadzoneHorizontal = horizontal;
+            float postDeadzoneVertical = vertical;
 
             // 5. One-Euro filter
             float deltaSeconds;
@@ -653,6 +670,8 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             float sensitivity = Math.Max(0.01f, stickSensitivityV2 / 100.0f);
             horizontal *= sensitivity;
             vertical *= sensitivity;
+            float postSensHorizontal = horizontal;
+            float postSensVertical = vertical;
 
             // 8. Speed → normalized [-1, 1]
             float minSpeed = Math.Max(0.0f, stickMinGyroSpeed);
@@ -686,6 +705,27 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             // 12. Clamp & convert
             outputX = ConvertNormalizedToInt16(normalizedX);
             outputY = ConvertNormalizedToInt16(normalizedY);
+
+            // Per-stage pipeline diagnostic — emit at most once per second when
+            // raw gyro shows real motion, regardless of whether the output ended
+            // up zero. Helps triage "horizontal works, vertical doesn't" by
+            // pinpointing the stage where the value gets dropped.
+            long nowDiag = DateTime.UtcNow.Ticks;
+            float rawMag = Math.Abs(rawGyroX) + Math.Abs(rawGyroY) + Math.Abs(rawGyroZ);
+            if (rawMag > 5.0f && (nowDiag - pipelineDiagLastTicks) >= PipelineDiagIntervalTicks)
+            {
+                pipelineDiagLastTicks = nowDiag;
+                Logger.Info(
+                    "VIIPER stick-gyro pipeline: raw=({0:F1},{1:F1},{2:F1}) " +
+                    "conv{3}→H={4:F1} V={5:F1} | postDz(dz={6:F1})→H={7:F1} V={8:F1} | " +
+                    "postSens(x{9:F2})→H={10:F1} V={11:F1} | norm=({12:F2},{13:F2}) | out=({14},{15})",
+                    rawGyroX, rawGyroY, rawGyroZ,
+                    stickConversion, postConvHorizontal, postConvVertical,
+                    deadzone, postDeadzoneHorizontal, postDeadzoneVertical,
+                    sensitivity, postSensHorizontal, postSensVertical,
+                    normalizedX, normalizedY,
+                    outputX, outputY);
+            }
         }
 
         // ----------------------------------------------------------------------
