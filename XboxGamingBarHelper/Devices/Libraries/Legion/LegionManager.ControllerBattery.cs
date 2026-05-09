@@ -135,9 +135,11 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             if (status == null) return;
             try
             {
-                // Diagnostic — log every readback so the values can be compared
-                // to what the widget last sent. Demote to Debug once stable.
-                Logger.Info(
+                // Stable; demoted to Debug. The b0:01 service emits one event per
+                // data slot, which on Legion Go 2 fired ~5x per 5s polling cycle
+                // and dominated user logs. Re-promote to Info during triage if
+                // we need to compare hardware state vs. widget state again.
+                Logger.Debug(
                     $"b0:01 readback: fw={status.FirmwareVersion} lightEnabled={status.LightEnabled} " +
                     $"mode={status.LightModeRaw} R={status.Red} G={status.Green} B={status.Blue} " +
                     $"brightness={status.Brightness} speed={status.Speed} " +
