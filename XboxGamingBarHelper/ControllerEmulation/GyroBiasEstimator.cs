@@ -24,6 +24,17 @@ namespace XboxGamingBarHelper.ControllerEmulation
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+        // Master kill switch. vvalente30 reported the controller working fine on
+        // build 2137 (issue #79) which predated this estimator entirely. After
+        // 319fd38 wired it in, "uncontrollable drift" started showing up — likely
+        // because the strict stationary gate never converges on a handheld and
+        // the strict-but-uncalibrated state still subtly interacts with the
+        // stick math. Disabling correction reverts to 2137 behavior; the rest
+        // of the class stays in place so we can iterate on a better calibration
+        // strategy (force-snap, longer windows, button-triggered "calibrate now")
+        // without re-adding the call sites.
+        private const bool DisableBiasCorrection = true;
+
         // Below this magnitude on each axis, we consider the controller "still."
         // Picked above industry-typical ICM/BMI bias (~5°/s worst case under thermal
         // drift) but below typical hand-held tremor (~10-15°/s).
@@ -84,6 +95,15 @@ namespace XboxGamingBarHelper.ControllerEmulation
         /// </summary>
         public GyroSample Correct(GyroSample sample)
         {
+            // Disabled: vvalente30 had clean gyro on 2137 with no estimator;
+            // 319fd38 added it and his next test reported uncontrollable drift.
+            // Returning the raw sample here matches 2137 behavior. Keep the
+            // implementation below intact for when we revisit calibration.
+            if (DisableBiasCorrection)
+            {
+                return sample;
+            }
+
             long nowTicks = sample.TimestampTicksUtc > 0 ? sample.TimestampTicksUtc : DateTime.UtcNow.Ticks;
 
             // Long gap → reset stationary streak; the user may have docked /
