@@ -2,6 +2,7 @@ using NLog;
 using Shared.Enums;
 using System;
 using System.Management;
+using System.Threading;
 using XboxGamingBarHelper.Sidebar;
 using XboxGamingBarHelper.Windows;
 
@@ -17,6 +18,12 @@ namespace XboxGamingBarHelper.Systems
     ///                      Generic parametric model. Defaults to peakNits=480, gamma=2.2.
     ///   LegionGo2Preset  — empirical Go2HDR curve calibrated for the Legion Go 2 panel
     ///                      (0–46 → 80 nits floor, then ramps to ~480 at slider=100).
+    ///
+    /// HDR-active state is self-polled every <see cref="HdrPollIntervalMs"/> in addition
+    /// to the external SetHdrEnabled trigger. Without the poll, we'd miss HDR toggles
+    /// that happen outside our code (Windows Settings → System → HDR, F11 in some games,
+    /// game-mode auto-HDR transitions). The brightness watcher starts/stops automatically
+    /// based on the polled state so we don't burn WMI cycles when HDR is off.
     /// </summary>
     internal sealed class SdrWhiteLevelSyncManager : IDisposable
     {
@@ -24,20 +31,25 @@ namespace XboxGamingBarHelper.Systems
 
         private const int PeakNitsAuto = 480;
         private const double GammaAuto = 2.2;
+        private const int HdrPollIntervalMs = 2000;
 
         private ManagementEventWatcher watcher;
         private SdrWhiteLevelSyncMode currentMode = SdrWhiteLevelSyncMode.Off;
         private bool hdrEnabled;
+        private Timer hdrPollTimer;
 
         public void SetMode(SdrWhiteLevelSyncMode mode)
         {
             currentMode = mode;
             if (mode == SdrWhiteLevelSyncMode.Off)
             {
+                StopHdrPoll();
                 StopWatcher();
                 return;
             }
-            StartWatcher();
+            StartHdrPoll();
+            // Don't pre-start the brightness watcher — let the poll's first tick decide
+            // based on the actual current HDR state. ApplyNow handles the HDR-on case.
             ApplyNow();
         }
 
@@ -45,7 +57,16 @@ namespace XboxGamingBarHelper.Systems
         {
             if (hdrEnabled == enabled) return;
             hdrEnabled = enabled;
-            if (enabled && currentMode != SdrWhiteLevelSyncMode.Off) ApplyNow();
+            if (currentMode == SdrWhiteLevelSyncMode.Off) return;
+            if (enabled)
+            {
+                StartWatcher();
+                ApplyNow();
+            }
+            else
+            {
+                StopWatcher();
+            }
         }
 
         private void StartWatcher()
@@ -136,6 +157,42 @@ namespace XboxGamingBarHelper.Systems
             return 80 + sdrSlider * 4;
         }
 
-        public void Dispose() => StopWatcher();
+        // Periodic HDR-active check. Bridges the gap when HDR is toggled outside our
+        // process (Windows Settings, game auto-HDR, F11 in DXVK/HDR games). Calls into
+        // SetHdrEnabled with the polled state so the existing watcher start/stop +
+        // ApplyNow logic stays unified between external triggers and self-polling.
+        private void StartHdrPoll()
+        {
+            if (hdrPollTimer != null) return;
+            // Initial fire after 0 to seed state immediately, then repeat at the interval.
+            hdrPollTimer = new Timer(OnHdrPollTick, null, 0, HdrPollIntervalMs);
+        }
+
+        private void StopHdrPoll()
+        {
+            var t = hdrPollTimer;
+            hdrPollTimer = null;
+            if (t == null) return;
+            try { t.Dispose(); } catch { }
+        }
+
+        private void OnHdrPollTick(object state)
+        {
+            try
+            {
+                var (_, enabled) = User32.GetHDRStatus();
+                SetHdrEnabled(enabled);
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"SDR sync: HDR poll tick failed: {ex.Message}");
+            }
+        }
+
+        public void Dispose()
+        {
+            StopHdrPoll();
+            StopWatcher();
+        }
     }
 }

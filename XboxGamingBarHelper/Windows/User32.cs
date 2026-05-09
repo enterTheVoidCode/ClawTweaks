@@ -924,6 +924,9 @@ namespace XboxGamingBarHelper.Windows
         private static extern int DisplayConfigSetDeviceInfo(ref DISPLAYCONFIG_SET_SDR_WHITE_LEVEL setPacket);
 
         [DllImport("user32.dll")]
+        private static extern int DisplayConfigSetDeviceInfo(ref DISPLAYCONFIG_SET_SDR_WHITE_LEVEL_UINT setPacket);
+
+        [DllImport("user32.dll")]
         private static extern int GetDisplayConfigBufferSizes(
             uint flags,
             out uint numPathArrayElements,
@@ -944,8 +947,18 @@ namespace XboxGamingBarHelper.Windows
         private const int DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO = 9;
         private const int DISPLAYCONFIG_DEVICE_INFO_SET_ADVANCED_COLOR_STATE = 10;
 
-        // Undocumented but stable value used by Windows Settings / ColorControl / AutoHDRConfigurator.
-        private const int DISPLAYCONFIG_DEVICE_INFO_SET_SDR_WHITE_LEVEL = unchecked((int)0xFFFFFFFD);
+        // Undocumented packet types for SDR white-level write — different reverse-engineered
+        // sources cite different values. -18 is what Go2HDR ships with (verified working on
+        // current Win11 builds for Legion Go 2); -3 is the older value used by ColorControl /
+        // AutoHDRConfigurator and is still accepted by some builds. Try -18 first, fall back
+        // to -3 if the driver returns ERROR_INVALID_PARAMETER. Layout cache below picks one
+        // after the first success so subsequent calls skip the probe.
+        private const int DISPLAYCONFIG_DEVICE_INFO_SET_SDR_WHITE_LEVEL_V1 = unchecked((int)0xFFFFFFEE); // -18
+        private const int DISPLAYCONFIG_DEVICE_INFO_SET_SDR_WHITE_LEVEL_V2 = unchecked((int)0xFFFFFFFD); // -3
+
+        // Constant from wingdi.h — paths whose target is the built-in panel.
+        // SDR white-level writes to external displays are wrong target on multi-monitor.
+        private const uint DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INTERNAL = 0x80000000;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct LUID
@@ -1083,13 +1096,33 @@ namespace XboxGamingBarHelper.Windows
         }
 
         // SDR white level is sent in units of 1/1000 of 80 nits (i.e. nits * 1000 / 80).
-        [StructLayout(LayoutKind.Sequential)]
+        // Two known struct layouts in the wild: one ends with a UCHAR finalValue (Pack=4, total 28 bytes),
+        // one with ULONG finalValue (Pack=4, total 32 bytes). Different Win11 builds accept different ones —
+        // try byte first, fall back to uint on ERROR_INVALID_PARAMETER.
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
         private struct DISPLAYCONFIG_SET_SDR_WHITE_LEVEL
         {
             public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
             public uint SDRWhiteLevel;
             public byte finalValue;
         }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
+        private struct DISPLAYCONFIG_SET_SDR_WHITE_LEVEL_UINT
+        {
+            public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+            public uint SDRWhiteLevel;
+            public uint finalValue;
+        }
+
+        // Cached struct flavor + type-id that works on this machine — set after the first
+        // successful write so subsequent calls skip the probe.
+        private enum SdrWhiteLevelLayout { Unknown = 0, ByteFinal = 1, UintFinal = 2, Unsupported = 3 }
+        private static SdrWhiteLevelLayout sdrLayoutCache = SdrWhiteLevelLayout.Unknown;
+        // 0 = unknown (probe both); otherwise one of the SET_SDR_WHITE_LEVEL_V* constants.
+        private static int sdrTypeCache;
+        private static int sdrFailureLogCount;
+        private const int SdrFailureLogEvery = 30;
 
         /// <summary>
         /// Get HDR support and enabled status for the primary display.
@@ -1200,51 +1233,72 @@ namespace XboxGamingBarHelper.Windows
         }
 
         /// <summary>
-        /// Set the SDR White Level (paper-white nits) on the primary display while HDR is active.
+        /// Set the SDR White Level (paper-white nits) on the built-in panel while HDR is active.
         /// Re-implements the same packet that Windows Settings → HDR → "SDR content brightness" writes.
         /// nits is clamped to [80, 480]; values outside the panel's range are ignored by the driver.
+        /// External monitors are explicitly skipped — SDR white level applies only to the internal display.
         /// </summary>
         public static bool SetSdrWhiteLevelNits(int nits)
         {
+            if (sdrLayoutCache == SdrWhiteLevelLayout.Unsupported) return false;
+
             if (nits < 80) nits = 80;
             if (nits > 480) nits = 480;
 
             try
             {
                 int result = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out uint pathCount, out uint modeCount);
-                if (result != ERROR_SUCCESS)
-                {
-                    Logger.Error($"GetDisplayConfigBufferSizes failed with error {result}");
-                    return false;
-                }
+                if (result != ERROR_SUCCESS) { Logger.Error($"GetDisplayConfigBufferSizes failed with error {result}"); return false; }
 
                 var paths = new DISPLAYCONFIG_PATH_INFO[pathCount];
                 var modes = new DISPLAYCONFIG_MODE_INFO[modeCount];
-
                 result = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero);
-                if (result != ERROR_SUCCESS)
-                {
-                    Logger.Error($"QueryDisplayConfig failed with error {result}");
-                    return false;
-                }
-
+                if (result != ERROR_SUCCESS) { Logger.Error($"QueryDisplayConfig failed with error {result}"); return false; }
                 if (paths.Length == 0) return false;
 
-                var packet = new DISPLAYCONFIG_SET_SDR_WHITE_LEVEL();
-                packet.header.type = DISPLAYCONFIG_DEVICE_INFO_SET_SDR_WHITE_LEVEL;
-                packet.header.size = Marshal.SizeOf<DISPLAYCONFIG_SET_SDR_WHITE_LEVEL>();
-                packet.header.adapterId = paths[0].targetInfo.adapterId;
-                packet.header.id = paths[0].targetInfo.id;
-                packet.SDRWhiteLevel = (uint)(nits * 1000 / 80);
-                packet.finalValue = 1;
+                uint level = (uint)(nits * 1000 / 80);
+                bool wroteAny = false;
+                int lastErr = 0;
 
-                result = DisplayConfigSetDeviceInfo(ref packet);
-                if (result == ERROR_SUCCESS)
+                foreach (var path in paths)
                 {
-                    Logger.Info($"SDR white level set to {nits} nits ({packet.SDRWhiteLevel}/1000 units)");
+                    // Skip external monitors — SDR white level only makes sense on the built-in panel.
+                    // Without this filter, on a docked Legion Go the write hits the wrong target.
+                    if (path.targetInfo.outputTechnology != DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INTERNAL)
+                        continue;
+
+                    // Confirm advanced color is enabled on this internal target. Writing to a
+                    // non-HDR target returns ERROR_INVALID_PARAMETER and would spam the log.
+                    var advInfo = new DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO();
+                    advInfo.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO;
+                    advInfo.header.size = Marshal.SizeOf<DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO>();
+                    advInfo.header.adapterId = path.targetInfo.adapterId;
+                    advInfo.header.id = path.targetInfo.id;
+                    if (DisplayConfigGetDeviceInfo(ref advInfo) != ERROR_SUCCESS || !advInfo.AdvancedColorEnabled)
+                        continue;
+
+                    if (TryWriteSdrPacket(path.targetInfo.adapterId, path.targetInfo.id, level, out int err))
+                    {
+                        wroteAny = true;
+                    }
+                    else
+                    {
+                        lastErr = err;
+                    }
+                }
+
+                if (wroteAny)
+                {
+                    sdrFailureLogCount = 0;
+                    Logger.Info($"SDR white level set to {nits} nits ({level}/1000 units)");
                     return true;
                 }
-                Logger.Error($"DisplayConfigSetDeviceInfo (SDR white level) failed with error {result}");
+
+                // Reaching here means: either no internal HDR-active path existed (returns false
+                // silently), or every probe failed. Don't flip Unsupported on the no-target case;
+                // that's a transient state when the user toggles HDR off mid-session. The probe
+                // function flips Unsupported itself once it has tried both type IDs and both layouts.
+                if (lastErr != 0) ThrottledFailLog($"SDR white level write failed (last err {lastErr}) at {nits} nits");
                 return false;
             }
             catch (Exception ex)
@@ -1252,6 +1306,84 @@ namespace XboxGamingBarHelper.Windows
                 Logger.Error($"SetSdrWhiteLevelNits exception: {ex}");
                 return false;
             }
+        }
+
+        private static void ThrottledFailLog(string message)
+        {
+            sdrFailureLogCount++;
+            if (sdrFailureLogCount == 1 || sdrFailureLogCount % SdrFailureLogEvery == 0)
+                Logger.Error($"{message} (failure #{sdrFailureLogCount})");
+        }
+
+        // Probe both packet-type IDs and both struct layouts until one is accepted, then
+        // cache the winning combination. (V1=-18 first because Go2HDR ships with it and it
+        // works on current Win11 Legion Go 2 builds; falls through to V2=-3 which is what
+        // ColorControl / AutoHDRConfigurator historically used.)
+        private static bool TryWriteSdrPacket(LUID adapterId, uint targetId, uint level, out int lastError)
+        {
+            lastError = 0;
+
+            // Probe order: cached-or-V1 first, then V2. Within each, cached-or-byte first, then uint.
+            int[] typeOrder = sdrTypeCache != 0
+                ? new[] { sdrTypeCache, sdrTypeCache == DISPLAYCONFIG_DEVICE_INFO_SET_SDR_WHITE_LEVEL_V1 ? DISPLAYCONFIG_DEVICE_INFO_SET_SDR_WHITE_LEVEL_V2 : DISPLAYCONFIG_DEVICE_INFO_SET_SDR_WHITE_LEVEL_V1 }
+                : new[] { DISPLAYCONFIG_DEVICE_INFO_SET_SDR_WHITE_LEVEL_V1, DISPLAYCONFIG_DEVICE_INFO_SET_SDR_WHITE_LEVEL_V2 };
+
+            foreach (int typeId in typeOrder)
+            {
+                if (sdrLayoutCache == SdrWhiteLevelLayout.Unknown || sdrLayoutCache == SdrWhiteLevelLayout.ByteFinal)
+                {
+                    var pkt = new DISPLAYCONFIG_SET_SDR_WHITE_LEVEL();
+                    pkt.header.type = typeId;
+                    pkt.header.size = Marshal.SizeOf<DISPLAYCONFIG_SET_SDR_WHITE_LEVEL>();
+                    pkt.header.adapterId = adapterId;
+                    pkt.header.id = targetId;
+                    pkt.SDRWhiteLevel = level;
+                    pkt.finalValue = 1;
+                    int r = DisplayConfigSetDeviceInfo(ref pkt);
+                    if (r == ERROR_SUCCESS)
+                    {
+                        if (sdrLayoutCache == SdrWhiteLevelLayout.Unknown || sdrTypeCache != typeId)
+                            Logger.Info($"SDR white level: type=0x{typeId:X8} layout=ByteFinal accepted");
+                        sdrLayoutCache = SdrWhiteLevelLayout.ByteFinal;
+                        sdrTypeCache = typeId;
+                        return true;
+                    }
+                    lastError = r;
+                }
+
+                if (sdrLayoutCache == SdrWhiteLevelLayout.Unknown || sdrLayoutCache == SdrWhiteLevelLayout.UintFinal)
+                {
+                    var pkt = new DISPLAYCONFIG_SET_SDR_WHITE_LEVEL_UINT();
+                    pkt.header.type = typeId;
+                    pkt.header.size = Marshal.SizeOf<DISPLAYCONFIG_SET_SDR_WHITE_LEVEL_UINT>();
+                    pkt.header.adapterId = adapterId;
+                    pkt.header.id = targetId;
+                    pkt.SDRWhiteLevel = level;
+                    pkt.finalValue = 1u;
+                    int r = DisplayConfigSetDeviceInfo(ref pkt);
+                    if (r == ERROR_SUCCESS)
+                    {
+                        if (sdrLayoutCache == SdrWhiteLevelLayout.Unknown || sdrTypeCache != typeId)
+                            Logger.Info($"SDR white level: type=0x{typeId:X8} layout=UintFinal accepted");
+                        sdrLayoutCache = SdrWhiteLevelLayout.UintFinal;
+                        sdrTypeCache = typeId;
+                        return true;
+                    }
+                    lastError = r;
+                }
+            }
+
+            // Both type IDs and both layouts rejected. If we have no cached success yet,
+            // mark the API unsupported so we stop probing. If we DID have a cached success
+            // and a single write failed, leave the cache alone — could be a transient
+            // ERROR_INVALID_PARAMETER from a momentarily-non-HDR target.
+            if (sdrLayoutCache == SdrWhiteLevelLayout.Unknown)
+            {
+                Logger.Error($"SDR white level: every (type, layout) combination rejected (last err {lastError}). " +
+                             $"Marking unsupported until restart.");
+                sdrLayoutCache = SdrWhiteLevelLayout.Unsupported;
+            }
+            return false;
         }
 
         /// <summary>
