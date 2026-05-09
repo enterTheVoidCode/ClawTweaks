@@ -332,6 +332,7 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             {
                 case "Left":     return ViiperGyroSourceKind.Left;
                 case "Right":    return ViiperGyroSourceKind.Right;
+                case "Mixed":    return ViiperGyroSourceKind.Mixed;
                 case "Handheld": return ViiperGyroSourceKind.Handheld;
                 default:         return ViiperGyroSourceKind.None;
             }

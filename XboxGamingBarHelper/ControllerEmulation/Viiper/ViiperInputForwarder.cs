@@ -29,6 +29,10 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         Left = 1,
         Right = 2,
         Handheld = 3,  // Windows sensor — not wired yet; treated as None for now.
+        // Both controllers averaged with the right side mirror-inverted so axes
+        // agree before the merge. Falls back to whichever single side is
+        // currently reporting if only one is available.
+        Mixed = 4,
     }
 
     /// <summary>
@@ -590,19 +594,60 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
                 return false;
             }
 
-            bool useLeft = src == ViiperGyroSourceKind.Left;
-            LegionGyroSample sample;
-            if (!LegionButtonMonitor.TryGetLatestGyroSample(useLeft, out sample))
+            float gXdps, gYdps, gZdps, aXg, aYg, aZg;
+            if (src == ViiperGyroSourceKind.Mixed)
             {
-                return false;
+                bool hasLeft = LegionButtonMonitor.TryGetLatestGyroSample(true, out LegionGyroSample left);
+                bool hasRight = LegionButtonMonitor.TryGetLatestGyroSample(false, out LegionGyroSample right);
+                if (!hasLeft && !hasRight)
+                {
+                    return false;
+                }
+                if (hasLeft && hasRight)
+                {
+                    // Shared mirror-inversion + average; same convention the legacy
+                    // Mixed adapter uses so both backends agree on axis signs.
+                    GyroSample merged = LegionMixedGyroMerge.Merge(left, right);
+                    gXdps = merged.GyroXDegPerSecond;
+                    gYdps = merged.GyroYDegPerSecond;
+                    gZdps = merged.GyroZDegPerSecond;
+                    aXg = merged.AccelXG;
+                    aYg = merged.AccelYG;
+                    aZg = merged.AccelZG;
+                }
+                else
+                {
+                    // Single-side fallback: pass the available side through untouched.
+                    LegionGyroSample one = hasLeft ? left : right;
+                    gXdps = one.GyroXDegPerSecond;
+                    gYdps = one.GyroYDegPerSecond;
+                    gZdps = one.GyroZDegPerSecond;
+                    aXg = one.AccelXG;
+                    aYg = one.AccelYG;
+                    aZg = one.AccelZG;
+                }
+            }
+            else
+            {
+                bool useLeft = src == ViiperGyroSourceKind.Left;
+                if (!LegionButtonMonitor.TryGetLatestGyroSample(useLeft, out LegionGyroSample sample))
+                {
+                    return false;
+                }
+                gXdps = sample.GyroXDegPerSecond;
+                gYdps = sample.GyroYDegPerSecond;
+                gZdps = sample.GyroZDegPerSecond;
+                aXg = sample.AccelXG;
+                aYg = sample.AccelYG;
+                aZg = sample.AccelZG;
             }
 
-            short gX = SaturateToShort(sample.GyroXDegPerSecond * GyroDpsToRawCounts);
-            short gY = SaturateToShort(sample.GyroYDegPerSecond * GyroDpsToRawCounts);
-            short gZ = SaturateToShort(sample.GyroZDegPerSecond * GyroDpsToRawCounts);
-            short aX = SaturateToShort(sample.AccelXG * AccelGToRawCounts);
-            short aY = SaturateToShort(sample.AccelYG * AccelGToRawCounts);
-            short aZ = SaturateToShort(sample.AccelZG * AccelGToRawCounts);
+            short gX = SaturateToShort(gXdps * GyroDpsToRawCounts);
+            short gY = SaturateToShort(gYdps * GyroDpsToRawCounts);
+            short gZ = SaturateToShort(gZdps * GyroDpsToRawCounts);
+            short aX = SaturateToShort(aXg * AccelGToRawCounts);
+            short aY = SaturateToShort(aYg * AccelGToRawCounts);
+            short aZ = SaturateToShort(aZg * AccelGToRawCounts);
 
             // Apply user-selectable axis remap. Each output channel pulls from source[src]
             // and optionally flips sign. Accel tracks the same map as gyro so the vectors
