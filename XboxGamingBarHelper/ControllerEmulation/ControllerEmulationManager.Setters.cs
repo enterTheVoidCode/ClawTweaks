@@ -142,6 +142,26 @@ namespace XboxGamingBarHelper.ControllerEmulation
             {
                 try
                 {
+                    // Prefer the LegionButtonMonitor's persistent HID handle when
+                    // it's running. Opening a parallel LegionGoController handle
+                    // while the monitor's read stream is active causes the input
+                    // pipeline to stall on some Windows builds — vvalente30
+                    // observed gyro stop working immediately after a successful
+                    // mid-session calibration in his 2166 video. Going through
+                    // the shared handle reuses the same kernel object the
+                    // forwarder is already reading from, so the stream is never
+                    // disturbed.
+                    var monitor = Program.legionButtonMonitor;
+                    if (monitor != null)
+                    {
+                        bool okShared = monitor.CalibrateGyro(true, true);
+                        Logger.Info($"Calibrate gyro (shared handle): {(okShared ? "success" : "failed")}");
+                        return;
+                    }
+
+                    // Fallback: monitor not running (e.g. controller was unplugged
+                    // during boot). Open a one-shot handle. Forwarding isn't
+                    // active in this case so handle contention is impossible.
                     using (var controller = new LegionGoController())
                     {
                         if (!controller.Connect())
@@ -151,7 +171,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                         }
 
                         bool ok = controller.CalibrateGyro();
-                        Logger.Info($"Calibrate gyro: {(ok ? "success" : "failed")}");
+                        Logger.Info($"Calibrate gyro (fallback handle): {(ok ? "success" : "failed")}");
                     }
                 }
                 catch (Exception ex)

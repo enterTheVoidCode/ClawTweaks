@@ -160,7 +160,9 @@ namespace XboxGamingBarHelper
         /// <summary>
         /// Labs: Unified Legion button monitor (handles both L and R buttons + battery)
         /// </summary>
-        private static LegionButtonMonitor legionButtonMonitor;
+        // internal so siblings (ControllerEmulationManager.CalibrateGyro) can route
+        // through the shared HID handle instead of opening a parallel one.
+        internal static LegionButtonMonitor legionButtonMonitor;
         private static readonly object legionButtonMonitorLock = new object();
         private static bool legionButtonMonitorBatteryHooked;
 
@@ -450,10 +452,38 @@ namespace XboxGamingBarHelper
             {
                 sidebarManager?.Dispose();
                 DisposeTrayIndicator();
-                singleInstanceMutex?.ReleaseMutex();
-                singleInstanceMutex?.Dispose();
+                ReleaseSingleInstanceMutexSafe();
             }
 
+        }
+
+        // Release the single-instance mutex without crashing when the finally block
+        // happens to be running on a different thread than the one that acquired it.
+        // ReleaseMutex() throws ApplicationException ("Object synchronization method
+        // was called from an unsynchronized block of code") in that case, which then
+        // unwinds out of Main as an unhandled exception and tears the helper down.
+        // The kernel releases named mutexes automatically on process exit, so dropping
+        // the explicit Release on a thread mismatch is safe.
+        private static void ReleaseSingleInstanceMutexSafe()
+        {
+            var m = singleInstanceMutex;
+            if (m == null) return;
+            try
+            {
+                m.ReleaseMutex();
+            }
+            catch (ApplicationException)
+            {
+                // Continuation resumed on a different thread than the one that
+                // acquired the mutex. Process exit releases it for us.
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Single-instance mutex release skipped: {ex.Message}");
+            }
+            try { m.Dispose(); }
+            catch { }
+            singleInstanceMutex = null;
         }
 
         /// <summary>
@@ -496,8 +526,7 @@ namespace XboxGamingBarHelper
             }
             finally
             {
-                singleInstanceMutex?.ReleaseMutex();
-                singleInstanceMutex?.Dispose();
+                ReleaseSingleInstanceMutexSafe();
             }
         }
 
