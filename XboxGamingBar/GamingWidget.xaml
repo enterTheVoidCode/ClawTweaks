@@ -4884,6 +4884,7 @@
                                             <ComboBoxItem Content="None" Tag="None"/>
                                             <ComboBoxItem Content="Left controller" Tag="Left"/>
                                             <ComboBoxItem Content="Right controller" Tag="Right"/>
+                                            <ComboBoxItem Content="Mixed (L+R averaged)" Tag="Mixed"/>
                                             <ComboBoxItem Content="Handheld (device IMU)" Tag="Handheld"/>
                                         </ComboBox>
 
