@@ -1,6 +1,6 @@
-# GoTweaks
+# GoTweaks Widget
 
-A powerful Xbox Game Bar widget for controlling gaming settings with your controller. Designed for handheld gaming PCs with deep integration for Legion Go, AMD Radeon GPUs, and performance tuning.
+A powerful Game Bar widget for controlling gaming settings with your controller. Designed for handheld gaming PCs with deep integration for Legion Go, AMD Radeon GPUs, and performance tuning.
 
 [![Video Overview](https://img.youtube.com/vi/6zoOBG9X_WU/0.jpg)](https://www.youtube.com/watch?v=6zoOBG9X_WU)
 
@@ -65,6 +65,9 @@ Comprehensive support for Legion Go and Legion Go S with automatic device detect
 
 **Controller Settings:**
 - **Button Remapping** - Customize M2, M3, Y1, Y2, Y3 buttons
+- **Remap type** - Remap to Keyboard shortcuts, keys, gamepad actions, mouse buttons.
+- **Joystick to Mouse** - Emulate a mouse using either the left or rigth stick
+- **Desktop Controls** - Maps the controls to mouse, left mouse button, and right click, similar to Rog Ally. 
 - **Nintendo Layout** - Swap button layout
 - **Stick Deadzones** - Adjust left/right stick deadzones (0-50%)
 - **Gyroscope Settings:**
@@ -170,7 +173,7 @@ Designed for full gamepad control - no mouse needed.
 
 ### Option A: Install Script (Recommended)
 
-1. Download the latest release from [Releases](https://github.com/namquang93/XboxGamingBar/releases)
+1. Download the latest release from [Releases](https://github.com/corando98/GoTweaks/releases)
 2. Extract the package
 3. Right-click `Install.ps1` → **Run with PowerShell**
 4. Click **Yes** if prompted for Administrator access
@@ -262,8 +265,15 @@ Original project by [namquang93](https://github.com/namquang93).
 - **[GameTechPlanet](https://www.youtube.com/@GameTechPlanet)** - For the opportunity to showcase the app and covering the widget's use cases
 - **The Community** - For reporting issues and helping make this app better for everyone
 
+## Support Development
+- Donations are always appreciated, do not feel obligated to donate. Anything helps
+- [Donate](https://www.paypal.com/paypalme/corando98)
+
 ## License
 
 This project is open source. See LICENSE file for details.
+
+
+
 
 
