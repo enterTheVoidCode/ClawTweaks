@@ -1369,6 +1369,30 @@
                                         TickPlacement="Outside"
                                         SnapsTo="StepValues"
                                         Visibility="{Binding ElementName=FPSLimitToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                                <!-- Intel IGCL Endurance Gaming FPS tier (Lunar Lake / MSI Claw) -->
+                                <Border BorderBrush="#333333" BorderThickness="0,1,0,0" Margin="0,8,0,0" Padding="0,8,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Intel FPS Limiter" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="IGCL Endurance Gaming" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="IntelFpsTierComboBox"
+                                                  Grid.Column="1"
+                                                  Width="160"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  SelectionChanged="IntelFpsTierComboBox_SelectionChanged">
+                                            <ComboBoxItem Content="Off" Tag="0"/>
+                                            <ComboBoxItem Content="Performance  60 FPS" Tag="1"/>
+                                            <ComboBoxItem Content="Balanced  40 FPS" Tag="2"/>
+                                            <ComboBoxItem Content="Efficiency  30 FPS" Tag="3"/>
+                                        </ComboBox>
+                                    </Grid>
+                                </Border>
                             </StackPanel>
                         </Border>
 
