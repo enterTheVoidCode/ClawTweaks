@@ -44,40 +44,45 @@ namespace XboxGamingBar
     public sealed partial class GamingWidget
     {
         // OSD configuration per level - stores which items are enabled
-        // Level 1 (Basic): FPS, Battery, Time - 3 columns
-        // Level 2 (Detailed): Time, FPS, Battery, CPU, GPU, Fan - 1 column
-        // Level 3 (Full): All options - 1 column
+        // Level 1 (Basic):              FPS, Battery, Time              — 3 cols, horizontal
+        // Level 2 (Horizontal):         FPS, Battery, CPU, Time         — 4 cols, horizontal (screenshot 2 style)
+        // Level 3 (Horizontal Detailed):AppName+FPS+CPU+GPU+BAT+MEM+Time— 7 cols (IntelGameBar style)
+        // Level 4 (Full):               All options                     — 1 col, vertical
         private Dictionary<int, Dictionary<string, bool>> osdLevelConfig = new Dictionary<int, Dictionary<string, bool>>
         {
-            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "ControllerBattery", false }, { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
-            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "ControllerBattery", false }, { "Memory", false }, { "VRAM", false }, { "CPU", true }, { "CPUClock", false }, { "GPU", true }, { "GPUClock", false }, { "Fan", true }, { "AutoTDP", false }, { "FrametimeGraph", true } } },
-            { 3, new Dictionary<string, bool> { { "AppName", true }, { "Time", true }, { "FPS", true }, { "Battery", true }, { "ControllerBattery", true }, { "Memory", true }, { "VRAM", true }, { "CPU", true }, { "CPUClock", true }, { "GPU", true }, { "GPUClock", true }, { "Fan", true }, { "AutoTDP", true }, { "FrametimeGraph", true } } }
+            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", false }, { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
+            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", false }, { "Memory", false }, { "VRAM", false }, { "CPU", true },  { "CPUClock", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
+            { 3, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", false }, { "Memory", true },  { "VRAM", false }, { "CPU", true },  { "CPUClock", true },  { "GPU", true },  { "GPUClock", true },  { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
+            { 4, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", true },  { "Memory", true },  { "VRAM", true },  { "CPU", true },  { "CPUClock", true },  { "GPU", true },  { "GPUClock", true },  { "Fan", true },  { "AutoTDP", true },  { "FrametimeGraph", true } } }
         };
 
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
         {
             { 1, "" },
             { 2, "" },
-            { 3, "" }
+            { 3, "" },
+            { 4, "" }
         };
 
-        // Per-level column settings (Basic=3, Detailed=1, Full=1)
+        // Per-level column settings
         private Dictionary<int, int> osdLevelColumns = new Dictionary<int, int>
         {
-            { 1, 3 },  // Basic: 3 columns
-            { 2, 1 },  // Detailed: 1 column
-            { 3, 1 }   // Full: 1 column
+            { 1, 3 },  // Basic:              3 columns
+            { 2, 4 },  // Horizontal:         4 columns
+            { 3, 7 },  // Horizontal Detailed:7 columns
+            { 4, 1 }   // Full:               1 column
         };
 
-        // Current OSD customization level (1=Basic, 2=Detailed, 3=Full)
+        // Current OSD customization level (1=Basic, 2=Horizontal, 3=Horizontal Detailed, 4=Full)
         private int osdCustomizeLevel = 1;
 
         // Per-level item order (list of item IDs in display order)
         private Dictionary<int, List<string>> osdLevelOrder = new Dictionary<int, List<string>>
         {
             { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 2, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 3, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
+            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "ControllerBattery", "Memory", "VRAM", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "GPU", "GPUClock", "Battery", "Memory", "Time", "ControllerBattery", "VRAM", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 4, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
         };
 
         // Per-level item label colors (DEFAULT = use global text color)
@@ -85,7 +90,8 @@ namespace XboxGamingBar
         {
             { 1, new Dictionary<string, string>() },
             { 2, new Dictionary<string, string>() },
-            { 3, new Dictionary<string, string>() }
+            { 3, new Dictionary<string, string>() },
+            { 4, new Dictionary<string, string>() }
         };
 
         // Item display names for UI
@@ -560,7 +566,7 @@ namespace XboxGamingBar
                 var settings = ApplicationData.Current.LocalSettings;
                 var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" };
 
-                foreach (var level in new[] { 1, 2, 3 })
+                foreach (var level in new[] { 1, 2, 3, 4 })
                 {
                     if (!osdLevelConfig.ContainsKey(level))
                     {

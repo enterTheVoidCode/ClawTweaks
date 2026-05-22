@@ -246,18 +246,24 @@ namespace XboxGamingBar
             qsTileDefinitions.Clear();
             qsTileMap.Clear();
 
-            int order = 0;
+            // FPS Limit, Intel FPS, and Overlay are pinned to the first positions so they
+            // appear first (top-left) in the Quick tab grid on every cold start.
+            // All other tiles start at order=3 and increment from there.
+            AddTileDefinition("FPSLimit",     "FPS Limit", "\uE916", order: 0);
+            AddTileDefinition("IntelFpsTier", "Intel FPS", "\uE916", order: 1);  // Intel IGCL Endurance Gaming tier
+            AddTileDefinition("Overlay",      "Overlay",   "\uE7B3", order: 2);
+
+            int order = 3;
 
             // Row 1 - Performance Core (most used)
             AddTileDefinition("TDPMode", "TDP Mode", "\uE945", order: order++);
-            AddTileDefinition("AutoTDP", "AutoTDP", "\uE9F5", order: order++);
+            // AddTileDefinition("AutoTDP", "AutoTDP", "\uE9F5", order: order++);  // removed: not applicable on Intel Claw
             AddTileDefinition("PowerMode", "Power Mode", "\uE945", order: order++);
             AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4", order: order++);
 
             // Row 2 - Performance Fine-tuning
             AddTileDefinition("EPP", "EPP", "\uE83E", order: order++);
-            AddTileDefinition("FPSLimit", "FPS Limit", "\uE916", order: order++);
-            AddTileDefinition("RadeonChill", "Chill", "\uE9CA", order: order++);
+            // AddTileDefinition("RadeonChill", "Chill", "\uE9CA", order: order++);  // removed: AMD-only feature
             AddTileDefinition("Profile", "Profile", "\uE77B", order: order++);
 
             // Row 3 - Display
@@ -267,14 +273,14 @@ namespace XboxGamingBar
             AddTileDefinition("Fullscreen", "Fullscreen", "\uE740", order: order++);
 
             // Row 4 - AMD Graphics Features
-            AddTileDefinition("RSR", "RSR", "\uE8B3", order: order++);
-            AddTileDefinition("RIS", "RIS", "\uE8B3", order: order++);
+            // AddTileDefinition("RSR", "RSR", "\uE8B3", order: order++);  // removed: AMD-only feature
+            // AddTileDefinition("RIS", "RIS", "\uE8B3", order: order++);  // removed: AMD-only feature
             AddTileDefinition("AFMF", "AFMF", "\uE916", order: order++);
             AddTileDefinition("AntiLag", "Anti-Lag", "\uE916", order: order++);
 
             // Row 5 - Scaling/Quality
             AddTileDefinition("LosslessScaling", "Lossless", "\uE740", order: order++);
-            AddTileDefinition("Overlay", "Overlay", "\uE7B3", order: order++);
+            // Note: "Overlay" tile is defined above at order=1 (pinned to top-left)
 
             // Row 6 - Input & Interaction
             AddTileDefinition("ScreenSaver", "Idle Screen Off", "\uE7E8", order: order++);
@@ -287,10 +293,11 @@ namespace XboxGamingBar
             AddTileDefinition("ControllerEmulation", "Controller", "\uE7FC", order: order++);
 
             // Row 7 - System/Device
+            AddTileDefinition("MsiCenter", "MSI Center", "\uE7F4", order: order++);  // MSI Center M OEM software toggle
             AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);
             AddTileDefinition("LegionPowerLight", "Power Light", "\uE7E8", order: order++);
             AddTileDefinition("LegionChargeLimit", "Charge Limit", "\uE83F", order: order++);
-            AddTileDefinition("LegionFanFullSpeed", "Fan Max", "\uE9CA", order: order++);
+            // AddTileDefinition("LegionFanFullSpeed", "Fan Max", "\uE9CA", order: order++);  // removed: Legion-only feature
             AddTileDefinition("Battery", "Battery", "\uE83F", order: order++);
 
             // Load custom shortcut tiles from storage
@@ -301,7 +308,7 @@ namespace XboxGamingBar
             AddTileDefinition("ActionTaskManager", "Task Mgr", "\uE7EF", isAction: true, order: actionOrder++);
             AddTileDefinition("ActionExplorer", "Explorer", "\uEC50", isAction: true, order: actionOrder++);
             AddTileDefinition("ActionEndTask", "End Task", "\uE711", isAction: true, order: actionOrder++);
-            AddTileDefinition("ActionHibernate", "Hibernate", "\uE708", isAction: true, order: actionOrder++);
+            // AddTileDefinition("ActionHibernate", "Hibernate", "\uE708", isAction: true, order: actionOrder++);  // removed: not needed on handheld
         }
 
         private void AddTileDefinition(string id, string name, string glyph, bool isTrigger = false, bool isAction = false, string customShortcut = null, int order = 0)

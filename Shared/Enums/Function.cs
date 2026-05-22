@@ -258,6 +258,10 @@
         // FPS Limiter (RTSS)
         FPSLimit,                   // int - FPS limit (0 = unlimited)
 
+        // Intel Endurance Gaming FPS tier (IGCL)
+        IntelFpsTier,               // int - 0=Off, 1=Performance(60fps), 2=Balanced(40fps), 3=Efficiency(30fps)
+        FpsCapMode,                 // int - active FPS-cap source: 0=RTSS, 1=Intel (mutual exclusion enforced by helper)
+
         // Device TDP Limits
         TDPLimits,                  // string - "min,max" format (e.g., "4,35")
 
@@ -428,6 +432,9 @@
         Viiper_GyroAxisMapY,                       // string - IMU Y channel mapping (same options)
         Viiper_GyroAxisMapZ,                       // string - IMU Z channel mapping (same options)
         Viiper_StickGyroEnabled,                   // bool  - master enable for the Gyro → Right Stick processor on no-native-motion targets (default true)
+
+        // MSI Claw — OEM software toggle
+        MsiCenterActive,                           // bool - MSI Center M running (true) / stopped (false); write to toggle
 
         // SDR White Level Sync (Display tab, under HDR toggle)
         // Windows exposes a static "SDR content brightness" slider in HDR mode but never ties it

@@ -1053,6 +1053,13 @@ namespace XboxGamingBar
         private int fpsLimitPendingValue;
         private const int FPS_LIMIT_DEBOUNCE_MS = 300;
 
+        // Intel IGCL Endurance Gaming FPS tier (ported from IntelGameBar)
+        private readonly IntelFpsTierProperty intelFpsTier;
+        private readonly FpsCapModeProperty fpsCapMode;
+
+        // MSI Claw — OEM software toggle
+        private readonly MsiCenterActiveProperty msiCenterActive;
+
         // Profile management
         private PerformanceProfile globalProfile = new PerformanceProfile();
         private PerformanceProfile acProfile = new PerformanceProfile();
@@ -1759,6 +1766,13 @@ namespace XboxGamingBar
             // FPS Limit property
             fpsLimit = new FPSLimitProperty();
 
+            // Intel IGCL Endurance Gaming FPS tier (ported from IntelGameBar)
+            intelFpsTier = new IntelFpsTierProperty();
+            fpsCapMode   = new FpsCapModeProperty();
+
+            // MSI Claw — OEM software toggle
+            msiCenterActive = new MsiCenterActiveProperty();
+
             // Profile Detection Settings
             profileMatchByExe = new ProfileMatchByExeProperty(ProfileMatchByExeToggle, this);
             profileGamesOnly = new ProfileGamesOnlyProperty(ProfileGamesOnlyToggle, this);
@@ -1980,6 +1994,9 @@ namespace XboxGamingBar
                 autoTDPLearnedGameData,
                 autoTDPResetML,
                 fpsLimit,
+                intelFpsTier,
+                fpsCapMode,
+                msiCenterActive,
                 osPowerMode,
                 tdpLimits,
                 cpuCoreConfig,
@@ -2284,6 +2301,12 @@ namespace XboxGamingBar
                 runningGame.PropertyChanged += QuickSettingsProperty_Changed;
             if (fpsLimit != null)
                 fpsLimit.PropertyChanged += QuickSettingsProperty_Changed;
+            if (intelFpsTier != null)
+                intelFpsTier.PropertyChanged += QuickSettingsProperty_Changed;
+            if (fpsCapMode != null)
+                fpsCapMode.PropertyChanged += QuickSettingsProperty_Changed;
+            if (msiCenterActive != null)
+                msiCenterActive.PropertyChanged += QuickSettingsProperty_Changed;
             if (osPowerMode != null)
                 osPowerMode.PropertyChanged += OSPowerMode_PropertyChanged;
             if (resolution != null)
@@ -3410,7 +3433,8 @@ namespace XboxGamingBar
             }
 
             // Auto-check for updates on startup (if enabled)
-            _ = CheckForUpdatesOnStartupAsync();
+            // Commented out: ClawTweaks does not use the GoTweaks update banner
+            // _ = CheckForUpdatesOnStartupAsync();
 
             Logger.Info("=== OnNavigatedTo END ===");
         }

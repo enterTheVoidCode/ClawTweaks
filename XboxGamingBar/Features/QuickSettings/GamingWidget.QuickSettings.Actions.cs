@@ -87,6 +87,9 @@ namespace XboxGamingBar
                             case "FPSLimit":
                                 CycleFPSLimit();
                                 break;
+                            case "IntelFpsTier":
+                                CycleIntelFpsTier();
+                                break;
                             case "Resolution":
                                 CycleResolution();
                                 break;
@@ -165,6 +168,9 @@ namespace XboxGamingBar
                                 break;
                             case "ControllerEmulation":
                                 ToggleControllerEmulation();
+                                break;
+                            case "MsiCenter":
+                                ToggleMsiCenter();
                                 break;
                         }
                     }
@@ -795,7 +801,7 @@ namespace XboxGamingBar
                 if (osd != null)
                 {
                     int currentLevel = (int)osd.Value;
-                    int nextLevel = (currentLevel + 1) % 4;
+                    int nextLevel = (currentLevel + 1) % 5;  // 0=Off, 1=Basic, 2=Horizontal, 3=H.Detailed, 4=Full
                     osd.SetValue(nextLevel);
                     Logger.Info($"RTSS Performance Overlay cycled from {currentLevel} to {nextLevel}");
                 }
@@ -803,26 +809,27 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Cycle FPS limit through: Off -> MaxRefresh -> MaxRefresh/2 -> MaxRefresh/3 -> Off
+        /// Cycle FPS limit through: Off -> 30 -> 40 -> 60 -> 90 -> Off (fixed ascending values)
         /// </summary>
         private void CycleFPSLimit()
         {
             if (fpsLimit == null) return;
 
-            // Get max refresh rate from current display
+            // Get max refresh rate for slider UI sync only
             int maxRefresh = 60; // Default
             if (refreshRates?.Value != null && refreshRates.Value.Count > 0)
             {
                 maxRefresh = refreshRates.Value.Max();
             }
 
-            // Calculate FPS limit values: Max, Max/2, Max/3
+            // Fixed FPS cap values in ascending order
             int[] fpsValues = new int[]
             {
-                0,                          // Off (unlimited)
-                maxRefresh,                 // e.g., 144
-                maxRefresh / 2,             // e.g., 72
-                maxRefresh / 3              // e.g., 48
+                0,   // Off (unlimited)
+                30,  // 30 FPS — power saving
+                40,  // 40 FPS — balanced
+                60,  // 60 FPS — smooth
+                90   // 90 FPS — high performance
             };
 
             // Find current index and cycle to next
@@ -870,6 +877,25 @@ namespace XboxGamingBar
             {
                 SaveCurrentSettingsToProfile(currentProfileName);
             }
+        }
+
+        /// <summary>
+        /// Cycle Intel IGCL Endurance Gaming tier: Off -> Performance(60) -> Balanced(40) -> Efficiency(30) -> Off.
+        /// Mutual exclusion (disable RTSS limit when Intel activates, and vice versa) is enforced
+        /// by the helper's FPSLimit_PropertyChanged / IntelFpsTier_PropertyChanged callbacks.
+        /// Ported from IntelGameBar.
+        /// </summary>
+        private void CycleIntelFpsTier()
+        {
+            if (intelFpsTier == null) return;
+
+            // Tiers: 0=Off, 1=Performance(60fps), 2=Balanced(40fps), 3=Efficiency(30fps)
+            int currentTier = intelFpsTier.Value;
+            int nextTier = (currentTier + 1) % 4;
+            intelFpsTier.SetValue(nextTier);
+
+            string[] tierLabels = { "Off", "Perf 60", "Bal 40", "Eff 30" };
+            Logger.Info($"Intel FPS tier cycled from {currentTier} ({tierLabels[currentTier]}) to {nextTier} ({tierLabels[nextTier]})");
         }
 
         /// <summary>
@@ -1480,6 +1506,18 @@ namespace XboxGamingBar
                     tile.IsVisible = isVisible;
                 }
             }
+        }
+
+        /// <summary>
+        /// Toggle MSI Center M OEM software on/off.
+        /// When active → stop processes/service/tasks; when inactive → re-enable.
+        /// </summary>
+        private void ToggleMsiCenter()
+        {
+            if (msiCenterActive == null) return;
+            bool newState = !msiCenterActive.Value;
+            msiCenterActive.SetValue(newState);
+            Logger.Info($"MSI Center M toggled → active={newState}");
         }
 
     }

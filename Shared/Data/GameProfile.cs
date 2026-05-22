@@ -264,6 +264,42 @@ namespace Shared.Data
 
         // ========== Additional Profile Settings ==========
 
+        // ========== Intel Endurance Gaming FPS Tier ==========
+
+        [XmlElement("IntelFpsTier")]
+        private int intelFpsTier;
+        /// <summary>Intel endurance gaming tier: 0=off, 1=Performance(60fps), 2=Balanced(40fps), 3=Efficiency(30fps).</summary>
+        public int IntelFpsTier
+        {
+            get { return intelFpsTier; }
+            set
+            {
+                if (intelFpsTier != value)
+                {
+                    intelFpsTier = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("FpsCapMode")]
+        private int fpsCapMode;
+        /// <summary>Active FPS-cap source: 0=RTSS (or none), 1=Intel IGCL.</summary>
+        public int FpsCapMode
+        {
+            get { return fpsCapMode; }
+            set
+            {
+                if (fpsCapMode != value)
+                {
+                    fpsCapMode = value;
+                    Save();
+                }
+            }
+        }
+
+        // ========== Additional Profile Settings ==========
+
         [XmlElement("FPSLimit")]
         private int fpsLimit;
         public int FPSLimit
@@ -1176,6 +1212,9 @@ namespace Shared.Data
             // DGP preferences
             dgpEnabledOnAC = null;
             dgpEnabledOnDC = null;
+            // Intel FPS Tier and cap mode (global/per-game)
+            intelFpsTier = 0;
+            fpsCapMode   = 0;
             // Additional profile settings (AC)
             fpsLimit = 0;
             autoTDPEnabled = false;

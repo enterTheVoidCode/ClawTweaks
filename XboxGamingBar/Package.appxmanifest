@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -9,14 +9,14 @@
   IgnorableNamespaces="uap uap3 mp rescap">
 
   <Identity
-    Name="PlayandBuild.10365195AA1EC"
+    Name="MSIClaw.ClawTweaks"
     Publisher="CN=632C25E4-B6CB-4B80-A9DB-AAB4012EE37A"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="c2dd2cd0-7156-428e-b305-d3dd3505b10d" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>GoTweaks</DisplayName>
+    <DisplayName>ClawTweaks</DisplayName>
     <PublisherDisplayName>Play and Build</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -34,10 +34,10 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="XboxGamingBar.App">
       <uap:VisualElements
-        DisplayName="GoTweaks"
+        DisplayName="ClawTweaks"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png"
-        Description="GoTweaks widget for changing system settings during game sessions with gamepad."
+        Description="ClawTweaks widget for changing system settings during game sessions with gamepad."
         BackgroundColor="transparent">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
@@ -46,8 +46,8 @@
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension Name="microsoft.gameBarUIExtension"
                              Id="GamingWidget"
-                             DisplayName="GoTweaks"
-                             Description="GoTweaks widget for changing system settings during game sessions with gamepad."
+                             DisplayName="ClawTweaks"
+                             Description="ClawTweaks widget for changing system settings during game sessions with gamepad."
                              PublicFolder="Assets">
             <uap3:Properties>
               <GameBarWidget Type="Standard">
@@ -76,8 +76,8 @@
 		<uap3:Extension Category="windows.appExtension">
 			<uap3:AppExtension Name="microsoft.gameBarUIExtension"
 							Id="GamingWidgetSettings"
-							DisplayName="GoTweaks Settings"
-							Description="GoTweaks settings."
+							DisplayName="ClawTweaks Settings"
+							Description="ClawTweaks settings."
 							PublicFolder="Assets">
 				<uap3:Properties>
 					<GameBarWidget Type="Settings">
@@ -138,3 +138,4 @@
 	<rescap:Capability Name="broadFileSystemAccess" />
   </Capabilities>
 </Package>
+

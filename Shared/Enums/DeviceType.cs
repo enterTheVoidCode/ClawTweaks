@@ -45,10 +45,16 @@ namespace Shared.Enums
         /// </summary>
         GPDWin5 = 52,
 
+        /// <summary>
+        /// MSI Claw (A1M / A2VM) — Intel Meteor Lake / Lunar Lake.
+        /// Models: MS-1T41 (A1M), MS-1T42 (Claw 7 AI+ A2VM), MS-1T52 (Claw 8 AI+ A2VM).
+        /// Controller emulation via XInput; no touchpad; no detachable controllers.
+        /// </summary>
+        MSIClaw = 40,
+
         // Future device types can be added here:
         // AyaNeo = 10,
         // SteamDeck = 20,
         // ROGAlly = 30,
-        // MSIClaw = 40,
     }
 }
