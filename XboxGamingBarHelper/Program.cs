@@ -1001,6 +1001,8 @@ namespace XboxGamingBarHelper
             // Uses official signed module from release 0.2.1
             // Supported CPUs: StrixHalo (Ryzen AI Max 385/395), etc.
             performanceManager.InitializePawnIO();
+            // Intel Lunar Lake TDP (kx.exe MCHBAR writes) — no-op when kx.exe absent
+            performanceManager.InitializeIntelTDP();
 
             // Set LegionManager reference in RTSSManager for fan speed OSD support
             rtssManager.SetLegionManager(legionManager);

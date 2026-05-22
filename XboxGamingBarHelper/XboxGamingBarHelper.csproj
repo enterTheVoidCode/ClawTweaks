@@ -285,6 +285,7 @@
     <Compile Include="Intel\IntelGpuManager.cs" />
     <Compile Include="Intel\IntelFpsTierProperty.cs" />
     <Compile Include="Intel\FpsCapModeProperty.cs" />
+    <Compile Include="Intel\KxExeService.cs" />
     <Compile Include="MSI\MsiCenterManager.cs" />
     <Compile Include="MSI\MsiCenterActiveProperty.cs" />
     <Compile Include="Settings\AutoStartRTSSProperty.cs" />
@@ -435,6 +436,13 @@
     </None>
     <!-- Intel IGCL wrapper — optional, only needed on Intel GPU systems (MSI Claw / Lunar Lake) -->
     <None Include="IGCL_Wrapper.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <!-- Intel kx.exe — MCHBAR physical memory access for Lunar Lake TDP (PL1/PL2).
+         Obtain from HandheldCompanion (github.com/Valkirie/HandheldCompanion) redistributables.
+         Optional: Intel TDP control silently unavailable when this file is absent.
+         Condition prevents build error when kx.exe has not yet been placed here. -->
+    <None Include="kx.exe" Condition="Exists('kx.exe')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <!-- WinRing0 files removed - deprecated TDP method

@@ -342,6 +342,12 @@ namespace XboxGamingBarHelper.Performance
         // PawnIO driver installation status
         private bool pawnIOInstalled;
 
+        // Intel KX.exe TDP service (Lunar Lake MCHBAR PL1/PL2)
+        private Intel.KxExeService kxExeService;
+        // Cached Intel TDP values (last written, shown in OSD until next write)
+        private int intelLastPL1 = -1;
+        private int intelLastPL2 = -1;
+
         // RyzenAdj lazy loading - only load when user disables Manufacturer WMI
         private bool ryzenAdjInitialized = false;
         private bool ryzenAdjInitAttempted = false;
@@ -521,6 +527,24 @@ namespace XboxGamingBarHelper.Performance
             pawnIOAvailableProperty?.SetAvailable(pawnIOAvailable);
             Logger.Info($"PawnIO availability updated: {pawnIOAvailable}");
         }
+        /// <summary>
+        /// Initializes the Intel KX.exe TDP service for Lunar Lake (Core Ultra 200V) devices.
+        /// Safe to call on any device — silently unavailable when kx.exe is absent.
+        /// </summary>
+        public void InitializeIntelTDP()
+        {
+            try
+            {
+                kxExeService = new Intel.KxExeService();
+                Logger.Info($"Intel KX.exe TDP: available={kxExeService.IsAvailable}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"InitializeIntelTDP failed: {ex.Message}");
+                kxExeService = null;
+            }
+        }
+
         private const int MaxConsecutiveFailuresBeforeReinit = 5;
         private const double NormalTimerInterval = 2000; // 2 seconds
         private const double BackoffTimerInterval = 10000; // 10 seconds during failures
@@ -1214,7 +1238,39 @@ namespace XboxGamingBarHelper.Performance
                         }
                         else
                         {
-                            Logger.Warn("PawnIO not available");
+                            Logger.Warn("PawnIO not available — trying Intel KX.exe fallback");
+                        }
+                        // PawnIO unavailable (e.g. Intel CPU) — fall through to KX.exe
+                        goto case TdpMethod.IntelKxExe;
+
+                    case TdpMethod.IntelKxExe:
+                        if (kxExeService?.IsAvailable == true)
+                        {
+                            // Intel Lunar Lake: PL1 = sustained (SPL), PL2 = turbo (FPPT)
+                            // KxExeService enforces PL2 >= PL1 + 1W internally
+                            int pl1 = spl;
+                            int pl2 = fppt;
+                            Logger.Info($"Using Intel KX.exe to set TDP (PL1={pl1}W, PL2={pl2}W)");
+                            if (kxExeService.SetPowerLimits(pl1, pl2))
+                            {
+                                intelLastPL1 = pl1;
+                                intelLastPL2 = Math.Max(pl2, pl1 + 1);
+                                CurrentSPL  = intelLastPL1;
+                                CurrentSPPT = intelLastPL1; // No separate SPPT on Intel
+                                CurrentFPPT = intelLastPL2;
+                                var newTdpString = $"PL1:{intelLastPL1}W PL2:{intelLastPL2}W";
+                                if (newTdpString != lastTdpString)
+                                {
+                                    currentTdp.SetValue(newTdpString);
+                                    lastTdpString = newTdpString;
+                                }
+                                return;
+                            }
+                            Logger.Warn("Intel KX.exe: Failed to set TDP");
+                        }
+                        else
+                        {
+                            Logger.Warn("Intel KX.exe: kx.exe not available");
                         }
                         Logger.Warn("SetTDP: No TDP control method available");
                         return;
@@ -1437,9 +1493,21 @@ namespace XboxGamingBarHelper.Performance
                     return;
                 }
 
+                // Intel KX.exe: show cached values from last SetPowerLimits call
+                // (spawning kx.exe every 2 seconds is too expensive for a read-back)
+                if (intelLastPL1 >= 0)
+                {
+                    var newTdpString = $"PL1:{intelLastPL1}W PL2:{intelLastPL2}W";
+                    if (newTdpString != lastTdpString)
+                    {
+                        currentTdp.SetValue(newTdpString);
+                        lastTdpString = newTdpString;
+                    }
+                }
+                return;
+
                 // WinRing0 removed - deprecated TDP method, no longer bundled
                 // RyzenAdj/WinRing0 TDP reading is no longer available
-                return;
 
                 // // Only use RyzenAdj when WinRing0 method is explicitly selected
                 // if (tdpMethod != TdpMethod.WinRing0)
