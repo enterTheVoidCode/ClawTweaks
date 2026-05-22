@@ -30,16 +30,22 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         {
             var osdItems = base.GetValues(osdLevel);
 
-            // Show GPU usage, wattage and temperature when enabled
+            // IntelGameBar-style order: usage% | clock (GHz, optional) | temp °C
+            // Skip sensors with value < 0 (N/A) so unavailable sensors are omitted rather than shown as N/A
+            // GPU wattage omitted — on Intel SoC (MSI Claw) the CPU package power is the relevant TDP metric
             osdItems.Add(new OSDItemValue(gpuUsageSensor.Value, "%", OSDValueType.Percentage));
-            osdItems.Add(new OSDItemValue(gpuWattageSensor.Value, "W", OSDValueType.Wattage));
-            osdItems.Add(new OSDItemValue(gpuTemperatureSensor.Value, "C", OSDValueType.Temperature));
 
-            // Show clock speed if enabled separately
-            if (showClock)
+            // Clock shown inline (before temp) when GPUClock is enabled for the level
+            if (showClock && gpuClockSensor.Value >= 0)
             {
                 osdItems.Add(new OSDItemValue(gpuClockSensor.Value, "MHz", OSDValueType.Speed));
             }
+
+            if (gpuTemperatureSensor.Value >= 0)
+                osdItems.Add(new OSDItemValue(gpuTemperatureSensor.Value, "C", OSDValueType.Temperature));
+
+            // GPU wattage commented out per user request — CPU TDP is more meaningful on SoC devices
+            // osdItems.Add(new OSDItemValue(gpuWattageSensor.Value, "W", OSDValueType.Wattage));
 
             return osdItems;
         }

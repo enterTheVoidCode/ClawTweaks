@@ -25,7 +25,7 @@ namespace XboxGamingBarHelper.Settings
             {
                 return value == (int)EmulationBackend.Viiper;
             }
-            return false; // Default to Legacy.
+            return true; // Default to VIIPER (MSI Claw target — usbip-based, no ViGEmBus required).
         }
 
         private void SaveToSettings()

@@ -1,4 +1,4 @@
-using NLog;
+﻿using NLog;
 using Shared.Constants;
 using Shared.Data;
 using Shared.IPC;
@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.System;
 using Windows.UI.Input.Preview.Injection;
-using XboxGamingBarHelper.AMD;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.ControllerEmulation;
 using XboxGamingBarHelper.Devices.Libraries.GPD;
@@ -555,6 +554,10 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // CLAWTWEAKS: Update check/install pipe handlers disabled — re-enable
+                // together with the startup probe in Program.cs once ClawTweaks has
+                // its own GitHub releases and GoTweaksUpdateService.RepoPath is updated.
+                /*
                 // GoTweaks self-update check. Widget explicitly asks; helper
                 // serves the cached startup-probe result unless ForceRefresh=true.
                 if (pipeMsg.Extra.ContainsKey("CheckGoTweaksUpdate"))
@@ -616,6 +619,7 @@ namespace XboxGamingBarHelper
                     }
                     return;
                 }
+                */
 
                 // Handle "update all" batch install. Widget sends an array of
                 // Lenovo download URLs; helper downloads them in parallel (bounded)

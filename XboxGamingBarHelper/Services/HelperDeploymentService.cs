@@ -22,7 +22,7 @@ namespace XboxGamingBarHelper.Services
         /// </summary>
         public static readonly string HelperFolder = Path.Combine(
             GetPackageLocalCachePath(),
-            "GoTweaks", "Helper"
+            "ClawTweaks", "Helper"
         );
 
         /// <summary>
@@ -432,3 +432,4 @@ namespace XboxGamingBarHelper.Services
         }
     }
 }
+

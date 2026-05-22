@@ -5,6 +5,7 @@ using XboxGamingBarHelper.Devices.GPD;
 using XboxGamingBarHelper.Devices.LegionGo;
 using XboxGamingBarHelper.Devices.LegionGo2;
 using XboxGamingBarHelper.Devices.LegionGoS;
+using XboxGamingBarHelper.Devices.MSIClaw;
 
 namespace XboxGamingBarHelper.Devices
 {
@@ -26,6 +27,9 @@ namespace XboxGamingBarHelper.Devices
             new LegionGo2Config(),   // Check Go 2 first (newer, has variant IDs)
             new LegionGoSConfig(),   // Check Go S before original Go
             new LegionGoConfig(),    // Original Legion Go
+
+            // MSI Claw devices
+            new MSIClawConfig(),     // MSI Claw A1M / A2VM (MS-1T41, MS-1T42, MS-1T52)
 
             // GPD devices (check Win Mini before Win 4/5 as Win Mini has more specific model)
             new GPDWinMiniConfig(),  // GPD Win Mini (G1617)

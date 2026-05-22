@@ -17,11 +17,12 @@ using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.System;
 using Windows.UI.Input.Preview.Injection;
-using XboxGamingBarHelper.AMD;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.ControllerEmulation;
 using XboxGamingBarHelper.Devices.Libraries.GPD;
 using XboxGamingBarHelper.Devices.Libraries.Legion;
+using XboxGamingBarHelper.Intel;
+using XboxGamingBarHelper.MSI;
 using XboxGamingBarHelper.LosslessScaling;
 using XboxGamingBarHelper.OnScreenDisplay;
 using XboxGamingBarHelper.Performance;
@@ -100,7 +101,6 @@ namespace XboxGamingBarHelper
         private static ProfileManager profileManager;
         private static SystemManager systemManager;
         private static PowerManager powerManager;
-        private static AMDManager amdManager;
         private static LosslessScalingManager losslessScalingManager;
         private static SettingsManager settingsManager;
         private static LegionManager legionManager;
@@ -111,6 +111,8 @@ namespace XboxGamingBarHelper
         private static DefaultGameProfileManager defaultGameProfileManager;
         private static Sidebar.SidebarManager sidebarManager;
         private static bool sidebarMenuEnabled;
+        private static IntelGpuManager intelGpuManager;
+        private static MsiCenterManager msiCenterManager;
         private static List<IManager> Managers;
 
         public static OnScreenDisplayProperty onScreenDisplay;
@@ -863,12 +865,11 @@ namespace XboxGamingBarHelper
 
             // Wave 1: Independent managers (no dependencies) - run in parallel
             var wave1Timer = System.Diagnostics.Stopwatch.StartNew();
-            Logger.Info("Wave 1: PerformanceManager, ProfileManager, AMDManager, LosslessScalingManager, SettingsManager, LegionManager, GPDManager");
+            Logger.Info("Wave 1: PerformanceManager, ProfileManager, LosslessScalingManager, SettingsManager, LegionManager, GPDManager");
             LogManager.Flush();
 
             PerformanceManager tempPerfMgr = null;
             ProfileManager tempProfileMgr = null;
-            AMDManager tempAmdMgr = null;
             LosslessScalingManager tempLosslessMgr = null;
             SettingsManager tempSettingsMgr = null;
             LegionManager tempLegionMgr = null;
@@ -883,10 +884,6 @@ namespace XboxGamingBarHelper
                 Task.Run(() => {
                     try { tempProfileMgr = new ProfileManager(); Logger.Info("Wave1: ProfileManager DONE"); }
                     catch (Exception ex) { Logger.Error(ex, "Wave1: ProfileManager FAILED"); throw; }
-                }),
-                Task.Run(() => {
-                    try { tempAmdMgr = new AMDManager(); Logger.Info("Wave1: AMDManager DONE"); }
-                    catch (Exception ex) { Logger.Error(ex, "Wave1: AMDManager FAILED"); throw; }
                 }),
                 Task.Run(() => {
                     try { tempLosslessMgr = new LosslessScalingManager(); Logger.Info("Wave1: LosslessScalingManager DONE"); }
@@ -925,7 +922,6 @@ namespace XboxGamingBarHelper
 
             performanceManager = tempPerfMgr;
             profileManager = tempProfileMgr;
-            amdManager = tempAmdMgr;
             losslessScalingManager = tempLosslessMgr;
             settingsManager = tempSettingsMgr;
             legionManager = tempLegionMgr;
@@ -960,8 +956,12 @@ namespace XboxGamingBarHelper
 
             // Wave 3: Managers that depend on Wave 2
             var wave3Timer = System.Diagnostics.Stopwatch.StartNew();
-            Logger.Info("Wave 3: AutoTDPManager");
+            Logger.Info("Wave 3: AutoTDPManager, IntelGpuManager, MsiCenterManager");
             autoTDPManager = new AutoTDPManager(performanceManager, systemManager);
+            // IntelGpuManager: optional — silent no-op if IGCL_Wrapper.dll is absent or no Intel GPU found.
+            intelGpuManager = new IntelGpuManager();
+            // MsiCenterManager: polls MSI Center M running state, exposes toggle to widget.
+            msiCenterManager = new MsiCenterManager(pipeServer);
             wave3Timer.Stop();
             Logger.Info($"[TIMING] Wave 3: {wave3Timer.ElapsedMilliseconds}ms");
 
@@ -982,11 +982,6 @@ namespace XboxGamingBarHelper
 
             // Set LegionManager reference in PerformanceManager for WMI TDP support
             performanceManager.SetLegionManager(legionManager);
-
-            // Wire ADLX-backed GPU metrics fallback so the OSD GPU line still shows
-            // Power/Temperature/Clock on hardware where LibreHardwareMonitor doesn't
-            // expose those sensors (e.g. Mute's Legion Go 2 / AMD Z2-series APU).
-            performanceManager.SetAMDManager(amdManager);
 
             // Set PerformanceManager reference in LegionManager for CPU temperature sensor access
             legionManager.SetPerformanceManager(performanceManager);
@@ -1084,13 +1079,14 @@ namespace XboxGamingBarHelper
                 profileManager,
                 systemManager,
                 powerManager,
-                amdManager,
                 losslessScalingManager,
                 settingsManager,
                 legionManager,
                 gpdManager,
                 controllerEmulationManager,
-                autoTDPManager
+                autoTDPManager,
+                intelGpuManager,
+                msiCenterManager
             };
             // Note: defaultGameProfileManager is added in background task when ready
 
@@ -1099,7 +1095,7 @@ namespace XboxGamingBarHelper
 
             Logger.Info("Initialize properties.");
             onScreenDisplay = new OnScreenDisplayProperty(0, null, rtssManager);
-            onScreenDisplayProviders = new List<OnScreenDisplayManager>() { rtssManager, amdManager };
+            onScreenDisplayProviders = new List<OnScreenDisplayManager>() { rtssManager };
             //onScreenDisplay = new OnScreenDisplayProperty(0, null, amdManager);
 
             // Build properties list (conditionally add DefaultGameProfile if available)
@@ -1136,37 +1132,10 @@ namespace XboxGamingBarHelper
                 rtssManager.OSDConfig,
                 rtssManager.FPSLimit,
                 rtssManager.DisplayOSDConfig,
+                intelGpuManager.IntelFpsTier,
+                intelGpuManager.FpsCapMode,
+                msiCenterManager.MsiCenterActive,
                 settingsManager.IsForeground,
-                amdManager.AMDRadeonSuperResolutionEnabled,
-                amdManager.AMDRadeonSuperResolutionSupported,
-                amdManager.AMDRadeonSuperResolutionSharpness,
-                amdManager.AMDFluidMotionFrameEnabled,
-                amdManager.AMDFluidMotionFrameSupported,
-                amdManager.AMDFluidMotionFrameV1Supported,
-                amdManager.AMDFluidMotionFrameAlgorithm,
-                amdManager.AMDFluidMotionFrameSearchMode,
-                amdManager.AMDFluidMotionFramePerformanceMode,
-                amdManager.AMDFluidMotionFrameFastMotionResponse,
-                amdManager.AMDRadeonAntiLagEnabled,
-                amdManager.AMDRadeonAntiLagSupported,
-                amdManager.AMDRadeonBoostEnabled,
-                amdManager.AMDRadeonBoostSupported,
-                amdManager.AMDRadeonBoostResolution,
-                amdManager.AMDRadeonChillEnabled,
-                amdManager.AMDRadeonChillSupported,
-                amdManager.AMDRadeonChillMinFPS,
-                amdManager.AMDRadeonChillMaxFPS,
-                amdManager.AMDImageSharpeningEnabled,
-                amdManager.AMDImageSharpeningSupported,
-                amdManager.AMDImageSharpeningSharpness,
-                amdManager.AMDDisplayBrightnessSupported,
-                amdManager.AMDDisplayBrightness,
-                amdManager.AMDDisplayContrastSupported,
-                amdManager.AMDDisplayContrast,
-                amdManager.AMDDisplaySaturationSupported,
-                amdManager.AMDDisplaySaturation,
-                amdManager.AMDDisplayTemperatureSupported,
-                amdManager.AMDDisplayTemperature,
                 losslessScalingManager.LosslessScalingInstalled,
                 losslessScalingManager.LosslessScalingRunning,
                 losslessScalingManager.LosslessScalingEnabled,
@@ -1428,6 +1397,10 @@ namespace XboxGamingBarHelper
             //powerManager.GPUClockMax.PropertyChanged += GPUClock_PropertyChanged;
             profileManager.CurrentProfile.PropertyChanged += CurrentProfile_PropertyChanged;
 
+            // Intel FPS tier — mutual exclusion with RTSS FPS limit (ported from IntelGameBar)
+            rtssManager.FPSLimit.PropertyChanged += FPSLimit_IntelExclusion_PropertyChanged;
+            intelGpuManager.IntelFpsTier.PropertyChanged += IntelFpsTier_PropertyChanged;
+
             // Subscribe to Legion controller property changes to save to profile
             if (legionManager != null)
             {
@@ -1560,11 +1533,11 @@ namespace XboxGamingBarHelper
                 }
             }
 
-            // GoTweaks self-update check runs on every device type — the app
-            // itself can be updated regardless of which handheld it's on.
-            // Opt-out via the System tab's "Check for updates on start"
-            // checkbox — widget writes GoTweaksCheckOnStart via pipe →
-            // LocalSettingsHelper → settings.json, we honour it here.
+            // CLAWTWEAKS: Self-update check disabled — points at corando98/GoTweaks on GitHub
+            // which shows an "update available" badge for ClawTweaks because GoTweaks
+            // has newer versions than our 0.1.x branch. Re-enable and update RepoPath in
+            // GoTweaksUpdateService once ClawTweaks has its own GitHub releases.
+            /*
             bool goTweaksCheckOnStart = true;
             try
             {
@@ -1592,6 +1565,7 @@ namespace XboxGamingBarHelper
             {
                 Logger.Info("Startup GoTweaks update probe skipped (user disabled 'Check for updates on start')");
             }
+            */
 
             // Wait for widget connection (non-blocking if already connected)
             var connectTimer = System.Diagnostics.Stopwatch.StartNew();
@@ -1759,7 +1733,6 @@ namespace XboxGamingBarHelper
             profileManager = null;
             systemManager = null;
             powerManager = null;
-            amdManager = null;
             losslessScalingManager = null;
             settingsManager = null;
             legionManager = null;

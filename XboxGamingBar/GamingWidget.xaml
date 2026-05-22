@@ -935,8 +935,9 @@
                                               XYFocusLeft="{x:Bind PerformanceNavItem}">
                                         <ComboBoxItem Content="Off" Tag="0" IsSelected="True"/>
                                         <ComboBoxItem Content="Basic" Tag="1"/>
-                                        <ComboBoxItem Content="Detailed" Tag="2"/>
-                                        <ComboBoxItem Content="Full" Tag="3"/>
+                                        <ComboBoxItem Content="Horizontal" Tag="2"/>
+                                        <ComboBoxItem Content="H. Detailed" Tag="3"/>
+                                        <ComboBoxItem Content="Full" Tag="4"/>
                                     </ComboBox>
                                 </Grid>
 
@@ -3311,8 +3312,9 @@
                                                       FocusVisualPrimaryBrush="White"
                                                       FocusVisualSecondaryBrush="Transparent">
                                                 <ComboBoxItem Content="Basic" Tag="1" IsSelected="True"/>
-                                                <ComboBoxItem Content="Detailed" Tag="2"/>
-                                                <ComboBoxItem Content="Full" Tag="3"/>
+                                                <ComboBoxItem Content="Horizontal" Tag="2"/>
+                                                <ComboBoxItem Content="H. Detailed" Tag="3"/>
+                                                <ComboBoxItem Content="Full" Tag="4"/>
                                             </ComboBox>
                                         </Grid>
 

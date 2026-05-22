@@ -17,17 +17,17 @@ namespace XboxGamingBarHelper.Services
         /// <summary>
         /// Task folder path in Task Scheduler
         /// </summary>
-        private const string TaskFolder = "\\GoTweaks";
+        private const string TaskFolder = "\\ClawTweaks";
 
         /// <summary>
         /// Full task name including folder
         /// </summary>
-        private const string FullTaskName = "\\GoTweaks\\GoTweaksHelper";
+        private const string FullTaskName = "\\ClawTweaks\\ClawTweaksHelper";
 
         /// <summary>
         /// Task name for schtasks.exe (uses backslash path)
         /// </summary>
-        private const string TaskName = "GoTweaks\\GoTweaksHelper";
+        private const string TaskName = "ClawTweaks\\ClawTweaksHelper";
 
         /// <summary>
         /// Timeout for process operations
@@ -269,7 +269,7 @@ namespace XboxGamingBarHelper.Services
 $ErrorActionPreference = 'Stop'
 $task = $null
 for ($i = 0; $i -lt 10; $i++) {
-    $task = Get-ScheduledTask -TaskName 'GoTweaksHelper' -TaskPath '\GoTweaks\' -ErrorAction SilentlyContinue
+    $task = Get-ScheduledTask -TaskName 'ClawTweaksHelper' -TaskPath '\ClawTweaks\' -ErrorAction SilentlyContinue
     if ($task) { break }
     Start-Sleep -Milliseconds 200
 }
@@ -283,8 +283,8 @@ $settings = New-ScheduledTaskSettingsSet `
     -ExecutionTimeLimit (New-TimeSpan -Seconds 0) `
     -MultipleInstances IgnoreNew `
     -StartWhenAvailable
-Set-ScheduledTask -TaskName 'GoTweaksHelper' -TaskPath '\GoTweaks\' -Settings $settings | Out-Null
-$verify = Get-ScheduledTask -TaskName 'GoTweaksHelper' -TaskPath '\GoTweaks\'
+Set-ScheduledTask -TaskName 'ClawTweaksHelper' -TaskPath '\ClawTweaks\' -Settings $settings | Out-Null
+$verify = Get-ScheduledTask -TaskName 'ClawTweaksHelper' -TaskPath '\ClawTweaks\'
 if ($verify.Settings.DisallowStartIfOnBatteries -or $verify.Settings.StopIfGoingOnBatteries) {
     Write-Error (""Verify failed: DisallowStart="" + $verify.Settings.DisallowStartIfOnBatteries + "" StopOnBattery="" + $verify.Settings.StopIfGoingOnBatteries)
     exit 3
@@ -352,9 +352,9 @@ $trigger = New-CimInstance -CimClass $CIMClass -ClientOnly
 $trigger.Subscription = $xml
 $trigger.Enabled = $true
 $trigger.Delay = 'PT10S'
-$task = Get-ScheduledTask -TaskName 'GoTweaksHelper' -TaskPath '\GoTweaks\'
+$task = Get-ScheduledTask -TaskName 'ClawTweaksHelper' -TaskPath '\ClawTweaks\'
 $allTriggers = @($task.Triggers) + $trigger
-Set-ScheduledTask -TaskName 'GoTweaksHelper' -TaskPath '\GoTweaks\' -Trigger $allTriggers | Out-Null
+Set-ScheduledTask -TaskName 'ClawTweaksHelper' -TaskPath '\ClawTweaks\' -Trigger $allTriggers | Out-Null
 Write-Host 'Wake trigger added'
 ";
 
@@ -443,7 +443,7 @@ Write-Host 'Wake trigger added'
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "schtasks.exe",
-                    Arguments = "/Delete /TN \"GoTweaksHelper\" /F",
+                    Arguments = "/Delete /TN \"ClawTweaksHelper\" /F",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -571,3 +571,4 @@ Write-Host 'Wake trigger added'
         }
     }
 }
+

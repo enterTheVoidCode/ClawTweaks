@@ -1,0 +1,32 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+Build/
+
+# NuGet packages
+packages/
+
+# MSIX app packages and bundles
+XboxGamingBarPackage/AppPackages/
+XboxGamingBarPackage/BundleArtifacts/
+
+# Code signing certificate (sensitive — do not commit)
+*.pfx
+
+# Build logs
+*.log
+*.binlog
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ReSharper
+_ReSharper*/
+*.ReSharper
+
+# Rider
+.idea/

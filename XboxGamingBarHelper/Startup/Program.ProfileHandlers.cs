@@ -1,4 +1,4 @@
-using NLog;
+﻿using NLog;
 using Shared.Constants;
 using Shared.Data;
 using Shared.IPC;
@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.System;
 using Windows.UI.Input.Preview.Injection;
-using XboxGamingBarHelper.AMD;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.ControllerEmulation;
 using XboxGamingBarHelper.Devices.Libraries.GPD;
@@ -484,10 +483,47 @@ namespace XboxGamingBarHelper
             powerManager.MinCPUState.SetValue(profileManager.GlobalProfile.MinCPUState);
             profileManager.PerGameProfile.SetValue(false);
 
+            // Restore FPS limiter from global profile (mutual exclusion: only one active at a time)
+            ApplyFpsLimiterFromProfile(profileManager.GlobalProfile);
+
             // Apply Legion controller settings from global profile
             if (legionManager != null)
             {
                 ApplyLegionControllerSettingsFromProfile();
+            }
+        }
+
+        /// <summary>
+        /// Apply the saved FPS limiter state (RTSS or Intel) from a profile.
+        /// Enforces mutual exclusion: if Intel tier > 0 it takes precedence; otherwise RTSS.
+        /// Must be called within an isApplyingProfile = true context.
+        /// Ported from IntelGameBar.
+        /// </summary>
+        private static void ApplyFpsLimiterFromProfile(Shared.Data.GameProfile profile)
+        {
+            _applyingFpsProfile = true;
+            try
+            {
+                if (profile.FpsCapMode == 1 && profile.IntelFpsTier > 0)
+                {
+                    // Intel mode was active
+                    Logger.Info($"Restoring Intel FPS tier={profile.IntelFpsTier} from profile");
+                    rtssManager.FPSLimit.SetValue(0);
+                    intelGpuManager.IntelFpsTier.SetValue(profile.IntelFpsTier);
+                    intelGpuManager.FpsCapMode.SetValue(1);
+                }
+                else
+                {
+                    // RTSS mode (or no cap)
+                    Logger.Info($"Restoring RTSS FPS limit={profile.FPSLimit} from profile");
+                    intelGpuManager.IntelFpsTier.SetValue(0);
+                    intelGpuManager.FpsCapMode.SetValue(0);
+                    rtssManager.FPSLimit.SetValue(profile.FPSLimit);
+                }
+            }
+            finally
+            {
+                _applyingFpsProfile = false;
             }
         }
 
@@ -558,6 +594,10 @@ namespace XboxGamingBarHelper
                         powerManager.MaxCPUState.SetValue(profileManager.CurrentProfile.MaxCPUState);
                         powerManager.MinCPUState.SetValue(profileManager.CurrentProfile.MinCPUState);
                         profileManager.PerGameProfile.SetValue(profileManager.CurrentProfile.Use);
+
+                        // Use .Value to access the underlying GameProfile struct (GameProfileProperty
+                        // only forwards a subset of fields; FPSLimit/IntelFpsTier/FpsCapMode are not forwarded).
+                        ApplyFpsLimiterFromProfile(profileManager.CurrentProfile.Value);
 
                         // Apply Legion controller settings from profile (both global and per-game)
                         if (legionManager != null)
@@ -653,6 +693,8 @@ namespace XboxGamingBarHelper
                     powerManager.CPUEPP.SetValue(gameProfile.CPUEPP);
                     powerManager.MaxCPUState.SetValue(gameProfile.MaxCPUState);
                     powerManager.MinCPUState.SetValue(gameProfile.MinCPUState);
+
+                    ApplyFpsLimiterFromProfile(gameProfile);
                 }
                 else
                 {
@@ -773,6 +815,101 @@ namespace XboxGamingBarHelper
                 glo => glo.TDPBoostEnabled = performanceManager.TDPBoostEnabled.Value);
         }
 
+        // ── Intel IGCL FPS tier — mutual exclusion with RTSS FPS limit ──────────────────────────────
+        // Pattern ported from IntelGameBar (github.com/BassemMohsen/ToothNClaw).
+        // Only one FPS limiter can be active at a time:
+        //   • RTSS limit set to >0 → disable Intel tier, FpsCapMode=0
+        //   • Intel tier set to >0 → disable RTSS limit, FpsCapMode=1
+        //   • Either set to 0    → FpsCapMode=0 (no cap)
+        // _applyingFpsProfile prevents the mutual-exclusion handlers from firing
+        // when we ourselves clear the other limiter (avoid recursive callbacks).
+        private static bool _applyingFpsProfile = false;
+
+        /// <summary>
+        /// Called when RTSS FPS limit changes. If it becomes >0, disable Intel tier.
+        /// Also saves the new limit to the current profile.
+        /// </summary>
+        private static void FPSLimit_IntelExclusion_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (_applyingFpsProfile) return;
+
+            int newLimit = rtssManager.FPSLimit.Value;
+            Logger.Debug($"[FPS-Exclusion] RTSS FPSLimit changed to {newLimit}");
+
+            if (newLimit > 0 && intelGpuManager.IntelFpsTier.Value > 0)
+            {
+                // RTSS took over — silence Intel tier
+                _applyingFpsProfile = true;
+                try
+                {
+                    Logger.Info($"[FPS-Exclusion] RTSS limit={newLimit} active → disabling Intel FPS tier");
+                    intelGpuManager.IntelFpsTier.SetValue(0);
+                    intelGpuManager.FpsCapMode.SetValue(0);
+                }
+                finally
+                {
+                    _applyingFpsProfile = false;
+                }
+            }
+            else if (newLimit == 0 && intelGpuManager.FpsCapMode.Value == 0)
+            {
+                // Both off
+                intelGpuManager.FpsCapMode.SetValue(0);
+            }
+
+            // Save RTSS FPS limit and cap mode to profile
+            if (!isApplyingProfile && !IsInProfileSwitchCooldown())
+            {
+                RouteProfileSave(ProfileSaveFlagsState.FPSLimit, "FPSLimit",
+                    cur => { cur.FPSLimit = newLimit; cur.FpsCapMode = 0; },
+                    glo => { glo.FPSLimit = newLimit; glo.FpsCapMode = 0; });
+            }
+        }
+
+        /// <summary>
+        /// Called when Intel FPS tier changes. If it becomes >0, disable RTSS limit.
+        /// Also saves the new tier and cap mode to the current profile.
+        /// </summary>
+        private static void IntelFpsTier_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (_applyingFpsProfile) return;
+
+            int newTier = intelGpuManager.IntelFpsTier.Value;
+            Logger.Debug($"[FPS-Exclusion] Intel FPS tier changed to {newTier}");
+
+            if (newTier > 0)
+            {
+                // Intel took over — silence RTSS
+                _applyingFpsProfile = true;
+                try
+                {
+                    if (rtssManager.FPSLimit.Value != 0)
+                    {
+                        Logger.Info($"[FPS-Exclusion] Intel tier={newTier} active → disabling RTSS FPS limit");
+                        rtssManager.FPSLimit.SetValue(0);
+                    }
+                    intelGpuManager.FpsCapMode.SetValue(1);
+                }
+                finally
+                {
+                    _applyingFpsProfile = false;
+                }
+            }
+            else
+            {
+                intelGpuManager.FpsCapMode.SetValue(0);
+            }
+
+            // Save Intel FPS tier and cap mode to profile (uses FPSLimit save flag)
+            int capMode = newTier > 0 ? 1 : 0;
+            if (!isApplyingProfile && !IsInProfileSwitchCooldown())
+            {
+                RouteProfileSave(ProfileSaveFlagsState.FPSLimit, "IntelFpsTier",
+                    cur => { cur.IntelFpsTier = newTier; cur.FpsCapMode = capMode; },
+                    glo => { glo.IntelFpsTier = newTier; glo.FpsCapMode = capMode; });
+            }
+        }
+
         private static void RunningGame_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             // Prevent reentrant profile handling
@@ -831,12 +968,14 @@ namespace XboxGamingBarHelper
                             powerManager.MaxCPUState.SetValue(runningGameProfile.MaxCPUState);
                             powerManager.MinCPUState.SetValue(runningGameProfile.MinCPUState);
 
+                            ApplyFpsLimiterFromProfile(runningGameProfile);
+
                             if (legionManager != null)
                             {
                                 ApplyLegionControllerSettingsFromProfile();
                             }
 
-                            Logger.Info($"Applied per-game profile settings for {systemManager.RunningGame.Value.GameId.Name}: TDP={runningGameProfile.TDP}, AutoTDP={runningGameProfile.AutoTDPEnabled}");
+                            Logger.Info($"Applied per-game profile settings for {systemManager.RunningGame.Value.GameId.Name}: TDP={runningGameProfile.TDP}, AutoTDP={runningGameProfile.AutoTDPEnabled}, IntelFpsTier={runningGameProfile.IntelFpsTier}");
                         }
                         else
                         {

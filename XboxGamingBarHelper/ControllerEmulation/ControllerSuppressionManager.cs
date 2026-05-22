@@ -1387,6 +1387,14 @@ namespace XboxGamingBarHelper.ControllerEmulation
                         .Concat(QueryUsbDeviceIds(0x2F24, 0x0137, 0x0135));
                     break;
 
+                case DeviceType.MSIClaw:
+                    // VID 0x0DB0 = MSI. PIDs from HC fork ClawA1M.cs:
+                    //   0x1901 = XInput mode, 0x1902 = DirectInput mode, 0x1903 = Testing mode
+                    // Applies to all Claw models (A1M, 7 AI+ A2VM, 8 AI+ A2VM).
+                    nativeIds = QueryPnpDeviceIds(0x0DB0, 0x1901, 0x1902, 0x1903)
+                        .Concat(QueryUsbDeviceIds(0x0DB0, 0x1901, 0x1902, 0x1903));
+                    break;
+
                 default:
                     nativeIds = Enumerable.Empty<string>();
                     break;

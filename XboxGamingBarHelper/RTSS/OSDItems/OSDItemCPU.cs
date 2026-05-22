@@ -30,16 +30,21 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         {
             var osdItems = base.GetValues(osdLevel);
 
-            // Show CPU usage, wattage and temperature when enabled
+            // IntelGameBar-style order: usage% | clock (GHz, optional) | temp °C | wattage W
+            // Skip sensors with value < 0 (N/A) so unavailable sensors are omitted rather than shown as N/A
             osdItems.Add(new OSDItemValue(cpuUsageSensor.Value, "%", OSDValueType.Percentage));
-            osdItems.Add(new OSDItemValue(cpuWattageSensor.Value, "W", OSDValueType.Wattage));
-            osdItems.Add(new OSDItemValue(cpuTemperatureSensor.Value, "C", OSDValueType.Temperature));
 
-            // Show clock speed if enabled separately
-            if (showClock)
+            // Clock shown inline (before temp/wattage) when CPUClock is enabled for the level
+            if (showClock && cpuClockSensor.Value >= 0)
             {
                 osdItems.Add(new OSDItemValue(cpuClockSensor.Value, "MHz", OSDValueType.Speed));
             }
+
+            if (cpuTemperatureSensor.Value >= 0)
+                osdItems.Add(new OSDItemValue(cpuTemperatureSensor.Value, "C", OSDValueType.Temperature));
+
+            if (cpuWattageSensor.Value >= 0)
+                osdItems.Add(new OSDItemValue(cpuWattageSensor.Value, "W", OSDValueType.Wattage));
 
             return osdItems;
         }

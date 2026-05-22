@@ -331,16 +331,6 @@ namespace XboxGamingBarHelper.Performance
         // Legion Go support for manufacturer WMI TDP
         private LegionManager legionManager;
 
-        // AMD ADLX fallback for GPU sensors that LibreHardwareMonitor doesn't expose
-        // on certain APUs (Z2 series). Filled in via SetAMDManager after AMDManager
-        // initializes; null when ADLX isn't available, which leaves the OSD on
-        // LHM-only behavior.
-        private XboxGamingBarHelper.AMD.AMDManager amdManager;
-        // Throttle ADLX-fallback diagnostic logging to once per minute so a sustained
-        // OSD session doesn't fill the log with the same "filled GPUWattage from ADLX"
-        // line every tick.
-        private long lastAdlxFallbackLogTicksUtc;
-
         // PawnIO/RyzenSMU support for anti-cheat compatible TDP control
         private RyzenSmuService ryzenSmuService;
         private bool pawnIOAvailable;
@@ -493,17 +483,6 @@ namespace XboxGamingBarHelper.Performance
         {
             legionManager = manager;
             Logger.Info($"LegionManager reference set. Legion detected: {manager?.LegionGoDetected?.Value ?? false}");
-        }
-
-        /// <summary>
-        /// Sets the AMD Manager reference so the sensor update loop can fall back to
-        /// ADLX for GPU metrics that LibreHardwareMonitor doesn't expose on a given
-        /// APU. No-op when AMDManager is null (non-AMD systems / ADLX init failed).
-        /// </summary>
-        public void SetAMDManager(XboxGamingBarHelper.AMD.AMDManager manager)
-        {
-            amdManager = manager;
-            Logger.Info($"AMDManager reference set on PerformanceManager. ADLX GPU-metric fallback {(manager != null ? "enabled" : "disabled")}.");
         }
 
         /// <summary>
@@ -733,7 +712,7 @@ namespace XboxGamingBarHelper.Performance
                     }
                     Logger.Info($"Found hardware {hardware.HardwareType}: Name={hardware.Name}, Type={hardware.HardwareType}, Id={hardware.Identifier}, Properties={properties}");
 
-                    // Log sensors for key hardware types
+                    // Log sensors for key hardware types (mirrors IntelGameBar LibreHardwareProvider diagnostic)
                     if (hardware.HardwareType == HardwareType.Cpu ||
                         hardware.HardwareType == HardwareType.Battery ||
                         hardware.HardwareType == HardwareType.GpuNvidia ||
@@ -743,7 +722,16 @@ namespace XboxGamingBarHelper.Performance
                         hardware.Update();
                         foreach (ISensor sensor in hardware.Sensors)
                         {
-                            Logger.Info($"  {hardware.HardwareType} Sensor: Name='{sensor.Name}', Type={sensor.SensorType}, Value={sensor.Value}");
+                            Logger.Info($"  [LHM] {hardware.HardwareType}/{hardware.Name} → Sensor '{sensor.Name}' ({sensor.SensorType}) = {sensor.Value}");
+                        }
+                        // Also log sub-hardware sensors (Intel iGPU may appear as CPU sub-hardware on Lunar Lake)
+                        foreach (IHardware subHardware in hardware.SubHardware)
+                        {
+                            subHardware.Update();
+                            foreach (ISensor sensor in subHardware.Sensors)
+                            {
+                                Logger.Info($"  [LHM] {hardware.HardwareType}/{hardware.Name}/{subHardware.Name} → Sensor '{sensor.Name}' ({sensor.SensorType}) = {sensor.Value}");
+                            }
                         }
                     }
                 }
@@ -1048,68 +1036,11 @@ namespace XboxGamingBarHelper.Performance
         /// systems where ADLX itself can't provide them, so the OSD still falls back
         /// to "N/A" when neither source has the value.
         /// </summary>
+        // ADLX (AMD GPU library) removed — Intel MSI Claw does not use AMD GPU APIs.
+        // GPU metrics are sourced entirely from LibreHardwareMonitor.
         private void FillGpuSensorsFromAdlxFallback(Dictionary<HardwareSensor, float> pendingValues)
         {
-            if (amdManager == null)
-            {
-                return;
-            }
-
-            // Cheap fast-path: if every GPU/VRAM slot already has a valid value from
-            // LHM, don't bother spinning up ADLX metrics this tick.
-            bool needAny =
-                IsMissing(pendingValues, GPUUsage) ||
-                IsMissing(pendingValues, GPUClock) ||
-                IsMissing(pendingValues, GPUWattage) ||
-                IsMissing(pendingValues, GPUTemperature) ||
-                IsMissing(pendingValues, GPUMemoryClock);
-            if (!needAny)
-            {
-                return;
-            }
-
-            if (!amdManager.TryGetCurrentGpuMetrics(out var snap))
-            {
-                return;
-            }
-
-            int filled = 0;
-
-            if (IsMissing(pendingValues, GPUUsage) && snap.HasUsage)
-            {
-                pendingValues[GPUUsage] = (float)snap.UsagePercent;
-                filled++;
-            }
-            if (IsMissing(pendingValues, GPUClock) && snap.HasClockMHz)
-            {
-                pendingValues[GPUClock] = snap.GpuClockMHz;
-                filled++;
-            }
-            if (IsMissing(pendingValues, GPUWattage) && snap.HasPowerW)
-            {
-                pendingValues[GPUWattage] = (float)snap.GpuPowerW;
-                filled++;
-            }
-            if (IsMissing(pendingValues, GPUTemperature) && snap.HasTemperatureC)
-            {
-                pendingValues[GPUTemperature] = (float)snap.GpuTemperatureC;
-                filled++;
-            }
-            if (IsMissing(pendingValues, GPUMemoryClock) && snap.HasVramClockMHz)
-            {
-                pendingValues[GPUMemoryClock] = snap.VramClockMHz;
-                filled++;
-            }
-
-            if (filled > 0)
-            {
-                long nowUtc = DateTime.UtcNow.Ticks;
-                if (nowUtc - lastAdlxFallbackLogTicksUtc >= TimeSpan.TicksPerMinute)
-                {
-                    lastAdlxFallbackLogTicksUtc = nowUtc;
-                    Logger.Info($"GPU sensor ADLX fallback filled {filled} value(s) this tick. usage={(snap.HasUsage ? snap.UsagePercent.ToString("F0") : "-")} clock={(snap.HasClockMHz ? snap.GpuClockMHz.ToString() : "-")}MHz temp={(snap.HasTemperatureC ? snap.GpuTemperatureC.ToString("F0") : "-")}C power={(snap.HasPowerW ? snap.GpuPowerW.ToString("F1") : "-")}W vramClock={(snap.HasVramClockMHz ? snap.VramClockMHz.ToString() : "-")}MHz");
-                }
-            }
+            // No-op: ADLX not available on Intel hardware.
         }
 
         private static bool IsMissing(Dictionary<HardwareSensor, float> pending, HardwareSensor key)

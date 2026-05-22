@@ -464,8 +464,9 @@ namespace XboxGamingBar
                         {
                             case 0: levelText = "Off"; break;
                             case 1: levelText = "Basic"; break;
-                            case 2: levelText = "Detailed"; break;
-                            case 3: levelText = "Full"; break;
+                            case 2: levelText = "Horizontal"; break;
+                            case 3: levelText = "H.Detail"; break;
+                            case 4: levelText = "Full"; break;
                             default: levelText = "Off"; break;
                         }
                         overlayTile.StateText.Text = levelText;
@@ -499,6 +500,17 @@ namespace XboxGamingBar
                     fpsLimitTile.StateText.Text = limitText;
                     fpsLimitTile.StateText.Foreground = limit > 0 ? accentForeground : offForeground;
                     fpsLimitTile.TileButton.Background = limit > 0 ? tileOnBrush : tileOffBrush;
+                }
+
+                // Intel FPS tier tile (IGCL Endurance Gaming)
+                if (qsTileMap.TryGetValue("IntelFpsTier", out var intelFpsTierTile) && intelFpsTierTile.TileButton != null)
+                {
+                    int tier = intelFpsTier?.Value ?? 0;
+                    string[] tierLabels = { "Off", "Perf 60", "Bal 40", "Eff 30" };
+                    string tierText = (tier >= 0 && tier < tierLabels.Length) ? tierLabels[tier] : "Off";
+                    intelFpsTierTile.StateText.Text = tierText;
+                    intelFpsTierTile.StateText.Foreground = tier > 0 ? accentForeground : offForeground;
+                    intelFpsTierTile.TileButton.Background = tier > 0 ? tileOnBrush : tileOffBrush;
                 }
 
                 // Resolution tile
@@ -769,6 +781,18 @@ namespace XboxGamingBar
                         ceTile.StateText.Foreground = enabled ? accentForeground : offForeground;
                     }
                     ceTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
+                // MSI Center M OEM software toggle tile
+                if (qsTileMap.TryGetValue("MsiCenter", out var msiCenterTile) && msiCenterTile.TileButton != null)
+                {
+                    bool active = msiCenterActive?.Value == true;
+                    if (msiCenterTile.StateText != null)
+                    {
+                        msiCenterTile.StateText.Text = active ? "On" : "Off";
+                        msiCenterTile.StateText.Foreground = active ? accentForeground : offForeground;
+                    }
+                    msiCenterTile.TileButton.Background = active ? tileOnBrush : tileOffBrush;
                 }
 
                 // Fan Full Speed tile (Legion or GPD)

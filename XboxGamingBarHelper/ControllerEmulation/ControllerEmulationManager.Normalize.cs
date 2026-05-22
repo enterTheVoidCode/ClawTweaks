@@ -29,6 +29,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 case SharedDeviceType.LegionGo2:
                 case SharedDeviceType.LegionGoS:
                 case SharedDeviceType.GPDWin5:
+                case SharedDeviceType.MSIClaw:
                     return true;
                 default:
                     return false;

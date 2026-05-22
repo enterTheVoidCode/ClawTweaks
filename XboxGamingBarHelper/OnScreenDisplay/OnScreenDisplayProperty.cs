@@ -19,7 +19,7 @@ namespace XboxGamingBarHelper.OnScreenDisplay
             try
             {
                 int savedLevel = Properties.Settings.Default.OSDLevel;
-                if (savedLevel >= 0 && savedLevel <= 3)
+                if (savedLevel >= 0 && savedLevel <= 4)
                 {
                     Logger.Info($"Loaded OSD level {savedLevel} from settings");
                     return savedLevel;

@@ -71,20 +71,23 @@ namespace XboxGamingBarHelper.RTSS
         public float FrametimeVariance => currentMaxFt - currentMinFt;  // Max-Min variance in ms
 
         // OSD configuration per level - stores which items are enabled
-        // Level 1 (Basic): Time, FPS, Battery - 3 columns
-        // Level 2 (Detailed): Time, FPS, Battery, CPU, GPU, Fan, FrametimeGraph - 1 column
-        // Level 3 (Full): All options - 1 column
+        // Level 1 (Basic):              Time, FPS, Battery                         — 3 cols, horizontal
+        // Level 2 (Horizontal):         FPS, Battery, CPU, Time                    — 4 cols, horizontal (screenshot 2 style)
+        // Level 3 (Horizontal Detailed):AppName, FPS, CPU+Clock, GPU+Clock, Battery, Memory, Time — multi-col (IntelGameBar style)
+        // Level 4 (Full):               All options                                — 1 col, vertical
         private Dictionary<int, HashSet<string>> osdLevelConfig = new Dictionary<int, HashSet<string>>
         {
             { 1, new HashSet<string> { "Time", "FPS", "Battery" } },
-            { 2, new HashSet<string> { "Time", "FPS", "Battery", "CPU", "GPU", "Fan", "FrametimeGraph" } },
-            { 3, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "FrametimeGraph" } }
+            { 2, new HashSet<string> { "FPS", "Battery", "CPU", "Time" } },
+            { 3, new HashSet<string> { "AppName", "FPS", "CPU", "CPUClock", "GPU", "GPUClock", "Battery", "Memory", "Time" } },
+            { 4, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "FrametimeGraph" } }
         };
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
         {
             { 1, "" },
             { 2, "" },
-            { 3, "" }
+            { 3, "" },
+            { 4, "" }
         };
 
         // Layout settings
@@ -109,20 +112,26 @@ namespace XboxGamingBarHelper.RTSS
         // Frametime graph pinned mode - always on its own row at the bottom, left-aligned
         private bool frametimeGraphPinned = false;
 
-        // Per-level columns (Basic=3, Detailed=1, Full=1)
+        // Per-level columns
+        // Level 1 (Basic):              3 cols
+        // Level 2 (Horizontal):         4 cols — FPS | BAT | CPU | Time on one row
+        // Level 3 (Horizontal Detailed):7 cols — AppName | FPS | CPU | GPU | BAT | MEM | Time
+        // Level 4 (Full):               1 col  — vertical list
         private Dictionary<int, int> osdLevelColumns = new Dictionary<int, int>
         {
-            { 1, 3 },  // Basic: 3 columns
-            { 2, 1 },  // Detailed: 1 column (vertical list)
-            { 3, 1 }   // Full: 1 column (vertical list)
+            { 1, 3 },  // Basic:              3 columns
+            { 2, 4 },  // Horizontal:         4 columns
+            { 3, 7 },  // Horizontal Detailed:7 columns (all on one row)
+            { 4, 1 }   // Full:               1 column (vertical list)
         };
 
         // Per-level item order
         private Dictionary<int, List<string>> osdLevelOrder = new Dictionary<int, List<string>>
         {
             { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 2, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 3, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
+            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "ControllerBattery", "Memory", "VRAM", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "GPU", "GPUClock", "Battery", "Memory", "Time", "ControllerBattery", "VRAM", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 4, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
         };
 
         // Per-level, per-item label colors (e.g., osdItemLabelColors[1]["CPU"] = "FF0000")
@@ -130,7 +139,8 @@ namespace XboxGamingBarHelper.RTSS
         {
             { 1, new Dictionary<string, string>() },
             { 2, new Dictionary<string, string>() },
-            { 3, new Dictionary<string, string>() }
+            { 3, new Dictionary<string, string>() },
+            { 4, new Dictionary<string, string>() }
         };
 
         public RTSSManager(PerformanceManager performanceManager) : base()

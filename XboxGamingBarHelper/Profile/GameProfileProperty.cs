@@ -552,6 +552,37 @@ namespace XboxGamingBarHelper.Profile
             }
         }
 
+        // FPS limiter properties (RTSS + Intel IGCL)
+        public int FPSLimit
+        {
+            get { return value.FPSLimit; }
+            set
+            {
+                if (this.value.FPSLimit != value)
+                    this.value.FPSLimit = value;
+            }
+        }
+
+        public int FpsCapMode
+        {
+            get { return value.FpsCapMode; }
+            set
+            {
+                if (this.value.FpsCapMode != value)
+                    this.value.FpsCapMode = value;
+            }
+        }
+
+        public int IntelFpsTier
+        {
+            get { return value.IntelFpsTier; }
+            set
+            {
+                if (this.value.IntelFpsTier != value)
+                    this.value.IntelFpsTier = value;
+            }
+        }
+
         // AutoTDP properties
         public bool AutoTDPEnabled
         {

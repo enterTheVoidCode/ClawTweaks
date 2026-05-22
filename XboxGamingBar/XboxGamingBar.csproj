@@ -271,6 +271,9 @@
     <Compile Include="Data\SdrWhiteLevelSyncModeProperty.cs" />
     <Compile Include="Data\RTSSInstalledProperty.cs" />
     <Compile Include="Data\FPSLimitProperty.cs" />
+    <Compile Include="Data\IntelFpsTierProperty.cs" />
+    <Compile Include="Data\FpsCapModeProperty.cs" />
+    <Compile Include="Data\MsiCenterActiveProperty.cs" />
     <Compile Include="Data\OSPowerModeProperty.cs" />
     <Compile Include="Data\RunningGameProperty.cs" />
     <Compile Include="Data\TrackedGameProperty.cs" />
