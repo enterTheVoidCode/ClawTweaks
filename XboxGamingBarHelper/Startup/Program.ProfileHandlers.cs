@@ -502,6 +502,10 @@ namespace XboxGamingBarHelper
         private static void ApplyFpsLimiterFromProfile(Shared.Data.GameProfile profile)
         {
             _applyingFpsProfile = true;
+            // Start protection window: RTSS typically auto-applies its own per-game profile
+            // 1–3 s after the game process is detected. Without this guard, RTSS would override
+            // our FPS settings and either clear the Intel tier or corrupt the stored RTSS limit.
+            fpsLimiterProtectionTime = DateTime.UtcNow;
             try
             {
                 if (profile.FpsCapMode == 1 && profile.IntelFpsTier > 0)
@@ -836,9 +840,38 @@ namespace XboxGamingBarHelper
             int newLimit = rtssManager.FPSLimit.Value;
             Logger.Debug($"[FPS-Exclusion] RTSS FPSLimit changed to {newLimit}");
 
+            // During the FPS limiter protection window, RTSS may auto-apply its own per-game
+            // profile 1–3 s after game start. Protect the ClawTweaks setting from being
+            // overwritten or cleared, and never save these external RTSS changes to the profile.
+            if (IsInFpsLimiterProtection())
+            {
+                if (newLimit > 0 && intelGpuManager.IntelFpsTier.Value > 0)
+                {
+                    // Intel tier is active — RTSS auto-applied its profile. Re-silence RTSS.
+                    Logger.Info($"[FPS-Exclusion] RTSS auto-applied {newLimit} in game-start window — re-silencing to protect Intel tier={intelGpuManager.IntelFpsTier.Value}");
+                    _applyingFpsProfile = true;
+                    try { rtssManager.FPSLimit.SetValue(0); }
+                    finally { _applyingFpsProfile = false; }
+                }
+                else
+                {
+                    // RTSS is in control (Intel off). RTSS may have overwritten our intended limit.
+                    // Re-apply the profile's saved RTSS limit to override RTSS auto-apply.
+                    int intendedLimit = profileManager?.CurrentProfile?.Value.FPSLimit ?? 0;
+                    if (intendedLimit != newLimit)
+                    {
+                        Logger.Info($"[FPS-Exclusion] RTSS auto-applied {newLimit} in game-start window — re-applying profile limit={intendedLimit}");
+                        _applyingFpsProfile = true;
+                        try { rtssManager.FPSLimit.SetValue(intendedLimit); }
+                        finally { _applyingFpsProfile = false; }
+                    }
+                }
+                return; // Never save RTSS auto-apply to profile
+            }
+
             if (newLimit > 0 && intelGpuManager.IntelFpsTier.Value > 0)
             {
-                // RTSS took over — silence Intel tier
+                // RTSS took over (user change, outside protection window) — silence Intel tier
                 _applyingFpsProfile = true;
                 try
                 {

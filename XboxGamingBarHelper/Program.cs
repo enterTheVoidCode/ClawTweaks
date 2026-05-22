@@ -149,6 +149,23 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
+        /// Timestamp when the last FPS limiter profile was applied (game start / profile switch).
+        /// Used to protect against RTSS auto-applying its own per-game profile 1–3 s after game
+        /// start, which would otherwise override ClawTweaks FPS settings or clear the Intel tier.
+        /// </summary>
+        private static DateTime fpsLimiterProtectionTime = DateTime.MinValue;
+
+        /// <summary>
+        /// How long after ApplyFpsLimiterFromProfile to ignore RTSS-initiated FPS changes.
+        /// RTSS typically hooks a new game process and applies its own profile within 1–3 s.
+        /// 4 s covers slow-loading games while still allowing user changes shortly after.
+        /// </summary>
+        private const int FPS_LIMITER_PROTECT_MS = 4000;
+
+        private static bool IsInFpsLimiterProtection()
+            => (DateTime.UtcNow - fpsLimiterProtectionTime).TotalMilliseconds < FPS_LIMITER_PROTECT_MS;
+
+        /// <summary>
         /// Lock object to ensure atomic profile application.
         /// Prevents race conditions when rapid game switches cause interleaved settings.
         /// </summary>
