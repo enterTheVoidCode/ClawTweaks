@@ -6,9 +6,9 @@ Build/
 # NuGet packages
 packages/
 
-# MSIX app packages and bundles
-XboxGamingBarPackage/AppPackages/
-XboxGamingBarPackage/BundleArtifacts/
+# MSIX app packages and bundles (can appear under any project subfolder)
+AppPackages/
+BundleArtifacts/
 
 # Code signing certificate (sensitive — do not commit)
 *.pfx
