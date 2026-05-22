@@ -2302,7 +2302,11 @@ namespace XboxGamingBar
             if (fpsLimit != null)
                 fpsLimit.PropertyChanged += QuickSettingsProperty_Changed;
             if (intelFpsTier != null)
+            {
                 intelFpsTier.PropertyChanged += QuickSettingsProperty_Changed;
+                // Also sync the Performance-tab IntelFpsTierComboBox when tier changes from helper
+                intelFpsTier.PropertyChanged += (s, e) => UpdateFPSLimitControls();
+            }
             if (fpsCapMode != null)
                 fpsCapMode.PropertyChanged += QuickSettingsProperty_Changed;
             if (msiCenterActive != null)

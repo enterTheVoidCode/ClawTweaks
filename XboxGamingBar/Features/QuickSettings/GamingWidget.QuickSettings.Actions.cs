@@ -1161,6 +1161,21 @@ namespace XboxGamingBar
                             isApplyingHelperUpdate = false;
                         }
                     }
+
+                    // Sync Intel FPS tier ComboBox (0=Off, 1=Performance, 2=Balanced, 3=Efficiency)
+                    if (intelFpsTier != null && IntelFpsTierComboBox != null)
+                    {
+                        isApplyingHelperUpdate = true;
+                        try
+                        {
+                            int tier = Math.Max(0, Math.Min(3, intelFpsTier.Value));
+                            IntelFpsTierComboBox.SelectedIndex = tier;
+                        }
+                        finally
+                        {
+                            isApplyingHelperUpdate = false;
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1168,6 +1183,19 @@ namespace XboxGamingBar
                 }
             });
         }
+        /// <summary>
+        /// Intel FPS tier ComboBox selection changed in the Performance tab.
+        /// Sends the selected tier to the helper; mutual exclusion with RTSS is handled there.
+        /// </summary>
+        private void IntelFpsTierComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (intelFpsTier == null || isApplyingHelperUpdate) return;
+            int tier = IntelFpsTierComboBox.SelectedIndex;
+            if (tier < 0) return;
+            intelFpsTier.SetValue(tier);
+            Logger.Info($"Intel FPS tier set from Performance tab: {tier}");
+        }
+
         private void ToggleLegionTouchpad()
         {
             if (legionGoDetected?.Value == true && legionTouchpadEnabled != null)
