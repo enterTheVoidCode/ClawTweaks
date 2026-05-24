@@ -102,6 +102,14 @@ namespace XboxGamingBar
                             case "LosslessScaling":
                                 ToggleLosslessScaling();
                                 break;
+                            case "OptiScaler":
+                                // Close Game Bar, then send Insert key (OptiScaler overlay toggle)
+                                _ = SendCustomShortcutAsync("Insert", "OptiScaler");
+                                break;
+                            case "ReShade":
+                                // Close Game Bar, then send Home/Pos1 key (ReShade overlay toggle)
+                                _ = SendCustomShortcutAsync("Home", "ReShade");
+                                break;
                             case "RIS":
                                 ToggleRIS();
                                 break;
