@@ -186,6 +186,13 @@ namespace XboxGamingBarHelper
         private static bool legionButtonMonitorBatteryHooked;
 
         /// <summary>
+        /// Labs: MSI Claw back-paddle (M1/M2) monitor via DInput HID.
+        /// Used instead of LegionButtonMonitor on MSI Claw devices.
+        /// </summary>
+        private static ClawButtonMonitor clawButtonMonitor;
+        private static readonly object clawButtonMonitorLock = new object();
+
+        /// <summary>
         /// Hotkey manager for global keyboard shortcuts (Ctrl+Shift+D for Desktop Controls)
         /// </summary>
         private static HotkeyManager hotkeyManager;
@@ -587,6 +594,9 @@ namespace XboxGamingBarHelper
 
                 // Dispose Legion button monitor
                 DisposeLegionButtonMonitor();
+
+                // Dispose Claw button monitor (MSI Claw)
+                DisposeClawButtonMonitor();
 
                 // Delete heartbeat file on shutdown
                 DeleteHeartbeatFile();
@@ -1012,6 +1022,11 @@ namespace XboxGamingBarHelper
             // Initialize VIIPER emulation manager (toggle-driven; mutually exclusive with legacy).
             // legionManager is passed so VIIPER can forward LED color reports to the Legion stick lights.
             viiperEmulationManager = new XboxGamingBarHelper.ControllerEmulation.Viiper.ViiperEmulationManager(settingsManager, controllerEmulationManager, legionManager);
+
+            // MSI Claw: dedicated ViGEm forwarder (bypasses legacy ControllerEmulationManager).
+            // Suppresses the legacy backend, subscribes to the emulation toggle, and starts
+            // the XInput→ViGEm poll loop. No-op on non-MSI-Claw devices.
+            StartMSIClawControllerEmulation();
 
             // PawnIO/RyzenSMU initialization for anti-cheat compatible TDP control
             // Priority: Legion WMI > PawnIO/RyzenSMU > RyzenAdj (deprecated, WinRing0 not bundled)
@@ -1746,6 +1761,16 @@ namespace XboxGamingBarHelper
                 Logger.Error($"Error disposing Legion button monitor: {ex.Message}");
             }
 
+            // Dispose Claw button monitor (MSI Claw)
+            try
+            {
+                DisposeClawButtonMonitor();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error disposing Claw button monitor: {ex.Message}");
+            }
+
             // Clear references
             performanceManager = null;
             rtssManager = null;
@@ -1760,6 +1785,10 @@ namespace XboxGamingBarHelper
             try { viiperEmulationManager?.Dispose(); }
             catch (Exception ex) { Logger.Warn($"viiperEmulationManager.Dispose threw: {ex.Message}"); }
             viiperEmulationManager = null;
+
+            // MSI Claw: stop ViGEm forwarder and unsubscribe emulation toggle event
+            try { DisposeMSIClawControllerEmulation(); }
+            catch (Exception ex) { Logger.Warn($"DisposeMSIClawControllerEmulation threw: {ex.Message}"); }
 
             Logger.Info("All managers disposed.");
         }

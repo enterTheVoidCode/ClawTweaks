@@ -54,7 +54,7 @@ namespace XboxGamingBarHelper.Sidebar
         private readonly Border[] _tabBorders;
         private readonly Rectangle[] _tabUnderlines;
         private readonly TextBlock[] _tabLabels;
-        private static readonly string[] TabNames = { "Quick", "Perf.", "Display", "Legion", "Profiles" };
+        private static readonly string[] TabNames = { "Quick", "Perf.", "Display", "Controller (Claw)", "Profiles" };
 
         // Content area
         private readonly ScrollViewer _scrollViewer;

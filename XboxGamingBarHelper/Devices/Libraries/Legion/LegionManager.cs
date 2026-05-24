@@ -31,6 +31,14 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         private bool isControllerConnected = false;
         private bool isGoSControllerConnected = false;  // Tracks Go S RGB controller connection
 
+        /// <summary>
+        /// Called when button mapping changes for MSI Claw (software remap via ClawButtonMonitor).
+        /// MSI Claw has no Legion hardware — this callback routes XInput remap requests to
+        /// ClawButtonMonitor, mirroring HC LayoutManager.MapController() software remapping.
+        /// Wired by Program.MSIClaw.cs after StartMSIClawControllerEmulation(); null on other devices.
+        /// </summary>
+        public Action<int, int, int[]> OnButtonMappingChanged;
+
         // Current settings state (cached)
         private bool touchpadEnabled = true;
         private int lightMode = 1; // Solid
@@ -674,6 +682,24 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 {
                     isLegionGoDetected = true;
                     Logger.Info($"Legion device detected via DeviceDetector: {deviceInfo.DeviceType} ({deviceInfo.Model})");
+                }
+
+                // MSI Claw: skip all Lenovo hardware probing (WMI / Legion HID controller service).
+                // The Legion tab must be visible so the user can access controller remapping
+                // and per-game profiles — these features work via the ViGEm forwarder at
+                // the software level, not via Lenovo HID firmware commands.
+                // Capability flags in MSIClawConfig drive section visibility within the tab:
+                //   SupportsControllerRemap=true   → controller remapping section shown
+                //   SupportsRgbLighting=false       → lighting section hidden
+                //   HasTouchpad=false               → touchpad section hidden
+                //   SupportsWmiTdp=false            → WMI TDP path inactive (wmiService stays null)
+                // All WMI calls downstream of isLegionGoDetected use wmiService?.Method()
+                // so leaving wmiService=null makes them all safe no-ops.
+                if (deviceInfo.DeviceType == Shared.Enums.DeviceType.MSIClaw)
+                {
+                    isLegionGoDetected = true;
+                    Logger.Info("MSI Claw: Legion tab enabled (controller remapping + per-game profiles); skipping Lenovo hardware probing");
+                    return; // leaves wmiService=null, controllerService=null — all null-safe
                 }
 
                 // If debug mode is active and device is NOT Legion, skip hardware fallback checks
@@ -2621,6 +2647,14 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         {
             try
             {
+                // MSI Claw: no Legion hardware — route via callback to ClawButtonMonitor software remap.
+                // Mirroring HC LayoutManager.MapController(): software remapping replaces firmware remapping.
+                if (DeviceDetector.DetectDevice().DeviceType == Shared.Enums.DeviceType.MSIClaw)
+                {
+                    OnButtonMappingChanged?.Invoke(buttonIndex, mappingType, values);
+                    return;
+                }
+
                 using var controller = new LegionGoController();
                 if (!controller.Connect())
                 {

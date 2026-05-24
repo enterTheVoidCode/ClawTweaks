@@ -654,6 +654,91 @@ namespace XboxGamingBarHelper
             return (summary.ToString(), widgetSettings);
         }
 
+        // ── MSI Claw button monitor helpers ──────────────────────────────────────
+
+        private static ClawButtonMonitor EnsureClawButtonMonitor()
+        {
+            lock (clawButtonMonitorLock)
+            {
+                if (clawButtonMonitor == null)
+                {
+                    clawButtonMonitor = new ClawButtonMonitor();
+                    Logger.Info("Labs: Created ClawButtonMonitor for MSI Claw M1/M2 paddles");
+                }
+                return clawButtonMonitor;
+            }
+        }
+
+        private static void DisposeClawButtonMonitor()
+        {
+            lock (clawButtonMonitorLock)
+            {
+                if (clawButtonMonitor == null) return;
+                try { clawButtonMonitor.Dispose(); }
+                finally { clawButtonMonitor = null; }
+            }
+        }
+
+        /// <summary>
+        /// Configure MSI Claw M1/M2 back-paddle remap.
+        /// Called by ConfigureLegionButtonRemap when device is MSIClaw.
+        /// "L" maps to M1, "R" maps to M2 (same settings keys, different hardware).
+        ///
+        /// Lifecycle (start/stop) is owned exclusively by Program.MSIClaw.cs.
+        /// This method only updates the button configuration on the running monitor;
+        /// it never starts or stops ClawButtonMonitor itself.
+        /// </summary>
+        private static bool ConfigureClawButtonRemap(string button, bool enabled, int actionType, string shortcutOrCommand)
+        {
+            try
+            {
+                lock (clawButtonMonitorLock)
+                {
+                    ClawButtonMonitor monitor = EnsureClawButtonMonitor();
+
+                    monitor.ConfigureButton(
+                        button,
+                        enabled,
+                        actionType,
+                        shortcutOrCommand,
+                        (shortcutKeys) =>
+                        {
+                            Logger.Debug($"Claw: Executing shortcut '{shortcutKeys}'");
+                            SendKeyboardShortcutViaInputInjector(shortcutKeys);
+                        },
+                        (commandPath) =>
+                        {
+                            Logger.Debug($"Claw: Executing command '{commandPath}'");
+                            ExecuteCommand(commandPath);
+                        },
+                        () =>
+                        {
+                            Logger.Debug("Claw: Focusing GoTweaks widget");
+                            FocusGoTweaksWidget();
+                        }
+                    );
+
+                    // Config hot-applied — monitor lifecycle is owned by Program.MSIClaw.cs.
+                    // Do NOT start or stop the monitor here.
+
+                    string actionName = !enabled ? "Disabled" :
+                                       actionType == 0 ? "Xbox Guide" :
+                                       actionType == 1 ? $"Shortcut: {shortcutOrCommand}" :
+                                       actionType == 2 ? $"Command: {shortcutOrCommand}" :
+                                       "Focus GoTweaks";
+                    Logger.Info($"Labs: Claw {button} configured -> {actionName}");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Labs: Error configuring Claw {button} remap: {ex.Message}");
+                return false;
+            }
+        }
+
+        // ── Legion button monitor helpers ─────────────────────────────────────────
+
         private static LegionButtonMonitor EnsureLegionButtonMonitor()
         {
             lock (legionButtonMonitorLock)
@@ -903,6 +988,15 @@ namespace XboxGamingBarHelper
         /// <returns>True if successful</returns>
         private static bool ConfigureLegionButtonRemap(string button, bool enabled, int actionType, string shortcutOrCommand)
         {
+            // MSI Claw uses ClawButtonMonitor (DInput + M1/M2 paddles) instead of LegionButtonMonitor.
+            // The UI and settings keys (LegionL_Action / LegionR_Action) are shared; "L" maps to M1,
+            // "R" maps to M2 — same widget, different hardware.
+            if (Devices.DeviceDetector.DetectDevice().DeviceType == Shared.Enums.DeviceType.MSIClaw)
+            {
+                string clawButton = button == "L" ? "M1" : button == "R" ? "M2" : button;
+                return ConfigureClawButtonRemap(clawButton, enabled, actionType, shortcutOrCommand);
+            }
+
             try
             {
                 lock (legionButtonMonitorLock)

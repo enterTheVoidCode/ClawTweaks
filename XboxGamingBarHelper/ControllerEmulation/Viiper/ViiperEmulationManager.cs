@@ -191,6 +191,15 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         {
             if (isRunning) return true;
 
+            // MSI Claw uses ClawButtonMonitor (DInput path, like HC's DClawController + ViGEmBus)
+            // instead of VIIPER (usbip-win2-based). VIIPER must not start on MSI Claw —
+            // that would create a second virtual controller alongside ClawButtonMonitor.
+            if (legacyManager?.HandheldDeviceType == Shared.Enums.DeviceType.MSIClaw)
+            {
+                Logger.Info("VIIPER: Skipping — MSI Claw uses ClawButtonMonitor (DInput path) instead of VIIPER");
+                return false;
+            }
+
             if (settingsManager?.UsbipInstalled != null && !settingsManager.UsbipInstalled.Value)
             {
                 Logger.Warn("VIIPER start requested but usbip-win2 is not installed; leaving service offline.");

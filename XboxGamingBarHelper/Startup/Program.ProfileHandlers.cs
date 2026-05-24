@@ -871,18 +871,17 @@ namespace XboxGamingBarHelper
 
             if (newLimit > 0 && intelGpuManager.IntelFpsTier.Value > 0)
             {
-                // RTSS took over (user change, outside protection window) — silence Intel tier
+                // RTSS fired while Intel FPS is active.
+                // RTSS continuously re-applies its per-game profile. Re-silencing it here
+                // (rather than letting it win) protects the user's Intel FPS configuration.
+                // To deliberately switch from Intel to RTSS, the user must first set
+                // Intel tier to 0 in the ClawTweaks widget, at which point IntelFpsTier.Value
+                // will be 0 and this branch won't fire.
+                Logger.Info($"[FPS-Exclusion] RTSS fired {newLimit} while Intel tier={intelGpuManager.IntelFpsTier.Value} active — re-silencing RTSS to protect Intel");
                 _applyingFpsProfile = true;
-                try
-                {
-                    Logger.Info($"[FPS-Exclusion] RTSS limit={newLimit} active → disabling Intel FPS tier");
-                    intelGpuManager.IntelFpsTier.SetValue(0);
-                    intelGpuManager.FpsCapMode.SetValue(0);
-                }
-                finally
-                {
-                    _applyingFpsProfile = false;
-                }
+                try { rtssManager.FPSLimit.SetValue(0); }
+                finally { _applyingFpsProfile = false; }
+                return; // Don't save RTSS values or modify Intel
             }
             else if (newLimit == 0 && intelGpuManager.FpsCapMode.Value == 0)
             {
@@ -893,6 +892,17 @@ namespace XboxGamingBarHelper
             // Save RTSS FPS limit and cap mode to profile
             if (!isApplyingProfile && !IsInProfileSwitchCooldown())
             {
+                // Race-condition guard: RTSS fires on a background thread and may read
+                // isApplyingProfile=false just before RunningGame_PropertyChanged sets it
+                // to true and switches CurrentProfile to the per-game profile. By the time
+                // we reach this save block the per-game profile may already be loaded.
+                // If CurrentProfile now has Intel configured (FpsCapMode=1, IntelFpsTier>0),
+                // skip the RTSS save to avoid overwriting the Intel profile.
+                if (profileManager.CurrentProfile.FpsCapMode == 1 && profileManager.CurrentProfile.IntelFpsTier > 0)
+                {
+                    Logger.Info($"[FPS-Exclusion] Skipping RTSS save — current profile has Intel mode (tier={profileManager.CurrentProfile.IntelFpsTier}), RTSS fired during profile load race");
+                    return;
+                }
                 RouteProfileSave(ProfileSaveFlagsState.FPSLimit, "FPSLimit",
                     cur => { cur.FPSLimit = newLimit; cur.FpsCapMode = 0; },
                     glo => { glo.FPSLimit = newLimit; glo.FpsCapMode = 0; });

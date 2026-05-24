@@ -94,6 +94,12 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     // Internal Windows sensor path keeps motion mode functional until a native adapter is added.
                     return new WindowsSensorGyroSourceAdapter("GPD Internal Gyro");
 
+                case SharedDeviceType.MSIClaw:
+                    // 1:1 from HC ClawA1M: Windows Sensor path + device-specific axis remapping.
+                    // ClawGyroSourceAdapter wraps WindowsSensorGyroSourceAdapter and applies
+                    // HC's GyrometerAxis/AxisSwap and AccelerometerAxis/AxisSwap transforms.
+                    return new ClawGyroSourceAdapter();
+
                 default:
                     return null;
             }

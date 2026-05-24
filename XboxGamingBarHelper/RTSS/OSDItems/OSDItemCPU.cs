@@ -12,6 +12,7 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         private HardwareSensor cpuTemperatureSensor;
 
         private bool showClock = false;
+        private PerformanceManager performanceManager;
 
         public OSDItemCPU(HardwareSensor cpuUsageSensor, HardwareSensor cpuClockSensor, HardwareSensor cpuWattageSensor, HardwareSensor cpuTemperatureSensor) : base("CPU", "CPU", Color.Turquoise)
         {
@@ -24,6 +25,30 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         public void SetShowClock(bool show)
         {
             showClock = show;
+        }
+
+        public void SetPerformanceManager(PerformanceManager manager)
+        {
+            performanceManager = manager;
+        }
+
+        public override string GetOSDString(int osdLevel)
+        {
+            var baseString = base.GetOSDString(osdLevel);
+
+            // Level 3 (Horizontal Detailed): append PL1/PL2 inline after wattage
+            if (osdLevel == 3 && performanceManager != null)
+            {
+                int pl1 = performanceManager.CurrentSPL;
+                int pl2 = performanceManager.CurrentFPPT;
+                if (pl1 > 0)
+                {
+                    // Base already reset color to text color — append in same color context
+                    baseString += $" (PL1:{pl1}W PL2:{pl2}W)";
+                }
+            }
+
+            return baseString;
         }
 
         protected override List<OSDItemValue> GetValues(int osdLevel)

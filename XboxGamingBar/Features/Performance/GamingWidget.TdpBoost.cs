@@ -59,14 +59,12 @@ namespace XboxGamingBar
             var settings = ApplicationData.Current.LocalSettings;
             settings.Values["TDPBoostEnabled"] = TDPBoostToggle.IsOn;
 
-            // When enabling boost, also send current SPPT/FPPT values to ensure helper has them
+            // When enabling boost, also send current PL2-Boost value to ensure helper has it
             if (TDPBoostToggle.IsOn)
             {
-                int spptBoost = (int)(TDPBoostSPPTSlider?.Value ?? 1);
-                int fpptBoost = (int)(TDPBoostFPPTSlider?.Value ?? 3);
-                tdpBoostSPPT?.SetValue(spptBoost);
-                tdpBoostFPPT?.SetValue(fpptBoost);
-                Logger.Info($"TDP Boost enabled - sent SPPT={spptBoost}W, FPPT={fpptBoost}W to helper");
+                int pl2Boost = (int)(TDPBoostFPPTSlider?.Value ?? 3);
+                tdpBoostFPPT?.SetValue(pl2Boost);
+                Logger.Info($"TDP Boost enabled - sent PL2-Boost={pl2Boost}W to helper");
             }
 
             // Save to profile if not loading
@@ -78,23 +76,7 @@ namespace XboxGamingBar
 
         private void TDPBoostSPPTSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
-            if (isLoadingTDPBoostSettings) return;
-            if (TDPBoostSPPTSlider == null) return;
-
-            int spptBoost = (int)Math.Round(e.NewValue);
-            Logger.Info($"TDP Boost SPPT changed to: {spptBoost}W");
-
-            if (TDPBoostSPPTValue != null)
-            {
-                TDPBoostSPPTValue.Text = $"{spptBoost}W";
-            }
-
-            // Send to helper
-            tdpBoostSPPT?.SetValue(spptBoost);
-
-            // Save to local settings
-            var settings = ApplicationData.Current.LocalSettings;
-            settings.Values["TDPBoostSPPT"] = spptBoost;
+            // SPPT Boost slider removed — Intel Lunar Lake uses PL1/PL2 only (no SPPT).
         }
 
         private void TDPBoostFPPTSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
@@ -136,32 +118,7 @@ namespace XboxGamingBar
                     Logger.Info($"TDP Boost enabled state loaded from settings: {enabled}");
                 }
 
-                // Load SPPT boost (default 1W)
-                int spptBoost = 1; // Default
-                if (settings.Values.TryGetValue("TDPBoostSPPT", out object spptObj) && spptObj != null)
-                {
-                    try
-                    {
-                        spptBoost = Convert.ToInt32(spptObj);
-                    }
-                    catch
-                    {
-                        spptBoost = 1;
-                    }
-                }
-                if (TDPBoostSPPTSlider != null)
-                {
-                    TDPBoostSPPTSlider.Value = spptBoost;
-                }
-                if (TDPBoostSPPTValue != null)
-                {
-                    TDPBoostSPPTValue.Text = $"{spptBoost}W";
-                }
-                tdpBoostSPPT?.SetValue(spptBoost);
-                // Ensure value is saved (in case it was missing or converted)
-                settings.Values["TDPBoostSPPT"] = spptBoost;
-
-                // Load FPPT boost (default 3W)
+                // Load PL2-Boost (default 3W) — SPPT Boost removed (Intel PL1/PL2 only)
                 int fpptBoost = 3; // Default
                 if (settings.Values.TryGetValue("TDPBoostFPPT", out object fpptObj) && fpptObj != null)
                 {
@@ -186,7 +143,7 @@ namespace XboxGamingBar
                 // Ensure value is saved (in case it was missing or converted)
                 settings.Values["TDPBoostFPPT"] = fpptBoost;
 
-                Logger.Info($"TDP Boost settings loaded - SPPT: {spptBoost}W, FPPT: {fpptBoost}W");
+                Logger.Info($"TDP Boost settings loaded - PL2-Boost: {fpptBoost}W");
             }
             finally
             {
@@ -207,15 +164,13 @@ namespace XboxGamingBar
             {
                 if (TDPBoostToggle == null || tdpBoostEnabled == null) return;
 
-                // Only send SPPT/FPPT to helper if boost is currently enabled in the UI
+                // Only send PL2-Boost to helper if boost is currently enabled in the UI
                 // (regardless of what the helper sent us)
                 if (TDPBoostToggle.IsOn)
                 {
-                    int spptBoost = (int)(TDPBoostSPPTSlider?.Value ?? 1);
-                    int fpptBoost = (int)(TDPBoostFPPTSlider?.Value ?? 3);
-                    tdpBoostSPPT?.SetValue(spptBoost);
-                    tdpBoostFPPT?.SetValue(fpptBoost);
-                    Logger.Debug($"TDP Boost PropertyChanged - ensuring SPPT={spptBoost}W, FPPT={fpptBoost}W sent to helper");
+                    int pl2Boost = (int)(TDPBoostFPPTSlider?.Value ?? 3);
+                    tdpBoostFPPT?.SetValue(pl2Boost);
+                    Logger.Debug($"TDP Boost PropertyChanged - ensuring PL2-Boost={pl2Boost}W sent to helper");
                 }
             });
         }

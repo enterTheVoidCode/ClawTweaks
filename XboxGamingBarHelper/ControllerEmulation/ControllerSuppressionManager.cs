@@ -402,6 +402,158 @@ namespace XboxGamingBarHelper.ControllerEmulation
             }
         }
 
+        /// <summary>
+        /// Full HidHide reset for MSI Claw emulation stop.
+        ///
+        /// Unlike Disable() which only unhides the internally-tracked hiddenDeviceIds set,
+        /// ForceUnhideAll() reads the LIVE blocked list directly from the HidHide driver and
+        /// removes every entry — guaranteeing a clean state even if the in-memory tracking
+        /// was lost (e.g. helper restart, failed Enable(), crash recovery).
+        ///
+        /// Steps:
+        ///   1. Read all currently blocked instance IDs from HidHide driver
+        ///   2. Remove all of them (clears the entire block list)
+        ///   3. Set IsActive = false (disable cloaking filter)
+        ///   4. Cycle USB ports for ALL MSI Claw devices (VID_0DB0, PID 0x1901 + 0x1902)
+        ///      so they re-enumerate and reappear in Joy.cpl / Steam / games.
+        /// </summary>
+        public void ForceUnhideAll()
+        {
+            lock (syncRoot)
+            {
+                Logger.Info("HidHide ForceUnhideAll: full reset — clearing all blocked devices and disabling cloaking");
+
+                if (TryForceUnhideAllWithApi())
+                    return;
+
+                if (!EnsureCliResolved(logMissing: true))
+                {
+                    Logger.Warn("HidHide ForceUnhideAll aborted: API unavailable and CLI not found.");
+                    return;
+                }
+
+                Logger.Info("HidHide ForceUnhideAll using CLI fallback");
+                ForceUnhideAllWithCli();
+            }
+        }
+
+        private bool TryForceUnhideAllWithApi()
+        {
+            if (!TryGetApiService(out IHidHideControlService service, logMissing: true))
+                return false;
+
+            try
+            {
+                // Read the live blocked list from the driver — bypasses hiddenDeviceIds cache.
+                List<string> allBlocked = (service.BlockedInstanceIds ?? Enumerable.Empty<string>())
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .ToList();
+
+                int removedCount = 0;
+                foreach (string id in allBlocked)
+                {
+                    try
+                    {
+                        service.RemoveBlockedInstanceId(id);
+                        removedCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"HidHide ForceUnhideAll: RemoveBlockedInstanceId failed for '{id}': {ex.Message}");
+                    }
+                }
+
+                hiddenDeviceIds.Clear();
+
+                if (service.IsActive)
+                    service.IsActive = false;
+
+                cloakingEnabled = false;
+
+                Logger.Info($"HidHide ForceUnhideAll via API: removed {removedCount}/{allBlocked.Count} blocked device(s), cloaking disabled");
+
+                // Cycle all MSI Claw USB devices so they re-enumerate after unhide.
+                RestartMsiClawDevices();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"HidHide ForceUnhideAll API failed: {ex.Message}. Falling back to CLI.");
+                return false;
+            }
+        }
+
+        private void ForceUnhideAllWithCli()
+        {
+            // Read the live blocked list, not just our internal cache.
+            RefreshHiddenDeviceIdsFromCli();
+
+            int removedCount = 0;
+            foreach (string id in hiddenDeviceIds.ToArray())
+            {
+                if (RunCli($"--dev-unhide \"{id}\""))
+                {
+                    hiddenDeviceIds.Remove(id);
+                    removedCount++;
+                }
+            }
+
+            if (RunCli("--cloak-off"))
+                cloakingEnabled = false;
+            else
+                Logger.Warn("HidHide ForceUnhideAll: --cloak-off failed");
+
+            Logger.Info($"HidHide ForceUnhideAll via CLI: removed {removedCount} blocked device(s), cloaking disabled");
+
+            // Cycle all MSI Claw USB devices so they re-enumerate after unhide.
+            RestartMsiClawDevices();
+        }
+
+        /// <summary>
+        /// Cycles USB ports for ALL MSI Claw device paths (VID_0DB0, PID 0x1901 and 0x1902).
+        /// Called after ForceUnhideAll() so the physical controllers re-enumerate and reappear
+        /// in Joy.cpl / Steam / games without requiring a manual reconnect.
+        ///
+        /// PID_1902 = DInput gamepad interface (hidden during emulation)
+        /// PID_1901 = XInput / keyboard composite device (NOT hidden, but may also need re-enum)
+        /// Both share the same USB parent port — cycling once per unique parent is sufficient,
+        /// but we attempt both IDs and let TryCyclePort() deduplicate via the USB parent walk.
+        /// </summary>
+        private void RestartMsiClawDevices()
+        {
+            IEnumerable<string> msiClawIds = QueryUsbDeviceIds(0x0DB0, 0x1901, 0x1902)
+                .Concat(QueryPnpDeviceIds(0x0DB0, 0x1901, 0x1902))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(id => !string.IsNullOrWhiteSpace(id));
+
+            int cycled = 0;
+            int failed = 0;
+            foreach (string id in msiClawIds)
+            {
+                if (TryCyclePort(id))
+                {
+                    Logger.Debug($"HidHide ForceUnhideAll: cycled USB port for '{id}'");
+                    cycled++;
+                }
+                else if (TryRestartDevice(id))
+                {
+                    Logger.Debug($"HidHide ForceUnhideAll: pnputil restart for '{id}'");
+                    cycled++;
+                }
+                else
+                {
+                    Logger.Warn($"HidHide ForceUnhideAll: failed to restart device '{id}'");
+                    failed++;
+                }
+            }
+
+            if (cycled > 0 || failed > 0)
+                Logger.Info($"HidHide ForceUnhideAll: MSI Claw device restart done — cycled={cycled}, failed={failed}");
+            else
+                Logger.Info("HidHide ForceUnhideAll: no MSI Claw device paths found for USB cycle (VID_0DB0)");
+        }
+
         private void RestartDevices(IEnumerable<string> deviceInstanceIds)
         {
             if (deviceInstanceIds == null)
@@ -483,10 +635,31 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 return false;
             }
 
-            // Keep restart scope narrow to avoid churning Legion HID collections.
-            // Restarting IG_* interfaces has shown unstable behavior (including devices
-            // ending in disabled state on some systems) while MI_00 is the meaningful
-            // XInput interface to refresh for stock-controller visibility changes.
+            // MSI Claw (VID_0DB0 PID_1902 — DInput gamepad interface):
+            // Cycle any USB\ path for this device so the DInput controller
+            // re-enumerates and reappears in Joy.cpl after HidHide unhide.
+            // The MI_00 restriction below is Legion-specific and must not apply here.
+            if (normalized.StartsWith("USB\\", StringComparison.OrdinalIgnoreCase) &&
+                normalized.IndexOf("VID_0DB0", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                normalized.IndexOf("PID_1902", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            // MSI Claw HID path (MI_00&COL01): after the suppress-filter change only the
+            // HID collection path enters changedDeviceIds. TryCyclePort will walk up to
+            // the USB parent to trigger re-enumeration — but ShouldRestartDevice must allow it.
+            if (normalized.StartsWith("HID\\", StringComparison.OrdinalIgnoreCase) &&
+                normalized.IndexOf("VID_0DB0", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                normalized.IndexOf("PID_1902", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                normalized.IndexOf("MI_00", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            // Legion / Legion Go S: keep restart scope narrow to avoid churning
+            // control/report HID collections. Only MI_00 (primary XInput interface)
+            // needs refresh; IG_* and other MI_* interfaces must not be cycled.
             return normalized.StartsWith("USB\\", StringComparison.OrdinalIgnoreCase) &&
                    normalized.IndexOf("&MI_00\\", StringComparison.OrdinalIgnoreCase) >= 0;
         }
@@ -1388,11 +1561,24 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     break;
 
                 case DeviceType.MSIClaw:
-                    // VID 0x0DB0 = MSI. PIDs from HC fork ClawA1M.cs:
-                    //   0x1901 = XInput mode, 0x1902 = DirectInput mode, 0x1903 = Testing mode
+                    // VID 0x0DB0 = MSI. DInput primary path (ClawButtonMonitor, like HC's DClawController):
+                    //
+                    // Hide ONLY PID 0x1902 (DInput gamepad interface, UsagePage 0xFFF0).
+                    // Do NOT hide PID 0x1901 — that composite device includes the keyboard HID
+                    // interface which sends Win+G to Windows. Hiding 0x1901 causes HidHide to
+                    // also cloak the keyboard interface, which breaks Game Bar navigation entirely
+                    // (Win+G stops working, controller cannot activate/navigate Game Bar overlay).
+                    //
+                    // HC's DClawController hides only the DInput controller for the same reason:
+                    //   HC creates DClawController (PID 0x1902) and calls HideHID() for it only.
+                    //   XClawController (PID 0x1901) is NOT hidden by the DInput path.
+                    //
+                    // ClawButtonMonitor still reads 0x1902 because the helper is on HidHide's allowlist.
+                    // QueryPnpDeviceIds  → HID\VID_...\... paths  (= HC's deviceInstanceId)
+                    // QueryUsbDeviceIds  → USB\VID_...\... paths  (= HC's baseContainerDeviceInstanceId)
                     // Applies to all Claw models (A1M, 7 AI+ A2VM, 8 AI+ A2VM).
-                    nativeIds = QueryPnpDeviceIds(0x0DB0, 0x1901, 0x1902, 0x1903)
-                        .Concat(QueryUsbDeviceIds(0x0DB0, 0x1901, 0x1902, 0x1903));
+                    nativeIds = QueryPnpDeviceIds(0x0DB0, 0x1902)
+                        .Concat(QueryUsbDeviceIds(0x0DB0, 0x1902));
                     break;
 
                 default:
@@ -1469,6 +1655,27 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 return filtered;
             }
 
+            // MSI Claw: hide only the primary DInput gamepad collection (HID\...\MI_00&COL01),
+            // exactly as HC's DClawController.HideHID() does via HidPath(Details.deviceInstanceId).
+            // Blocking all PID_1902 sub-devices (MI_01 keyboard/mouse/consumer + USB composite)
+            // is wrong — those interfaces must remain visible for Win+G and system input routing.
+            if (deviceType == DeviceType.MSIClaw)
+            {
+                List<string> filtered = deviceInstanceIds
+                    .Where(IsMsiClawSuppressibleGamepadId)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (filtered.Count == 0)
+                {
+                    Logger.Warn("HidHide native target filter found no MSI Claw primary gamepad interface (MI_00&COL01); " +
+                                "skipping hide to avoid masking keyboard/mouse/consumer HID endpoints.");
+                    return Enumerable.Empty<string>();
+                }
+
+                return filtered;
+            }
+
             return deviceInstanceIds.Distinct(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -1520,6 +1727,36 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 return normalized.IndexOf("&MI_00\\", StringComparison.OrdinalIgnoreCase) >= 0;
             }
 
+            return false;
+        }
+
+        private static bool IsMsiClawSuppressibleGamepadId(string deviceInstanceId)
+        {
+            if (string.IsNullOrWhiteSpace(deviceInstanceId))
+            {
+                return false;
+            }
+
+            string normalized = deviceInstanceId.Trim();
+
+            if (normalized.IndexOf("VID_0DB0", StringComparison.OrdinalIgnoreCase) < 0 ||
+                normalized.IndexOf("PID_1902", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                return false;
+            }
+
+            // HC hides only the primary DInput gamepad HID collection: HID\VID_0DB0&PID_1902&MI_00&COL01\...
+            // Confirmed from HC Phase 3 diagnostic: 1 blocked device = MI_00&COL01.
+            // Do NOT hide:
+            //   MI_00&COL02 — vendor-specific / manufacturer-defined HID collection
+            //   MI_01 sub-devices — keyboard, mouse, consumer control (breaks Win+G and system input)
+            //   USB\ composite device paths — HidHide operates at the HID layer; USB paths have no effect
+            if (normalized.StartsWith("HID\\", StringComparison.OrdinalIgnoreCase))
+            {
+                return normalized.IndexOf("&MI_00&COL01", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+
+            // USB paths are not blocked by HC for MSI Claw.
             return false;
         }
 

@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Management;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -342,8 +343,8 @@ namespace XboxGamingBarHelper.Performance
         // PawnIO driver installation status
         private bool pawnIOInstalled;
 
-        // Intel KX.exe TDP service (Lunar Lake MCHBAR PL1/PL2)
-        private Intel.KxExeService kxExeService;
+        // Intel KX TDP service (Lunar Lake MCHBAR PL1/PL2) — ported 1:1 from HC KX.cs
+        private Intel.KX kx;
         // Cached Intel TDP values (last written, shown in OSD until next write)
         private int intelLastPL1 = -1;
         private int intelLastPL2 = -1;
@@ -535,13 +536,14 @@ namespace XboxGamingBarHelper.Performance
         {
             try
             {
-                kxExeService = new Intel.KxExeService();
-                Logger.Info($"Intel KX.exe TDP: available={kxExeService.IsAvailable}");
+                kx = new Intel.KX();
+                bool ok = kx.init();
+                Logger.Info($"Intel KX: init={ok}, available={kx.IsAvailable}");
             }
             catch (Exception ex)
             {
                 Logger.Error($"InitializeIntelTDP failed: {ex.Message}");
-                kxExeService = null;
+                kx = null;
             }
         }
 
@@ -1198,6 +1200,42 @@ namespace XboxGamingBarHelper.Performance
 
                 Logger.Info($"SetTDP: method={tdpMethod}, legionDetected={legionDetected}, pawnIOAvailable={pawnIOAvailable}");
 
+                // ── MSI Claw: always use MSI ACPI WMI regardless of selected TDP method ──
+                // 1:1 port from HC ClawA1M.set_long_limit / set_short_limit.
+                // kx.exe (IntelKxExe) targets a different MCHBAR interface and does NOT
+                // work on the MSI Claw 8 AI. PawnIO/RyzenSMU is AMD-only. WMI is the
+                // only working path on Lunar Lake MSI Claw.
+                if (Devices.DeviceDetector.DetectDevice().DeviceType == Shared.Enums.DeviceType.MSIClaw)
+                {
+                    // PL2 must always be > PL1. Clamp to [spl+1 … 37W] (Lunar Lake max PL2).
+                    // When TDP Boost is off, fppt == spl → msiPl2 = spl+1 (minimum burst).
+                    // When PL2-Boost is active, fppt = spl + boost, capped at 37W.
+                    const int MSI_CLAW_MAX_PL2 = 37;
+                    int msiPl2 = Math.Min(Math.Max(fppt, spl + 1), MSI_CLAW_MAX_PL2);
+                    Logger.Info($"[MSIClaw] SetTDP via MSI ACPI WMI: PL1/SPL={spl}W, PL2/sPPT={msiPl2}W");
+                    bool wmiOk = SetMsiAcpiTDP(spl, msiPl2);
+                    if (wmiOk)
+                    {
+                        intelLastPL1 = spl;
+                        intelLastPL2 = msiPl2;
+                        CurrentSPL  = spl;
+                        CurrentSPPT = spl;   // No separate SPPT on MSI Claw (PL1 = sustained)
+                        CurrentFPPT = msiPl2;
+                        var newTdpString = $"PL1:{spl}W PL2:{msiPl2}W";
+                        if (newTdpString != lastTdpString)
+                        {
+                            currentTdp.SetValue(newTdpString);
+                            lastTdpString = newTdpString;
+                        }
+                    }
+                    else
+                    {
+                        Logger.Warn("[MSIClaw] MSI ACPI WMI: Failed to set TDP — ensure MSI Center M is stopped");
+                    }
+                    ScheduleVerificationRead();
+                    return;
+                }
+
                 // Use the selected TDP method
                 switch (tdpMethod)
                 {
@@ -1244,17 +1282,18 @@ namespace XboxGamingBarHelper.Performance
                         goto case TdpMethod.IntelKxExe;
 
                     case TdpMethod.IntelKxExe:
-                        if (kxExeService?.IsAvailable == true)
+                        if (kx?.IsAvailable == true)
                         {
-                            // Intel Lunar Lake: PL1 = sustained (SPL), PL2 = turbo (FPPT)
-                            // KxExeService enforces PL2 >= PL1 + 1W internally
-                            int pl1 = spl;
-                            int pl2 = fppt;
-                            Logger.Info($"Using Intel KX.exe to set TDP (PL1={pl1}W, PL2={pl2}W)");
-                            if (kxExeService.SetPowerLimits(pl1, pl2))
+                            // 1:1 from HC IntelProcessor.SetTDPLimit:
+                            //   PowerType.Slow (sustained/PL1) → set_long_limit  → 0x59A0
+                            //   PowerType.Fast (turbo/PL2)     → set_short_limit → 0x59A4
+                            Logger.Info($"Using Intel KX to set TDP (long/PL1={spl}W, short/PL2={fppt}W)");
+                            int r1 = kx.set_long_limit(spl);   // sustained (PL1, 0x59A0)
+                            int r2 = kx.set_short_limit(fppt); // turbo     (PL2, 0x59A4)
+                            if (r1 == 0 && r2 == 0)
                             {
-                                intelLastPL1 = pl1;
-                                intelLastPL2 = Math.Max(pl2, pl1 + 1);
+                                intelLastPL1 = spl;
+                                intelLastPL2 = fppt;
                                 CurrentSPL  = intelLastPL1;
                                 CurrentSPPT = intelLastPL1; // No separate SPPT on Intel
                                 CurrentFPPT = intelLastPL2;
@@ -1266,11 +1305,11 @@ namespace XboxGamingBarHelper.Performance
                                 }
                                 return;
                             }
-                            Logger.Warn("Intel KX.exe: Failed to set TDP");
+                            Logger.Warn($"Intel KX: Failed to set TDP (r1={r1} r2={r2})");
                         }
                         else
                         {
-                            Logger.Warn("Intel KX.exe: kx.exe not available");
+                            Logger.Warn("Intel KX: kx.exe not available or MCHBAR not probed");
                         }
                         Logger.Warn("SetTDP: No TDP control method available");
                         return;
@@ -1440,10 +1479,117 @@ namespace XboxGamingBarHelper.Performance
         //            stapm != int.MinValue && fast != int.MinValue && slow != int.MinValue;
         // }
 
+        // ── MSI ACPI WMI TDP helpers ───────────────────────────────────────────────
+        // 1:1 port from HC ClawA1M.SetCPUPowerLimit + HandheldCompanion.WMI.Set.
+        // HC reference:
+        //   ClawA1M.set_long_limit  → SetCPUPowerLimit(80, limit) → PL1/SPL (sustained)
+        //   ClawA1M.set_short_limit → SetCPUPowerLimit(81, limit) → PL2/sPPT (boost)
+        //   WMI.Set(scope, path, "Set_Data", fullPackage)
+
+        /// <summary>
+        /// Sets PL1 (sustained/slow) and PL2 (boost/fast) via MSI ACPI WMI.
+        /// 1:1 from HC ClawA1M.set_long_limit / set_short_limit.
+        /// </summary>
+        private bool SetMsiAcpiTDP(int pl1, int pl2)
+        {
+            const string scope = "root\\WMI";
+            const string path  = "MSI_ACPI.InstanceName='ACPI\\PNP0C14\\0_0'";
+            bool ok1 = SetMsiCpuPowerLimit(scope, path, 80, pl1);  // dataBlock 80 = PL1/SPL
+            bool ok2 = SetMsiCpuPowerLimit(scope, path, 81, pl2);  // dataBlock 81 = PL2/sPPT
+            return ok1 && ok2;
+        }
+
+        /// <summary>
+        /// Sends a single MSI_ACPI Set_Data WMI call.
+        /// 1:1 from HC WMI.Set() called by ClawA1M.SetCPUPowerLimit().
+        ///
+        /// Package layout (32 bytes):
+        ///   [0] = dataBlockIndex  (80=PL1, 81=PL2)
+        ///   [1] = watts
+        ///   [2..31] = 0x00
+        /// </summary>
+        private bool SetMsiCpuPowerLimit(string scope, string path, int dataBlockIndex, int watts)
+        {
+            try
+            {
+                byte[] fullPackage = new byte[32];
+                fullPackage[0] = (byte)dataBlockIndex;
+                fullPackage[1] = (byte)watts;
+                // bytes [2..31] are already 0x00
+
+                using (var obj = new ManagementObject(scope, path, null))
+                {
+                    ManagementBaseObject inParams     = null;
+                    ManagementBaseObject inParamsData = null;
+                    bool parametersAvailable          = false;
+
+                    try
+                    {
+                        inParams     = obj.GetMethodParameters("Set_Data");
+                        inParamsData = inParams?["Data"] as ManagementBaseObject;
+                        parametersAvailable = (inParams != null && inParamsData != null);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"[MSIClaw] SetMsiCpuPowerLimit({dataBlockIndex},{watts}): GetMethodParameters failed: {ex.Message}");
+                    }
+
+                    if (!parametersAvailable)
+                    {
+                        // HC fallback path — try Get_WMI to obtain in-parameters
+                        try
+                        {
+                            inParams     = obj.InvokeMethod("Get_WMI", null, null);
+                            inParamsData = inParams?["Data"] as ManagementBaseObject;
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Debug($"[MSIClaw] SetMsiCpuPowerLimit({dataBlockIndex},{watts}): Get_WMI fallback failed: {ex.Message}");
+                        }
+                    }
+
+                    if (inParams == null || inParamsData == null)
+                    {
+                        Logger.Warn($"[MSIClaw] SetMsiCpuPowerLimit({dataBlockIndex},{watts}): Could not obtain WMI parameters");
+                        return false;
+                    }
+
+                    inParamsData.SetPropertyValue("Bytes", fullPackage);
+                    inParams.SetPropertyValue("Data", inParamsData);
+                    obj.InvokeMethod("Set_Data", inParams, null);
+
+                    Logger.Info($"[MSIClaw] SetMsiCpuPowerLimit: dataBlock={dataBlockIndex}, watts={watts} — OK");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[MSIClaw] SetMsiCpuPowerLimit({dataBlockIndex},{watts}): {ex.Message}");
+                return false;
+            }
+        }
+
         private void UpdateCurrentTDP(object sender, System.Timers.ElapsedEventArgs e)
         {
             try
             {
+                // MSI Claw: always show PL1/PL2 from last SetMsiAcpiTDP call.
+                // Bypasses the Legion WMI path (which would show AMD SPL/SPPL/FPPT labels
+                // and may return stale/wrong values from MSI ACPI WMI namespace).
+                if (Devices.DeviceDetector.DetectDevice().DeviceType == Shared.Enums.DeviceType.MSIClaw)
+                {
+                    if (intelLastPL1 >= 0)
+                    {
+                        var msiTdpString = $"PL1:{intelLastPL1}W PL2:{intelLastPL2}W";
+                        if (msiTdpString != lastTdpString)
+                        {
+                            currentTdp.SetValue(msiTdpString);
+                            lastTdpString = msiTdpString;
+                        }
+                    }
+                    return;
+                }
+
                 // Check selected TDP method
                 var settingsManager = SettingsManager.GetInstance();
                 TdpMethod tdpMethod = settingsManager?.TdpMethod?.Method ?? TdpMethod.ManufacturerWMI;

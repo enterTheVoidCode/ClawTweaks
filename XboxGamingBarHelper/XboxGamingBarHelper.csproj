@@ -82,6 +82,15 @@
     <Reference Include="HidSharp, Version=2.1.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\HidSharp.2.1.0\lib\net35\HidSharp.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.Win32.TaskScheduler">
+      <HintPath>..\packages\TaskScheduler.2.10.1\lib\net452\Microsoft.Win32.TaskScheduler.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpDX, Version=4.2.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\SharpDX.4.2.0\lib\net45\SharpDX.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpDX.DirectInput, Version=4.2.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\SharpDX.DirectInput.4.2.0\lib\net45\SharpDX.DirectInput.dll</HintPath>
+    </Reference>
     <Reference Include="LibreHardwareMonitorLib, Version=0.9.6.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\LibreHardwareMonitorLib.0.9.6\lib\net472\LibreHardwareMonitorLib.dll</HintPath>
     </Reference>
@@ -100,11 +109,20 @@
     <Reference Include="Nefarius.ViGEm.Client">
       <HintPath>..\packages\Nefarius.ViGEm.Client.1.21.256\lib\netstandard2.0\Nefarius.ViGEm.Client.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions, Version=9.0.0.10, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Extensions.Logging.Abstractions.9.0.10\lib\net462\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+    </Reference>
     <Reference Include="Nefarius.Drivers.HidHide">
-      <HintPath>..\packages\Nefarius.Drivers.HidHide.1.8.59\lib\netstandard2.0\Nefarius.Drivers.HidHide.dll</HintPath>
+      <HintPath>..\packages\Nefarius.Drivers.HidHide.3.3.0\lib\netstandard2.0\Nefarius.Drivers.HidHide.dll</HintPath>
     </Reference>
     <Reference Include="Nefarius.Utilities.DeviceManagement">
-      <HintPath>..\packages\Nefarius.Utilities.DeviceManagement.4.0.0\lib\net48\Nefarius.Utilities.DeviceManagement.dll</HintPath>
+      <HintPath>..\packages\Nefarius.Utilities.DeviceManagement.5.1.0\lib\net48\Nefarius.Utilities.DeviceManagement.dll</HintPath>
+    </Reference>
+    <Reference Include="Nefarius.Vicius.Abstractions">
+      <HintPath>..\packages\Nefarius.Vicius.Abstractions.1.4.1\lib\net48\Nefarius.Vicius.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Net.Http.Json, Version=9.0.0.10, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Net.Http.Json.9.0.10\lib\net462\System.Net.Http.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
@@ -252,6 +270,7 @@
     <Compile Include="Startup\Program.PowerSourceHandler.cs" />
     <Compile Include="Startup\Program.HotkeyHandlers.cs" />
     <Compile Include="Startup\Program.Labs.cs" />
+    <Compile Include="Startup\Program.MSIClaw.cs" />
     <Compile Include="Startup\Program.ScreenSaver.cs" />
     <Compile Include="Startup\Program.AutoHibernate.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -286,6 +305,7 @@
     <Compile Include="Intel\IntelFpsTierProperty.cs" />
     <Compile Include="Intel\FpsCapModeProperty.cs" />
     <Compile Include="Intel\KxExeService.cs" />
+    <Compile Include="MSI\ServiceUtils.cs" />
     <Compile Include="MSI\MsiCenterManager.cs" />
     <Compile Include="MSI\MsiCenterActiveProperty.cs" />
     <Compile Include="Settings\AutoStartRTSSProperty.cs" />
@@ -357,6 +377,8 @@
     <Compile Include="Devices\LegionGo2\LegionGo2Config.cs" />
     <Compile Include="Devices\LegionGoS\LegionGoSConfig.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawConfig.cs" />
+    <Compile Include="Devices\MSIClaw\MSIClawHidController.cs" />
+    <Compile Include="Devices\MSIClaw\MSIClawViGEmForwarder.cs" />
     <Compile Include="Devices\GPD\GPDWinMiniConfig.cs" />
     <Compile Include="Devices\GPD\GPDWin4Config.cs" />
     <Compile Include="Devices\GPD\GPDWin5Config.cs" />
@@ -387,6 +409,7 @@
     <Compile Include="ControllerEmulation\ControllerEmulationManager.GyroMouse.cs" />
     <Compile Include="ControllerEmulation\ControllerEmulationManager.GyroStick.cs" />
     <Compile Include="ControllerEmulation\ControllerEmulationManager.GyroActivation.cs" />
+    <Compile Include="ControllerEmulation\ClawGyroSourceAdapter.cs" />
     <Compile Include="ControllerEmulation\ControllerEmulationManager.GyroSource.cs" />
     <Compile Include="ControllerEmulation\ControllerEmulationProperties.cs" />
     <Compile Include="ControllerEmulation\ControllerSuppressionManager.cs" />
@@ -400,6 +423,7 @@
     <Compile Include="DefaultGameProfiles\DefaultGameProfileManager.cs" />
     <Compile Include="Labs\ViGEmController.cs" />
     <Compile Include="Labs\LegionButtonMonitor.cs" />
+    <Compile Include="Labs\ClawButtonMonitor.cs" />
     <Compile Include="Labs\ViGEmBusProperties.cs" />
     <Compile Include="Labs\HidHideProperties.cs" />
     <Compile Include="Icons\GameIconHelper.cs" />
