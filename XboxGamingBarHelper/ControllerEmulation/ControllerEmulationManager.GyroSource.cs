@@ -95,10 +95,9 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     return new WindowsSensorGyroSourceAdapter("GPD Internal Gyro");
 
                 case SharedDeviceType.MSIClaw:
-                    // 1:1 from HC ClawA1M: Windows Sensor path + device-specific axis remapping.
-                    // ClawGyroSourceAdapter wraps WindowsSensorGyroSourceAdapter and applies
-                    // HC's GyrometerAxis/AxisSwap and AccelerometerAxis/AxisSwap transforms.
-                    return new ClawGyroSourceAdapter();
+                    // Gyro temporarily disabled: always-on issue when controller emulation active.
+                    // ClawGyroSourceAdapter is implemented and ready — re-enable by returning new ClawGyroSourceAdapter().
+                    return null;
 
                 default:
                     return null;
