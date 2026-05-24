@@ -262,30 +262,30 @@ namespace XboxGamingBar
             AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4", order: order++);
 
             // Row 2 - Performance Fine-tuning
-            AddTileDefinition("EPP", "EPP", "\uE83E", order: order++);
+            // AddTileDefinition("EPP", "EPP", "\uE83E", order: order++);  // removed: AMD EPP \u2014 Intel uses HWP/EPP differently, no direct slider
             // AddTileDefinition("RadeonChill", "Chill", "\uE9CA", order: order++);  // removed: AMD-only feature
             AddTileDefinition("Profile", "Profile", "\uE77B", order: order++);
 
             // Row 3 - Display
             AddTileDefinition("Resolution", "Resolution", "\uE7F8", order: order++);
             AddTileDefinition("Rotation", "Rotation", "\uE7AD", order: order++);
-            AddTileDefinition("HDR", "HDR", "\uE706", order: order++);
+            // AddTileDefinition("HDR", "HDR", "\uE706", order: order++);  // removed: MSI Claw has no HDR output
             AddTileDefinition("Fullscreen", "Fullscreen", "\uE740", order: order++);
 
-            // Row 4 - AMD Graphics Features
-            // AddTileDefinition("RSR", "RSR", "\uE8B3", order: order++);  // removed: AMD-only feature
-            // AddTileDefinition("RIS", "RIS", "\uE8B3", order: order++);  // removed: AMD-only feature
-            AddTileDefinition("AFMF", "AFMF", "\uE916", order: order++);
-            AddTileDefinition("AntiLag", "Anti-Lag", "\uE916", order: order++);
+            // Row 4 - Overlay Tools (hotkey tiles \u2014 close Game Bar then send key to game)
+            // AddTileDefinition("AFMF", "AFMF", "\uE916", order: order++);   // removed: AMD-only feature
+            // AddTileDefinition("AntiLag", "Anti-Lag", "\uE916", order: order++);  // removed: AMD-only feature
+            AddTileDefinition("OptiScaler", "OptiScaler", "\uE736", order: order++);  // sends Insert key
+            AddTileDefinition("ReShade",    "ReShade",    "\uE8B8", order: order++);  // sends Home/Pos1 key
 
             // Row 5 - Scaling/Quality
             AddTileDefinition("LosslessScaling", "Lossless", "\uE740", order: order++);
             // Note: "Overlay" tile is defined above at order=1 (pinned to top-left)
 
             // Row 6 - Input & Interaction
-            AddTileDefinition("ScreenSaver", "Idle Screen Off", "\uE7E8", order: order++);
+            // AddTileDefinition("ScreenSaver", "Idle Screen Off", "\uE7E8", order: order++);  // removed: not needed on Claw
             AddTileDefinition("Keyboard", "Keyboard", "\uE765", isTrigger: true, order: order++);
-            AddTileDefinition("LegionTouchpad", "Touchpad", "\uE962", order: order++);
+            // AddTileDefinition("LegionTouchpad", "Touchpad", "\uE962", order: order++);  // removed: MSI Claw has no touchpad
             AddTileDefinition("LegionRemapControls", "Remap", "\uE7FC", order: order++);
             AddTileDefinition("LegionDesktopControls", "Desktop", "\uE7F4", order: order++);
             // Quick toggle for the legacy controller emulation backend; state text shows
@@ -294,7 +294,7 @@ namespace XboxGamingBar
 
             // Row 7 - System/Device
             AddTileDefinition("MsiCenter", "MSI Center", "\uE7F4", order: order++);  // MSI Center M OEM software toggle
-            AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);
+            // AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);  // removed: Legion-specific RGB light mode
             AddTileDefinition("LegionPowerLight", "Power Light", "\uE7E8", order: order++);
             AddTileDefinition("LegionChargeLimit", "Charge Limit", "\uE83F", order: order++);
             // AddTileDefinition("LegionFanFullSpeed", "Fan Max", "\uE9CA", order: order++);  // removed: Legion-only feature
