@@ -419,7 +419,7 @@
                     <RadioButton x:Name="ProfilesNavItem" Content="Profiles" Tag="Game" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
                     <RadioButton x:Name="GraphicsNavItem" Content="Display" Tag="AMD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
                     <RadioButton x:Name="ScalingNavItem" Content="Scale" Tag="Scaling" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
-                    <RadioButton x:Name="LegionNavItem" Content="Legion" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked"/>
+                    <RadioButton x:Name="LegionNavItem" Content="Controller (Claw)" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked"/>
                     <RadioButton x:Name="GPDNavItem" Content="GPD" Tag="GPD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked"/>
                     <RadioButton x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
                 </StackPanel>
@@ -497,7 +497,7 @@
                                                FontSize="14"
                                                FontWeight="SemiBold"
                                                Foreground="#F0F0F0"/>
-                                    <TextBlock Text="Tap to view on the Legion tab"
+                                    <TextBlock Text="Tap to view on the Controller tab"
                                                FontSize="11"
                                                Foreground="#A0A0A0"/>
                                 </StackPanel>
@@ -2963,7 +2963,7 @@
                                             Value="35"
                                             ValueChanged="TDPLimitsMaxSlider_ValueChanged"
                                             XYFocusUp="{x:Bind TDPLimitsMinSlider}"
-                                            XYFocusDown="{x:Bind TDPBoostSPPTSlider}"
+                                            XYFocusDown="{x:Bind TDPBoostFPPTSlider}"
                                             />
 
                                     <!-- Separator -->
@@ -2987,39 +2987,16 @@
                                                        VerticalAlignment="Top"
                                                        Margin="0,2,8,0"/>
                                             <TextBlock Grid.Column="1"
-                                                       Text="When TDP Boost is enabled, SPPT and FPPT will be set to TDP + boost value for short bursts of higher power."
+                                                       Text="When TDP Boost is enabled, PL2 will be set to TDP + PL2-Boost for short bursts of higher power. PL2 is always at least PL1+1W."
                                                        Foreground="#A0D4A0"
                                                        FontSize="12"
                                                        TextWrapping="Wrap"/>
                                         </Grid>
                                     </Border>
 
-                                    <!-- SPPT Boost -->
+                                    <!-- PL2-Boost -->
                                     <Grid Margin="0,0,0,8">
-                                        <TextBlock Text="SPPT Boost"
-                                                   FontSize="14"
-                                                   Foreground="#FFFFFF"
-                                                   VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="TDPBoostSPPTValue"
-                                                   Text="1W"
-                                                   FontSize="14"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-                                    <Slider x:Name="TDPBoostSPPTSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="10"
-                                            TickFrequency="1"
-                                            SnapsTo="Ticks"
-                                            ValueChanged="TDPBoostSPPTSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind TDPLimitsMaxSlider}"
-                                            XYFocusDown="{x:Bind TDPBoostFPPTSlider}"
-                                            />
-
-                                    <!-- FPPT Boost -->
-                                    <Grid Margin="0,12,0,8">
-                                        <TextBlock Text="FPPT Boost"
+                                        <TextBlock Text="PL2-Boost"
                                                    FontSize="14"
                                                    Foreground="#FFFFFF"
                                                    VerticalAlignment="Center"/>
@@ -3032,11 +3009,11 @@
                                     </Grid>
                                     <Slider x:Name="TDPBoostFPPTSlider"
                                             Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="15"
+                                            Minimum="0" Maximum="37"
                                             TickFrequency="1"
                                             SnapsTo="Ticks"
                                             ValueChanged="TDPBoostFPPTSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind TDPBoostSPPTSlider}"
+                                            XYFocusUp="{x:Bind TDPLimitsMaxSlider}"
                                             XYFocusDown="{x:Bind UseCustomTDPPresetsToggle}"
                                             />
 
