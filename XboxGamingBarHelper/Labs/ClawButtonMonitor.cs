@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using NLog;
 using HidSharp;
@@ -74,6 +75,25 @@ namespace XboxGamingBarHelper.Labs
         private const ushort XI_X          = 0x4000;
         private const ushort XI_Y          = 0x8000;
 
+        // ── Gyro constants (1:1 from ControllerEmulationManager) ─────────────────
+        private const float GyroMousePixelsPerDeg  = 24.0f;       // MousePixelsPerDegree
+        private const float GyroMouseSensPower     = 1.35f;       // MouseSensitivityPower
+        private const int   GyroMouseMaxPixelFrame = 220;         // MouseMaxPixelsPerFrame
+        private const float GyroMouseMaxDegPerSec  = 720.0f;      // MouseMaxDegPerSecond
+        private const float GyroStickMaxDps        = 220.0f;      // StickDegreesPerSecondAtFullDeflection
+        private const float GyroOneEuroMinCutoff   = 1.2f;        // OneEuroMinCutoff
+        private const float GyroOneEuroBeta        = 0.25f;       // OneEuroBeta
+        private const float GyroOneEuroDerivCutoff = 1.5f;        // OneEuroDerivativeCutoff
+        private const float GyroDeltaDefault       = 1.0f / 250.0f; // DefaultDeltaSeconds
+        private const float GyroDeltaMin           = 0.002f;      // MinDeltaSeconds
+        private const float GyroDeltaMax           = 0.05f;       // MaxDeltaSeconds
+
+        // ── Gyro mouse P/Invoke ───────────────────────────────────────────────────
+        // Using mouse_event (simpler than SendInput — no struct needed, same effect).
+        [DllImport("user32.dll")]
+        private static extern void mouse_event(uint dwFlags, int dx, int dy, uint dwData, IntPtr dwExtraInfo);
+        private const uint MOUSEEVENTF_MOVE = 0x0001;
+
         // ── State ─────────────────────────────────────────────────────────────────
 
         // Command interface (PID 0x1901, UsagePage 0xFFA0): HidSharp device for mode-switch commands.
@@ -104,6 +124,35 @@ namespace XboxGamingBarHelper.Labs
 
         // Edge-detection for M1/M2
         private bool _prevM1, _prevM2;
+
+        // ── Gyro state ────────────────────────────────────────────────────────────
+        // Written from UI/profile thread via SetGyro*(); read from MonitorLoop thread.
+        // Volatile ensures writes are visible to the poll thread without a lock.
+        private volatile int  _gyroTarget;              // 0=Disabled,1=LeftStick,2=RightStick,3=Mouse
+        private volatile int  _gyroActivationMode;      // 0=Hold, 1=Toggle
+        private volatile int  _gyroActivationButton;    // 0=None,1=LB,2=LT,3=RB,4=RT
+        private volatile int  _gyroSensitivityX = 50;   // 0-100 (from LegionGyroSensitivityX)
+        private volatile int  _gyroSensitivityY = 50;   // 0-100 (from LegionGyroSensitivityY)
+        private volatile int  _gyroDeadzone = 10;       // degrees/sec (from LegionGyroDeadzone)
+        private volatile bool _gyroInvertX;
+        private volatile bool _gyroInvertY;
+
+        // Adapter — read on monitor thread; written under _gyroTarget checks from UI thread.
+        // Reference reads/writes are atomic on .NET; capture to local before use.
+        private ClawGyroSourceAdapter _gyroAdapter;
+
+        // Activation gate — accessed only from monitor thread (ProcessDirectInputState).
+        private bool  _gyroToggleActive;
+        private bool  _prevGyroButtonPressed;
+
+        // One-Euro filter state — shared between stick and mouse paths (only one active).
+        // Accessed only from monitor thread.
+        private bool  _gyroFilterInit;
+        private float _gyroFiltH, _gyroFiltV, _gyroDerivH, _gyroDerivV;
+        private long  _gyroLastSampleTicks;
+
+        // Sub-pixel carry for mouse mode — monitor thread only.
+        private float _gyroCarryX, _gyroCarryY;
 
         // XInput gamepad action remapping for M1/M2 (mirrors HC LayoutManager.MapController()).
         // Disabled = no XInput remap applied (button acts as callback-only or passes through).
@@ -178,6 +227,38 @@ namespace XboxGamingBarHelper.Labs
         }
 
         /// <summary>
+        /// Set the gyro output target. 0=Disabled, 1=LeftStick, 2=RightStick, 3=Mouse.
+        /// Starts or stops the ClawGyroSourceAdapter accordingly.
+        /// Mirrors LegionGyroTargetProperty → LegionManager.SetGyroTarget().
+        /// </summary>
+        public void SetGyroTarget(int target)
+        {
+            _gyroTarget = target;
+            UpdateGyroAdapter();
+        }
+
+        /// <summary>0=Hold (button must be held), 1=Toggle (rising edge flips active state).</summary>
+        public void SetGyroActivationMode(int mode) => _gyroActivationMode = mode;
+
+        /// <summary>0=None (always active), 1=LB, 2=LT, 3=RB, 4=RT.</summary>
+        public void SetGyroActivationButton(int button) => _gyroActivationButton = button;
+
+        /// <summary>Horizontal sensitivity 0-100 (used as gain scale for mouse/stick output).</summary>
+        public void SetGyroSensitivityX(int val) => _gyroSensitivityX = val;
+
+        /// <summary>Vertical sensitivity 0-100 (used as gain scale for mouse/stick output).</summary>
+        public void SetGyroSensitivityY(int val) => _gyroSensitivityY = val;
+
+        /// <summary>Invert horizontal gyro output.</summary>
+        public void SetGyroInvertX(bool val) => _gyroInvertX = val;
+
+        /// <summary>Invert vertical gyro output.</summary>
+        public void SetGyroInvertY(bool val) => _gyroInvertY = val;
+
+        /// <summary>Deadzone in degrees/sec (applied before filter and output).</summary>
+        public void SetGyroDeadzone(int val) => _gyroDeadzone = val;
+
+        /// <summary>
         /// Start monitoring. Returns false only if ViGEmBus is unavailable.
         ///
         /// ClawButtonMonitor is the primary emulation path for MSI Claw — it always starts
@@ -200,6 +281,9 @@ namespace XboxGamingBarHelper.Labs
             _running = true;
             _thread = new Thread(MonitorLoop) { IsBackground = true, Name = "ClawButtonMonitor" };
             _thread.Start();
+
+            // Start gyro adapter if a target is already configured (e.g. profile was loaded before Start).
+            UpdateGyroAdapter();
 
             Logger.Info("ClawButtonMonitor: Started");
             return true;
@@ -257,6 +341,7 @@ namespace XboxGamingBarHelper.Labs
             else
                 Logger.Warn($"ClawButtonMonitor: Stop() — SwitchMode(XInput) failed after {waited}ms; firmware may stay in DInput mode");
 
+            StopGyroAdapter();
             CleanupHandles();
 
             if (_vigem != null && _ownsVigem)
@@ -637,6 +722,41 @@ namespace XboxGamingBarHelper.Labs
                     ref xiBtnsOut, ref ltrigOut, ref rtrigOut,
                     ref leftXOut, ref leftYOut, ref rightXOut, ref rightYOut);
 
+            // Gyro processing — MSI Claw path.
+            // ControllerEmulationManager is suppressed for MSIClaw (SetSuppressedByViiper),
+            // so gyro must live here in the DInput poll loop (1:1 from HC MotionManager gate logic).
+            int gyroTarget = _gyroTarget;
+            var gyroAdapterLocal = _gyroAdapter;
+            if (gyroTarget != 0 && gyroAdapterLocal != null)
+            {
+                try
+                {
+                    if (gyroAdapterLocal.TryGetLatestSample(out GyroSample gyroSample))
+                    {
+                        bool gyroActive = IsGyroActive(state);
+                        if (gyroActive)
+                        {
+                            if (gyroTarget == 3) // Mouse
+                            {
+                                ApplyGyroMouse(gyroSample);
+                            }
+                            else // 1=LeftStick, 2=RightStick
+                            {
+                                ApplyGyroToStick(gyroSample, out short gx, out short gy);
+                                if (gyroTarget == 1)
+                                    MergeGyroStick(ref leftXOut, ref leftYOut, gx, gy);
+                                else
+                                    MergeGyroStick(ref rightXOut, ref rightYOut, gx, gy);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"ClawButtonMonitor: Gyro processing exception: {ex.Message}");
+                }
+            }
+
             // Forward to ViGEm (with XInput remaps applied)
             if (_vigem != null && _vigem.IsPluggedIn)
                 _vigem.SubmitXboxState(xiBtnsOut, ltrigOut, rtrigOut, leftXOut, leftYOut, rightXOut, rightYOut);
@@ -789,6 +909,293 @@ namespace XboxGamingBarHelper.Labs
             }
             Logger.Info("ClawButtonMonitor: ViGEm Xbox360 controller plugged in");
             return true;
+        }
+
+        // ── Gyro adapter lifecycle ────────────────────────────────────────────────
+
+        /// <summary>
+        /// Start or stop ClawGyroSourceAdapter based on the current _gyroTarget.
+        /// Called from SetGyroTarget() and Start(). Safe to call when not running
+        /// (will be a no-op if _running is false).
+        /// </summary>
+        private void UpdateGyroAdapter()
+        {
+            if (!_running || _gyroTarget == 0)
+            {
+                StopGyroAdapter();
+                return;
+            }
+            if (_gyroAdapter != null) return; // already running
+            var adapter = new ClawGyroSourceAdapter();
+            if (!adapter.Start())
+            {
+                adapter.Dispose();
+                Logger.Warn("ClawButtonMonitor: ClawGyroSourceAdapter failed to start");
+                return;
+            }
+            _gyroAdapter = adapter;
+            Logger.Info("ClawButtonMonitor: ClawGyroSourceAdapter started");
+        }
+
+        private void StopGyroAdapter()
+        {
+            var adapter = _gyroAdapter;
+            _gyroAdapter = null;
+            if (adapter == null) return;
+            try { adapter.Stop(); } catch { }
+            try { adapter.Dispose(); } catch { }
+            // Reset all filter / activation state so next Start() is clean.
+            _gyroToggleActive = false;
+            _prevGyroButtonPressed = false;
+            _gyroCarryX = _gyroCarryY = 0;
+            _gyroFilterInit = false;
+            _gyroLastSampleTicks = 0;
+            Logger.Info("ClawButtonMonitor: ClawGyroSourceAdapter stopped");
+        }
+
+        // ── Gyro activation gate (HC MotionManager.IsActive / MotionMode port) ───
+
+        /// <summary>
+        /// Returns true when gyro output should be applied this frame.
+        /// Ported 1:1 from HC MotionManager gate logic:
+        ///   _gyroActivationMode 0 = Hold  (HC MotionMode.Off  → button held → active)
+        ///   _gyroActivationMode 1 = Toggle (HC MotionMode.Toggle → rising edge → flip)
+        ///   _gyroActivationButton 0 = no button → always active when target != Disabled
+        /// </summary>
+        private bool IsGyroActive(JoystickState state)
+        {
+            int button = _gyroActivationButton;
+            if (button == 0)
+                return true; // No button configured → always active (HC: no activation button)
+
+            bool pressed = IsGyroButtonPressed(state, button);
+
+            if (_gyroActivationMode == 1) // Toggle: rising edge flips active state
+            {
+                if (pressed && !_prevGyroButtonPressed)
+                    _gyroToggleActive = !_gyroToggleActive;
+                _prevGyroButtonPressed = pressed;
+                return _gyroToggleActive;
+            }
+            else // 0 = Hold: active while button is held
+            {
+                _prevGyroButtonPressed = pressed;
+                return pressed;
+            }
+        }
+
+        /// <summary>
+        /// DInput button mapping for MSI Claw activation buttons.
+        /// Values match LegionGyroActivationButton enum for MSIClaw:
+        ///   1=LB (Buttons[4]), 2=LT (RotationX analog), 3=RB (Buttons[5]), 4=RT (RotationY analog).
+        /// Threshold of 8192 on analog triggers mirrors HC's XINPUT_TRIGGER_THRESHOLD (30/255 × 65535 ≈ 7710).
+        /// </summary>
+        private static bool IsGyroButtonPressed(JoystickState state, int button)
+        {
+            switch (button)
+            {
+                case 1: return state.Buttons.Length > 4 && state.Buttons[4];  // LB
+                case 2: return state.RotationX > 8192;                         // LT (analog, range 0-65535)
+                case 3: return state.Buttons.Length > 5 && state.Buttons[5];  // RB
+                case 4: return state.RotationY > 8192;                         // RT (analog)
+                default: return false;
+            }
+        }
+
+        // ── Gyro-to-stick (simplified HC ApplyStickFromGyro port) ────────────────
+
+        /// <summary>
+        /// Converts a gyro sample to a virtual stick deflection.
+        /// Simplified port of HC ControllerEmulationManager.ApplyStickFromGyro():
+        ///   Yaw mode: horizontal = GyroY, vertical = GyroX (negated for natural feel).
+        ///   Applies deadzone, One-Euro filter, sensitivity scale, then normalises to int16.
+        /// </summary>
+        private void ApplyGyroToStick(GyroSample sample, out short outputX, out short outputY)
+        {
+            // HC Yaw mode: Y-axis = yaw (horizontal), X-axis = pitch (vertical, negated)
+            float h = sample.GyroYDegPerSecond;
+            float v = sample.GyroXDegPerSecond;
+
+            if (_gyroInvertX) h = -h;
+            if (_gyroInvertY) v = -v;
+
+            // Deadzone (1:1 from HC ApplyDeadzone)
+            float dz = Math.Max(0.0f, _gyroDeadzone);
+            h = GyroApplyDeadzone(h, dz);
+            v = GyroApplyDeadzone(v, dz);
+
+            // Delta time for One-Euro filter
+            long nowTicks = sample.TimestampTicksUtc > 0 ? sample.TimestampTicksUtc : DateTime.UtcNow.Ticks;
+            float dt = GyroDeltaDefault;
+            if (_gyroLastSampleTicks > 0)
+            {
+                float raw = (nowTicks - _gyroLastSampleTicks) / (float)TimeSpan.TicksPerSecond;
+                if (raw > 0 && raw < 1.0f) dt = Math.Max(GyroDeltaMin, Math.Min(GyroDeltaMax, raw));
+            }
+            _gyroLastSampleTicks = nowTicks;
+
+            // One-Euro filter (1:1 from HC ApplyOneEuroAxis)
+            if (!_gyroFilterInit)
+            {
+                _gyroFiltH = h; _gyroFiltV = v;
+                _gyroDerivH = 0; _gyroDerivV = 0;
+                _gyroFilterInit = true;
+            }
+            else
+            {
+                h = GyroOneEuro(h, ref _gyroFiltH, ref _gyroDerivH, dt);
+                v = GyroOneEuro(v, ref _gyroFiltV, ref _gyroDerivV, dt);
+            }
+
+            // Sensitivity scale (0-100 → 0.0-1.0 gain)
+            float sensX = Math.Max(0.01f, _gyroSensitivityX / 100.0f);
+            float sensY = Math.Max(0.01f, _gyroSensitivityY / 100.0f);
+            h *= sensX;
+            v *= sensY;
+
+            // Normalise: GyroStickMaxDps °/s = full stick deflection
+            float nx = Math.Max(-1.0f, Math.Min(1.0f,  h / GyroStickMaxDps));
+            float ny = Math.Max(-1.0f, Math.Min(1.0f, -v / GyroStickMaxDps)); // pitch negated
+
+            outputX = (short)Math.Round(nx * short.MaxValue);
+            outputY = (short)Math.Round(ny * short.MaxValue);
+        }
+
+        // ── Gyro-to-mouse (HC ApplyMouseFromGyro port) ───────────────────────────
+
+        /// <summary>
+        /// Converts a gyro sample to a relative mouse move.
+        /// 1:1 port of HC ControllerEmulationManager.ApplyMouseFromGyro() using Yaw/Pitch axis mode:
+        ///   horizontal = GyroY (yaw), vertical = GyroX (pitch, negated for natural feel).
+        ///   LegionGyroSensitivityX/Y used as gainX/Y (0-100 → 0.0-1.0).
+        ///   LegionGyroDeadzone used as threshold (degrees/sec).
+        /// </summary>
+        private void ApplyGyroMouse(GyroSample sample)
+        {
+            // HC Yaw/Pitch default axis mode (mouseAxis == 0): Y→horizontal, X→vertical
+            float h = sample.GyroYDegPerSecond;
+            float v = sample.GyroXDegPerSecond;
+
+            if (_gyroInvertX) h = -h;
+            if (_gyroInvertY) v = -v;
+
+            // Deadzone (HC: ApplyDeadzone with mouseThreshold)
+            float threshold = Math.Max(0.0f, _gyroDeadzone);
+            h = GyroApplyDeadzone(h, threshold);
+            v = GyroApplyDeadzone(v, threshold);
+            h = Math.Max(-GyroMouseMaxDegPerSec, Math.Min(GyroMouseMaxDegPerSec, h));
+            v = Math.Max(-GyroMouseMaxDegPerSec, Math.Min(GyroMouseMaxDegPerSec, v));
+
+            // Delta time
+            long sampleTicks = sample.TimestampTicksUtc > 0 ? sample.TimestampTicksUtc : DateTime.UtcNow.Ticks;
+            float dt = GyroDeltaDefault;
+            if (_gyroLastSampleTicks > 0)
+            {
+                long deltaTicks = sampleTicks - _gyroLastSampleTicks;
+                if (deltaTicks > 0 && deltaTicks < TimeSpan.TicksPerSecond)
+                {
+                    float raw = deltaTicks / (float)TimeSpan.TicksPerSecond;
+                    dt = Math.Max(GyroDeltaMin, Math.Min(GyroDeltaMax, raw));
+                }
+            }
+            _gyroLastSampleTicks = sampleTicks;
+
+            // One-Euro filter (1:1 from HC ApplyMouseFromGyro)
+            if (!_gyroFilterInit)
+            {
+                _gyroFiltH = h; _gyroFiltV = v;
+                _gyroDerivH = 0; _gyroDerivV = 0;
+                _gyroFilterInit = true;
+            }
+            else
+            {
+                h = GyroOneEuro(h, ref _gyroFiltH, ref _gyroDerivH, dt);
+                v = GyroOneEuro(v, ref _gyroFiltV, ref _gyroDerivV, dt);
+            }
+
+            // Sensitivity and gain (HC: sensitivityScale × gainXScale × MousePixelsPerDegree)
+            // LegionGyroSensitivityX/Y (0-100) used directly as per-axis gain.
+            float sensX = Math.Max(0.05f, _gyroSensitivityX / 100.0f);
+            float sensY = Math.Max(0.05f, _gyroSensitivityY / 100.0f);
+            float scaleX = (float)Math.Pow(sensX, GyroMouseSensPower);
+            float scaleY = (float)Math.Pow(sensY, GyroMouseSensPower);
+
+            float moveX = (h * dt * GyroMousePixelsPerDeg * scaleX) + _gyroCarryX;
+            float moveY = ((-v) * dt * GyroMousePixelsPerDeg * scaleY) + _gyroCarryY; // pitch negated
+
+            int dx = (int)Math.Round(moveX);
+            int dy = (int)Math.Round(moveY);
+
+            bool clampedX = false, clampedY = false;
+            if (dx >  GyroMouseMaxPixelFrame) { dx =  GyroMouseMaxPixelFrame; clampedX = true; }
+            else if (dx < -GyroMouseMaxPixelFrame) { dx = -GyroMouseMaxPixelFrame; clampedX = true; }
+            if (dy >  GyroMouseMaxPixelFrame) { dy =  GyroMouseMaxPixelFrame; clampedY = true; }
+            else if (dy < -GyroMouseMaxPixelFrame) { dy = -GyroMouseMaxPixelFrame; clampedY = true; }
+
+            _gyroCarryX = clampedX ? 0.0f : (moveX - dx);
+            _gyroCarryY = clampedY ? 0.0f : (moveY - dy);
+
+            if (dx != 0 || dy != 0)
+                mouse_event(MOUSEEVENTF_MOVE, dx, dy, 0, IntPtr.Zero);
+        }
+
+        // ── Gyro helpers (1:1 from ControllerEmulationManager static helpers) ─────
+
+        /// <summary>
+        /// Vector-magnitude-clamped stick merge. 1:1 from HC MergeStickVectors().
+        /// Gyro delta is added to the physical stick value; result is clamped to int16 range.
+        /// </summary>
+        private static void MergeGyroStick(ref short baseX, ref short baseY, short gyroX, short gyroY)
+        {
+            float sumX = baseX + gyroX;
+            float sumY = baseY + gyroY;
+            float mag = (float)Math.Sqrt(sumX * sumX + sumY * sumY);
+            if (mag > short.MaxValue && mag > 0.0f)
+            {
+                float scale = short.MaxValue / mag;
+                sumX *= scale;
+                sumY *= scale;
+            }
+            baseX = GyroClampToInt16(sumX);
+            baseY = GyroClampToInt16(sumY);
+        }
+
+        private static short GyroClampToInt16(float value)
+        {
+            if (value >  short.MaxValue) return  short.MaxValue;
+            if (value <  short.MinValue) return  short.MinValue;
+            return (short)Math.Round(value);
+        }
+
+        /// <summary>Dead-band with smooth recovery. 1:1 from HC ApplyDeadzone().</summary>
+        private static float GyroApplyDeadzone(float value, float deadzone)
+        {
+            float mag = Math.Abs(value);
+            if (mag <= deadzone) return 0.0f;
+            return Math.Sign(value) * (mag - deadzone);
+        }
+
+        /// <summary>
+        /// One-Euro low-pass filter for a single axis.
+        /// 1:1 from HC ApplyOneEuroAxis() — adaptive cutoff based on derivative magnitude.
+        /// </summary>
+        private static float GyroOneEuro(float raw, ref float filt, ref float deriv, float dt)
+        {
+            float dx = (raw - filt) / Math.Max(0.0005f, dt);
+            float dAlpha = GyroOneEuroAlpha(GyroOneEuroDerivCutoff, dt);
+            deriv += (dx - deriv) * dAlpha;
+            float dynCutoff = GyroOneEuroMinCutoff + GyroOneEuroBeta * Math.Abs(deriv);
+            float alpha = GyroOneEuroAlpha(dynCutoff, dt);
+            filt += (raw - filt) * alpha;
+            return filt;
+        }
+
+        private static float GyroOneEuroAlpha(float cutoff, float dt)
+        {
+            if (cutoff <= 0.0f) return 1.0f;
+            float dt2 = Math.Max(0.0005f, dt);
+            float tau = 1.0f / (2.0f * (float)Math.PI * cutoff);
+            return 1.0f / (1.0f + tau / dt2);
         }
     }
 }

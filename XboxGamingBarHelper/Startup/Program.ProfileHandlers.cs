@@ -284,6 +284,19 @@ namespace XboxGamingBarHelper
             Logger.Debug($"Applying LegionGyroDeadzone: {legionGyroDeadzone}{(profile.LegionGyroDeadzone.HasValue ? string.Empty : " (default)")}");
             legionManager.LegionGyroDeadzone.SetValue(legionGyroDeadzone);
 
+            // Direct ClawButtonMonitor gyro wiring.
+            // LegionControllerSetting_PropertyChanged returns early when isApplyingProfile, so
+            // the handler above never fires during profile load. We push the values directly here,
+            // bypassing the handler — same pattern used for M1/M2 in program.MSIClaw.cs.
+            clawButtonMonitor?.SetGyroTarget(legionGyroTarget);
+            clawButtonMonitor?.SetGyroActivationMode(legionGyroActivationMode);
+            clawButtonMonitor?.SetGyroActivationButton(legionGyroButton);
+            clawButtonMonitor?.SetGyroSensitivityX(legionGyroSensitivityX);
+            clawButtonMonitor?.SetGyroSensitivityY(legionGyroSensitivityY);
+            clawButtonMonitor?.SetGyroInvertX(legionGyroInvertX);
+            clawButtonMonitor?.SetGyroInvertY(legionGyroInvertY);
+            clawButtonMonitor?.SetGyroDeadzone(legionGyroDeadzone);
+
             // Stick deadzones
             if (profile.LegionLeftStickDeadzone.HasValue)
             {

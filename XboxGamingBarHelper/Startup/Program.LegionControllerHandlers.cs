@@ -115,31 +115,37 @@ namespace XboxGamingBarHelper
             {
                 Logger.Info($"Saving LegionGyroButton to profile {profileName}");
                 profileManager.CurrentProfile.LegionGyroButton = legionManager.LegionGyroActivationButton.Value;
+                clawButtonMonitor?.SetGyroActivationButton(legionManager.LegionGyroActivationButton.Value);
             }
             else if (sender == legionManager?.LegionGyroTarget)
             {
                 Logger.Info($"Saving LegionGyroTarget to profile {profileName}");
                 profileManager.CurrentProfile.LegionGyroTarget = legionManager.LegionGyroTarget.Value;
+                clawButtonMonitor?.SetGyroTarget(legionManager.LegionGyroTarget.Value);
             }
             else if (sender == legionManager?.LegionGyroSensitivityX)
             {
                 Logger.Info($"Saving LegionGyroSensitivityX to profile {profileName}");
                 profileManager.CurrentProfile.LegionGyroSensitivityX = legionManager.LegionGyroSensitivityX.Value;
+                clawButtonMonitor?.SetGyroSensitivityX(legionManager.LegionGyroSensitivityX.Value);
             }
             else if (sender == legionManager?.LegionGyroSensitivityY)
             {
                 Logger.Info($"Saving LegionGyroSensitivityY to profile {profileName}");
                 profileManager.CurrentProfile.LegionGyroSensitivityY = legionManager.LegionGyroSensitivityY.Value;
+                clawButtonMonitor?.SetGyroSensitivityY(legionManager.LegionGyroSensitivityY.Value);
             }
             else if (sender == legionManager?.LegionGyroInvertX)
             {
                 Logger.Info($"Saving LegionGyroInvertX to profile {profileName}");
                 profileManager.CurrentProfile.LegionGyroInvertX = legionManager.LegionGyroInvertX.Value;
+                clawButtonMonitor?.SetGyroInvertX(legionManager.LegionGyroInvertX.Value);
             }
             else if (sender == legionManager?.LegionGyroInvertY)
             {
                 Logger.Info($"Saving LegionGyroInvertY to profile {profileName}");
                 profileManager.CurrentProfile.LegionGyroInvertY = legionManager.LegionGyroInvertY.Value;
+                clawButtonMonitor?.SetGyroInvertY(legionManager.LegionGyroInvertY.Value);
             }
             else if (sender == legionManager?.LegionGyroMappingType)
             {
@@ -150,11 +156,13 @@ namespace XboxGamingBarHelper
             {
                 Logger.Info($"Saving LegionGyroActivationMode to profile {profileName}");
                 profileManager.CurrentProfile.LegionGyroActivationMode = legionManager.LegionGyroActivationMode.Value;
+                clawButtonMonitor?.SetGyroActivationMode(legionManager.LegionGyroActivationMode.Value);
             }
             else if (sender == legionManager?.LegionGyroDeadzone)
             {
                 Logger.Info($"Saving LegionGyroDeadzone to profile {profileName}");
                 profileManager.CurrentProfile.LegionGyroDeadzone = legionManager.LegionGyroDeadzone.Value;
+                clawButtonMonitor?.SetGyroDeadzone(legionManager.LegionGyroDeadzone.Value);
             }
             // Stick deadzones
             else if (sender == legionManager?.LegionLeftStickDeadzone)
