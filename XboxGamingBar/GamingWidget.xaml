@@ -1006,6 +1006,403 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- OSD Customization Card (Collapsible) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with Expand/Collapse -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="OSD Customization" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Customize overlay appearance and content"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="OSDCustomizeExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="OSDCustomizeExpandButton_Click"
+                                                  XYFocusUp="{x:Bind PerformanceOverlayComboBox}"
+                                                  XYFocusDown="{x:Bind TDPModeComboBox}"
+                                                  UseSystemFocusVisuals="True">
+                                        <FontIcon x:Name="OSDCustomizeExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="OSDCustomizeContent" Visibility="Collapsed" Margin="0,12,0,0">
+
+                                    <!-- OSD Provider Selection -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="OSD Provider"
+                                                       Foreground="#FFFFFF"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="14"/>
+                                            <TextBlock Text="Select overlay source"
+                                                       Foreground="#707070"
+                                                       FontSize="11"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="OSDProviderComboBox"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  Width="120"
+                                                  Grid.Column="1"
+                                                  SelectionChanged="OSDProviderComboBox_SelectionChanged"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White"
+                                                  FocusVisualSecondaryBrush="Transparent">
+                                            <ComboBoxItem Content="RTSS" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="AMD" Tag="1"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- RTSS-specific options (hidden when AMD provider is selected) -->
+                                    <StackPanel x:Name="RTSSOptionsPanel">
+                                        <!-- Overlay Level Selection -->
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Overlay Level"
+                                                       Foreground="#FFFFFF"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="14"/>
+                                            <ComboBox x:Name="OSDCustomizeLevelComboBox"
+                                                      Style="{StaticResource ModernComboBoxStyle}"
+                                                      Width="120"
+                                                      Grid.Column="1"
+                                                      SelectionChanged="OSDCustomizeLevelComboBox_SelectionChanged"
+                                                      UseSystemFocusVisuals="True"
+                                                      FocusVisualPrimaryBrush="White"
+                                                      FocusVisualSecondaryBrush="Transparent">
+                                                <ComboBoxItem Content="Basic" Tag="1" IsSelected="True"/>
+                                                <ComboBoxItem Content="Horizontal" Tag="2"/>
+                                                <ComboBoxItem Content="H. Detailed" Tag="3"/>
+                                                <ComboBoxItem Content="Full" Tag="4"/>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- Layout Settings Section -->
+                                    <TextBlock Text="Layout"
+                                               Style="{StaticResource CardTitleStyle}"
+                                               Margin="0,0,0,8"/>
+
+                                    <!-- Columns -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Columns"
+                                                       Foreground="#B0B0B0"
+                                                       FontSize="13"/>
+                                            <TextBlock Text="Items per row (1 = vertical list)"
+                                                       Foreground="#707070"
+                                                       FontSize="11"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="OSDColumnsComboBox"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  Width="80"
+                                                  Grid.Column="1"
+                                                  SelectionChanged="OSDLayoutOption_Changed"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White">
+                                            <ComboBoxItem Content="1" Tag="1"/>
+                                            <ComboBoxItem Content="2" Tag="2"/>
+                                            <ComboBoxItem Content="3" Tag="3" IsSelected="True"/>
+                                            <ComboBoxItem Content="4" Tag="4"/>
+                                            <ComboBoxItem Content="5" Tag="5"/>
+                                            <ComboBoxItem Content="6" Tag="6"/>
+                                            <ComboBoxItem Content="7" Tag="7"/>
+                                            <ComboBoxItem Content="8" Tag="8"/>
+                                            <ComboBoxItem Content="9" Tag="9"/>
+                                            <ComboBoxItem Content="10" Tag="10"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- Text Size -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Text Size"
+                                                   Foreground="#B0B0B0"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="13"/>
+                                        <ComboBox x:Name="OSDTextSizeComboBox"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  Width="100"
+                                                  Grid.Column="1"
+                                                  SelectionChanged="OSDLayoutOption_Changed"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White">
+                                            <ComboBoxItem Content="Small" Tag="50"/>
+                                            <ComboBoxItem Content="Medium" Tag="100" IsSelected="True"/>
+                                            <ComboBoxItem Content="Large" Tag="150"/>
+                                            <ComboBoxItem Content="X-Large" Tag="200"/>
+                                            <ComboBoxItem Content="XX-Large" Tag="250"/>
+                                            <ComboBoxItem Content="XXX-Large" Tag="300"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- Colors Section -->
+                                    <TextBlock Text="Colors"
+                                               Style="{StaticResource CardTitleStyle}"
+                                               Margin="0,12,0,8"/>
+
+                                    <!-- Text Color -->
+                                    <StackPanel x:Name="OSDTextColorCard" Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Text Color" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="13"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <CheckBox x:Name="OSDTextColorDynamicCheckBox"
+                                                          Content="Dynamic"
+                                                          IsChecked="True"
+                                                          Foreground="#AAAAAA"
+                                                          FontSize="11"
+                                                          Margin="0,0,8,0"
+                                                          Checked="OSDTextColorDynamic_Changed"
+                                                          Unchecked="OSDTextColorDynamic_Changed"/>
+                                                <Border x:Name="OSDTextColorPreview"
+                                                        Width="24" Height="24"
+                                                        CornerRadius="4"
+                                                        Background="White"
+                                                        BorderBrush="#50555C"
+                                                        BorderThickness="1"
+                                                        Margin="0,0,8,0"/>
+                                                <Button x:Name="OSDTextColorExpandButton"
+                                                        Content="&#xE70D;"
+                                                        FontFamily="Segoe MDL2 Assets"
+                                                        FontSize="12"
+                                                        Padding="8,4"
+                                                        Background="Transparent"
+                                                        Click="OSDTextColorExpandButton_Click"
+                                                        UseSystemFocusVisuals="True"
+                                                        FocusVisualPrimaryBrush="White"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <muxc:ColorPicker x:Name="OSDTextColorPicker"
+                                                     Visibility="Collapsed"
+                                                     Margin="0,12,0,0"
+                                                     Color="White"
+                                                     ColorSpectrumShape="Box"
+                                                     IsMoreButtonVisible="False"
+                                                     IsColorSliderVisible="False"
+                                                     IsColorChannelTextInputVisible="False"
+                                                     IsHexInputVisible="False"
+                                                     IsAlphaEnabled="False"
+                                                     IsAlphaSliderVisible="False"
+                                                     IsAlphaTextInputVisible="False"
+                                                     ColorChanged="OSDTextColorPicker_ColorChanged"/>
+                                    </StackPanel>
+
+                                    <!-- Label Color (Global) -->
+                                    <StackPanel x:Name="OSDLabelColorCard" Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Label Color" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="13"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <CheckBox x:Name="OSDLabelColorDefaultCheckBox"
+                                                          Content="Default"
+                                                          IsChecked="True"
+                                                          Foreground="#AAAAAA"
+                                                          FontSize="11"
+                                                          Margin="0,0,8,0"
+                                                          Checked="OSDLabelColorDefault_Changed"
+                                                          Unchecked="OSDLabelColorDefault_Changed"/>
+                                                <Border x:Name="OSDLabelColorPreview"
+                                                        Width="24" Height="24"
+                                                        CornerRadius="4"
+                                                        Background="#00FFFF"
+                                                        BorderBrush="#50555C"
+                                                        BorderThickness="1"
+                                                        Margin="0,0,8,0"/>
+                                                <Button x:Name="OSDLabelColorExpandButton"
+                                                        Content="&#xE70D;"
+                                                        FontFamily="Segoe MDL2 Assets"
+                                                        FontSize="12"
+                                                        Padding="8,4"
+                                                        Background="Transparent"
+                                                        Click="OSDLabelColorExpandButton_Click"
+                                                        UseSystemFocusVisuals="True"
+                                                        FocusVisualPrimaryBrush="White"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <muxc:ColorPicker x:Name="OSDLabelColorPicker"
+                                                     Visibility="Collapsed"
+                                                     Margin="0,12,0,0"
+                                                     Color="#00FFFF"
+                                                     ColorSpectrumShape="Box"
+                                                     IsMoreButtonVisible="False"
+                                                     IsColorSliderVisible="False"
+                                                     IsColorChannelTextInputVisible="False"
+                                                     IsHexInputVisible="False"
+                                                     IsAlphaEnabled="False"
+                                                     IsAlphaSliderVisible="False"
+                                                     IsAlphaTextInputVisible="False"
+                                                     ColorChanged="OSDLabelColorPicker_ColorChanged"/>
+                                    </StackPanel>
+
+                                    <!-- OSD Opacity Slider (for OLED protection) -->
+                                    <StackPanel Margin="0,8,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="OSD Opacity" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="13"/>
+                                            <TextBlock x:Name="OSDOpacityValue"
+                                                       Grid.Column="1"
+                                                       Text="100%" FontSize="13" Foreground="#4CAF50"
+                                                       FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <TextBlock Text="Reduce OSD brightness to protect OLED pixels" Foreground="#707070" FontSize="11" Margin="0,2,0,4"/>
+                                        <Slider x:Name="OSDOpacitySlider"
+                                                Style="{StaticResource ModernSliderStyle}"
+                                                Minimum="10" Maximum="100"
+                                                TickFrequency="5"
+                                                SnapsTo="Ticks"
+                                                Value="100"
+                                                ValueChanged="OSDOpacitySlider_ValueChanged"/>
+                                    </StackPanel>
+
+                                    <!-- Position Shift Toggle (OLED burn-in protection) -->
+                                    <Grid Margin="0,4,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Position Shift" Foreground="#AAAAAA" FontSize="13"/>
+                                            <TextBlock Text="Shifts OSD every minute to prevent burn-in" Foreground="#707070" FontSize="11"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="OSDPositionShiftToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="OSDPositionShiftToggle_Toggled"/>
+                                    </Grid>
+
+                                    <!-- Frametime Graph Pinned Toggle -->
+                                    <Grid Margin="0,4,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Pin Frametime Graph" Foreground="#AAAAAA" FontSize="13"/>
+                                            <TextBlock Text="Always display graph on its own row at bottom" Foreground="#707070" FontSize="11"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="FrametimeGraphPinnedToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="FrametimeGraphPinnedToggle_Toggled"/>
+                                    </Grid>
+
+                                        <!-- Items Section -->
+                                        <TextBlock Text="Items to Display"
+                                                   Style="{StaticResource CardTitleStyle}"
+                                                   Margin="0,12,0,8"/>
+
+                                        <!-- OSD Items with reordering -->
+                                        <ItemsControl x:Name="OSDItemsControl">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <CheckBox Grid.Column="0"
+                                                                  Content="{Binding DisplayName}"
+                                                                  IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                                  Foreground="#FFFFFF"
+                                                                  Tag="{Binding Id}"
+                                                                  UseSystemFocusVisuals="True"
+                                                                  FocusVisualPrimaryBrush="White"
+                                                                  FocusVisualSecondaryBrush="Transparent"
+                                                                  Checked="OSDItemCheckBox_Changed"
+                                                                  Unchecked="OSDItemCheckBox_Changed"/>
+
+                                                        <Button Grid.Column="1"
+                                                                Content="&#xE70E;"
+                                                                FontFamily="Segoe MDL2 Assets"
+                                                                FontSize="10"
+                                                                Width="28" Height="24"
+                                                                Padding="0"
+                                                                Margin="4,0,0,0"
+                                                                Background="Transparent"
+                                                                Tag="{Binding Id}"
+                                                                IsEnabled="{Binding CanMoveUp}"
+                                                                Click="OSDItemMoveUp_Click"/>
+
+                                                        <Button Grid.Column="2"
+                                                                Content="&#xE70D;"
+                                                                FontFamily="Segoe MDL2 Assets"
+                                                                FontSize="10"
+                                                                Width="28" Height="24"
+                                                                Padding="0"
+                                                                Margin="4,0,0,0"
+                                                                Background="Transparent"
+                                                                Tag="{Binding Id}"
+                                                                IsEnabled="{Binding CanMoveDown}"
+                                                                Click="OSDItemMoveDown_Click"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <!-- Custom RTSS Tags Section -->
+                                        <TextBlock Text="Custom RTSS Tags"
+                                                   Style="{StaticResource CardTitleStyle}"
+                                                   Margin="0,16,0,4"/>
+                                        <TextBlock Text="Add custom RTSS tags (e.g. &lt;FR&gt; for FPS)"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   Margin="0,0,0,8"/>
+                                        <TextBox x:Name="OSDCustomTagsTextBox"
+                                                 PlaceholderText="Enter custom RTSS tags..."
+                                                 TextWrapping="Wrap"
+                                                 AcceptsReturn="True"
+                                                 Height="60"
+                                                 TextChanged="OSDCustomTagsTextBox_TextChanged"/>
+                                    </StackPanel>
+
+                                    <!-- AMD-specific info (shown when AMD provider is selected) -->
+                                    <StackPanel x:Name="AMDOptionsPanel" Visibility="Collapsed">
+                                        <TextBlock Text="AMD Adrenaline Overlay"
+                                                   Style="{StaticResource CardTitleStyle}"
+                                                   Margin="0,0,0,8"/>
+                                        <TextBlock Text="The AMD overlay is controlled through Adrenaline software. Use Ctrl+Shift+O to toggle and Ctrl+Shift+X to cycle overlay levels."
+                                                   Foreground="#A0A0A0"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <!-- TDP Mode Card (all devices) -->
                         <Border x:Name="TDPModeCard" Style="{StaticResource CardStyle}">
                             <Grid>
@@ -2109,74 +2506,6 @@
                             </Grid>
                         </Border>
 
-                        <!-- HDR Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="HDR" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="High Dynamic Range" Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="HDRToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
-                                </Grid>
-
-                                <!-- SDR Brightness Sync — only meaningful when HDR is on, but keep visible whenever the card is so users can pre-select a mode. -->
-                                <StackPanel x:Name="SdrWhiteLevelSyncPanel"
-                                            Margin="0,12,0,0">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="SDR Brightness Sync" FontSize="14" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Tie SDR content brightness to the backlight slider while HDR is on"
-                                                       Style="{StaticResource CardCaptionStyle}"
-                                                       TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <ComboBox x:Name="SdrWhiteLevelSyncModeComboBox"
-                                                  Grid.Column="1"
-                                                  Width="170"
-                                                  Style="{StaticResource ModernComboBoxStyle}">
-                                            <x:String>Off</x:String>
-                                            <x:String>Auto (recommended)</x:String>
-                                            <x:String>Legion Go 2 preset</x:String>
-                                        </ComboBox>
-                                    </Grid>
-                                    <TextBlock Margin="0,8,0,0"
-                                               TextWrapping="Wrap"
-                                               FontSize="11"
-                                               Foreground="#9AA0A6"
-                                               Text="Windows leaves SDR White Level static in HDR mode, so SDR apps blow out at high backlight and look gray when dimmed. This setting listens for backlight changes and rewrites the SDR White Level (the same value Windows Settings → HDR → SDR content brightness controls) on each change. Auto uses a generic 80–480 nit gamma curve; Legion Go 2 preset uses a panel-specific empirical curve."/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Adaptive Brightness Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Adaptive Brightness" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Auto-adjust based on ambient light (requires sensor)" Style="{StaticResource CardCaptionStyle}"/>
-                                </StackPanel>
-                                <ToggleSwitch x:Name="AdaptiveBrightnessToggle"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              Toggled="AdaptiveBrightnessToggle_Toggled"/>
-                            </Grid>
-                        </Border>
-
                         <!-- Display Color Settings Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -2229,214 +2558,6 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- AMD Section Header -->
-                        <TextBlock Text="AMD"
-                                   FontSize="16"
-                                   Foreground="#00C8FF"
-                                   FontWeight="SemiBold"
-                                   Margin="0,16,0,8"/>
-
-                        <!-- Radeon Super Resolution Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Radeon Super Resolution" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Upscales lower resolutions" Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="AMDRadeonSuperResolutionToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
-                                </Grid>
-                                <Slider x:Name="AMDRadeonSuperResolutionSharpnessSlider"
-                                        Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="0" Maximum="100"
-                                        TickFrequency="10"
-                                        SnapsTo="Ticks"
-                                        TickPlacement="BottomRight"
-                                        Header="Sharpness"
-                                        IsEnabled="False"
-                                        Visibility="{Binding ElementName=AMDRadeonSuperResolutionToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Fluid Motion Frames Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Fluid Motion Frames" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Frame generation" Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="AMDFluidMotionFrameToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
-                                </Grid>
-                                <!-- AFMF 2.x extended controls (ADLX 1.5+). Visible when AFMF is on,
-                                     each ComboBox is enabled only when the v1 interface is live. -->
-                                <ComboBox x:Name="AMDFluidMotionFrameAlgorithmComboBox"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          Header="Algorithm"
-                                          HorizontalAlignment="Stretch"
-                                          IsEnabled="False"
-                                          Visibility="{Binding ElementName=AMDFluidMotionFrameToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <ComboBoxItem Content="Auto"/>
-                                    <ComboBoxItem Content="Enhanced"/>
-                                    <ComboBoxItem Content="Standard"/>
-                                </ComboBox>
-                                <ComboBox x:Name="AMDFluidMotionFrameSearchModeComboBox"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          Header="Search mode"
-                                          HorizontalAlignment="Stretch"
-                                          IsEnabled="False"
-                                          Visibility="{Binding ElementName=AMDFluidMotionFrameToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <ComboBoxItem Content="Auto"/>
-                                    <ComboBoxItem Content="Standard"/>
-                                    <ComboBoxItem Content="High"/>
-                                </ComboBox>
-                                <ComboBox x:Name="AMDFluidMotionFramePerformanceModeComboBox"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          Header="Performance mode"
-                                          HorizontalAlignment="Stretch"
-                                          IsEnabled="False"
-                                          Visibility="{Binding ElementName=AMDFluidMotionFrameToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <ComboBoxItem Content="Auto"/>
-                                    <ComboBoxItem Content="Quality"/>
-                                    <ComboBoxItem Content="Performance"/>
-                                </ComboBox>
-                                <ComboBox x:Name="AMDFluidMotionFrameFastMotionResponseComboBox"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          Header="Fast motion response"
-                                          HorizontalAlignment="Stretch"
-                                          IsEnabled="False"
-                                          Visibility="{Binding ElementName=AMDFluidMotionFrameToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <ComboBoxItem Content="Repeat frames"/>
-                                    <ComboBoxItem Content="Blended frames"/>
-                                </ComboBox>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Anti-Lag Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Radeon Anti-Lag" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Reduces input latency" Style="{StaticResource CardCaptionStyle}"/>
-                                </StackPanel>
-                                <ToggleSwitch x:Name="AMDRadeonAntiLagToggle"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False"/>
-                            </Grid>
-                        </Border>
-
-                        <!-- Radeon Boost Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Radeon Boost" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Dynamic resolution scaling" Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="AMDRadeonBoostToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False" Width="52" HorizontalAlignment="Center"/>
-                                </Grid>
-                                <Slider x:Name="AMDRadeonBoostResolutionSlider"
-                                        Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="0" Maximum="1"
-                                        TickFrequency="1"
-                                        SnapsTo="Ticks"
-                                        TickPlacement="BottomRight"
-                                        IsEnabled="False"
-                                        Visibility="{Binding ElementName=AMDRadeonBoostToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Radeon Chill Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Radeon Chill" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Power saving when idle" Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="AMDRadeonChillToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
-                                </Grid>
-                                <StackPanel Visibility="{Binding ElementName=AMDRadeonChillToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Slider x:Name="AMDRadeonChillMinFPSSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="30" Maximum="300"
-                                            StepFrequency="1"
-                                            SnapsTo="StepValues"
-                                            Header="Min FPS"
-                                            IsEnabled="False"/>
-                                    <Slider x:Name="AMDRadeonChillMaxFPSSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="30" Maximum="300"
-                                            StepFrequency="1"
-                                            SnapsTo="StepValues"
-                                            Header="Max FPS"
-                                            IsEnabled="False"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Image Sharpening Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Image Sharpening" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Sharpen in-game visuals" Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="AMDImageSharpeningToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
-                                </Grid>
-                                <Slider x:Name="AMDImageSharpeningSlider"
-                                        Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="0" Maximum="100"
-                                        TickFrequency="10"
-                                        SnapsTo="Ticks"
-                                        TickPlacement="BottomRight"
-                                        Header="Sharpness"
-                                        IsEnabled="False"
-                                        Visibility="{Binding ElementName=AMDImageSharpeningToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                            </StackPanel>
-                        </Border>
-
 
                     </StackPanel>
                 </ScrollViewer>
@@ -2457,7 +2578,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="TDP Settings" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Control method, device limits, and boost configuration"
+                                        <TextBlock Text="Device TDP limits and boost configuration"
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    TextWrapping="Wrap"/>
                                     </StackPanel>
@@ -2478,53 +2599,6 @@
 
                                 <!-- Collapsible Content -->
                                 <StackPanel x:Name="TDPSettingsContent" Visibility="Collapsed" Margin="0,12,0,0">
-
-                                    <!-- TDP Control Method Section -->
-                                    <TextBlock Text="Control Method" FontSize="13" FontWeight="SemiBold" Foreground="#AAAAAA" Margin="0,0,0,8"/>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock x:Name="TdpMethodDescription"
-                                                       Text="PawnIO is anti-cheat safe and enables full OSD sensor support."
-                                                       Style="{StaticResource CardCaptionStyle}"
-                                                       TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <ComboBox x:Name="TdpMethodComboBox"
-                                                  Width="160"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  XYFocusUp="{x:Bind TDPSettingsExpandButton}"
-                                                  XYFocusDown="{x:Bind InstallPawnIOButton}">
-                                            <ComboBoxItem x:Name="TdpMethodWmiItem" Content="Manufacturer WMI" Tag="ManufacturerWMI" Visibility="Collapsed"/>
-                                            <ComboBoxItem x:Name="TdpMethodPawnIOItem" Content="PawnIO" Tag="PawnIO"/>
-                                            <ComboBoxItem x:Name="TdpMethodWinRing0Item" Content="WinRing0 (Legacy)" Tag="WinRing0"/>
-                                        </ComboBox>
-                                    </Grid>
-
-                                    <!-- PawnIO Install Section -->
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="PawnIO Driver" FontSize="14" Foreground="White"/>
-                                            <TextBlock x:Name="PawnIOStatusText"
-                                                       Text="Signed kernel driver for hardware access"
-                                                       Style="{StaticResource CardCaptionStyle}"
-                                                       TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <Button x:Name="InstallPawnIOButton"
-                                                Grid.Column="1"
-                                                Content="Install"
-                                                Style="{StaticResource ModernButtonStyle}"
-                                                Click="InstallPawnIOButton_Click"
-                                                XYFocusUp="{x:Bind TdpMethodComboBox}"
-                                                XYFocusDown="{x:Bind TDPLimitsMinSlider}"/>
-                                    </Grid>
 
                                     <!-- Separator -->
                                     <Border Height="1" Background="#3A3A3A" Margin="0,16,0,16"/>
@@ -2569,12 +2643,12 @@
                                     </Grid>
                                     <Slider x:Name="TDPLimitsMinSlider"
                                             Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="4" Maximum="85"
+                                            Minimum="4" Maximum="30"
                                             TickFrequency="1"
                                             SnapsTo="Ticks"
                                             Value="4"
                                             ValueChanged="TDPLimitsMinSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind InstallPawnIOButton}"
+                                            XYFocusUp="{x:Bind TDPSettingsExpandButton}"
                                             XYFocusDown="{x:Bind TDPLimitsMaxSlider}"
                                             />
 
@@ -2585,7 +2659,7 @@
                                                    Foreground="#FFFFFF"
                                                    VerticalAlignment="Center"/>
                                         <TextBlock x:Name="TDPLimitsMaxValue"
-                                                   Text="35W"
+                                                   Text="30W"
                                                    FontSize="14"
                                                    Foreground="#4CAF50"
                                                    FontWeight="SemiBold"
@@ -2593,10 +2667,10 @@
                                     </Grid>
                                     <Slider x:Name="TDPLimitsMaxSlider"
                                             Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="4" Maximum="85"
+                                            Minimum="4" Maximum="30"
                                             TickFrequency="1"
                                             SnapsTo="Ticks"
-                                            Value="35"
+                                            Value="30"
                                             ValueChanged="TDPLimitsMaxSlider_ValueChanged"
                                             XYFocusUp="{x:Bind TDPLimitsMinSlider}"
                                             XYFocusDown="{x:Bind TDPBoostFPPTSlider}"
@@ -2867,402 +2941,6 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- OSD Customization Card (Collapsible) -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <!-- Header with Expand/Collapse -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="OSD Customization" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Customize overlay appearance and content"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="OSDCustomizeExpandButton"
-                                                  Grid.Column="1"
-                                                  IsChecked="False"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="OSDCustomizeExpandButton_Click"
-                                                  XYFocusUp="{x:Bind TDPSettingsExpandButton}"
-                                                  XYFocusDown="{x:Bind HotkeysExpandButton}"
-                                                  UseSystemFocusVisuals="True">
-                                        <FontIcon x:Name="OSDCustomizeExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-
-                                <!-- Collapsible Content -->
-                                <StackPanel x:Name="OSDCustomizeContent" Visibility="Collapsed" Margin="0,12,0,0">
-
-                                    <!-- OSD Provider Selection -->
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel>
-                                            <TextBlock Text="OSD Provider"
-                                                       Foreground="#FFFFFF"
-                                                       VerticalAlignment="Center"
-                                                       FontSize="14"/>
-                                            <TextBlock Text="Select overlay source"
-                                                       Foreground="#707070"
-                                                       FontSize="11"/>
-                                        </StackPanel>
-                                        <ComboBox x:Name="OSDProviderComboBox"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  Width="120"
-                                                  Grid.Column="1"
-                                                  SelectionChanged="OSDProviderComboBox_SelectionChanged"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White"
-                                                  FocusVisualSecondaryBrush="Transparent">
-                                            <ComboBoxItem Content="RTSS" Tag="0" IsSelected="True"/>
-                                            <ComboBoxItem Content="AMD" Tag="1"/>
-                                        </ComboBox>
-                                    </Grid>
-
-                                    <!-- RTSS-specific options (hidden when AMD provider is selected) -->
-                                    <StackPanel x:Name="RTSSOptionsPanel">
-                                        <!-- Overlay Level Selection -->
-                                        <Grid Margin="0,0,0,12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="Overlay Level"
-                                                       Foreground="#FFFFFF"
-                                                       VerticalAlignment="Center"
-                                                       FontSize="14"/>
-                                            <ComboBox x:Name="OSDCustomizeLevelComboBox"
-                                                      Style="{StaticResource ModernComboBoxStyle}"
-                                                      Width="120"
-                                                      Grid.Column="1"
-                                                      SelectionChanged="OSDCustomizeLevelComboBox_SelectionChanged"
-                                                      UseSystemFocusVisuals="True"
-                                                      FocusVisualPrimaryBrush="White"
-                                                      FocusVisualSecondaryBrush="Transparent">
-                                                <ComboBoxItem Content="Basic" Tag="1" IsSelected="True"/>
-                                                <ComboBoxItem Content="Horizontal" Tag="2"/>
-                                                <ComboBoxItem Content="H. Detailed" Tag="3"/>
-                                                <ComboBoxItem Content="Full" Tag="4"/>
-                                            </ComboBox>
-                                        </Grid>
-
-                                        <!-- Layout Settings Section -->
-                                    <TextBlock Text="Layout"
-                                               Style="{StaticResource CardTitleStyle}"
-                                               Margin="0,0,0,8"/>
-
-                                    <!-- Columns -->
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel>
-                                            <TextBlock Text="Columns"
-                                                       Foreground="#B0B0B0"
-                                                       FontSize="13"/>
-                                            <TextBlock Text="Items per row (1 = vertical list)"
-                                                       Foreground="#707070"
-                                                       FontSize="11"/>
-                                        </StackPanel>
-                                        <ComboBox x:Name="OSDColumnsComboBox"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  Width="80"
-                                                  Grid.Column="1"
-                                                  SelectionChanged="OSDLayoutOption_Changed"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White">
-                                            <ComboBoxItem Content="1" Tag="1"/>
-                                            <ComboBoxItem Content="2" Tag="2"/>
-                                            <ComboBoxItem Content="3" Tag="3" IsSelected="True"/>
-                                            <ComboBoxItem Content="4" Tag="4"/>
-                                            <ComboBoxItem Content="5" Tag="5"/>
-                                            <ComboBoxItem Content="6" Tag="6"/>
-                                            <ComboBoxItem Content="7" Tag="7"/>
-                                            <ComboBoxItem Content="8" Tag="8"/>
-                                            <ComboBoxItem Content="9" Tag="9"/>
-                                            <ComboBoxItem Content="10" Tag="10"/>
-                                        </ComboBox>
-                                    </Grid>
-
-                                    <!-- Text Size -->
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Text Size"
-                                                   Foreground="#B0B0B0"
-                                                   VerticalAlignment="Center"
-                                                   FontSize="13"/>
-                                        <ComboBox x:Name="OSDTextSizeComboBox"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  Width="100"
-                                                  Grid.Column="1"
-                                                  SelectionChanged="OSDLayoutOption_Changed"
-                                                  UseSystemFocusVisuals="True"
-                                                  FocusVisualPrimaryBrush="White">
-                                            <ComboBoxItem Content="Small" Tag="50"/>
-                                            <ComboBoxItem Content="Medium" Tag="100" IsSelected="True"/>
-                                            <ComboBoxItem Content="Large" Tag="150"/>
-                                            <ComboBoxItem Content="X-Large" Tag="200"/>
-                                            <ComboBoxItem Content="XX-Large" Tag="250"/>
-                                            <ComboBoxItem Content="XXX-Large" Tag="300"/>
-                                        </ComboBox>
-                                    </Grid>
-
-                                    <!-- Colors Section -->
-                                    <TextBlock Text="Colors"
-                                               Style="{StaticResource CardTitleStyle}"
-                                               Margin="0,12,0,8"/>
-
-                                    <!-- Text Color -->
-                                    <StackPanel x:Name="OSDTextColorCard" Margin="0,0,0,8">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="Text Color" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="13"/>
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <CheckBox x:Name="OSDTextColorDynamicCheckBox"
-                                                          Content="Dynamic"
-                                                          IsChecked="True"
-                                                          Foreground="#AAAAAA"
-                                                          FontSize="11"
-                                                          Margin="0,0,8,0"
-                                                          Checked="OSDTextColorDynamic_Changed"
-                                                          Unchecked="OSDTextColorDynamic_Changed"/>
-                                                <Border x:Name="OSDTextColorPreview"
-                                                        Width="24" Height="24"
-                                                        CornerRadius="4"
-                                                        Background="White"
-                                                        BorderBrush="#50555C"
-                                                        BorderThickness="1"
-                                                        Margin="0,0,8,0"/>
-                                                <Button x:Name="OSDTextColorExpandButton"
-                                                        Content="&#xE70D;"
-                                                        FontFamily="Segoe MDL2 Assets"
-                                                        FontSize="12"
-                                                        Padding="8,4"
-                                                        Background="Transparent"
-                                                        Click="OSDTextColorExpandButton_Click"
-                                                        UseSystemFocusVisuals="True"
-                                                        FocusVisualPrimaryBrush="White"/>
-                                            </StackPanel>
-                                        </Grid>
-                                        <muxc:ColorPicker x:Name="OSDTextColorPicker"
-                                                     Visibility="Collapsed"
-                                                     Margin="0,12,0,0"
-                                                     Color="White"
-                                                     ColorSpectrumShape="Box"
-                                                     IsMoreButtonVisible="False"
-                                                     IsColorSliderVisible="False"
-                                                     IsColorChannelTextInputVisible="False"
-                                                     IsHexInputVisible="False"
-                                                     IsAlphaEnabled="False"
-                                                     IsAlphaSliderVisible="False"
-                                                     IsAlphaTextInputVisible="False"
-                                                     ColorChanged="OSDTextColorPicker_ColorChanged"/>
-                                    </StackPanel>
-
-                                    <!-- Label Color (Global) -->
-                                    <StackPanel x:Name="OSDLabelColorCard" Margin="0,0,0,8">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="Label Color" Grid.Column="0" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="13"/>
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <CheckBox x:Name="OSDLabelColorDefaultCheckBox"
-                                                          Content="Default"
-                                                          IsChecked="True"
-                                                          Foreground="#AAAAAA"
-                                                          FontSize="11"
-                                                          Margin="0,0,8,0"
-                                                          Checked="OSDLabelColorDefault_Changed"
-                                                          Unchecked="OSDLabelColorDefault_Changed"/>
-                                                <Border x:Name="OSDLabelColorPreview"
-                                                        Width="24" Height="24"
-                                                        CornerRadius="4"
-                                                        Background="#00FFFF"
-                                                        BorderBrush="#50555C"
-                                                        BorderThickness="1"
-                                                        Margin="0,0,8,0"/>
-                                                <Button x:Name="OSDLabelColorExpandButton"
-                                                        Content="&#xE70D;"
-                                                        FontFamily="Segoe MDL2 Assets"
-                                                        FontSize="12"
-                                                        Padding="8,4"
-                                                        Background="Transparent"
-                                                        Click="OSDLabelColorExpandButton_Click"
-                                                        UseSystemFocusVisuals="True"
-                                                        FocusVisualPrimaryBrush="White"/>
-                                            </StackPanel>
-                                        </Grid>
-                                        <muxc:ColorPicker x:Name="OSDLabelColorPicker"
-                                                     Visibility="Collapsed"
-                                                     Margin="0,12,0,0"
-                                                     Color="#00FFFF"
-                                                     ColorSpectrumShape="Box"
-                                                     IsMoreButtonVisible="False"
-                                                     IsColorSliderVisible="False"
-                                                     IsColorChannelTextInputVisible="False"
-                                                     IsHexInputVisible="False"
-                                                     IsAlphaEnabled="False"
-                                                     IsAlphaSliderVisible="False"
-                                                     IsAlphaTextInputVisible="False"
-                                                     ColorChanged="OSDLabelColorPicker_ColorChanged"/>
-                                    </StackPanel>
-
-                                    <!-- OSD Opacity Slider (for OLED protection) -->
-                                    <StackPanel Margin="0,8,0,8">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="OSD Opacity" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="13"/>
-                                            <TextBlock x:Name="OSDOpacityValue"
-                                                       Grid.Column="1"
-                                                       Text="100%" FontSize="13" Foreground="#4CAF50"
-                                                       FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                        </Grid>
-                                        <TextBlock Text="Reduce OSD brightness to protect OLED pixels" Foreground="#707070" FontSize="11" Margin="0,2,0,4"/>
-                                        <Slider x:Name="OSDOpacitySlider"
-                                                Style="{StaticResource ModernSliderStyle}"
-                                                Minimum="10" Maximum="100"
-                                                TickFrequency="5"
-                                                SnapsTo="Ticks"
-                                                Value="100"
-                                                ValueChanged="OSDOpacitySlider_ValueChanged"/>
-                                    </StackPanel>
-
-                                    <!-- Position Shift Toggle (OLED burn-in protection) -->
-                                    <Grid Margin="0,4,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Position Shift" Foreground="#AAAAAA" FontSize="13"/>
-                                            <TextBlock Text="Shifts OSD every minute to prevent burn-in" Foreground="#707070" FontSize="11"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="OSDPositionShiftToggle"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      Toggled="OSDPositionShiftToggle_Toggled"/>
-                                    </Grid>
-
-                                    <!-- Frametime Graph Pinned Toggle -->
-                                    <Grid Margin="0,4,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Pin Frametime Graph" Foreground="#AAAAAA" FontSize="13"/>
-                                            <TextBlock Text="Always display graph on its own row at bottom" Foreground="#707070" FontSize="11"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="FrametimeGraphPinnedToggle"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      Toggled="FrametimeGraphPinnedToggle_Toggled"/>
-                                    </Grid>
-
-                                        <!-- Items Section -->
-                                        <TextBlock Text="Items to Display"
-                                                   Style="{StaticResource CardTitleStyle}"
-                                                   Margin="0,12,0,8"/>
-
-                                        <!-- OSD Items with reordering -->
-                                        <ItemsControl x:Name="OSDItemsControl">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Margin="0,2">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-
-                                                        <CheckBox Grid.Column="0"
-                                                                  Content="{Binding DisplayName}"
-                                                                  IsChecked="{Binding IsEnabled, Mode=TwoWay}"
-                                                                  Foreground="#FFFFFF"
-                                                                  Tag="{Binding Id}"
-                                                                  UseSystemFocusVisuals="True"
-                                                                  FocusVisualPrimaryBrush="White"
-                                                                  FocusVisualSecondaryBrush="Transparent"
-                                                                  Checked="OSDItemCheckBox_Changed"
-                                                                  Unchecked="OSDItemCheckBox_Changed"/>
-
-                                                        <Button Grid.Column="1"
-                                                                Content="&#xE70E;"
-                                                                FontFamily="Segoe MDL2 Assets"
-                                                                FontSize="10"
-                                                                Width="28" Height="24"
-                                                                Padding="0"
-                                                                Margin="4,0,0,0"
-                                                                Background="Transparent"
-                                                                Tag="{Binding Id}"
-                                                                IsEnabled="{Binding CanMoveUp}"
-                                                                Click="OSDItemMoveUp_Click"/>
-
-                                                        <Button Grid.Column="2"
-                                                                Content="&#xE70D;"
-                                                                FontFamily="Segoe MDL2 Assets"
-                                                                FontSize="10"
-                                                                Width="28" Height="24"
-                                                                Padding="0"
-                                                                Margin="4,0,0,0"
-                                                                Background="Transparent"
-                                                                Tag="{Binding Id}"
-                                                                IsEnabled="{Binding CanMoveDown}"
-                                                                Click="OSDItemMoveDown_Click"/>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-
-                                        <!-- Custom RTSS Tags Section -->
-                                        <TextBlock Text="Custom RTSS Tags"
-                                                   Style="{StaticResource CardTitleStyle}"
-                                                   Margin="0,16,0,4"/>
-                                        <TextBlock Text="Add custom RTSS tags (e.g. &lt;FR&gt; for FPS)"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   Margin="0,0,0,8"/>
-                                        <TextBox x:Name="OSDCustomTagsTextBox"
-                                                 PlaceholderText="Enter custom RTSS tags..."
-                                                 TextWrapping="Wrap"
-                                                 AcceptsReturn="True"
-                                                 Height="60"
-                                                 TextChanged="OSDCustomTagsTextBox_TextChanged"/>
-                                    </StackPanel>
-
-                                    <!-- AMD-specific info (shown when AMD provider is selected) -->
-                                    <StackPanel x:Name="AMDOptionsPanel" Visibility="Collapsed">
-                                        <TextBlock Text="AMD Adrenaline Overlay"
-                                                   Style="{StaticResource CardTitleStyle}"
-                                                   Margin="0,0,0,8"/>
-                                        <TextBlock Text="The AMD overlay is controlled through Adrenaline software. Use Ctrl+Shift+O to toggle and Ctrl+Shift+X to cycle overlay levels."
-                                                   Foreground="#A0A0A0"
-                                                   FontSize="12"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
 
                         <!-- Hotkeys Card (Collapsible) - Xbox Controller Button Combos -->
                         <Border x:Name="HotkeysCard" Style="{StaticResource CardStyle}">
@@ -3288,8 +2966,8 @@
                                                   BorderThickness="0"
                                                   Padding="8,4"
                                                   Click="HotkeysExpandButton_Click"
-                                                  XYFocusUp="{x:Bind OSDCustomizeExpandButton}"
-                                                  XYFocusDown="{x:Bind AutoHibernateToggle}"
+                                                  XYFocusUp="{x:Bind TDPSettingsExpandButton}"
+                                                  XYFocusDown="{x:Bind DebugExpandButton}"
                                                   UseSystemFocusVisuals="True">
                                         <FontIcon x:Name="HotkeysExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
@@ -4984,8 +4662,9 @@
                         </StackPanel>
                         </Border>
 
-                        <!-- Force Default Game Profiles Card -->
-                        <Border Style="{StaticResource CardStyle}">
+                        <!-- MSI Claw Driver Updates Card -->
+                        <TextBlock Text="DRIVER UPDATES" Style="{StaticResource SectionHeaderStyle}"/>
+                        <Border x:Name="DriverUpdatesCard" Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -4993,100 +4672,155 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Force Default Game Profiles" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Enable Microsoft Default Game Profiles on unsupported devices"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
+                                        <TextBlock Text="MSI Claw Driver Updates" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="MSI driver support coming soon"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
-                                    <ToggleSwitch x:Name="ForceDefaultGameProfileToggle"
+                                    <ToggleButton x:Name="DriverUpdatesExpandToggle"
                                                   Grid.Column="1"
-                                                  IsOn="False"
-                                                  Toggled="ForceDefaultGameProfileToggle_Toggled"
-                                                  Style="{StaticResource ModernToggleStyle}"/>
+                                                  IsChecked="True"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="DriverUpdatesExpandToggle_Click">
+                                        <FontIcon x:Name="DriverUpdatesExpandIcon" Glyph="&#xE70E;" FontSize="12"/>
+                                    </ToggleButton>
                                 </Grid>
-                                <!-- Explanation -->
-                                <Border Background="#1A2A3D" CornerRadius="4" Padding="10" Margin="0,12,0,0">
-                                    <StackPanel>
-                                        <TextBlock Foreground="#A0C0D0"
-                                                   FontSize="11"
-                                                   TextWrapping="Wrap">
-                                            Microsoft Default Game Profiles provide optimized TDP and FPS settings for specific games. This feature is officially supported on ASUS ROG Ally devices. Legion Go devices with Z1/Z2 Extreme processors are automatically detected and do not need this toggle. Enable this for other AMD devices to use Z1 Extreme (OMNI) profiles.
-                                        </TextBlock>
-                                        <HyperlinkButton Content="Learn more about Game Profiles"
-                                                         NavigateUri="https://developer.microsoft.com/en-us/games/articles/2025/11/introducing-game-profiles-for-asus-rog-xbox-ally-gaming-handhelds/"
-                                                         Foreground="#6090B0"
-                                                         FontSize="10"
-                                                         Padding="0"
-                                                         Margin="0,8,0,0"/>
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Auto Hibernate Card -->
-                        <Border x:Name="AutoHibernateCard" Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Auto Hibernate" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Hibernate after inactivity to avoid Modern Standby issues"
-                                           Style="{StaticResource CardCaptionStyle}"
-                                           TextWrapping="Wrap"/>
-
-                                <Grid Margin="0,12,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Enable auto hibernate" Foreground="#FFFFFF" FontSize="13"/>
-                                        <TextBlock Text="System will hibernate when idle" Foreground="#707070" FontSize="11"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="AutoHibernateToggle"
-                                                  Grid.Column="1"
-                                                  IsOn="False"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  XYFocusUp="{x:Bind HotkeysExpandButton}"/>
-                                </Grid>
-
-                                <StackPanel Visibility="{Binding ElementName=AutoHibernateToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Grid Margin="0,12,0,0">
+                                <StackPanel x:Name="DriverUpdatesContent" Spacing="10" Margin="0,12,0,0">
+                                    <!-- Coming soon notice -->
+                                    <Border Background="#1A2A1A" CornerRadius="4" Padding="10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Text="&#xE946;"
+                                                       FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="16"
+                                                       Foreground="#4CAF50"
+                                                       VerticalAlignment="Top"
+                                                       Margin="0,2,8,0"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="MSI Claw driver update support is not yet implemented. This feature will be enabled in a future update."
+                                                       Foreground="#A0D4A0"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </Border>
+                                    <!-- Machine info -->
+                                    <Grid>
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="130"/>
                                             <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Power source"
-                                                   FontSize="13"
-                                                   Foreground="#FFFFFF"
-                                                   VerticalAlignment="Center"
-                                                   Grid.Column="0"/>
-                                        <ComboBox x:Name="AutoHibernateModeComboBox"
-                                                  Grid.Column="1"
-                                                  Width="120"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  SelectionChanged="AutoHibernateModeComboBox_SelectionChanged">
-                                            <ComboBoxItem Content="Always" Tag="0" IsSelected="True"/>
-                                            <ComboBoxItem Content="AC Only" Tag="1"/>
-                                            <ComboBoxItem Content="DC Only" Tag="2"/>
-                                        </ComboBox>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Machine type" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="DriverUpdatesMachineType" Text="—" FontSize="13" Foreground="#E0E0E0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Model" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="DriverUpdatesModel" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Installed BIOS" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="DriverUpdatesBios" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0"/>
                                     </Grid>
-                                    <Grid Margin="0,12,0,6">
-                                        <TextBlock Text="Idle timeout"
-                                                   FontSize="14"
-                                                   Foreground="#FFFFFF"
-                                                   VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="AutoHibernateTimeoutValue"
-                                                   Text="15 min"
-                                                   FontSize="14"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-                                    <Slider x:Name="AutoHibernateTimeoutSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="1" Maximum="120"
-                                            TickFrequency="1"
-                                            SnapsTo="Ticks"
-                                            Value="15"
-                                            ValueChanged="AutoHibernateTimeoutSlider_ValueChanged"/>
+
+                                    <!-- Actions row (disabled — MSI support not yet implemented) -->
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button x:Name="DriverUpdatesCheckButton"
+                                                Content="Check for updates"
+                                                IsEnabled="False"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesCheckButton_Click"/>
+                                        <Button x:Name="DriverUpdatesUpdateAllButton"
+                                                Content="Update all"
+                                                Visibility="Collapsed"
+                                                IsEnabled="False"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesUpdateAllButton_Click"/>
+                                        <Button x:Name="DriverUpdatesOpenPageButton"
+                                                Content="Open MSI driver page"
+                                                IsEnabled="False"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesOpenPageButton_Click"/>
+                                    </StackPanel>
+
+                                    <TextBlock x:Name="DriverUpdatesStatusText"
+                                               Text="MSI driver support not yet available."
+                                               FontSize="11"
+                                               Foreground="#888888"
+                                               TextWrapping="Wrap"/>
+
+                                    <CheckBox x:Name="DriverUpdatesShowUtilitiesCheckbox"
+                                              Content="Show utilities and diagnostics"
+                                              IsChecked="False"
+                                              IsEnabled="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesShowUtilitiesCheckbox_Changed"
+                                              Unchecked="DriverUpdatesShowUtilitiesCheckbox_Changed"/>
+
+                                    <CheckBox x:Name="DriverUpdatesUpdateOnStartCheckbox"
+                                              Content="Check for driver updates on start"
+                                              IsChecked="False"
+                                              IsEnabled="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesUpdateOnStartCheckbox_Changed"
+                                              Unchecked="DriverUpdatesUpdateOnStartCheckbox_Changed"/>
+                                    <CheckBox x:Name="DriverUpdatesHideBannerCheckbox"
+                                              Content="Hide driver-update banner on Quick tab"
+                                              IsChecked="False"
+                                              IsEnabled="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesHideBannerCheckbox_Changed"
+                                              Unchecked="DriverUpdatesHideBannerCheckbox_Changed"/>
+
+                                    <ItemsControl x:Name="DriverUpdatesList" Visibility="Collapsed">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#1A1A2E" CornerRadius="4" Padding="10,8" Margin="0,4,0,0">
+                                                    <StackPanel>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="13" Foreground="#E0E0E0" TextWrapping="Wrap"/>
+                                                            <Border Grid.Column="1" Background="{Binding StatusColor}" CornerRadius="10" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding StatusLabel}" FontSize="10" Foreground="#FFFFFF"/>
+                                                            </Border>
+                                                        </Grid>
+                                                        <TextBlock FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                            <Run Text="{Binding Category}"/><Run Text=" • "/><Run Text="{Binding Severity}"/>
+                                                        </TextBlock>
+                                                        <TextBlock FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                            <Run Text="Installed:"/><Run Text=" "/><Run Text="{Binding InstalledVersion}"/><Run Text="  →  "/><Run Text="Latest:"/><Run Text=" "/><Run Text="{Binding Version}"/>
+                                                        </TextBlock>
+                                                        <Grid Margin="0,4,0,0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding ReleaseDate, FallbackValue=''}" FontSize="10" Foreground="#666666" VerticalAlignment="Center"/>
+                                                            <Button Grid.Column="1"
+                                                                    Content="{Binding InstallButtonLabel}"
+                                                                    Tag="{Binding DownloadUrl}"
+                                                                    Visibility="{Binding InstallButtonVisibility}"
+                                                                    Style="{StaticResource ModernButtonStyle}"
+                                                                    FontSize="11"
+                                                                    Padding="10,4"
+                                                                    Click="DriverInstallButton_Click"/>
+                                                        </Grid>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -8123,185 +7857,6 @@
                         </Border>
 
 
-                        <!-- LABS Section Header -->
-                        <TextBlock Text="LABS" Style="{StaticResource SectionHeaderStyle}"/>
-
-                        <!-- Labs Description -->
-                        <TextBlock Text="Experimental features - use at your own risk"
-                                   Style="{StaticResource CardCaptionStyle}"
-                                   Margin="0,4,0,8"/>
-
-                        <!-- Disable Legion Space Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Disable Legion Space Service" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Removes Legion L/R handling. May override TDP, remaps, fan curve. You can still open Legion Space for updates."
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <Button x:Name="ToggleDAServiceButton"
-                                            Grid.Column="1"
-                                            Content="Disable"
-                                            Style="{StaticResource ModernButtonStyle}"
-                                            Click="ToggleDAServiceButton_Click"/>
-                                </Grid>
-                                <TextBlock x:Name="DAServiceStatusText"
-                                           Text="Checking..."
-                                           FontSize="14"
-                                           Foreground="#A0A0A0"
-                                           Margin="0,8,0,0"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Driver Updates Card (Lenovo): machine type + installed BIOS +
-                             direct link to the correct Lenovo downloads page, with a
-                             best-effort live driver list fetched from pcsupport.lenovo.com -->
-                        <TextBlock Text="DRIVER UPDATES" Style="{StaticResource SectionHeaderStyle}"/>
-                        <Border x:Name="DriverUpdatesCard" Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Lenovo Driver Updates" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Check Lenovo's driver page for this machine type"
-                                                   Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="DriverUpdatesExpandToggle"
-                                                  Grid.Column="1"
-                                                  IsChecked="True"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="DriverUpdatesExpandToggle_Click">
-                                        <FontIcon x:Name="DriverUpdatesExpandIcon" Glyph="&#xE70E;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-                                <StackPanel x:Name="DriverUpdatesContent" Spacing="10" Margin="0,12,0,0">
-                                    <!-- Machine info: two rows of label:value -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Machine type" FontSize="13" Foreground="#AAAAAA"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="DriverUpdatesMachineType" Text="—" FontSize="13" Foreground="#E0E0E0"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Model" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="DriverUpdatesModel" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Installed BIOS" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="DriverUpdatesBios" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0"/>
-                                    </Grid>
-
-                                    <!-- Actions row -->
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Button x:Name="DriverUpdatesCheckButton"
-                                                Content="Check for updates"
-                                                Style="{StaticResource ModernButtonStyle}"
-                                                Click="DriverUpdatesCheckButton_Click"/>
-                                        <Button x:Name="DriverUpdatesUpdateAllButton"
-                                                Content="Update all"
-                                                Visibility="Collapsed"
-                                                Style="{StaticResource ModernButtonStyle}"
-                                                Click="DriverUpdatesUpdateAllButton_Click"/>
-                                        <Button x:Name="DriverUpdatesOpenPageButton"
-                                                Content="Open Lenovo driver page"
-                                                Style="{StaticResource ModernButtonStyle}"
-                                                Click="DriverUpdatesOpenPageButton_Click"/>
-                                    </StackPanel>
-
-                                    <TextBlock x:Name="DriverUpdatesStatusText"
-                                               Text="Click Check for updates to query Lenovo."
-                                               FontSize="11"
-                                               Foreground="#888888"
-                                               TextWrapping="Wrap"/>
-
-                                    <!-- Category filter: utilities/diagnostics hidden by default -->
-                                    <CheckBox x:Name="DriverUpdatesShowUtilitiesCheckbox"
-                                              Content="Show utilities and diagnostics"
-                                              IsChecked="False"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Checked="DriverUpdatesShowUtilitiesCheckbox_Changed"
-                                              Unchecked="DriverUpdatesShowUtilitiesCheckbox_Changed"/>
-
-                                    <!-- Auto-install + banner-hide preferences. Persisted in
-                                         LocalSettings. UpdateOnStart triggers Update-all the
-                                         moment the helper pushes a non-zero driver-update count. -->
-                                    <CheckBox x:Name="DriverUpdatesUpdateOnStartCheckbox"
-                                              Content="Check for driver updates on start"
-                                              IsChecked="True"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Checked="DriverUpdatesUpdateOnStartCheckbox_Changed"
-                                              Unchecked="DriverUpdatesUpdateOnStartCheckbox_Changed"/>
-                                    <CheckBox x:Name="DriverUpdatesHideBannerCheckbox"
-                                              Content="Hide driver-update banner on Quick tab"
-                                              IsChecked="False"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Checked="DriverUpdatesHideBannerCheckbox_Changed"
-                                              Unchecked="DriverUpdatesHideBannerCheckbox_Changed"/>
-
-                                    <!-- Live driver list (populated when the pcsupport API responds) -->
-                                    <ItemsControl x:Name="DriverUpdatesList" Visibility="Collapsed">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="#1A1A2E" CornerRadius="4" Padding="10,8" Margin="0,4,0,0">
-                                                    <StackPanel>
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="13" Foreground="#E0E0E0" TextWrapping="Wrap"/>
-                                                            <!-- Status chip: color comes from StatusColor ("#55C855" up-to-date, "#FFB060" update, "#888" unknown/not-installed) -->
-                                                            <Border Grid.Column="1" Background="{Binding StatusColor}" CornerRadius="10" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding StatusLabel}" FontSize="10" Foreground="#FFFFFF"/>
-                                                            </Border>
-                                                        </Grid>
-                                                        <TextBlock FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,0">
-                                                            <Run Text="{Binding Category}"/><Run Text=" • "/><Run Text="{Binding Severity}"/>
-                                                        </TextBlock>
-                                                        <TextBlock FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,2,0,0">
-                                                            <Run Text="Installed:"/><Run Text=" "/><Run Text="{Binding InstalledVersion}"/><Run Text="  →  "/><Run Text="Latest:"/><Run Text=" "/><Run Text="{Binding Version}"/>
-                                                        </TextBlock>
-                                                        <Grid Margin="0,4,0,0">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" Text="{Binding ReleaseDate, FallbackValue=''}" FontSize="10" Foreground="#666666" VerticalAlignment="Center"/>
-                                                            <Button Grid.Column="1"
-                                                                    Content="{Binding InstallButtonLabel}"
-                                                                    Tag="{Binding DownloadUrl}"
-                                                                    Visibility="{Binding InstallButtonVisibility}"
-                                                                    Style="{StaticResource ModernButtonStyle}"
-                                                                    FontSize="11"
-                                                                    Padding="10,4"
-                                                                    Click="DriverInstallButton_Click"/>
-                                                        </Grid>
-                                                    </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
 
                     </StackPanel>
                 </ScrollViewer>
@@ -8977,6 +8532,45 @@
                     </StackPanel>
                     <!-- Battery Charge Limit stub -->
                     <ToggleSwitch x:Name="LegionChargeLimitToggle"/>
+                    <!-- Display Tab (HDR + Adaptive Brightness + AMD) stubs -->
+                    <ToggleSwitch x:Name="HDRToggle"/>
+                    <StackPanel x:Name="SdrWhiteLevelSyncPanel"/>
+                    <ComboBox x:Name="SdrWhiteLevelSyncModeComboBox"/>
+                    <ToggleSwitch x:Name="AdaptiveBrightnessToggle"/>
+                    <ToggleSwitch x:Name="AMDRadeonSuperResolutionToggle"/>
+                    <Slider x:Name="AMDRadeonSuperResolutionSharpnessSlider"/>
+                    <ToggleSwitch x:Name="AMDFluidMotionFrameToggle"/>
+                    <ComboBox x:Name="AMDFluidMotionFrameAlgorithmComboBox"/>
+                    <ComboBox x:Name="AMDFluidMotionFrameSearchModeComboBox"/>
+                    <ComboBox x:Name="AMDFluidMotionFramePerformanceModeComboBox"/>
+                    <ComboBox x:Name="AMDFluidMotionFrameFastMotionResponseComboBox"/>
+                    <ToggleSwitch x:Name="AMDRadeonAntiLagToggle"/>
+                    <ToggleSwitch x:Name="AMDRadeonBoostToggle"/>
+                    <Slider x:Name="AMDRadeonBoostResolutionSlider"/>
+                    <ToggleSwitch x:Name="AMDRadeonChillToggle"/>
+                    <Slider x:Name="AMDRadeonChillMinFPSSlider"/>
+                    <Slider x:Name="AMDRadeonChillMaxFPSSlider"/>
+                    <ToggleSwitch x:Name="AMDImageSharpeningToggle"/>
+                    <Slider x:Name="AMDImageSharpeningSlider"/>
+                    <!-- TDP Settings (Control Method + PawnIO) stubs -->
+                    <TextBlock x:Name="TdpMethodDescription"/>
+                    <ComboBox x:Name="TdpMethodComboBox"/>
+                    <ComboBoxItem x:Name="TdpMethodWmiItem"/>
+                    <ComboBoxItem x:Name="TdpMethodPawnIOItem"/>
+                    <ComboBoxItem x:Name="TdpMethodWinRing0Item"/>
+                    <TextBlock x:Name="PawnIOStatusText"/>
+                    <Button x:Name="InstallPawnIOButton"/>
+                    <!-- Force Default Game Profiles stub -->
+                    <ToggleSwitch x:Name="ForceDefaultGameProfileToggle"/>
+                    <!-- Auto Hibernate stubs -->
+                    <Border x:Name="AutoHibernateCard"/>
+                    <ToggleSwitch x:Name="AutoHibernateToggle"/>
+                    <ComboBox x:Name="AutoHibernateModeComboBox"/>
+                    <TextBlock x:Name="AutoHibernateTimeoutValue"/>
+                    <Slider x:Name="AutoHibernateTimeoutSlider"/>
+                    <!-- Labs section (Controller tab) stubs -->
+                    <Button x:Name="ToggleDAServiceButton"/>
+                    <TextBlock x:Name="DAServiceStatusText"/>
                 </StackPanel>
 
             </Grid>
