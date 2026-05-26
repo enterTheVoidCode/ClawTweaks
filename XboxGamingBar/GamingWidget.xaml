@@ -414,14 +414,70 @@
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             XYFocusKeyboardNavigation="Disabled">
-                    <RadioButton x:Name="QuickNavItem" Content="Quick" Tag="Quick" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
-                    <RadioButton x:Name="PerformanceNavItem" Content="Performance" Tag="Performance" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
-                    <RadioButton x:Name="ProfilesNavItem" Content="Profiles" Tag="Game" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
-                    <RadioButton x:Name="GraphicsNavItem" Content="Display" Tag="AMD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
-                    <RadioButton x:Name="ScalingNavItem" Content="Scale" Tag="Scaling" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
-                    <RadioButton x:Name="LegionNavItem" Content="Controller (Claw)" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked"/>
-                    <RadioButton x:Name="GPDNavItem" Content="GPD" Tag="GPD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked"/>
-                    <RadioButton x:Name="SystemNavItem" Content="System" Tag="System" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked"/>
+                    <RadioButton x:Name="QuickNavItem" Tag="Quick" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                        <RadioButton.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE713;" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="QSet" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <RadioButton x:Name="PerformanceNavItem" Tag="Performance" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                        <RadioButton.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE945;" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="Perf" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <RadioButton x:Name="ProfilesNavItem" Tag="Game" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                        <RadioButton.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE77B;" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="Prof" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <RadioButton x:Name="GraphicsNavItem" Tag="AMD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                        <RadioButton.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7F4;" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="Disp" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <RadioButton x:Name="ScalingNavItem" Tag="Scaling" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                        <RadioButton.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8A3;" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="Scal" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <RadioButton x:Name="LegionNavItem" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked">
+                        <RadioButton.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7EF;" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="Ctrl" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <RadioButton x:Name="GPDNavItem" Tag="GPD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked">
+                        <RadioButton.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7EF;" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="GPD" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <RadioButton x:Name="SystemNavItem" Tag="System" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                        <RadioButton.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE946;" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="Sys" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton.Content>
+                    </RadioButton>
                 </StackPanel>
 
                 <!-- RT indicator and status dot -->
@@ -1009,13 +1065,6 @@
                                                Foreground="#A0A0A0"
                                                HorizontalAlignment="Right"/>
                                 </Grid>
-                                <!-- Sticky TDP Active Indicator -->
-                                <TextBlock Text="Sticky TDP: Active"
-                                           FontSize="13"
-                                           Foreground="#4CAF50"
-                                           FontWeight="SemiBold"
-                                           Margin="0,1,0,0"
-                                           Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                             </StackPanel>
                         </Border>
 
@@ -1029,7 +1078,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="TDP Extras" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="TDP Boost, AutoTDP, and Sticky TDP"
+                                        <TextBlock Text="TDP Boost"
                                                    Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="TDPExtrasExpandToggle"
@@ -1062,8 +1111,7 @@
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernToggleStyle}"
                                                       Toggled="TDPBoostToggle_Toggled"
-                                                      XYFocusUp="{x:Bind TDPExtrasExpandToggle}"
-                                                      XYFocusDown="{x:Bind AutoTDPToggle}"/>
+                                                      XYFocusUp="{x:Bind TDPExtrasExpandToggle}"/>
                                     </Grid>
                                     <TextBlock Text="TDP Boost: Active"
                                                FontSize="13"
@@ -1072,129 +1120,7 @@
                                                Margin="0,-8,0,0"
                                                Visibility="{Binding ElementName=TDPBoostToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                                    <!-- AutoTDP -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="AutoTDP" FontSize="14" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Automatically adjust TDP to maintain target FPS"
-                                                       FontSize="11" Foreground="#888888"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="AutoTDPToggle"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      Toggled="AutoTDPToggle_Toggled"
-                                                      XYFocusUp="{x:Bind TDPBoostToggle}"
-                                                      XYFocusDown="{x:Bind StickyTDPToggle}"/>
-                                    </Grid>
-                                    <StackPanel Visibility="{Binding ElementName=AutoTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                Margin="0,-8,0,0">
-                                        <Grid>
-                                            <TextBlock Text="Target FPS" FontSize="14" Foreground="#A0A0A0"/>
-                                            <TextBlock x:Name="AutoTDPTargetFPSValue" Text="60 FPS" FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold" HorizontalAlignment="Right"/>
-                                        </Grid>
-                                        <Slider x:Name="AutoTDPTargetFPSSlider" Style="{StaticResource ModernSliderStyle}" Minimum="30" Maximum="144" StepFrequency="5" TickFrequency="5" TickPlacement="Outside" SnapsTo="StepValues" Value="60" ValueChanged="AutoTDPTargetFPSSlider_ValueChanged"/>
-                                        <Grid Margin="0,8,0,0">
-                                            <TextBlock Text="Current FPS" FontSize="14" Foreground="#A0A0A0"/>
-                                            <TextBlock x:Name="AutoTDPCurrentFPSValue" Text="-- FPS" FontSize="14" Foreground="#FFCC00" FontWeight="SemiBold" HorizontalAlignment="Right"/>
-                                        </Grid>
-                                        <Grid Margin="0,12,0,0">
-                                            <TextBlock Text="Min TDP" FontSize="14" Foreground="#A0A0A0"/>
-                                            <TextBlock x:Name="AutoTDPMinValue" Text="8W" FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold" HorizontalAlignment="Right"/>
-                                        </Grid>
-                                        <Slider x:Name="AutoTDPMinSlider" Style="{StaticResource ModernSliderStyle}" Minimum="4" Maximum="85" StepFrequency="1" Value="8" ValueChanged="AutoTDPMinSlider_ValueChanged"/>
-                                        <Grid Margin="0,8,0,0">
-                                            <TextBlock Text="Max TDP" FontSize="14" Foreground="#A0A0A0"/>
-                                            <TextBlock x:Name="AutoTDPMaxValue" Text="30W" FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold" HorizontalAlignment="Right"/>
-                                        </Grid>
-                                        <Slider x:Name="AutoTDPMaxSlider" Style="{StaticResource ModernSliderStyle}" Minimum="4" Maximum="85" StepFrequency="1" Value="30" ValueChanged="AutoTDPMaxSlider_ValueChanged"/>
 
-                                        <!-- Pause when game not focused -->
-                                        <CheckBox x:Name="AutoTDPPauseWhenUnfocusedCheckBox"
-                                                  Content="Pause when game not focused"
-                                                  IsChecked="True"
-                                                  Margin="0,12,0,0"
-                                                  Foreground="#A0A0A0"
-                                                  FontSize="13"
-                                                  Checked="AutoTDPPauseWhenUnfocusedCheckBox_Changed"
-                                                  Unchecked="AutoTDPPauseWhenUnfocusedCheckBox_Changed"/>
-
-                                        <!-- Sync FPS Limit with Target -->
-                                        <CheckBox x:Name="AutoTDPSyncFPSLimitCheckBox"
-                                                  Content="Sync FPS Limit with Target"
-                                                  IsChecked="False"
-                                                  Margin="0,8,0,0"
-                                                  Foreground="#A0A0A0"
-                                                  FontSize="13"
-                                                  Checked="AutoTDPSyncFPSLimitCheckBox_Changed"
-                                                  Unchecked="AutoTDPSyncFPSLimitCheckBox_Changed"/>
-
-                                        <!-- Controller Mode Selection -->
-                                        <Grid Margin="0,12,0,0">
-                                            <TextBlock Text="Controller" FontSize="14" Foreground="#A0A0A0" VerticalAlignment="Center"/>
-                                            <ComboBox x:Name="AutoTDPControllerModeComboBox"
-                                                      HorizontalAlignment="Right"
-                                                      Width="140"
-                                                      Style="{StaticResource ModernComboBoxStyle}"
-                                                      SelectionChanged="AutoTDPControllerModeComboBox_SelectionChanged">
-                                                <ComboBoxItem Content="PID Controller" Tag="0" IsSelected="True"/>
-                                                <ComboBoxItem Content="Q-Learning (ML)" Tag="1"/>
-                                                <ComboBoxItem Content="SARSA (ML)" Tag="2"/>
-                                            </ComboBox>
-                                        </Grid>
-
-                                        <!-- ML Mode Info Panel (visible when ML selected) -->
-                                        <StackPanel x:Name="AutoTDPMLInfoPanel" Visibility="Collapsed" Margin="0,8,0,0">
-                                            <Border Background="#1A4A148C" CornerRadius="4" Padding="8">
-                                                <StackPanel>
-                                                    <TextBlock Text="ML Learning Mode (Experimental)" FontSize="12" Foreground="#9C27B0" FontWeight="SemiBold"/>
-                                                    <TextBlock x:Name="AutoTDPMLStatusText" Text="Updates: 0 | Avg: 0.0 | Exploration: 30%" FontSize="11" Foreground="#888888" Margin="0,4,0,0"/>
-                                                    <Button x:Name="AutoTDPResetMLButton"
-                                                            Content="Reset Learning Data"
-                                                            Style="{StaticResource ModernButtonStyle}"
-                                                            Margin="0,8,0,0"
-                                                            Padding="8,4"
-                                                            FontSize="11"
-                                                            HorizontalAlignment="Left"
-                                                            Click="AutoTDPResetMLButton_Click"/>
-                                                    <StackPanel Margin="0,8,0,0">
-                                                        <TextBlock Text="Learned Game Data" FontSize="12" Foreground="#8BC34A" FontWeight="SemiBold"/>
-                                                        <TextBlock x:Name="AutoTDPLearnedSummaryText" Text="No learned data yet" FontSize="11" Foreground="#888888" Margin="0,4,0,0"/>
-                                                        <StackPanel x:Name="AutoTDPLearnedHeatmapPanel" Margin="0,6,0,0"/>
-                                                    </StackPanel>
-                                                </StackPanel>
-                                            </Border>
-                                        </StackPanel>
-                                    </StackPanel>
-
-                                    <!-- Sticky TDP -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Sticky TDP" FontSize="14" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Restore TDP limits if changed by other apps"
-                                                       FontSize="11" Foreground="#888888"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="StickyTDPToggle"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      Toggled="StickyTDPToggle_Toggled"
-                                                      XYFocusUp="{x:Bind AutoTDPToggle}"/>
-                                    </Grid>
-                                    <StackPanel Visibility="{Binding ElementName=StickyTDPToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                Margin="0,-8,0,0">
-                                        <Grid>
-                                            <TextBlock Text="Reapply interval" FontSize="14" Foreground="#A0A0A0"/>
-                                            <TextBlock x:Name="StickyTDPIntervalValue" Text="5s" FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold" HorizontalAlignment="Right"/>
-                                        </Grid>
-                                        <Slider x:Name="StickyTDPIntervalSlider" Style="{StaticResource ModernSliderStyle}" Minimum="3" Maximum="15" TickFrequency="2" SnapsTo="Ticks" Value="5" ValueChanged="StickyTDPIntervalSlider_ValueChanged"/>
-                                    </StackPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -1246,7 +1172,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="CPU Extras" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="CPU Boost, EPP, and State limits"
+                                        <TextBlock Text="CPU Boost"
                                                    Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="CPUExtrasExpandToggle"
@@ -1279,52 +1205,6 @@
                                                       IsEnabled="False"/>
                                     </Grid>
 
-                                    <!-- CPU EPP -->
-                                    <StackPanel>
-                                        <Grid>
-                                            <TextBlock Text="CPU EPP" FontSize="14" Foreground="#FFFFFF"/>
-                                            <TextBlock x:Name="CPUEPPValueText"
-                                                       Text="{Binding ElementName=CPUEPPSlider, Path=Value}"
-                                                       Style="{StaticResource CardValueStyle}"/>
-                                        </Grid>
-                                        <Slider x:Name="CPUEPPSlider"
-                                                Style="{StaticResource ModernSliderStyle}"
-                                                Minimum="0" Maximum="100"
-                                                TickFrequency="10"
-                                                SnapsTo="Ticks"
-                                                TickPlacement="BottomRight"
-                                                IsEnabled="False"/>
-                                        <Grid Margin="0,4,0,0">
-                                            <TextBlock Text="0 = Prioritize CPU" FontSize="12" Foreground="#A0A0A0"/>
-                                            <TextBlock Text="100 = Prioritize GPU" FontSize="12" Foreground="#A0A0A0" HorizontalAlignment="Right"/>
-                                        </Grid>
-                                    </StackPanel>
-
-                                    <!-- CPU State -->
-                                    <StackPanel>
-                                        <TextBlock Text="CPU State" FontSize="14" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Processor performance limits" FontSize="11" Foreground="#888888"/>
-                                        <Grid Margin="0,8,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                                                <TextBlock Text="Min %" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
-                                                <ComboBox x:Name="MinCPUStateComboBox"
-                                                          Style="{StaticResource ModernComboBoxStyle}"
-                                                          SelectionChanged="MinCPUStateComboBox_SelectionChanged"
-                                                          IsEnabled="False"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Margin="6,0,0,0">
-                                                <TextBlock Text="Max %" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
-                                                <ComboBox x:Name="MaxCPUStateComboBox"
-                                                          Style="{StaticResource ModernComboBoxStyle}"
-                                                          SelectionChanged="MaxCPUStateComboBox_SelectionChanged"
-                                                          IsEnabled="False"/>
-                                            </StackPanel>
-                                        </Grid>
-                                    </StackPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -1396,250 +1276,6 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Advanced Card (Collapsible) - Power Plan, Core Parking & Affinity -->
-                        <Border x:Name="AdvancedCard" Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <!-- Header with Expand/Collapse -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Advanced" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock x:Name="AdvancedSummary"
-                                                   Text="Power plans, core parking and affinity"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="AdvancedExpandButton"
-                                                  Grid.Column="1"
-                                                  IsChecked="False"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="AdvancedExpandButton_Click"
-                                                  XYFocusUp="{x:Bind FPSLimitToggle}"
-                                                  UseSystemFocusVisuals="True">
-                                        <FontIcon x:Name="AdvancedExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-
-                                <!-- Collapsible Content -->
-                                <StackPanel x:Name="AdvancedContent" Visibility="Collapsed" Margin="0,12,0,0">
-
-                                    <!-- Power Plan Section -->
-                                    <StackPanel Margin="0,0,0,16">
-                                        <TextBlock Text="Power Plan"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#FFFFFF"
-                                                   Margin="0,0,0,4"/>
-                                        <TextBlock Text="Configure power plans for AC and battery"
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   Margin="0,0,0,8"/>
-
-                                        <!-- AC Power Plan -->
-                                        <StackPanel Margin="0,0,0,12">
-                                            <TextBlock Text="AC Power Plan" Foreground="#FFFFFF" FontSize="13"/>
-                                            <TextBlock Text="When plugged in" Foreground="#707070" FontSize="11"/>
-                                            <ComboBox x:Name="ACPowerPlanComboBox"
-                                                      Margin="0,8,0,0"
-                                                      Style="{StaticResource ModernComboBoxStyle}"
-                                                      SelectionChanged="ACPowerPlanComboBox_SelectionChanged"
-                                                      XYFocusDown="{x:Bind DCPowerPlanComboBox}"/>
-                                        </StackPanel>
-
-                                        <!-- DC Power Plan -->
-                                        <StackPanel Margin="0,0,0,12">
-                                            <TextBlock Text="DC Power Plan" Foreground="#FFFFFF" FontSize="13"/>
-                                            <TextBlock Text="When on battery" Foreground="#707070" FontSize="11"/>
-                                            <ComboBox x:Name="DCPowerPlanComboBox"
-                                                      Margin="0,8,0,0"
-                                                      Style="{StaticResource ModernComboBoxStyle}"
-                                                      SelectionChanged="DCPowerPlanComboBox_SelectionChanged"
-                                                      XYFocusUp="{x:Bind ACPowerPlanComboBox}"
-                                                      XYFocusDown="{x:Bind PowerPlanAutoSwitchToggle}"/>
-                                        </StackPanel>
-
-                                        <!-- Auto-switch Toggle -->
-                                        <Grid Margin="0,0,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Auto-switch on power change" Foreground="#FFFFFF" FontSize="13"/>
-                                                <TextBlock Text="Automatically apply the corresponding plan" Foreground="#707070" FontSize="11"/>
-                                            </StackPanel>
-                                            <ToggleSwitch x:Name="PowerPlanAutoSwitchToggle"
-                                                          Grid.Column="1"
-                                                          IsOn="False"
-                                                          Toggled="PowerPlanAutoSwitchToggle_Toggled"
-                                                          Style="{StaticResource ModernToggleStyle}"
-                                                          XYFocusUp="{x:Bind DCPowerPlanComboBox}"/>
-                                        </Grid>
-                                    </StackPanel>
-
-                                    <!-- Separator -->
-                                    <Border Height="1" Background="#333333" Margin="0,0,0,16"/>
-
-                                    <!-- Core Parking Section (for non-hybrid CPUs only) -->
-                                    <StackPanel x:Name="CoreParkingSection">
-                                        <TextBlock Text="Core Parking"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#FFFFFF"
-                                                   Margin="0,0,0,4"/>
-                                        <TextBlock Text="Limit the number of active CPU cores system-wide"
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   Margin="0,0,0,8"/>
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Active Cores"
-                                                           FontSize="14"
-                                                           Foreground="#FFFFFF"/>
-                                                <TextBlock x:Name="CoreParkingDescription"
-                                                           Text="All cores active"
-                                                           FontSize="11"
-                                                           Foreground="#888888"/>
-                                            </StackPanel>
-                                            <ComboBox x:Name="CoreParkingComboBox"
-                                                      Grid.Column="1"
-                                                      Width="100"
-                                                      SelectionChanged="CoreParkingComboBox_SelectionChanged"
-                                                      UseSystemFocusVisuals="True"
-                                                      FocusVisualPrimaryBrush="White">
-                                                <!-- Items populated dynamically based on CPU core count -->
-                                            </ComboBox>
-                                        </Grid>
-                                    </StackPanel>
-
-                                    <!-- Core Affinity Section (for hybrid CPUs - also sets parking) -->
-                                    <StackPanel x:Name="CoreAffinitySection" Visibility="Collapsed">
-                                        <TextBlock Text="Core Affinity &amp; Parking"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#FFFFFF"
-                                                   Margin="0,0,0,4"/>
-                                        <TextBlock Text="Set game affinity and park unused cores (hybrid CPU)"
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,0,0,8"/>
-
-                                        <!-- P-Core Affinity -->
-                                        <Grid Margin="0,0,0,12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Performance Cores"
-                                                           FontSize="14"
-                                                           Foreground="#FFFFFF"/>
-                                                <TextBlock Text="Zen 5 high-performance cores"
-                                                           FontSize="11"
-                                                           Foreground="#888888"/>
-                                            </StackPanel>
-                                            <ComboBox x:Name="PCoreCountComboBox"
-                                                      Grid.Column="1"
-                                                      Width="80"
-                                                      SelectionChanged="PCoreCountComboBox_SelectionChanged"
-                                                      UseSystemFocusVisuals="True"
-                                                      FocusVisualPrimaryBrush="White">
-                                                <ComboBoxItem Content="0" Tag="0"/>
-                                                <ComboBoxItem Content="1" Tag="1"/>
-                                                <ComboBoxItem Content="2" Tag="2"/>
-                                                <ComboBoxItem Content="3" Tag="3" IsSelected="True"/>
-                                            </ComboBox>
-                                        </Grid>
-
-                                        <!-- E-Core Affinity -->
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Efficiency Cores"
-                                                           FontSize="14"
-                                                           Foreground="#FFFFFF"/>
-                                                <TextBlock Text="Zen 5c power-efficient cores"
-                                                           FontSize="11"
-                                                           Foreground="#888888"/>
-                                            </StackPanel>
-                                            <ComboBox x:Name="ECoreCountComboBox"
-                                                      Grid.Column="1"
-                                                      Width="80"
-                                                      SelectionChanged="ECoreCountComboBox_SelectionChanged"
-                                                      UseSystemFocusVisuals="True"
-                                                      FocusVisualPrimaryBrush="White">
-                                                <ComboBoxItem Content="0" Tag="0"/>
-                                                <ComboBoxItem Content="1" Tag="1"/>
-                                                <ComboBoxItem Content="2" Tag="2"/>
-                                                <ComboBoxItem Content="3" Tag="3"/>
-                                                <ComboBoxItem Content="4" Tag="4"/>
-                                                <ComboBoxItem Content="5" Tag="5" IsSelected="True"/>
-                                            </ComboBox>
-                                        </Grid>
-
-                                        <!-- Info text -->
-                                        <TextBlock Text="Note: Affinity is applied only to the detected running game process."
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,4,0,0"/>
-                                    </StackPanel>
-
-                                    <!-- Force Park Mode (Aggressive) -->
-                                    <StackPanel Margin="0,16,0,0">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Force Park Mode"
-                                                           FontSize="14"
-                                                           Foreground="#FFFFFF"/>
-                                                <TextBlock Text="Force system processes to parked cores"
-                                                           FontSize="11"
-                                                           Foreground="#888888"/>
-                                            </StackPanel>
-                                            <ToggleSwitch x:Name="ForceParkModeToggle"
-                                                          Grid.Column="1"
-                                                          Style="{StaticResource ModernToggleStyle}"
-                                                          Toggled="ForceParkModeToggle_Toggled"/>
-                                        </Grid>
-                                        <Border Background="#442200"
-                                                CornerRadius="4"
-                                                Padding="8"
-                                                Margin="0,8,0,0"
-                                                Visibility="{Binding ElementName=ForceParkModeToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                            <StackPanel>
-                                                <TextBlock Text="⚠ Warning"
-                                                           FontSize="12"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="#FFAA00"/>
-                                                <TextBlock Text="This applies affinity to ALL running processes, forcing them onto selected cores. May cause system instability or slowdowns. Disable if you experience issues."
-                                                           FontSize="11"
-                                                           Foreground="#FFCC66"
-                                                           TextWrapping="Wrap"
-                                                           Margin="0,4,0,0"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </StackPanel>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
 
                     </StackPanel>
                 </ScrollViewer>
@@ -1648,306 +1284,6 @@
                 <ScrollViewer x:Name="GameScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
-
-                        <!-- Power Source Profile Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Power Source Profile" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Separate profiles for AC (plugged in) and DC (battery)"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="PowerSourceProfileToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}" Width="47"
-                                                  XYFocusUp="{x:Bind ProfilesNavItem}"
-                                                  XYFocusDown="{x:Bind ProfileSettingsExpandToggle}"/>
-                                </Grid>
-                                <TextBlock x:Name="PowerSourceProfileScopeText"
-                                           Margin="0,8,0,0"
-                                           FontSize="11"
-                                           Foreground="#AAAAAA"
-                                           TextWrapping="Wrap"
-                                           Text="Scope: Global profiles. AC/DC split: Off. Enable Per-Game Profile to set this per game."/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Game Detection Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Game Detection"
-                                                   Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Games with profiles always detect regardless of settings"
-                                                   Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="ProfileDetectionExpandToggle"
-                                                  Grid.Column="1"
-                                                  IsChecked="False"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="ProfileDetectionExpandToggle_Click">
-                                        <FontIcon x:Name="ProfileDetectionExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-
-                                <StackPanel x:Name="ProfileDetectionContent" Visibility="Collapsed" Margin="0,12,0,0" Spacing="12">
-
-                                    <!-- Match Exe Toggle -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Prefer executable"
-                                                       FontSize="12"
-                                                       Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Use .exe name, fall back to window title if unavailable"
-                                                       FontSize="11"
-                                                       Foreground="#888888"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="ProfileMatchByExeToggle"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource ModernToggleStyle}"/>
-                                    </Grid>
-
-                                    <!-- Games Only Toggle -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Games only"
-                                                       FontSize="12"
-                                                       Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Detect apps with FPS (RTSS) or added to Xbox Game Bar"
-                                                       FontSize="11"
-                                                       Foreground="#888888"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="ProfileGamesOnlyToggle"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      IsOn="True"/>
-                                    </Grid>
-
-                                    <!-- COMMENTED OUT: Current Apps, Custom Games, and Blacklist sections
-                                         These features caused user confusion and are disabled for now.
-
-                                    <StackPanel>
-                                        <TextBlock Text="Current apps"
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   Margin="0,0,0,4"/>
-                                        <StackPanel x:Name="ForegroundAppsContainer" Spacing="4">
-                                            <TextBlock x:Name="ForegroundAppsEmptyText"
-                                                       Text="No apps detected"
-                                                       FontSize="11"
-                                                       Foreground="#666666"
-                                                       FontStyle="Italic"/>
-                                        </StackPanel>
-                                    </StackPanel>
-
-                                    <StackPanel>
-                                        <TextBlock Text="Custom games"
-                                                   FontSize="12"
-                                                   Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Apps always treated as games"
-                                                   FontSize="11"
-                                                   Foreground="#888888"/>
-                                        <TextBlock x:Name="CustomGamesEmptyText"
-                                                   Text="No custom games added"
-                                                   FontSize="11"
-                                                   Foreground="#666666"
-                                                   FontStyle="Italic"
-                                                   Margin="0,8,0,0"/>
-                                        <ItemsControl x:Name="CustomGamesList" Margin="0,4,0,0">
-                                            ...
-                                        </ItemsControl>
-                                    </StackPanel>
-
-                                    <StackPanel>
-                                        <TextBlock Text="Blacklist"
-                                                   FontSize="12"
-                                                   Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Apps never treated as games"
-                                                   FontSize="11"
-                                                   Foreground="#888888"/>
-                                        <TextBlock x:Name="BlacklistEmptyText"
-                                                   Text="No apps blacklisted"
-                                                   FontSize="11"
-                                                   Foreground="#666666"
-                                                   FontStyle="Italic"
-                                                   Margin="0,8,0,0"/>
-                                        <ItemsControl x:Name="BlacklistList" Margin="0,4,0,0">
-                                            ...
-                                        </ItemsControl>
-                                    </StackPanel>
-
-                                    END COMMENTED OUT -->
-
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Profile Settings Card (Collapsible) -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <!-- Header with Expand/Collapse -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Profile Settings" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Choose which settings are saved in profiles"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="ProfileSettingsExpandToggle"
-                                                  Grid.Column="1"
-                                                  IsChecked="False"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="ProfileSettingsExpandToggle_Click">
-                                        <FontIcon x:Name="ProfileSettingsExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-
-                                <!-- Collapsible Content -->
-                                <StackPanel x:Name="ProfileSettingsContent" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <CheckBox x:Name="ProfileSaveTDPCheckBox"
-                                              Content="TDP Power Limit"
-                                              IsChecked="True"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveCPUBoostCheckBox"
-                                              Content="CPU Boost"
-                                              IsChecked="True"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveCPUEPPCheckBox"
-                                              Content="CPU EPP"
-                                              IsChecked="True"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveCPUStateCheckBox"
-                                              Content="CPU State"
-                                              IsChecked="True"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveAMDFeaturesCheckBox"
-                                              Content="AMD Features (FMF, Anti-Lag, Boost, Chill)"
-                                              IsChecked="False"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveFPSLimitCheckBox"
-                                              Content="FPS Limit"
-                                              IsChecked="True"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveAutoTDPCheckBox"
-                                              Content="AutoTDP (Enabled + Target FPS)"
-                                              IsChecked="True"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveOSPowerModeCheckBox"
-                                              Content="OS Power Mode"
-                                              IsChecked="True"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveHDRCheckBox"
-                                              Content="HDR"
-                                              IsChecked="False"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveResolutionCheckBox"
-                                              Content="Resolution"
-                                              IsChecked="False"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveRefreshRateCheckBox"
-                                              Content="Refresh Rate"
-                                              IsChecked="False"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveStickyTDPCheckBox"
-                                              Content="Sticky TDP"
-                                              IsChecked="False"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveOverlayLevelCheckBox"
-                                              Content="Overlay Level"
-                                              IsChecked="False"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                    <CheckBox x:Name="ProfileSaveCPUAffinityCheckBox"
-                                              Content="CPU Affinity"
-                                              IsChecked="False"
-                                              Foreground="#FFFFFF"
-                                              Margin="0,4,0,0"
-                                              Style="{StaticResource FocusableCheckBoxStyle}"
-                                              Checked="ProfileSettingsCheckBox_Changed"
-                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
 
                         <!-- Current Game Card -->
                         <Border Style="{StaticResource CardStyle}">
@@ -2418,6 +1754,306 @@
 
                         <!-- Container for dynamically created game profile cards -->
                         <StackPanel x:Name="AllGameProfilesContainer"/>
+
+                        <!-- Power Source Profile Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Power Source Profile" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Separate profiles for AC (plugged in) and DC (battery)"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="PowerSourceProfileToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}" Width="47"
+                                                  XYFocusUp="{x:Bind ProfilesNavItem}"
+                                                  XYFocusDown="{x:Bind ProfileSettingsExpandToggle}"/>
+                                </Grid>
+                                <TextBlock x:Name="PowerSourceProfileScopeText"
+                                           Margin="0,8,0,0"
+                                           FontSize="11"
+                                           Foreground="#AAAAAA"
+                                           TextWrapping="Wrap"
+                                           Text="Scope: Global profiles. AC/DC split: Off. Enable Per-Game Profile to set this per game."/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Game Detection Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Game Detection"
+                                                   Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Games with profiles always detect regardless of settings"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="ProfileDetectionExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="ProfileDetectionExpandToggle_Click">
+                                        <FontIcon x:Name="ProfileDetectionExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <StackPanel x:Name="ProfileDetectionContent" Visibility="Collapsed" Margin="0,12,0,0" Spacing="12">
+
+                                    <!-- Match Exe Toggle -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Prefer executable"
+                                                       FontSize="12"
+                                                       Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Use .exe name, fall back to window title if unavailable"
+                                                       FontSize="11"
+                                                       Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="ProfileMatchByExeToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"/>
+                                    </Grid>
+
+                                    <!-- Games Only Toggle -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Games only"
+                                                       FontSize="12"
+                                                       Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Detect apps with FPS (RTSS) or added to Xbox Game Bar"
+                                                       FontSize="11"
+                                                       Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="ProfileGamesOnlyToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      IsOn="True"/>
+                                    </Grid>
+
+                                    <!-- COMMENTED OUT: Current Apps, Custom Games, and Blacklist sections
+                                         These features caused user confusion and are disabled for now.
+
+                                    <StackPanel>
+                                        <TextBlock Text="Current apps"
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   Margin="0,0,0,4"/>
+                                        <StackPanel x:Name="ForegroundAppsContainer" Spacing="4">
+                                            <TextBlock x:Name="ForegroundAppsEmptyText"
+                                                       Text="No apps detected"
+                                                       FontSize="11"
+                                                       Foreground="#666666"
+                                                       FontStyle="Italic"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Custom games"
+                                                   FontSize="12"
+                                                   Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Apps always treated as games"
+                                                   FontSize="11"
+                                                   Foreground="#888888"/>
+                                        <TextBlock x:Name="CustomGamesEmptyText"
+                                                   Text="No custom games added"
+                                                   FontSize="11"
+                                                   Foreground="#666666"
+                                                   FontStyle="Italic"
+                                                   Margin="0,8,0,0"/>
+                                        <ItemsControl x:Name="CustomGamesList" Margin="0,4,0,0">
+                                            ...
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Blacklist"
+                                                   FontSize="12"
+                                                   Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Apps never treated as games"
+                                                   FontSize="11"
+                                                   Foreground="#888888"/>
+                                        <TextBlock x:Name="BlacklistEmptyText"
+                                                   Text="No apps blacklisted"
+                                                   FontSize="11"
+                                                   Foreground="#666666"
+                                                   FontStyle="Italic"
+                                                   Margin="0,8,0,0"/>
+                                        <ItemsControl x:Name="BlacklistList" Margin="0,4,0,0">
+                                            ...
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    END COMMENTED OUT -->
+
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Profile Settings Card (Collapsible) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with Expand/Collapse -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Profile Settings" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Choose which settings are saved in profiles"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="ProfileSettingsExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="ProfileSettingsExpandToggle_Click">
+                                        <FontIcon x:Name="ProfileSettingsExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="ProfileSettingsContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <CheckBox x:Name="ProfileSaveTDPCheckBox"
+                                              Content="TDP Power Limit"
+                                              IsChecked="True"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveCPUBoostCheckBox"
+                                              Content="CPU Boost"
+                                              IsChecked="True"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveCPUEPPCheckBox"
+                                              Content="CPU EPP"
+                                              IsChecked="True"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveCPUStateCheckBox"
+                                              Content="CPU State"
+                                              IsChecked="True"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveAMDFeaturesCheckBox"
+                                              Content="AMD Features (FMF, Anti-Lag, Boost, Chill)"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveFPSLimitCheckBox"
+                                              Content="FPS Limit"
+                                              IsChecked="True"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveAutoTDPCheckBox"
+                                              Content="AutoTDP (Enabled + Target FPS)"
+                                              IsChecked="True"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveOSPowerModeCheckBox"
+                                              Content="OS Power Mode"
+                                              IsChecked="True"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveHDRCheckBox"
+                                              Content="HDR"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveResolutionCheckBox"
+                                              Content="Resolution"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveRefreshRateCheckBox"
+                                              Content="Refresh Rate"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveStickyTDPCheckBox"
+                                              Content="Sticky TDP"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveOverlayLevelCheckBox"
+                                              Content="Overlay Level"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <CheckBox x:Name="ProfileSaveCPUAffinityCheckBox"
+                                              Content="CPU Affinity"
+                                              IsChecked="False"
+                                              Foreground="#FFFFFF"
+                                              Margin="0,4,0,0"
+                                              Style="{StaticResource FocusableCheckBoxStyle}"
+                                              Checked="ProfileSettingsCheckBox_Changed"
+                                              Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
 
                     </StackPanel>
                 </ScrollViewer>
@@ -6512,61 +6148,6 @@
                                            Foreground="#4CAF50"
                                            Margin="0,4,0,0"/>
 
-                                <!-- Controller Battery Info (hidden on devices without detachable controllers) -->
-                                <StackPanel x:Name="ControllerBatterySection">
-                                    <Grid Margin="0,12,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-
-                                        <!-- Left Controller -->
-                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                            <TextBlock Text="Left Controller" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
-                                            <StackPanel Orientation="Horizontal">
-                                                <FontIcon Glyph="&#xE83F;" FontSize="14" Foreground="#AAAAAA" Margin="0,0,6,0"/>
-                                                <TextBlock x:Name="LeftControllerBatteryText"
-                                                           Text="--%"
-                                                           FontSize="14"
-                                                           Foreground="#FFFFFF"/>
-                                                <FontIcon x:Name="LeftControllerChargingIcon"
-                                                          Glyph="&#xE945;"
-                                                          FontSize="12"
-                                                          Foreground="#4CAF50"
-                                                          Margin="6,0,0,0"
-                                                          Visibility="Collapsed"/>
-                                            </StackPanel>
-                                            <TextBlock x:Name="LeftControllerConnectionText"
-                                                       Text="--"
-                                                       FontSize="11"
-                                                       Foreground="#888888"
-                                                       Margin="0,2,0,0"/>
-                                        </StackPanel>
-
-                                        <!-- Right Controller -->
-                                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                            <TextBlock Text="Right Controller" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
-                                            <StackPanel Orientation="Horizontal">
-                                                <FontIcon Glyph="&#xE83F;" FontSize="14" Foreground="#AAAAAA" Margin="0,0,6,0"/>
-                                                <TextBlock x:Name="RightControllerBatteryText"
-                                                           Text="--%"
-                                                           FontSize="14"
-                                                           Foreground="#FFFFFF"/>
-                                                <FontIcon x:Name="RightControllerChargingIcon"
-                                                          Glyph="&#xE945;"
-                                                          FontSize="12"
-                                                          Foreground="#4CAF50"
-                                                          Margin="6,0,0,0"
-                                                          Visibility="Collapsed"/>
-                                            </StackPanel>
-                                            <TextBlock x:Name="RightControllerConnectionText"
-                                                       Text="--"
-                                                       FontSize="11"
-                                                       Foreground="#888888"
-                                                       Margin="0,2,0,0"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </StackPanel>
 
                                 <!-- Device Info -->
                                 <TextBlock x:Name="LegionControllerPidVidText"
@@ -8541,27 +8122,6 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Battery Section Header -->
-                        <TextBlock Text="BATTERY" Style="{StaticResource SectionHeaderStyle}"/>
-
-                        <!-- Battery Charge Limit Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Charge Limit (80%)" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Limit battery charge to extend lifespan"
-                                               Style="{StaticResource CardCaptionStyle}"/>
-                                </StackPanel>
-                                <ToggleSwitch x:Name="LegionChargeLimitToggle"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              IsOn="False"/>
-                            </Grid>
-                        </Border>
 
                         <!-- LABS Section Header -->
                         <TextBlock Text="LABS" Style="{StaticResource SectionHeaderStyle}"/>
@@ -9358,6 +8918,66 @@
                                 Click="DismissUpdateBannerButton_Click"/>
                     </Grid>
                 </Border>
+
+                <!-- Stub elements for removed UI features — Visibility=Collapsed, preserve x:Name for C# compilation -->
+                <StackPanel Visibility="Collapsed" IsHitTestVisible="False">
+                    <!-- AutoTDP stubs -->
+                    <ToggleSwitch x:Name="AutoTDPToggle"/>
+                    <Slider x:Name="AutoTDPTargetFPSSlider"/>
+                    <TextBlock x:Name="AutoTDPTargetFPSValue"/>
+                    <Slider x:Name="AutoTDPMinSlider"/>
+                    <TextBlock x:Name="AutoTDPMinValue"/>
+                    <Slider x:Name="AutoTDPMaxSlider"/>
+                    <TextBlock x:Name="AutoTDPMaxValue"/>
+                    <TextBlock x:Name="AutoTDPCurrentFPSValue"/>
+                    <CheckBox x:Name="AutoTDPPauseWhenUnfocusedCheckBox"/>
+                    <CheckBox x:Name="AutoTDPSyncFPSLimitCheckBox"/>
+                    <ComboBox x:Name="AutoTDPControllerModeComboBox"/>
+                    <StackPanel x:Name="AutoTDPMLInfoPanel">
+                        <TextBlock x:Name="AutoTDPMLStatusText"/>
+                        <Button x:Name="AutoTDPResetMLButton"/>
+                        <TextBlock x:Name="AutoTDPLearnedSummaryText"/>
+                        <StackPanel x:Name="AutoTDPLearnedHeatmapPanel"/>
+                    </StackPanel>
+                    <!-- StickyTDP stubs -->
+                    <ToggleSwitch x:Name="StickyTDPToggle"/>
+                    <Slider x:Name="StickyTDPIntervalSlider"/>
+                    <TextBlock x:Name="StickyTDPIntervalValue"/>
+                    <!-- CPU EPP / CPU State stubs -->
+                    <Slider x:Name="CPUEPPSlider"/>
+                    <TextBlock x:Name="CPUEPPValueText"/>
+                    <ComboBox x:Name="MinCPUStateComboBox"/>
+                    <ComboBox x:Name="MaxCPUStateComboBox"/>
+                    <!-- Advanced Card stubs -->
+                    <ToggleButton x:Name="AdvancedExpandButton"/>
+                    <FontIcon x:Name="AdvancedExpandIcon"/>
+                    <TextBlock x:Name="AdvancedSummary"/>
+                    <StackPanel x:Name="AdvancedContent">
+                        <ComboBox x:Name="ACPowerPlanComboBox"/>
+                        <ComboBox x:Name="DCPowerPlanComboBox"/>
+                        <ToggleSwitch x:Name="PowerPlanAutoSwitchToggle"/>
+                        <StackPanel x:Name="CoreParkingSection">
+                            <TextBlock x:Name="CoreParkingDescription"/>
+                            <ComboBox x:Name="CoreParkingComboBox"/>
+                        </StackPanel>
+                        <StackPanel x:Name="CoreAffinitySection">
+                            <ComboBox x:Name="PCoreCountComboBox"/>
+                            <ComboBox x:Name="ECoreCountComboBox"/>
+                        </StackPanel>
+                        <ToggleSwitch x:Name="ForceParkModeToggle"/>
+                    </StackPanel>
+                    <!-- Controller Battery stubs -->
+                    <StackPanel x:Name="ControllerBatterySection">
+                        <TextBlock x:Name="LeftControllerBatteryText"/>
+                        <FontIcon x:Name="LeftControllerChargingIcon"/>
+                        <TextBlock x:Name="LeftControllerConnectionText"/>
+                        <TextBlock x:Name="RightControllerBatteryText"/>
+                        <FontIcon x:Name="RightControllerChargingIcon"/>
+                        <TextBlock x:Name="RightControllerConnectionText"/>
+                    </StackPanel>
+                    <!-- Battery Charge Limit stub -->
+                    <ToggleSwitch x:Name="LegionChargeLimitToggle"/>
+                </StackPanel>
 
             </Grid>
             </Grid> <!-- End Content Area Grid.Row="1" -->

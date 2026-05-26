@@ -1097,17 +1097,15 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Shows or hides the Default Game Profile card based on profile availability.
+        /// MSI Claw: AMD Z1/Z2 default game profile recommendation disabled — always stays collapsed.
         /// </summary>
         private void SetDefaultProfileCardVisibility(bool isVisible)
         {
+            // Disabled for MSI Claw — DefaultGameProfileCard is AMD-only (Z1/Z2 Extreme).
+            // Always keep it collapsed regardless of what the helper reports.
             if (DefaultGameProfileCard != null)
             {
-                DefaultGameProfileCard.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
-                Logger.Info($"Default Game Profile card visibility set to: {isVisible}");
-
-                // Update XY navigation when DGP visibility changes
-                UpdatePerformanceTabXYNavigation();
+                DefaultGameProfileCard.Visibility = Visibility.Collapsed;
             }
         }
 
