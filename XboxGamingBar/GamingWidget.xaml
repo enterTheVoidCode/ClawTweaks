@@ -1,4 +1,4 @@
-﻿<Page
+<Page
     x:Class="XboxGamingBar.GamingWidget"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -438,7 +438,15 @@
                             </StackPanel>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="GraphicsNavItem" Tag="AMD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                    <RadioButton x:Name="LegionNavItem" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                        <RadioButton.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7EF;" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="Ctrl" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <RadioButton x:Name="GraphicsNavItem" Tag="AMD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked">
                         <RadioButton.Content>
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                 <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7F4;" FontSize="12" VerticalAlignment="Center"/>
@@ -451,14 +459,6 @@
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                 <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8A3;" FontSize="12" VerticalAlignment="Center"/>
                                 <TextBlock Text="Scal" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </RadioButton.Content>
-                    </RadioButton>
-                    <RadioButton x:Name="LegionNavItem" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked">
-                        <RadioButton.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7EF;" FontSize="12" VerticalAlignment="Center"/>
-                                <TextBlock Text="Ctrl" VerticalAlignment="Center"/>
                             </StackPanel>
                         </RadioButton.Content>
                     </RadioButton>
@@ -2455,10 +2455,13 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- GRAPHICS TAB -->
-                <ScrollViewer x:Name="AMDScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                <!-- SYSTEM TAB -->
+                <ScrollViewer x:Name="SystemScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
+
+                        <!-- DISPLAY SECTION (migrated from Display tab) -->
+                        <TextBlock Text="DISPLAY" Style="{StaticResource SectionHeaderStyle}"/>
 
                         <!-- Resolution Card -->
                         <Border Style="{StaticResource CardStyle}" Margin="0,0,0,0">
@@ -2477,7 +2480,7 @@
                                           Grid.Column="1"
                                           IsEnabled="False"
                                           Style="{StaticResource ModernComboBoxStyle}"
-                                          XYFocusUp="{x:Bind GraphicsNavItem}">
+                                          XYFocusUp="{x:Bind SystemNavItem}">
                                     <x:String>1920x1080</x:String>
                                 </ComboBox>
                             </Grid>
@@ -2500,7 +2503,7 @@
                                           Grid.Column="1"
                                           IsEnabled="False"
                                           Style="{StaticResource ModernComboBoxStyle}"
-                                          XYFocusUp="{x:Bind GraphicsNavItem}">
+                                          XYFocusUp="{x:Bind SystemNavItem}">
                                     <x:String>60 Hz</x:String>
                                 </ComboBox>
                             </Grid>
@@ -2557,15 +2560,6 @@
                                 </StackPanel>
                             </StackPanel>
                         </Border>
-
-
-                    </StackPanel>
-                </ScrollViewer>
-
-                <!-- SYSTEM TAB -->
-                <ScrollViewer x:Name="SystemScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
-                              BringIntoViewOnFocusChange="True">
-                    <StackPanel Padding="16,8,16,16">
 
                         <!-- TDP Settings Card (Collapsible - consolidates Control Method, Device Limits, and Boost Settings) -->
                         <Border x:Name="TdpMethodCard" Style="{StaticResource CardStyle}">
@@ -3273,6 +3267,1216 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- MSI Claw Driver Updates Card -->
+                        <TextBlock Text="DRIVER UPDATES" Style="{StaticResource SectionHeaderStyle}"/>
+                        <Border x:Name="DriverUpdatesCard" Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="MSI Claw Driver Updates" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="MSI driver support coming soon"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="DriverUpdatesExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="True"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="DriverUpdatesExpandToggle_Click">
+                                        <FontIcon x:Name="DriverUpdatesExpandIcon" Glyph="&#xE70E;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+                                <StackPanel x:Name="DriverUpdatesContent" Spacing="10" Margin="0,12,0,0">
+                                    <!-- Coming soon notice -->
+                                    <Border Background="#1A2A1A" CornerRadius="4" Padding="10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Text="&#xE946;"
+                                                       FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="16"
+                                                       Foreground="#4CAF50"
+                                                       VerticalAlignment="Top"
+                                                       Margin="0,2,8,0"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="MSI Claw driver update support is not yet implemented. This feature will be enabled in a future update."
+                                                       Foreground="#A0D4A0"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </Border>
+                                    <!-- Machine info -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Machine type" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="DriverUpdatesMachineType" Text="—" FontSize="13" Foreground="#E0E0E0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Model" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="DriverUpdatesModel" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Installed BIOS" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="DriverUpdatesBios" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0"/>
+                                    </Grid>
+
+                                    <!-- Actions row (disabled — MSI support not yet implemented) -->
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button x:Name="DriverUpdatesCheckButton"
+                                                Content="Check for updates"
+                                                IsEnabled="False"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesCheckButton_Click"/>
+                                        <Button x:Name="DriverUpdatesUpdateAllButton"
+                                                Content="Update all"
+                                                Visibility="Collapsed"
+                                                IsEnabled="False"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesUpdateAllButton_Click"/>
+                                        <Button x:Name="DriverUpdatesOpenPageButton"
+                                                Content="Open MSI driver page"
+                                                IsEnabled="False"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesOpenPageButton_Click"/>
+                                    </StackPanel>
+
+                                    <TextBlock x:Name="DriverUpdatesStatusText"
+                                               Text="MSI driver support not yet available."
+                                               FontSize="11"
+                                               Foreground="#888888"
+                                               TextWrapping="Wrap"/>
+
+                                    <CheckBox x:Name="DriverUpdatesShowUtilitiesCheckbox"
+                                              Content="Show utilities and diagnostics"
+                                              IsChecked="False"
+                                              IsEnabled="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesShowUtilitiesCheckbox_Changed"
+                                              Unchecked="DriverUpdatesShowUtilitiesCheckbox_Changed"/>
+
+                                    <CheckBox x:Name="DriverUpdatesUpdateOnStartCheckbox"
+                                              Content="Check for driver updates on start"
+                                              IsChecked="False"
+                                              IsEnabled="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesUpdateOnStartCheckbox_Changed"
+                                              Unchecked="DriverUpdatesUpdateOnStartCheckbox_Changed"/>
+                                    <CheckBox x:Name="DriverUpdatesHideBannerCheckbox"
+                                              Content="Hide driver-update banner on Quick tab"
+                                              IsChecked="False"
+                                              IsEnabled="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesHideBannerCheckbox_Changed"
+                                              Unchecked="DriverUpdatesHideBannerCheckbox_Changed"/>
+
+                                    <ItemsControl x:Name="DriverUpdatesList" Visibility="Collapsed">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#1A1A2E" CornerRadius="4" Padding="10,8" Margin="0,4,0,0">
+                                                    <StackPanel>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="13" Foreground="#E0E0E0" TextWrapping="Wrap"/>
+                                                            <Border Grid.Column="1" Background="{Binding StatusColor}" CornerRadius="10" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding StatusLabel}" FontSize="10" Foreground="#FFFFFF"/>
+                                                            </Border>
+                                                        </Grid>
+                                                        <TextBlock FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                            <Run Text="{Binding Category}"/><Run Text=" • "/><Run Text="{Binding Severity}"/>
+                                                        </TextBlock>
+                                                        <TextBlock FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                            <Run Text="Installed:"/><Run Text=" "/><Run Text="{Binding InstalledVersion}"/><Run Text="  →  "/><Run Text="Latest:"/><Run Text=" "/><Run Text="{Binding Version}"/>
+                                                        </TextBlock>
+                                                        <Grid Margin="0,4,0,0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding ReleaseDate, FallbackValue=''}" FontSize="10" Foreground="#666666" VerticalAlignment="Center"/>
+                                                            <Button Grid.Column="1"
+                                                                    Content="{Binding InstallButtonLabel}"
+                                                                    Tag="{Binding DownloadUrl}"
+                                                                    Visibility="{Binding InstallButtonVisibility}"
+                                                                    Style="{StaticResource ModernButtonStyle}"
+                                                                    FontSize="11"
+                                                                    Padding="10,4"
+                                                                    Click="DriverInstallButton_Click"/>
+                                                        </Grid>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Debug Card (Collapsible) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with Expand/Collapse -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Debug" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Troubleshooting and diagnostic tools"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="DebugExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="DebugExpandButton_Click">
+                                        <FontIcon x:Name="DebugExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="DebugContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <!-- Theme Selector -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Theme" FontSize="14" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Change widget appearance" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="ThemeComboBox"
+                                                  Grid.Column="1"
+                                                  Width="130"
+                                                  SelectionChanged="ThemeComboBox_SelectionChanged">
+                                            <ComboBoxItem Content="Default" IsSelected="True"/>
+                                            <ComboBoxItem Content="Dark"/>
+                                            <ComboBoxItem Content="OLED"/>
+                                            <ComboBoxItem Content="Dracula"/>
+                                            <ComboBoxItem Content="Nord"/>
+                                            <ComboBoxItem Content="Catppuccin"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- Restart Helper / Kill GoTweaks Buttons (side by side) -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="RestartHelperButton"
+                                                Grid.Column="0"
+                                                Content="Restart Helper"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="RestartHelperButton_Click"/>
+                                        <Button x:Name="KillGoTweaksButton"
+                                                Grid.Column="2"
+                                                Content="Kill GoTweaks"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="KillGoTweaksButton_Click"/>
+                                    </Grid>
+
+                                    <!-- Export Logs Button -->
+                                    <Button x:Name="ExportLogsButton"
+                                            Content="Export Logs"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Click="ExportLogsButton_Click"/>
+
+                                    <!-- Check for Update Buttons (side by side) -->
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="CheckForUpdateButton"
+                                                Grid.Column="0"
+                                                Content="Check for Update"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="CheckForUpdateButton_Click"/>
+                                        <Button x:Name="CheckForUpdateDebugButton"
+                                                Grid.Column="2"
+                                                Content="Update (Debug)"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="CheckForUpdateDebugButton_Click"/>
+                                    </Grid>
+
+                                    <!-- GoTweaks self-update preferences. Shared with the
+                                         Quick-tab update banner: the helper's startup
+                                         probe is gated by "Check for updates on start",
+                                         and the banner is hidden when "Hide banner" is
+                                         on. Persisted per-user in LocalSettings. -->
+                                    <CheckBox x:Name="GoTweaksUpdateOnStartCheckbox"
+                                              Content="Check for updates on start"
+                                              IsChecked="True"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Margin="0,8,0,0"
+                                              Checked="GoTweaksUpdateOnStartCheckbox_Changed"
+                                              Unchecked="GoTweaksUpdateOnStartCheckbox_Changed"/>
+                                    <CheckBox x:Name="GoTweaksHideBannerCheckbox"
+                                              Content="Hide GoTweaks update banner on Quick tab"
+                                              IsChecked="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="GoTweaksHideBannerCheckbox_Changed"
+                                              Unchecked="GoTweaksHideBannerCheckbox_Changed"/>
+
+                                    <!-- Export Default Game Profiles Button -->
+                                    <Button x:Name="ExportDGPsButton"
+                                            Content="Export DGPs (Desktop)"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Click="ExportDGPsButton_Click"/>
+
+                                    <!-- Export/Import All Data Buttons (side by side) -->
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="ExportAllDataButton"
+                                                Grid.Column="0"
+                                                Content="Export All Data"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="ExportAllDataButton_Click"/>
+                                        <Button x:Name="ImportAllDataButton"
+                                                Grid.Column="2"
+                                                Content="Import All Data"
+                                                HorizontalAlignment="Stretch"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="ImportAllDataButton_Click"/>
+                                    </Grid>
+
+                                    <!-- Prepare for Uninstall Button -->
+                                    <Button x:Name="PrepareForUninstallButton"
+                                            Content="Prepare for Uninstall"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Click="PrepareForUninstallButton_Click"/>
+
+                                    <!-- Sidebar Menu (Beta) Toggle -->
+                                    <Grid Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Sidebar Menu (Beta)" FontSize="14" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Show overlay instead of Game Bar on Focus GoTweaks" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="SidebarMenuToggle"
+                                                      Grid.Column="1"
+                                                      OnContent="" OffContent=""
+                                                      IsOn="False"
+                                                      Toggled="SidebarMenuToggle_Toggled"/>
+                                    </Grid>
+
+                                    <!-- Enable Debug Tools Toggle -->
+                                    <Grid Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Enable Debug Tools" FontSize="14" Foreground="#FF6B6B"/>
+                                            <TextBlock Text="Advanced PawnIO testing (use with caution)" FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="EnableDebugToolsToggle"
+                                                      Grid.Column="1"
+                                                      OnContent="" OffContent=""
+                                                      IsOn="False"
+                                                      Toggled="EnableDebugToolsToggle_Toggled"/>
+                                    </Grid>
+
+                                    <!-- VIIPER Emulation Backend Toggle (experimental) -->
+                                    <Grid Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Use VIIPER emulation (Experimental)" FontSize="14" Foreground="#FFC107"/>
+                                            <TextBlock Text="Replaces the legacy ViGEm controller emulation with VIIPER (USBIP-based). Requires usbip-win2." FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                            <!-- Always-visible USBIP status. Driven from helper-side detection
+                                                 (XboxGamingBarHelper/Settings/UsbipInstalledProperty.cs) so users
+                                                 know the prerequisite state without having to flip the toggle. -->
+                                            <TextBlock x:Name="UsbipPrereqStatusLine"
+                                                       FontSize="11"
+                                                       Margin="0,4,0,0"
+                                                       Foreground="#888888"
+                                                       Text="usbip-win2 driver: checking..."/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="ViiperEmulationToggle"
+                                                      Grid.Column="1"
+                                                      OnContent="" OffContent=""
+                                                      IsOn="False"/>
+                                    </Grid>
+
+                                    <!-- USBIP prerequisite card, visible only when VIIPER toggle is on and usbip-win2 is not installed -->
+                                    <Border x:Name="UsbipInstallCard"
+                                            Visibility="Collapsed"
+                                            Background="#3A2A10"
+                                            BorderBrush="#FFC107"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="12"
+                                            Margin="0,8,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="⚠ usbip-win2 required" FontSize="13" FontWeight="SemiBold" Foreground="#FFC107"/>
+                                            <TextBlock Text="VIIPER emulation needs the usbip-win2 kernel driver. Install it once, reboot, then come back here."
+                                                       FontSize="11" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,4,0,8"/>
+                                            <HyperlinkButton x:Name="UsbipInstallLink"
+                                                             Content="Open usbip-win2 releases"
+                                                             NavigateUri="https://github.com/vadimgrn/usbip-win2/releases"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- PawnIO Debug Tools (visible when Debug Tools enabled) -->
+                                    <StackPanel x:Name="PawnIODebugTools" Visibility="Collapsed" Margin="0,12,0,0">
+                                        <Border Background="#402020" CornerRadius="6" Padding="12" Margin="0,0,0,8">
+                                            <StackPanel>
+                                                <TextBlock Text="PawnIO SMU Tools" FontSize="14" FontWeight="SemiBold" Foreground="#FF6B6B"/>
+                                                <TextBlock Text="Direct SMU commands - changes apply immediately" FontSize="11" Foreground="#888888" Margin="0,2,0,8"/>
+
+                                                <!-- CPU Info -->
+                                                <TextBlock x:Name="PawnIOCpuInfoText" Text="CPU: Not detected" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,8"/>
+
+                                                <!-- Curve Optimizer All -->
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="60"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <TextBlock Text="Curve Optimizer (All Cores)" FontSize="13" Foreground="#FFFFFF"/>
+                                                        <TextBlock Text="Undervolt: negative, Overvolt: positive" FontSize="10" Foreground="#888888"/>
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="PawnIOCoAllValue" Grid.Column="1" Text="0" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                        <Button Content="-" Width="32" Height="32" Click="PawnIOCoAllMinus_Click" Margin="0,0,4,0"/>
+                                                        <Button Content="+" Width="32" Height="32" Click="PawnIOCoAllPlus_Click"/>
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!-- Curve Optimizer iGPU -->
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="60"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <TextBlock Text="Curve Optimizer (iGPU)" FontSize="13" Foreground="#FFFFFF"/>
+                                                        <TextBlock Text="Undervolt: negative, Overvolt: positive" FontSize="10" Foreground="#888888"/>
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="PawnIOCoGfxValue" Grid.Column="1" Text="0" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                        <Button Content="-" Width="32" Height="32" Click="PawnIOCoGfxMinus_Click" Margin="0,0,4,0"/>
+                                                        <Button Content="+" Width="32" Height="32" Click="PawnIOCoGfxPlus_Click"/>
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!-- iGPU Clock -->
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="80"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <TextBlock Text="iGPU Clock (MHz)" FontSize="13" Foreground="#FFFFFF"/>
+                                                        <TextBlock Text="Set iGPU frequency" FontSize="10" Foreground="#888888"/>
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="PawnIOGfxClkValue" Grid.Column="1" Text="800" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                        <Button Content="-" Width="32" Height="32" Click="PawnIOGfxClkMinus_Click" Margin="0,0,4,0"/>
+                                                        <Button Content="+" Width="32" Height="32" Click="PawnIOGfxClkPlus_Click"/>
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!-- Tctl Temperature -->
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="80"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                        <TextBlock Text="Tctl Temp Limit (°C)" FontSize="13" Foreground="#FFFFFF"/>
+                                                        <TextBlock Text="CPU temperature limit" FontSize="10" Foreground="#888888"/>
+                                                    </StackPanel>
+                                                    <TextBlock x:Name="PawnIOTctlValue" Grid.Column="1" Text="95" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                        <Button Content="-" Width="32" Height="32" Click="PawnIOTctlMinus_Click" Margin="0,0,4,0"/>
+                                                        <Button Content="+" Width="32" Height="32" Click="PawnIOTctlPlus_Click"/>
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!-- Apply Buttons -->
+                                                <Grid Margin="0,8,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="8"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Button x:Name="PawnIOApplyButton"
+                                                            Grid.Column="0"
+                                                            Content="Apply All"
+                                                            HorizontalAlignment="Stretch"
+                                                            Background="#4CAF50"
+                                                            Click="PawnIOApplyButton_Click"/>
+                                                    <Button x:Name="PawnIOResetButton"
+                                                            Grid.Column="2"
+                                                            Content="Reset to 0"
+                                                            HorizontalAlignment="Stretch"
+                                                            Click="PawnIOResetButton_Click"/>
+                                                </Grid>
+
+                                                <!-- Status Text -->
+                                                <TextBlock x:Name="PawnIODebugStatusText"
+                                                           Text=""
+                                                           FontSize="11"
+                                                           Foreground="#A0A0A0"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,8,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Update Status Text -->
+                                    <TextBlock x:Name="UpdateStatusText"
+                                               Text=""
+                                               FontSize="12"
+                                               Foreground="#A0A0A0"
+                                               TextWrapping="Wrap"
+                                               Margin="0,8,0,0"
+                                               Visibility="Collapsed"/>
+
+                                    <!-- Update Button (shown when update available) -->
+                                    <Button x:Name="UpdateButton"
+                                            Content="Update"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Background="#107C10"
+                                            Click="UpdateButton_Click"
+                                            Visibility="Collapsed"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- About Card (Collapsible) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header with Expand/Collapse -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="About" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Version and credits"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="AboutExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="AboutExpandButton_Click">
+                                        <FontIcon x:Name="AboutExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <!-- Collapsible Content -->
+                                <StackPanel x:Name="AboutContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <!-- Version -->
+                                    <Grid Margin="0,0,0,8">
+                                        <TextBlock Text="Version"
+                                                   FontSize="14"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="AboutVersionText"
+                                                   Text="0.3.98.0"
+                                                   FontSize="14"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+
+                                    <!-- Author -->
+                                    <Grid Margin="0,0,0,8">
+                                        <TextBlock Text="Author"
+                                                   FontSize="14"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="LtChipotle"
+                                                   FontSize="14"
+                                                   Foreground="#00C8FF"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+
+                                    <!-- Special Thanks -->
+                                    <Grid Margin="0,0,0,12">
+                                        <TextBlock Text="Special Thanks"
+                                                   FontSize="14"
+                                                   Foreground="#FFFFFF"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="Mute, GameTechPlanet"
+                                                   FontSize="14"
+                                                   Foreground="#B0B0B0"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+
+                                    <!-- Check for updates on startup toggle -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Check for updates on startup"
+                                                       FontSize="14"
+                                                       Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Automatically check GitHub for new versions"
+                                                       FontSize="11"
+                                                       Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="AutoUpdateCheckToggle"
+                                                      Grid.Column="1"
+                                                      IsOn="True"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="AutoUpdateCheckToggle_Toggled"/>
+                                    </Grid>
+
+                                    <!-- Donate Button -->
+                                    <Button x:Name="DonateButton"
+                                            Content="Support Development - Donate"
+                                            Click="DonateButton_Click"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Center"
+                                            Padding="12,8"
+                                            Background="#40107C10"
+                                            Foreground="#88FF88"
+                                            FontSize="14"
+                                            CornerRadius="4"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- SCALING TAB -->
+                <ScrollViewer x:Name="ScalingScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
+
+                        <!-- Status Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Lossless Scaling Status" Style="{StaticResource CardTitleStyle}" Grid.Column="0" VerticalAlignment="Center"/>
+                                    <Button x:Name="ShowLosslessScalingWindowButton"
+                                            Grid.Column="1"
+                                            Content="Show Window"
+                                            Margin="0,0,8,0"
+                                            Visibility="Collapsed"
+                                            Click="ShowLosslessScalingWindowButton_Click"
+                                            XYFocusUp="{x:Bind ScalingNavItem}"/>
+                                    <Button x:Name="LaunchLosslessScalingButton"
+                                            Grid.Column="2"
+                                            Content="Launch"
+                                            Visibility="Collapsed"
+                                            Click="LaunchLosslessScalingButton_Click"
+                                            XYFocusUp="{x:Bind ScalingNavItem}"/>
+                                </Grid>
+                                <TextBlock x:Name="LosslessScalingStatusText"
+                                           Text="Not Installed"
+                                           FontSize="14"
+                                           Foreground="#A0A0A0"
+                                           Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Current Profile Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Current Profile" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock x:Name="LosslessScalingCurrentProfileText"
+                                                   Text="Default"
+                                                   FontSize="14"
+                                                   Foreground="#00C8FF"
+                                                   Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                    <Button x:Name="LosslessScalingCreateProfileButton"
+                                            Grid.Column="1"
+                                            Content="Create Profile"
+                                            VerticalAlignment="Center"
+                                            IsEnabled="False"
+                                            Click="LosslessScalingCreateProfileButton_Click"
+                                            XYFocusUp="{x:Bind ScalingNavItem}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Scale Toggle Button -->
+                        <ToggleButton x:Name="LosslessScalingEnabledToggle"
+                                      Content="Scale"
+                                      HorizontalAlignment="Stretch"
+                                      IsEnabled="False"
+                                      FontSize="16"
+                                      FontWeight="SemiBold"
+                                      Margin="0,10,0,0"
+                                      Style="{StaticResource StandaloneToggleButtonStyle}"/>
+
+                        <!-- Apply and Restart Button -->
+                        <Button x:Name="LosslessScalingSaveSettingsButton"
+                                Content="Apply and Restart"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,8,0,0"
+                                IsEnabled="False"
+                                Style="{StaticResource StandaloneButtonStyle}"
+                                Click="LosslessScalingSaveSettingsButton_Click"/>
+
+                        <!-- Reset Profile Button -->
+                        <Button x:Name="LosslessScalingResetProfileButton"
+                                Content="Reset to Defaults"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,8,0,0"
+                                IsEnabled="False"
+                                Style="{StaticResource StandaloneButtonStyle}"
+                                Click="LosslessScalingResetProfileButton_Click"/>
+
+                        <!-- AutoScale Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="AutoScale" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Automatically detect and scale games"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="LosslessScalingAutoScaleToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"/>
+                                </Grid>
+                                <StackPanel Visibility="{Binding ElementName=LosslessScalingAutoScaleToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid Margin="0,8,0,0">
+                                        <TextBlock Text="AutoScale Delay (s)"
+                                                   FontSize="14"
+                                                   Foreground="#A0A0A0"/>
+                                        <TextBlock x:Name="LosslessScalingAutoScaleDelayValueText"
+                                                   Text="{Binding ElementName=LosslessScalingAutoScaleDelaySlider, Path=Value}"
+                                                   FontSize="14"
+                                                   Foreground="#00C8FF"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="LosslessScalingAutoScaleDelaySlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="10"
+                                            TickFrequency="1"
+                                            SnapsTo="Ticks"
+                                            TickPlacement="BottomRight"
+                                            IsEnabled="False"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Scaling Type Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Scaling Algorithm" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+                                <ComboBox x:Name="LosslessScalingScalingTypeComboBox"
+                                          PlaceholderText="Select Type"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          SelectionChanged="LosslessScalingScalingTypeComboBox_SelectionChanged">
+                                    <x:String>Off</x:String>
+                                    <x:String>LS1</x:String>
+                                    <x:String>FSR</x:String>
+                                    <x:String>NIS</x:String>
+                                    <x:String>SGSR</x:String>
+                                    <x:String>BCAS</x:String>
+                                    <x:String>Anime4K</x:String>
+                                    <x:String>xBR</x:String>
+                                    <x:String>Sharp Bilinear</x:String>
+                                    <x:String>Integer</x:String>
+                                    <x:String>Nearest Neighbor</x:String>
+                                </ComboBox>
+
+                                <!-- Sharpness Slider (for FSR, NIS, SGSR, BCAS) -->
+                                <StackPanel x:Name="LosslessScalingSharpnessPanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <Grid>
+                                        <TextBlock Text="Sharpness" FontSize="12" Foreground="#A0A0A0"/>
+                                        <TextBlock x:Name="LosslessScalingSharpnessValueText"
+                                                   Text="{Binding ElementName=LosslessScalingSharpnessSlider, Path=Value}"
+                                                   FontSize="12"
+                                                   Foreground="#00C8FF"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="LosslessScalingSharpnessSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="100"
+                                            TickFrequency="10"
+                                            SnapsTo="Ticks"
+                                            TickPlacement="BottomRight"
+                                            IsEnabled="False"/>
+                                </StackPanel>
+
+                                <!-- FSR Optimize Toggle (FSR only) -->
+                                <Grid x:Name="LosslessScalingFSROptimizePanel" Visibility="Collapsed" Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Optimize" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center"/>
+                                    <ToggleSwitch x:Name="LosslessScalingFSROptimizeToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"/>
+                                </Grid>
+
+                                <!-- LS1 Type (LS1 only) — BALANCED vs PERFORMANCE -->
+                                <StackPanel x:Name="LosslessScalingLS1TypePanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <TextBlock Text="LS1 Type" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="LosslessScalingLS1TypeComboBox"
+                                              PlaceholderText="Select Type"
+                                              Width="Auto"
+                                              HorizontalAlignment="Stretch"
+                                              IsEnabled="False"
+                                              Style="{StaticResource ModernComboBoxStyle}">
+                                        <x:String>BALANCED</x:String>
+                                        <x:String>PERFORMANCE</x:String>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <!-- Resize Before Scale (any non-Off scaling type) -->
+                                <Grid x:Name="LosslessScalingResizeBeforePanel" Visibility="Collapsed" Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Resize Before Scale" FontSize="12" Foreground="#A0A0A0"/>
+                                        <TextBlock Text="Snap window to integer ratio before upscale"
+                                                   FontSize="11" Foreground="#707070"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="LosslessScalingResizeBeforeToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"/>
+                                </Grid>
+
+                                <!-- Anime4K Settings -->
+                                <StackPanel x:Name="LosslessScalingAnime4KPanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <TextBlock Text="Size" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="LosslessScalingAnime4KSizeComboBox"
+                                              PlaceholderText="Select Size"
+                                              Width="Auto"
+                                              HorizontalAlignment="Stretch"
+                                              IsEnabled="False"
+                                              Style="{StaticResource ModernComboBoxStyle}">
+                                        <x:String>Small</x:String>
+                                        <x:String>Medium</x:String>
+                                        <x:String>Large</x:String>
+                                        <x:String>Very Large</x:String>
+                                        <x:String>Ultra Large</x:String>
+                                    </ComboBox>
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="VRS" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center"/>
+                                        <ToggleSwitch x:Name="LosslessScalingAnime4KVRSToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      IsEnabled="False"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Scale Mode Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Scale Mode" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+                                <ComboBox x:Name="LosslessScalingScaleModeComboBox"
+                                          PlaceholderText="Select Mode"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          SelectionChanged="LosslessScalingScaleModeComboBox_SelectionChanged">
+                                    <x:String>Auto</x:String>
+                                    <x:String>Custom</x:String>
+                                </ComboBox>
+
+                                <!-- Auto Mode Settings -->
+                                <StackPanel x:Name="LosslessScalingAutoModePanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <TextBlock Text="Aspect" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="LosslessScalingAspectRatioComboBox"
+                                              PlaceholderText="Select Aspect"
+                                              Width="Auto"
+                                              HorizontalAlignment="Stretch"
+                                              IsEnabled="False"
+                                              Style="{StaticResource ModernComboBoxStyle}">
+                                        <x:String>Aspect Ratio</x:String>
+                                        <x:String>Fullscreen</x:String>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <!-- Custom Mode Settings -->
+                                <StackPanel x:Name="LosslessScalingCustomModePanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <Grid>
+                                        <TextBlock Text="Scale Factor" FontSize="12" Foreground="#A0A0A0"/>
+                                        <TextBlock x:Name="LosslessScalingScaleFactorValueText"
+                                                   Text="{Binding ElementName=LosslessScalingScaleFactorSlider, Path=Value}"
+                                                   FontSize="12"
+                                                   Foreground="#00C8FF"
+                                                   HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Slider x:Name="LosslessScalingScaleFactorSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="1" Maximum="5"
+                                            TickFrequency="1"
+                                            SnapsTo="Ticks"
+                                            TickPlacement="BottomRight"
+                                            IsEnabled="False"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Frame Generation Type Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Frame Generation" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+                                <ComboBox x:Name="LosslessScalingFrameGenTypeComboBox"
+                                          PlaceholderText="Select Type"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}">
+                                    <x:String>Off</x:String>
+                                    <x:String>LSFG1</x:String>
+                                    <x:String>LSFG2</x:String>
+                                    <x:String>LSFG3</x:String>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- LSFG3 Settings Card -->
+                        <Border x:Name="LSFG3SettingsCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="LSFG3 Settings" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+
+                                <!-- LSFG3 Mode -->
+                                <TextBlock Text="Mode" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="LosslessScalingLSFG3ModeComboBox"
+                                          PlaceholderText="Select Mode"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          Margin="0,0,0,12"
+                                          SelectionChanged="LosslessScalingLSFG3ModeComboBox_SelectionChanged">
+                                    <x:String>FIXED</x:String>
+                                    <x:String>ADAPTIVE</x:String>
+                                </ComboBox>
+
+                                <!-- LSFG3 Multiplier (hidden when Adaptive) -->
+                                <StackPanel x:Name="LosslessScalingLSFG3MultiplierPanel">
+                                    <TextBlock Text="Multiplier" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="LosslessScalingLSFG3MultiplierComboBox"
+                                              PlaceholderText="Select Multiplier"
+                                              Width="Auto"
+                                              HorizontalAlignment="Stretch"
+                                              IsEnabled="False"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              Margin="0,0,0,12">
+                                        <x:String>2</x:String>
+                                        <x:String>3</x:String>
+                                        <x:String>4</x:String>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <!-- LSFG3 Target FPS -->
+                                <Grid>
+                                    <TextBlock Text="Target FPS" FontSize="12" Foreground="#A0A0A0"/>
+                                    <TextBlock x:Name="LosslessScalingLSFG3TargetValueText"
+                                               Text="{Binding ElementName=LosslessScalingLSFG3TargetSlider, Path=Value}"
+                                               FontSize="12"
+                                               Foreground="#00C8FF"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Slider x:Name="LosslessScalingLSFG3TargetSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="30" Maximum="240"
+                                        TickFrequency="10"
+                                        SnapsTo="Ticks"
+                                        TickPlacement="BottomRight"
+                                        IsEnabled="False"
+                                        Margin="0,0,0,12"/>
+
+                                <!-- Flow Scale -->
+                                <Grid>
+                                    <TextBlock Text="Flow Scale" FontSize="12" Foreground="#A0A0A0"/>
+                                    <TextBlock x:Name="LosslessScalingFlowScaleValueText"
+                                               Text="{Binding ElementName=LosslessScalingFlowScaleSlider, Path=Value}"
+                                               FontSize="12"
+                                               Foreground="#00C8FF"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Slider x:Name="LosslessScalingFlowScaleSlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="25" Maximum="100"
+                                        TickFrequency="5"
+                                        SnapsTo="Ticks"
+                                        TickPlacement="BottomRight"
+                                        IsEnabled="False"
+                                        Margin="0,0,0,12"/>
+
+                                <!-- Size Toggle (Performance/Balanced) -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Performance Mode" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Lighter model for less input lag"
+                                                   FontSize="11"
+                                                   Foreground="#A0A0A0"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="LosslessScalingSizeToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- LSFG2 Settings Card -->
+                        <Border x:Name="LSFG2SettingsCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="LSFG2 Settings" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+
+                                <!-- LSFG2 Mode -->
+                                <TextBlock Text="Mode" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="LosslessScalingLSFG2ModeComboBox"
+                                          PlaceholderText="Select Mode"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}">
+                                    <x:String>X2</x:String>
+                                    <x:String>X3</x:String>
+                                    <x:String>X4</x:String>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Sync & Display Card (added 2026-05-01) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Sync &amp; Display" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+
+                                <!-- Sync Mode -->
+                                <TextBlock Text="Sync Mode" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="LosslessScalingSyncModeComboBox"
+                                          PlaceholderText="Select Mode"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          Margin="0,0,0,12">
+                                    <x:String>OFF</x:String>
+                                    <x:String>DEFAULT</x:String>
+                                    <x:String>VSYNC1</x:String>
+                                    <x:String>VSYNC2</x:String>
+                                    <x:String>VSYNC3</x:String>
+                                    <x:String>VSYNC4</x:String>
+                                </ComboBox>
+
+                                <!-- Max Frame Latency -->
+                                <Grid>
+                                    <TextBlock Text="Max Frame Latency" FontSize="12" Foreground="#A0A0A0"/>
+                                    <TextBlock x:Name="LosslessScalingMaxFrameLatencyValueText"
+                                               Text="{Binding ElementName=LosslessScalingMaxFrameLatencySlider, Path=Value}"
+                                               FontSize="12"
+                                               Foreground="#00C8FF"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Slider x:Name="LosslessScalingMaxFrameLatencySlider"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="0" Maximum="4"
+                                        TickFrequency="1"
+                                        SnapsTo="Ticks"
+                                        TickPlacement="BottomRight"
+                                        IsEnabled="False"
+                                        Margin="0,0,0,12"/>
+
+                                <!-- HDR Support -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="HDR Support" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Preserve HDR through scaling/FG"
+                                                   FontSize="11" Foreground="#A0A0A0"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="LosslessScalingHdrSupportToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"/>
+                                </Grid>
+
+                                <!-- G-Sync Support -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="G-Sync / VRR Support" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Improves pacing on VRR displays"
+                                                   FontSize="11" Foreground="#A0A0A0"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="LosslessScalingGsyncSupportToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Capture & Overlay Card (added 2026-05-01) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Capture &amp; Overlay" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
+
+                                <!-- Capture API -->
+                                <TextBlock Text="Capture API" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="LosslessScalingCaptureApiComboBox"
+                                          PlaceholderText="Select API"
+                                          Width="Auto"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          Margin="0,0,0,12">
+                                    <x:String>DXGI</x:String>
+                                    <x:String>WGC</x:String>
+                                    <x:String>GDI</x:String>
+                                </ComboBox>
+                                <TextBlock Text="WGC = best compat, DXGI = lower latency, GDI = legacy"
+                                           FontSize="11" Foreground="#707070" Margin="0,0,0,8"/>
+
+                                <!-- Draw FPS overlay -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Draw FPS Overlay" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="LS draws fps counter on top-left of scaled output"
+                                                   FontSize="11" Foreground="#A0A0A0"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="LosslessScalingDrawFpsToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="False"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Conflict Warning Card -->
+                        <Border Style="{StaticResource CardStyle}" x:Name="LSConflictWarningBorder" Visibility="Collapsed" Margin="0,8,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Conflict Detected"
+                                           Style="{StaticResource CardTitleStyle}"
+                                           Foreground="#FFA500"/>
+                                <TextBlock x:Name="LSConflictWarningText"
+                                           Text="AMD Fluid Motion Frames has been automatically disabled because it conflicts with Lossless Scaling Frame Generation."
+                                           FontSize="12"
+                                           Foreground="#FFA500"
+                                           TextWrapping="Wrap"
+                                           Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- LEGION TAB -->
+                <ScrollViewer x:Name="LegionScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
+
                         <!-- Controller Emulation Card -->
                         <Border x:Name="ControllerEmulationCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
@@ -3301,8 +4505,7 @@
                                                   BorderThickness="0"
                                                   Padding="8,4"
                                                   Click="ControllerEmulationExpandButton_Click"
-                                                  XYFocusUp="{x:Bind HotkeysExpandButton}"
-                                                  XYFocusDown="{x:Bind AutoHibernateToggle}"
+                                                  XYFocusUp="{x:Bind LegionNavItem}"
                                                   UseSystemFocusVisuals="True">
                                         <FontIcon x:Name="ControllerEmulationExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
@@ -4662,1215 +5865,6 @@
                         </StackPanel>
                         </Border>
 
-                        <!-- MSI Claw Driver Updates Card -->
-                        <TextBlock Text="DRIVER UPDATES" Style="{StaticResource SectionHeaderStyle}"/>
-                        <Border x:Name="DriverUpdatesCard" Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="MSI Claw Driver Updates" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="MSI driver support coming soon"
-                                                   Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="DriverUpdatesExpandToggle"
-                                                  Grid.Column="1"
-                                                  IsChecked="True"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="DriverUpdatesExpandToggle_Click">
-                                        <FontIcon x:Name="DriverUpdatesExpandIcon" Glyph="&#xE70E;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-                                <StackPanel x:Name="DriverUpdatesContent" Spacing="10" Margin="0,12,0,0">
-                                    <!-- Coming soon notice -->
-                                    <Border Background="#1A2A1A" CornerRadius="4" Padding="10">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0"
-                                                       Text="&#xE946;"
-                                                       FontFamily="Segoe MDL2 Assets"
-                                                       FontSize="16"
-                                                       Foreground="#4CAF50"
-                                                       VerticalAlignment="Top"
-                                                       Margin="0,2,8,0"/>
-                                            <TextBlock Grid.Column="1"
-                                                       Text="MSI Claw driver update support is not yet implemented. This feature will be enabled in a future update."
-                                                       Foreground="#A0D4A0"
-                                                       FontSize="12"
-                                                       TextWrapping="Wrap"/>
-                                        </Grid>
-                                    </Border>
-                                    <!-- Machine info -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Machine type" FontSize="13" Foreground="#AAAAAA"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="DriverUpdatesMachineType" Text="—" FontSize="13" Foreground="#E0E0E0"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Model" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="DriverUpdatesModel" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Installed BIOS" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="DriverUpdatesBios" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0"/>
-                                    </Grid>
-
-                                    <!-- Actions row (disabled — MSI support not yet implemented) -->
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Button x:Name="DriverUpdatesCheckButton"
-                                                Content="Check for updates"
-                                                IsEnabled="False"
-                                                Style="{StaticResource ModernButtonStyle}"
-                                                Click="DriverUpdatesCheckButton_Click"/>
-                                        <Button x:Name="DriverUpdatesUpdateAllButton"
-                                                Content="Update all"
-                                                Visibility="Collapsed"
-                                                IsEnabled="False"
-                                                Style="{StaticResource ModernButtonStyle}"
-                                                Click="DriverUpdatesUpdateAllButton_Click"/>
-                                        <Button x:Name="DriverUpdatesOpenPageButton"
-                                                Content="Open MSI driver page"
-                                                IsEnabled="False"
-                                                Style="{StaticResource ModernButtonStyle}"
-                                                Click="DriverUpdatesOpenPageButton_Click"/>
-                                    </StackPanel>
-
-                                    <TextBlock x:Name="DriverUpdatesStatusText"
-                                               Text="MSI driver support not yet available."
-                                               FontSize="11"
-                                               Foreground="#888888"
-                                               TextWrapping="Wrap"/>
-
-                                    <CheckBox x:Name="DriverUpdatesShowUtilitiesCheckbox"
-                                              Content="Show utilities and diagnostics"
-                                              IsChecked="False"
-                                              IsEnabled="False"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Checked="DriverUpdatesShowUtilitiesCheckbox_Changed"
-                                              Unchecked="DriverUpdatesShowUtilitiesCheckbox_Changed"/>
-
-                                    <CheckBox x:Name="DriverUpdatesUpdateOnStartCheckbox"
-                                              Content="Check for driver updates on start"
-                                              IsChecked="False"
-                                              IsEnabled="False"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Checked="DriverUpdatesUpdateOnStartCheckbox_Changed"
-                                              Unchecked="DriverUpdatesUpdateOnStartCheckbox_Changed"/>
-                                    <CheckBox x:Name="DriverUpdatesHideBannerCheckbox"
-                                              Content="Hide driver-update banner on Quick tab"
-                                              IsChecked="False"
-                                              IsEnabled="False"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Checked="DriverUpdatesHideBannerCheckbox_Changed"
-                                              Unchecked="DriverUpdatesHideBannerCheckbox_Changed"/>
-
-                                    <ItemsControl x:Name="DriverUpdatesList" Visibility="Collapsed">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="#1A1A2E" CornerRadius="4" Padding="10,8" Margin="0,4,0,0">
-                                                    <StackPanel>
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="13" Foreground="#E0E0E0" TextWrapping="Wrap"/>
-                                                            <Border Grid.Column="1" Background="{Binding StatusColor}" CornerRadius="10" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding StatusLabel}" FontSize="10" Foreground="#FFFFFF"/>
-                                                            </Border>
-                                                        </Grid>
-                                                        <TextBlock FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,0">
-                                                            <Run Text="{Binding Category}"/><Run Text=" • "/><Run Text="{Binding Severity}"/>
-                                                        </TextBlock>
-                                                        <TextBlock FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,2,0,0">
-                                                            <Run Text="Installed:"/><Run Text=" "/><Run Text="{Binding InstalledVersion}"/><Run Text="  →  "/><Run Text="Latest:"/><Run Text=" "/><Run Text="{Binding Version}"/>
-                                                        </TextBlock>
-                                                        <Grid Margin="0,4,0,0">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" Text="{Binding ReleaseDate, FallbackValue=''}" FontSize="10" Foreground="#666666" VerticalAlignment="Center"/>
-                                                            <Button Grid.Column="1"
-                                                                    Content="{Binding InstallButtonLabel}"
-                                                                    Tag="{Binding DownloadUrl}"
-                                                                    Visibility="{Binding InstallButtonVisibility}"
-                                                                    Style="{StaticResource ModernButtonStyle}"
-                                                                    FontSize="11"
-                                                                    Padding="10,4"
-                                                                    Click="DriverInstallButton_Click"/>
-                                                        </Grid>
-                                                    </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Debug Card (Collapsible) -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <!-- Header with Expand/Collapse -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Debug" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Troubleshooting and diagnostic tools"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="DebugExpandButton"
-                                                  Grid.Column="1"
-                                                  IsChecked="False"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="DebugExpandButton_Click">
-                                        <FontIcon x:Name="DebugExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-
-                                <!-- Collapsible Content -->
-                                <StackPanel x:Name="DebugContent" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <!-- Theme Selector -->
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Theme" FontSize="14" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Change widget appearance" FontSize="11" Foreground="#888888"/>
-                                        </StackPanel>
-                                        <ComboBox x:Name="ThemeComboBox"
-                                                  Grid.Column="1"
-                                                  Width="130"
-                                                  SelectionChanged="ThemeComboBox_SelectionChanged">
-                                            <ComboBoxItem Content="Default" IsSelected="True"/>
-                                            <ComboBoxItem Content="Dark"/>
-                                            <ComboBoxItem Content="OLED"/>
-                                            <ComboBoxItem Content="Dracula"/>
-                                            <ComboBoxItem Content="Nord"/>
-                                            <ComboBoxItem Content="Catppuccin"/>
-                                        </ComboBox>
-                                    </Grid>
-
-                                    <!-- Restart Helper / Kill GoTweaks Buttons (side by side) -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Button x:Name="RestartHelperButton"
-                                                Grid.Column="0"
-                                                Content="Restart Helper"
-                                                HorizontalAlignment="Stretch"
-                                                Style="{StaticResource StandaloneButtonStyle}"
-                                                Click="RestartHelperButton_Click"/>
-                                        <Button x:Name="KillGoTweaksButton"
-                                                Grid.Column="2"
-                                                Content="Kill GoTweaks"
-                                                HorizontalAlignment="Stretch"
-                                                Style="{StaticResource StandaloneButtonStyle}"
-                                                Click="KillGoTweaksButton_Click"/>
-                                    </Grid>
-
-                                    <!-- Export Logs Button -->
-                                    <Button x:Name="ExportLogsButton"
-                                            Content="Export Logs"
-                                            HorizontalAlignment="Stretch"
-                                            Margin="0,8,0,0"
-                                            Style="{StaticResource StandaloneButtonStyle}"
-                                            Click="ExportLogsButton_Click"/>
-
-                                    <!-- Check for Update Buttons (side by side) -->
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Button x:Name="CheckForUpdateButton"
-                                                Grid.Column="0"
-                                                Content="Check for Update"
-                                                HorizontalAlignment="Stretch"
-                                                Style="{StaticResource StandaloneButtonStyle}"
-                                                Click="CheckForUpdateButton_Click"/>
-                                        <Button x:Name="CheckForUpdateDebugButton"
-                                                Grid.Column="2"
-                                                Content="Update (Debug)"
-                                                HorizontalAlignment="Stretch"
-                                                Style="{StaticResource StandaloneButtonStyle}"
-                                                Click="CheckForUpdateDebugButton_Click"/>
-                                    </Grid>
-
-                                    <!-- GoTweaks self-update preferences. Shared with the
-                                         Quick-tab update banner: the helper's startup
-                                         probe is gated by "Check for updates on start",
-                                         and the banner is hidden when "Hide banner" is
-                                         on. Persisted per-user in LocalSettings. -->
-                                    <CheckBox x:Name="GoTweaksUpdateOnStartCheckbox"
-                                              Content="Check for updates on start"
-                                              IsChecked="True"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Margin="0,8,0,0"
-                                              Checked="GoTweaksUpdateOnStartCheckbox_Changed"
-                                              Unchecked="GoTweaksUpdateOnStartCheckbox_Changed"/>
-                                    <CheckBox x:Name="GoTweaksHideBannerCheckbox"
-                                              Content="Hide GoTweaks update banner on Quick tab"
-                                              IsChecked="False"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Checked="GoTweaksHideBannerCheckbox_Changed"
-                                              Unchecked="GoTweaksHideBannerCheckbox_Changed"/>
-
-                                    <!-- Export Default Game Profiles Button -->
-                                    <Button x:Name="ExportDGPsButton"
-                                            Content="Export DGPs (Desktop)"
-                                            HorizontalAlignment="Stretch"
-                                            Margin="0,8,0,0"
-                                            Style="{StaticResource StandaloneButtonStyle}"
-                                            Click="ExportDGPsButton_Click"/>
-
-                                    <!-- Export/Import All Data Buttons (side by side) -->
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Button x:Name="ExportAllDataButton"
-                                                Grid.Column="0"
-                                                Content="Export All Data"
-                                                HorizontalAlignment="Stretch"
-                                                Style="{StaticResource StandaloneButtonStyle}"
-                                                Click="ExportAllDataButton_Click"/>
-                                        <Button x:Name="ImportAllDataButton"
-                                                Grid.Column="2"
-                                                Content="Import All Data"
-                                                HorizontalAlignment="Stretch"
-                                                Style="{StaticResource StandaloneButtonStyle}"
-                                                Click="ImportAllDataButton_Click"/>
-                                    </Grid>
-
-                                    <!-- Prepare for Uninstall Button -->
-                                    <Button x:Name="PrepareForUninstallButton"
-                                            Content="Prepare for Uninstall"
-                                            HorizontalAlignment="Stretch"
-                                            Margin="0,8,0,0"
-                                            Style="{StaticResource StandaloneButtonStyle}"
-                                            Click="PrepareForUninstallButton_Click"/>
-
-                                    <!-- Sidebar Menu (Beta) Toggle -->
-                                    <Grid Margin="0,16,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Sidebar Menu (Beta)" FontSize="14" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Show overlay instead of Game Bar on Focus GoTweaks" FontSize="11" Foreground="#888888"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="SidebarMenuToggle"
-                                                      Grid.Column="1"
-                                                      OnContent="" OffContent=""
-                                                      IsOn="False"
-                                                      Toggled="SidebarMenuToggle_Toggled"/>
-                                    </Grid>
-
-                                    <!-- Enable Debug Tools Toggle -->
-                                    <Grid Margin="0,16,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Enable Debug Tools" FontSize="14" Foreground="#FF6B6B"/>
-                                            <TextBlock Text="Advanced PawnIO testing (use with caution)" FontSize="11" Foreground="#888888"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="EnableDebugToolsToggle"
-                                                      Grid.Column="1"
-                                                      OnContent="" OffContent=""
-                                                      IsOn="False"
-                                                      Toggled="EnableDebugToolsToggle_Toggled"/>
-                                    </Grid>
-
-                                    <!-- VIIPER Emulation Backend Toggle (experimental) -->
-                                    <Grid Margin="0,16,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Use VIIPER emulation (Experimental)" FontSize="14" Foreground="#FFC107"/>
-                                            <TextBlock Text="Replaces the legacy ViGEm controller emulation with VIIPER (USBIP-based). Requires usbip-win2." FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
-                                            <!-- Always-visible USBIP status. Driven from helper-side detection
-                                                 (XboxGamingBarHelper/Settings/UsbipInstalledProperty.cs) so users
-                                                 know the prerequisite state without having to flip the toggle. -->
-                                            <TextBlock x:Name="UsbipPrereqStatusLine"
-                                                       FontSize="11"
-                                                       Margin="0,4,0,0"
-                                                       Foreground="#888888"
-                                                       Text="usbip-win2 driver: checking..."/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="ViiperEmulationToggle"
-                                                      Grid.Column="1"
-                                                      OnContent="" OffContent=""
-                                                      IsOn="False"/>
-                                    </Grid>
-
-                                    <!-- USBIP prerequisite card, visible only when VIIPER toggle is on and usbip-win2 is not installed -->
-                                    <Border x:Name="UsbipInstallCard"
-                                            Visibility="Collapsed"
-                                            Background="#3A2A10"
-                                            BorderBrush="#FFC107"
-                                            BorderThickness="1"
-                                            CornerRadius="6"
-                                            Padding="12"
-                                            Margin="0,8,0,0">
-                                        <StackPanel>
-                                            <TextBlock Text="⚠ usbip-win2 required" FontSize="13" FontWeight="SemiBold" Foreground="#FFC107"/>
-                                            <TextBlock Text="VIIPER emulation needs the usbip-win2 kernel driver. Install it once, reboot, then come back here."
-                                                       FontSize="11" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,4,0,8"/>
-                                            <HyperlinkButton x:Name="UsbipInstallLink"
-                                                             Content="Open usbip-win2 releases"
-                                                             NavigateUri="https://github.com/vadimgrn/usbip-win2/releases"/>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- PawnIO Debug Tools (visible when Debug Tools enabled) -->
-                                    <StackPanel x:Name="PawnIODebugTools" Visibility="Collapsed" Margin="0,12,0,0">
-                                        <Border Background="#402020" CornerRadius="6" Padding="12" Margin="0,0,0,8">
-                                            <StackPanel>
-                                                <TextBlock Text="PawnIO SMU Tools" FontSize="14" FontWeight="SemiBold" Foreground="#FF6B6B"/>
-                                                <TextBlock Text="Direct SMU commands - changes apply immediately" FontSize="11" Foreground="#888888" Margin="0,2,0,8"/>
-
-                                                <!-- CPU Info -->
-                                                <TextBlock x:Name="PawnIOCpuInfoText" Text="CPU: Not detected" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,8"/>
-
-                                                <!-- Curve Optimizer All -->
-                                                <Grid Margin="0,0,0,8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="60"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                        <TextBlock Text="Curve Optimizer (All Cores)" FontSize="13" Foreground="#FFFFFF"/>
-                                                        <TextBlock Text="Undervolt: negative, Overvolt: positive" FontSize="10" Foreground="#888888"/>
-                                                    </StackPanel>
-                                                    <TextBlock x:Name="PawnIOCoAllValue" Grid.Column="1" Text="0" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
-                                                        <Button Content="-" Width="32" Height="32" Click="PawnIOCoAllMinus_Click" Margin="0,0,4,0"/>
-                                                        <Button Content="+" Width="32" Height="32" Click="PawnIOCoAllPlus_Click"/>
-                                                    </StackPanel>
-                                                </Grid>
-
-                                                <!-- Curve Optimizer iGPU -->
-                                                <Grid Margin="0,0,0,8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="60"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                        <TextBlock Text="Curve Optimizer (iGPU)" FontSize="13" Foreground="#FFFFFF"/>
-                                                        <TextBlock Text="Undervolt: negative, Overvolt: positive" FontSize="10" Foreground="#888888"/>
-                                                    </StackPanel>
-                                                    <TextBlock x:Name="PawnIOCoGfxValue" Grid.Column="1" Text="0" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
-                                                        <Button Content="-" Width="32" Height="32" Click="PawnIOCoGfxMinus_Click" Margin="0,0,4,0"/>
-                                                        <Button Content="+" Width="32" Height="32" Click="PawnIOCoGfxPlus_Click"/>
-                                                    </StackPanel>
-                                                </Grid>
-
-                                                <!-- iGPU Clock -->
-                                                <Grid Margin="0,0,0,8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="80"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                        <TextBlock Text="iGPU Clock (MHz)" FontSize="13" Foreground="#FFFFFF"/>
-                                                        <TextBlock Text="Set iGPU frequency" FontSize="10" Foreground="#888888"/>
-                                                    </StackPanel>
-                                                    <TextBlock x:Name="PawnIOGfxClkValue" Grid.Column="1" Text="800" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
-                                                        <Button Content="-" Width="32" Height="32" Click="PawnIOGfxClkMinus_Click" Margin="0,0,4,0"/>
-                                                        <Button Content="+" Width="32" Height="32" Click="PawnIOGfxClkPlus_Click"/>
-                                                    </StackPanel>
-                                                </Grid>
-
-                                                <!-- Tctl Temperature -->
-                                                <Grid Margin="0,0,0,8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="80"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                        <TextBlock Text="Tctl Temp Limit (°C)" FontSize="13" Foreground="#FFFFFF"/>
-                                                        <TextBlock Text="CPU temperature limit" FontSize="10" Foreground="#888888"/>
-                                                    </StackPanel>
-                                                    <TextBlock x:Name="PawnIOTctlValue" Grid.Column="1" Text="95" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                                    <StackPanel Grid.Column="2" Orientation="Horizontal">
-                                                        <Button Content="-" Width="32" Height="32" Click="PawnIOTctlMinus_Click" Margin="0,0,4,0"/>
-                                                        <Button Content="+" Width="32" Height="32" Click="PawnIOTctlPlus_Click"/>
-                                                    </StackPanel>
-                                                </Grid>
-
-                                                <!-- Apply Buttons -->
-                                                <Grid Margin="0,8,0,0">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="8"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <Button x:Name="PawnIOApplyButton"
-                                                            Grid.Column="0"
-                                                            Content="Apply All"
-                                                            HorizontalAlignment="Stretch"
-                                                            Background="#4CAF50"
-                                                            Click="PawnIOApplyButton_Click"/>
-                                                    <Button x:Name="PawnIOResetButton"
-                                                            Grid.Column="2"
-                                                            Content="Reset to 0"
-                                                            HorizontalAlignment="Stretch"
-                                                            Click="PawnIOResetButton_Click"/>
-                                                </Grid>
-
-                                                <!-- Status Text -->
-                                                <TextBlock x:Name="PawnIODebugStatusText"
-                                                           Text=""
-                                                           FontSize="11"
-                                                           Foreground="#A0A0A0"
-                                                           TextWrapping="Wrap"
-                                                           Margin="0,8,0,0"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </StackPanel>
-
-                                    <!-- Update Status Text -->
-                                    <TextBlock x:Name="UpdateStatusText"
-                                               Text=""
-                                               FontSize="12"
-                                               Foreground="#A0A0A0"
-                                               TextWrapping="Wrap"
-                                               Margin="0,8,0,0"
-                                               Visibility="Collapsed"/>
-
-                                    <!-- Update Button (shown when update available) -->
-                                    <Button x:Name="UpdateButton"
-                                            Content="Update"
-                                            HorizontalAlignment="Stretch"
-                                            Margin="0,8,0,0"
-                                            Style="{StaticResource StandaloneButtonStyle}"
-                                            Background="#107C10"
-                                            Click="UpdateButton_Click"
-                                            Visibility="Collapsed"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- About Card (Collapsible) -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <!-- Header with Expand/Collapse -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="About" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Version and credits"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="AboutExpandButton"
-                                                  Grid.Column="1"
-                                                  IsChecked="False"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="AboutExpandButton_Click">
-                                        <FontIcon x:Name="AboutExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-
-                                <!-- Collapsible Content -->
-                                <StackPanel x:Name="AboutContent" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <!-- Version -->
-                                    <Grid Margin="0,0,0,8">
-                                        <TextBlock Text="Version"
-                                                   FontSize="14"
-                                                   Foreground="#FFFFFF"
-                                                   VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="AboutVersionText"
-                                                   Text="0.3.98.0"
-                                                   FontSize="14"
-                                                   Foreground="#4CAF50"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-
-                                    <!-- Author -->
-                                    <Grid Margin="0,0,0,8">
-                                        <TextBlock Text="Author"
-                                                   FontSize="14"
-                                                   Foreground="#FFFFFF"
-                                                   VerticalAlignment="Center"/>
-                                        <TextBlock Text="LtChipotle"
-                                                   FontSize="14"
-                                                   Foreground="#00C8FF"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-
-                                    <!-- Special Thanks -->
-                                    <Grid Margin="0,0,0,12">
-                                        <TextBlock Text="Special Thanks"
-                                                   FontSize="14"
-                                                   Foreground="#FFFFFF"
-                                                   VerticalAlignment="Center"/>
-                                        <TextBlock Text="Mute, GameTechPlanet"
-                                                   FontSize="14"
-                                                   Foreground="#B0B0B0"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-
-                                    <!-- Check for updates on startup toggle -->
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Check for updates on startup"
-                                                       FontSize="14"
-                                                       Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Automatically check GitHub for new versions"
-                                                       FontSize="11"
-                                                       Foreground="#888888"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="AutoUpdateCheckToggle"
-                                                      Grid.Column="1"
-                                                      IsOn="True"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      Toggled="AutoUpdateCheckToggle_Toggled"/>
-                                    </Grid>
-
-                                    <!-- Donate Button -->
-                                    <Button x:Name="DonateButton"
-                                            Content="Support Development - Donate"
-                                            Click="DonateButton_Click"
-                                            HorizontalAlignment="Stretch"
-                                            HorizontalContentAlignment="Center"
-                                            Padding="12,8"
-                                            Background="#40107C10"
-                                            Foreground="#88FF88"
-                                            FontSize="14"
-                                            CornerRadius="4"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                    </StackPanel>
-                </ScrollViewer>
-
-                <!-- SCALING TAB -->
-                <ScrollViewer x:Name="ScalingScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
-                              BringIntoViewOnFocusChange="True">
-                    <StackPanel Padding="16,8,16,16">
-
-                        <!-- Status Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Lossless Scaling Status" Style="{StaticResource CardTitleStyle}" Grid.Column="0" VerticalAlignment="Center"/>
-                                    <Button x:Name="ShowLosslessScalingWindowButton"
-                                            Grid.Column="1"
-                                            Content="Show Window"
-                                            Margin="0,0,8,0"
-                                            Visibility="Collapsed"
-                                            Click="ShowLosslessScalingWindowButton_Click"
-                                            XYFocusUp="{x:Bind ScalingNavItem}"/>
-                                    <Button x:Name="LaunchLosslessScalingButton"
-                                            Grid.Column="2"
-                                            Content="Launch"
-                                            Visibility="Collapsed"
-                                            Click="LaunchLosslessScalingButton_Click"
-                                            XYFocusUp="{x:Bind ScalingNavItem}"/>
-                                </Grid>
-                                <TextBlock x:Name="LosslessScalingStatusText"
-                                           Text="Not Installed"
-                                           FontSize="14"
-                                           Foreground="#A0A0A0"
-                                           Margin="0,8,0,0"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Current Profile Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Current Profile" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock x:Name="LosslessScalingCurrentProfileText"
-                                                   Text="Default"
-                                                   FontSize="14"
-                                                   Foreground="#00C8FF"
-                                                   Margin="0,4,0,0"/>
-                                    </StackPanel>
-                                    <Button x:Name="LosslessScalingCreateProfileButton"
-                                            Grid.Column="1"
-                                            Content="Create Profile"
-                                            VerticalAlignment="Center"
-                                            IsEnabled="False"
-                                            Click="LosslessScalingCreateProfileButton_Click"
-                                            XYFocusUp="{x:Bind ScalingNavItem}"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Scale Toggle Button -->
-                        <ToggleButton x:Name="LosslessScalingEnabledToggle"
-                                      Content="Scale"
-                                      HorizontalAlignment="Stretch"
-                                      IsEnabled="False"
-                                      FontSize="16"
-                                      FontWeight="SemiBold"
-                                      Margin="0,10,0,0"
-                                      Style="{StaticResource StandaloneToggleButtonStyle}"/>
-
-                        <!-- Apply and Restart Button -->
-                        <Button x:Name="LosslessScalingSaveSettingsButton"
-                                Content="Apply and Restart"
-                                HorizontalAlignment="Stretch"
-                                Margin="0,8,0,0"
-                                IsEnabled="False"
-                                Style="{StaticResource StandaloneButtonStyle}"
-                                Click="LosslessScalingSaveSettingsButton_Click"/>
-
-                        <!-- Reset Profile Button -->
-                        <Button x:Name="LosslessScalingResetProfileButton"
-                                Content="Reset to Defaults"
-                                HorizontalAlignment="Stretch"
-                                Margin="0,8,0,0"
-                                IsEnabled="False"
-                                Style="{StaticResource StandaloneButtonStyle}"
-                                Click="LosslessScalingResetProfileButton_Click"/>
-
-                        <!-- AutoScale Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="AutoScale" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Automatically detect and scale games"
-                                                   Style="{StaticResource CardCaptionStyle}"
-                                                   TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="LosslessScalingAutoScaleToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
-                                </Grid>
-                                <StackPanel Visibility="{Binding ElementName=LosslessScalingAutoScaleToggle, Path=IsOn, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Grid Margin="0,8,0,0">
-                                        <TextBlock Text="AutoScale Delay (s)"
-                                                   FontSize="14"
-                                                   Foreground="#A0A0A0"/>
-                                        <TextBlock x:Name="LosslessScalingAutoScaleDelayValueText"
-                                                   Text="{Binding ElementName=LosslessScalingAutoScaleDelaySlider, Path=Value}"
-                                                   FontSize="14"
-                                                   Foreground="#00C8FF"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-                                    <Slider x:Name="LosslessScalingAutoScaleDelaySlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="10"
-                                            TickFrequency="1"
-                                            SnapsTo="Ticks"
-                                            TickPlacement="BottomRight"
-                                            IsEnabled="False"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Scaling Type Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Scaling Algorithm" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
-                                <ComboBox x:Name="LosslessScalingScalingTypeComboBox"
-                                          PlaceholderText="Select Type"
-                                          Width="Auto"
-                                          HorizontalAlignment="Stretch"
-                                          IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          SelectionChanged="LosslessScalingScalingTypeComboBox_SelectionChanged">
-                                    <x:String>Off</x:String>
-                                    <x:String>LS1</x:String>
-                                    <x:String>FSR</x:String>
-                                    <x:String>NIS</x:String>
-                                    <x:String>SGSR</x:String>
-                                    <x:String>BCAS</x:String>
-                                    <x:String>Anime4K</x:String>
-                                    <x:String>xBR</x:String>
-                                    <x:String>Sharp Bilinear</x:String>
-                                    <x:String>Integer</x:String>
-                                    <x:String>Nearest Neighbor</x:String>
-                                </ComboBox>
-
-                                <!-- Sharpness Slider (for FSR, NIS, SGSR, BCAS) -->
-                                <StackPanel x:Name="LosslessScalingSharpnessPanel" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <Grid>
-                                        <TextBlock Text="Sharpness" FontSize="12" Foreground="#A0A0A0"/>
-                                        <TextBlock x:Name="LosslessScalingSharpnessValueText"
-                                                   Text="{Binding ElementName=LosslessScalingSharpnessSlider, Path=Value}"
-                                                   FontSize="12"
-                                                   Foreground="#00C8FF"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-                                    <Slider x:Name="LosslessScalingSharpnessSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="100"
-                                            TickFrequency="10"
-                                            SnapsTo="Ticks"
-                                            TickPlacement="BottomRight"
-                                            IsEnabled="False"/>
-                                </StackPanel>
-
-                                <!-- FSR Optimize Toggle (FSR only) -->
-                                <Grid x:Name="LosslessScalingFSROptimizePanel" Visibility="Collapsed" Margin="0,8,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Optimize" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center"/>
-                                    <ToggleSwitch x:Name="LosslessScalingFSROptimizeToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
-                                </Grid>
-
-                                <!-- LS1 Type (LS1 only) — BALANCED vs PERFORMANCE -->
-                                <StackPanel x:Name="LosslessScalingLS1TypePanel" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <TextBlock Text="LS1 Type" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
-                                    <ComboBox x:Name="LosslessScalingLS1TypeComboBox"
-                                              PlaceholderText="Select Type"
-                                              Width="Auto"
-                                              HorizontalAlignment="Stretch"
-                                              IsEnabled="False"
-                                              Style="{StaticResource ModernComboBoxStyle}">
-                                        <x:String>BALANCED</x:String>
-                                        <x:String>PERFORMANCE</x:String>
-                                    </ComboBox>
-                                </StackPanel>
-
-                                <!-- Resize Before Scale (any non-Off scaling type) -->
-                                <Grid x:Name="LosslessScalingResizeBeforePanel" Visibility="Collapsed" Margin="0,8,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Resize Before Scale" FontSize="12" Foreground="#A0A0A0"/>
-                                        <TextBlock Text="Snap window to integer ratio before upscale"
-                                                   FontSize="11" Foreground="#707070"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="LosslessScalingResizeBeforeToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
-                                </Grid>
-
-                                <!-- Anime4K Settings -->
-                                <StackPanel x:Name="LosslessScalingAnime4KPanel" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <TextBlock Text="Size" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
-                                    <ComboBox x:Name="LosslessScalingAnime4KSizeComboBox"
-                                              PlaceholderText="Select Size"
-                                              Width="Auto"
-                                              HorizontalAlignment="Stretch"
-                                              IsEnabled="False"
-                                              Style="{StaticResource ModernComboBoxStyle}">
-                                        <x:String>Small</x:String>
-                                        <x:String>Medium</x:String>
-                                        <x:String>Large</x:String>
-                                        <x:String>Very Large</x:String>
-                                        <x:String>Ultra Large</x:String>
-                                    </ComboBox>
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="VRS" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center"/>
-                                        <ToggleSwitch x:Name="LosslessScalingAnime4KVRSToggle"
-                                                      Grid.Column="1"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      IsEnabled="False"/>
-                                    </Grid>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Scale Mode Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Scale Mode" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
-                                <ComboBox x:Name="LosslessScalingScaleModeComboBox"
-                                          PlaceholderText="Select Mode"
-                                          Width="Auto"
-                                          HorizontalAlignment="Stretch"
-                                          IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          SelectionChanged="LosslessScalingScaleModeComboBox_SelectionChanged">
-                                    <x:String>Auto</x:String>
-                                    <x:String>Custom</x:String>
-                                </ComboBox>
-
-                                <!-- Auto Mode Settings -->
-                                <StackPanel x:Name="LosslessScalingAutoModePanel" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <TextBlock Text="Aspect" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
-                                    <ComboBox x:Name="LosslessScalingAspectRatioComboBox"
-                                              PlaceholderText="Select Aspect"
-                                              Width="Auto"
-                                              HorizontalAlignment="Stretch"
-                                              IsEnabled="False"
-                                              Style="{StaticResource ModernComboBoxStyle}">
-                                        <x:String>Aspect Ratio</x:String>
-                                        <x:String>Fullscreen</x:String>
-                                    </ComboBox>
-                                </StackPanel>
-
-                                <!-- Custom Mode Settings -->
-                                <StackPanel x:Name="LosslessScalingCustomModePanel" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <Grid>
-                                        <TextBlock Text="Scale Factor" FontSize="12" Foreground="#A0A0A0"/>
-                                        <TextBlock x:Name="LosslessScalingScaleFactorValueText"
-                                                   Text="{Binding ElementName=LosslessScalingScaleFactorSlider, Path=Value}"
-                                                   FontSize="12"
-                                                   Foreground="#00C8FF"
-                                                   HorizontalAlignment="Right"/>
-                                    </Grid>
-                                    <Slider x:Name="LosslessScalingScaleFactorSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="1" Maximum="5"
-                                            TickFrequency="1"
-                                            SnapsTo="Ticks"
-                                            TickPlacement="BottomRight"
-                                            IsEnabled="False"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Frame Generation Type Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Frame Generation" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
-                                <ComboBox x:Name="LosslessScalingFrameGenTypeComboBox"
-                                          PlaceholderText="Select Type"
-                                          Width="Auto"
-                                          HorizontalAlignment="Stretch"
-                                          IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}">
-                                    <x:String>Off</x:String>
-                                    <x:String>LSFG1</x:String>
-                                    <x:String>LSFG2</x:String>
-                                    <x:String>LSFG3</x:String>
-                                </ComboBox>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- LSFG3 Settings Card -->
-                        <Border x:Name="LSFG3SettingsCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
-                            <StackPanel>
-                                <TextBlock Text="LSFG3 Settings" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
-
-                                <!-- LSFG3 Mode -->
-                                <TextBlock Text="Mode" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
-                                <ComboBox x:Name="LosslessScalingLSFG3ModeComboBox"
-                                          PlaceholderText="Select Mode"
-                                          Width="Auto"
-                                          HorizontalAlignment="Stretch"
-                                          IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          Margin="0,0,0,12"
-                                          SelectionChanged="LosslessScalingLSFG3ModeComboBox_SelectionChanged">
-                                    <x:String>FIXED</x:String>
-                                    <x:String>ADAPTIVE</x:String>
-                                </ComboBox>
-
-                                <!-- LSFG3 Multiplier (hidden when Adaptive) -->
-                                <StackPanel x:Name="LosslessScalingLSFG3MultiplierPanel">
-                                    <TextBlock Text="Multiplier" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
-                                    <ComboBox x:Name="LosslessScalingLSFG3MultiplierComboBox"
-                                              PlaceholderText="Select Multiplier"
-                                              Width="Auto"
-                                              HorizontalAlignment="Stretch"
-                                              IsEnabled="False"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              Margin="0,0,0,12">
-                                        <x:String>2</x:String>
-                                        <x:String>3</x:String>
-                                        <x:String>4</x:String>
-                                    </ComboBox>
-                                </StackPanel>
-
-                                <!-- LSFG3 Target FPS -->
-                                <Grid>
-                                    <TextBlock Text="Target FPS" FontSize="12" Foreground="#A0A0A0"/>
-                                    <TextBlock x:Name="LosslessScalingLSFG3TargetValueText"
-                                               Text="{Binding ElementName=LosslessScalingLSFG3TargetSlider, Path=Value}"
-                                               FontSize="12"
-                                               Foreground="#00C8FF"
-                                               HorizontalAlignment="Right"/>
-                                </Grid>
-                                <Slider x:Name="LosslessScalingLSFG3TargetSlider"
-                                        Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="30" Maximum="240"
-                                        TickFrequency="10"
-                                        SnapsTo="Ticks"
-                                        TickPlacement="BottomRight"
-                                        IsEnabled="False"
-                                        Margin="0,0,0,12"/>
-
-                                <!-- Flow Scale -->
-                                <Grid>
-                                    <TextBlock Text="Flow Scale" FontSize="12" Foreground="#A0A0A0"/>
-                                    <TextBlock x:Name="LosslessScalingFlowScaleValueText"
-                                               Text="{Binding ElementName=LosslessScalingFlowScaleSlider, Path=Value}"
-                                               FontSize="12"
-                                               Foreground="#00C8FF"
-                                               HorizontalAlignment="Right"/>
-                                </Grid>
-                                <Slider x:Name="LosslessScalingFlowScaleSlider"
-                                        Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="25" Maximum="100"
-                                        TickFrequency="5"
-                                        SnapsTo="Ticks"
-                                        TickPlacement="BottomRight"
-                                        IsEnabled="False"
-                                        Margin="0,0,0,12"/>
-
-                                <!-- Size Toggle (Performance/Balanced) -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Performance Mode" FontSize="14" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Lighter model for less input lag"
-                                                   FontSize="11"
-                                                   Foreground="#A0A0A0"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="LosslessScalingSizeToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- LSFG2 Settings Card -->
-                        <Border x:Name="LSFG2SettingsCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
-                            <StackPanel>
-                                <TextBlock Text="LSFG2 Settings" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
-
-                                <!-- LSFG2 Mode -->
-                                <TextBlock Text="Mode" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
-                                <ComboBox x:Name="LosslessScalingLSFG2ModeComboBox"
-                                          PlaceholderText="Select Mode"
-                                          Width="Auto"
-                                          HorizontalAlignment="Stretch"
-                                          IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}">
-                                    <x:String>X2</x:String>
-                                    <x:String>X3</x:String>
-                                    <x:String>X4</x:String>
-                                </ComboBox>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Sync & Display Card (added 2026-05-01) -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Sync &amp; Display" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
-
-                                <!-- Sync Mode -->
-                                <TextBlock Text="Sync Mode" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
-                                <ComboBox x:Name="LosslessScalingSyncModeComboBox"
-                                          PlaceholderText="Select Mode"
-                                          Width="Auto"
-                                          HorizontalAlignment="Stretch"
-                                          IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          Margin="0,0,0,12">
-                                    <x:String>OFF</x:String>
-                                    <x:String>DEFAULT</x:String>
-                                    <x:String>VSYNC1</x:String>
-                                    <x:String>VSYNC2</x:String>
-                                    <x:String>VSYNC3</x:String>
-                                    <x:String>VSYNC4</x:String>
-                                </ComboBox>
-
-                                <!-- Max Frame Latency -->
-                                <Grid>
-                                    <TextBlock Text="Max Frame Latency" FontSize="12" Foreground="#A0A0A0"/>
-                                    <TextBlock x:Name="LosslessScalingMaxFrameLatencyValueText"
-                                               Text="{Binding ElementName=LosslessScalingMaxFrameLatencySlider, Path=Value}"
-                                               FontSize="12"
-                                               Foreground="#00C8FF"
-                                               HorizontalAlignment="Right"/>
-                                </Grid>
-                                <Slider x:Name="LosslessScalingMaxFrameLatencySlider"
-                                        Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="0" Maximum="4"
-                                        TickFrequency="1"
-                                        SnapsTo="Ticks"
-                                        TickPlacement="BottomRight"
-                                        IsEnabled="False"
-                                        Margin="0,0,0,12"/>
-
-                                <!-- HDR Support -->
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="HDR Support" FontSize="14" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Preserve HDR through scaling/FG"
-                                                   FontSize="11" Foreground="#A0A0A0"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="LosslessScalingHdrSupportToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
-                                </Grid>
-
-                                <!-- G-Sync Support -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="G-Sync / VRR Support" FontSize="14" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Improves pacing on VRR displays"
-                                                   FontSize="11" Foreground="#A0A0A0"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="LosslessScalingGsyncSupportToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Capture & Overlay Card (added 2026-05-01) -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Capture &amp; Overlay" Style="{StaticResource CardTitleStyle}" Margin="0,0,0,8"/>
-
-                                <!-- Capture API -->
-                                <TextBlock Text="Capture API" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,4"/>
-                                <ComboBox x:Name="LosslessScalingCaptureApiComboBox"
-                                          PlaceholderText="Select API"
-                                          Width="Auto"
-                                          HorizontalAlignment="Stretch"
-                                          IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          Margin="0,0,0,12">
-                                    <x:String>DXGI</x:String>
-                                    <x:String>WGC</x:String>
-                                    <x:String>GDI</x:String>
-                                </ComboBox>
-                                <TextBlock Text="WGC = best compat, DXGI = lower latency, GDI = legacy"
-                                           FontSize="11" Foreground="#707070" Margin="0,0,0,8"/>
-
-                                <!-- Draw FPS overlay -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Draw FPS Overlay" FontSize="14" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="LS draws fps counter on top-left of scaled output"
-                                                   FontSize="11" Foreground="#A0A0A0"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="LosslessScalingDrawFpsToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Conflict Warning Card -->
-                        <Border Style="{StaticResource CardStyle}" x:Name="LSConflictWarningBorder" Visibility="Collapsed" Margin="0,8,0,0">
-                            <StackPanel>
-                                <TextBlock Text="Conflict Detected"
-                                           Style="{StaticResource CardTitleStyle}"
-                                           Foreground="#FFA500"/>
-                                <TextBlock x:Name="LSConflictWarningText"
-                                           Text="AMD Fluid Motion Frames has been automatically disabled because it conflicts with Lossless Scaling Frame Generation."
-                                           FontSize="12"
-                                           Foreground="#FFA500"
-                                           TextWrapping="Wrap"
-                                           Margin="0,8,0,0"/>
-                            </StackPanel>
-                        </Border>
-
-                    </StackPanel>
-                </ScrollViewer>
-
-                <!-- LEGION TAB -->
-                <ScrollViewer x:Name="LegionScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
-                              BringIntoViewOnFocusChange="True">
-                    <StackPanel Padding="16,8,16,16">
 
                         <!-- Controller Status Card -->
                         <Border Style="{StaticResource CardStyle}">
@@ -8571,6 +8565,8 @@
                     <!-- Labs section (Controller tab) stubs -->
                     <Button x:Name="ToggleDAServiceButton"/>
                     <TextBlock x:Name="DAServiceStatusText"/>
+                    <!-- Display tab (AMDScrollViewer) removed — stub for C# references -->
+                    <ScrollViewer x:Name="AMDScrollViewer"/>
                 </StackPanel>
 
             </Grid>
