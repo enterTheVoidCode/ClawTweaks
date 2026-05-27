@@ -28,9 +28,15 @@ namespace XboxGamingBarHelper.RTSS
         private readonly OSDItemAutoTDP osdItemAutoTDP;
         private readonly OSDItemTDPLimits osdItemTDPLimits;
         private readonly OSDItemCPU osdItemCPU;
+        private readonly OSDItemCPUWatts osdItemCPUWatts;
+        private readonly OSDItemFPS osdItemFPS;
         private readonly OSDItemGPU osdItemGPU;
         private readonly OSDItemVRAM osdItemVRAM;
         private readonly OSDItemControllerBattery osdItemControllerBattery;
+
+        // Active FPS cap info — set by Program.cs via SetFpsCapDisplay() whenever a limiter changes.
+        private int _fpsCapDisplayValue = 0;
+        private bool _fpsCapDisplayIsIntel = false;
 
         private readonly RTSSInstalledProperty rtssInstalled;
         public RTSSInstalledProperty RTSSInstalled
@@ -73,14 +79,15 @@ namespace XboxGamingBarHelper.RTSS
         // OSD configuration per level - stores which items are enabled
         // Level 1 (Basic):              Time, FPS, Battery                         — 3 cols, horizontal
         // Level 2 (Horizontal):         FPS, Battery, CPU, Time                    — 4 cols, horizontal (screenshot 2 style)
-        // Level 3 (Horizontal Detailed):AppName, FPS, CPU+Clock, GPU+Clock, Battery, Memory, Time — multi-col (IntelGameBar style)
+        // Level 3 (Horizontal Detailed):AppName, FPS, CPU+Clock, GPU+Clock, Battery, Memory, Time — 7 cols (IntelGameBar style)
+        //                               CPU item renders watts+PL1/PL2 subtly inline
         // Level 4 (Full):               All options                                — 1 col, vertical
         private Dictionary<int, HashSet<string>> osdLevelConfig = new Dictionary<int, HashSet<string>>
         {
             { 1, new HashSet<string> { "Time", "FPS", "Battery" } },
             { 2, new HashSet<string> { "FPS", "Battery", "CPU", "Time" } },
             { 3, new HashSet<string> { "AppName", "FPS", "CPU", "CPUClock", "GPU", "GPUClock", "Battery", "Memory", "Time" } },
-            { 4, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "FrametimeGraph" } }
+            { 4, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
         };
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
         {
@@ -116,6 +123,7 @@ namespace XboxGamingBarHelper.RTSS
         // Level 1 (Basic):              3 cols
         // Level 2 (Horizontal):         4 cols — FPS | BAT | CPU | Time on one row
         // Level 3 (Horizontal Detailed):7 cols — AppName | FPS | CPU | GPU | BAT | MEM | Time
+        //                               CPU item renders watts+PL1/PL2 as subtle inline hints
         // Level 4 (Full):               1 col  — vertical list
         private Dictionary<int, int> osdLevelColumns = new Dictionary<int, int>
         {
@@ -156,6 +164,8 @@ namespace XboxGamingBarHelper.RTSS
             osdItemTDPLimits.SetPerformanceManager(performanceManager);
             osdItemCPU = new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature);
             osdItemCPU.SetPerformanceManager(performanceManager);
+            osdItemCPUWatts = new OSDItemCPUWatts(performanceManager.CPUWattage);
+            osdItemFPS = new OSDItemFPS();
             osdItemGPU = new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature);
             osdItemVRAM = new OSDItemVRAM(performanceManager.GPUMemoryUsed, performanceManager.GPUMemoryFree, performanceManager.GPUMemoryClock);
             osdItemControllerBattery = new OSDItemControllerBattery(null, null, null, null);
@@ -163,10 +173,11 @@ namespace XboxGamingBarHelper.RTSS
             {
                 new OSDItemTime(),
                 new OSDItemAppName(),
-                new OSDItemFPS(),
+                osdItemFPS,
                 new OSDItemBattery(performanceManager.BatteryLevel, performanceManager.BatteryDischargeRate, performanceManager.BatteryChargeRate, performanceManager.BatteryRemainingTime, () => performanceManager.BatteryTimeToFull),
                 osdItemControllerBattery,
                 osdItemCPU,
+                osdItemCPUWatts,
                 osdItemGPU,
                 osdItemVRAM,
                 new OSDItemMemory(performanceManager.MemoryUsage, performanceManager.MemoryUsed, performanceManager.MemoryAvailable),
@@ -176,6 +187,17 @@ namespace XboxGamingBarHelper.RTSS
             };
 
             rtssState = RivatunerStatisticsServerState.NotInstalled;
+        }
+
+        /// <summary>
+        /// Called by Program.ProfileHandlers whenever a FPS limiter changes.
+        /// fps=0 means no limiter active; isIntel=true for Intel platform limiter.
+        /// The value is forwarded to OSDItemFPS on the next Update() tick.
+        /// </summary>
+        public void SetFpsCapDisplay(int fps, bool isIntel)
+        {
+            _fpsCapDisplayValue = fps;
+            _fpsCapDisplayIsIntel = isIntel;
         }
 
         /// <summary>
@@ -570,6 +592,9 @@ namespace XboxGamingBarHelper.RTSS
                     return;
                 }
             }
+
+            // Forward active FPS cap info to the FPS OSD item (set externally by Program.ProfileHandlers)
+            osdItemFPS.SetFpsCapDisplay(_fpsCapDisplayValue, _fpsCapDisplayIsIntel);
 
             // Update clock display settings based on config
             osdItemCPU.SetShowClock(IsItemEnabled("CPUClock"));

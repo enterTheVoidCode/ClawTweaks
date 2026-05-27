@@ -45,16 +45,34 @@ namespace Shared.Data
         }
 
         /// <summary>
-        /// Creates the default set of TDP presets
+        /// Creates the default set of TDP presets for MSI Claw.
+        /// Standard (25W) is the startup default; Balanced/Battery/Super Battery offer lower-power alternatives.
         /// </summary>
         public static List<TdpPreset> GetDefaultPresets()
         {
             return new List<TdpPreset>
             {
-                new TdpPreset("Quiet", 8, 1, true),
-                new TdpPreset("Balanced", 15, 2, true),
-                new TdpPreset("Performance", 25, 3, true)
+                new TdpPreset("Max",          30, null, true),
+                new TdpPreset("Standard",     25, null, true),
+                new TdpPreset("Balanced",     17, null, true),
+                new TdpPreset("Battery",      12, null, true),
+                new TdpPreset("Super Battery", 8, null, true)
             };
+        }
+
+        /// <summary>
+        /// Returns the display name of the built-in preset whose TdpWatts exactly matches
+        /// the given value, or null if no built-in preset matches (e.g. Slider/custom value).
+        /// Used by OSD and notifications to show "Super Battery 8W" instead of raw limits.
+        /// </summary>
+        public static string GetPresetNameByWatts(int watts)
+        {
+            foreach (var preset in GetDefaultPresets())
+            {
+                if (preset.TdpWatts == watts)
+                    return preset.Name;
+            }
+            return null;
         }
 
         /// <summary>

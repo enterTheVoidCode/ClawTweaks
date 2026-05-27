@@ -91,10 +91,11 @@ namespace XboxGamingBar
                 _saveStickyTDP = settings.Values.ContainsKey("ProfileSaveStickyTDP") ? (bool)settings.Values["ProfileSaveStickyTDP"] : false;
                 _saveOverlayLevel = settings.Values.ContainsKey("ProfileSaveOverlayLevel") ? (bool)settings.Values["ProfileSaveOverlayLevel"] : false;
                 _saveCPUAffinity = settings.Values.ContainsKey("ProfileSaveCPUAffinity") ? (bool)settings.Values["ProfileSaveCPUAffinity"] : false;
-                _saveNintendoLayout = settings.Values.ContainsKey("ProfileSaveNintendoLayout") ? (bool)settings.Values["ProfileSaveNintendoLayout"] : false;
+                // MSI Claw: NintendoLayout + ButtonMappings always forced true (UI hidden, cannot be changed by user)
+                _saveNintendoLayout = true;
                 _saveVibration = settings.Values.ContainsKey("ProfileSaveVibration") ? (bool)settings.Values["ProfileSaveVibration"] : false;
                 _saveLighting = settings.Values.ContainsKey("ProfileSaveLighting") ? (bool)settings.Values["ProfileSaveLighting"] : false;
-                _saveButtonMappings = settings.Values.ContainsKey("ProfileSaveButtonMappings") ? (bool)settings.Values["ProfileSaveButtonMappings"] : false;
+                _saveButtonMappings = true;
 
                 // Update UI checkboxes
                 if (ProfileSaveTDPCheckBox != null) ProfileSaveTDPCheckBox.IsChecked = _saveTDP;
@@ -141,10 +142,10 @@ namespace XboxGamingBar
             settings.Values["ProfileSaveStickyTDP"] = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveOverlayLevel"] = ProfileSaveOverlayLevelCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveCPUAffinity"] = ProfileSaveCPUAffinityCheckBox?.IsChecked ?? false;
-            settings.Values["ProfileSaveNintendoLayout"] = ProfileSaveNintendoLayoutCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveNintendoLayout"] = true;  // MSI Claw: always forced
             settings.Values["ProfileSaveVibration"] = ProfileSaveVibrationCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveLighting"] = ProfileSaveLightingCheckBox?.IsChecked ?? false;
-            settings.Values["ProfileSaveButtonMappings"] = ProfileSaveButtonMappingsCheckBox?.IsChecked ?? false;
+            settings.Values["ProfileSaveButtonMappings"] = true;  // MSI Claw: always forced
         }
 
         private void ProfileSettingCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -236,10 +237,10 @@ namespace XboxGamingBar
             _saveStickyTDP = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
             _saveOverlayLevel = ProfileSaveOverlayLevelCheckBox?.IsChecked ?? false;
             _saveCPUAffinity = ProfileSaveCPUAffinityCheckBox?.IsChecked ?? false;
-            _saveNintendoLayout = ProfileSaveNintendoLayoutCheckBox?.IsChecked ?? false;
+            _saveNintendoLayout = true;  // MSI Claw: always forced (UI hidden)
             _saveVibration = ProfileSaveVibrationCheckBox?.IsChecked ?? false;
             _saveLighting = ProfileSaveLightingCheckBox?.IsChecked ?? false;
-            _saveButtonMappings = ProfileSaveButtonMappingsCheckBox?.IsChecked ?? false;
+            _saveButtonMappings = true;  // MSI Claw: always forced (UI hidden)
         }
 
     }

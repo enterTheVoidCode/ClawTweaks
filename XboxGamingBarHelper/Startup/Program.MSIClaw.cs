@@ -2,6 +2,8 @@ using NLog;
 using Shared.Enums;
 using System;
 using System.Threading.Tasks;
+using XboxGamingBarHelper.Devices.MSIClaw;
+using XboxGamingBarHelper.MSI;
 
 namespace XboxGamingBarHelper
 {
@@ -40,6 +42,14 @@ namespace XboxGamingBarHelper
         private static bool _msiClawOwnsSuppression = false;
 
         /// <summary>
+        /// Software mouse forwarder for MSI Claw "Mouse mode".
+        /// Active when controller emulation is disabled (mode tile shows "Mouse").
+        /// Null when not running.
+        /// </summary>
+        private static MSIClawDesktopModeForwarder _msiClawMouseForwarder;
+        private static readonly object _msiClawMouseForwarderLock = new object();
+
+        /// <summary>
         /// Start the MSI Claw DInput-based virtual controller emulation.
         ///
         /// Adapted from HC DClawController + ClawA1M:
@@ -65,6 +75,12 @@ namespace XboxGamingBarHelper
                     Logger.Debug("MSIClaw: DInput path skipped (not an MSI Claw)");
                     return;
                 }
+
+                // ── Step 0: Register MsiClawControllerMode callback ──────────────
+                // MsiClawControllerModeManager.OnModeChanged is a static delegate.
+                // Registering here (not at field-init time) ensures Program.MSIClaw.cs
+                // is the authoritative owner; any previous value is safely overwritten.
+                MsiClawControllerModeManager.OnModeChanged = OnMsiClawControllerModeChanged;
 
                 // ── Step 1: Suppress legacy ControllerEmulationManager ─────────────
                 // Reuse the same SetSuppressedByViiper() flag that VIIPER uses — identical
@@ -93,11 +109,15 @@ namespace XboxGamingBarHelper
                     controllerEmulationManager.EmulationEnabledChanged += OnMSIClawEmulationEnabledChanged;
                 }
 
-                // ── Step 3: Honour the current enabled state ──────────────────────
-                bool emulationEnabled = controllerEmulationManager?.EmulationEnabled ?? true;
-                if (!emulationEnabled)
+                // ── Step 3: Honour the current mode state ─────────────────────────
+                // Use MsiClawControllerMode (default true = Controller).
+                // The widget sends the persisted value on connect; until then the default
+                // applies (Controller mode = safe gamepad behaviour on first boot).
+                bool controllerModeOn = msiClawControllerModeManager?.MsiClawControllerMode?.Value ?? true;
+                if (!controllerModeOn)
                 {
-                    Logger.Info("MSIClaw: ClawButtonMonitor deferred — controller emulation is currently disabled");
+                    Logger.Info("MSIClaw: MsiClawControllerMode=Mouse at startup — starting mouse forwarder");
+                    StartMSIClawMouseForwarderBackground();
                     return;
                 }
 
@@ -113,6 +133,10 @@ namespace XboxGamingBarHelper
         /// Called when the master "Enable Controller Emulation" toggle changes.
         /// Mirrors ViiperEmulationManager.OnEmulationEnabledChanged.
         ///
+        /// Toggle semantics for MSI Claw mode tile:
+        ///   emulationEnabled = true  → "Controller" mode: ClawButtonMonitor running (ViGEm Xbox 360)
+        ///   emulationEnabled = false → "Mouse" mode: ClawButtonMonitor stopped, MSIClawDesktopModeForwarder active
+        ///
         /// NOTE: Does NOT remove the event subscription — the subscription must remain
         /// alive so subsequent toggles (off → on → off) all work correctly.
         /// </summary>
@@ -122,25 +146,95 @@ namespace XboxGamingBarHelper
             {
                 if (emulationEnabled)
                 {
+                    // Switching to Controller mode:
+                    //   1. Stop mouse forwarder (switches controller back to XInput transiently;
+                    //      ClawButtonMonitor.Start() will switch to DInput immediately after)
+                    //   2. Start ClawButtonMonitor (DInput path, ViGEm virtual Xbox 360)
+                    Logger.Info("MSIClaw: EmulationEnabled → true (Controller mode) — stopping mouse forwarder, starting ClawButtonMonitor");
+                    StopMSIClawMouseForwarder();
+
                     lock (clawButtonMonitorLock)
                     {
                         if (clawButtonMonitor == null || !clawButtonMonitor.IsRunning)
-                        {
-                            Logger.Info("MSIClaw: EmulationEnabled → true — starting ClawButtonMonitor");
                             StartClawButtonMonitorBackground();
-                        }
                     }
                 }
                 else
                 {
-                    Logger.Info("MSIClaw: EmulationEnabled → false — stopping ClawButtonMonitor");
-                    // Stop-only: keep the event subscription alive for the next re-enable.
+                    // Switching to Mouse mode:
+                    //   1. Stop ClawButtonMonitor (unhides physical DInput controller via ForceUnhideAll)
+                    //   2. Start mouse forwarder (switches to XInput mode, then polls XInput)
+                    Logger.Info("MSIClaw: EmulationEnabled → false (Mouse mode) — stopping ClawButtonMonitor, starting mouse forwarder");
                     StopMSIClawButtonMonitor();
+                    StartMSIClawMouseForwarderBackground();
                 }
             }
             catch (Exception ex)
             {
                 Logger.Warn($"MSIClaw: OnMSIClawEmulationEnabledChanged threw: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Called when the MsiClawControllerMode Quick Settings tile is tapped.
+        /// Routes to OnMSIClawEmulationEnabledChanged() which handles the full
+        /// ClawButtonMonitor ↔ MSIClawDesktopModeForwarder lifecycle.
+        ///
+        /// true  = Controller mode (ClawButtonMonitor + ViGEm)
+        /// false = Mouse mode (MSIClawDesktopModeForwarder)
+        /// </summary>
+        private static void OnMsiClawControllerModeChanged(bool controllerOn)
+        {
+            Logger.Info($"MSIClaw: MsiClawControllerMode changed → {(controllerOn ? "Controller" : "Mouse")}");
+            OnMSIClawEmulationEnabledChanged(controllerOn);
+        }
+
+        /// <summary>
+        /// Starts MSIClawDesktopModeForwarder on a background thread.
+        /// The mode switch + settle (~600 ms) must not block the toggle handler.
+        /// </summary>
+        private static void StartMSIClawMouseForwarderBackground()
+        {
+            Task.Run(() =>
+            {
+                try
+                {
+                    lock (_msiClawMouseForwarderLock)
+                    {
+                        if (_msiClawMouseForwarder == null)
+                            _msiClawMouseForwarder = new MSIClawDesktopModeForwarder();
+
+                        if (!_msiClawMouseForwarder.IsRunning)
+                        {
+                            bool ok = _msiClawMouseForwarder.Start();
+                            if (!ok)
+                                Logger.Warn("MSIClaw: MSIClawDesktopModeForwarder Start() failed");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"MSIClaw: StartMSIClawMouseForwarderBackground threw: {ex.Message}");
+                }
+            });
+        }
+
+        /// <summary>
+        /// Stops MSIClawDesktopModeForwarder synchronously.
+        /// Releases any held mouse buttons before stopping.
+        /// </summary>
+        private static void StopMSIClawMouseForwarder()
+        {
+            try
+            {
+                lock (_msiClawMouseForwarderLock)
+                {
+                    _msiClawMouseForwarder?.Stop();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"MSIClaw: StopMSIClawMouseForwarder threw: {ex.Message}");
             }
         }
 
@@ -221,6 +315,16 @@ namespace XboxGamingBarHelper
                         // The warning is surfaced in logs and the MSI tile reflects the state.
                     }
 
+                    // ── Step 0.5: Proactive XInput mode switch ────────────────────
+                    // Mirrors HC ClawA1M.Open() → SwitchMode(gamepadMode):
+                    // If the controller is in hardware Desktop mode (e.g. left by a previous
+                    // HC session or after ClawTweaks shutdown), the user would have no gamepad
+                    // input during the ~2.5 s DInput settle in ClawButtonMonitor.Start().
+                    // Switching to XInput first gives immediate gamepad behaviour.
+                    // No settle needed here — ClawButtonMonitor.Start() includes its own
+                    // 2.5 s settle after the XInput → DInput transition.
+                    MSIClawHidController.TrySwitchToXInput();
+
                     // ── Step 1: Start ClawButtonMonitor ───────────────────────────
                     // MUST happen before HidHide Enable.
                     // Start() is synchronous for the DInput mode switch: OpenClawInterfaces()
@@ -229,6 +333,27 @@ namespace XboxGamingBarHelper
                     // Start() the device is still in XInput mode (PID_1901) and Enable() finds
                     // zero matching device IDs → suppression silently fails.
                     var monitor = EnsureClawButtonMonitor();
+
+                    // Apply current gyro settings from profile BEFORE Start().
+                    // LegionControllerSetting_PropertyChanged null-guards on clawButtonMonitor,
+                    // so any gyro settings applied during profile load (when the monitor was null)
+                    // were silently dropped. New instances default to _gyroActivationButton=0
+                    // (always active) which caused the "always-on regardless of LT" bug.
+                    // This block is the 1:1 equivalent of RestoreGlobalProfileSettings() for gyro,
+                    // using the same properties that LegionControllerSetting_PropertyChanged routes.
+                    if (legionManager != null)
+                    {
+                        monitor.SetGyroTarget(legionManager.LegionGyroTarget.Value);
+                        monitor.SetGyroActivationButton(legionManager.LegionGyroActivationButton.Value);
+                        monitor.SetGyroActivationMode(legionManager.LegionGyroActivationMode.Value);
+                        monitor.SetGyroSensitivityX(legionManager.LegionGyroSensitivityX.Value);
+                        monitor.SetGyroSensitivityY(legionManager.LegionGyroSensitivityY.Value);
+                        monitor.SetGyroDeadzone(legionManager.LegionGyroDeadzone.Value);
+                        monitor.SetGyroInvertX(legionManager.LegionGyroInvertX.Value);
+                        monitor.SetGyroInvertY(legionManager.LegionGyroInvertY.Value);
+                        Logger.Info($"MSIClaw: Gyro settings applied before Start() — target={legionManager.LegionGyroTarget.Value}, activationButton={legionManager.LegionGyroActivationButton.Value}, activationMode={legionManager.LegionGyroActivationMode.Value}");
+                    }
+
                     bool ok = monitor.Start();
 
                     if (!ok)
@@ -268,7 +393,8 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
-        /// Final shutdown: unsubscribes the emulation toggle event and stops ClawButtonMonitor.
+        /// Final shutdown: unsubscribes the emulation toggle event, stops ClawButtonMonitor,
+        /// and disposes the mouse forwarder.
         /// Called ONLY during helper shutdown — NOT from the toggle handler.
         /// Full disposal of the ClawButtonMonitor instance is handled by DisposeClawButtonMonitor()
         /// in Program.Labs.cs which also nulls out the field.
@@ -284,6 +410,23 @@ namespace XboxGamingBarHelper
             catch { }
 
             StopMSIClawButtonMonitor();
+
+            // Dispose mouse forwarder (releases stuck mouse buttons if active)
+            try
+            {
+                lock (_msiClawMouseForwarderLock)
+                {
+                    _msiClawMouseForwarder?.Dispose();
+                    _msiClawMouseForwarder = null;
+                }
+            }
+            catch { }
+
+            // Switch controller back to Desktop mode on shutdown —
+            // mirrors HC ClawA1M.Close() → SwitchMode(GamepadMode.Desktop).
+            // Ensures the controller is in a known, clean hardware state when
+            // no companion app is running (MSI firmware handles basic cursor movement).
+            try { MSIClawHidController.TrySwitchToDesktop(); } catch { }
         }
 
         /// <summary>

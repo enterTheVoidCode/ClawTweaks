@@ -920,6 +920,9 @@ namespace XboxGamingBarHelper
                     cur => { cur.FPSLimit = newLimit; cur.FpsCapMode = 0; },
                     glo => { glo.FPSLimit = newLimit; glo.FpsCapMode = 0; });
             }
+
+            // Update OSD cap-hint on FPS display (RTSS mode, isIntel=false)
+            rtssManager?.SetFpsCapDisplay(newLimit, false);
         }
 
         /// <summary>
@@ -964,6 +967,10 @@ namespace XboxGamingBarHelper
                     cur => { cur.IntelFpsTier = newTier; cur.FpsCapMode = capMode; },
                     glo => { glo.IntelFpsTier = newTier; glo.FpsCapMode = capMode; });
             }
+
+            // Update OSD cap-hint on FPS display (Intel mode; convert tier to fps)
+            int intelFps = newTier == 1 ? 60 : newTier == 2 ? 40 : newTier == 3 ? 30 : 0;
+            rtssManager?.SetFpsCapDisplay(intelFps, newTier > 0);
         }
 
         private static void RunningGame_PropertyChanged(object sender, PropertyChangedEventArgs e)

@@ -113,6 +113,7 @@ namespace XboxGamingBarHelper
         private static bool sidebarMenuEnabled;
         private static IntelGpuManager intelGpuManager;
         private static MsiCenterManager msiCenterManager;
+        private static MsiClawControllerModeManager msiClawControllerModeManager;
         private static List<IManager> Managers;
 
         public static OnScreenDisplayProperty onScreenDisplay;
@@ -989,6 +990,8 @@ namespace XboxGamingBarHelper
             intelGpuManager = new IntelGpuManager();
             // MsiCenterManager: polls MSI Center M running state, exposes toggle to widget.
             msiCenterManager = new MsiCenterManager(pipeServer);
+            // MsiClawControllerModeManager: MSI Claw-specific Controller/Mouse mode tile.
+            msiClawControllerModeManager = new MsiClawControllerModeManager();
             wave3Timer.Stop();
             Logger.Info($"[TIMING] Wave 3: {wave3Timer.ElapsedMilliseconds}ms");
 
@@ -1169,6 +1172,7 @@ namespace XboxGamingBarHelper
                 intelGpuManager.IntelFpsTier,
                 intelGpuManager.FpsCapMode,
                 msiCenterManager.MsiCenterActive,
+                msiClawControllerModeManager.MsiClawControllerMode,
                 settingsManager.IsForeground,
                 losslessScalingManager.LosslessScalingInstalled,
                 losslessScalingManager.LosslessScalingRunning,

@@ -70,6 +70,10 @@ namespace XboxGamingBar
             public Canvas StateTextCanvas { get; set; }
             public TranslateTransform StateTextTransform { get; set; }
             public Storyboard ScrollStoryboard { get; set; }
+
+            // Split-tile: optional dropdown chevron button (null for normal tiles)
+            public bool HasDropdown { get; set; } = false;
+            public Button DropdownButton { get; set; }
         }
 
         // List of custom shortcut tiles
@@ -246,19 +250,19 @@ namespace XboxGamingBar
             qsTileDefinitions.Clear();
             qsTileMap.Clear();
 
-            // FPS Limit, Intel FPS, and Overlay are pinned to the first positions so they
-            // appear first (top-left) in the Quick tab grid on every cold start.
-            // All other tiles start at order=3 and increment from there.
-            AddTileDefinition("FPSLimit",     "FPS Limit", "\uE916", order: 0);
-            AddTileDefinition("IntelFpsTier", "Intel FPS", "\uE916", order: 1);  // Intel IGCL Endurance Gaming tier
-            AddTileDefinition("Overlay",      "Overlay",   "\uE7B3", order: 2);
+            // MSI Claw mode tile pinned to position 0 (top-left) \u2014 shown only on MSI Claw (ShouldSkipTile hides it elsewhere).
+            // FPS Limit, Intel FPS, Overlay follow at 1-3. All other tiles start at order=4.
+            AddTileDefinition("MSIClawDesktopMode", "Mode",     "\uE7FC", order: 0);               // MSI Claw only \u2014 top-left
+            AddTileDefinition("FPSLimit",     "FPS Limit", "\uE916", order: 1);
+            AddTileDefinition("IntelFpsTier", "Intel FPS", "\uE916", order: 2, hasDropdown: true);  // Intel IGCL Endurance Gaming tier
+            AddTileDefinition("Overlay",      "Overlay",   "\uE7B3", order: 3, hasDropdown: true);
 
-            int order = 3;
+            int order = 4;
 
             // Row 1 - Performance Core (most used)
-            AddTileDefinition("TDPMode", "TDP Mode", "\uE945", order: order++);
+            AddTileDefinition("TDPMode", "TDP Mode", "\uE945", order: order++, hasDropdown: true);
             // AddTileDefinition("AutoTDP", "AutoTDP", "\uE9F5", order: order++);  // removed: not applicable on Intel Claw
-            AddTileDefinition("PowerMode", "Power Mode", "\uE945", order: order++);
+            // AddTileDefinition("PowerMode", "Power Mode", "\uE945", order: order++);  // removed: not used on MSI Claw
             AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4", order: order++);
 
             // Row 2 - Performance Fine-tuning
@@ -268,7 +272,7 @@ namespace XboxGamingBar
 
             // Row 3 - Display
             AddTileDefinition("Resolution", "Resolution", "\uE7F8", order: order++);
-            AddTileDefinition("Rotation", "Rotation", "\uE7AD", order: order++);
+            // AddTileDefinition("Rotation", "Rotation", "\uE7AD", order: order++);  // removed: not used on MSI Claw
             // AddTileDefinition("HDR", "HDR", "\uE706", order: order++);  // removed: MSI Claw has no HDR output
             AddTileDefinition("Fullscreen", "Fullscreen", "\uE740", order: order++);
 
@@ -284,21 +288,26 @@ namespace XboxGamingBar
 
             // Row 6 - Input & Interaction
             // AddTileDefinition("ScreenSaver", "Idle Screen Off", "\uE7E8", order: order++);  // removed: not needed on Claw
-            AddTileDefinition("Keyboard", "Keyboard", "\uE765", isTrigger: true, order: order++);
+            // AddTileDefinition("Keyboard", "Keyboard", "\uE765", isTrigger: true, order: order++);  // removed: on-screen keyboard not used on MSI Claw
             // AddTileDefinition("LegionTouchpad", "Touchpad", "\uE962", order: order++);  // removed: MSI Claw has no touchpad
             AddTileDefinition("LegionRemapControls", "Remap", "\uE7FC", order: order++);
-            AddTileDefinition("LegionDesktopControls", "Desktop", "\uE7F4", order: order++);
+            // AddTileDefinition("LegionDesktopControls", "Desktop", "\uE7F4", order: order++);  // removed: not used on MSI Claw
             // Quick toggle for the legacy controller emulation backend; state text shows
             // the active backend mode (Xbox / DS4 / Mouse) when on, "Off" otherwise.
+            // Hidden on MSI Claw (replaced by MSIClawDesktopMode below).
             AddTileDefinition("ControllerEmulation", "Controller", "\uE7FC", order: order++);
+
+            // MSI Claw-specific mode toggle: moved to top of list (order: 0, pinned above FPSLimit).
+            // Hidden on non-MSI-Claw devices (ShouldSkipTile checks deviceDisplayName for "Claw").
+            // AddTileDefinition("MSIClawDesktopMode", "Mode", "\uE7FC", order: order++);  // moved to order:0 at top
 
             // Row 7 - System/Device
             AddTileDefinition("MsiCenter", "MSI Center", "\uE7F4", order: order++);  // MSI Center M OEM software toggle
             // AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);  // removed: Legion-specific RGB light mode
-            AddTileDefinition("LegionPowerLight", "Power Light", "\uE7E8", order: order++);
-            AddTileDefinition("LegionChargeLimit", "Charge Limit", "\uE83F", order: order++);
+            // AddTileDefinition("LegionPowerLight", "Power Light", "\uE7E8", order: order++);  // removed: not used
+            // AddTileDefinition("LegionChargeLimit", "Charge Limit", "\uE83F", order: order++);  // removed: not used on MSI Claw
             // AddTileDefinition("LegionFanFullSpeed", "Fan Max", "\uE9CA", order: order++);  // removed: Legion-only feature
-            AddTileDefinition("Battery", "Battery", "\uE83F", order: order++);
+            // AddTileDefinition("Battery", "Battery", "\uE83F", order: order++);  // removed: battery display not needed
 
             // Load custom shortcut tiles from storage
             LoadCustomShortcutTiles();
@@ -311,9 +320,9 @@ namespace XboxGamingBar
             // AddTileDefinition("ActionHibernate", "Hibernate", "\uE708", isAction: true, order: actionOrder++);  // removed: not needed on handheld
         }
 
-        private void AddTileDefinition(string id, string name, string glyph, bool isTrigger = false, bool isAction = false, string customShortcut = null, int order = 0)
+        private void AddTileDefinition(string id, string name, string glyph, bool isTrigger = false, bool isAction = false, string customShortcut = null, int order = 0, bool hasDropdown = false)
         {
-            var def = new TileDefinition { Id = id, Name = name, Glyph = glyph, IsVisible = true, IsTrigger = isTrigger, IsAction = isAction, CustomShortcut = customShortcut, Order = order };
+            var def = new TileDefinition { Id = id, Name = name, Glyph = glyph, IsVisible = true, IsTrigger = isTrigger, IsAction = isAction, CustomShortcut = customShortcut, Order = order, HasDropdown = hasDropdown };
             qsTileDefinitions.Add(def);
             qsTileMap[id] = def;
         }

@@ -10,7 +10,7 @@ namespace XboxGamingBar.QuickSettings
     /// </summary>
     public enum TileType
     {
-        TDPMode,            // 4-state cycling (Silence → Balanced → Performance → Custom)
+        TDPMode,            // 4-state cycling (Silence → Balanced → Performance → Slider)
         LosslessScaling,    // Toggle (On/Off)
         RSR,                // Toggle for AMD Radeon Super Resolution
         AntiLag,            // Toggle for AMD Anti-Lag
@@ -130,7 +130,7 @@ namespace XboxGamingBar.QuickSettings
             switch (Type)
             {
                 case TileType.TDPMode:
-                    return new[] { "Quiet", "Balanced", "Performance", "Custom" };
+                    return new[] { "Quiet", "Balanced", "Performance", "Slider" };
                 case TileType.EPP:
                     return new[] { "0", "30", "80", "100" };
                 case TileType.PerformanceOverlay:

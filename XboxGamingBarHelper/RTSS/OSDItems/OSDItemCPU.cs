@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Drawing;
 using XboxGamingBarHelper.Performance;
 
@@ -36,27 +36,35 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         {
             var baseString = base.GetOSDString(osdLevel);
 
-            // Level 3 (Horizontal Detailed): append PL1/PL2 inline after wattage
-            if (osdLevel == 3 && performanceManager != null)
+            // Append subtle PL1/PL2 hint when limits are set (all levels)
+            if (performanceManager != null)
             {
                 int pl1 = performanceManager.CurrentSPL;
                 int pl2 = performanceManager.CurrentFPPT;
                 if (pl1 > 0)
-                {
-                    // Base already reset color to text color — append in same color context
-                    baseString += $" (PL1:{pl1}W PL2:{pl2}W)";
-                }
+                    baseString += BuildPLHint(pl1, pl2);
             }
 
             return baseString;
+        }
+
+        /// <summary>
+        /// Builds a small, muted PL1/PL2 limit indicator appended after the CPU values.
+        /// e.g. "(PL1:25W PL2:35W)" in 55% font size with muted grey — same style as FPS cap hint.
+        /// </summary>
+        private string BuildPLHint(int pl1, int pl2)
+        {
+            string mutedColor = ApplyOpacity("686868");
+            string plText = pl2 > 0 ? $"PL1:{pl1}W PL2:{pl2}W" : $"PL1:{pl1}W";
+            return $"<S=55><C={mutedColor}>({plText})<C><S>";
         }
 
         protected override List<OSDItemValue> GetValues(int osdLevel)
         {
             var osdItems = base.GetValues(osdLevel);
 
-            // IntelGameBar-style order: usage% | clock (GHz, optional) | temp °C | wattage W
-            // Skip sensors with value < 0 (N/A) so unavailable sensors are omitted rather than shown as N/A
+            // IntelGameBar-style order: usage% | clock (MHz, optional) | temp °C | wattage W
+            // Skip sensors with value < 0 (N/A) so unavailable sensors are omitted
             osdItems.Add(new OSDItemValue(cpuUsageSensor.Value, "%", OSDValueType.Percentage));
 
             // Clock shown inline (before temp/wattage) when CPUClock is enabled for the level

@@ -149,6 +149,14 @@ namespace XboxGamingBar
                 ControllerEmulationCard.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
             }
 
+            // For non-Legion devices (MSI Claw): show the Controller tab when emulation is available.
+            // Legion devices already have the tab shown via SetLegionTabVisibility(true).
+            if (LegionNavItem != null && (legionGoDetected == null || legionGoDetected.Value != true))
+            {
+                LegionNavItem.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Controller tab visibility set to: {available} (non-Legion, controllerEmulationAvailable)");
+            }
+
             if (ControllerEmulationEnabledToggle != null)
             {
                 ControllerEmulationEnabledToggle.IsEnabled = available;

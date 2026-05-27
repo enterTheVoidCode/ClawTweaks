@@ -26,47 +26,70 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         private const int TargetUsagePage = 0xFFA0;
         private const int TargetUsage     = 0x0001;
 
-        // HC ClawA1M.cs: SwitchMode byte command (padded to 64 bytes before send)
-        // { 0x0F, 0x00, 0x00, 0x3C, CommandType.SwitchMode(0x24), GamepadMode.XInput(0x01), MKeysFunction.Macro(0x00) }
-        private static readonly byte[] SwitchModeXInputCmd = { 15, 0, 0, 60, 36, 1, 0 };
+        // HC ClawA1M.cs: SwitchMode byte commands (padded to 64 bytes before send)
+        // { 0x0F, 0x00, 0x00, 0x3C, CommandType.SwitchMode(0x24), GamepadMode.<X>, MKeysFunction.Macro(0x00) }
+        // GamepadMode enum (HC ClawA1M): Offline=0, XInput=1, DirectInput=2, MSI=3, Desktop=4, BIOS=5
+        private static readonly byte[] SwitchModeXInputCmd   = { 15, 0, 0, 60, 36, 1, 0 }; // GamepadMode.XInput   = 1
+        private static readonly byte[] SwitchModeDesktopCmd  = { 15, 0, 0, 60, 36, 4, 0 }; // GamepadMode.Desktop  = 4
 
         /// <summary>
         /// Sends the XInput mode-switch command to the physical MSI Claw controller.
         ///
-        /// This prevents the long-Start-press mouse-mode-switch that occurs when
-        /// the physical controller is in MSI / Desktop firmware mode.
+        /// Used proactively on startup (controller emulation active) so the user gets
+        /// gamepad behaviour immediately while ClawButtonMonitor's DInput settle (~2.5 s)
+        /// completes in the background.  Also used by MSIClawDesktopModeForwarder to
+        /// enable XInput reading for software mouse emulation.
         ///
         /// Adapted from HC ClawA1M.SwitchMode(GamepadMode.XInput).
         /// </summary>
-        /// <returns>True if the command was written successfully; false otherwise (device not found, access denied, etc.).</returns>
         public static bool TrySwitchToXInput()
+        {
+            return TrySendModeCmd(SwitchModeXInputCmd, "XInput");
+        }
+
+        /// <summary>
+        /// Sends the Desktop mode-switch command to the physical MSI Claw controller.
+        ///
+        /// Mirrors HC ClawA1M.Close() → SwitchMode(GamepadMode.Desktop):
+        /// puts the controller back into the hardware-native Desktop state when
+        /// ClawTweaks shuts down or emulation is fully disabled.
+        ///
+        /// In Desktop mode the MSI firmware handles basic cursor movement natively.
+        /// The controller is NOT readable via XInput in this mode — call TrySwitchToXInput()
+        /// first if you need to read inputs.
+        ///
+        /// Adapted from HC ClawA1M.SwitchMode(GamepadMode.Desktop).
+        /// </summary>
+        public static bool TrySwitchToDesktop()
+        {
+            return TrySendModeCmd(SwitchModeDesktopCmd, "Desktop");
+        }
+
+        private static bool TrySendModeCmd(byte[] cmd, string modeName)
         {
             try
             {
                 HidDevice device = FindClawHidDevice();
                 if (device == null)
                 {
-                    Logger.Debug("[MSIClawHidController] Physical controller not found " +
-                                 "(VID=0x0DB0 PID=0x1901 UsagePage=0xFFA0 Usage=0x0001)");
+                    Logger.Debug($"[MSIClawHidController] Physical controller not found for SwitchMode({modeName})");
                     return false;
                 }
 
-                // Build 64-byte padded output report (HC sends msg, 0, 64)
                 byte[] msg = new byte[64];
-                Array.Copy(SwitchModeXInputCmd, msg, SwitchModeXInputCmd.Length);
+                Array.Copy(cmd, msg, cmd.Length);
 
                 using (HidStream stream = device.Open())
                 {
                     stream.Write(msg);
                 }
 
-                Logger.Info("[MSIClawHidController] SwitchMode(XInput) sent to physical controller — " +
-                            "mouse-mode switch on long-Start-press suppressed");
+                Logger.Info($"[MSIClawHidController] SwitchMode({modeName}) sent successfully");
                 return true;
             }
             catch (Exception ex)
             {
-                Logger.Warn($"[MSIClawHidController] TrySwitchToXInput failed: {ex.Message}");
+                Logger.Warn($"[MSIClawHidController] TrySwitchTo{modeName} failed: {ex.Message}");
                 return false;
             }
         }

@@ -145,6 +145,10 @@ namespace XboxGamingBarHelper.Labs
         private bool  _gyroToggleActive;
         private bool  _prevGyroButtonPressed;
 
+        // Logging for gyro activation state changes (monitor thread only — no lock needed).
+        private bool  _lastGyroActiveState;
+        private bool  _lastGyroActiveLogged;
+
         // One-Euro filter state — shared between stick and mouse paths (only one active).
         // Accessed only from monitor thread.
         private bool  _gyroFilterInit;
@@ -966,21 +970,52 @@ namespace XboxGamingBarHelper.Labs
         {
             int button = _gyroActivationButton;
             if (button == 0)
+            {
+                LogGyroActiveChange(true, state, button);
                 return true; // No button configured → always active (HC: no activation button)
+            }
 
             bool pressed = IsGyroButtonPressed(state, button);
 
+            bool result;
             if (_gyroActivationMode == 1) // Toggle: rising edge flips active state
             {
                 if (pressed && !_prevGyroButtonPressed)
                     _gyroToggleActive = !_gyroToggleActive;
                 _prevGyroButtonPressed = pressed;
-                return _gyroToggleActive;
+                result = _gyroToggleActive;
             }
             else // 0 = Hold: active while button is held
             {
                 _prevGyroButtonPressed = pressed;
-                return pressed;
+                result = pressed;
+            }
+
+            LogGyroActiveChange(result, state, button);
+            return result;
+        }
+
+        /// <summary>
+        /// Log gyro activation state changes and periodic diagnostics.
+        /// Fires on transition (active↔inactive) so we can diagnose button detection issues.
+        /// </summary>
+        private void LogGyroActiveChange(bool active, JoystickState state, int button)
+        {
+            if (active != _lastGyroActiveState || !_lastGyroActiveLogged)
+            {
+                // Build a button-state snapshot for diagnostic purposes.
+                // Shows raw RotationX/Y (trigger analog) and Buttons[4..7] (LB/RB/LT-digital/RT-digital).
+                string lb  = (state.Buttons.Length > 4 && state.Buttons[4]) ? "LB↓" : "LB↑";
+                string rb  = (state.Buttons.Length > 5 && state.Buttons[5]) ? "RB↓" : "RB↑";
+                string lt2 = (state.Buttons.Length > 6 && state.Buttons[6]) ? "LT_dig↓" : "LT_dig↑";
+                string rt2 = (state.Buttons.Length > 7 && state.Buttons[7]) ? "RT_dig↓" : "RT_dig↑";
+                Logger.Info(
+                    $"ClawButtonMonitor Gyro: active={active} (was={_lastGyroActiveState}) " +
+                    $"activationButton={button} activationMode={_gyroActivationMode} " +
+                    $"RotationX={state.RotationX} RotationY={state.RotationY} " +
+                    $"{lb} {rb} {lt2} {rt2}");
+                _lastGyroActiveState  = active;
+                _lastGyroActiveLogged = true;
             }
         }
 
@@ -1006,14 +1041,27 @@ namespace XboxGamingBarHelper.Labs
 
         /// <summary>
         /// Converts a gyro sample to a virtual stick deflection.
-        /// Simplified port of HC ControllerEmulationManager.ApplyStickFromGyro():
-        ///   Yaw mode: horizontal = GyroY, vertical = GyroX (negated for natural feel).
-        ///   Applies deadzone, One-Euro filter, sensitivity scale, then normalises to int16.
+        /// Axis mapping 1:1 from HC MotionManager.LocalSpace:
+        ///   output = new Vector2(defaultGyroscope.Z, defaultGyroscope.X)
+        ///   → horizontal = gyro.Z, vertical = gyro.X (negated for natural feel).
+        ///   After ClawGyroSourceAdapter remapping:
+        ///     gyroZ = -physical AngularVelocityY  (HC defaultGyroscope.Z)
+        ///     gyroX = physical AngularVelocityX   (HC defaultGyroscope.X)
+        ///
+        /// Sensitivity scaling 1:1 from HC Profile.GetSensitivityX/Y():
+        ///   GetSensitivityX() = MotionSensivityX * 1000.0f  (MotionSensivityX default = 1.0)
+        ///   → sensitivityFactor = 1000 at default sensitivity
+        ///   We map our 0-100 UI scale to HC equivalent:
+        ///     sensitivityFactor = _gyroSensitivityX * 10.0f
+        ///   (100 * 10 = 1000 = HC default; 50 * 10 = 500 = 50% of HC default)
+        ///   Output = Clamp(h * sensitivityFactor, short.MinValue, short.MaxValue)
+        ///   At default (100), full deflection ≈ 33 dps — matching HC's default responsiveness.
         /// </summary>
         private void ApplyGyroToStick(GyroSample sample, out short outputX, out short outputY)
         {
-            // HC Yaw mode: Y-axis = yaw (horizontal), X-axis = pitch (vertical, negated)
-            float h = sample.GyroYDegPerSecond;
+            // HC LocalSpace: horizontal = gyro.Z, vertical = gyro.X
+            // After ClawGyroSourceAdapter: gyroZ = -physical AngularVelocityY = HC gyro.Z
+            float h = sample.GyroZDegPerSecond;
             float v = sample.GyroXDegPerSecond;
 
             if (_gyroInvertX) h = -h;
@@ -1047,33 +1095,38 @@ namespace XboxGamingBarHelper.Labs
                 v = GyroOneEuro(v, ref _gyroFiltV, ref _gyroDerivV, dt);
             }
 
-            // Sensitivity scale (0-100 → 0.0-1.0 gain)
-            float sensX = Math.Max(0.01f, _gyroSensitivityX / 100.0f);
-            float sensY = Math.Max(0.01f, _gyroSensitivityY / 100.0f);
-            h *= sensX;
-            v *= sensY;
+            // HC sensitivity scaling: factor = sensitivityX * 10
+            // (HC: output *= MotionSensivityX * 1000; our 0-100 scale: 100 * 10 = 1000 equivalent)
+            float scaleX = Math.Max(0.1f, _gyroSensitivityX * 10.0f);
+            float scaleY = Math.Max(0.1f, _gyroSensitivityY * 10.0f);
 
-            // Normalise: GyroStickMaxDps °/s = full stick deflection
-            float nx = Math.Max(-1.0f, Math.Min(1.0f,  h / GyroStickMaxDps));
-            float ny = Math.Max(-1.0f, Math.Min(1.0f, -v / GyroStickMaxDps)); // pitch negated
-
-            outputX = (short)Math.Round(nx * short.MaxValue);
-            outputY = (short)Math.Round(ny * short.MaxValue);
+            // Sign convention:
+            //   h = sample.GyroZDegPerSecond = -physical.GyroY  (negated once in ClawGyroSourceAdapter)
+            //   Applying -h here would double-negate → wrong default direction (user must enable InvertX to fix).
+            //   Use h directly — ClawGyroSourceAdapter already carries the correct sign for horizontal.
+            // → vertical: v = sample.GyroXDegPerSecond = +physical.GyroX, no extra negation needed
+            outputX = GyroClampToInt16( h * scaleX); // was: -h (double-negation bug, fixed 2026-05-27)
+            outputY = GyroClampToInt16( v * scaleY);
         }
 
         // ── Gyro-to-mouse (HC ApplyMouseFromGyro port) ───────────────────────────
 
         /// <summary>
         /// Converts a gyro sample to a relative mouse move.
-        /// 1:1 port of HC ControllerEmulationManager.ApplyMouseFromGyro() using Yaw/Pitch axis mode:
-        ///   horizontal = GyroY (yaw), vertical = GyroX (pitch, negated for natural feel).
+        /// 1:1 port of HC MotionManager.LocalSpace + ApplyMouseFromGyro():
+        ///   output = new Vector2(defaultGyroscope.Z, defaultGyroscope.X)
+        ///   → horizontal = gyro.Z, vertical = gyro.X (negated for natural feel).
+        ///   After ClawGyroSourceAdapter remapping:
+        ///     gyroZ = -physical AngularVelocityY  (HC defaultGyroscope.Z)
+        ///     gyroX = physical AngularVelocityX   (HC defaultGyroscope.X)
         ///   LegionGyroSensitivityX/Y used as gainX/Y (0-100 → 0.0-1.0).
         ///   LegionGyroDeadzone used as threshold (degrees/sec).
         /// </summary>
         private void ApplyGyroMouse(GyroSample sample)
         {
-            // HC Yaw/Pitch default axis mode (mouseAxis == 0): Y→horizontal, X→vertical
-            float h = sample.GyroYDegPerSecond;
+            // HC LocalSpace: horizontal = gyro.Z, vertical = gyro.X
+            // After ClawGyroSourceAdapter: gyroZ = -physical AngularVelocityY = HC gyro.Z
+            float h = sample.GyroZDegPerSecond;
             float v = sample.GyroXDegPerSecond;
 
             if (_gyroInvertX) h = -h;

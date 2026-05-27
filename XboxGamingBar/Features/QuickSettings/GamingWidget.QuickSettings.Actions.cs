@@ -177,6 +177,9 @@ namespace XboxGamingBar
                             case "ControllerEmulation":
                                 ToggleControllerEmulation();
                                 break;
+                            case "MSIClawDesktopMode":
+                                ToggleMSIClawDesktopMode();
+                                break;
                             case "MsiCenter":
                                 ToggleMsiCenter();
                                 break;
@@ -321,6 +324,178 @@ namespace XboxGamingBar
                 AutoTDPToggle.IsOn = !AutoTDPToggle.IsOn;
                 Logger.Info($"AutoTDP tile toggled to: {AutoTDPToggle.IsOn}");
             }
+        }
+
+        /// <summary>
+        /// Called when the dropdown chevron on a split tile is tapped.
+        /// The tag on the button is "{TileId}_dropdown".
+        /// </summary>
+        private void TileDropdown_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is Button btn)) return;
+            string tag = btn.Tag as string ?? "";
+
+            if (tag == "TDPMode_dropdown")
+                ShowTDPDropdown(btn);
+            else if (tag == "IntelFpsTier_dropdown")
+                ShowIntelFpsDropdown(btn);
+            else if (tag == "Overlay_dropdown")
+                ShowOverlayDropdown(btn);
+        }
+
+        /// <summary>
+        /// Opens a MenuFlyout listing all TDP presets / modes for direct selection.
+        /// The currently active mode is indicated with a checkmark icon.
+        /// </summary>
+        private void ShowTDPDropdown(Button anchor)
+        {
+            var flyout = new MenuFlyout();
+            int currentIndex = TDPModeComboBox?.SelectedIndex ?? 0;
+
+            if (useCustomTDPPresets && tdpPresets != null && tdpPresets.Count > 0)
+            {
+                for (int i = 0; i < tdpPresets.Count; i++)
+                {
+                    int capturedIndex = i;
+                    var preset = tdpPresets[i];
+                    string label = preset.TdpWatts > 0
+                        ? $"{preset.Name} ({preset.TdpWatts}W)"
+                        : preset.Name;
+                    var item = new MenuFlyoutItem { Text = label };
+                    if (i == currentIndex)
+                        item.Icon = new FontIcon { Glyph = "", FontSize = 12 }; // ✓
+                    item.Click += (s, ev) => SetTDPModeByIndex(capturedIndex);
+                    flyout.Items.Add(item);
+                }
+                int sliderIdx = tdpPresets.Count;
+                var sliderItem = new MenuFlyoutItem { Text = "Slider (Manual)" };
+                if (currentIndex == sliderIdx)
+                    sliderItem.Icon = new FontIcon { Glyph = "", FontSize = 12 };
+                sliderItem.Click += (s, ev) => SetTDPModeByIndex(sliderIdx);
+                flyout.Items.Add(sliderItem);
+            }
+            else if (legionGoDetected?.Value == true)
+            {
+                string[] modes = { "Quiet", "Balanced", "Performance", "Slider" };
+                for (int i = 0; i < modes.Length; i++)
+                {
+                    int capturedIndex = i;
+                    var item = new MenuFlyoutItem { Text = modes[i] };
+                    if (i == currentIndex)
+                        item.Icon = new FontIcon { Glyph = "", FontSize = 12 };
+                    item.Click += (s, ev) => SetTDPModeByIndex(capturedIndex);
+                    flyout.Items.Add(item);
+                }
+            }
+            else
+            {
+                // MSI Claw default modes
+                string[] modes = { "Max (30W)", "Standard (25W)", "Balanced (17W)", "Battery (12W)", "Super Battery (8W)", "Slider" };
+                for (int i = 0; i < modes.Length; i++)
+                {
+                    int capturedIndex = i;
+                    var item = new MenuFlyoutItem { Text = modes[i] };
+                    if (i == currentIndex)
+                        item.Icon = new FontIcon { Glyph = "", FontSize = 12 }; // ✓ active mode
+                    item.Click += (s, ev) => SetTDPModeByIndex(capturedIndex);
+                    flyout.Items.Add(item);
+                }
+            }
+
+            flyout.ShowAt(anchor);
+        }
+
+        /// <summary>
+        /// Opens a MenuFlyout listing the four Intel IGCL Endurance Gaming tiers for direct selection.
+        /// </summary>
+        private void ShowIntelFpsDropdown(Button anchor)
+        {
+            if (intelFpsTier == null) return;
+
+            var flyout = new MenuFlyout();
+            int current = intelFpsTier.Value;
+
+            string[] labels = { "Off", "60 FPS — Performance", "40 FPS — Balanced", "30 FPS — Efficiency" };
+            for (int i = 0; i < labels.Length; i++)
+            {
+                int tier = i;
+                var item = new MenuFlyoutItem { Text = labels[i] };
+                if (tier == current)
+                    item.Icon = new FontIcon { Glyph = "", FontSize = 12 };
+                item.Click += (s, ev) =>
+                {
+                    intelFpsTier.SetValue(tier);
+                    UpdateQuickSettingsTileStates();
+                };
+                flyout.Items.Add(item);
+            }
+
+            flyout.ShowAt(anchor);
+        }
+
+        /// <summary>
+        /// Opens a MenuFlyout listing RTSS overlay levels (0–4) for direct selection.
+        /// </summary>
+        private void ShowOverlayDropdown(Button anchor)
+        {
+            if (osd == null) return;
+
+            var flyout = new MenuFlyout();
+            int current = (int)osd.Value;
+
+            string[] labels = { "Off", "Basic", "Horizontal", "H. Detailed", "Full" };
+            for (int i = 0; i < labels.Length; i++)
+            {
+                int level = i;
+                var item = new MenuFlyoutItem { Text = labels[i] };
+                if (level == current)
+                    item.Icon = new FontIcon { Glyph = "", FontSize = 12 };
+                item.Click += (s, ev) =>
+                {
+                    osd.SetValue(level);
+                    UpdateQuickSettingsTileStates();
+                };
+                flyout.Items.Add(item);
+            }
+
+            flyout.ShowAt(anchor);
+        }
+
+        /// <summary>
+        /// Directly applies TDP mode by ComboBox index — used by the dropdown for direct selection.
+        /// Mirrors CycleTDPMode() but for a specific target index instead of next-in-cycle.
+        /// </summary>
+        private void SetTDPModeByIndex(int index)
+        {
+            // Turn off default game profile if active (same guard as CycleTDPMode)
+            if (defaultGameProfileEnabled?.Value == true && DefaultProfileToggle != null)
+            {
+                Logger.Info("TDP Mode dropdown selection - turning off Default Game Profile");
+                DefaultProfileToggle.IsOn = false;
+            }
+
+            bool isLegion = legionGoDetected?.Value == true;
+
+            // Apply via ComboBox — SelectionChanged handler applies the actual TDP to hardware
+            if (TDPModeComboBox != null)
+            {
+                isUserInitiatedTDPModeChange = true;
+                try { TDPModeComboBox.SelectedIndex = index; }
+                finally { isUserInitiatedTDPModeChange = false; }
+            }
+
+            // For Legion: also set the hardware performance mode property
+            if (isLegion && legionPerformanceMode != null)
+            {
+                int[] modeValues = { 1, 2, 3, 255 };
+                int legionMode = (index >= 0 && index < modeValues.Length) ? modeValues[index] : 255;
+                legionPerformanceMode.SetValue(legionMode);
+                if (legionMode == 255)
+                    ScheduleQsTdpReapply();
+            }
+
+            UpdateQuickSettingsTileStates();
+            Logger.Info($"TDP Mode set from dropdown: index={index}, isLegion={isLegion}");
         }
 
         private void ScheduleQsTdpReapply()
@@ -953,12 +1128,141 @@ namespace XboxGamingBar
                 Logger.Info("FPS Limit disabled");
             }
 
+            // Update the FPS limiter panels (show/hide RTSS or Intel section)
+            UpdateFPSLimiterPanels();
+
             // Save to profile if FPS Limit saving is enabled
             // Don't save during DGP restoration - values being restored to original state
             if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
             {
                 SaveCurrentSettingsToProfile(currentProfileName);
             }
+        }
+
+        /// <summary>
+        /// FPS limiter mode radio changed (RTSS ↔ Intel).
+        /// Updates panel visibility and sends the new mode to the helper.
+        /// </summary>
+        private void FPSModeRadio_Changed(object sender, RoutedEventArgs e)
+        {
+            if (isUpdatingFPSModeUI || isApplyingHelperUpdate || isLoadingProfile) return;
+
+            bool isIntel = FPSModeIntelRadio?.IsChecked == true;
+
+            // Show the matching sub-panel
+            if (FPSLimiterRTSSPanel != null)
+                FPSLimiterRTSSPanel.Visibility = isIntel ? Visibility.Collapsed : Visibility.Visible;
+            if (FPSLimiterIntelPanel != null)
+                FPSLimiterIntelPanel.Visibility = isIntel ? Visibility.Visible : Visibility.Collapsed;
+
+            // Push the new mode to the helper
+            if (fpsCapMode != null)
+            {
+                fpsCapMode.SetValue(isIntel ? 1 : 0);
+                Logger.Info($"FPS limiter mode changed to {(isIntel ? "Intel" : "RTSS")}");
+            }
+
+            // Mutual exclusion: proactively disable the other limiter when switching mode.
+            // Without this, the old limiter stays active until the helper receives a value change.
+            if (isIntel)
+            {
+                // Switching to Intel — silence RTSS immediately
+                if (fpsLimit != null && fpsLimit.Value != 0)
+                {
+                    Logger.Info("[FPS-Exclusion] Switching to Intel mode: disabling RTSS FPS limit");
+                    fpsLimit.SetValue(0);
+                }
+            }
+            else
+            {
+                // Switching to RTSS — disable Intel tier immediately
+                if (intelFpsTier != null && intelFpsTier.Value != 0)
+                {
+                    Logger.Info("[FPS-Exclusion] Switching to RTSS mode: disabling Intel FPS tier");
+                    intelFpsTier.SetValue(0);
+                    // Sync ComboBox to "Off" without re-triggering the handler
+                    if (IntelFpsTierComboBox != null)
+                    {
+                        isApplyingHelperUpdate = true;
+                        try { IntelFpsTierComboBox.SelectedIndex = 0; }
+                        finally { isApplyingHelperUpdate = false; }
+                    }
+                }
+            }
+
+            // Update the green FPS display to reflect the now-active limiter
+            UpdateFPSCapDisplayText();
+
+            // Persist to profile
+            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
+            {
+                SaveCurrentSettingsToProfile(currentProfileName);
+            }
+        }
+
+        /// <summary>
+        /// Guard flag to prevent FPSModeRadio_Changed from firing when UpdateFPSLimiterPanels
+        /// programmatically syncs the radio button state from fpsCapMode.Value.
+        /// </summary>
+        private bool isUpdatingFPSModeUI = false;
+
+        /// <summary>
+        /// Syncs the FPS limiter panel visibility (show/hide mode panel, RTSS vs Intel sub-panels)
+        /// based on FPSLimitToggle.IsOn and fpsCapMode.Value.
+        /// Call whenever the toggle state or fpsCapMode changes.
+        /// </summary>
+        private void UpdateFPSLimiterPanels()
+        {
+            if (FPSLimiterModePanel == null) return;
+
+            bool isOn = FPSLimitToggle?.IsOn == true;
+            FPSLimiterModePanel.Visibility = isOn ? Visibility.Visible : Visibility.Collapsed;
+
+            if (!isOn) return;
+
+            bool isIntel = fpsCapMode?.Value == 1;
+
+            if (FPSLimiterRTSSPanel != null)
+                FPSLimiterRTSSPanel.Visibility = isIntel ? Visibility.Collapsed : Visibility.Visible;
+            if (FPSLimiterIntelPanel != null)
+                FPSLimiterIntelPanel.Visibility = isIntel ? Visibility.Visible : Visibility.Collapsed;
+
+            // Sync radio buttons without re-triggering FPSModeRadio_Changed
+            isUpdatingFPSModeUI = true;
+            try
+            {
+                if (FPSModeIntelRadio != null) FPSModeIntelRadio.IsChecked = isIntel;
+                if (FPSModeRTSSRadio != null)  FPSModeRTSSRadio.IsChecked  = !isIntel;
+            }
+            finally
+            {
+                isUpdatingFPSModeUI = false;
+            }
+
+            // Update the green FPS cap number above the toggle to reflect the active limiter
+            UpdateFPSCapDisplayText();
+        }
+
+        /// <summary>
+        /// Updates the green FPS value display (FPSLimitValue) above the toggle.
+        /// In RTSS mode: shows the slider value (already kept up-to-date by FPSLimitSlider_ValueChanged).
+        /// In Intel mode: shows the tier's fixed FPS (60 / 40 / 30) instead of the stale RTSS value.
+        /// </summary>
+        private void UpdateFPSCapDisplayText()
+        {
+            if (FPSLimitValue == null || FPSLimitToggle?.IsOn != true) return;
+
+            bool isIntel = fpsCapMode?.Value == 1;
+            if (isIntel && IntelFpsTierComboBox != null)
+            {
+                int tier = IntelFpsTierComboBox.SelectedIndex;
+                string intelText = tier == 1 ? "60 FPS"
+                                 : tier == 2 ? "40 FPS"
+                                 : tier == 3 ? "30 FPS"
+                                 : "Intel";   // tier 0 = Off, shouldn't normally be shown active
+                FPSLimitValue.Text = intelText;
+            }
+            // RTSS mode: FPSLimitSlider_ValueChanged already keeps the text current — nothing to do
         }
 
         /// <summary>
@@ -1161,7 +1465,12 @@ namespace XboxGamingBar
                             }
                             else
                             {
-                                FPSLimitToggle.IsOn = false;
+                                // Only turn off the toggle if Intel limiter is also inactive.
+                                // When Intel mode is selected, fpsLimit (RTSS) is silenced to 0
+                                // but the overall FPS limiter is still enabled via Intel.
+                                bool intelActive = fpsCapMode?.Value == 1 && intelFpsTier?.Value > 0;
+                                if (!intelActive)
+                                    FPSLimitToggle.IsOn = false;
                             }
                         }
                         finally
@@ -1184,6 +1493,9 @@ namespace XboxGamingBar
                             isApplyingHelperUpdate = false;
                         }
                     }
+
+                    // Sync the FPS limiter panels (RTSS/Intel selection + visibility)
+                    UpdateFPSLimiterPanels();
                 }
                 catch (Exception ex)
                 {
@@ -1202,6 +1514,8 @@ namespace XboxGamingBar
             if (tier < 0) return;
             intelFpsTier.SetValue(tier);
             Logger.Info($"Intel FPS tier set from Performance tab: {tier}");
+            // Refresh the green FPS number above the toggle to show the new Intel tier FPS
+            UpdateFPSCapDisplayText();
         }
 
         private void ToggleLegionTouchpad()
@@ -1542,6 +1856,29 @@ namespace XboxGamingBar
                     tile.IsVisible = isVisible;
                 }
             }
+        }
+
+        /// <summary>
+        /// Toggle MSI Claw mode between Xbox controller emulation and Desktop mode.
+        ///
+        /// Controller mode (emulation ON):
+        ///   ClawButtonMonitor runs → virtual Xbox 360 controller via ViGEm → games receive gamepad input.
+        ///
+        /// Mouse mode (emulation OFF):
+        ///   ClawButtonMonitor stops → MSIClawDesktopModeForwarder starts.
+        ///   Right stick → cursor, left stick → scroll, LB → right click, RB → left click.
+        ///
+        /// Mirrors ToggleLegionDesktopControls() for MSI Claw: both toggle a single emulation-on/off flag.
+        /// OnMSIClawEmulationEnabledChanged in the helper handles ClawButtonMonitor + mouse forwarder lifecycle.
+        /// </summary>
+        private void ToggleMSIClawDesktopMode()
+        {
+            if (msiClawControllerMode == null) return;
+
+            bool newState = !msiClawControllerMode.Value;
+            msiClawControllerMode.SetValue(newState);
+
+            Logger.Info($"MSI Claw mode toggled → controllerOn={newState} ({(newState ? "Controller" : "Mouse")})");
         }
 
         /// <summary>

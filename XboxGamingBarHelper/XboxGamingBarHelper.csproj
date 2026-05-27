@@ -293,6 +293,7 @@
     <Compile Include="RTSS\OSDItems\OSDItemVRAM.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemNetwork.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemTDPLimits.cs" />
+    <Compile Include="RTSS\OSDItems\OSDItemCPUWatts.cs" />
     <Compile Include="RTSS\OSDItemValue.cs" />
     <Compile Include="OnScreenDisplay\OnScreenDisplayProperty.cs" />
     <Compile Include="RTSS\RTSSInstalledProperty.cs" />
@@ -308,6 +309,8 @@
     <Compile Include="MSI\ServiceUtils.cs" />
     <Compile Include="MSI\MsiCenterManager.cs" />
     <Compile Include="MSI\MsiCenterActiveProperty.cs" />
+    <Compile Include="MSI\MsiClawControllerModeManager.cs" />
+    <Compile Include="MSI\MsiClawControllerModeProperty.cs" />
     <Compile Include="Settings\AutoStartRTSSProperty.cs" />
     <Compile Include="Settings\AutoHibernateEnabledProperty.cs" />
     <Compile Include="Settings\AutoHibernateIdleMinutesProperty.cs" />
@@ -378,6 +381,7 @@
     <Compile Include="Devices\LegionGoS\LegionGoSConfig.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawConfig.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawHidController.cs" />
+    <Compile Include="Devices\MSIClaw\MSIClawDesktopModeForwarder.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawViGEmForwarder.cs" />
     <Compile Include="Devices\GPD\GPDWinMiniConfig.cs" />
     <Compile Include="Devices\GPD\GPDWin4Config.cs" />

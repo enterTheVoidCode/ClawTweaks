@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Drawing;
+using Shared.Data;
 using XboxGamingBarHelper.Devices.Libraries.Legion;
 using XboxGamingBarHelper.Performance;
 
@@ -65,6 +66,19 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             if (spl == 0 && sppt == 0 && fppt == 0)
             {
                 return string.Empty;
+            }
+
+            // MSI Claw (non-Legion): show preset name + PL1/PL2 for known built-in preset modes.
+            // For Slider/custom values (no matching preset name), fall through to raw limits display.
+            if (legionManager == null || legionManager.LegionGoDetected?.Value != true)
+            {
+                string presetName = TdpPreset.GetPresetNameByWatts(spl);
+                if (presetName != null)
+                {
+                    // Format: "Super Battery 8/9W" (PL1/PL2)
+                    return $"<C={labelColor}>{presetName}<C={tc}> <C={tc}>{spl}/{fppt}W<C={tc}>";
+                }
+                // Custom/Slider value: fall through to raw limits display below
             }
 
             // Format: "Limits: SPL/SPPT/FPPT" e.g. "Limits: 25/26/28"
