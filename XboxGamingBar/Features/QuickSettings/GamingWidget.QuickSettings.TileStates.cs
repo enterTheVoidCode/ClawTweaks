@@ -186,7 +186,53 @@ namespace XboxGamingBar
             tile.StateTextCanvas = canvas;
             tile.StateTextTransform = transform;
 
-            button.Content = content;
+            if (tile.HasDropdown)
+            {
+                // Split tile: main content (Star) on top + 1px separator + 14px chevron strip below
+                // Vertical layout keeps full tile width — no horizontal space wasted.
+                var splitGrid = new Grid();
+                splitGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+                splitGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1) });   // separator
+                splitGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(14) });  // chevron strip
+
+                Grid.SetRow(content, 0);
+                splitGrid.Children.Add(content);
+
+                // Subtle horizontal separator line
+                var sep = new Windows.UI.Xaml.Shapes.Rectangle
+                {
+                    Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(40, 255, 255, 255)),
+                    HorizontalAlignment = HorizontalAlignment.Stretch
+                };
+                Grid.SetRow(sep, 1);
+                splitGrid.Children.Add(sep);
+
+                // Chevron button — full-width, transparent, opens flyout downward
+                var dropBtn = new Button
+                {
+                    Tag = tile.Id + "_dropdown",
+                    Content = new FontIcon { Glyph = "", FontSize = 10 }, // Chevron down
+                    Padding = new Thickness(0),
+                    Margin = new Thickness(0),
+                    Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    BorderThickness = new Thickness(0),
+                    VerticalAlignment = VerticalAlignment.Stretch,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                    HorizontalContentAlignment = HorizontalAlignment.Center
+                };
+                Grid.SetRow(dropBtn, 2);
+                splitGrid.Children.Add(dropBtn);
+                dropBtn.Click += TileDropdown_Click;
+                tile.DropdownButton = dropBtn;
+
+                button.Content = splitGrid;
+            }
+            else
+            {
+                button.Content = content;
+            }
+
             button.Click += QuickSettingsTile_Click;
 
             tile.TileButton = button;
@@ -351,50 +397,76 @@ namespace XboxGamingBar
                         }
                         else
                         {
-                            // Custom mode (last item, slider-controlled)
+                            // Slider mode (last item, manual TDP slider control)
                             int currentTdp = (int)(TDPSlider?.Value ?? 15);
-                            modeText = $"Custom ({currentTdp}W)";
+                            modeText = $"Slider ({currentTdp}W)";
                             tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 42, 58));
                         }
                     }
                     else
                     {
                         // Default hardcoded mode display
-                        int mode;
                         if (isLegion && legionPerformanceMode != null)
                         {
-                            mode = legionPerformanceMode.Value;
+                            // Legion Go: use hardware mode value for display
+                            int legionMode = legionPerformanceMode.Value;
+                            switch (legionMode)
+                            {
+                                case 1:
+                                    modeText = "Quiet";
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 35, 45, 60));
+                                    break;
+                                case 2:
+                                    modeText = "Balanced";
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 55));
+                                    break;
+                                case 3:
+                                    modeText = "Performance";
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 40, 40));
+                                    break;
+                                case 255:
+                                    int legionCustomTdp = (int)(TDPSlider?.Value ?? 25);
+                                    modeText = $"Slider ({legionCustomTdp}W)";
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 42, 58));
+                                    break;
+                                default:
+                                    modeText = "Balanced";
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 55));
+                                    break;
+                            }
                         }
                         else
                         {
-                            int[] modeValues = { 1, 2, 3, 255 };
-                            mode = (selectedIndex >= 0 && selectedIndex < modeValues.Length) ? modeValues[selectedIndex] : 2;
-                        }
-
-                        int[] genericTDPValues = { 8, 15, 25 }; // Quiet, Balanced, Performance TDP values
-                        switch (mode)
-                        {
-                            case 1: // Quiet - Desaturated Blue
-                                modeText = isLegion ? "Quiet" : $"Quiet ({genericTDPValues[0]}W)";
-                                tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 35, 45, 60));
-                                break;
-                            case 2: // Balanced - Grey
-                                modeText = isLegion ? "Balanced" : $"Balanced ({genericTDPValues[1]}W)";
-                                tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 55));
-                                break;
-                            case 3: // Performance - Desaturated Red
-                                modeText = isLegion ? "Performance" : $"Perf ({genericTDPValues[2]}W)";
-                                tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 40, 40));
-                                break;
-                            case 255: // Custom - Desaturated Purple
-                                int currentTdp = (int)(TDPSlider?.Value ?? 15);
-                                modeText = $"Custom ({currentTdp}W)";
-                                tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 42, 58));
-                                break;
-                            default:
-                                modeText = isLegion ? "Balanced" : $"Balanced ({genericTDPValues[1]}W)";
-                                tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 50, 55));
-                                break;
+                            // MSI Claw / non-Legion: index-based display with watts always shown
+                            // Index: 0=Max(30W), 1=Standard(25W), 2=Balanced(17W), 3=Battery(12W), 4=Super Battery(8W), 5+=Slider
+                            switch (selectedIndex)
+                            {
+                                case 0: // Max - Deep red (max performance)
+                                    modeText = "Max (30W)";
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 65, 25, 25));
+                                    break;
+                                case 1: // Standard - Green-tinted (high performance)
+                                    modeText = "Standard (25W)";
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 30, 55, 40));
+                                    break;
+                                case 2: // Balanced - Blue-grey (everyday)
+                                    modeText = "Balanced (17W)";
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 35, 45, 60));
+                                    break;
+                                case 3: // Battery - Amber-brown (saving power)
+                                    modeText = "Battery (12W)";
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 55, 45, 25));
+                                    break;
+                                case 4: // Super Battery - Deep teal (max saving)
+                                    modeText = "Super Bat (8W)";
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 20, 50, 50));
+                                    break;
+                                default: // Slider
+                                    int customTdp = (int)(TDPSlider?.Value ?? 25);
+                                    modeText = $"Slider ({customTdp}W)";
+                                    tdpModeBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 42, 58));
+                                    break;
+                            }
                         }
                     }
 
@@ -781,6 +853,23 @@ namespace XboxGamingBar
                         ceTile.StateText.Foreground = enabled ? accentForeground : offForeground;
                     }
                     ceTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
+                }
+
+                // MSI Claw mode toggle tile (Controller ↔ Mouse)
+                // Only shown on MSI Claw (ShouldSkipTile hides it on other devices).
+                // "Controller" = ClawButtonMonitor running (virtual Xbox 360 controller via ViGEm)
+                // "Mouse"      = MSIClawDesktopModeForwarder active (RS→cursor, LS→scroll, LB/RB→clicks)
+                if (qsTileMap.TryGetValue("MSIClawDesktopMode", out var clawModeTile) && clawModeTile.TileButton != null)
+                {
+                    // msiClawControllerMode defaults to true (Controller); false = Mouse mode.
+                    bool controllerOn = msiClawControllerMode?.Value != false;
+                    string modeLabel = controllerOn ? "Controller" : "Mouse";
+                    if (clawModeTile.StateText != null)
+                    {
+                        clawModeTile.StateText.Text = modeLabel;
+                        clawModeTile.StateText.Foreground = controllerOn ? accentForeground : offForeground;
+                    }
+                    clawModeTile.TileButton.Background = controllerOn ? tileOnBrush : tileOffBrush;
                 }
 
                 // MSI Center M OEM software toggle tile

@@ -48,7 +48,7 @@ namespace XboxGamingBar
     /// </summary>
     public class PerformanceProfile
     {
-        public double TDP { get; set; } = 15;
+        public double TDP { get; set; } = 25;
         public bool CPUBoost { get; set; } = false;
         public double CPUEPP { get; set; } = 0;
         public int MaxCPUState { get; set; } = 100;
@@ -1059,6 +1059,8 @@ namespace XboxGamingBar
 
         // MSI Claw — OEM software toggle
         private readonly MsiCenterActiveProperty msiCenterActive;
+        // MSI Claw — Controller / Mouse mode Quick Settings tile
+        private readonly MsiClawControllerModeProperty msiClawControllerMode;
 
         // Profile management
         private PerformanceProfile globalProfile = new PerformanceProfile();
@@ -1772,6 +1774,8 @@ namespace XboxGamingBar
 
             // MSI Claw — OEM software toggle
             msiCenterActive = new MsiCenterActiveProperty();
+            // MSI Claw — Controller / Mouse mode Quick Settings tile
+            msiClawControllerMode = new MsiClawControllerModeProperty();
 
             // Profile Detection Settings
             profileMatchByExe = new ProfileMatchByExeProperty(ProfileMatchByExeToggle, this);
@@ -1997,6 +2001,7 @@ namespace XboxGamingBar
                 intelFpsTier,
                 fpsCapMode,
                 msiCenterActive,
+                msiClawControllerMode,
                 osPowerMode,
                 tdpLimits,
                 cpuCoreConfig,
@@ -2311,6 +2316,11 @@ namespace XboxGamingBar
                 fpsCapMode.PropertyChanged += QuickSettingsProperty_Changed;
             if (msiCenterActive != null)
                 msiCenterActive.PropertyChanged += QuickSettingsProperty_Changed;
+            if (msiClawControllerMode != null)
+                msiClawControllerMode.PropertyChanged += QuickSettingsProperty_Changed;
+            // DeviceDisplayName drives isMsiClaw detection in ShouldSkipTile — re-evaluate tiles when it arrives.
+            if (deviceDisplayName != null)
+                deviceDisplayName.PropertyChanged += QuickSettingsProperty_Changed;
             if (osPowerMode != null)
                 osPowerMode.PropertyChanged += OSPowerMode_PropertyChanged;
             if (resolution != null)
@@ -2703,8 +2713,9 @@ namespace XboxGamingBar
                         }
                         LoadOrCreateGameProfiles();
 
-                        // Show notification for per-game profile
-                        _ = ShowProfileNotificationAsync(currentGameName, isPerGameProfile: true);
+                        // Show notification for per-game profile (with diff vs global)
+                        _ = ShowProfileNotificationAsync(currentGameName, isPerGameProfile: true,
+                            gameProf: gameProfile, gameCtrlProf: gameControllerProfile);
                     }
                     else
                     {
@@ -2821,8 +2832,9 @@ namespace XboxGamingBar
                                 LoadOrCreateGameProfiles();
                                 UpdateActiveProfileIndicator();  // Critical: switch to the new game's profile!
 
-                                // Show notification for per-game profile
-                                _ = ShowProfileNotificationAsync(currentGameName, isPerGameProfile: true);
+                                // Show notification for per-game profile (with diff vs global)
+                                _ = ShowProfileNotificationAsync(currentGameName, isPerGameProfile: true,
+                                    gameProf: gameProfile, gameCtrlProf: gameControllerProfile);
                             }
                             finally
                             {
@@ -2837,6 +2849,12 @@ namespace XboxGamingBar
                         isInternalToggleDisable = true;
                         PerGameProfileToggle.IsOn = false;
                         isInternalToggleDisable = false;
+                    }
+                    else
+                    {
+                        // Valid game started but no per-game profile exists → global profile is active
+                        if (!userDisabledProfile)
+                            _ = ShowProfileNotificationAsync(currentGameName, isPerGameProfile: false, noProfileFound: true);
                     }
                 }
 
@@ -2860,25 +2878,97 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Shows a Game Bar notification when a profile is applied.
+        /// isPerGameProfile=true  → 🟣 game profile (purple) with diff vs global
+        /// isPerGameProfile=false → 🟠 global profile (orange) restored or active
+        /// noProfileFound=true    → shown when a game starts but no per-game profile exists
         /// </summary>
-        private async Task ShowProfileNotificationAsync(string gameName, bool isPerGameProfile)
+        private async Task ShowProfileNotificationAsync(
+            string gameName,
+            bool isPerGameProfile,
+            PerformanceProfile gameProf = null,
+            ControllerProfile gameCtrlProf = null,
+            bool noProfileFound = false)
         {
             if (notificationManager == null || widget == null)
                 return;
 
             try
             {
-                // Check if notifications are enabled
                 if (notificationManager.Setting == XboxGameBarWidgetNotificationSetting.DisabledByUser)
                 {
                     Logger.Debug("Profile notifications disabled by user");
                     return;
                 }
 
-                string title = isPerGameProfile ? "Profile Applied" : "Global Profile";
-                string content = isPerGameProfile
-                    ? $"Loaded settings for {gameName}"
-                    : "Reverted to global settings";
+                string title;
+                string content;
+
+                if (isPerGameProfile)
+                {
+                    // 🟣 Game profile — purple
+                    title = $"\U0001F7E3 Game: {gameName}";
+
+                    if (gameProf != null && globalProfile != null)
+                    {
+                        // Build diff: only show settings that differ from global
+                        var diffs = new System.Collections.Generic.List<string>();
+
+                        // TDP diff — show preset name when applicable (e.g. "Super Battery 8W")
+                        if (Math.Abs(gameProf.TDP - globalProfile.TDP) > 0.5)
+                        {
+                            string tdpModeName = TdpPreset.GetPresetNameByWatts((int)gameProf.TDP);
+                            diffs.Add(tdpModeName != null
+                                ? $"{tdpModeName} {(int)gameProf.TDP}W"
+                                : $"TDP {(int)gameProf.TDP}W");
+                        }
+
+                        // CPU Boost diff
+                        if (gameProf.CPUBoost != globalProfile.CPUBoost)
+                            diffs.Add(gameProf.CPUBoost ? "Boost On" : "Boost Off");
+
+                        // FPS Limit diff
+                        bool fpsChanged = gameProf.FPSLimitEnabled != globalProfile.FPSLimitEnabled
+                            || (gameProf.FPSLimitEnabled && gameProf.FPSLimitValue != globalProfile.FPSLimitValue);
+                        if (fpsChanged)
+                        {
+                            if (gameProf.FPSLimitEnabled)
+                            {
+                                string fpsMode = (fpsCapMode?.Value == 1) ? "Intel" : "RTSS";
+                                diffs.Add($"FPS {gameProf.FPSLimitValue} ({fpsMode})");
+                            }
+                            else
+                            {
+                                diffs.Add("FPS Off");
+                            }
+                        }
+
+                        // Custom controller mapping diff
+                        if (gameCtrlProf != null && HasNonDefaultControllerMapping(gameCtrlProf))
+                            diffs.Add("Custom Ctrl");
+
+                        content = diffs.Count > 0
+                            ? string.Join(" • ", diffs)  // • separator
+                            : "Profile active (no changes vs global)";
+                    }
+                    else
+                    {
+                        content = $"Settings loaded for {gameName}";
+                    }
+                }
+                else if (noProfileFound)
+                {
+                    // 🟠 Global profile active — no game profile exists for this game
+                    title = $"\U0001F7E0 Global Profile";
+                    content = $"No profile for {gameName} — global settings active";
+                }
+                else
+                {
+                    // 🟠 Global profile restored
+                    title = "\U0001F7E0 Global Profile";
+                    content = string.IsNullOrEmpty(gameName)
+                        ? "Global settings restored"
+                        : $"Reverted from {gameName}";
+                }
 
                 var builder = new XboxGameBarWidgetNotificationBuilder(title)
                     .Content(content);
@@ -2886,12 +2976,29 @@ namespace XboxGamingBar
                 var notification = builder.BuildNotification();
                 var result = await notificationManager.TryShowAsync(notification);
 
-                Logger.Info($"Profile notification shown: {title} - {content} (result: {result})");
+                Logger.Info($"Profile notification shown: \"{title}\" | \"{content}\" (result: {result})");
             }
             catch (Exception ex)
             {
                 Logger.Debug($"Failed to show profile notification: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Returns true if the controller profile has at least one non-default button mapping.
+        /// </summary>
+        private bool HasNonDefaultControllerMapping(ControllerProfile profile)
+        {
+            if (profile == null) return false;
+            return !profile.ButtonY1.IsDefault
+                || !profile.ButtonY2.IsDefault
+                || !profile.ButtonY3.IsDefault
+                || !profile.ButtonM1.IsDefault
+                || !profile.ButtonM2.IsDefault
+                || !profile.ButtonM3.IsDefault
+                || !profile.ButtonDesktop.IsDefault
+                || !profile.ButtonPage.IsDefault
+                || (profile.GamepadButtonMappings?.Count > 0);
         }
 
         private void UpdateControllerProfileForGameChange(string newGameName)
@@ -3427,6 +3534,15 @@ namespace XboxGamingBar
                     UpdateProfileDisplay();
                     RefreshLegionEnhancedRemapUi();
                     Logger.Info("Profile display updated after sync - legionGoDetected=" + (legionGoDetected?.Value.ToString() ?? "null"));
+
+                    // Re-apply mode-specific enabled/visibility states for controller emulation.
+                    // OnBatchSyncCompleted() re-enables ALL controls unconditionally; if the gyro
+                    // mode (ControllerEmulationModeComboBox) didn't change during sync, its
+                    // SelectionChanged won't fire, leaving mouse/stick controls in the wrong state.
+                    UpdateControllerEmulationControlState();
+                    UpdateControllerEmulationMouseSettingsVisibility();
+                    UpdateSystemControllerEmulationNavigation();
+                    Logger.Info("Controller emulation control state refreshed after sync");
 
                     // Clear initial sync flag - profile is loaded and applied, user changes should now save
                     // Add a small delay to let any pending ValueChanged events settle first

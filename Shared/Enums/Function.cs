@@ -436,6 +436,9 @@
         // MSI Claw — OEM software toggle
         MsiCenterActive,                           // bool - MSI Center M running (true) / stopped (false); write to toggle
 
+        // MSI Claw — Controller / Mouse mode tile (Quick Settings)
+        MsiClawControllerMode,                     // bool - true = Controller mode (ClawButtonMonitor + ViGEm Xbox 360), false = Mouse mode (MSIClawDesktopModeForwarder)
+
         // SDR White Level Sync (Display tab, under HDR toggle)
         // Windows exposes a static "SDR content brightness" slider in HDR mode but never ties it
         // to the hardware backlight. When backlight changes, SDR content blows out or looks gray.

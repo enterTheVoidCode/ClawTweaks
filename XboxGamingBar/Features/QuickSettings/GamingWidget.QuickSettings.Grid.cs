@@ -463,9 +463,23 @@ namespace XboxGamingBar
                 return true;
             }
 
+            // MSI Claw detection: LegionGoDetected is true on BOTH Legion Go AND MSI Claw
+            // (LegionManager enables its UI for MSI Claw controller remapping). Use DeviceDisplayName
+            // which the helper sets to "MSI Claw" on MSI hardware and "Legion Go" / "Legion Go 2" etc. on Lenovo.
+            bool isMsiClaw = deviceDisplayName?.Value?.IndexOf("Claw", StringComparison.OrdinalIgnoreCase) >= 0;
+
             // Skip Controller Emulation tile if helper has reported the backend as unavailable
             // (handheld-agnostic emulation requires LegionGo / GPD / similar, gated by the helper).
-            if (tile.Id == "ControllerEmulation" && (controllerEmulationAvailable?.Value != true))
+            // Also skip on MSI Claw — replaced by the dedicated MSIClawDesktopMode tile.
+            if (tile.Id == "ControllerEmulation" &&
+                ((controllerEmulationAvailable?.Value != true) || isMsiClaw))
+            {
+                return true;
+            }
+
+            // MSIClawDesktopMode tile is only relevant on MSI Claw.
+            // Show it when MSI Claw is detected (controllerEmulationAvailable + not Legion Go).
+            if (tile.Id == "MSIClawDesktopMode" && !isMsiClaw)
             {
                 return true;
             }

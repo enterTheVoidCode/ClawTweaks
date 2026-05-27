@@ -75,21 +75,25 @@ namespace XboxGamingBar
             GlobalProfileCPUBoostText.Visibility = cpuBoostVisibility;
             GlobalProfileCPUBoostText.Text = globalProfile.CPUBoost ? "On" : "Off";
 
-            GlobalProfileCPUEPPLabel.Visibility = cpuEPPVisibility;
-            GlobalProfileCPUEPPText.Visibility = cpuEPPVisibility;
-            GlobalProfileCPUEPPText.Text = $"{globalProfile.CPUEPP}";
+            // Repurposed: CPU EPP slot → FPS Mode
+            GlobalProfileCPUEPPLabel.Text = "FPS Mode";
+            GlobalProfileCPUEPPLabel.Visibility = fpsLimitVisibility;
+            GlobalProfileCPUEPPText.Visibility = fpsLimitVisibility;
+            GlobalProfileCPUEPPText.Text = GetFpsCapModeLabel();
 
-            GlobalProfileCPUStateLabel.Visibility = cpuStateVisibility;
-            GlobalProfileCPUStateText.Visibility = cpuStateVisibility;
-            GlobalProfileCPUStateText.Text = $"{globalProfile.MinCPUState}-{globalProfile.MaxCPUState}%";
+            // Repurposed: CPU State slot → TDP Overboost
+            GlobalProfileCPUStateLabel.Text = "TDP Overboost";
+            GlobalProfileCPUStateLabel.Visibility = tdpVisibility;
+            GlobalProfileCPUStateText.Visibility = tdpVisibility;
+            GlobalProfileCPUStateText.Text = globalProfile.TDPBoostEnabled ? "On" : "Off";
 
             GlobalProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
             GlobalProfileFPSLimitText.Visibility = fpsLimitVisibility;
             GlobalProfileFPSLimitText.Text = globalProfile.FPSLimitEnabled ? $"{globalProfile.FPSLimitValue}" : "Off";
 
-            GlobalProfileAutoTDPLabel.Visibility = autoTDPVisibility;
-            GlobalProfileAutoTDPText.Visibility = autoTDPVisibility;
-            GlobalProfileAutoTDPText.Text = globalProfile.AutoTDPEnabled ? $"{globalProfile.AutoTDPTargetFPS}fps" : "Off";
+            // AutoTDP hidden (not relevant for MSI Claw)
+            GlobalProfileAutoTDPLabel.Visibility = Visibility.Collapsed;
+            GlobalProfileAutoTDPText.Visibility = Visibility.Collapsed;
 
             GlobalProfilePowerModeLabel.Visibility = powerModeVisibility;
             GlobalProfilePowerModeText.Visibility = powerModeVisibility;
@@ -131,17 +135,22 @@ namespace XboxGamingBar
             ACProfileCPUBoostText.Text = acProfile.CPUBoost ? "On" : "Off";
             DCProfileCPUBoostText.Text = dcProfile.CPUBoost ? "On" : "Off";
 
-            ACDCProfileCPUEPPLabel.Visibility = cpuEPPVisibility;
-            ACProfileCPUEPPText.Visibility = cpuEPPVisibility;
-            DCProfileCPUEPPText.Visibility = cpuEPPVisibility;
-            ACProfileCPUEPPText.Text = $"{acProfile.CPUEPP}";
-            DCProfileCPUEPPText.Text = $"{dcProfile.CPUEPP}";
+            // Repurposed: CPU EPP slot → FPS Mode (same value for AC/DC, it's a global setting)
+            string acDcFpsMode = GetFpsCapModeLabel();
+            ACDCProfileCPUEPPLabel.Text = "FPS Mode";
+            ACDCProfileCPUEPPLabel.Visibility = fpsLimitVisibility;
+            ACProfileCPUEPPText.Visibility = fpsLimitVisibility;
+            DCProfileCPUEPPText.Visibility = fpsLimitVisibility;
+            ACProfileCPUEPPText.Text = acDcFpsMode;
+            DCProfileCPUEPPText.Text = acDcFpsMode;
 
-            ACDCProfileCPUStateLabel.Visibility = cpuStateVisibility;
-            ACProfileCPUStateText.Visibility = cpuStateVisibility;
-            DCProfileCPUStateText.Visibility = cpuStateVisibility;
-            ACProfileCPUStateText.Text = $"{acProfile.MinCPUState}-{acProfile.MaxCPUState}%";
-            DCProfileCPUStateText.Text = $"{dcProfile.MinCPUState}-{dcProfile.MaxCPUState}%";
+            // Repurposed: CPU State slot → TDP Overboost
+            ACDCProfileCPUStateLabel.Text = "TDP Overboost";
+            ACDCProfileCPUStateLabel.Visibility = tdpVisibility;
+            ACProfileCPUStateText.Visibility = tdpVisibility;
+            DCProfileCPUStateText.Visibility = tdpVisibility;
+            ACProfileCPUStateText.Text = acProfile.TDPBoostEnabled ? "On" : "Off";
+            DCProfileCPUStateText.Text = dcProfile.TDPBoostEnabled ? "On" : "Off";
 
             ACDCProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
             ACProfileFPSLimitText.Visibility = fpsLimitVisibility;
@@ -149,11 +158,10 @@ namespace XboxGamingBar
             ACProfileFPSLimitText.Text = acProfile.FPSLimitEnabled ? $"{acProfile.FPSLimitValue}" : "Off";
             DCProfileFPSLimitText.Text = dcProfile.FPSLimitEnabled ? $"{dcProfile.FPSLimitValue}" : "Off";
 
-            ACDCProfileAutoTDPLabel.Visibility = autoTDPVisibility;
-            ACProfileAutoTDPText.Visibility = autoTDPVisibility;
-            DCProfileAutoTDPText.Visibility = autoTDPVisibility;
-            ACProfileAutoTDPText.Text = acProfile.AutoTDPEnabled ? $"{acProfile.AutoTDPTargetFPS}fps" : "Off";
-            DCProfileAutoTDPText.Text = dcProfile.AutoTDPEnabled ? $"{dcProfile.AutoTDPTargetFPS}fps" : "Off";
+            // AutoTDP hidden (not relevant for MSI Claw)
+            ACDCProfileAutoTDPLabel.Visibility = Visibility.Collapsed;
+            ACProfileAutoTDPText.Visibility = Visibility.Collapsed;
+            DCProfileAutoTDPText.Visibility = Visibility.Collapsed;
 
             ACDCProfilePowerModeLabel.Visibility = powerModeVisibility;
             ACProfilePowerModeText.Visibility = powerModeVisibility;
@@ -277,6 +285,40 @@ namespace XboxGamingBar
                     GameDCProfileStickyTDPText.Visibility = stickyTDPVisibility;
                     GameACProfileStickyTDPText.Text = gameACProfile.StickyTDPEnabled ? "On" : "Off";
                     GameDCProfileStickyTDPText.Text = gameDCProfile.StickyTDPEnabled ? "On" : "Off";
+
+                    // MSI Claw: repurpose CPUEPPLabel/Text slot → Gyro On/Off (same value for AC/DC)
+                    bool gyroOnACDC = (legionGyroTarget?.Value ?? 0) != 0;
+                    string gyroText = gyroOnACDC ? "On" : "Off";
+                    GameACDCProfileCPUEPPLabel.Text = "Gyro";
+                    GameACDCProfileCPUEPPLabel.Visibility = Visibility.Visible;
+                    GameACProfileCPUEPPText.Text = gyroText;
+                    GameACProfileCPUEPPText.Visibility = Visibility.Visible;
+                    GameDCProfileCPUEPPText.Text = gyroText;
+                    GameDCProfileCPUEPPText.Visibility = Visibility.Visible;
+
+                    // MSI Claw: repurpose CPUStateLabel/Text slot → FPS Limiter Mode
+                    bool acFpsOn = gameACProfile.FPSLimitEnabled || gameDCProfile.FPSLimitEnabled;
+                    if (acFpsOn)
+                    {
+                        string fpsModeText = (fpsCapMode?.Value == 1) ? "Intel" : "RTSS";
+                        GameACDCProfileCPUStateLabel.Text = "FPS Mode";
+                        GameACDCProfileCPUStateLabel.Visibility = Visibility.Visible;
+                        GameACProfileCPUStateText.Text = fpsModeText;
+                        GameACProfileCPUStateText.Visibility = Visibility.Visible;
+                        GameDCProfileCPUStateText.Text = fpsModeText;
+                        GameDCProfileCPUStateText.Visibility = Visibility.Visible;
+                    }
+                    else
+                    {
+                        GameACDCProfileCPUStateLabel.Visibility = Visibility.Collapsed;
+                        GameACProfileCPUStateText.Visibility = Visibility.Collapsed;
+                        GameDCProfileCPUStateText.Visibility = Visibility.Collapsed;
+                    }
+
+                    // Always hide AutoTDP row in game profile card (not relevant for MSI Claw)
+                    GameACDCProfileAutoTDPLabel.Visibility = Visibility.Collapsed;
+                    GameACProfileAutoTDPText.Visibility = Visibility.Collapsed;
+                    GameDCProfileAutoTDPText.Visibility = Visibility.Collapsed;
                 }
                 else
                 {
@@ -345,6 +387,31 @@ namespace XboxGamingBar
                     GameProfileStickyTDPLabel.Visibility = stickyTDPVisibility;
                     GameProfileStickyTDPText.Visibility = stickyTDPVisibility;
                     GameProfileStickyTDPText.Text = gameProfile.StickyTDPEnabled ? "On" : "Off";
+
+                    // MSI Claw: repurpose CPUEPPLabel/Text slot → Gyro On/Off
+                    bool gyroOn = (legionGyroTarget?.Value ?? 0) != 0;
+                    GameProfileCPUEPPLabel.Text = "Gyro";
+                    GameProfileCPUEPPLabel.Visibility = Visibility.Visible;
+                    GameProfileCPUEPPText.Text = gyroOn ? "On" : "Off";
+                    GameProfileCPUEPPText.Visibility = Visibility.Visible;
+
+                    // MSI Claw: repurpose CPUStateLabel/Text slot → FPS Limiter Mode (only when FPS limit is active)
+                    if (gameProfile.FPSLimitEnabled)
+                    {
+                        GameProfileCPUStateLabel.Text = "FPS Mode";
+                        GameProfileCPUStateLabel.Visibility = Visibility.Visible;
+                        GameProfileCPUStateText.Text = (fpsCapMode?.Value == 1) ? "Intel" : "RTSS";
+                        GameProfileCPUStateText.Visibility = Visibility.Visible;
+                    }
+                    else
+                    {
+                        GameProfileCPUStateLabel.Visibility = Visibility.Collapsed;
+                        GameProfileCPUStateText.Visibility = Visibility.Collapsed;
+                    }
+
+                    // Always hide AutoTDP row in game profile card (not relevant for MSI Claw)
+                    GameProfileAutoTDPLabel.Visibility = Visibility.Collapsed;
+                    GameProfileAutoTDPText.Visibility = Visibility.Collapsed;
                 }
             }
 
@@ -370,9 +437,29 @@ namespace XboxGamingBar
                 case 1: return "Quiet";
                 case 2: return "Balanced";
                 case 3: return "Performance";
-                case 255: return "Custom";
+                case 255: return "Slider";
                 default: return "Balanced";
             }
+        }
+
+        /// <summary>
+        /// Returns a short label for the active FPS cap mode (RTSS / Intel tier).
+        /// Reads the global fpsCapMode and intelFpsTier widget properties.
+        /// </summary>
+        private string GetFpsCapModeLabel()
+        {
+            if (fpsCapMode?.Value == 1)
+            {
+                int tier = intelFpsTier?.Value ?? 0;
+                switch (tier)
+                {
+                    case 1: return "Intel 60";
+                    case 2: return "Intel 40";
+                    case 3: return "Intel 30";
+                    default: return "Intel";
+                }
+            }
+            return "RTSS";
         }
 
         /// <summary>
@@ -389,7 +476,7 @@ namespace XboxGamingBar
                 }
                 else if (profile.TDPModeIndex == tdpPresets.Count)
                 {
-                    return "Custom"; // The actual Custom mode after all presets
+                    return "Slider"; // The actual Slider mode after all presets
                 }
             }
             // Fall back to legacy mode name
@@ -413,9 +500,15 @@ namespace XboxGamingBar
                 }
             }
             // Fall back to legacy: convert LegionPerformanceMode to index
-            int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
+            // For non-Legion devices (MSI Claw) there are no hardware modes — default to Standard (index 0).
+            bool isLegionDevice = legionGoDetected?.Value == true;
+            if (!isLegionDevice)
+            {
+                return 1; // Standard (25W) is the MSI Claw default — index 1 (Max is index 0)
+            }
+            int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom (Legion Go only)
             int index = Array.IndexOf(modeValues, profile.LegionPerformanceMode);
-            return index >= 0 ? index : 1; // Default to Balanced if not found
+            return index >= 0 ? index : 1; // Default to Balanced for Legion if not found
         }
 
     }

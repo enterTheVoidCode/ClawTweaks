@@ -83,10 +83,15 @@ namespace XboxGamingBar
                 {
                     if (useLenovoModes)
                     {
-                        // Restore hardware mode values for built-in presets
-                        // Quiet=1, Balanced=2, Performance=3
-                        if (preset.Name == "Quiet") preset.LegionModeValue = 1;
+                        // Restore hardware mode values for Legion Go built-in presets
+                        // Max→Performance(3), Standard→Performance(3), Balanced→Balanced(2), Battery/Super Battery→Quiet(1)
+                        if (preset.Name == "Max") preset.LegionModeValue = 3;
+                        else if (preset.Name == "Standard") preset.LegionModeValue = 3;
                         else if (preset.Name == "Balanced") preset.LegionModeValue = 2;
+                        else if (preset.Name == "Battery") preset.LegionModeValue = 1;
+                        else if (preset.Name == "Super Battery") preset.LegionModeValue = 1;
+                        // Legacy preset names (kept for backwards compat)
+                        else if (preset.Name == "Quiet") preset.LegionModeValue = 1;
                         else if (preset.Name == "Performance") preset.LegionModeValue = 3;
                     }
                     else
@@ -133,6 +138,11 @@ namespace XboxGamingBar
         // LoadTdpPresetsSettings completes so pre-load Save calls bail out.
         private bool _tdpPresetsLoaded;
 
+        // Increment this whenever the default built-in presets change (names, wattages, order).
+        // On mismatch, stored built-in presets are replaced with the current defaults while
+        // user-added custom presets are preserved.
+        private const int TdpPresetSchemaVersion = 3; // v3: fix migration persistence bug (TdpPresets_Data was not saved in v2 migration)
+
         private void LoadTdpPresetsSettings()
         {
             try
@@ -169,6 +179,26 @@ namespace XboxGamingBar
                 if (tdpPresets == null || tdpPresets.Count == 0)
                 {
                     tdpPresets = Shared.Data.TdpPreset.GetDefaultPresets();
+                }
+
+                // Schema migration: if stored version is older than current, refresh built-in presets.
+                // User-added custom presets (IsBuiltIn=false) are kept as-is.
+                int storedSchemaVersion = 0;
+                if (settings.Values.TryGetValue("TdpPresets_SchemaVersion", out object svObj) && svObj is int sv)
+                    storedSchemaVersion = sv;
+
+                if (storedSchemaVersion < TdpPresetSchemaVersion)
+                {
+                    var currentDefaults = Shared.Data.TdpPreset.GetDefaultPresets();
+                    var userCustom = tdpPresets.Where(p => !p.IsBuiltIn).ToList();
+                    tdpPresets = currentDefaults;
+                    tdpPresets.AddRange(userCustom);
+                    // Save both version AND data immediately — _tdpPresetsLoaded is still false here
+                    // so SaveTdpPresetsSettings() is blocked; write directly to avoid the guard.
+                    settings.Values["TdpPresets_SchemaVersion"] = TdpPresetSchemaVersion;
+                    settings.Values["TdpPresets_Data"] = Shared.Data.TdpPreset.ToJson(tdpPresets);
+                    Logger.Info($"TDP preset schema migrated v{storedSchemaVersion}→v{TdpPresetSchemaVersion}: " +
+                                $"{currentDefaults.Count} built-in + {userCustom.Count} custom presets");
                 }
 
                 // Update UI
@@ -226,6 +256,7 @@ namespace XboxGamingBar
                 settings.Values["TdpPresets_UseCustom"] = useCustomTDPPresets;
                 settings.Values["TdpPresets_UseLenovoModes"] = useLenovoModes;
                 settings.Values["TdpPresets_Data"] = Shared.Data.TdpPreset.ToJson(tdpPresets);
+                settings.Values["TdpPresets_SchemaVersion"] = TdpPresetSchemaVersion;
 
                 Logger.Info($"Saved TDP presets settings: useCustom={useCustomTDPPresets}, useLenovoModes={useLenovoModes}, presetCount={tdpPresets.Count}");
             }
@@ -273,16 +304,18 @@ namespace XboxGamingBar
                     TDPModeComboBox.Items.Add(item);
                 }
 
-                // Add Custom mode at the end
-                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Custom", Tag = -1 });
+                // Add Slider mode at the end (manual TDP slider control)
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Slider", Tag = -1 });
             }
             else
             {
-                // Use default hardcoded items
-                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Quiet", Tag = "1" });
-                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Balanced", Tag = "2" });
-                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Performance", Tag = "3" });
-                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Custom", Tag = "255" });
+                // Use default hardcoded items — Standard (index 1) is the startup default
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Max (30W)",           Tag = "0" });
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Standard (25W)",      Tag = "1" });
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Balanced (17W)",      Tag = "2" });
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Battery (12W)",       Tag = "3" });
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Super Battery (8W)", Tag = "4" });
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Slider",              Tag = "255" });
             }
 
             // Try to restore previous selection
@@ -300,7 +333,8 @@ namespace XboxGamingBar
                 }
             }
 
-            // Default to Balanced (index 1) if no previous or couldn't find
+            // Default to Standard (index 1) if no previous selection or couldn't match
+            // Index 0 = Max (30W), Index 1 = Standard (25W, the startup default)
             TDPModeComboBox.SelectedIndex = newIndex >= 0 ? newIndex : 1;
         }
 
@@ -516,8 +550,8 @@ namespace XboxGamingBar
             }
             else
             {
-                // Default hardcoded values
-                int[] defaultTdpValues = { 8, 15, 25 }; // Quiet, Balanced, Performance
+                // Default hardcoded values — Standard, Balanced, Battery, Super Battery
+                int[] defaultTdpValues = { 30, 25, 17, 12, 8 };
                 if (selectedIndex < defaultTdpValues.Length)
                 {
                     return defaultTdpValues[selectedIndex];
@@ -554,11 +588,12 @@ namespace XboxGamingBar
             }
             else
             {
-                // Default hardcoded Legion mode values
-                int[] defaultLegionModes = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
-                if (selectedIndex < defaultLegionModes.Length)
+                // Default hardcoded mode — MSI Claw uses software TDP (255=Custom) for all named presets
+                // Legion Go devices use legionPerformanceMode directly and bypass this path
+                int[] defaultModes = { 255, 255, 255, 255, 255 }; // Max, Standard, Balanced, Battery, Super Battery → all software TDP
+                if (selectedIndex < defaultModes.Length)
                 {
-                    return defaultLegionModes[selectedIndex];
+                    return defaultModes[selectedIndex];
                 }
             }
 

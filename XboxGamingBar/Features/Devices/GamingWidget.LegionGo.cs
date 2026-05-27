@@ -50,8 +50,11 @@ namespace XboxGamingBar
         {
             if (LegionNavItem != null)
             {
-                LegionNavItem.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-                Logger.Info($"Legion tab visibility set to: {visible}");
+                // Keep the tab visible if Legion is detected OR controller emulation is supported
+                // (MSI Claw uses the same tab for its controller emulation settings)
+                bool showTab = visible || controllerEmulationSupported;
+                LegionNavItem.Visibility = showTab ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Legion tab visibility set to: {showTab} (legionDetected={visible}, controllerEmulationSupported={controllerEmulationSupported})");
             }
 
             // TDP Mode card is always visible for all devices
@@ -175,6 +178,7 @@ namespace XboxGamingBar
         /// <summary>
         /// Shows or hides the Gyro Settings card based on device support.
         /// Legion Go S has a different HID structure, so gyro configuration doesn't work.
+        /// On MSI Claw the section is visible but Calibrate Gyro is disabled (Legion Go firmware-only feature).
         /// </summary>
         private void SetGyroSectionVisibility(bool visible)
         {
@@ -182,6 +186,18 @@ namespace XboxGamingBar
             {
                 GyroSection.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
                 Logger.Info($"Gyro section visibility set to: {visible}");
+            }
+
+            // Calibrate Gyro sends a Legion Go firmware command — not applicable on MSI Claw.
+            // MSI Claw is identified by: controller emulation available AND not a Legion Go.
+            bool isMsiClaw = (legionGoDetected?.Value != true) && (controllerEmulationAvailable?.Value == true);
+            if (LegionCalibrateGyroButton != null)
+            {
+                LegionCalibrateGyroButton.IsEnabled = !isMsiClaw;
+            }
+            if (isMsiClaw && LegionCalibrateGyroStatus != null)
+            {
+                LegionCalibrateGyroStatus.Text = "Hardware calibration is not available for MSI Claw (Legion Go firmware only).";
             }
         }
 
@@ -1688,7 +1704,7 @@ namespace XboxGamingBar
                 Logger.Info($"PawnIO install button updated: installed={installed}");
 
                 // Update XY navigation to skip disabled button
-                // TDPSettingsExpandButton.XYFocusUp must always point to SystemNavItem (for navigating out of card)
+                // TDPSettingsExpandButton is now in the Performance tab (TDP Mode card), not Sys tab
                 if (TdpMethodComboBox != null && TDPSettingsExpandButton != null)
                 {
                     if (installed)
@@ -1708,8 +1724,8 @@ namespace XboxGamingBar
                             TDPLimitsMinSlider.XYFocusUp = InstallPawnIOButton;
                         }
                     }
-                    // Always allow navigating up from card header to nav bar
-                    TDPSettingsExpandButton.XYFocusUp = SystemNavItem;
+                    // TDPSettingsExpandButton is now in the Performance tab (TDP Mode card) - navigate up to OSDCustomizeExpandButton
+                    TDPSettingsExpandButton.XYFocusUp = OSDCustomizeExpandButton;
                 }
             }
 
@@ -2400,8 +2416,9 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    string[] defaultModeNames = { "Quiet", "Balanced", "Performance" };
-                    modeName = (modeIndex >= 0 && modeIndex < defaultModeNames.Length) ? defaultModeNames[modeIndex] : "Balanced";
+                    // MSI Claw 5-preset defaults (index 0-4 = Max/Standard/Balanced/Battery/Super Battery)
+                    string[] defaultModeNames = { "Max", "Standard", "Balanced", "Battery", "Super Battery" };
+                    modeName = (modeIndex >= 0 && modeIndex < defaultModeNames.Length) ? defaultModeNames[modeIndex] : "Standard";
                 }
 
                 if (TDPValueText != null)
@@ -2471,12 +2488,20 @@ namespace XboxGamingBar
                     OSPowerModeComboBox.XYFocusUp = TDPModeComboBox;
                 }
 
+                // Show hint: TDP slider is inactive, user must switch to Slider mode
+                if (TDPSliderModeHint != null)
+                    TDPSliderModeHint.Visibility = Visibility.Visible;
+
                 Logger.Debug($"TDP slider disabled - using {modeName} mode");
             }
             else
             {
-                // In Custom mode, enable if tdp property is ready
+                // In Slider mode, enable if tdp property is ready
                 TDPSlider.IsEnabled = tdp != null;
+
+                // Hide the hint: slider is now active
+                if (TDPSliderModeHint != null)
+                    TDPSliderModeHint.Visibility = Visibility.Collapsed;
 
                 // Reset the "Limits" line — when switching into Custom mode the non-Custom
                 // branch above (or the widget's initial default-to-Balanced state) leaves
@@ -2614,28 +2639,17 @@ namespace XboxGamingBar
                     Logger.Info($"Custom mode enabled - synced TDP property to slider value: {currentSliderValue}W");
                 }
 
-                // Restore normal XY focus chain in Custom mode
-                // TDPModeComboBox -> TDPSlider -> TDPExtrasExpandToggle -> [expanded: TDPBoost/AutoTDP/Sticky] -> OSPowerModeComboBox
+                // Restore normal XY focus chain in Slider mode
+                // TDPModeComboBox -> TDPSlider -> TDPBoostToggle (Overboost card) -> OSPowerModeComboBox
                 if (TDPModeComboBox != null && OSPowerModeComboBox != null)
                 {
                     TDPModeComboBox.XYFocusDown = TDPSlider;
                     TDPSlider.XYFocusUp = TDPModeComboBox;
-                    TDPSlider.XYFocusDown = TDPExtrasExpandToggle;
-                    TDPExtrasExpandToggle.XYFocusUp = TDPSlider;
-
-                    // Internal chain when TDP Extras is expanded
-                    TDPBoostToggle.XYFocusUp = TDPExtrasExpandToggle;
-                    TDPBoostToggle.XYFocusDown = AutoTDPToggle;
-                    AutoTDPToggle.XYFocusUp = TDPBoostToggle;
-                    AutoTDPToggle.XYFocusDown = StickyTDPToggle;
-                    StickyTDPToggle.XYFocusUp = AutoTDPToggle;
-                    StickyTDPToggle.XYFocusDown = OSPowerModeComboBox;
-
-                    // TDPExtrasExpandToggle.XYFocusDown depends on expanded state
-                    bool isTDPExtrasOpen = TDPExtrasContent?.Visibility == Visibility.Visible;
-                    TDPExtrasExpandToggle.XYFocusDown = isTDPExtrasOpen ? (DependencyObject)TDPBoostToggle : OSPowerModeComboBox;
-                    OSPowerModeComboBox.XYFocusUp = isTDPExtrasOpen ? (DependencyObject)StickyTDPToggle : TDPExtrasExpandToggle;
-                    Logger.Debug($"XY focus restored for Custom mode (TDP Extras expanded: {isTDPExtrasOpen})");
+                    TDPSlider.XYFocusDown = TDPBoostToggle;
+                    TDPBoostToggle.XYFocusUp = TDPSlider;
+                    TDPBoostToggle.XYFocusDown = OSPowerModeComboBox;
+                    OSPowerModeComboBox.XYFocusUp = TDPBoostToggle;
+                    Logger.Debug("XY focus restored for Slider mode: TDPSlider -> TDPBoostToggle -> OSPowerModeComboBox");
                 }
             }
         }
