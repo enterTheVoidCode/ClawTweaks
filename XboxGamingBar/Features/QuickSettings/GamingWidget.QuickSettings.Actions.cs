@@ -53,7 +53,9 @@ namespace XboxGamingBar
             {
                 try
                 {
-                    // First check if it's in our local qsTileMap (includes custom shortcuts with GUID IDs)
+                    // Custom action tiles (predefined action type) and keyboard shortcut tiles
+                    // are handled first and return early. Standard built-in tiles fall through
+                    // to the switch block below.
                     if (qsTileMap.TryGetValue(tileTag, out var mappedTile))
                     {
                         // Check for predefined action first
@@ -71,18 +73,21 @@ namespace XboxGamingBar
                             UpdateQuickSettingsTileStates();
                             return;
                         }
+                        // Standard tile with no action/shortcut — fall through to switch below
                     }
-                    // Fallback: Check QuickSettingsConfig by ID (tile IDs are now GUIDs)
+                    // Fallback: Check QuickSettingsConfig by ID (tile IDs are now GUIDs for custom tiles)
                     else if (QuickSettings.QuickSettingsConfig.Instance.GetTile(tileTag) is QuickSettings.QuickSettingsTile configTile
                              && configTile.Type == QuickSettings.TileType.CustomShortcut
                              && !string.IsNullOrEmpty(configTile.CustomShortcut))
                     {
                         _ = SendCustomShortcutAsync(configTile.CustomShortcut, configTile.Name);
                     }
-                    else
+
+                    // Standard built-in tiles: always reached when no action/shortcut matched above
+                    switch (tileTag)
                     {
-                        switch (tileTag)
-                        {
+                        // NOTE: this block was previously inside `else` which made it unreachable
+                        // for tiles already found in qsTileMap. Moved outside so standard tiles work.
                             case "TDPMode":
                                 CycleTDPMode();
                                 break;
@@ -200,7 +205,6 @@ namespace XboxGamingBar
                             case "MsiCenter":
                                 ToggleMsiCenter();
                                 break;
-                        }
                     }
 
                     // Update tile states after action
