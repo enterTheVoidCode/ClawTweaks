@@ -761,19 +761,11 @@ namespace XboxGamingBar
                             TDPModeComboBox.SelectedIndex = modeIndex;
                             Logger.Info($"Applied generic device TDP Mode: index {modeIndex} (mode {profileMode}) for {profileName}");
 
-                            // For Custom mode, the TDP slider value was already set above
-                            // For preset modes, apply the preset TDP value
-                            if (profileMode != 255)
-                            {
-                                int[] genericTDPValues = { 8, 15, 25 }; // Quiet, Balanced, Performance TDP values
-                                if (modeIndex >= 0 && modeIndex < genericTDPValues.Length)
-                                {
-                                    int presetTDP = genericTDPValues[modeIndex];
-                                    TDPSlider.Value = presetTDP;
-                                    tdp?.ForceSetValue(presetTDP);
-                                    Logger.Info($"Applied generic device preset TDP: {presetTDP}W");
-                                }
-                            }
+                            // TDP slider value was already set from profile.TDP above, and
+                            // tdp.ForceSetValue(profile.TDP) was already called for non-Legion devices.
+                            // Do NOT overwrite with hardcoded GoTweaks values {8,15,25} — those
+                            // don't match MSI Claw custom presets (e.g. Max=35W, Standard=25W, Eco=15W).
+                            // The profile's saved TDP is the authoritative value here.
                         }
                     }
 

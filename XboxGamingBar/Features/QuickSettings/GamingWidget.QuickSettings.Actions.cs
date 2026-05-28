@@ -1348,9 +1348,18 @@ namespace XboxGamingBar
             }
             else
             {
-                // Switching to RTSS — disable Intel tier immediately
+                // Switching to RTSS — first restore the RTSS limit from the slider so the toggle
+                // stays on. Without this, UpdateFPSLimitControls fires on intelFpsTier change
+                // and sees fpsLimit==0 → turns the toggle off.
                 if (intelFpsTier != null && intelFpsTier.Value != 0)
                 {
+                    int rtssValue = (int)(FPSLimitSlider?.Value ?? 0);
+                    if (rtssValue > 15 && fpsLimit != null)
+                    {
+                        Logger.Info($"[FPS-Exclusion] Switching to RTSS mode: restoring RTSS limit to {rtssValue} fps");
+                        fpsLimit.SetValue(rtssValue);
+                    }
+
                     Logger.Info("[FPS-Exclusion] Switching to RTSS mode: disabling Intel FPS tier");
                     intelFpsTier.SetValue(0);
                     // Sync ComboBox to "Off" without re-triggering the handler
@@ -1638,11 +1647,13 @@ namespace XboxGamingBar
                             }
                             else
                             {
-                                // Only turn off the toggle if Intel limiter is also inactive.
                                 // When Intel mode is selected, fpsLimit (RTSS) is silenced to 0
-                                // but the overall FPS limiter is still enabled via Intel.
+                                // but the overall FPS limiter is still active via Intel tier.
+                                // Turn the toggle ON for active Intel, OFF only when both are inactive.
                                 bool intelActive = fpsCapMode?.Value == 1 && intelFpsTier?.Value > 0;
-                                if (!intelActive)
+                                if (intelActive)
+                                    FPSLimitToggle.IsOn = true;
+                                else
                                     FPSLimitToggle.IsOn = false;
                             }
                         }
