@@ -82,7 +82,8 @@ namespace XboxGamingBar
                 .OrderBy(t => t.Order)
                 .ToList();
 
-            // Build rows of tiles (3 or 4 columns based on setting)
+            // Sort panel always uses 3 columns (split-tiles are too small at 4)
+            const int sortCols = 3;
             Grid currentRow = null;
             int colIndex = 0;
 
@@ -91,8 +92,7 @@ namespace XboxGamingBar
                 if (colIndex == 0)
                 {
                     currentRow = new Grid { Margin = new Thickness(0, 4, 0, 4) };
-                    // Add column definitions dynamically based on qsColumnCount
-                    for (int c = 0; c < qsColumnCount; c++)
+                    for (int c = 0; c < sortCols; c++)
                     {
                         if (c > 0) currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4) });  // Spacer
                         currentRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -106,7 +106,7 @@ namespace XboxGamingBar
                 currentRow.Children.Add(miniTile);
 
                 colIndex++;
-                if (colIndex >= qsColumnCount)
+                if (colIndex >= sortCols)
                 {
                     colIndex = 0;
                 }

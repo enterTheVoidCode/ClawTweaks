@@ -1914,6 +1914,32 @@ namespace XboxGamingBar
                     }
                 }
                 catch { /* layout not ready yet — no-op */ }
+
+                // Set controller focus on the first tile in the sort grid so XY navigation works immediately
+                try
+                {
+                    if (TileSortableGrid != null && TileSortableGrid.Children.Count > 0)
+                    {
+                        // First child is a row Grid; first column (index 0) holds the mini-tile StackPanel/Grid
+                        var firstRow = TileSortableGrid.Children[0] as Windows.UI.Xaml.Controls.Grid;
+                        if (firstRow != null && firstRow.Children.Count > 0)
+                        {
+                            // Walk children to find the first Button (the main select button of the mini-tile)
+                            foreach (var child in firstRow.Children)
+                            {
+                                var btn = child as Button;
+                                if (btn == null && child is Windows.UI.Xaml.Controls.Grid cellGrid)
+                                    btn = cellGrid.Children.OfType<Button>().FirstOrDefault();
+                                if (btn != null)
+                                {
+                                    btn.Focus(Windows.UI.Xaml.FocusState.Programmatic);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch { /* focus not critical */ }
             });
         }
 
@@ -2055,7 +2081,8 @@ namespace XboxGamingBar
         {
             string name = CustomShortcutNameBox?.Text?.Trim();
 
-            if (string.IsNullOrEmpty(name))
+            // For shortcut tiles the name is required; for action tiles it is auto-derived below
+            if (string.IsNullOrEmpty(name) && !_isTileTypeAction)
             {
                 Logger.Warn("Custom tile name is empty");
                 return;
@@ -2071,6 +2098,10 @@ namespace XboxGamingBar
                     Logger.Warn("No action selected");
                     return;
                 }
+
+                // Always auto-derive tile name from the action display name, truncated to 5 chars
+                string displayName = TileActionHelper.GetDisplayName(actionType) ?? name;
+                name = displayName.Length > 5 ? displayName.Substring(0, 5).TrimEnd() : displayName;
 
                 AddActionTile(name, actionType);
 
