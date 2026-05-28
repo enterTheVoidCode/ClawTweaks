@@ -295,10 +295,10 @@ namespace XboxGamingBar
             };
             btnBindButton.Click += SortableTileButtonBind_Click;
 
-            // Sub-row grid
+            // Sub-row grid: Hide/Show gets 1/3, Button combo gets 2/3 for readable label
             var subRow = new Grid { Height = 28 };
             subRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            subRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            subRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
             Grid.SetColumn(visButton, 0);
             Grid.SetColumn(btnBindButton, 1);
             subRow.Children.Add(visButton);
@@ -785,25 +785,31 @@ namespace XboxGamingBar
             return uint.TryParse(hotkey, out uint m) ? m : 0u;
         }
 
-        /// <summary>Convert an XInput button bitmask to a human-readable combo string like "Menu+A".</summary>
+        /// <summary>Convert an XInput button bitmask to a compact combo string for mini-tiles.</summary>
         private static string XInputMaskToDisplayString(uint mask)
         {
             if (mask == 0) return "--";
             var parts = new List<string>();
-            if ((mask & 0x0010) != 0) parts.Add("Menu");
-            if ((mask & 0x0020) != 0) parts.Add("View");
-            if ((mask & 0x0001) != 0) parts.Add("D-Up");
-            if ((mask & 0x0002) != 0) parts.Add("D-Down");
-            if ((mask & 0x0004) != 0) parts.Add("D-Left");
-            if ((mask & 0x0008) != 0) parts.Add("D-Right");
+            // Modifier-style buttons first (rendered left of the combo)
+            if ((mask & 0x0010) != 0) parts.Add("Mn");      // Menu  → Mn
+            if ((mask & 0x0020) != 0) parts.Add("Vw");      // View  → Vw
+            // DPad: "D" + arrow symbol
+            if ((mask & 0x0001) != 0) parts.Add("D↑"); // DPad Up    → D↑
+            if ((mask & 0x0002) != 0) parts.Add("D↓"); // DPad Down  → D↓
+            if ((mask & 0x0004) != 0) parts.Add("D←"); // DPad Left  → D←
+            if ((mask & 0x0008) != 0) parts.Add("D→"); // DPad Right → D→
+            // Shoulder buttons
             if ((mask & 0x0100) != 0) parts.Add("LB");
             if ((mask & 0x0200) != 0) parts.Add("RB");
+            // Thumbstick clicks
             if ((mask & 0x0040) != 0) parts.Add("LS");
             if ((mask & 0x0080) != 0) parts.Add("RS");
+            // Face buttons
             if ((mask & 0x1000) != 0) parts.Add("A");
             if ((mask & 0x2000) != 0) parts.Add("B");
             if ((mask & 0x4000) != 0) parts.Add("X");
             if ((mask & 0x8000) != 0) parts.Add("Y");
+            // Extra buttons
             if ((mask & 0x10000) != 0) parts.Add("M1");
             if ((mask & 0x20000) != 0) parts.Add("M2");
             return parts.Count > 0 ? string.Join("+", parts) : "--";
