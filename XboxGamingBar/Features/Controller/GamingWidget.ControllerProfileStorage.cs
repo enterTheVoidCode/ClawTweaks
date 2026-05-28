@@ -1618,6 +1618,45 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Erase all per-game controller settings for the current game and fall back to the global profile.
+        /// Deletes the LocalSettings container ControllerProfile_Game_{gameName} and the disabled-preference key.
+        /// </summary>
+        private void ClearPerGameControllerProfile_Click(object sender, RoutedEventArgs e)
+        {
+            if (!HasValidGame(currentGameName)) return;
+
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+
+                // Delete the stored per-game profile container
+                string containerKey = $"ControllerProfile_Game_{currentGameName}";
+                if (settings.Containers.ContainsKey(containerKey))
+                {
+                    settings.DeleteContainer(containerKey);
+                    Logger.Info($"ClearPerGameControllerProfile: deleted container '{containerKey}'");
+                }
+
+                // Clear the disabled-preference key so the toggle starts fresh next time
+                string disabledKey = $"ControllerProfileDisabled_{currentGameName}";
+                settings.Values.Remove(disabledKey);
+
+                // Reset in-memory game profile object
+                gameControllerProfile = new ControllerProfile();
+
+                // Turn off the toggle — its Toggled handler will load the global profile
+                if (LegionControllerProfileToggle?.IsOn == true)
+                    LegionControllerProfileToggle.IsOn = false;
+
+                Logger.Info($"ClearPerGameControllerProfile: per-game controller settings erased for '{currentGameName}'");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ClearPerGameControllerProfile: {ex.Message}");
+            }
+        }
+
         private void ControllerSettingChanged(object sender, object e)
         {
             // Update slider value displays

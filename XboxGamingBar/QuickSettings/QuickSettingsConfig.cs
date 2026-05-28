@@ -123,7 +123,9 @@ namespace XboxGamingBar.QuickSettings
                                 Order = tileData.Order,
                                 IsVisible = tileData.IsVisible,
                                 CustomShortcut = tileData.CustomShortcut,
-                                CustomColor = tileData.CustomColor
+                                CustomColor = tileData.CustomColor,
+                                ActionType = (TileActionType)tileData.ActionType,
+                                ControllerHotkey = tileData.ControllerHotkey
                             };
                             Tiles.Add(tile);
                         }
@@ -162,7 +164,9 @@ namespace XboxGamingBar.QuickSettings
                     Order = t.Order,
                     IsVisible = t.IsVisible,
                     CustomShortcut = t.CustomShortcut,
-                    CustomColor = t.CustomColor
+                    CustomColor = t.CustomColor,
+                    ActionType = (int)t.ActionType,
+                    ControllerHotkey = t.ControllerHotkey
                 }).ToList();
 
                 var data = SerializeTileDataList(tileDataList);
@@ -174,6 +178,29 @@ namespace XboxGamingBar.QuickSettings
             {
                 Logger.Error($"Error saving Quick Settings config: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Add a predefined-action tile
+        /// </summary>
+        public QuickSettingsTile AddActionTile(string name, TileActionType actionType)
+        {
+            var tile = new QuickSettingsTile
+            {
+                Id = Guid.NewGuid().ToString(),
+                Type = TileType.CustomShortcut,
+                Name = name,
+                Icon = TileActionHelper.GetGlyph(actionType),
+                CurrentState = 0,
+                Order = Tiles.Count,
+                IsVisible = true,
+                ActionType = actionType
+            };
+            Tiles.Add(tile);
+            Save();
+            OnPropertyChanged(nameof(VisibleTiles));
+            Logger.Info($"Added action tile: {name} -> {actionType}");
+            return tile;
         }
 
         /// <summary>
@@ -203,7 +230,7 @@ namespace XboxGamingBar.QuickSettings
         }
 
         /// <summary>
-        /// Remove a tile by ID
+        /// Remove a tile by ID (works for custom shortcut and action tiles)
         /// </summary>
         public bool RemoveTile(string id)
         {
@@ -373,18 +400,19 @@ namespace XboxGamingBar.QuickSettings
         }
 
         /// <summary>
-        /// Serialize tile data list to a simple delimited string format
-        /// Format: tile1|tile2|tile3 where each tile is: Id;Type;Name;Icon;CurrentState;Order;IsVisible;CustomShortcut;CustomColor
+        /// Serialize tile data list to a simple delimited string format.
+        /// Format: Id;Type;Name;Icon;CurrentState;Order;IsVisible;CustomShortcut;CustomColor;ActionType;ControllerHotkey
         /// </summary>
         private static string SerializeTileDataList(List<TileData> tiles)
         {
             var tileStrings = tiles.Select(t =>
-                $"{Escape(t.Id)};{t.Type};{Escape(t.Name)};{Escape(t.Icon)};{t.CurrentState};{t.Order};{t.IsVisible};{Escape(t.CustomShortcut)};{Escape(t.CustomColor)}");
+                $"{Escape(t.Id)};{t.Type};{Escape(t.Name)};{Escape(t.Icon)};{t.CurrentState};{t.Order};{t.IsVisible};{Escape(t.CustomShortcut)};{Escape(t.CustomColor)};{t.ActionType};{Escape(t.ControllerHotkey)}");
             return string.Join("|", tileStrings);
         }
 
         /// <summary>
-        /// Deserialize tile data list from delimited string format
+        /// Deserialize tile data list from delimited string format.
+        /// Backward-compatible: old 9-field format is accepted, new fields default to 0/null.
         /// </summary>
         private static List<TileData> DeserializeTileDataList(string data)
         {
@@ -410,7 +438,10 @@ namespace XboxGamingBar.QuickSettings
                         Order = int.TryParse(parts[5], out var order) ? order : 0,
                         IsVisible = bool.TryParse(parts[6], out var visible) && visible,
                         CustomShortcut = Unescape(parts[7]),
-                        CustomColor = Unescape(parts[8])
+                        CustomColor = Unescape(parts[8]),
+                        // Fields added in v2 — optional for backward compatibility
+                        ActionType = parts.Length >= 10 && int.TryParse(parts[9], out var at) ? at : 0,
+                        ControllerHotkey = parts.Length >= 11 ? Unescape(parts[10]) : null
                     });
                 }
             }
@@ -450,6 +481,8 @@ namespace XboxGamingBar.QuickSettings
             public bool IsVisible { get; set; }
             public string CustomShortcut { get; set; }
             public string CustomColor { get; set; }
+            public int ActionType { get; set; }
+            public string ControllerHotkey { get; set; }
         }
     }
 }

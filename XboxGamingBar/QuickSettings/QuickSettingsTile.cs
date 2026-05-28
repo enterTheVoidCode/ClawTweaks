@@ -122,6 +122,27 @@ namespace XboxGamingBar.QuickSettings
             set { _customColor = value; OnPropertyChanged(); }
         }
 
+        private TileActionType _actionType;
+        private string _controllerHotkey;
+
+        /// <summary>
+        /// Predefined action to execute. None = keyboard shortcut tile.
+        /// </summary>
+        public TileActionType ActionType
+        {
+            get => _actionType;
+            set { _actionType = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>
+        /// Controller button-combo string (e.g. "LB+RB") registered as a hotkey for this tile.
+        /// </summary>
+        public string ControllerHotkey
+        {
+            get => _controllerHotkey;
+            set { _controllerHotkey = value; OnPropertyChanged(); }
+        }
+
         /// <summary>
         /// Gets the state labels for this tile type
         /// </summary>
@@ -144,6 +165,8 @@ namespace XboxGamingBar.QuickSettings
                 case TileType.OnScreenKeyboard:
                     return new[] { "Open" };
                 case TileType.CustomShortcut:
+                    if (ActionType != TileActionType.None && ActionType != TileActionType.KeyboardShortcut)
+                        return new[] { TileActionHelper.GetDisplayName(ActionType) };
                     return new[] { "Run" };
                 default:
                     return new[] { "Unknown" };

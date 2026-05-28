@@ -221,7 +221,17 @@ namespace XboxGamingBar
                         // Also update savedCustomTDP for consistency
                         savedCustomTDP = TDPSlider.Value;
                     }
-                    // For preset modes (including user-made), keep the profile's existing TDP value
+                    else
+                    {
+                        // For preset modes, save the preset's actual watt value.
+                        // This ensures LoadProfileSettings re-applies the correct TDP (not the stale default)
+                        // when the widget reopens or returns from background — preventing the "TDP resets to 15W" bug.
+                        int presetTdpVal = GetCurrentPresetTdpValue();
+                        if (presetTdpVal > 0)
+                        {
+                            profile.TDP = presetTdpVal;
+                        }
+                    }
                 }
             }
             if (SaveCPUBoost && CPUBoostToggle != null)

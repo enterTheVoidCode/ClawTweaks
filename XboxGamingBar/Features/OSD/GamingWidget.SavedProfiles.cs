@@ -183,41 +183,11 @@ namespace XboxGamingBar
                         summaryParts.Add("JoyMouse");
                     }
 
-                    // Check RGB lighting settings
-                    if (container.Values.TryGetValue("LightMode", out var lightModeVal))
-                    {
-                        int lightMode = (int)lightModeVal;
-                        if (lightMode > 0) // 0 = Off
-                        {
-                            var lightModes = new[] { "Off", "Solid", "Breathe", "Rainbow", "Spiral" };
-                            string modeName = lightMode < lightModes.Length ? lightModes[lightMode] : $"Mode{lightMode}";
+                    // RGB lighting info removed from summary — not relevant on MSI Claw
+                    // if (container.Values.TryGetValue("LightMode", out var lightModeVal)) { ... }
 
-                            // Get color if solid or breathe mode
-                            if (lightMode == 1 || lightMode == 2) // Solid or Breathe
-                            {
-                                if (container.Values.TryGetValue("LightColorR", out var r) &&
-                                    container.Values.TryGetValue("LightColorG", out var g) &&
-                                    container.Values.TryGetValue("LightColorB", out var b))
-                                {
-                                    summaryParts.Add($"RGB:{modeName}({r},{g},{b})");
-                                }
-                                else
-                                {
-                                    summaryParts.Add($"RGB:{modeName}");
-                                }
-                            }
-                            else
-                            {
-                                summaryParts.Add($"RGB:{modeName}");
-                            }
-                        }
-                    }
-
-                    // Check brightness
-                    if (container.Values.TryGetValue("LightBrightness", out var brightnessVal) && (int)brightnessVal != 50)
-                    {
-                        summaryParts.Add($"Bright:{brightnessVal}%");
-                    }
+                    // Brightness info removed from summary — not relevant on MSI Claw
+                    // if (container.Values.TryGetValue("LightBrightness", ...) { summaryParts.Add(...); }
 
                     // Check power light
                     if (container.Values.TryGetValue("PowerLight", out var powerLightVal) && !(bool)powerLightVal)

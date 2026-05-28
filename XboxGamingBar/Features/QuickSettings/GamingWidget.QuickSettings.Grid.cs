@@ -44,6 +44,29 @@ namespace XboxGamingBar
     public sealed partial class GamingWidget
     {
 
+        // ── Controller button-binding state (Customize Tiles panel) ──────────────
+        private Flyout _btnBindFlyout;
+        private string _btnBindTileId;
+        private Button _btnBindSaveButton;
+        private List<uint> _btnBindSelectedBits = new List<uint>();
+        private StackPanel _btnBindTagsPanel;
+
+        /// <summary>
+        /// All MSI Claw controller buttons available for tile hotkey binding.
+        /// Bits 0x0001–0x8000 are standard XInput wButtons bits.
+        /// Bits 0x10000 (M1) and 0x20000 (M2) are MSI Claw OEM buttons
+        /// (reserved — helper-side detection added separately).
+        /// </summary>
+        private static readonly (string Label, uint Bit)[] ClawButtonDefs =
+        {
+            ("A",       0x1000u), ("B",       0x2000u), ("X",       0x4000u), ("Y",       0x8000u),
+            ("Menu",    0x0010u), ("View",    0x0020u),
+            ("LB",      0x0100u), ("RB",      0x0200u),
+            ("LS",      0x0040u), ("RS",      0x0080u),
+            ("D-Up",    0x0001u), ("D-Down",  0x0002u), ("D-Left",  0x0004u), ("D-Right", 0x0008u),
+            ("M1",      0x10000u),("M2",      0x20000u),
+        };
+
         /// <summary>
         /// Build sortable grid for tile customization
         /// </summary>
@@ -91,70 +114,46 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Create a mini tile button for the sortable grid
+        /// Create a split mini tile for the sortable grid.
+        /// Top: main button (select/swap). Bottom: Show/Hide + Button-bind sub-row.
         /// </summary>
-        private Button CreateMiniTileForSort(TileDefinition tile, int index)
+        private FrameworkElement CreateMiniTileForSort(TileDefinition tile, int index)
         {
             bool isSelected = qsSelectedTileForMove?.Id == tile.Id;
 
-            var button = new Button
+            var fgColor = tile.IsVisible ? Windows.UI.Colors.White : Windows.UI.Colors.Gray;
+            var mainBg = isSelected
+                ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 180))
+                : (tile.IsVisible
+                    ? tileOffBrush
+                    : new SolidColorBrush(Windows.UI.Color.FromArgb(128, 26, 28, 30)));
+
+            // \u2500\u2500 Main button (icon + name + order badge) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+            var stack = new StackPanel
             {
-                Tag = tile.Id,
-                MinHeight = 60,
-                Padding = new Thickness(4),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                Background = isSelected
-                    ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 180))  // Highlight selected
-                    : (tile.IsVisible
-                        ? tileOffBrush
-                        : new SolidColorBrush(Windows.UI.Color.FromArgb(128, 26, 28, 30))),  // Dimmed if hidden
-                BorderBrush = isSelected
-                    ? new SolidColorBrush(Windows.UI.Colors.White)
-                    : new SolidColorBrush(Windows.UI.Color.FromArgb(80, 80, 85, 92)),
-                BorderThickness = new Thickness(isSelected ? 2 : 1),
-                CornerRadius = new CornerRadius(8),
-                UseSystemFocusVisuals = true,
-                FocusVisualPrimaryBrush = new SolidColorBrush(Windows.UI.Colors.White),
-                FocusVisualSecondaryBrush = new SolidColorBrush(Windows.UI.Colors.Transparent),
-                TabIndex = index
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
             };
-
-            var content = new Grid();
-
-            // Icon and name stack
-            var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
             stack.Children.Add(new FontIcon
             {
                 Glyph = tile.Glyph,
                 FontSize = 18,
-                Foreground = new SolidColorBrush(tile.IsVisible ? Windows.UI.Colors.White : Windows.UI.Colors.Gray)
+                Foreground = new SolidColorBrush(fgColor)
             });
             stack.Children.Add(new TextBlock
             {
                 Text = tile.Name,
                 FontSize = 10,
-                Foreground = new SolidColorBrush(tile.IsVisible ? Windows.UI.Colors.White : Windows.UI.Colors.Gray),
+                Foreground = new SolidColorBrush(fgColor),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis
             });
-            content.Children.Add(stack);
 
-            // Eye icon (top-right) - shows visibility status
-            var eyeIcon = new FontIcon
-            {
-                Glyph = tile.IsVisible ? "\uE7B3" : "\uED1A",  // Eye / Eye crossed
-                FontSize = 12,
-                Foreground = new SolidColorBrush(tile.IsVisible
-                    ? Windows.UI.Color.FromArgb(255, 100, 200, 100)   // Green for visible
-                    : Windows.UI.Color.FromArgb(255, 200, 100, 100)), // Red for hidden
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, 2, 2, 0)
-            };
-            content.Children.Add(eyeIcon);
+            var mainContent = new Grid();
+            mainContent.Children.Add(stack);
 
             // Order number badge (bottom-left)
-            var orderText = new TextBlock
+            mainContent.Children.Add(new TextBlock
             {
                 Text = (index + 1).ToString(),
                 FontSize = 10,
@@ -162,28 +161,169 @@ namespace XboxGamingBar
                 HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Bottom,
                 Margin = new Thickness(4, 0, 0, 2)
-            };
-            content.Children.Add(orderText);
+            });
 
-            // Custom shortcut indicator (bottom-right) - shows it can be deleted
+            // Custom shortcut pin indicator (bottom-right)
             if (!string.IsNullOrEmpty(tile.CustomShortcut))
             {
-                var customIcon = new FontIcon
+                mainContent.Children.Add(new FontIcon
                 {
-                    Glyph = "\uE932",  // Pin icon to indicate custom
+                    Glyph = "\uE932",
                     FontSize = 10,
                     Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(180, 255, 200, 100)),
                     HorizontalAlignment = HorizontalAlignment.Right,
                     VerticalAlignment = VerticalAlignment.Bottom,
                     Margin = new Thickness(0, 0, 4, 2)
-                };
-                content.Children.Add(customIcon);
+                });
             }
 
-            button.Content = content;
-            button.Click += SortableTile_Click;
+            var mainButton = new Button
+            {
+                Tag = tile.Id,
+                MinHeight = 52,
+                Padding = new Thickness(4),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                Background = mainBg,
+                BorderThickness = new Thickness(0),
+                CornerRadius = new CornerRadius(7, 7, 0, 0),
+                UseSystemFocusVisuals = true,
+                FocusVisualPrimaryBrush = new SolidColorBrush(Windows.UI.Colors.White),
+                FocusVisualSecondaryBrush = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                TabIndex = index * 3,
+                Content = mainContent
+            };
+            mainButton.Click += SortableTile_Click;
 
-            return button;
+            // \u2500\u2500 Sub-row background (slightly darker/shifted for selected) \u2500\u2500\u2500\u2500\u2500
+            var subBg = new SolidColorBrush(isSelected
+                ? Windows.UI.Color.FromArgb(255, 0, 95, 145)
+                : Windows.UI.Color.FromArgb(255, 30, 34, 38));
+
+            var dividerBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(60, 80, 85, 92));
+
+            // Visibility toggle button (left sub-button)
+            var visContent = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            visContent.Children.Add(new FontIcon
+            {
+                Glyph = tile.IsVisible ? "\uE7B3" : "\uED1A",  // Eye / Eye-off
+                FontSize = 11,
+                Foreground = new SolidColorBrush(tile.IsVisible
+                    ? Windows.UI.Color.FromArgb(255, 100, 200, 100)
+                    : Windows.UI.Color.FromArgb(255, 200, 100, 100)),
+                Margin = new Thickness(0, 0, 4, 0)
+            });
+            visContent.Children.Add(new TextBlock
+            {
+                Text = tile.IsVisible ? "Hide" : "Show",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(200, 220, 220, 220)),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            var visButton = new Button
+            {
+                Tag = tile.Id + "_vis",
+                Height = 28,
+                Padding = new Thickness(4, 0, 4, 0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                Background = subBg,
+                BorderBrush = dividerBrush,
+                BorderThickness = new Thickness(0, 1, 0.5, 0),
+                CornerRadius = new CornerRadius(0, 0, 0, 7),
+                UseSystemFocusVisuals = true,
+                FocusVisualPrimaryBrush = new SolidColorBrush(Windows.UI.Colors.White),
+                FocusVisualSecondaryBrush = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                TabIndex = index * 3 + 1,
+                Content = visContent
+            };
+            visButton.Click += SortableTileVisibility_Click;
+
+            // Button-bind sub-button (right): shows "Button" when unbound, combo string when bound
+            bool hasBtnBind = !string.IsNullOrEmpty(tile.ControllerHotkey);
+            string btnBindLabel = hasBtnBind
+                ? XInputMaskToDisplayString(ParseHotkeyMaskUInt(tile.ControllerHotkey))
+                : "Button";
+            var btnBindColor = hasBtnBind
+                ? Windows.UI.Color.FromArgb(255, 80, 220, 200)   // teal when bound
+                : Windows.UI.Color.FromArgb(140, 200, 200, 200);  // grey when unbound
+
+            var btnContent = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            btnContent.Children.Add(new FontIcon
+            {
+                Glyph = "\uE7FC",  // Gamepad
+                FontSize = 11,
+                Foreground = new SolidColorBrush(btnBindColor),
+                Margin = new Thickness(0, 0, 4, 0)
+            });
+            btnContent.Children.Add(new TextBlock
+            {
+                Text = btnBindLabel,
+                FontSize = 10,
+                Foreground = new SolidColorBrush(btnBindColor),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+
+            var btnBindButton = new Button
+            {
+                Tag = tile.Id + "_btn",
+                Height = 28,
+                Padding = new Thickness(4, 0, 4, 0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                Background = subBg,
+                BorderBrush = dividerBrush,
+                BorderThickness = new Thickness(0.5, 1, 0, 0),
+                CornerRadius = new CornerRadius(0, 0, 7, 0),
+                UseSystemFocusVisuals = true,
+                FocusVisualPrimaryBrush = new SolidColorBrush(Windows.UI.Colors.White),
+                FocusVisualSecondaryBrush = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                TabIndex = index * 3 + 2,
+                Content = btnContent
+            };
+            btnBindButton.Click += SortableTileButtonBind_Click;
+
+            // Sub-row grid
+            var subRow = new Grid { Height = 28 };
+            subRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            subRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            Grid.SetColumn(visButton, 0);
+            Grid.SetColumn(btnBindButton, 1);
+            subRow.Children.Add(visButton);
+            subRow.Children.Add(btnBindButton);
+
+            // Inner grid combining main + sub-row
+            var innerGrid = new Grid();
+            innerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            innerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) });
+            Grid.SetRow(mainButton, 0);
+            Grid.SetRow(subRow, 1);
+            innerGrid.Children.Add(mainButton);
+            innerGrid.Children.Add(subRow);
+
+            // Outer border provides unified corner radius + selection highlight
+            return new Border
+            {
+                Tag = tile.Id,
+                BorderBrush = isSelected
+                    ? new SolidColorBrush(Windows.UI.Colors.White)
+                    : new SolidColorBrush(Windows.UI.Color.FromArgb(80, 80, 85, 92)),
+                BorderThickness = new Thickness(isSelected ? 2 : 1),
+                CornerRadius = new CornerRadius(8),
+                Child = innerGrid
+            };
         }
 
         /// <summary>
@@ -278,20 +418,27 @@ namespace XboxGamingBar
                     QuickSettingsScrollViewer.ChangeView(null, scrollOffset, null, true);
                 }
 
-                // Restore focus to the specified tile
+                // Restore focus to the specified tile's main button
                 if (!string.IsNullOrEmpty(focusTileId) && TileSortableGrid != null)
                 {
                     foreach (var child in TileSortableGrid.Children)
                     {
-                        if (child is Grid row)
+                        if (!(child is Grid row)) continue;
+                        foreach (var cell in row.Children)
                         {
-                            foreach (var cell in row.Children)
+                            // New split-tile: Border > Grid > main Button (row 0)
+                            if (cell is Border border && border.Tag is string bid && bid == focusTileId)
                             {
-                                if (cell is Button btn && btn.Tag is string id && id == focusTileId)
-                                {
-                                    btn.Focus(FocusState.Programmatic);
-                                    return;
-                                }
+                                if (border.Child is Grid ig && ig.Children.Count > 0 &&
+                                    ig.Children[0] is Button mainBtn)
+                                    mainBtn.Focus(FocusState.Programmatic);
+                                return;
+                            }
+                            // Legacy plain Button fallback
+                            if (cell is Button btn && btn.Tag is string id && id == focusTileId)
+                            {
+                                btn.Focus(FocusState.Programmatic);
+                                return;
                             }
                         }
                     }
@@ -300,7 +447,8 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Update visual state of sortable tiles without rebuilding (for selection changes)
+        /// Update visual state of sortable tiles without rebuilding (for selection changes).
+        /// Supports both the new split-tile (Border container) and legacy plain Button.
         /// </summary>
         private void UpdateSortableGridVisuals(string focusTileId = null)
         {
@@ -308,32 +456,55 @@ namespace XboxGamingBar
 
             foreach (var child in TileSortableGrid.Children)
             {
-                if (child is Grid row)
+                if (!(child is Grid row)) continue;
+                foreach (var cell in row.Children)
                 {
-                    foreach (var cell in row.Children)
+                    string id = null;
+                    Border tileContainer = null;
+                    Button mainBtn = null;
+
+                    if (cell is Border border && border.Tag is string bid)
                     {
-                        if (cell is Button btn && btn.Tag is string id && qsTileMap.TryGetValue(id, out var tile))
-                        {
-                            bool isSelected = qsSelectedTileForMove?.Id == id;
-
-                            // Update button background and border
-                            btn.Background = isSelected
-                                ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 180))
-                                : (tile.IsVisible
-                                    ? tileOffBrush
-                                    : new SolidColorBrush(Windows.UI.Color.FromArgb(128, 26, 28, 30)));
-                            btn.BorderBrush = isSelected
-                                ? new SolidColorBrush(Windows.UI.Colors.White)
-                                : new SolidColorBrush(Windows.UI.Color.FromArgb(80, 80, 85, 92));
-                            btn.BorderThickness = new Thickness(isSelected ? 2 : 1);
-
-                            // Focus the specified tile
-                            if (!string.IsNullOrEmpty(focusTileId) && id == focusTileId)
-                            {
-                                btn.Focus(FocusState.Programmatic);
-                            }
-                        }
+                        id = bid;
+                        tileContainer = border;
+                        // Border > Grid > main Button at row 0
+                        if (border.Child is Grid ig && ig.Children.Count > 0)
+                            mainBtn = ig.Children[0] as Button;
                     }
+                    else if (cell is Button legacyBtn && legacyBtn.Tag is string legacyId)
+                    {
+                        id = legacyId;
+                        mainBtn = legacyBtn;
+                    }
+
+                    if (id == null || !qsTileMap.TryGetValue(id, out var tile)) continue;
+
+                    bool isSelected = qsSelectedTileForMove?.Id == id;
+                    var bg = isSelected
+                        ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 180))
+                        : (tile.IsVisible
+                            ? tileOffBrush
+                            : new SolidColorBrush(Windows.UI.Color.FromArgb(128, 26, 28, 30)));
+
+                    if (tileContainer != null)
+                    {
+                        tileContainer.BorderBrush = isSelected
+                            ? new SolidColorBrush(Windows.UI.Colors.White)
+                            : new SolidColorBrush(Windows.UI.Color.FromArgb(80, 80, 85, 92));
+                        tileContainer.BorderThickness = new Thickness(isSelected ? 2 : 1);
+                        if (mainBtn != null) mainBtn.Background = bg;
+                    }
+                    else if (mainBtn != null)
+                    {
+                        mainBtn.Background = bg;
+                        mainBtn.BorderBrush = isSelected
+                            ? new SolidColorBrush(Windows.UI.Colors.White)
+                            : new SolidColorBrush(Windows.UI.Color.FromArgb(80, 80, 85, 92));
+                        mainBtn.BorderThickness = new Thickness(isSelected ? 2 : 1);
+                    }
+
+                    if (!string.IsNullOrEmpty(focusTileId) && id == focusTileId)
+                        mainBtn?.Focus(FocusState.Programmatic);
                 }
             }
         }
@@ -439,6 +610,330 @@ namespace XboxGamingBar
             {
                 Logger.Error($"Error deleting custom shortcut tile: {ex.Message}");
             }
+        }
+
+        // ────────────────────────────────────────────────────────────────────────────
+        // Controller button-binding Flyout  (dropdown-based, same pattern as keyboard shortcuts)
+        // ────────────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Open the controller-button binding Flyout.
+        /// User picks buttons from a dropdown — avoids the physical-button-press approach
+        /// which dismisses the Game Bar overlay when RB/LB/etc. are pressed.
+        /// </summary>
+        private void OpenBtnBindFlyout(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!(sender is Button btn) || !(btn.Tag is string tagId)) return;
+                string tileId = tagId.EndsWith("_btn") ? tagId.Substring(0, tagId.Length - 4) : tagId;
+                if (!qsTileMap.TryGetValue(tileId, out var tile)) return;
+
+                _btnBindFlyout?.Hide();
+                _btnBindTileId = tileId;
+
+                // Preload existing binding into selection list
+                _btnBindSelectedBits.Clear();
+                uint existingMask = ParseHotkeyMaskUInt(tile.ControllerHotkey);
+                foreach (var (_, bit) in ClawButtonDefs)
+                    if (bit != 0 && (existingMask & bit) == bit)
+                        _btnBindSelectedBits.Add(bit);
+
+                // ── Build flyout UI ──────────────────────────────────────────────
+                var panel = new StackPanel { Padding = new Thickness(16), MinWidth = 268 };
+
+                panel.Children.Add(new TextBlock
+                {
+                    Text = tile.Name + " — Controller Combo",
+                    FontSize = 13,
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    Margin = new Thickness(0, 0, 0, 4)
+                });
+                panel.Children.Add(new TextBlock
+                {
+                    Text = "Select 2 or more buttons, then Save",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(160, 200, 200, 200)),
+                    Margin = new Thickness(0, 0, 0, 10)
+                });
+
+                // Tag chips — show currently selected buttons
+                _btnBindTagsPanel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    MinHeight = 28,
+                    Margin = new Thickness(0, 0, 0, 10)
+                };
+                panel.Children.Add(_btnBindTagsPanel);
+
+                // Dropdown: pick a button to add
+                var combo = new ComboBox
+                {
+                    PlaceholderText = "+ Add button",
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Margin = new Thickness(0, 0, 0, 14)
+                };
+                foreach (var (label, _) in ClawButtonDefs)
+                    combo.Items.Add(label);
+                combo.SelectionChanged += BtnBindCombo_SelectionChanged;
+                panel.Children.Add(combo);
+
+                // Button row: Save  Clear  Cancel
+                var btnRow = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                _btnBindSaveButton = new Button
+                {
+                    Content = "Save",
+                    IsEnabled = false,
+                    Margin = new Thickness(3),
+                    MinWidth = 72
+                };
+                var clearButton  = new Button { Content = "Clear",  Margin = new Thickness(3), MinWidth = 72 };
+                var cancelButton = new Button { Content = "Cancel", Margin = new Thickness(3), MinWidth = 72 };
+
+                _btnBindSaveButton.Click += (s, ev) => BtnBindCommit();
+                clearButton.Click        += (s, ev) => BtnBindClear(tile);
+                cancelButton.Click       += (s, ev) => _btnBindFlyout?.Hide();
+
+                btnRow.Children.Add(_btnBindSaveButton);
+                btnRow.Children.Add(clearButton);
+                btnRow.Children.Add(cancelButton);
+                panel.Children.Add(btnRow);
+
+                _btnBindFlyout = new Flyout { Content = panel, Placement = FlyoutPlacementMode.Top };
+                _btnBindFlyout.ShowAt(btn);
+
+                UpdateBtnBindTagsDisplay();
+                UpdateBtnBindSaveEnabled();
+                Logger.Info($"OpenBtnBindFlyout: opened for tile '{tile.Name}'");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"OpenBtnBindFlyout: {ex.Message}");
+            }
+        }
+
+        /// <summary>Save the selected combo to the tile and sync with the helper.</summary>
+        private void BtnBindCommit()
+        {
+            try
+            {
+                if (!qsTileMap.TryGetValue(_btnBindTileId, out var tile)) return;
+
+                uint maskToSave = 0;
+                foreach (var bit in _btnBindSelectedBits)
+                    maskToSave |= bit;
+
+                if (maskToSave == 0) return;
+
+                tile.ControllerHotkey = maskToSave.ToString();
+
+                var configTile = QuickSettings.QuickSettingsConfig.Instance.GetTile(tile.Id);
+                if (configTile != null)
+                {
+                    configTile.ControllerHotkey = tile.ControllerHotkey;
+                    QuickSettings.QuickSettingsConfig.Instance.Save();
+                }
+
+                Logger.Info($"BtnBindCommit: '{tile.Name}' -> 0x{maskToSave:X} ({XInputMaskToDisplayString(maskToSave)})");
+
+                _btnBindFlyout?.Hide();
+                BuildSortableGridPreserveScroll(_btnBindTileId);
+                _ = SendTileHotkeysToHelper();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"BtnBindCommit: {ex.Message}");
+            }
+        }
+
+        /// <summary>Clear any existing hotkey binding for the tile.</summary>
+        private void BtnBindClear(TileDefinition tile)
+        {
+            try
+            {
+                _btnBindSelectedBits.Clear();
+                tile.ControllerHotkey = null;
+
+                var configTile = QuickSettings.QuickSettingsConfig.Instance.GetTile(tile.Id);
+                if (configTile != null)
+                {
+                    configTile.ControllerHotkey = null;
+                    QuickSettings.QuickSettingsConfig.Instance.Save();
+                }
+
+                Logger.Info($"BtnBindClear: '{tile.Name}' hotkey cleared");
+                _btnBindFlyout?.Hide();
+                BuildSortableGridPreserveScroll(tile.Id);
+                _ = SendTileHotkeysToHelper();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"BtnBindClear: {ex.Message}");
+            }
+        }
+
+        // ── Static utilities ──────────────────────────────────────────────────────
+
+        private static uint ParseHotkeyMaskUInt(string hotkey)
+        {
+            if (string.IsNullOrEmpty(hotkey)) return 0;
+            return uint.TryParse(hotkey, out uint m) ? m : 0u;
+        }
+
+        /// <summary>Convert an XInput button bitmask to a human-readable combo string like "Menu+A".</summary>
+        private static string XInputMaskToDisplayString(uint mask)
+        {
+            if (mask == 0) return "--";
+            var parts = new List<string>();
+            if ((mask & 0x0010) != 0) parts.Add("Menu");
+            if ((mask & 0x0020) != 0) parts.Add("View");
+            if ((mask & 0x0001) != 0) parts.Add("D-Up");
+            if ((mask & 0x0002) != 0) parts.Add("D-Down");
+            if ((mask & 0x0004) != 0) parts.Add("D-Left");
+            if ((mask & 0x0008) != 0) parts.Add("D-Right");
+            if ((mask & 0x0100) != 0) parts.Add("LB");
+            if ((mask & 0x0200) != 0) parts.Add("RB");
+            if ((mask & 0x0040) != 0) parts.Add("LS");
+            if ((mask & 0x0080) != 0) parts.Add("RS");
+            if ((mask & 0x1000) != 0) parts.Add("A");
+            if ((mask & 0x2000) != 0) parts.Add("B");
+            if ((mask & 0x4000) != 0) parts.Add("X");
+            if ((mask & 0x8000) != 0) parts.Add("Y");
+            if ((mask & 0x10000) != 0) parts.Add("M1");
+            if ((mask & 0x20000) != 0) parts.Add("M2");
+            return parts.Count > 0 ? string.Join("+", parts) : "--";
+        }
+
+        /// <summary>
+        /// Serialize all tiles that have a <see cref="TileDefinition.ControllerHotkey"/> assigned
+        /// into a JSON array and send it to the elevated helper via IPC.
+        /// The helper registers the combos in its XInput polling loop.
+        /// </summary>
+        private async Task SendTileHotkeysToHelper()
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+
+                var sb = new System.Text.StringBuilder("[");
+                bool first = true;
+                foreach (var tile in qsTileDefinitions)
+                {
+                    if (string.IsNullOrEmpty(tile.ControllerHotkey)) continue;
+                    if (!uint.TryParse(tile.ControllerHotkey, out uint mask) || mask == 0) continue;
+
+                    if (!first) sb.Append(",");
+                    first = false;
+
+                    string tileName = (tile.Name          ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
+                    string shortcut = (tile.CustomShortcut ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
+                    int    actionType = (int)tile.ActionType;
+
+                    sb.Append($"{{\"id\":\"{tile.Id}\",\"name\":\"{tileName}\",\"mask\":{mask},\"actionType\":{actionType},\"shortcut\":\"{shortcut}\"}}");
+                }
+                sb.Append("]");
+
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "UpdateTileHotkeys", sb.ToString() }
+                };
+                await App.SendMessageAsync(request);
+                Logger.Info("SendTileHotkeysToHelper: tile hotkey update sent to helper");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"SendTileHotkeysToHelper: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Called when the user selects an item from the button-picker dropdown.
+        /// Adds the button bit to the selection list (no duplicates), then resets the combo.
+        /// </summary>
+        private void BtnBindCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!(sender is ComboBox combo) || combo.SelectedIndex < 0) return;
+            int idx = combo.SelectedIndex;
+            if (idx >= ClawButtonDefs.Length) return;
+
+            uint bit = ClawButtonDefs[idx].Bit;
+            if (!_btnBindSelectedBits.Contains(bit))
+            {
+                _btnBindSelectedBits.Add(bit);
+                UpdateBtnBindTagsDisplay();
+                UpdateBtnBindSaveEnabled();
+            }
+            combo.SelectedIndex = -1;   // reset so the same button can be picked again after removal
+        }
+
+        /// <summary>Rebuild the chip row showing currently selected buttons.</summary>
+        private void UpdateBtnBindTagsDisplay()
+        {
+            if (_btnBindTagsPanel == null) return;
+            _btnBindTagsPanel.Children.Clear();
+
+            foreach (var bit in _btnBindSelectedBits)
+            {
+                uint capBit = bit;
+
+                var tagBorder = new Border
+                {
+                    Background   = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 60, 60)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding      = new Thickness(6, 2, 6, 2),
+                    Margin       = new Thickness(0, 0, 4, 0)
+                };
+                var tagPanel = new StackPanel { Orientation = Orientation.Horizontal };
+
+                tagPanel.Children.Add(new TextBlock
+                {
+                    Text              = ControllerButtonDisplayName(capBit),
+                    Foreground        = new SolidColorBrush(Windows.UI.Colors.White),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    FontSize          = 12
+                });
+
+                var removeBtn = new Button
+                {
+                    Content           = "x",
+                    Padding           = new Thickness(4, 0, 4, 0),
+                    Margin            = new Thickness(4, 0, 0, 0),
+                    Background        = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    Foreground        = new SolidColorBrush(Windows.UI.Color.FromArgb(180, 220, 220, 220)),
+                    FontSize          = 11,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                removeBtn.Click += (s, ev) =>
+                {
+                    _btnBindSelectedBits.Remove(capBit);
+                    UpdateBtnBindTagsDisplay();
+                    UpdateBtnBindSaveEnabled();
+                };
+
+                tagPanel.Children.Add(removeBtn);
+                tagBorder.Child = tagPanel;
+                _btnBindTagsPanel.Children.Add(tagBorder);
+            }
+        }
+
+        /// <summary>Enable the Save button only when 2 or more buttons are selected.</summary>
+        private void UpdateBtnBindSaveEnabled()
+        {
+            if (_btnBindSaveButton != null)
+                _btnBindSaveButton.IsEnabled = _btnBindSelectedBits.Count >= 2;
+        }
+
+        /// <summary>Return the short display label for a button bit (e.g. 0x1000 -> "A").</summary>
+        private static string ControllerButtonDisplayName(uint bit)
+        {
+            foreach (var (label, b) in ClawButtonDefs)
+                if (b == bit) return label;
+            return $"0x{bit:X}";
         }
 
         /// <summary>
