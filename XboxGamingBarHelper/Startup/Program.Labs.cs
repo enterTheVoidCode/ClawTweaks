@@ -663,6 +663,16 @@ namespace XboxGamingBarHelper
                 if (clawButtonMonitor == null)
                 {
                     clawButtonMonitor = new ClawButtonMonitor();
+
+                    // HC pattern: single DirectInput reader (ClawButtonMonitor) feeds the
+                    // hotkey monitor directly — no second DI instance on the same device.
+                    // controllerHotkeyMonitor is initialised before this point by InitializeHotkeyManager().
+                    if (controllerHotkeyMonitor != null)
+                    {
+                        clawButtonMonitor.HotkeyFeed = controllerHotkeyMonitor.FeedButtons;
+                        Logger.Info("Labs: ClawButtonMonitor.HotkeyFeed wired → ControllerHotkeyMonitor (HC single-reader pattern)");
+                    }
+
                     Logger.Info("Labs: Created ClawButtonMonitor for MSI Claw M1/M2 paddles");
                 }
                 return clawButtonMonitor;

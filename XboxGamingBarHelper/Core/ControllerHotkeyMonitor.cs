@@ -70,6 +70,23 @@ namespace XboxGamingBarHelper.Core
         /// <summary>Most-recently read button bitmask. Thread-safe volatile read.</summary>
         public uint CurrentButtons { get; private set; }
 
+        // ── External feed (HC pattern: single DirectInput reader in ClawButtonMonitor) ──────
+        // When HotkeyFeed is wired, ClawButtonMonitor calls FeedButtons() every poll tick.
+        // The MonitorLoop then skips its own DirectInput acquisition — no second DI instance.
+        private volatile bool _externalFeedActive;
+
+        /// <summary>
+        /// Receive button state from ClawButtonMonitor (1:1 HC pattern: single DirectInput
+        /// reader, hotkey system reads already-computed state — no second DirectInput instance).
+        /// Automatically disables the internal MonitorLoop DirectInput path.
+        /// </summary>
+        public void FeedButtons(uint buttons)
+        {
+            _externalFeedActive = true;
+            CurrentButtons = buttons;
+            ProcessButtonState(buttons);
+        }
+
         // ── Thread control ────────────────────────────────────────────────────────
         private Thread _monitorThread;
         private volatile bool _running;
@@ -166,6 +183,14 @@ namespace XboxGamingBarHelper.Core
             {
                 try
                 {
+                    // HC pattern: if ClawButtonMonitor is feeding us buttons directly,
+                    // skip DirectInput entirely — no second DI instance on same device.
+                    if (_externalFeedActive)
+                    {
+                        Thread.Sleep(100);
+                        continue;
+                    }
+
                     bool hasJoystick;
                     lock (_joystickLock) hasJoystick = _joystick != null;
 

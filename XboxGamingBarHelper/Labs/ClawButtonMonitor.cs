@@ -125,6 +125,14 @@ namespace XboxGamingBarHelper.Labs
         // Edge-detection for M1/M2
         private bool _prevM1, _prevM2;
 
+        /// <summary>
+        /// Optional callback: receives the full button bitmask (same bit constants as
+        /// ControllerHotkeyMonitor) every poll tick while ClawButtonMonitor is running.
+        /// Set by Program startup to feed ControllerHotkeyMonitor without a second
+        /// DirectInput instance (mirrors HC single-reader pattern from DClawController.Tick).
+        /// </summary>
+        public Action<uint> HotkeyFeed { get; set; }
+
         // ── Gyro state ────────────────────────────────────────────────────────────
         // Written from UI/profile thread via SetGyro*(); read from MonitorLoop thread.
         // Volatile ensures writes are visible to the poll thread without a lock.
@@ -764,6 +772,18 @@ namespace XboxGamingBarHelper.Labs
             // Forward to ViGEm (with XInput remaps applied)
             if (_vigem != null && _vigem.IsPluggedIn)
                 _vigem.SubmitXboxState(xiBtnsOut, ltrigOut, rtrigOut, leftXOut, leftYOut, rightXOut, rightYOut);
+
+            // Feed ControllerHotkeyMonitor — 1:1 HC pattern: single DirectInput reader,
+            // hotkey system reads from already-computed ButtonState (no second DI instance).
+            // Bit layout matches ControllerHotkeyMonitor.BTN_* constants exactly (same as XInput wButtons).
+            var hotkeyFeedLocal = HotkeyFeed;
+            if (hotkeyFeedLocal != null)
+            {
+                uint hotkeyMask = (uint)xiBtns
+                    | (m1 ? 0x10000u : 0u)   // BTN_M1
+                    | (m2 ? 0x20000u : 0u);   // BTN_M2
+                hotkeyFeedLocal(hotkeyMask);
+            }
 
             // M1/M2 edge-detection logging (press/release only — not per-frame).
             // Info level so it appears in the log at the default minlevel="Info" NLog config.
