@@ -95,6 +95,19 @@ namespace XboxGamingBarHelper
                 controllerHotkeyMonitor.OnViewX = () => ExecuteControllerHotkeyAction("MenuX");
                 controllerHotkeyMonitor.OnViewY = () => ExecuteControllerHotkeyAction("MenuY");
 
+                // HC pattern: if ClawButtonMonitor was started before us (it is — see Initialize order),
+                // wire the HotkeyFeed now so the MonitorLoop never opens a second DirectInput instance.
+                // FeedButtons(0) pre-sets _externalFeedActive=true before Start() launches the thread.
+                lock (clawButtonMonitorLock)
+                {
+                    if (clawButtonMonitor != null)
+                    {
+                        clawButtonMonitor.HotkeyFeed = controllerHotkeyMonitor.FeedButtons;
+                        controllerHotkeyMonitor.FeedButtons(0); // pre-arm: disables DI path from first tick
+                        Logger.Info("ControllerHotkeyMonitor: HotkeyFeed wired to existing ClawButtonMonitor (late-wire, HC single-reader pattern)");
+                    }
+                }
+
                 controllerHotkeyMonitor.Start();
                 Logger.Info("Controller hotkey monitor initialized for XInput-based button combos");
             }
