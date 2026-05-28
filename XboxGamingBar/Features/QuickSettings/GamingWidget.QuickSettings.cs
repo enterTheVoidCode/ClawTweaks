@@ -60,8 +60,10 @@ namespace XboxGamingBar
             public bool IsVisible { get; set; } = true;
             public bool IsTrigger { get; set; } = false;  // True for tiles that trigger actions (keyboard, custom shortcuts)
             public bool IsAction { get; set; } = false;   // True for action tiles (Task Manager, Explorer, etc.) - shown at bottom
-            public string CustomShortcut { get; set; }    // For custom shortcut tiles
-            public int Order { get; set; } = 0;           // Display order (lower = first)
+            public string CustomShortcut { get; set; }              // For custom shortcut tiles
+            public TileActionType ActionType { get; set; } = TileActionType.None; // Predefined action
+            public string ControllerHotkey { get; set; }            // Controller button combo (e.g. "LB+RB")
+            public int Order { get; set; } = 0;                     // Display order (lower = first)
             public Button TileButton { get; set; }
             public TextBlock StateText { get; set; }
             public CheckBox VisibilityCheckBox { get; set; }
@@ -74,6 +76,11 @@ namespace XboxGamingBar
             // Split-tile: optional dropdown chevron button (null for normal tiles)
             public bool HasDropdown { get; set; } = false;
             public Button DropdownButton { get; set; }
+
+            // Dual-button split tile (left = mode switch, right = value cycle)
+            public bool HasDualButtons { get; set; } = false;
+            public Button LeftButton { get; set; }
+            public Button RightButton { get; set; }
         }
 
         // List of custom shortcut tiles
@@ -90,7 +97,7 @@ namespace XboxGamingBar
         private int qsColumnCount = 4;
 
         // Quick Metrics row state
-        private bool quickMetricsEnabled = false;
+        private bool quickMetricsEnabled = true;
         private bool isUpdatingMetricCheckboxes = false;
         private bool screenSaverEnabled = false;
         private bool sidebarMenuEnabled = false;
@@ -153,6 +160,9 @@ namespace XboxGamingBar
         // Timer for TDP reapply when switching to Custom mode
         private Windows.UI.Xaml.DispatcherTimer qsTdpReapplyTimer;
 
+        // Add-tile type selector state: false = Keyboard (default), true = Action
+        private bool _isTileTypeAction = false;
+
         /// <summary>
         /// Initialize Quick Settings resources and build tiles
         /// </summary>
@@ -213,6 +223,9 @@ namespace XboxGamingBar
                 // Build sortable grid (for customize panel, initially hidden)
                 BuildSortableGrid();
 
+                // Populate the action ComboBox
+                PopulateActionTypeComboBox();
+
                 quickSettingsInitialized = true;
                 Logger.Info("Quick Settings initialized with system accent color");
             }
@@ -251,11 +264,13 @@ namespace XboxGamingBar
             qsTileMap.Clear();
 
             // MSI Claw mode tile pinned to position 0 (top-left) \u2014 shown only on MSI Claw (ShouldSkipTile hides it elsewhere).
-            // FPS Limit, Intel FPS, Overlay follow at 1-3. All other tiles start at order=4.
+            // FPSCombined, Overlay follow at 1-2. All other tiles start at order=4.
             AddTileDefinition("MSIClawDesktopMode", "Mode",     "\uE7FC", order: 0);               // MSI Claw only \u2014 top-left
-            AddTileDefinition("FPSLimit",     "FPS Limit", "\uE916", order: 1);
-            AddTileDefinition("IntelFpsTier", "Intel FPS", "\uE916", order: 2, hasDropdown: true);  // Intel IGCL Endurance Gaming tier
-            AddTileDefinition("Overlay",      "Overlay",   "\uE7B3", order: 3, hasDropdown: true);
+            // FPSLimit + IntelFpsTier merged into one tile with left (mode) / right (value) sub-buttons
+            // AddTileDefinition("FPSLimit",     "FPS Limit", "\uE916", order: 1);                // replaced by FPSCombined
+            // AddTileDefinition("IntelFpsTier", "Intel FPS", "\uE916", order: 2, hasDropdown: true);  // replaced by FPSCombined
+            AddTileDefinition("FPSCombined", "FPS limit.", "\uE916", order: 1, hasDualButtons: true);    // RTSS+Intel combined \u2014 \u2190 mode, \u2192 value
+            AddTileDefinition("Overlay",      "Overlay",   "\uE7B3", order: 2, hasDropdown: true);
 
             int order = 4;
 
@@ -263,12 +278,12 @@ namespace XboxGamingBar
             AddTileDefinition("TDPMode", "TDP Mode", "\uE945", order: order++, hasDropdown: true);
             // AddTileDefinition("AutoTDP", "AutoTDP", "\uE9F5", order: order++);  // removed: not applicable on Intel Claw
             // AddTileDefinition("PowerMode", "Power Mode", "\uE945", order: order++);  // removed: not used on MSI Claw
-            AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4", order: order++);
 
             // Row 2 - Performance Fine-tuning
             // AddTileDefinition("EPP", "EPP", "\uE83E", order: order++);  // removed: AMD EPP \u2014 Intel uses HWP/EPP differently, no direct slider
             // AddTileDefinition("RadeonChill", "Chill", "\uE9CA", order: order++);  // removed: AMD-only feature
-            AddTileDefinition("Profile", "Profile", "\uE77B", order: order++);
+            AddTileDefinition("Profile", "Profile", "\uE77B", order: order++);   // moved before CPU Boost
+            AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4", order: order++);
 
             // Row 3 - Display
             AddTileDefinition("Resolution", "Resolution", "\uE7F8", order: order++);
@@ -283,14 +298,14 @@ namespace XboxGamingBar
             AddTileDefinition("ReShade",    "ReShade",    "\uE8B8", order: order++);  // sends Home/Pos1 key
 
             // Row 5 - Scaling/Quality
-            AddTileDefinition("LosslessScaling", "Lossless", "\uE740", order: order++);
+            AddTileDefinition("LosslessScaling", "Lossless", "\uE8A3", order: order++);  // E8A3 = zoom-in (magnifier+plus) \u2014 matches Lossl tab icon
             // Note: "Overlay" tile is defined above at order=1 (pinned to top-left)
 
             // Row 6 - Input & Interaction
             // AddTileDefinition("ScreenSaver", "Idle Screen Off", "\uE7E8", order: order++);  // removed: not needed on Claw
             // AddTileDefinition("Keyboard", "Keyboard", "\uE765", isTrigger: true, order: order++);  // removed: on-screen keyboard not used on MSI Claw
             // AddTileDefinition("LegionTouchpad", "Touchpad", "\uE962", order: order++);  // removed: MSI Claw has no touchpad
-            AddTileDefinition("LegionRemapControls", "Remap", "\uE7FC", order: order++);
+            // AddTileDefinition("LegionRemapControls", "Remap", "\uE7FC", order: order++);  // removed: redundant \u2014 controller settings are in Per Game Contr. tab
             // AddTileDefinition("LegionDesktopControls", "Desktop", "\uE7F4", order: order++);  // removed: not used on MSI Claw
             // Quick toggle for the legacy controller emulation backend; state text shows
             // the active backend mode (Xbox / DS4 / Mouse) when on, "Off" otherwise.
@@ -320,9 +335,9 @@ namespace XboxGamingBar
             // AddTileDefinition("ActionHibernate", "Hibernate", "\uE708", isAction: true, order: actionOrder++);  // removed: not needed on handheld
         }
 
-        private void AddTileDefinition(string id, string name, string glyph, bool isTrigger = false, bool isAction = false, string customShortcut = null, int order = 0, bool hasDropdown = false)
+        private void AddTileDefinition(string id, string name, string glyph, bool isTrigger = false, bool isAction = false, string customShortcut = null, int order = 0, bool hasDropdown = false, bool hasDualButtons = false)
         {
-            var def = new TileDefinition { Id = id, Name = name, Glyph = glyph, IsVisible = true, IsTrigger = isTrigger, IsAction = isAction, CustomShortcut = customShortcut, Order = order, HasDropdown = hasDropdown };
+            var def = new TileDefinition { Id = id, Name = name, Glyph = glyph, IsVisible = true, IsTrigger = isTrigger, IsAction = isAction, CustomShortcut = customShortcut, Order = order, HasDropdown = hasDropdown, HasDualButtons = hasDualButtons };
             qsTileDefinitions.Add(def);
             qsTileMap[id] = def;
         }
@@ -344,28 +359,34 @@ namespace XboxGamingBar
                 int index = 0;
                 foreach (var tile in customTiles)
                 {
-                    if (!string.IsNullOrEmpty(tile.CustomShortcut))
+                    bool isKeyboard = !string.IsNullOrEmpty(tile.CustomShortcut);
+                    bool isAction = tile.ActionType != TileActionType.None && tile.ActionType != TileActionType.KeyboardShortcut;
+
+                    if (!isKeyboard && !isAction) continue; // skip empty/corrupt entries
+
+                    string tileId = tile.Id;
+                    string glyph = isAction
+                        ? (string.IsNullOrEmpty(tile.Icon) ? TileActionHelper.GetGlyph(tile.ActionType) : tile.Icon)
+                        : (tile.Icon ?? "\uE768");
+
+                    var def = new TileDefinition
                     {
-                        // Use the stable GUID from QuickSettingsConfig instead of index-based ID
-                        // This prevents tile ID mismatch when widget is reloaded
-                        string tileId = tile.Id;
-                        var def = new TileDefinition
-                        {
-                            Id = tileId,
-                            Name = tile.Name,
-                            Glyph = tile.Icon ?? "\uE768",
-                            IsVisible = tile.IsVisible,
-                            IsTrigger = true,
-                            CustomShortcut = tile.CustomShortcut,
-                            Order = startingOrder + index  // Order will be overridden by LoadQuickSettingsConfig if saved
-                        };
-                        qsTileDefinitions.Add(def);
-                        qsTileMap[tileId] = def;
-                        qsCustomShortcuts.Add(def);
-                        index++;
-                    }
+                        Id = tileId,
+                        Name = tile.Name,
+                        Glyph = glyph,
+                        IsVisible = tile.IsVisible,
+                        IsTrigger = true,
+                        CustomShortcut = tile.CustomShortcut,
+                        ActionType = tile.ActionType,
+                        ControllerHotkey = tile.ControllerHotkey,
+                        Order = startingOrder + index
+                    };
+                    qsTileDefinitions.Add(def);
+                    qsTileMap[tileId] = def;
+                    qsCustomShortcuts.Add(def);
+                    index++;
                 }
-                Logger.Info($"Loaded {index} custom shortcut tiles from QuickSettingsConfig (using stable GUIDs)");
+                Logger.Info($"Loaded {index} custom/action tiles from QuickSettingsConfig (using stable GUIDs)");
 
                 // Migration: If old storage has shortcuts that aren't in the new system, migrate them
                 MigrateOldCustomShortcuts();
@@ -482,6 +503,41 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Add a new predefined-action tile
+        /// </summary>
+        private void AddActionTile(string name, TileActionType actionType)
+        {
+            try
+            {
+                var config = QuickSettings.QuickSettingsConfig.Instance;
+                var configTile = config.AddActionTile(name, actionType);
+
+                int maxOrder = qsTileDefinitions.Count > 0 ? qsTileDefinitions.Max(t => t.Order) : 0;
+                var def = new TileDefinition
+                {
+                    Id = configTile.Id,
+                    Name = name,
+                    Glyph = TileActionHelper.GetGlyph(actionType),
+                    IsVisible = true,
+                    IsTrigger = true,
+                    ActionType = actionType,
+                    Order = maxOrder + 1
+                };
+                qsTileDefinitions.Add(def);
+                qsTileMap[def.Id] = def;
+                qsCustomShortcuts.Add(def);
+
+                RebuildQuickSettingsTiles();
+                BuildSortableGrid();
+                Logger.Info($"Added action tile: {name} -> {actionType} (id: {def.Id})");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error adding action tile: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Load Quick Settings configuration from storage
         /// </summary>
         private void LoadQuickSettingsConfig()
@@ -592,6 +648,9 @@ namespace XboxGamingBar
                 }
 
                 Logger.Info($"Quick Settings config saved (columns: {qsColumnCount})");
+
+                // Sync tile hotkeys (controller button combos) with helper
+                _ = SendTileHotkeysToHelper();
             }
             catch (Exception ex)
             {
@@ -696,6 +755,53 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Error($"Error sending Sidebar Menu enabled state: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Populate the action type ComboBox with all predefined actions grouped by OS/App.
+        /// Called once from InitializeQuickSettings.
+        /// </summary>
+        private void PopulateActionTypeComboBox()
+        {
+            try
+            {
+                if (CustomActionTypeComboBox == null) return;
+
+                CustomActionTypeComboBox.Items.Clear();
+
+                string lastGroup = null;
+                foreach (var action in TileActionHelper.GetAllActions())
+                {
+                    string group = TileActionHelper.GetGroupName(action);
+                    if (group != lastGroup)
+                    {
+                        // Add a disabled group-header item
+                        string headerLabel = group == "OS" ? "— OS Aktionen —" : "— App Aktionen —";
+                        var header = new ComboBoxItem
+                        {
+                            Content = headerLabel,
+                            IsEnabled = false,
+                            FontSize = 11,
+                            Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(180, 180, 180, 180))
+                        };
+                        CustomActionTypeComboBox.Items.Add(header);
+                        lastGroup = group;
+                    }
+
+                    var item = new ComboBoxItem
+                    {
+                        Content = TileActionHelper.GetDisplayName(action),
+                        Tag = action
+                    };
+                    CustomActionTypeComboBox.Items.Add(item);
+                }
+
+                Logger.Info("Action type ComboBox populated");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error populating action ComboBox: {ex.Message}");
             }
         }
 

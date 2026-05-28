@@ -59,7 +59,7 @@ namespace XboxGamingBar
                 LegionScrollViewer.Visibility = Visibility.Collapsed;
                 GPDScrollViewer.Visibility = Visibility.Collapsed;
                 SystemScrollViewer.Visibility = Visibility.Collapsed;
-                TriggerScrollViewer.Visibility = Visibility.Collapsed;
+                // TriggerScrollViewer.Visibility = Visibility.Collapsed;  // Hotkeys tab hidden
 
                 // Stop fan curve updates when leaving Legion tab (will be re-enabled if Legion is selected)
                 legionFanCurveVisible?.SetVisible(false);
@@ -87,10 +87,10 @@ namespace XboxGamingBar
                         AMDScrollViewer.Visibility = Visibility.Visible;
                         AMDScrollViewer.ChangeView(null, 0, null, true);
                         break;
-                    case "Trigger":
-                        TriggerScrollViewer.Visibility = Visibility.Visible;
-                        TriggerScrollViewer.ChangeView(null, 0, null, true);
-                        break;
+                    // case "Trigger":  // Hotkeys tab hidden — redundant with Main > Customize keyboard hotkeys
+                    //     TriggerScrollViewer.Visibility = Visibility.Visible;
+                    //     TriggerScrollViewer.ChangeView(null, 0, null, true);
+                    //     break;
                     case "Scaling":
                         ScalingScrollViewer.Visibility = Visibility.Visible;
                         ScalingScrollViewer.ChangeView(null, 0, null, true);

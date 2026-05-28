@@ -49,14 +49,14 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         }
 
         /// <summary>
-        /// Builds a small, muted PL1/PL2 limit indicator appended after the CPU values.
-        /// e.g. "(PL1:25W PL2:35W)" in 55% font size with muted grey — same style as FPS cap hint.
+        /// Builds a PL1/PL2 limit indicator appended after the CPU values.
+        /// Rendered at standard font size and full opacity to match the rest of the overlay.
         /// </summary>
         private string BuildPLHint(int pl1, int pl2)
         {
-            string mutedColor = ApplyOpacity("686868");
+            var tc = GetTextColorWithOpacity();
             string plText = pl2 > 0 ? $"PL1:{pl1}W PL2:{pl2}W" : $"PL1:{pl1}W";
-            return $"<S=55><C={mutedColor}>({plText})<C><S>";
+            return $" <C={tc}>({plText})<C>";
         }
 
         protected override List<OSDItemValue> GetValues(int osdLevel)

@@ -311,6 +311,108 @@ namespace XboxGamingBarHelper
         private static Dictionary<string, System.Text.Json.JsonElement> _controllerHotkeyConfig;
 
         /// <summary>
+        /// Parse the tile-hotkey JSON received from the widget and register combos
+        /// in the ControllerHotkeyMonitor so they fire actions system-wide.
+        ///
+        /// JSON format: [{"id":"...","name":"...","mask":4112,"actionType":10,"shortcut":"..."}]
+        ///
+        /// TileActionType values:
+        ///   0=None, 1=KeyboardShortcut, 10=BrightnessUp, 11=BrightnessDown,
+        ///   12=AltTab, 13=AltTabBack, 14=GoToDesktop,
+        ///   20=CycleOverlayMode, 21=CycleTDPMode, 22=TDPStepUp, 23=TDPStepDown
+        /// </summary>
+        private static void ApplyTileHotkeys(string json)
+        {
+            try
+            {
+                if (controllerHotkeyMonitor == null) return;
+
+                controllerHotkeyMonitor.ClearTileHotkeys();
+
+                if (string.IsNullOrEmpty(json) || json == "[]") return;
+
+                var entries = System.Text.Json.JsonSerializer.Deserialize<List<System.Text.Json.JsonElement>>(json);
+                if (entries == null) return;
+
+                int registered = 0;
+                foreach (var entry in entries)
+                {
+                    uint mask = 0;
+                    int actionType = 0;
+                    string shortcut = "";
+                    string name = "Tile";
+
+                    if (entry.TryGetProperty("mask", out var maskEl))
+                        mask = (uint)maskEl.GetInt64(); // uint to support M1/M2 bits (0x10000, 0x20000)
+                    if (entry.TryGetProperty("actionType", out var atEl))
+                        actionType = atEl.GetInt32();
+                    if (entry.TryGetProperty("shortcut", out var scEl))
+                        shortcut = scEl.GetString() ?? "";
+                    if (entry.TryGetProperty("name", out var nameEl))
+                        name = nameEl.GetString() ?? "Tile";
+
+                    Logger.Debug($"ApplyTileHotkeys: Entry name='{name}' mask=0x{mask:X5} action={actionType} shortcut='{shortcut}'");
+                    if (mask == 0) { Logger.Warn("ApplyTileHotkeys: Entry skipped — mask is 0"); continue; }
+
+                    // Capture for lambda
+                    int capturedActionType = actionType;
+                    string capturedShortcut = shortcut;
+                    string capturedName = name;
+
+                    Action callback = () =>
+                    {
+                        Logger.Info($"ApplyTileHotkeys: Tile '{capturedName}' triggered (action={capturedActionType}, shortcut='{capturedShortcut}')");
+                        switch (capturedActionType)
+                        {
+                            case 10: // BrightnessUp
+                                AdjustBrightness(5);
+                                break;
+                            case 11: // BrightnessDown
+                                AdjustBrightness(-5);
+                                break;
+                            case 12: // AltTab
+                                ExecuteKeyboardShortcut("Alt+Tab");
+                                break;
+                            case 13: // AltTabBack
+                                ExecuteKeyboardShortcut("Alt+Shift+Tab");
+                                break;
+                            case 14: // GoToDesktop
+                                ExecuteKeyboardShortcut("Win+D");
+                                break;
+                            case 20: // CycleOverlayMode
+                                ToggleOSD();
+                                break;
+                            case 1:  // KeyboardShortcut (custom)
+                            case 0:  // None — use shortcut field
+                                if (!string.IsNullOrEmpty(capturedShortcut))
+                                    ExecuteKeyboardShortcut(capturedShortcut);
+                                break;
+                            default:
+                                // App actions (TDP etc.) can't be fully executed from helper side;
+                                // send shortcut if provided, otherwise log
+                                if (!string.IsNullOrEmpty(capturedShortcut))
+                                    ExecuteKeyboardShortcut(capturedShortcut);
+                                else
+                                    Logger.Warn($"ApplyTileHotkeys: Tile '{capturedName}' action {capturedActionType} not executable from helper");
+                                break;
+                        }
+                        // Show RTSS notification
+                        rtssManager?.ShowNotification(capturedName);
+                    };
+
+                    controllerHotkeyMonitor.RegisterTileHotkey(mask, callback, name);
+                    registered++;
+                }
+
+                Logger.Info($"ApplyTileHotkeys: Registered {registered} tile hotkeys from widget");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ApplyTileHotkeys: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Toggles Desktop Controls preset via global hotkey (Ctrl+Shift+D)
         /// Applies Joystick-as-Mouse and button mappings for desktop navigation
         /// </summary>

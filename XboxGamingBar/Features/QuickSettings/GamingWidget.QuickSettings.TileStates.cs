@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -93,7 +93,7 @@ namespace XboxGamingBar
         /// <summary>
         /// Create a tile button for the given definition
         /// </summary>
-        private Button CreateTileButton(TileDefinition tile)
+        private FrameworkElement CreateTileButton(TileDefinition tile)
         {
             // Action tiles get a distinct background color
             var bgBrush = tile.IsAction
@@ -186,57 +186,139 @@ namespace XboxGamingBar
             tile.StateTextCanvas = canvas;
             tile.StateTextTransform = transform;
 
+            // All tiles: main content goes directly into the button (no nested split)
+            button.Content = content;
+            button.Click += QuickSettingsTile_Click;
+            tile.TileButton = button;
+            tile.StateText = stateText;
+
             if (tile.HasDropdown)
             {
-                // Split tile: main content (Star) on top + 1px separator + 14px chevron strip below
-                // Vertical layout keeps full tile width — no horizontal space wasted.
-                var splitGrid = new Grid();
-                splitGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-                splitGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1) });   // separator
-                splitGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(14) });  // chevron strip
-
-                Grid.SetRow(content, 0);
-                splitGrid.Children.Add(content);
-
-                // Subtle horizontal separator line
-                var sep = new Windows.UI.Xaml.Shapes.Rectangle
+                // Split tile: main tile button (Row 0) + standalone chevron button (Row 1) as siblings
+                // in a wrapper Grid. Previously the chevron was nested inside the outer Button content,
+                // which UWP's XY gamepad focus treats as a single unit — the inner button was unreachable
+                // with D-pad. As separate siblings both buttons are independently focusable.
+                var wrapper = new Grid
                 {
-                    Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(40, 255, 255, 255)),
-                    HorizontalAlignment = HorizontalAlignment.Stretch
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Stretch
                 };
-                Grid.SetRow(sep, 1);
-                splitGrid.Children.Add(sep);
+                wrapper.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+                wrapper.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) });
 
-                // Chevron button — full-width, transparent, opens flyout downward
+                Grid.SetRow(button, 0);
+                wrapper.Children.Add(button);
+
+                // Chevron button — standalone sibling button (independently focusable via D-pad Down)
                 var dropBtn = new Button
                 {
                     Tag = tile.Id + "_dropdown",
                     Content = new FontIcon { Glyph = "", FontSize = 10 }, // Chevron down
                     Padding = new Thickness(0),
-                    Margin = new Thickness(0),
-                    Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
-                    BorderThickness = new Thickness(0),
+                    Margin = new Thickness(0, 2, 0, 0),
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(50, 255, 255, 255)),
+                    BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(50, 80, 85, 92)),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(6),
                     VerticalAlignment = VerticalAlignment.Stretch,
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     VerticalContentAlignment = VerticalAlignment.Center,
-                    HorizontalContentAlignment = HorizontalAlignment.Center
+                    HorizontalContentAlignment = HorizontalAlignment.Center,
+                    UseSystemFocusVisuals = true
                 };
-                Grid.SetRow(dropBtn, 2);
-                splitGrid.Children.Add(dropBtn);
+                Grid.SetRow(dropBtn, 1);
+                wrapper.Children.Add(dropBtn);
                 dropBtn.Click += TileDropdown_Click;
                 tile.DropdownButton = dropBtn;
 
-                button.Content = splitGrid;
+                return wrapper;
             }
-            else
+
+            if (tile.HasDualButtons)
             {
-                button.Content = content;
+                // Triple split tile: main button (Row 0) + two side-by-side sub-buttons (Row 1).
+                // Left button = mode switch (RTSS ↔ Intel), Right button = value cycle.
+                // Both sub-buttons are independently focusable via D-pad (UWP XY navigation).
+                var wrapper = new Grid
+                {
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Stretch
+                };
+                wrapper.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+                wrapper.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) });
+
+                Grid.SetRow(button, 0);
+                wrapper.Children.Add(button);
+
+                // Sub-button row: left | 4px spacer | right
+                var subRow = new Grid
+                {
+                    Margin = new Thickness(0, 2, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Stretch
+                };
+                subRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                subRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4) });
+                subRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                var subBtnStyle = new Style { TargetType = typeof(Button) };
+                var subBtnBg = new SolidColorBrush(Windows.UI.Color.FromArgb(50, 255, 255, 255));
+                var subBtnBorder = new SolidColorBrush(Windows.UI.Color.FromArgb(50, 80, 85, 92));
+
+                // Left button: "Mode" label — switches RTSS ↔ Intel
+                var leftBtnContent = new TextBlock
+                {
+                    Text = "Mode",
+                    FontSize = 11,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                var leftBtn = new Button
+                {
+                    Tag = tile.Id + "_left",
+                    Content = leftBtnContent,
+                    Padding = new Thickness(0),
+                    Background = subBtnBg,
+                    BorderBrush = subBtnBorder,
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(6),
+                    VerticalAlignment = VerticalAlignment.Stretch,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                    HorizontalContentAlignment = HorizontalAlignment.Center,
+                    UseSystemFocusVisuals = true
+                };
+
+                var rightBtn = new Button
+                {
+                    Tag = tile.Id + "_right",
+                    Content = new FontIcon { Glyph = "", FontSize = 11 },  // ChevronDown ↓
+                    Padding = new Thickness(0),
+                    Background = subBtnBg,
+                    BorderBrush = subBtnBorder,
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(6),
+                    VerticalAlignment = VerticalAlignment.Stretch,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                    HorizontalContentAlignment = HorizontalAlignment.Center,
+                    UseSystemFocusVisuals = true
+                };
+
+                Grid.SetColumn(leftBtn, 0);
+                Grid.SetColumn(rightBtn, 2);
+                subRow.Children.Add(leftBtn);
+                subRow.Children.Add(rightBtn);
+
+                leftBtn.Click += TileLeftButton_Click;
+                rightBtn.Click += TileRightButton_Click;
+                tile.LeftButton = leftBtn;
+                tile.RightButton = rightBtn;
+
+                Grid.SetRow(subRow, 1);
+                wrapper.Children.Add(subRow);
+
+                return wrapper;
             }
-
-            button.Click += QuickSettingsTile_Click;
-
-            tile.TileButton = button;
-            tile.StateText = stateText;
 
             return button;
         }
@@ -564,26 +646,39 @@ namespace XboxGamingBar
                     powerModeTile.TileButton.Background = mode == 2 ? tileOnBrush : (mode == 0 ? tileActiveBrush : tileOffBrush);
                 }
 
-                // FPS Limit tile
-                if (qsTileMap.TryGetValue("FPSLimit", out var fpsLimitTile) && fpsLimitTile.TileButton != null)
+                // FPS Combined tile (RTSS + Intel merged)
+                // State text: "{RTSS|Intel} · {value}"  — mode shown left, value right
+                if (qsTileMap.TryGetValue("FPSCombined", out var fpsCombinedTile) && fpsCombinedTile.TileButton != null && fpsCombinedTile.StateText != null)
                 {
-                    int limit = fpsLimit?.Value ?? 0;
-                    string limitText = limit == 0 ? "Off" : $"{limit}";
-                    fpsLimitTile.StateText.Text = limitText;
-                    fpsLimitTile.StateText.Foreground = limit > 0 ? accentForeground : offForeground;
-                    fpsLimitTile.TileButton.Background = limit > 0 ? tileOnBrush : tileOffBrush;
+                    bool isIntelMode = fpsCapMode?.Value == 1;
+                    bool isActive;
+                    string stateText;
+
+                    if (isIntelMode)
+                    {
+                        int tier = intelFpsTier?.Value ?? 0;
+                        string[] intelLabels = { "Off", "P60", "B40", "E30" };
+                        string tierLabel = (tier >= 0 && tier < intelLabels.Length) ? intelLabels[tier] : "Off";
+                        isActive = tier > 0;
+                        stateText = $"Intel · {tierLabel}";
+                    }
+                    else
+                    {
+                        int limit = fpsLimit?.Value ?? 0;
+                        string limitLabel = limit == 0 ? "Off" : $"{limit}";
+                        isActive = limit > 0;
+                        stateText = $"RTSS · {limitLabel}";
+                    }
+
+                    fpsCombinedTile.StateText.Text = stateText;
+                    fpsCombinedTile.StateText.Foreground = isActive ? accentForeground : offForeground;
+                    fpsCombinedTile.TileButton.Background = isActive ? tileOnBrush : tileOffBrush;
+                    UpdateTileScrollAnimation(fpsCombinedTile);
                 }
 
-                // Intel FPS tier tile (IGCL Endurance Gaming)
-                if (qsTileMap.TryGetValue("IntelFpsTier", out var intelFpsTierTile) && intelFpsTierTile.TileButton != null)
-                {
-                    int tier = intelFpsTier?.Value ?? 0;
-                    string[] tierLabels = { "Off", "Perf 60", "Bal 40", "Eff 30" };
-                    string tierText = (tier >= 0 && tier < tierLabels.Length) ? tierLabels[tier] : "Off";
-                    intelFpsTierTile.StateText.Text = tierText;
-                    intelFpsTierTile.StateText.Foreground = tier > 0 ? accentForeground : offForeground;
-                    intelFpsTierTile.TileButton.Background = tier > 0 ? tileOnBrush : tileOffBrush;
-                }
+                // (FPSLimit + IntelFpsTier individual tiles replaced by FPSCombined above)
+                // if (qsTileMap.TryGetValue("FPSLimit", ...))   { ... }
+                // if (qsTileMap.TryGetValue("IntelFpsTier", ...)) { ... }
 
                 // Resolution tile
                 if (qsTileMap.TryGetValue("Resolution", out var resTile) && resTile.TileButton != null)

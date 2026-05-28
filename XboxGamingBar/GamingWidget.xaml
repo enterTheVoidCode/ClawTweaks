@@ -418,7 +418,7 @@
                         <RadioButton.Content>
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                 <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE713;" FontSize="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="Quick" VerticalAlignment="Center"/>
+                                <TextBlock Text="Main" VerticalAlignment="Center"/>
                             </StackPanel>
                         </RadioButton.Content>
                     </RadioButton>
@@ -434,7 +434,7 @@
                         <RadioButton.Content>
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                 <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE77B;" FontSize="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="Prof" VerticalAlignment="Center"/>
+                                <TextBlock Text="Profile" VerticalAlignment="Center"/>
                             </StackPanel>
                         </RadioButton.Content>
                     </RadioButton>
@@ -454,11 +454,11 @@
                             </StackPanel>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="TriggerNavItem" Tag="Trigger" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                    <RadioButton x:Name="TriggerNavItem" Tag="Trigger" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" Visibility="Collapsed">
                         <RadioButton.Content>
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7FC;" FontSize="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="Trigger" VerticalAlignment="Center"/>
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE945;" FontSize="14" VerticalAlignment="Center"/>
+                                <TextBlock Text="Hotkeys" VerticalAlignment="Center"/>
                             </StackPanel>
                         </RadioButton.Content>
                     </RadioButton>
@@ -607,18 +607,42 @@
                             </Grid>
                         </Button>
 
-                        <!-- Quick Metrics Row (compact stats display - dynamically populated) -->
-                        <Border x:Name="QuickMetricsRow"
-                                Background="#1A1C1E"
-                                CornerRadius="12"
-                                Padding="12,8"
-                                Margin="0,0,0,8"
-                                BorderBrush="#50555C"
-                                BorderThickness="1"
-                                Visibility="Collapsed">
-                            <!-- Dynamic metrics grid - populated in code-behind -->
-                            <Grid x:Name="QuickMetricsGrid"/>
-                        </Border>
+                        <!-- Quick Metrics Row + Settings Gear -->
+                        <Grid Margin="0,0,0,8" MinHeight="38">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Compact stats display - dynamically populated -->
+                            <Border x:Name="QuickMetricsRow"
+                                    Grid.Column="0"
+                                    Background="#1A1C1E"
+                                    CornerRadius="12"
+                                    Padding="12,8"
+                                    BorderBrush="#50555C"
+                                    BorderThickness="1"
+                                    Visibility="Collapsed">
+                                <Grid x:Name="QuickMetricsGrid"/>
+                            </Border>
+
+                            <!-- Settings gear - quick access to customize panel -->
+                            <Button x:Name="QuickSettingsGearButton"
+                                    Grid.Column="1"
+                                    Width="38"
+                                    Height="38"
+                                    Margin="6,0,0,0"
+                                    Background="#1A1C1E"
+                                    BorderBrush="#50555C"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="0"
+                                    VerticalAlignment="Center"
+                                    UseSystemFocusVisuals="True"
+                                    Click="QuickSettingsGear_Click">
+                                <FontIcon Glyph="&#xE713;" FontSize="16" Foreground="#CCCCCC"/>
+                            </Button>
+                        </Grid>
 
                         <!-- Dynamic Tiles Container - tiles generated in code-behind -->
                         <StackPanel x:Name="QuickSettingsTilesContainer"/>
@@ -638,10 +662,128 @@
                                 Margin="0,8,0,0">
                             <StackPanel>
                                 <TextBlock Text="Customize Tiles" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Tap tile to select, tap another to swap. Tap same tile to toggle visibility."
+                                <TextBlock Text="Tap tile to select, tap another to swap. Use Show/Hide to toggle visibility."
                                            Style="{StaticResource CardCaptionStyle}"
                                            Margin="0,0,0,8"
                                            TextWrapping="Wrap"/>
+
+                                <!-- Sortable Tile Grid - generated in code-behind -->
+                                <StackPanel x:Name="TileSortableGrid"/>
+
+                                <!-- Selected tile indicator -->
+                                <Border x:Name="SelectedTileIndicator"
+                                        Visibility="Collapsed"
+                                        Background="#1A2530"
+                                        CornerRadius="4"
+                                        Padding="8"
+                                        Margin="0,8,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="SelectedTileText"
+                                                   Foreground="#00C8FF"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap"
+                                                   VerticalAlignment="Center"/>
+                                        <Button x:Name="DeleteSelectedTileButton"
+                                                Grid.Column="1"
+                                                Visibility="Collapsed"
+                                                Background="#662020"
+                                                Foreground="White"
+                                                Margin="8,0,0,0"
+                                                Padding="12,6"
+                                                Click="DeleteSelectedTile_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <FontIcon Glyph="&#xE74D;" FontSize="14" Margin="0,0,6,0"/>
+                                                <TextBlock Text="Delete"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Add Custom Shortcut/Tile Section -->
+                                <TextBlock Text="Add Custom Shortcut/Tile"
+                                           Style="{StaticResource CardTitleStyle}"
+                                           Margin="0,16,0,8"/>
+
+                                <!-- Tile name -->
+                                <TextBox x:Name="CustomShortcutNameBox"
+                                         PlaceholderText="Tile Name"
+                                         Margin="0,0,0,8"/>
+
+                                <!-- Type selector: Keyboard shortcut vs. predefined Action -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="6"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="TileTypeKeyboardButton"
+                                            Grid.Column="0"
+                                            Background="#1A6A9A"
+                                            BorderBrush="#2288CC"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            HorizontalAlignment="Stretch"
+                                            Padding="8,6"
+                                            UseSystemFocusVisuals="True"
+                                            Click="TileTypeKeyboard_Click">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <FontIcon Glyph="&#xE765;" FontSize="13" Margin="0,0,6,0"/>
+                                            <TextBlock Text="Tastatur" FontSize="12" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="TileTypeActionButton"
+                                            Grid.Column="2"
+                                            Background="#1A1C1E"
+                                            BorderBrush="#50555C"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            HorizontalAlignment="Stretch"
+                                            Padding="8,6"
+                                            UseSystemFocusVisuals="True"
+                                            Click="TileTypeAction_Click">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <FontIcon Glyph="&#xE945;" FontSize="13" Margin="0,0,6,0"/>
+                                            <TextBlock Text="Aktion" FontSize="12" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <!-- Keyboard section (default visible) -->
+                                <StackPanel x:Name="TileKeyboardSection">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ItemsControl x:Name="CustomShortcutKeyTags">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                        <ComboBox x:Name="CustomShortcutKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
+                                                  SelectedIndex="0" SelectionChanged="CustomShortcutKey_SelectionChanged">
+                                            <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Action section (collapsed by default, populated in code-behind) -->
+                                <ComboBox x:Name="CustomActionTypeComboBox"
+                                          HorizontalAlignment="Stretch"
+                                          Margin="0,0,0,4"
+                                          Visibility="Collapsed"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          PlaceholderText="Aktion auswählen..."/>
+
+                                <Button x:Name="AddCustomShortcutButton"
+                                        Content="Tile hinzufügen"
+                                        HorizontalAlignment="Stretch"
+                                        Margin="0,8,0,0"
+                                        Style="{StaticResource StandaloneButtonStyle}"
+                                        Click="AddCustomShortcut_Click"/>
+
+                                <!-- Separator -->
+                                <Border Height="1" Background="#30444444" Margin="0,12,0,12"/>
 
                                 <!-- Column Count Toggle -->
                                 <Grid Margin="0,0,0,12">
@@ -753,71 +895,10 @@
                                     </StackPanel>
                                 </Border>
 
-                                <!-- Sortable Tile Grid - generated in code-behind -->
-                                <StackPanel x:Name="TileSortableGrid"/>
-
-                                <!-- Selected tile indicator -->
-                                <Border x:Name="SelectedTileIndicator"
-                                        Visibility="Collapsed"
-                                        Background="#1A2530"
-                                        CornerRadius="4"
-                                        Padding="8"
-                                        Margin="0,8,0,0">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock x:Name="SelectedTileText"
-                                                   Foreground="#00C8FF"
-                                                   FontSize="12"
-                                                   TextWrapping="Wrap"
-                                                   VerticalAlignment="Center"/>
-                                        <Button x:Name="DeleteSelectedTileButton"
-                                                Grid.Column="1"
-                                                Visibility="Collapsed"
-                                                Background="#662020"
-                                                Foreground="White"
-                                                Margin="8,0,0,0"
-                                                Padding="12,6"
-                                                Click="DeleteSelectedTile_Click">
-                                            <StackPanel Orientation="Horizontal">
-                                                <FontIcon Glyph="&#xE74D;" FontSize="14" Margin="0,0,6,0"/>
-                                                <TextBlock Text="Delete"/>
-                                            </StackPanel>
-                                        </Button>
-                                    </Grid>
-                                </Border>
-
-                                <!-- Add Custom Shortcut Section -->
-                                <TextBlock Text="Add Custom Shortcut"
-                                           Style="{StaticResource CardTitleStyle}"
-                                           Margin="0,16,0,8"/>
-                                <TextBox x:Name="CustomShortcutNameBox"
-                                         PlaceholderText="Tile Name"
-                                         Margin="0,0,0,8"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <ItemsControl x:Name="CustomShortcutKeyTags">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                    </ItemsControl>
-                                    <ComboBox x:Name="CustomShortcutKeyComboBox" Width="90" Style="{StaticResource ModernComboBoxStyle}"
-                                              SelectedIndex="0" SelectionChanged="CustomShortcutKey_SelectionChanged">
-                                        <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String><x:String>[</x:String><x:String>]</x:String>
-                                    </ComboBox>
-                                </StackPanel>
-                                <Button x:Name="AddCustomShortcutButton"
-                                        Content="Add Shortcut Tile"
-                                        HorizontalAlignment="Stretch"
-                                        Margin="0,8,0,0"
-                                        Style="{StaticResource StandaloneButtonStyle}"
-                                        Click="AddCustomShortcut_Click"/>
-
                                 <!-- Done Button -->
                                 <Button Content="Done"
                                         HorizontalAlignment="Stretch"
-                                        Margin="0,16,0,0"
+                                        Margin="0,4,0,0"
                                         Style="{StaticResource StandaloneButtonStyle}"
                                         Click="QuickSettingsCustomizeDone_Click"/>
                             </StackPanel>
@@ -830,6 +911,12 @@
                 <ScrollViewer x:Name="PerformanceScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
+
+                        <TextBlock Text="Performance Profiles"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="#F0F0F0"
+                                   Margin="0,4,0,12"/>
 
                         <!-- Default Game Profile Card (Preview) - Hidden when no profile available -->
                         <Border x:Name="DefaultGameProfileCard"
@@ -2245,7 +2332,7 @@
                         </Border>
 
                         <!-- Global Profile Section -->
-                        <TextBlock Text="Global Profile"
+                        <TextBlock Text="Globale perf. profile"
                                    FontSize="16"
                                    Foreground="#00C8FF"
                                    FontWeight="SemiBold"
@@ -2690,7 +2777,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Power Source Profile" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Extra per Power Source Profiles" Style="{StaticResource CardTitleStyle}"/>
                                         <TextBlock Text="Separate profiles for AC (plugged in) and DC (battery)"
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    TextWrapping="Wrap"/>
@@ -2881,27 +2968,33 @@
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <!-- CPU EPP — hidden on MSI Claw -->
                                     <CheckBox x:Name="ProfileSaveCPUEPPCheckBox"
                                               Content="CPU EPP"
                                               IsChecked="True"
                                               Foreground="#FFFFFF"
                                               Margin="0,4,0,0"
+                                              Visibility="Collapsed"
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <!-- CPU State — hidden on MSI Claw -->
                                     <CheckBox x:Name="ProfileSaveCPUStateCheckBox"
                                               Content="CPU State"
                                               IsChecked="True"
                                               Foreground="#FFFFFF"
                                               Margin="0,4,0,0"
+                                              Visibility="Collapsed"
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <!-- AMD Features — hidden on MSI Claw -->
                                     <CheckBox x:Name="ProfileSaveAMDFeaturesCheckBox"
                                               Content="AMD Features (FMF, Anti-Lag, Boost, Chill)"
                                               IsChecked="False"
                                               Foreground="#FFFFFF"
                                               Margin="0,4,0,0"
+                                              Visibility="Collapsed"
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
@@ -2913,11 +3006,13 @@
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <!-- AutoTDP — hidden on MSI Claw -->
                                     <CheckBox x:Name="ProfileSaveAutoTDPCheckBox"
                                               Content="AutoTDP (Enabled + Target FPS)"
                                               IsChecked="True"
                                               Foreground="#FFFFFF"
                                               Margin="0,4,0,0"
+                                              Visibility="Collapsed"
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
@@ -2929,11 +3024,13 @@
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <!-- HDR — hidden on MSI Claw -->
                                     <CheckBox x:Name="ProfileSaveHDRCheckBox"
                                               Content="HDR"
                                               IsChecked="False"
                                               Foreground="#FFFFFF"
                                               Margin="0,4,0,0"
+                                              Visibility="Collapsed"
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
@@ -2953,11 +3050,13 @@
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <!-- Sticky TDP — hidden on MSI Claw -->
                                     <CheckBox x:Name="ProfileSaveStickyTDPCheckBox"
                                               Content="Sticky TDP"
                                               IsChecked="False"
                                               Foreground="#FFFFFF"
                                               Margin="0,4,0,0"
+                                              Visibility="Collapsed"
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
@@ -2969,11 +3068,13 @@
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
+                                    <!-- CPU Affinity — hidden on MSI Claw -->
                                     <CheckBox x:Name="ProfileSaveCPUAffinityCheckBox"
                                               Content="CPU Affinity"
                                               IsChecked="False"
                                               Foreground="#FFFFFF"
                                               Margin="0,4,0,0"
+                                              Visibility="Collapsed"
                                               Style="{StaticResource FocusableCheckBoxStyle}"
                                               Checked="ProfileSettingsCheckBox_Changed"
                                               Unchecked="ProfileSettingsCheckBox_Changed"/>
@@ -4799,7 +4900,8 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Grid Margin="0,12,0,0">
+                                <!-- Improved Controller Emulation — hidden on MSI Claw (not applicable) -->
+                                <Grid Margin="0,12,0,0" Visibility="Collapsed">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -4820,7 +4922,8 @@
                                                   XYFocusDown="{x:Bind ControllerEmulationHideStockControllerToggle}"/>
                                 </Grid>
 
-                                <Grid Margin="0,12,0,0">
+                                <!-- Hide Stock Controller — always true on MSI Claw (UI hidden) -->
+                                <Grid Margin="0,12,0,0" Visibility="Collapsed">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -4840,7 +4943,8 @@
                                                   XYFocusDown="{x:Bind ControllerEmulationHideTargetComboBox}"/>
                                 </Grid>
 
-                                <Grid Margin="0,12,0,0">
+                                <!-- Hide Target — hidden on MSI Claw (not applicable) -->
+                                <Grid Margin="0,12,0,0" Visibility="Collapsed">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -5018,7 +5122,8 @@
                                     </Grid>
                                 </StackPanel>
 
-                                <!-- Features Group -->
+                                <!-- Features Group — hidden on MSI Claw (not applicable) -->
+                                <StackPanel Visibility="Collapsed">
                                 <Grid Margin="0,16,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -5111,6 +5216,8 @@
                                                       Style="{StaticResource ModernToggleStyle}" IsEnabled="False"/>
                                     </Grid>
                                 </StackPanel>
+                                </StackPanel>
+                                <!-- End Features Group wrapper -->
 
                                 <!-- Mouse Emulation Settings -->
                                 <StackPanel x:Name="ControllerEmulationMouseSettingsPanel" Margin="0,16,0,0" Visibility="Collapsed">
@@ -5166,7 +5273,8 @@
                                             IsEnabled="False"
                                             ValueChanged="ControllerEmulationMouseThresholdSlider_ValueChanged"/>
 
-                                    <Grid Margin="0,10,0,0">
+                                    <!-- Axis Select — hidden on MSI Claw -->
+                                    <Grid Margin="0,10,0,0" Visibility="Collapsed">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
@@ -5188,7 +5296,8 @@
                                         </ComboBox>
                                     </Grid>
 
-                                    <Grid Margin="0,10,0,0">
+                                    <!-- Invert Horizontal — hidden on MSI Claw -->
+                                    <Grid Margin="0,10,0,0" Visibility="Collapsed">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
@@ -5201,7 +5310,8 @@
                                                       IsEnabled="False"/>
                                     </Grid>
 
-                                    <Grid Margin="0,8,0,0">
+                                    <!-- Invert Vertical — hidden on MSI Claw -->
+                                    <Grid Margin="0,8,0,0" Visibility="Collapsed">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
@@ -5214,6 +5324,8 @@
                                                       IsEnabled="False"/>
                                     </Grid>
 
+                                    <!-- Horizontal Gain — hidden on MSI Claw -->
+                                    <StackPanel Visibility="Collapsed">
                                     <Grid Margin="0,10,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -5236,7 +5348,10 @@
                                             Value="100"
                                             IsEnabled="False"
                                             ValueChanged="ControllerEmulationMouseGainXSlider_ValueChanged"/>
+                                    </StackPanel>
 
+                                    <!-- Vertical Gain — hidden on MSI Claw -->
+                                    <StackPanel Visibility="Collapsed">
                                     <Grid Margin="0,10,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -5259,6 +5374,7 @@
                                             Value="100"
                                             IsEnabled="False"
                                             ValueChanged="ControllerEmulationMouseGainYSlider_ValueChanged"/>
+                                    </StackPanel>
                                 </StackPanel>
 
                                 <!-- Joystick Output Group -->
@@ -6167,10 +6283,29 @@
                                                   IsEnabled="False"
                                                   Toggled="LegionControllerProfileToggle_Toggled"/>
                                 </Grid>
-                                <TextBlock Text="Stores button mappings, deadzones, trigger travel, gyro settings, joystick mouse, and lighting per game"
+                                <TextBlock Text="All controller changes are per game only — launch a game to edit settings."
                                            Style="{StaticResource CardCaptionStyle}"
                                            TextWrapping="Wrap"
                                            Margin="0,8,0,0"/>
+
+                                <!-- Erase per-game controller settings for the current game -->
+                                <Button x:Name="ClearPerGameControllerProfileButton"
+                                        FontSize="12"
+                                        Padding="10,5"
+                                        Margin="0,8,0,0"
+                                        IsEnabled="False"
+                                        Background="#3A1A1A"
+                                        Foreground="#CC6666"
+                                        BorderBrush="#662222"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        HorizontalAlignment="Left"
+                                        Click="ClearPerGameControllerProfile_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE74D;" FontSize="12" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Clear per-game settings" FontSize="12" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
 
                                 <!-- Per-game capture scope: user picks which categories the per-game
                                      profile should override. Unchecked categories stay global even
@@ -6221,6 +6356,28 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- No-game notice: visible when no game is running (toggled in UpdateControllerProfileForGameChange) -->
+                        <Border x:Name="ControllerNoGameNotice"
+                                Background="#1A1A1A"
+                                BorderBrush="#333333"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="14,10"
+                                Margin="0,4,0,8"
+                                Visibility="Visible">
+                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7C1;" FontSize="16"
+                                          Foreground="#666666" VerticalAlignment="Center"/>
+                                <TextBlock Text="Launch a game to edit controller settings."
+                                           Foreground="#888888" FontSize="12"
+                                           VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Editable controller content — disabled (greyed out) when no game is running -->
+                        <!-- Note: StackPanel has no IsEnabled in UWP; use Opacity+IsHitTestVisible from code-behind -->
+                        <StackPanel x:Name="ControllerEditableContentPanel" Opacity="0.4" IsHitTestVisible="False">
+
                         <!-- Gyro Settings Section (hidden on devices without HID gyro support) -->
                         <StackPanel x:Name="GyroSection">
                         <!-- Gyro Card -->
@@ -6257,8 +6414,8 @@
                                               HorizontalAlignment="Stretch"
                                               SelectedIndex="0">
                                         <x:String>Disabled</x:String>
-                                        <x:String>Left Stick</x:String>
                                         <x:String>Right Stick</x:String>
+                                        <x:String>Left Stick</x:String>
                                         <x:String>Mouse</x:String>
                                     </ComboBox>
                                 </Grid>
@@ -6277,23 +6434,6 @@
                                               SelectedIndex="0">
                                         <x:String>Instant</x:String>
                                         <x:String>Continuous</x:String>
-                                    </ComboBox>
-                                </Grid>
-
-                                <!-- Gyro Activation Mode -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Activation" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
-                                    <ComboBox x:Name="LegionGyroActivationModeComboBox"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              HorizontalAlignment="Stretch"
-                                              SelectedIndex="0">
-                                        <x:String>Hold</x:String>
-                                        <x:String>Toggle</x:String>
                                     </ComboBox>
                                 </Grid>
 
@@ -6318,6 +6458,23 @@
                                         <x:String>Y2</x:String>
                                         <x:String>M2</x:String>
                                         <x:String>M3</x:String>
+                                    </ComboBox>
+                                </Grid>
+
+                                <!-- Gyro Activation Mode -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Activation" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                    <ComboBox x:Name="LegionGyroActivationModeComboBox"
+                                              Grid.Column="1"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              HorizontalAlignment="Stretch"
+                                              SelectedIndex="0">
+                                        <x:String>Hold</x:String>
+                                        <x:String>Toggle</x:String>
                                     </ComboBox>
                                 </Grid>
 
@@ -6756,8 +6913,8 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Gamepad Buttons" FontSize="14" Foreground="#888888" VerticalAlignment="Center"/>
-                                    <Button x:Name="LegionGamepadResetAllButton" Grid.Column="1" Content="Reset All"
+                                    <TextBlock Text="Re-Map Specific Buttons to Another Button" FontSize="14" Foreground="#888888" VerticalAlignment="Center"/>
+                                    <Button x:Name="LegionGamepadResetAllButton" Grid.Column="1" Content="Reset All Re-Mappings Below"
                                             Style="{StaticResource ModernButtonStyle}" Padding="8,4" FontSize="11"
                                             Background="#3C3C3C" Foreground="#AAAAAA"/>
                                 </Grid>
@@ -6831,8 +6988,8 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Nintendo Layout Card -->
-                        <Border Style="{StaticResource CardStyle}">
+                        <!-- Nintendo Layout Card — hidden on MSI Claw (vorerst deaktiviert) -->
+                        <Border Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -7043,6 +7200,8 @@
                             </StackPanel>
                         </Border>
                         </StackPanel>
+                        <!-- End ControllerEditableContentPanel -->
+                        </StackPanel>
                         <!-- End Controller Remapping Section -->
 
                         <!-- Saved Profiles Card -->
@@ -7053,7 +7212,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Saved Profiles" Style="{StaticResource CardTitleStyle}" Grid.Column="0"/>
+                                    <TextBlock Text="Saved Performance Profiles" Style="{StaticResource CardTitleStyle}" Grid.Column="0"/>
                                     <ToggleButton x:Name="SavedProfilesExpandToggle"
                                                   Grid.Column="1"
                                                   IsChecked="False"

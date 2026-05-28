@@ -496,6 +496,7 @@
     <Compile Include="WidgetUIProperty.cs" />
     <Compile Include="QuickSettings\QuickSettingsTile.cs" />
     <Compile Include="QuickSettings\QuickSettingsConfig.cs" />
+    <Compile Include="QuickSettings\TileAction.cs" />
     <Compile Include="QuickSettings\KeyboardShortcutHelper.cs" />
   </ItemGroup>
   <ItemGroup>

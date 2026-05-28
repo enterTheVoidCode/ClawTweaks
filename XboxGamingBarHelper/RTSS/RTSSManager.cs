@@ -38,6 +38,10 @@ namespace XboxGamingBarHelper.RTSS
         private int _fpsCapDisplayValue = 0;
         private bool _fpsCapDisplayIsIntel = false;
 
+        // Transient OSD notification (shown for a few seconds when an action tile fires)
+        private string _pendingNotification = null;
+        private DateTime _notificationExpiry = DateTime.MinValue;
+
         private readonly RTSSInstalledProperty rtssInstalled;
         public RTSSInstalledProperty RTSSInstalled
         {
@@ -750,6 +754,28 @@ namespace XboxGamingBarHelper.RTSS
                 osdString += "\n" + frametimeGraphString;
             }
 
+            // Append transient action notification if active
+            if (_pendingNotification != null && DateTime.Now < _notificationExpiry)
+            {
+                var parts = _pendingNotification.Split('\n');
+                if (parts.Length >= 2)
+                {
+                    // Line 1: tile name — bright white, slightly larger
+                    osdString += $"\n<C=FFFFFF><S=110>{parts[0]}<S><C>";
+                    // Line 2: action description — muted grey, slightly smaller
+                    osdString += $"\n<C=AAAAAA><S=85>{parts[1]}<S><C>";
+                }
+                else
+                {
+                    osdString += $"\n<C=FFFFFF><S=110>{_pendingNotification}<S><C>";
+                }
+            }
+            else if (_pendingNotification != null && DateTime.Now >= _notificationExpiry)
+            {
+                // Notification expired — clear it
+                _pendingNotification = null;
+            }
+
             try
             {
                 rtssOSD.Update(osdString);
@@ -758,6 +784,20 @@ namespace XboxGamingBarHelper.RTSS
             {
                 Logger.Debug($"Error updating OSD: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Show a transient notification line in the RTSS OSD overlay.
+        /// The text will be visible for <paramref name="durationMs"/> milliseconds,
+        /// then automatically disappear on the next Update() call.
+        /// Thread-safe: may be called from any thread.
+        /// </summary>
+        public void ShowNotification(string text, int durationMs = 3000)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            _pendingNotification = text;
+            _notificationExpiry = DateTime.Now.AddMilliseconds(durationMs);
+            Logger.Info($"RTSSManager: notification set: '{text}' for {durationMs}ms");
         }
 
         /// <summary>

@@ -696,6 +696,78 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Handle display brightness adjustment request (+/- percentage delta)
+                if (pipeMsg.Extra.TryGetValue("AdjustBrightness", out object brightnessObj))
+                {
+                    try
+                    {
+                        int delta = 0;
+                        if (brightnessObj is int di) delta = di;
+                        else if (brightnessObj is long dl) delta = (int)dl;   // JSON numbers deserialize as long
+                        else if (brightnessObj is double dd) delta = (int)dd;
+                        else if (brightnessObj is string ds) int.TryParse(ds, out delta);
+
+                        Logger.Info($"Pipe: AdjustBrightness delta={delta}");
+                        AdjustBrightness(delta);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: AdjustBrightness threw: {ex.Message}");
+                    }
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+
+                // Handle controller-button query from widget's binding flyout.
+                // The widget's DispatcherTimer polls every ~100 ms while the binding UI is open.
+                // Returns the current raw XInput button bitmask read by ControllerHotkeyMonitor
+                // (which is in HidHide's allowlist, so it sees the physical MSI Claw controller).
+                if (pipeMsg.Extra.ContainsKey("QueryControllerButtons"))
+                {
+                    uint buttons = controllerHotkeyMonitor?.CurrentButtons ?? 0;
+                    var response = new global::Windows.Foundation.Collections.ValueSet
+                    {
+                        { "ControllerButtons", (int)buttons }
+                    };
+                    var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                    responseMsg.RequestId = pipeMsg.RequestId;
+                    pipeServer?.SendMessage(responseMsg.ToJson());
+                    Logger.Debug($"Pipe: QueryControllerButtons → 0x{buttons:X4}");
+                    return;
+                }
+
+                // Handle tile hotkey registration from widget (controller button → tile action)
+                if (pipeMsg.Extra.TryGetValue("UpdateTileHotkeys", out object tileHotkeysObj) && tileHotkeysObj is string tileHotkeysJson)
+                {
+                    try
+                    {
+                        Logger.Info($"Pipe: UpdateTileHotkeys json='{tileHotkeysJson}'");
+                        ApplyTileHotkeys(tileHotkeysJson);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: UpdateTileHotkeys threw: {ex.Message}");
+                    }
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+
+                // Handle RTSS OSD action notification request
+                if (pipeMsg.Extra.TryGetValue("ShowOSDNotification", out object notifObj) && notifObj is string notifText)
+                {
+                    try
+                    {
+                        Logger.Info($"Pipe: ShowOSDNotification text='{notifText}'");
+                        rtssManager?.ShowNotification(notifText);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: ShowOSDNotification threw: {ex.Message}");
+                    }
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+
                 // Handle "reapply TDP to hardware" request. After a power source change or
                 // Custom-mode re-entry, Windows/Legion firmware may silently reset TDP limits
                 // even though our cached value hasn't changed. Widget asks the helper to
@@ -1695,6 +1767,25 @@ namespace XboxGamingBarHelper
             catch (Exception ex)
             {
                 Logger.Error($"Failed to send pipe ack: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Adjust the display brightness by <paramref name="delta"/> percent.
+        /// Delegates to BrightnessManager which uses WMI internally.
+        /// </summary>
+        private static void AdjustBrightness(int delta)
+        {
+            try
+            {
+                int current = Sidebar.BrightnessManager.GetBrightness();
+                int next = Math.Max(0, Math.Min(100, current + delta));
+                Sidebar.BrightnessManager.SetBrightness(next);
+                Logger.Info($"AdjustBrightness: {current}% → {next}% (delta={delta})");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"AdjustBrightness failed: {ex.Message}");
             }
         }
 

@@ -69,7 +69,18 @@ namespace XboxGamingBar
 
             GlobalProfileTDPLabel.Visibility = tdpVisibility;
             GlobalProfileTDPText.Visibility = tdpVisibility;
-            GlobalProfileTDPText.Text = $"{globalProfile.TDP}W";
+            // Show the effective TDP: for preset modes, read the watt value from the preset definition
+            // (not the possibly-stale stored globalProfile.TDP) so the card always matches what's active.
+            {
+                double displayTDP = globalProfile.TDP;
+                if (!IsCustomTdpModeSelected() && TDPModeComboBox != null)
+                {
+                    int presetWatts = GetCurrentPresetTdpValue();
+                    if (presetWatts > 0)
+                        displayTDP = presetWatts;
+                }
+                GlobalProfileTDPText.Text = $"{displayTDP}W";
+            }
 
             GlobalProfileCPUBoostLabel.Visibility = cpuBoostVisibility;
             GlobalProfileCPUBoostText.Visibility = cpuBoostVisibility;

@@ -54,9 +54,23 @@ namespace XboxGamingBar
                 try
                 {
                     // First check if it's in our local qsTileMap (includes custom shortcuts with GUID IDs)
-                    if (qsTileMap.TryGetValue(tileTag, out var mappedTile) && !string.IsNullOrEmpty(mappedTile.CustomShortcut))
+                    if (qsTileMap.TryGetValue(tileTag, out var mappedTile))
                     {
-                        _ = SendCustomShortcutAsync(mappedTile.CustomShortcut, mappedTile.Name);
+                        // Check for predefined action first
+                        if (mappedTile.ActionType != TileActionType.None &&
+                            mappedTile.ActionType != TileActionType.KeyboardShortcut)
+                        {
+                            _ = ExecuteTileActionAsync(mappedTile.ActionType, mappedTile.Name);
+                            UpdateQuickSettingsTileStates();
+                            return;
+                        }
+                        // Keyboard shortcut tile
+                        if (!string.IsNullOrEmpty(mappedTile.CustomShortcut))
+                        {
+                            _ = SendCustomShortcutAsync(mappedTile.CustomShortcut, mappedTile.Name);
+                            UpdateQuickSettingsTileStates();
+                            return;
+                        }
                     }
                     // Fallback: Check QuickSettingsConfig by ID (tile IDs are now GUIDs)
                     else if (QuickSettings.QuickSettingsConfig.Instance.GetTile(tileTag) is QuickSettings.QuickSettingsTile configTile
@@ -84,10 +98,13 @@ namespace XboxGamingBar
                             case "PowerMode":
                                 CyclePowerMode();
                                 break;
-                            case "FPSLimit":
+                            case "FPSCombined":
+                                CycleFPSForCurrentMode();  // main tile = cycle current mode's FPS values
+                                break;
+                            case "FPSLimit":               // kept for legacy/settings persistence
                                 CycleFPSLimit();
                                 break;
-                            case "IntelFpsTier":
+                            case "IntelFpsTier":           // kept for legacy/settings persistence
                                 CycleIntelFpsTier();
                                 break;
                             case "Resolution":
@@ -341,6 +358,157 @@ namespace XboxGamingBar
                 ShowIntelFpsDropdown(btn);
             else if (tag == "Overlay_dropdown")
                 ShowOverlayDropdown(btn);
+        }
+
+        /// <summary>
+        /// Left sub-button on a dual-button tile — tag is "{TileId}_left".
+        /// FPSCombined: switches between RTSS and Intel mode.
+        /// </summary>
+        private void TileLeftButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is Button btn)) return;
+            string tag = btn.Tag as string ?? "";
+
+            if (tag == "FPSCombined_left")
+                SwitchFPSCapMode();
+        }
+
+        /// <summary>
+        /// Right sub-button on a dual-button tile — tag is "{TileId}_right".
+        /// FPSCombined: opens a dropdown with all available FPS values for the current mode.
+        /// </summary>
+        private void TileRightButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is Button btn)) return;
+            string tag = btn.Tag as string ?? "";
+
+            if (tag == "FPSCombined_right")
+                ShowFPSCombinedDropdown(btn);
+        }
+
+        /// <summary>
+        /// Opens a dynamic MenuFlyout with the FPS values for the currently active mode.
+        /// RTSS: Off, 30, 40, 60, 90, 120 FPS
+        /// Intel: Off, 60 FPS — Performance, 40 FPS — Balanced, 30 FPS — Efficiency
+        /// </summary>
+        private void ShowFPSCombinedDropdown(Button anchor)
+        {
+            bool isIntel = fpsCapMode?.Value == 1;
+            var flyout = new MenuFlyout();
+
+            if (isIntel)
+            {
+                if (intelFpsTier == null) return;
+                int current = intelFpsTier.Value;
+                string[] labels = { "Off", "60 FPS — Performance", "40 FPS — Balanced", "30 FPS — Efficiency" };
+                for (int i = 0; i < labels.Length; i++)
+                {
+                    int tier = i;
+                    var item = new MenuFlyoutItem { Text = labels[i] };
+                    if (tier == current)
+                        item.Icon = new FontIcon { Glyph = "", FontSize = 12 };  // checkmark
+                    item.Click += (s, ev) =>
+                    {
+                        intelFpsTier.SetValue(tier);
+                        UpdateQuickSettingsTileStates();
+                        if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
+                            SaveCurrentSettingsToProfile(currentProfileName);
+                    };
+                    flyout.Items.Add(item);
+                }
+            }
+            else
+            {
+                if (fpsLimit == null) return;
+                int current = fpsLimit.Value;
+                int[] values = { 0, 30, 40, 60, 90, 120 };
+                string[] labels = { "Off", "30 FPS", "40 FPS", "60 FPS", "90 FPS", "120 FPS" };
+                for (int i = 0; i < values.Length; i++)
+                {
+                    int fps = values[i];
+                    var item = new MenuFlyoutItem { Text = labels[i] };
+                    if (fps == current)
+                        item.Icon = new FontIcon { Glyph = "", FontSize = 12 };  // checkmark
+                    item.Click += (s, ev) =>
+                    {
+                        fpsLimit.SetValue(fps);
+                        // Sync the Performance tab controls
+                        isApplyingHelperUpdate = true;
+                        try
+                        {
+                            if (fps > 0) { FPSLimitToggle.IsOn = true; FPSLimitSlider.Value = fps; }
+                            else         { FPSLimitToggle.IsOn = false; }
+                        }
+                        finally { isApplyingHelperUpdate = false; }
+                        UpdateQuickSettingsTileStates();
+                        if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
+                            SaveCurrentSettingsToProfile(currentProfileName);
+                    };
+                    flyout.Items.Add(item);
+                }
+            }
+
+            flyout.ShowAt(anchor);
+        }
+
+        /// <summary>
+        /// Switch FPS cap mode between RTSS and Intel.
+        /// Mirrors the mutual-exclusion logic from FPSModeRadio_Changed:
+        /// disables the old limiter immediately so it doesn't overlap with the new mode.
+        /// </summary>
+        private void SwitchFPSCapMode()
+        {
+            if (fpsCapMode == null) return;
+
+            bool switchToIntel = fpsCapMode.Value == 0;  // currently RTSS → switch to Intel
+            fpsCapMode.SetValue(switchToIntel ? 1 : 0);
+            Logger.Info($"FPS mode switched from tile to {(switchToIntel ? "Intel" : "RTSS")}");
+
+            // Mutual exclusion: silence the old limiter immediately
+            if (switchToIntel)
+            {
+                if (fpsLimit != null && fpsLimit.Value != 0)
+                {
+                    Logger.Info("[FPS-Exclusion] Tile mode switch to Intel: disabling RTSS FPS limit");
+                    fpsLimit.SetValue(0);
+                }
+            }
+            else
+            {
+                if (intelFpsTier != null && intelFpsTier.Value != 0)
+                {
+                    Logger.Info("[FPS-Exclusion] Tile mode switch to RTSS: disabling Intel FPS tier");
+                    intelFpsTier.SetValue(0);
+                    if (IntelFpsTierComboBox != null)
+                    {
+                        isApplyingHelperUpdate = true;
+                        try { IntelFpsTierComboBox.SelectedIndex = 0; }
+                        finally { isApplyingHelperUpdate = false; }
+                    }
+                }
+            }
+
+            // Sync Performance tab radio button state
+            UpdateFPSLimiterPanels();
+            UpdateFPSCapDisplayText();
+            UpdateQuickSettingsTileStates();
+
+            // Persist to profile
+            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
+                SaveCurrentSettingsToProfile(currentProfileName);
+        }
+
+        /// <summary>
+        /// Cycle FPS values for whichever mode (RTSS or Intel) is currently active.
+        /// Called by both the main tile click and the right sub-button.
+        /// </summary>
+        private void CycleFPSForCurrentMode()
+        {
+            bool isIntel = fpsCapMode?.Value == 1;
+            if (isIntel)
+                CycleIntelFpsTier();
+            else
+                CycleFPSLimit();
         }
 
         /// <summary>
@@ -1012,7 +1180,8 @@ namespace XboxGamingBar
                 30,  // 30 FPS — power saving
                 40,  // 40 FPS — balanced
                 60,  // 60 FPS — smooth
-                90   // 90 FPS — high performance
+                90,  // 90 FPS — high performance
+                120  // 120 FPS — high refresh
             };
 
             // Find current index and cycle to next
@@ -1722,6 +1891,63 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Settings gear button — opens the customize panel and scrolls to it
+        /// </summary>
+        private void QuickSettingsGear_Click(object sender, RoutedEventArgs e)
+        {
+            QuickSettingsCustomize_Click(sender, e);
+
+            // Scroll so the "Customize Tiles" panel header is visible at the top of the viewport
+            _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
+            {
+                try
+                {
+                    if (QuickSettingsCustomizePanel != null && QuickSettingsScrollViewer != null)
+                    {
+                        var transform = QuickSettingsCustomizePanel.TransformToVisual(QuickSettingsScrollViewer);
+                        var point = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
+                        QuickSettingsScrollViewer.ChangeView(null, QuickSettingsScrollViewer.VerticalOffset + point.Y, null, false);
+                    }
+                }
+                catch { /* layout not ready yet — no-op */ }
+            });
+        }
+
+        /// <summary>
+        /// Toggle visibility of a tile via the split-tile Show/Hide sub-button
+        /// </summary>
+        private void SortableTileVisibility_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!(sender is Button button) || !(button.Tag is string tagId))
+                    return;
+
+                // Strip "_vis" suffix added in CreateMiniTileForSort
+                string tileId = tagId.EndsWith("_vis") ? tagId.Substring(0, tagId.Length - 4) : tagId;
+
+                if (!qsTileMap.TryGetValue(tileId, out var tile))
+                    return;
+
+                tile.IsVisible = !tile.IsVisible;
+                qsSelectedTileForMove = null;
+                UpdateSelectedTileIndicator(null);
+                BuildSortableGridPreserveScroll(tileId);
+                Logger.Info($"Toggled visibility for {tile.Name} via Show/Hide button: {tile.IsVisible}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error handling tile visibility click: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Open the controller-button binding Flyout for this tile (delegated to Grid.cs).
+        /// </summary>
+        private void SortableTileButtonBind_Click(object sender, RoutedEventArgs e)
+            => OpenBtnBindFlyout(sender, e);
+
+        /// <summary>
         /// Handle keyboard input in customize panel (B/Escape to deselect)
         /// </summary>
         private void QuickSettingsCustomizePanel_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -1819,25 +2045,51 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Add a custom shortcut tile
+        /// Add a custom shortcut or action tile
         /// </summary>
         private void AddCustomShortcut_Click(object sender, RoutedEventArgs e)
         {
             string name = CustomShortcutNameBox?.Text?.Trim();
-            string shortcut = GetCustomShortcutKeysString();
 
-            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(shortcut))
+            if (string.IsNullOrEmpty(name))
             {
-                Logger.Warn("Custom shortcut name or shortcut is empty");
+                Logger.Warn("Custom tile name is empty");
                 return;
             }
 
-            AddCustomShortcutTile(name, shortcut);
+            if (_isTileTypeAction)
+            {
+                // Action tile branch
+                if (CustomActionTypeComboBox == null ||
+                    !(CustomActionTypeComboBox.SelectedItem is ComboBoxItem selectedItem) ||
+                    !(selectedItem.Tag is TileActionType actionType))
+                {
+                    Logger.Warn("No action selected");
+                    return;
+                }
 
-            // Clear inputs
-            if (CustomShortcutNameBox != null) CustomShortcutNameBox.Text = "";
-            _customShortcutKeys.Clear();
-            UpdateCustomShortcutKeyTags();
+                AddActionTile(name, actionType);
+
+                // Clear name input; leave ComboBox at last selection for convenience
+                if (CustomShortcutNameBox != null) CustomShortcutNameBox.Text = "";
+            }
+            else
+            {
+                // Keyboard shortcut tile branch (original)
+                string shortcut = GetCustomShortcutKeysString();
+                if (string.IsNullOrEmpty(shortcut))
+                {
+                    Logger.Warn("No keyboard shortcut defined");
+                    return;
+                }
+
+                AddCustomShortcutTile(name, shortcut);
+
+                // Clear inputs
+                if (CustomShortcutNameBox != null) CustomShortcutNameBox.Text = "";
+                _customShortcutKeys.Clear();
+                UpdateCustomShortcutKeyTags();
+            }
 
             UpdateQuickSettingsTileStates();
         }
@@ -1891,6 +2143,194 @@ namespace XboxGamingBar
             bool newState = !msiCenterActive.Value;
             msiCenterActive.SetValue(newState);
             Logger.Info($"MSI Center M toggled → active={newState}");
+        }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // Tile type selector (Keyboard ↔ Action) in the Add Custom Tile panel
+        // ──────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Switch add-tile mode to "Keyboard shortcut"
+        /// </summary>
+        private void TileTypeKeyboard_Click(object sender, RoutedEventArgs e)
+        {
+            _isTileTypeAction = false;
+
+            // Show keyboard section, hide action ComboBox
+            if (TileKeyboardSection != null) TileKeyboardSection.Visibility = Visibility.Visible;
+            if (CustomActionTypeComboBox != null) CustomActionTypeComboBox.Visibility = Visibility.Collapsed;
+
+            // Highlight active button
+            var activeColor = Windows.UI.Color.FromArgb(255, 26, 106, 154);   // #1A6A9A — blue
+            var inactiveColor = Windows.UI.Color.FromArgb(255, 26, 28, 30);   // #1A1C1E — dark
+            var activeBorder = Windows.UI.Color.FromArgb(255, 34, 136, 204);  // #2288CC
+            var inactiveBorder = Windows.UI.Color.FromArgb(80, 85, 92, 0);    // #50555C
+
+            if (TileTypeKeyboardButton != null)
+            {
+                TileTypeKeyboardButton.Background = new SolidColorBrush(activeColor);
+                TileTypeKeyboardButton.BorderBrush = new SolidColorBrush(activeBorder);
+            }
+            if (TileTypeActionButton != null)
+            {
+                TileTypeActionButton.Background = new SolidColorBrush(inactiveColor);
+                TileTypeActionButton.BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(80, 85, 92, 0));
+            }
+        }
+
+        /// <summary>
+        /// Switch add-tile mode to "Predefined action"
+        /// </summary>
+        private void TileTypeAction_Click(object sender, RoutedEventArgs e)
+        {
+            _isTileTypeAction = true;
+
+            // Hide keyboard section, show action ComboBox
+            if (TileKeyboardSection != null) TileKeyboardSection.Visibility = Visibility.Collapsed;
+            if (CustomActionTypeComboBox != null) CustomActionTypeComboBox.Visibility = Visibility.Visible;
+
+            // Highlight active button
+            var activeColor = Windows.UI.Color.FromArgb(255, 26, 106, 154);
+            var inactiveColor = Windows.UI.Color.FromArgb(255, 26, 28, 30);
+            var activeBorder = Windows.UI.Color.FromArgb(255, 34, 136, 204);
+
+            if (TileTypeActionButton != null)
+            {
+                TileTypeActionButton.Background = new SolidColorBrush(activeColor);
+                TileTypeActionButton.BorderBrush = new SolidColorBrush(activeBorder);
+            }
+            if (TileTypeKeyboardButton != null)
+            {
+                TileTypeKeyboardButton.Background = new SolidColorBrush(inactiveColor);
+                TileTypeKeyboardButton.BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(80, 85, 92, 0));
+            }
+        }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // Predefined-action execution
+        // ──────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Execute a predefined tile action and show an RTSS OSD notification.
+        /// </summary>
+        private async Task ExecuteTileActionAsync(TileActionType actionType, string actionName)
+        {
+            try
+            {
+                switch (actionType)
+                {
+                    // ── OS key actions ─────────────────────────────────────
+                    // These must close Game Bar first (Win+G) before sending the
+                    // shortcut — otherwise the key fires behind the open overlay
+                    // and the effect is invisible to the user.
+                    case TileActionType.AltTab:
+                        await SendCustomShortcutAsync("Alt+Tab", actionName);
+                        break;
+
+                    case TileActionType.AltTabBack:
+                        await SendCustomShortcutAsync("Alt+Shift+Tab", actionName);
+                        break;
+
+                    case TileActionType.GoToDesktop:
+                        await SendCustomShortcutAsync("Win+D", actionName);
+                        break;
+
+                    // ── Brightness (WMI via helper) ─────────────────────────
+                    case TileActionType.BrightnessUp:
+                    case TileActionType.BrightnessDown:
+                        await AdjustBrightnessViaHelperAsync(actionType == TileActionType.BrightnessUp ? 5 : -5);
+                        break;
+
+                    // ── App actions ─────────────────────────────────────────
+                    case TileActionType.CycleOverlayMode:
+                        CyclePerformanceOverlay();
+                        break;
+
+                    case TileActionType.CycleTDPMode:
+                        CycleTDPMode();
+                        break;
+
+                    case TileActionType.TDPStepUp:
+                        StepTDPMode(+1);
+                        break;
+
+                    case TileActionType.TDPStepDown:
+                        StepTDPMode(-1);
+                        break;
+                }
+
+                // Show RTSS OSD notification — tile name on line 1, action description on line 2
+                string actionDesc = TileActionHelper.GetDisplayName(actionType);
+                string notifText = (!string.IsNullOrEmpty(actionDesc) && actionDesc != "Unknown" &&
+                                    !actionName.Equals(actionDesc, StringComparison.OrdinalIgnoreCase))
+                    ? $"{actionName}\n{actionDesc}"
+                    : actionName;
+                await SendActionNotificationAsync(notifText);
+                Logger.Info($"ExecuteTileActionAsync: executed {actionType} ({actionName})");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ExecuteTileActionAsync: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Ask the helper to adjust display brightness by <paramref name="delta"/> percent (±5 typical).
+        /// </summary>
+        private async Task AdjustBrightnessViaHelperAsync(int delta)
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "AdjustBrightness", delta }
+                };
+                await App.SendMessageAsync(request);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"AdjustBrightnessViaHelperAsync: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Show a transient line in the RTSS OSD overlay for a few seconds.
+        /// Helper side: RTSSManager.ShowNotification() handles the timeout.
+        /// </summary>
+        private async Task SendActionNotificationAsync(string actionName)
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "ShowOSDNotification", actionName }
+                };
+                await App.SendMessageAsync(request);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"SendActionNotificationAsync: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Step the TDP mode ComboBox up or down by one position (wraps around).
+        /// +1 = next mode, -1 = previous mode.
+        /// </summary>
+        private void StepTDPMode(int direction)
+        {
+            if (TDPModeComboBox == null) return;
+
+            int count = TDPModeComboBox.Items.Count;
+            if (count == 0) return;
+
+            int current = TDPModeComboBox.SelectedIndex;
+            int next = ((current + direction) % count + count) % count;  // wrap with positive modulo
+            SetTDPModeByIndex(next);
         }
 
     }

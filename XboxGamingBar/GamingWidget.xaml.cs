@@ -3009,14 +3009,32 @@ namespace XboxGamingBar
                 LegionControllerProfileGameText.Text = HasValidGame(newGameName) ? newGameName : "No game detected";
             }
 
-            // Enable/disable the toggle based on game detection
+            // Enable/disable the clear button based on game detection
+            if (ClearPerGameControllerProfileButton != null)
+            {
+                ClearPerGameControllerProfileButton.IsEnabled = HasValidGame(newGameName);
+            }
+
+            // Show/hide no-game notice and enable/disable editable content area
+            if (ControllerNoGameNotice != null)
+                ControllerNoGameNotice.Visibility = HasValidGame(newGameName) ? Visibility.Collapsed : Visibility.Visible;
+            if (ControllerEditableContentPanel != null)
+            {
+                // StackPanel has no IsEnabled in UWP — use Opacity+IsHitTestVisible instead
+                bool gameActive = HasValidGame(newGameName);
+                ControllerEditableContentPanel.Opacity = gameActive ? 1.0 : 0.4;
+                ControllerEditableContentPanel.IsHitTestVisible = gameActive;
+            }
+
+            // MSI Claw: per-game profile is ALWAYS active when a game runs — toggle is locked (not user-editable)
             if (LegionControllerProfileToggle != null)
             {
-                LegionControllerProfileToggle.IsEnabled = HasValidGame(newGameName);
+                // Toggle is always disabled (read-only) — state purely reflects game detection
+                LegionControllerProfileToggle.IsEnabled = false;
 
                 if (!HasValidGame(newGameName))
                 {
-                    // No valid game, turn off and disable toggle, switch to global profile
+                    // No valid game — turn off toggle and fall back to global profile
                     if (LegionControllerProfileToggle.IsOn)
                     {
                         isSwitchingControllerProfile = true;
@@ -3035,65 +3053,27 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // Valid game detected - check for existing controller profile
-                    var settings = ApplicationData.Current.LocalSettings;
-                    bool hasExistingControllerProfile = settings.Containers.ContainsKey($"ControllerProfile_Game_{newGameName}");
-
-                    // Check if user explicitly disabled controller profile for this game
-                    string disabledKey = $"ControllerProfileDisabled_{newGameName}";
-                    bool userDisabledProfile = settings.Values.ContainsKey(disabledKey) && (bool)settings.Values[disabledKey];
-
-                    // Auto-enable if profile exists and user hasn't disabled it
-                    if (hasExistingControllerProfile && !userDisabledProfile)
+                    // Valid game detected — always force per-game profile ON
+                    if (!LegionControllerProfileToggle.IsOn)
                     {
-                        if (!LegionControllerProfileToggle.IsOn)
-                        {
-                            // Setting toggle to true triggers LegionControllerProfileToggle_Toggled
-                            // which handles loading and applying the profile
-                            LegionControllerProfileToggle.IsOn = true;
-                            Logger.Info($"Auto-enabled controller profile for {newGameName}");
-                        }
-                        else
-                        {
-                            // Toggle already on, need to switch to new game's profile
-                            isSwitchingControllerProfile = true;
-                            try
-                            {
-                                LoadControllerProfileFromStorage($"Game_{newGameName}", gameControllerProfile);
-                                ApplyControllerProfile(gameControllerProfile);
-                                Logger.Info($"Switched to controller profile for {newGameName}");
-                            }
-                            finally
-                            {
-                                isSwitchingControllerProfile = false;
-                            }
-                        }
+                        // Setting to true triggers LegionControllerProfileToggle_Toggled,
+                        // which loads an existing profile or creates a new one from current UI state
+                        LegionControllerProfileToggle.IsOn = true;
+                        Logger.Info($"Auto-enabled controller profile for {newGameName}");
                     }
-                    else if (LegionControllerProfileToggle.IsOn)
+                    else
                     {
-                        // Toggle was on for previous game - only keep it on if new game has existing profile
-                        if (!hasExistingControllerProfile)
+                        // Toggle already on (switching from one game to another)
+                        isSwitchingControllerProfile = true;
+                        try
                         {
-                            // No profile for new game - turn off toggle instead of auto-creating
-                            // Setting toggle to false triggers LegionControllerProfileToggle_Toggled
-                            // which handles switching to global profile
-                            LegionControllerProfileToggle.IsOn = false;
-                            Logger.Info($"Disabled controller profile toggle for {newGameName} (no existing profile)");
+                            LoadControllerProfileFromStorage($"Game_{newGameName}", gameControllerProfile);
+                            ApplyControllerProfile(gameControllerProfile);
+                            Logger.Info($"Switched to controller profile for {newGameName}");
                         }
-                        else
+                        finally
                         {
-                            // Profile exists, switch to it
-                            isSwitchingControllerProfile = true;
-                            try
-                            {
-                                LoadControllerProfileFromStorage($"Game_{newGameName}", gameControllerProfile);
-                                ApplyControllerProfile(gameControllerProfile);
-                                Logger.Info($"Switched to controller profile for {newGameName}");
-                            }
-                            finally
-                            {
-                                isSwitchingControllerProfile = false;
-                            }
+                            isSwitchingControllerProfile = false;
                         }
                     }
                 }
