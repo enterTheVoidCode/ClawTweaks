@@ -3924,6 +3924,12 @@ namespace XboxGamingBar
                     // into a not-yet-connected pipe. Re-push now that the pipe is up.
                     ResendActiveControllerProfileToHelper();
 
+                    // Re-send tile hotkeys so the helper knows which button combos to fire.
+                    // The helper discards all tile hotkeys on restart; without this re-push
+                    // the hotkeys registered in Quick Settings silently stop working until
+                    // the user manually edits them.
+                    _ = SendTileHotkeysToHelper();
+
                     // Refresh USBIP prereq status line. PropertyChanged-driven refresh misses
                     // the case where the helper's value matches the widget's default (false),
                     // since GenericProperty.SetValue skips NotifyPropertyChanged on equality
