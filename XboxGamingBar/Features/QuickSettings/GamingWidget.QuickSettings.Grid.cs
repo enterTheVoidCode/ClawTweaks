@@ -295,24 +295,81 @@ namespace XboxGamingBar
             };
             btnBindButton.Click += SortableTileButtonBind_Click;
 
-            // Sub-row grid: Hide/Show gets 1/3, Button combo gets 2/3 for readable label
-            var subRow = new Grid { Height = 28 };
-            subRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            subRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
-            Grid.SetColumn(visButton, 0);
-            Grid.SetColumn(btnBindButton, 1);
-            subRow.Children.Add(visButton);
-            subRow.Children.Add(btnBindButton);
+            // ── Layout ────────────────────────────────────────────────────────────────
+            // Custom tiles  (IsTrigger):
+            //   Row 0  Tile main button  (click = select/move)
+            //   Row 1  [Hide/Show]  [Delete]
+            //   Row 2  [Button-bind label — full width]
+            //
+            // Built-in tiles:
+            //   Row 0  Tile main button
+            //   Row 1  [Hide/Show]  [Button-bind]
 
-            // Inner grid combining main + sub-row
             var innerGrid = new Grid();
             innerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             innerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) });
             Grid.SetRow(mainButton, 0);
-            Grid.SetRow(subRow, 1);
             innerGrid.Children.Add(mainButton);
-            innerGrid.Children.Add(subRow);
 
+            if (tile.IsTrigger)
+            {
+                // Row 1: Hide/Show | Delete
+                visButton.CornerRadius    = new CornerRadius(0);
+                visButton.BorderThickness = new Thickness(0, 1, 0.5, 0);
+
+                btnBindButton.CornerRadius    = new CornerRadius(0, 0, 7, 7);
+                btnBindButton.BorderThickness = new Thickness(0, 1, 0, 0);
+
+                var deleteButton = new Button
+                {
+                    Tag = tile.Id,
+                    Height = 28,
+                    Padding = new Thickness(0),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Stretch,
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(80, 200, 60, 60)),
+                    BorderBrush = dividerBrush,
+                    BorderThickness = new Thickness(0.5, 1, 0, 0),
+                    CornerRadius = new CornerRadius(0),
+                    UseSystemFocusVisuals = true,
+                    FocusVisualPrimaryBrush = new SolidColorBrush(Windows.UI.Colors.White),
+                    FocusVisualSecondaryBrush = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    TabIndex = index * 4 + 2,
+                    Content = new FontIcon { Glyph = "", FontSize = 12 }  // Trash
+                };
+                deleteButton.Click += SortableTileDelete_Click;
+
+                // Row 1: Hide/Show (left) | Delete (right)
+                var actionRow = new Grid { Height = 28 };
+                actionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                actionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                Grid.SetColumn(visButton,    0);
+                Grid.SetColumn(deleteButton, 1);
+                actionRow.Children.Add(visButton);
+                actionRow.Children.Add(deleteButton);
+
+                // Row 2: button mapping — full width, bottom-rounded
+                btnBindButton.TabIndex = index * 4 + 3;
+
+                innerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) });
+                Grid.SetRow(actionRow,     1);
+                Grid.SetRow(btnBindButton, 2);
+                innerGrid.Children.Add(actionRow);
+                innerGrid.Children.Add(btnBindButton);
+            }
+            else
+            {
+                // Row 1 for built-in tiles: Hide/Show | Button-bind (2/3 for readable label)
+                var subRow = new Grid { Height = 28 };
+                subRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                subRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
+                Grid.SetColumn(visButton,     0);
+                Grid.SetColumn(btnBindButton, 1);
+                subRow.Children.Add(visButton);
+                subRow.Children.Add(btnBindButton);
+                Grid.SetRow(subRow, 1);
+                innerGrid.Children.Add(subRow);
+            }
             // Outer border provides unified corner radius + selection highlight
             return new Border
             {
@@ -735,8 +792,15 @@ namespace XboxGamingBar
                 var configTile = QuickSettings.QuickSettingsConfig.Instance.GetTile(tile.Id);
                 if (configTile != null)
                 {
+                    // Custom tile: persist via QuickSettingsConfig
                     configTile.ControllerHotkey = tile.ControllerHotkey;
                     QuickSettings.QuickSettingsConfig.Instance.Save();
+                }
+                else
+                {
+                    // Built-in tile: persist directly to LocalSettings
+                    var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                    settings.Values[$"QS_{tile.Id}_Hotkey"] = tile.ControllerHotkey;
                 }
 
                 Logger.Info($"BtnBindCommit: '{tile.Name}' -> 0x{maskToSave:X} ({XInputMaskToDisplayString(maskToSave)})");
@@ -794,10 +858,10 @@ namespace XboxGamingBar
             if ((mask & 0x0010) != 0) parts.Add("Mn");      // Menu  → Mn
             if ((mask & 0x0020) != 0) parts.Add("Vw");      // View  → Vw
             // DPad: "D" + arrow symbol
-            if ((mask & 0x0001) != 0) parts.Add("D↑"); // DPad Up    → D↑
-            if ((mask & 0x0002) != 0) parts.Add("D↓"); // DPad Down  → D↓
-            if ((mask & 0x0004) != 0) parts.Add("D←"); // DPad Left  → D←
-            if ((mask & 0x0008) != 0) parts.Add("D→"); // DPad Right → D→
+            if ((mask & 0x0001) != 0) parts.Add("d↑"); // DPad Up    → d↑
+            if ((mask & 0x0002) != 0) parts.Add("d↓"); // DPad Down  → d↓
+            if ((mask & 0x0004) != 0) parts.Add("d←"); // DPad Left  → d←
+            if ((mask & 0x0008) != 0) parts.Add("d→"); // DPad Right → d→
             // Shoulder buttons
             if ((mask & 0x0100) != 0) parts.Add("LB");
             if ((mask & 0x0200) != 0) parts.Add("RB");

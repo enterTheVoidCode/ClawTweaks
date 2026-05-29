@@ -607,49 +607,24 @@
                             </Grid>
                         </Button>
 
-                        <!-- Quick Metrics Row + Settings Gear -->
-                        <Grid Margin="0,0,0,8" MinHeight="38">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Compact stats display - dynamically populated -->
-                            <Border x:Name="QuickMetricsRow"
-                                    Grid.Column="0"
-                                    Background="#1A1C1E"
-                                    CornerRadius="12"
-                                    Padding="12,8"
-                                    BorderBrush="#50555C"
-                                    BorderThickness="1"
-                                    Visibility="Collapsed">
-                                <Grid x:Name="QuickMetricsGrid"/>
-                            </Border>
-
-                            <!-- Settings gear - quick access to customize panel -->
-                            <Button x:Name="QuickSettingsGearButton"
-                                    Grid.Column="1"
-                                    Width="38"
-                                    Height="38"
-                                    Margin="6,0,0,0"
-                                    Background="#1A1C1E"
-                                    BorderBrush="#50555C"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
-                                    Padding="0"
-                                    VerticalAlignment="Center"
-                                    UseSystemFocusVisuals="True"
-                                    Click="QuickSettingsGear_Click">
-                                <FontIcon Glyph="&#xE713;" FontSize="16" Foreground="#CCCCCC"/>
-                            </Button>
-                        </Grid>
+                        <!-- Quick Metrics Row -->
+                        <Border x:Name="QuickMetricsRow"
+                                Margin="0,0,0,8"
+                                Background="#1A1C1E"
+                                CornerRadius="12"
+                                Padding="12,8"
+                                BorderBrush="#50555C"
+                                BorderThickness="1"
+                                Visibility="Collapsed">
+                            <Grid x:Name="QuickMetricsGrid"/>
+                        </Border>
 
                         <!-- Dynamic Tiles Container - tiles generated in code-behind -->
                         <StackPanel x:Name="QuickSettingsTilesContainer"/>
 
                         <!-- Customize Button -->
                         <Button x:Name="QuickSettingsCustomizeButton"
-                                Content="Customize"
+                                Content="Customize Tiles and Hotkeys"
                                 HorizontalAlignment="Stretch"
                                 Margin="0,16,0,0"
                                 Style="{StaticResource StandaloneButtonStyle}"
@@ -661,8 +636,8 @@
                                 Visibility="Collapsed"
                                 Margin="0,8,0,0">
                             <StackPanel>
-                                <TextBlock Text="Customize Tiles" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Tap tile to select, tap another to swap. Use Show/Hide to toggle visibility."
+                                <TextBlock Text="Customize Tiles and Hotkeys" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Tap a tile to select it, then tap another to swap positions. Use Show/Hide to toggle visibility. You can create custom tiles for any action — including OS shortcuts, TDP steps, and FPS limiter cycling — and assign controller button combinations to trigger or cycle through them directly without opening the widget."
                                            Style="{StaticResource CardCaptionStyle}"
                                            Margin="0,0,0,8"
                                            TextWrapping="Wrap"/>
@@ -1176,7 +1151,7 @@
                                               Grid.Column="1"
                                               Margin="0,0,8,0"
                                               SelectionChanged="PerformanceOverlayComboBox_SelectionChanged"
-                                              XYFocusUp="{x:Bind PerGameProfileToggle}"
+                                              XYFocusUp="{x:Bind FPSLimitToggle}"
                                               XYFocusDown="{x:Bind TDPModeComboBox}"
                                               XYFocusLeft="{x:Bind PerformanceNavItem}">
                                         <ComboBoxItem Content="Off" Tag="0" IsSelected="True"/>
@@ -1576,6 +1551,21 @@
                         <!-- TDP Mode Card (all devices) - Expandable (TDP Settings moved here from Sys tab) -->
                         <Border x:Name="TDPModeCard" Style="{StaticResource CardStyle}">
                             <StackPanel>
+                                <!-- MSI Center M conflict warning — visible when MSI Center M is active -->
+                                <Border x:Name="MsiCenterTDPWarning"
+                                        Background="#2A1800"
+                                        BorderBrush="#FFA500"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="10,8"
+                                        Margin="0,0,0,10"
+                                        Visibility="Collapsed">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE7BA;" FontSize="14" Foreground="#FFA500" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                        <TextBlock Text="MSI Center M is active — TDP control unavailable. Disable it via the MSI Center tile in the Quick Tab."
+                                                   FontSize="11" Foreground="#FFA500" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
                                 <!-- Header: title + ComboBox always visible + expand toggle -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -4759,6 +4749,21 @@
                                                    Foreground="#888888"
                                                    Margin="0,8,0,0"
                                                    TextWrapping="Wrap"/>
+                                        <!-- MSI Center M conflict warning -->
+                                        <Border x:Name="MsiCenterControllerWarning"
+                                                Background="#2A1800"
+                                                BorderBrush="#FFA500"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Padding="8,6"
+                                                Margin="0,6,0,0"
+                                                Visibility="Collapsed">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <FontIcon Glyph="&#xE7BA;" FontSize="13" Foreground="#FFA500" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                                <TextBlock Text="MSI Center M is active — controller emulation and gyro unavailable. Disable it via the MSI Center tile in the Quick Tab."
+                                                           FontSize="11" Foreground="#FFA500" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
                                     <ToggleButton x:Name="ControllerEmulationExpandButton"
                                                   Grid.Column="1"

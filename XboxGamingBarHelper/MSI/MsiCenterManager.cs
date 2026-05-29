@@ -6,7 +6,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.ServiceProcess;
 using System.Text;
-using System.Threading;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.IPC;
 using TaskScheduled = Microsoft.Win32.TaskScheduler.Task;
@@ -51,44 +50,19 @@ namespace XboxGamingBarHelper.MSI
         private static readonly List<string> gameBarExtensionPackageNames = new List<string> { "9426MICRO-STARINTERNATION.MSIQuickSettings" };
         private static readonly List<string> gameBarExtensionProcessNames = new List<string> { "Gamebar_Widget", "mongMode" };
 
-        // Poll interval matches HC ClawCenterWatcher (4 seconds)
-        private const int PollIntervalMs = 4000;
-
-        private readonly Timer _pollTimer;
-        private bool _prevStatus = false;
-
         public readonly MsiCenterActiveProperty MsiCenterActive;
 
         public MsiCenterManager(NamedPipeServer pipeServer)
         {
             MsiCenterActive = new MsiCenterActiveProperty(this);
 
-            // Initial detection (synchronous)
-            _prevStatus = DetectActive();
-            MsiCenterActive.SetValueSilent(_prevStatus);
+            // Detect initial state once at startup — no polling needed.
+            // MSI Center M tasks/services do not self-restart after being stopped,
+            // so continuous polling wastes CPU without benefit.
+            bool initialActive = DetectActive();
+            MsiCenterActive.SetValueSilent(initialActive);
 
-            // Poll for external changes (MSI software restarting itself, etc.)
-            _pollTimer = new Timer(PollCallback, null, PollIntervalMs, PollIntervalMs);
-
-            Logger.Info($"[MsiCenterManager] Init. active={_prevStatus}");
-        }
-
-        private void PollCallback(object state)
-        {
-            try
-            {
-                bool active = DetectActive();
-                if (active != _prevStatus)
-                {
-                    _prevStatus = active;
-                    Logger.Info($"[MsiCenterManager] State changed: active={active}");
-                    MsiCenterActive.SetValue(active);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Debug($"[MsiCenterManager] Poll error: {ex.Message}");
-            }
+            Logger.Info($"[MsiCenterManager] Init. active={initialActive}");
         }
 
         // ── Detection — 1:1 from HC ISpaceWatcher ────────────────────────
@@ -456,10 +430,6 @@ namespace XboxGamingBarHelper.MSI
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing)
-            {
-                _pollTimer?.Dispose();
-            }
             base.Dispose(disposing);
         }
     }

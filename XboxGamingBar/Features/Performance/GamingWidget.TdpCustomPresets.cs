@@ -647,31 +647,87 @@ namespace XboxGamingBar
 
             if (useCustomTDPPresets && tdpPresets != null)
             {
-                // Last item is always "Custom" mode
+                // Last item is always "Slider" (Custom) mode
                 return index >= tdpPresets.Count;
             }
             else
             {
-                // Custom is the last item (index 3)
-                return index == 3;
+                // Default hardcoded items: Max(0), Standard(1), Balanced(2), Battery(3), Super Battery(4), Slider(5)
+                // Slider is the "Custom" mode that enables manual slider control (index 5)
+                return index >= 5;
             }
         }
 
         /// <summary>
-        /// Gets the TDPModeComboBox index for Custom mode.
+        /// Gets the TDPModeComboBox index for Custom/Slider mode.
         /// </summary>
         private int GetCustomTdpModeIndex()
         {
             if (useCustomTDPPresets && tdpPresets != null)
             {
-                // Custom is after all presets
+                // Slider is after all presets
                 return tdpPresets.Count;
             }
             else
             {
-                // Custom is index 3 (Quiet=0, Balanced=1, Performance=2, Custom=3)
-                return 3;
+                // Default hardcoded items: Max(0), Standard(1), Balanced(2), Battery(3), Super Battery(4), Slider(5)
+                return 5;
             }
+        }
+
+        /// <summary>
+        /// After initial sync completes, matches the TDP mode ComboBox to the helper's current TDP
+        /// and saves the global profile. This ensures game→global transitions always restore the
+        /// correct preset instead of defaulting to Standard (25 W) when TDPModeIndex was never saved.
+        /// Only runs for non-Legion devices and only when the profile has no saved TDPModeIndex.
+        /// </summary>
+        private void SyncTDPModeToCurrentTDP()
+        {
+            if (legionGoDetected?.Value == true) return; // Legion uses hardware modes — not needed
+            if (TDPModeComboBox == null || tdp == null) return;
+            if (string.IsNullOrEmpty(currentProfileName) || currentProfileName.StartsWith("Game_")) return;
+
+            var profile = GetProfile(currentProfileName);
+            if (profile == null) return;
+
+            // If TDPModeIndex is already valid, the profile was explicitly saved — nothing to do
+            int maxIndex = useCustomTDPPresets && tdpPresets != null ? tdpPresets.Count : 5;
+            if (profile.TDPModeIndex >= 0 && profile.TDPModeIndex <= maxIndex) return;
+
+            // Find preset index matching the helper's current TDP watt value
+            int helperTDP = (int)Math.Round((double)tdp.Value);
+            int matchedIndex = -1;
+
+            if (useCustomTDPPresets && tdpPresets != null)
+            {
+                for (int i = 0; i < tdpPresets.Count; i++)
+                {
+                    if (tdpPresets[i].TdpWatts == helperTDP) { matchedIndex = i; break; }
+                }
+            }
+            else
+            {
+                int[] defaultTdpValues = { 30, 25, 17, 12, 8 };
+                for (int i = 0; i < defaultTdpValues.Length; i++)
+                {
+                    if (defaultTdpValues[i] == helperTDP) { matchedIndex = i; break; }
+                }
+            }
+
+            if (matchedIndex < 0) matchedIndex = 1; // Default to Standard if no match
+
+            // Update ComboBox without triggering TDPModeComboBox_SelectionChanged's full path
+            // (we don't want to re-send TDP to helper — it already has the correct value)
+            if (TDPModeComboBox.SelectedIndex != matchedIndex)
+            {
+                lastTDPModeIndex = matchedIndex;
+                TDPModeComboBox.SelectedIndex = matchedIndex;
+                Logger.Info($"SyncTDPModeToCurrentTDP: matched {helperTDP}W → preset index {matchedIndex}");
+            }
+
+            // Save the profile so future game→global transitions restore the correct mode
+            Logger.Info($"SyncTDPModeToCurrentTDP: saving profile '{currentProfileName}' (TDP={helperTDP}W, modeIndex={matchedIndex})");
+            SaveCurrentSettingsToProfile(currentProfileName);
         }
 
     }

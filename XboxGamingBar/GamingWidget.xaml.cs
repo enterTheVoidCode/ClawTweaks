@@ -66,7 +66,9 @@ namespace XboxGamingBar
         public double RadeonChillMaxFPS { get; set; } = 60;
         // FPS Limit settings
         public bool FPSLimitEnabled { get; set; } = false;
-        public int FPSLimitValue { get; set; } = 60;
+        public int FPSLimitValue { get; set; } = 60;         // RTSS limit (fps)
+        public int FpsCapMode { get; set; } = 0;              // 0=RTSS, 1=Intel
+        public int IntelFpsTier { get; set; } = 0;            // 0=Off,1=P60,2=B40,3=E30
         // AutoTDP settings
         public bool AutoTDPEnabled { get; set; } = false;
         public int AutoTDPTargetFPS { get; set; } = 60;
@@ -117,6 +119,8 @@ namespace XboxGamingBar
                 RadeonChillMaxFPS = this.RadeonChillMaxFPS,
                 FPSLimitEnabled = this.FPSLimitEnabled,
                 FPSLimitValue = this.FPSLimitValue,
+                FpsCapMode = this.FpsCapMode,
+                IntelFpsTier = this.IntelFpsTier,
                 AutoTDPEnabled = this.AutoTDPEnabled,
                 AutoTDPTargetFPS = this.AutoTDPTargetFPS,
                 AutoTDPMinTDP = this.AutoTDPMinTDP,
@@ -2315,7 +2319,11 @@ namespace XboxGamingBar
             if (fpsCapMode != null)
                 fpsCapMode.PropertyChanged += QuickSettingsProperty_Changed;
             if (msiCenterActive != null)
+            {
                 msiCenterActive.PropertyChanged += QuickSettingsProperty_Changed;
+                // Feature gating: disable TDP / controller / gyro while MSI Center M is running
+                SubscribeMsiCenterGating();
+            }
             if (msiClawControllerMode != null)
                 msiClawControllerMode.PropertyChanged += QuickSettingsProperty_Changed;
             // DeviceDisplayName drives isMsiClaw detection in ShouldSkipTile — re-evaluate tiles when it arrives.
@@ -2926,15 +2934,34 @@ namespace XboxGamingBar
                         if (gameProf.CPUBoost != globalProfile.CPUBoost)
                             diffs.Add(gameProf.CPUBoost ? "Boost On" : "Boost Off");
 
-                        // FPS Limit diff
-                        bool fpsChanged = gameProf.FPSLimitEnabled != globalProfile.FPSLimitEnabled
-                            || (gameProf.FPSLimitEnabled && gameProf.FPSLimitValue != globalProfile.FPSLimitValue);
+                        // FPS Limit diff — use stored mode/tier so the notification is correct
+                        // even before the UI has fully synced to the live helper values.
+                        bool gameIntel = gameProf.FpsCapMode == 1 && gameProf.IntelFpsTier > 0;
+                        bool globalIntel = globalProfile.FpsCapMode == 1 && globalProfile.IntelFpsTier > 0;
+                        bool gameFpsActive = gameProf.FPSLimitEnabled || gameIntel;
+                        bool globalFpsActive = globalProfile.FPSLimitEnabled || globalIntel;
+
+                        bool fpsChanged = gameFpsActive != globalFpsActive
+                            || gameProf.FpsCapMode != globalProfile.FpsCapMode
+                            || gameProf.IntelFpsTier != globalProfile.IntelFpsTier
+                            || (gameFpsActive && !gameIntel && gameProf.FPSLimitValue != globalProfile.FPSLimitValue);
+
                         if (fpsChanged)
                         {
-                            if (gameProf.FPSLimitEnabled)
+                            if (gameFpsActive)
                             {
-                                string fpsMode = (fpsCapMode?.Value == 1) ? "Intel" : "RTSS";
-                                diffs.Add($"FPS {gameProf.FPSLimitValue} ({fpsMode})");
+                                if (gameIntel)
+                                {
+                                    // Show Intel tier label (P60/B40/E30)
+                                    string[] intelLabels = { "Off", "P60", "B40", "E30" };
+                                    string tierLabel = (gameProf.IntelFpsTier >= 0 && gameProf.IntelFpsTier < intelLabels.Length)
+                                        ? intelLabels[gameProf.IntelFpsTier] : "?";
+                                    diffs.Add($"Intel {tierLabel}");
+                                }
+                                else
+                                {
+                                    diffs.Add($"RTSS {gameProf.FPSLimitValue}");
+                                }
                             }
                             else
                             {
@@ -3529,6 +3556,10 @@ namespace XboxGamingBar
                     await Task.Delay(200);
                     isInitialSync = false;
                     Logger.Info("Initial sync complete - profile saves are now enabled");
+                    // Match TDP mode ComboBox to helper's current TDP and persist the profile.
+                    SyncTDPModeToCurrentTDP();
+                    // Apply MSI Center M gate now that the initial state is known
+                    UpdateMsiCenterGatedFeatures();
                 }
             }
 
@@ -3889,6 +3920,10 @@ namespace XboxGamingBar
                 isInitialSync = false;
                 App.HasEverConnectedToHelper = true;
                 Logger.Info("Initial sync via pipe complete - profile saves are now enabled");
+                // Match TDP mode ComboBox to helper's current TDP and persist the profile.
+                SyncTDPModeToCurrentTDP();
+                // Apply MSI Center M gate now that the initial state is known
+                UpdateMsiCenterGatedFeatures();
 
                 Logger.Info("[PIPE] About to hide connection banner and update profile display...");
                 await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>

@@ -2157,6 +2157,11 @@ namespace XboxGamingBar
         /// </summary>
         private void LegionPerformanceModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            // MSI Claw is not a Legion device — LegionPerformanceMode=255 (software TDP) would
+            // incorrectly reset TDPModeComboBox to index 3 (Battery) on every pipe update,
+            // breaking the TDP tile cycle (Max/Standard/Balanced become unreachable).
+            if (legionGoDetected?.Value != true) return;
+
             // Check if this change came from a pipe/property sync (not user interaction).
             // When true, TDPModeComboBox_SelectionChanged must skip profile saves to prevent
             // corrupting game profiles with global values during game exit transitions.
@@ -2215,14 +2220,19 @@ namespace XboxGamingBar
             // and post-sync ComboBox updates are blocked by the equality check (lastTDPModeIndex set first).
             if (isApplyingHelperUpdate || isLoadingProfile)
             {
-                lastTDPModeIndex = selectedIndex;
+                // isApplyingHelperUpdate: helper pipe echoes back a potentially different index after
+                // SetValue — do NOT update lastTDPModeIndex or the cycle position gets corrupted.
+                // isLoadingProfile: profile load drives the combo, so we must track the new index.
+                if (!isApplyingHelperUpdate)
+                    lastTDPModeIndex = selectedIndex;
+                Logger.Info($"[TDPCombo] early-return: isApplyingHelperUpdate={isApplyingHelperUpdate}, isLoadingProfile={isLoadingProfile} → lastTDPModeIndex={lastTDPModeIndex} (selectedIndex={selectedIndex})");
                 return;
             }
 
             // Skip if this is the same index as last time (avoid redundant processing)
             if (selectedIndex == lastTDPModeIndex)
             {
-                Logger.Debug($"TDPModeComboBox_SelectionChanged skipped: selectedIndex={selectedIndex} == lastTDPModeIndex={lastTDPModeIndex}");
+                Logger.Info($"[TDPCombo] early-return: selectedIndex={selectedIndex} == lastTDPModeIndex (cycle intentional skip)");
                 return;
             }
 
@@ -2384,6 +2394,17 @@ namespace XboxGamingBar
         {
             if (TDPSlider == null) return;
 
+            // MSI Center M is running — it owns TDP; keep all TDP controls disabled
+            if (msiCenterActive?.Value == true)
+            {
+                TDPSlider.IsEnabled = false;
+                if (TDPBoostToggle != null) { TDPBoostToggle.IsEnabled = false; TDPBoostToggle.IsOn = false; }
+                if (AutoTDPToggle  != null) { AutoTDPToggle.IsEnabled  = false; AutoTDPToggle.IsOn  = false; }
+                if (TDPValueText   != null) TDPValueText.Text = "Unavailable";
+                if (CurrentTDPValueText != null) CurrentTDPValueText.Text = "MSI Center M active";
+                return;
+            }
+
             // If Default Game Profile is active, keep TDP controls disabled
             if (defaultGameProfileEnabled?.Value == true)
             {
@@ -2423,12 +2444,12 @@ namespace XboxGamingBar
 
                 if (TDPValueText != null)
                 {
-                    // Show TDP value for custom presets, mode name for defaults
-                    TDPValueText.Text = (useCustomTDPPresets && presetTdp > 0) ? $"{presetTdp}W" : $"{modeName} mode";
+                    // Always show watt value when known, regardless of preset mode
+                    TDPValueText.Text = presetTdp > 0 ? $"{presetTdp}W" : $"{modeName} mode";
                 }
                 if (CurrentTDPValueText != null)
                 {
-                    CurrentTDPValueText.Text = (useCustomTDPPresets && presetTdp > 0) ? $"{modeName} ({presetTdp}W)" : $"{modeName} mode";
+                    CurrentTDPValueText.Text = presetTdp > 0 ? $"{modeName} ({presetTdp}W)" : $"{modeName} mode";
                 }
 
                 // Set flag to prevent toggle handlers from saving forced-off state to LocalSettings

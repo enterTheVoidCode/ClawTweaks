@@ -990,6 +990,14 @@ namespace XboxGamingBarHelper
             intelGpuManager = new IntelGpuManager();
             // MsiCenterManager: polls MSI Center M running state, exposes toggle to widget.
             msiCenterManager = new MsiCenterManager(pipeServer);
+            // Gate TDP + controller emulation on MSI Center M state changes.
+            // - active  → stop ClawButtonMonitor (ViGEm + gyro) so MSI software owns the controller
+            // - inactive → restart ClawButtonMonitor if emulation was enabled
+            msiCenterManager.MsiCenterActive.PropertyChanged += (_, __) =>
+            {
+                try { OnMsiCenterStateChanged(msiCenterManager.MsiCenterActive.Value); }
+                catch (Exception ex) { Logger.Warn($"[Program] OnMsiCenterStateChanged threw: {ex.Message}"); }
+            };
             // MsiClawControllerModeManager: MSI Claw-specific Controller/Mouse mode tile.
             msiClawControllerModeManager = new MsiClawControllerModeManager();
             wave3Timer.Stop();

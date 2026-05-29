@@ -503,21 +503,43 @@ namespace XboxGamingBar
             // If TDPModeIndex is set, use it directly (for custom presets)
             if (profile.TDPModeIndex >= 0)
             {
-                // Validate the index is still valid with current preset configuration
-                int maxIndex = useCustomTDPPresets && tdpPresets != null ? tdpPresets.Count : 3;
+                // Validate the index is still valid with current preset configuration.
+                // For custom presets: valid range 0..tdpPresets.Count (Slider = tdpPresets.Count).
+                // For default presets: valid range 0..5 (Max=0..SuperBattery=4, Slider=5).
+                int maxIndex = useCustomTDPPresets && tdpPresets != null ? tdpPresets.Count : 5;
                 if (profile.TDPModeIndex <= maxIndex)
                 {
                     return profile.TDPModeIndex;
                 }
             }
-            // Fall back to legacy: convert LegionPerformanceMode to index
-            // For non-Legion devices (MSI Claw) there are no hardware modes — default to Standard (index 0).
+            // Fall back: no valid TDPModeIndex saved — match by stored TDP watt value so we
+            // don't blindly reset to Standard (25 W) when the user had e.g. Max (30 W) active.
             bool isLegionDevice = legionGoDetected?.Value == true;
             if (!isLegionDevice)
             {
-                return 1; // Standard (25W) is the MSI Claw default — index 1 (Max is index 0)
+                int tdpWatts = (int)Math.Round((double)profile.TDP);
+                if (useCustomTDPPresets && tdpPresets != null)
+                {
+                    for (int i = 0; i < tdpPresets.Count; i++)
+                    {
+                        if (tdpPresets[i].TdpWatts == tdpWatts)
+                            return i;
+                    }
+                }
+                else
+                {
+                    // Default hardcoded preset watt values: Max(30), Standard(25), Balanced(17), Battery(12), SuperBattery(8)
+                    int[] defaultTdpValues = { 30, 25, 17, 12, 8 };
+                    for (int i = 0; i < defaultTdpValues.Length; i++)
+                    {
+                        if (defaultTdpValues[i] == tdpWatts)
+                            return i;
+                    }
+                }
+                return 1; // Default to Standard if no watt match found
             }
-            int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom (Legion Go only)
+            // Legion device: convert LegionPerformanceMode to index
+            int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
             int index = Array.IndexOf(modeValues, profile.LegionPerformanceMode);
             return index >= 0 ? index : 1; // Default to Balanced for Legion if not found
         }

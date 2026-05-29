@@ -265,6 +265,9 @@ namespace XboxGamingBar
             {
                 profile.FPSLimitEnabled = FPSLimitToggle.IsOn;
                 profile.FPSLimitValue = (int)FPSLimitSlider.Value;
+                // Also persist the active limiter mode so the correct limiter is restored
+                profile.FpsCapMode = fpsCapMode?.Value ?? 0;
+                profile.IntelFpsTier = intelFpsTier?.Value ?? 0;
             }
             if (SaveAutoTDP && AutoTDPToggle != null && AutoTDPTargetFPSSlider != null && AutoTDPMinSlider != null && AutoTDPMaxSlider != null)
             {
@@ -502,11 +505,38 @@ namespace XboxGamingBar
                 }
                 if (SaveFPSLimit)
                 {
-                    FPSLimitToggle.IsOn = profile.FPSLimitEnabled;
+                    bool intelMode = profile.FpsCapMode == 1 && profile.IntelFpsTier > 0;
+
+                    // Apply FPS cap mode (RTSS=0 / Intel=1) — must go first so helper switches mode before values
+                    if (fpsCapMode != null && fpsCapMode.Value != profile.FpsCapMode)
+                        fpsCapMode.SetValue(profile.FpsCapMode);
+
+                    if (intelMode)
+                    {
+                        // Intel mode active: set tier, silence RTSS (0)
+                        intelFpsTier?.SetValue(profile.IntelFpsTier);
+                        fpsLimit?.SetValue(0);
+                        // Update the UI combo without triggering save
+                        if (IntelFpsTierComboBox != null)
+                        {
+                            isApplyingHelperUpdate = true;
+                            try { IntelFpsTierComboBox.SelectedIndex = profile.IntelFpsTier; }
+                            finally { isApplyingHelperUpdate = false; }
+                        }
+                    }
+                    else
+                    {
+                        // RTSS mode: set fps limit, silence Intel (0)
+                        intelFpsTier?.SetValue(0);
+                        int fpsLimitValue = profile.FPSLimitEnabled ? profile.FPSLimitValue : 0;
+                        fpsLimit?.SetValue(fpsLimitValue);
+                    }
+
+                    // Sync toggle + slider UI state
+                    FPSLimitToggle.IsOn = profile.FPSLimitEnabled || intelMode;
                     FPSLimitSlider.Value = profile.FPSLimitValue;
-                    // Send to helper explicitly (toggle/slider handlers may be blocked by flags)
-                    int fpsLimitValue = profile.FPSLimitEnabled ? profile.FPSLimitValue : 0;
-                    fpsLimit?.SetValue(fpsLimitValue);
+                    // Refresh the whole FPS section so mode radio + panels match
+                    UpdateFPSLimitControls();
                 }
                 if (SaveAutoTDP)
                 {
@@ -742,7 +772,10 @@ namespace XboxGamingBar
                     }
                 }
                 // Generic device TDP Mode handling
-                else if (legionGoDetected?.Value != true && TDPModeComboBox != null && defaultGameProfileEnabled?.Value != true && !isInitialSync)
+                // Note: no !isInitialSync guard here — we must set the ComboBox even at startup so the
+                // UI shows the saved mode. isLoadingProfile=true prevents SelectionChanged from saving or
+                // sending to hardware; ApplyProfileTDPToHelper handles the hardware send after connection.
+                else if (legionGoDetected?.Value != true && TDPModeComboBox != null && defaultGameProfileEnabled?.Value != true)
                 {
                     // Load TDP Mode from profile for generic devices
                     int profileMode = profile.LegionPerformanceMode;

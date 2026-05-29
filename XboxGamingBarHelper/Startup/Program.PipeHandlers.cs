@@ -718,6 +718,28 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Handle system volume adjustment request (+/- percentage delta)
+                if (pipeMsg.Extra.TryGetValue("AdjustVolume", out object volumeObj))
+                {
+                    try
+                    {
+                        int delta = 0;
+                        if (volumeObj is int vi) delta = vi;
+                        else if (volumeObj is long vl) delta = (int)vl;
+                        else if (volumeObj is double vd) delta = (int)vd;
+                        else if (volumeObj is string vs) int.TryParse(vs, out delta);
+
+                        Logger.Info($"Pipe: AdjustVolume delta={delta}");
+                        AdjustVolume(delta);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: AdjustVolume threw: {ex.Message}");
+                    }
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+
                 // Handle controller-button query from widget's binding flyout.
                 // The widget's DispatcherTimer polls every ~100 ms while the binding UI is open.
                 // Returns the current raw XInput button bitmask read by ControllerHotkeyMonitor
@@ -1774,6 +1796,38 @@ namespace XboxGamingBarHelper
         /// Adjust the display brightness by <paramref name="delta"/> percent.
         /// Delegates to BrightnessManager which uses WMI internally.
         /// </summary>
+        /// <summary>
+        /// Raise or lower the current PL1 TDP by <paramref name="delta"/> watts.
+        /// Clamps PL1 to [4 W, 36 W] — ensures PL2 = PL1+1 ≤ 37 W (MSI Claw hardware limit).
+        /// </summary>
+        internal static void AdjustTDPByWatts(int delta)
+        {
+            try
+            {
+                if (performanceManager == null) { Logger.Warn("AdjustTDPByWatts: performanceManager not available"); return; }
+                int current = performanceManager.CurrentSPL > 0 ? performanceManager.CurrentSPL : 15;
+                const int TDP_MIN = 4;
+                const int TDP_MAX = 36;  // PL2 = PL1+1 ≤ 37 W
+                int next = Math.Max(TDP_MIN, Math.Min(TDP_MAX, current + delta));
+                performanceManager.SetTDP(next);
+                Logger.Info($"AdjustTDPByWatts: {current}W → {next}W (delta={delta})");
+            }
+            catch (Exception ex) { Logger.Warn($"AdjustTDPByWatts failed: {ex.Message}"); }
+        }
+
+        internal static void AdjustVolume(int delta)
+        {
+            try
+            {
+                using var mgr = new Sidebar.Audio.AudioManager();
+                int current = mgr.GetVolume();
+                int next = Math.Max(0, Math.Min(100, current + delta));
+                mgr.SetVolume(next);
+                Logger.Info($"AdjustVolume: {current}% → {next}% (delta={delta})");
+            }
+            catch (Exception ex) { Logger.Warn($"AdjustVolume failed: {ex.Message}"); }
+        }
+
         private static void AdjustBrightness(int delta)
         {
             try

@@ -303,16 +303,13 @@ namespace XboxGamingBarHelper
                 try
                 {
                     // ── Step 0: MSI Center guard ──────────────────────────────────
-                    // Controller emulation requires MSI Center M to be stopped first.
-                    // If MSI processes/service are still active, HidHide suppression
-                    // can be undermined (MSI software re-shows or re-registers controllers).
+                    // Controller emulation requires MSI Center M to be fully stopped.
+                    // MSI software re-registers controllers and fights HidHide suppression.
                     if (msiCenterManager?.DetectActive() == true)
                     {
-                        Logger.Warn("[MSIClaw] MSI Center M is still active (processes, service, or tasks running). " +
-                                    "Controller emulation may be unreliable. " +
-                                    "Use the MSI Center M toggle in ClawTweaks to stop it first.");
-                        // Do not hard-block — user may have partially disabled it.
-                        // The warning is surfaced in logs and the MSI tile reflects the state.
+                        Logger.Warn("[MSIClaw] MSI Center M is active — controller emulation blocked. " +
+                                    "Stop MSI Center M via the Quick Tab tile first.");
+                        return; // Hard block: do not start ClawButtonMonitor / ViGEm
                     }
 
                     // ── Step 0.5: Proactive XInput mode switch ────────────────────
@@ -441,6 +438,45 @@ namespace XboxGamingBarHelper
         /// LegionButtonM1Property.NotifyPropertyChanged() → SetButtonMappingAdvanced() →
         /// MSI Claw branch → OnButtonMappingChanged → ConfigureXInputRemap().
         /// </summary>
+        /// <summary>
+        /// Called when MSI Center M active state changes (poll-detected or user-toggled).
+        ///
+        /// active = true  → MSI Center M just started  → stop ClawButtonMonitor + mouse forwarder
+        /// active = false → MSI Center M just stopped  → restart the appropriate emulation mode
+        ///
+        /// Wired in Program.cs after msiCenterManager is created.
+        /// </summary>
+        internal static void OnMsiCenterStateChanged(bool active)
+        {
+            var deviceInfo = Devices.DeviceDetector.DetectDevice();
+            if (deviceInfo.DeviceType != DeviceType.MSIClaw) return;
+
+            if (active)
+            {
+                // MSI Center M became active → shut down our controller emulation immediately
+                Logger.Info("[Program.MSIClaw] MSI Center M active → stopping ClawButtonMonitor and mouse forwarder");
+                StopMSIClawButtonMonitor();
+                StopMSIClawMouseForwarder();
+            }
+            else
+            {
+                // MSI Center M deactivated → restart controller emulation if the master toggle is on
+                Logger.Info("[Program.MSIClaw] MSI Center M deactivated → restarting controller emulation");
+                bool controllerModeOn = msiClawControllerModeManager?.MsiClawControllerMode?.Value ?? true;
+
+                if (controllerModeOn)
+                {
+                    bool emulationEnabled = controllerEmulationManager?.EmulationEnabled ?? true;
+                    if (emulationEnabled)
+                        StartClawButtonMonitorBackground();
+                }
+                else
+                {
+                    StartMSIClawMouseForwarderBackground();
+                }
+            }
+        }
+
         private static void WireClawXInputRemapCallback()
         {
             if (legionManager == null) return;

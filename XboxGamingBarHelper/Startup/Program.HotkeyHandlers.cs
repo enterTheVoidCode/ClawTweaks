@@ -354,7 +354,10 @@ namespace XboxGamingBarHelper
                     int actionType = 0;
                     string shortcut = "";
                     string name = "Tile";
+                    string id = "";
 
+                    if (entry.TryGetProperty("id", out var idEl))
+                        id = idEl.GetString() ?? "";
                     if (entry.TryGetProperty("mask", out var maskEl))
                         mask = (uint)maskEl.GetInt64(); // uint to support M1/M2 bits (0x10000, 0x20000)
                     if (entry.TryGetProperty("actionType", out var atEl))
@@ -364,17 +367,18 @@ namespace XboxGamingBarHelper
                     if (entry.TryGetProperty("name", out var nameEl))
                         name = nameEl.GetString() ?? "Tile";
 
-                    Logger.Debug($"ApplyTileHotkeys: Entry name='{name}' mask=0x{mask:X5} action={actionType} shortcut='{shortcut}'");
+                    Logger.Debug($"ApplyTileHotkeys: Entry id='{id}' name='{name}' mask=0x{mask:X5} action={actionType} shortcut='{shortcut}'");
                     if (mask == 0) { Logger.Warn("ApplyTileHotkeys: Entry skipped — mask is 0"); continue; }
 
                     // Capture for lambda
                     int capturedActionType = actionType;
                     string capturedShortcut = shortcut;
                     string capturedName = name;
+                    string capturedId = id;
 
                     Action callback = () =>
                     {
-                        Logger.Info($"ApplyTileHotkeys: Tile '{capturedName}' triggered (action={capturedActionType}, shortcut='{capturedShortcut}')");
+                        Logger.Info($"ApplyTileHotkeys: Tile '{capturedName}' (id='{capturedId}') triggered (action={capturedActionType}, shortcut='{capturedShortcut}')");
                         switch (capturedActionType)
                         {
                             case 10: // BrightnessUp
@@ -386,27 +390,44 @@ namespace XboxGamingBarHelper
                             case 12: // AltTab
                                 ExecuteKeyboardShortcut("Alt+Tab");
                                 break;
-                            case 13: // AltTabBack
-                                ExecuteKeyboardShortcut("Alt+Shift+Tab");
+                            case 13: // AltTabBack — cycle to previous app
+                                ExecuteKeyboardShortcut("Alt+Tab");
                                 break;
                             case 14: // GoToDesktop
                                 ExecuteKeyboardShortcut("Win+D");
                                 break;
-                            case 20: // CycleOverlayMode
+                            case 20: // CycleOverlayMode — can run locally on helper side
                                 ToggleOSD();
                                 break;
+                            case 25: // TDPIncrBy1W — adjust current TDP +1 W via PerformanceManager
+                                AdjustTDPByWatts(+1);
+                                break;
+                            case 26: // TDPDecrBy1W
+                                AdjustTDPByWatts(-1);
+                                break;
+                            case 27: // VolumeUp
+                                AdjustVolume(+5);
+                                break;
+                            case 28: // VolumeDown
+                                AdjustVolume(-5);
+                                break;
                             case 1:  // KeyboardShortcut (custom)
-                            case 0:  // None — use shortcut field
                                 if (!string.IsNullOrEmpty(capturedShortcut))
                                     ExecuteKeyboardShortcut(capturedShortcut);
                                 break;
-                            default:
-                                // App actions (TDP etc.) can't be fully executed from helper side;
-                                // send shortcut if provided, otherwise log
+                            case 0:  // None — use shortcut field; if empty, forward to widget
                                 if (!string.IsNullOrEmpty(capturedShortcut))
                                     ExecuteKeyboardShortcut(capturedShortcut);
                                 else
-                                    Logger.Warn($"ApplyTileHotkeys: Tile '{capturedName}' action {capturedActionType} not executable from helper");
+                                    FireTileHotkeyToWidget(capturedId, capturedName);
+                                break;
+                            default:
+                                // Widget-side app actions (21=CycleTDPMode, 22=TDPStepUp, 23=TDPStepDown,
+                                // 24=CycleLimiterMode) and any other unknown action: forward to widget.
+                                // If a shortcut is also set, execute it in addition.
+                                if (!string.IsNullOrEmpty(capturedShortcut))
+                                    ExecuteKeyboardShortcut(capturedShortcut);
+                                FireTileHotkeyToWidget(capturedId, capturedName);
                                 break;
                         }
                         // Show RTSS notification
@@ -422,6 +443,32 @@ namespace XboxGamingBarHelper
             catch (Exception ex)
             {
                 Logger.Error($"ApplyTileHotkeys: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sends a TileHotkeyFired notification back to the widget so it can execute
+        /// widget-side actions (TDP cycle, FPS cycle, Desktop Mode, etc.) that the
+        /// helper cannot perform directly.
+        /// </summary>
+        private static void FireTileHotkeyToWidget(string tileId, string tileName)
+        {
+            try
+            {
+                if (pipeServer == null || !pipeServer.IsConnected)
+                {
+                    Logger.Warn($"FireTileHotkeyToWidget: pipe not connected, cannot fire '{tileName}' (id='{tileId}')");
+                    return;
+                }
+
+                // Build a minimal JSON message the widget handles in PipeClient_MessageReceived
+                string json = $"{{\"TileHotkeyFired\":\"{tileId.Replace("\"", "\\\"")}\",\"TileName\":\"{tileName.Replace("\"", "\\\"")}\"}}";
+                pipeServer.SendMessage(json);
+                Logger.Info($"FireTileHotkeyToWidget: sent TileHotkeyFired for '{tileName}' (id='{tileId}')");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"FireTileHotkeyToWidget: {ex.Message}");
             }
         }
 

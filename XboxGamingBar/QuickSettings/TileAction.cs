@@ -22,10 +22,15 @@ namespace XboxGamingBar.QuickSettings
         GoToDesktop    = 14,
 
         // ── App Actions (20–29) ────────────────────────────────────────────
-        CycleOverlayMode = 20,
-        CycleTDPMode     = 21,
-        TDPStepUp        = 22,
-        TDPStepDown      = 23,
+        CycleOverlayMode  = 20,
+        CycleTDPMode      = 21,
+        TDPStepUp         = 22,
+        TDPStepDown       = 23,
+        CycleLimiterMode  = 24,   // cycle FPS limiter values for current mode (RTSS or Intel)
+        TDPIncrBy1W       = 25,   // raise current TDP by exactly 1 W (PL1 max 36 W → PL2 = 37 W)
+        TDPDecrBy1W       = 26,   // lower current TDP by exactly 1 W
+        VolumeUp          = 27,   // system volume +5 %
+        VolumeDown        = 28,   // system volume -5 %
     }
 
     public static class TileActionHelper
@@ -35,15 +40,20 @@ namespace XboxGamingBar.QuickSettings
             switch (action)
             {
                 case TileActionType.KeyboardShortcut: return "Keyboard Shortcut";
-                case TileActionType.BrightnessUp:     return "Helligkeit +5%";
-                case TileActionType.BrightnessDown:   return "Helligkeit -5%";
-                case TileActionType.AltTab:           return "Alt+Tab (Fensterübersicht)";
-                case TileActionType.AltTabBack:       return "Alt+Tab (Vorherige App)";
-                case TileActionType.GoToDesktop:      return "Desktop (Win+D)";
-                case TileActionType.CycleOverlayMode: return "Overlay Modes durchschalten";
-                case TileActionType.CycleTDPMode:     return "TDP Modes durchschalten";
-                case TileActionType.TDPStepUp:        return "TDP +1 Stufe";
-                case TileActionType.TDPStepDown:      return "TDP -1 Stufe";
+                case TileActionType.BrightnessUp:     return "Brightness +5%";
+                case TileActionType.BrightnessDown:   return "Brightness -5%";
+                case TileActionType.AltTab:           return "Window Overview (Alt+Tab)";
+                case TileActionType.AltTabBack:       return "Cycle Through Apps";
+                case TileActionType.GoToDesktop:      return "Show Desktop (Win+D)";
+                case TileActionType.CycleOverlayMode: return "Cycle Overlay Mode";
+                case TileActionType.CycleTDPMode:     return "Cycle TDP Mode";
+                case TileActionType.TDPStepUp:        return "TDP Step Up";
+                case TileActionType.TDPStepDown:      return "TDP Step Down";
+                case TileActionType.CycleLimiterMode: return "Cycle FPS Limit";
+                case TileActionType.TDPIncrBy1W:      return "TDP +1W";
+                case TileActionType.TDPDecrBy1W:      return "TDP -1W";
+                case TileActionType.VolumeUp:         return "Volume +5%";
+                case TileActionType.VolumeDown:       return "Volume -5%";
                 default: return "Unknown";
             }
         }
@@ -61,6 +71,10 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.CycleTDPMode:     return "";  // Performance
                 case TileActionType.TDPStepUp:        return "";  // Up
                 case TileActionType.TDPStepDown:      return "";  // Down
+                case TileActionType.TDPIncrBy1W:      return "";  // Add
+                case TileActionType.TDPDecrBy1W:      return "";  // Remove
+                case TileActionType.VolumeUp:         return "";  // Volume 2
+                case TileActionType.VolumeDown:       return "";  // Volume 0
                 default: return "";
             }
         }
@@ -69,6 +83,7 @@ namespace XboxGamingBar.QuickSettings
         {
             int v = (int)action;
             if (v >= 10 && v < 20) return "OS";
+            if (v == 27 || v == 28) return "OS";  // VolumeUp / VolumeDown
             if (v >= 20) return "App";
             return "";
         }
@@ -79,6 +94,8 @@ namespace XboxGamingBar.QuickSettings
             // OS group
             yield return TileActionType.BrightnessUp;
             yield return TileActionType.BrightnessDown;
+            yield return TileActionType.VolumeUp;
+            yield return TileActionType.VolumeDown;
             yield return TileActionType.AltTab;
             yield return TileActionType.AltTabBack;
             yield return TileActionType.GoToDesktop;
@@ -87,6 +104,8 @@ namespace XboxGamingBar.QuickSettings
             yield return TileActionType.CycleTDPMode;
             yield return TileActionType.TDPStepUp;
             yield return TileActionType.TDPStepDown;
+            yield return TileActionType.TDPIncrBy1W;
+            yield return TileActionType.TDPDecrBy1W;
         }
     }
 }
