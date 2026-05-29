@@ -269,13 +269,13 @@ namespace XboxGamingBar
             // FPSLimit + IntelFpsTier merged into one tile with left (mode) / right (value) sub-buttons
             // AddTileDefinition("FPSLimit",     "FPS Limit", "\uE916", order: 1);                // replaced by FPSCombined
             // AddTileDefinition("IntelFpsTier", "Intel FPS", "\uE916", order: 2, hasDropdown: true);  // replaced by FPSCombined
-            AddTileDefinition("FPSCombined", "FPS limit.", "\uE916", order: 1, hasDualButtons: true);    // RTSS+Intel combined \u2014 \u2190 mode, \u2192 value
-            AddTileDefinition("Overlay",      "Overlay",   "\uE7B3", order: 2, hasDropdown: true);
+            AddTileDefinition("FPSCombined", "FPS limit.", "\uE916", order: 1, hasDropdown: true);    // RTSS+Intel combined \u2014 main=FPS dropdown, bottom=Mode switch
+            AddTileDefinition("Overlay",      "Overlay",   "\uE7B3", order: 2);
 
             int order = 4;
 
             // Row 1 - Performance Core (most used)
-            AddTileDefinition("TDPMode", "TDP Mode", "\uE945", order: order++, hasDropdown: true);
+            AddTileDefinition("TDPMode", "TDP Mode", "\uE945", order: order++);
             // AddTileDefinition("AutoTDP", "AutoTDP", "\uE9F5", order: order++);  // removed: not applicable on Intel Claw
             // AddTileDefinition("PowerMode", "Power Mode", "\uE945", order: order++);  // removed: not used on MSI Claw
 
@@ -608,17 +608,17 @@ namespace XboxGamingBar
 
                 foreach (var tile in qsTileDefinitions)
                 {
-                    string visKey = $"QS_{tile.Id}_Visible";
+                    string visKey   = $"QS_{tile.Id}_Visible";
                     string orderKey = $"QS_{tile.Id}_Order";
+                    string hotkeyKey = $"QS_{tile.Id}_Hotkey";
 
                     if (settings.Values.TryGetValue(visKey, out object val) && val is bool visible)
-                    {
                         tile.IsVisible = visible;
-                    }
                     if (settings.Values.TryGetValue(orderKey, out object orderVal) && orderVal is int order)
-                    {
                         tile.Order = order;
-                    }
+                    // Restore controller hotkey for built-in tiles (custom tiles load theirs via QuickSettingsConfig)
+                    if (!tile.IsTrigger && settings.Values.TryGetValue(hotkeyKey, out object hkVal) && hkVal is string hk && !string.IsNullOrEmpty(hk))
+                        tile.ControllerHotkey = hk;
                 }
 
                 Logger.Info($"Quick Settings config loaded (columns: {qsColumnCount})");
@@ -644,7 +644,10 @@ namespace XboxGamingBar
                 foreach (var tile in qsTileDefinitions)
                 {
                     settings.Values[$"QS_{tile.Id}_Visible"] = tile.IsVisible;
-                    settings.Values[$"QS_{tile.Id}_Order"] = tile.Order;
+                    settings.Values[$"QS_{tile.Id}_Order"]   = tile.Order;
+                    // Persist controller hotkey for built-in tiles (custom tiles use QuickSettingsConfig)
+                    if (!tile.IsTrigger)
+                        settings.Values[$"QS_{tile.Id}_Hotkey"] = tile.ControllerHotkey ?? "";
                 }
 
                 Logger.Info($"Quick Settings config saved (columns: {qsColumnCount})");

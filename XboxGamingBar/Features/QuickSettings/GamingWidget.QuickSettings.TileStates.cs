@@ -1,4 +1,4 @@
-﻿using Microsoft.Gaming.XboxGameBar;
+using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -231,6 +231,16 @@ namespace XboxGamingBar
                 dropBtn.Click += TileDropdown_Click;
                 tile.DropdownButton = dropBtn;
 
+                // FPSCombined: bottom button is a mode-switch, not a value dropdown — relabel it
+                if (tile.Id == "FPSCombined")
+                    dropBtn.Content = new TextBlock
+                    {
+                        Text = "Mode",
+                        FontSize = 11,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        HorizontalAlignment = HorizontalAlignment.Center
+                    };
+
                 return wrapper;
             }
 
@@ -319,6 +329,7 @@ namespace XboxGamingBar
 
                 return wrapper;
             }
+
 
             return button;
         }

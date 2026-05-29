@@ -89,6 +89,19 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Helper fires a tile hotkey that can't be executed directly (widget-side action)
+                if (message.TryGetValue("TileHotkeyFired", out object tileHotkeyIdObj)
+                    && tileHotkeyIdObj is string tileHotkeyId)
+                {
+                    Logger.Info($"TileHotkeyFired received for tile '{tileHotkeyId}'");
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { SimulateTileHotkeyFired(tileHotkeyId); }
+                        catch (Exception ex) { Logger.Error($"TileHotkeyFired dispatch error: {ex.Message}"); }
+                    });
+                    return;
+                }
+
                 // Helper pushes DriverUpdatesAvailable as an unsolicited message
                 // after its startup driver probe completes. Light up the Quick
                 // tab tile; no other state needs updating yet.

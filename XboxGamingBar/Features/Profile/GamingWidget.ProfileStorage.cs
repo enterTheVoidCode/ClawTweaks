@@ -74,6 +74,8 @@ namespace XboxGamingBar
             container.Values["RadeonChillMaxFPS"] = profile.RadeonChillMaxFPS;
             container.Values["FPSLimitEnabled"] = profile.FPSLimitEnabled;
             container.Values["FPSLimitValue"] = profile.FPSLimitValue;
+            container.Values["FpsCapMode"] = profile.FpsCapMode;
+            container.Values["IntelFpsTier"] = profile.IntelFpsTier;
             container.Values["AutoTDPEnabled"] = profile.AutoTDPEnabled;
             container.Values["AutoTDPTargetFPS"] = profile.AutoTDPTargetFPS;
             container.Values["AutoTDPMinTDP"] = profile.AutoTDPMinTDP;
@@ -130,6 +132,8 @@ namespace XboxGamingBar
                 profile.RadeonChillMaxFPS = container.Values.ContainsKey("RadeonChillMaxFPS") ? (double)container.Values["RadeonChillMaxFPS"] : 60;
                 profile.FPSLimitEnabled = container.Values.ContainsKey("FPSLimitEnabled") ? (bool)container.Values["FPSLimitEnabled"] : false;
                 profile.FPSLimitValue = container.Values.ContainsKey("FPSLimitValue") ? (int)container.Values["FPSLimitValue"] : 60;
+                profile.FpsCapMode = container.Values.ContainsKey("FpsCapMode") ? (int)container.Values["FpsCapMode"] : 0;
+                profile.IntelFpsTier = container.Values.ContainsKey("IntelFpsTier") ? (int)container.Values["IntelFpsTier"] : 0;
                 profile.AutoTDPEnabled = container.Values.ContainsKey("AutoTDPEnabled") ? (bool)container.Values["AutoTDPEnabled"] : false;
                 profile.AutoTDPTargetFPS = container.Values.ContainsKey("AutoTDPTargetFPS") ? (int)container.Values["AutoTDPTargetFPS"] : 60;
                 profile.AutoTDPMinTDP = container.Values.ContainsKey("AutoTDPMinTDP") ? (int)container.Values["AutoTDPMinTDP"] : 8;

@@ -89,7 +89,8 @@ namespace XboxGamingBar
                         // NOTE: this block was previously inside `else` which made it unreachable
                         // for tiles already found in qsTileMap. Moved outside so standard tiles work.
                             case "TDPMode":
-                                CycleTDPMode();
+                                if (_isControllerTriggered) CycleTDPMode();
+                                else ShowTDPDropdown(button);
                                 break;
                             case "AutoTDP":
                                 ToggleAutoTDPTile();
@@ -98,13 +99,15 @@ namespace XboxGamingBar
                                 TogglePerGameProfile();
                                 break;
                             case "Overlay":
-                                CyclePerformanceOverlay();
+                                if (_isControllerTriggered) CyclePerformanceOverlay();
+                                else ShowOverlayDropdown(button);
                                 break;
                             case "PowerMode":
                                 CyclePowerMode();
                                 break;
                             case "FPSCombined":
-                                CycleFPSForCurrentMode();  // main tile = cycle current mode's FPS values
+                                if (_isControllerTriggered) CycleFPSForCurrentMode();
+                                else ShowFPSCombinedDropdown(button);
                                 break;
                             case "FPSLimit":               // kept for legacy/settings persistence
                                 CycleFPSLimit();
@@ -217,125 +220,137 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Called when the helper fires a tile hotkey for a widget-side action (standard tile or
+        /// action type 21-24). Simulates a tile button click by reusing the existing click dispatcher.
+        /// </summary>
+        // Set while a controller hotkey fires a tile action — tiles that normally open a
+        // flyout dropdown switch to headless cycle behavior instead (no visual anchor needed).
+        private bool _isControllerTriggered = false;
+
+        private void SimulateTileHotkeyFired(string tileId)
+        {
+            if (string.IsNullOrEmpty(tileId)) return;
+            Logger.Info($"SimulateTileHotkeyFired: '{tileId}'");
+            _isControllerTriggered = true;
+            try
+            {
+                var fakeBtn = new Button { Tag = tileId };
+                QuickSettingsTile_Click(fakeBtn, new Windows.UI.Xaml.RoutedEventArgs());
+            }
+            finally { _isControllerTriggered = false; }
+
+            // Show the new tile state in the RTSS OSD so the user sees what changed.
+            // UpdateQuickSettingsTileStates() has already run inside QuickSettingsTile_Click,
+            // so the StateText now reflects the new state.
+            if (qsTileMap.TryGetValue(tileId, out var tile) && tile.StateText != null)
+            {
+                string tileName  = tile.Name  ?? tileId;
+                string stateText = tile.StateText.Text ?? "";
+                string notif = string.IsNullOrEmpty(stateText) || stateText == tileName
+                    ? tileName
+                    : $"{tileName}\n{stateText}";
+                _ = SendActionNotificationAsync(notif);
+            }
+        }
+
         private void CycleTDPMode()
         {
-            // If default game profile is active, turn it off when user manually changes TDP mode
+            if (TDPModeComboBox == null) return;
+
+            // If default game profile is active, turn it off first
             if (defaultGameProfileEnabled?.Value == true && DefaultProfileToggle != null)
             {
                 Logger.Info("TDP Mode tile clicked - turning off Default Game Profile");
                 DefaultProfileToggle.IsOn = false;
-                // The toggle change will trigger OnDefaultProfileEnabledChanged which re-enables controls
             }
 
             bool isLegion = legionGoDetected?.Value == true;
-            int currentIndex = TDPModeComboBox?.SelectedIndex ?? 0;
 
-            // Use custom presets if enabled
-            if (useCustomTDPPresets && tdpPresets != null && tdpPresets.Count > 0)
+            // ── Legion non-custom: hardware mode cycle (unchanged) ─────────────────
+            if (isLegion && !(useCustomTDPPresets && tdpPresets != null && tdpPresets.Count > 0))
             {
-                // Total items = presets + Custom mode
-                int totalItems = tdpPresets.Count + 1;
-                int nextIndex = (currentIndex + 1) % totalItems;
-
-                // Update combobox
-                if (TDPModeComboBox != null)
-                {
-                    isUserInitiatedTDPModeChange = true;
-                    TDPModeComboBox.SelectedIndex = nextIndex;
-                    isUserInitiatedTDPModeChange = false;
-                }
-
-                // Determine the Legion mode and TDP to apply
-                int nextLegionMode;
-                int? nextTdp = null;
-                string presetName;
-
-                if (nextIndex < tdpPresets.Count)
-                {
-                    var preset = tdpPresets[nextIndex];
-                    nextLegionMode = preset.LegionModeValue ?? 255;
-                    nextTdp = preset.TdpWatts;
-                    presetName = preset.Name;
-                }
-                else
-                {
-                    // Custom mode (last item)
-                    nextLegionMode = 255;
-                    presetName = "Custom";
-                }
-
-                // For Legion devices, set the hardware mode
-                if (isLegion && legionPerformanceMode != null)
-                {
-                    legionPerformanceMode.SetValue(nextLegionMode);
-                }
-
-                // Apply TDP for software-controlled presets (no LegionModeValue or Custom mode)
-                if (nextLegionMode == 255 && nextTdp.HasValue)
-                {
-                    // Apply the preset's TDP via the TDP slider/property
-                    if (TDPSlider != null)
-                    {
-                        TDPSlider.Value = nextTdp.Value;
-                    }
-                    ScheduleQsTdpReapply();
-                }
-                else if (nextLegionMode == 255)
-                {
-                    // Pure Custom mode - schedule reapply for current slider value
-                    ScheduleQsTdpReapply();
-                }
-
-                Logger.Info($"TDP Mode cycled to preset '{presetName}' (index={nextIndex}, legionMode={nextLegionMode}, tdp={nextTdp})");
-            }
-            else
-            {
-                // Default hardcoded mode cycling: Quiet(1) -> Balanced(2) -> Performance(3) -> Custom(255)
                 int[] modeValues = { 1, 2, 3, 255 };
-                int currentMode;
-                if (isLegion && legionPerformanceMode != null)
-                {
-                    currentMode = legionPerformanceMode.Value;
-                }
-                else
-                {
-                    currentMode = (currentIndex >= 0 && currentIndex < modeValues.Length) ? modeValues[currentIndex] : 2;
-                }
-
-                // Calculate next mode
+                int currentMode = legionPerformanceMode?.Value ?? 2;
                 int nextMode;
                 switch (currentMode)
                 {
-                    case 1: nextMode = 2; break;     // Quiet -> Balanced
-                    case 2: nextMode = 3; break;     // Balanced -> Performance
-                    case 3: nextMode = 255; break;   // Performance -> Custom
-                    case 255: nextMode = 1; break;   // Custom -> Quiet
+                    case 1: nextMode = 2; break;
+                    case 2: nextMode = 3; break;
+                    case 3: nextMode = 255; break;
+                    case 255: nextMode = 1; break;
                     default: nextMode = 2; break;
                 }
-
-                // For Legion devices, update the Legion property
-                if (isLegion && legionPerformanceMode != null)
-                {
-                    legionPerformanceMode.SetValue(nextMode);
-                }
-
-                // Update TDPModeComboBox
-                int nextIndex = Array.IndexOf(modeValues, nextMode);
-                if (nextIndex >= 0 && TDPModeComboBox != null)
-                {
-                    isUserInitiatedTDPModeChange = true;
-                    TDPModeComboBox.SelectedIndex = nextIndex;
-                    isUserInitiatedTDPModeChange = false;
-                }
-
-                // If switching to Custom mode on Legion, schedule TDP reapply
-                if (isLegion && nextMode == 255)
-                {
-                    ScheduleQsTdpReapply();
-                }
-
-                Logger.Info($"TDP Mode cycled from {currentMode} to {nextMode} (isLegion={isLegion})");
+                legionPerformanceMode?.SetValue(nextMode);
+                int nextIdx = Array.IndexOf(modeValues, nextMode);
+                if (nextIdx >= 0) { lastTDPModeIndex = nextIdx; TDPModeComboBox.SelectedIndex = nextIdx; }
+                if (nextMode == 255) ScheduleQsTdpReapply();
+                Logger.Info($"TDP Mode cycled (Legion): {currentMode} → {nextMode}");
+                return;
             }
+
+            // ── Non-Legion OR custom-presets: preset cycle via SelectionChanged ──────
+            // Determine the ordered list of presets to cycle through.
+
+            int itemCount = TDPModeComboBox.Items.Count;
+            int presetCount;
+            if (useCustomTDPPresets && tdpPresets != null && tdpPresets.Count > 0)
+                presetCount = tdpPresets.Count;
+            else
+                presetCount = itemCount > 1 ? itemCount - 1 : itemCount;
+
+            // Use lastTDPModeIndex as source of truth — SelectedIndex can be corrupted by
+            // helper pipe echo-backs that remap the index differently after SetValue.
+            int cur = lastTDPModeIndex >= 0 ? lastTDPModeIndex : TDPModeComboBox.SelectedIndex;
+
+            // ── Diagnostic log (remove once cycle confirmed working) ──────────────
+            Logger.Info($"[CycleTDP] ENTER — useCustomPresets={useCustomTDPPresets}, " +
+                        $"tdpPresets.Count={tdpPresets?.Count ?? -1}, " +
+                        $"itemCount={itemCount}, presetCount={presetCount}, " +
+                        $"selectedIndex(cur)={cur}, lastTDPModeIndex={lastTDPModeIndex}, " +
+                        $"tdp?={(tdp == null ? "NULL" : "ok")}, " +
+                        $"isApplyingHelperUpdate={isApplyingHelperUpdate}, " +
+                        $"isLoadingProfile={isLoadingProfile}, isInitialSync={isInitialSync}");
+
+            if (presetCount <= 0) { Logger.Warn("[CycleTDP] presetCount=0 → abort"); return; }
+
+            if (cur < 0 || cur >= presetCount) cur = 0;
+            int next = (cur + 1) % presetCount;
+
+            // Resolve preset TDP and name
+            int presetTdp  = 0;
+            int legionMode = 255;
+            string name    = $"Preset {next}";
+
+            if (useCustomTDPPresets && tdpPresets != null && next < tdpPresets.Count)
+            {
+                var p  = tdpPresets[next];
+                presetTdp  = p.TdpWatts;
+                legionMode = p.LegionModeValue ?? 255;
+                name       = p.Name;
+            }
+            else
+            {
+                int[] defaultWatts = { 30, 25, 17, 12, 8 };
+                string[] defaultNames = { "Max", "Standard", "Balanced", "Battery", "Super Battery" };
+                if (next < defaultWatts.Length)  presetTdp = defaultWatts[next];
+                if (next < defaultNames.Length)  name = defaultNames[next];
+            }
+
+            Logger.Info($"[CycleTDP] {cur} → {next} | preset='{name}' {presetTdp}W | legionMode={legionMode}");
+
+            // Delegate to the same code path as SetTDPModeByIndex so SelectionChanged runs its
+            // full TDP-apply logic (legionPerformanceMode, ForceSetValue, boost preset, profile save).
+            // Do NOT pre-set lastTDPModeIndex here — SelectionChanged must see selectedIndex != last
+            // in order to proceed past the equality guard.
+            isUserInitiatedTDPModeChange = true;
+            try { TDPModeComboBox.SelectedIndex = next; }
+            finally { isUserInitiatedTDPModeChange = false; }
+
+            Logger.Info($"[CycleTDP] after SelectedIndex={TDPModeComboBox.SelectedIndex}, lastTDPModeIndex={lastTDPModeIndex}");
+
+            // Refresh Quick Settings tile label (SelectionChanged already handles the rest)
+            UpdateQuickSettingsTileStates();
         }
 
         private void ToggleAutoTDPTile()
@@ -358,6 +373,8 @@ namespace XboxGamingBar
 
             if (tag == "TDPMode_dropdown")
                 ShowTDPDropdown(btn);
+            else if (tag == "FPSCombined_dropdown")
+                SwitchFPSCapMode();
             else if (tag == "IntelFpsTier_dropdown")
                 ShowIntelFpsDropdown(btn);
             else if (tag == "Overlay_dropdown")
@@ -686,8 +703,8 @@ namespace XboxGamingBar
                 qsTdpReapplyTimer.Tick += async (s, e) =>
                 {
                     qsTdpReapplyTimer.Stop();
-                    // Reapply TDP - still in Custom mode?
-                    bool isCustomMode = TDPModeComboBox?.SelectedIndex == 3;
+                    // Reapply TDP - still in Custom/Slider mode?
+                    bool isCustomMode = IsCustomTdpModeSelected();
                     if (isCustomMode)
                     {
                         // Read TDP value NOW (at timer fire time), not when scheduled
@@ -1296,9 +1313,24 @@ namespace XboxGamingBar
             }
             else
             {
-                // Disable FPS limit (0 = unlimited)
+                // Disable RTSS FPS limit
                 fpsLimit.SetValue(0);
-                Logger.Info("FPS Limit disabled");
+                // Also disable Intel tier if currently active
+                if (fpsCapMode?.Value == 1 && intelFpsTier?.Value > 0)
+                {
+                    intelFpsTier.SetValue(0);
+                    if (IntelFpsTierComboBox != null)
+                    {
+                        isApplyingHelperUpdate = true;
+                        try { IntelFpsTierComboBox.SelectedIndex = 0; }
+                        finally { isApplyingHelperUpdate = false; }
+                    }
+                    Logger.Info("FPS Limit disabled: also cleared Intel FPS tier");
+                }
+                else
+                {
+                    Logger.Info("FPS Limit disabled");
+                }
             }
 
             // Update the FPS limiter panels (show/hide RTSS or Intel section)
@@ -1905,54 +1937,6 @@ namespace XboxGamingBar
             }
         }
 
-        /// <summary>
-        /// Settings gear button — opens the customize panel and scrolls to it
-        /// </summary>
-        private void QuickSettingsGear_Click(object sender, RoutedEventArgs e)
-        {
-            QuickSettingsCustomize_Click(sender, e);
-
-            // Scroll so the "Customize Tiles" panel header is visible at the top of the viewport
-            _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
-            {
-                try
-                {
-                    if (QuickSettingsCustomizePanel != null && QuickSettingsScrollViewer != null)
-                    {
-                        var transform = QuickSettingsCustomizePanel.TransformToVisual(QuickSettingsScrollViewer);
-                        var point = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
-                        QuickSettingsScrollViewer.ChangeView(null, QuickSettingsScrollViewer.VerticalOffset + point.Y, null, false);
-                    }
-                }
-                catch { /* layout not ready yet — no-op */ }
-
-                // Set controller focus on the first tile in the sort grid so XY navigation works immediately
-                try
-                {
-                    if (TileSortableGrid != null && TileSortableGrid.Children.Count > 0)
-                    {
-                        // First child is a row Grid; first column (index 0) holds the mini-tile StackPanel/Grid
-                        var firstRow = TileSortableGrid.Children[0] as Windows.UI.Xaml.Controls.Grid;
-                        if (firstRow != null && firstRow.Children.Count > 0)
-                        {
-                            // Walk children to find the first Button (the main select button of the mini-tile)
-                            foreach (var child in firstRow.Children)
-                            {
-                                var btn = child as Button;
-                                if (btn == null && child is Windows.UI.Xaml.Controls.Grid cellGrid)
-                                    btn = cellGrid.Children.OfType<Button>().FirstOrDefault();
-                                if (btn != null)
-                                {
-                                    btn.Focus(Windows.UI.Xaml.FocusState.Programmatic);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-                catch { /* focus not critical */ }
-            });
-        }
 
         /// <summary>
         /// Toggle visibility of a tile via the split-tile Show/Hide sub-button
@@ -2274,17 +2258,22 @@ namespace XboxGamingBar
                         break;
 
                     case TileActionType.AltTabBack:
-                        await SendCustomShortcutAsync("Alt+Shift+Tab", actionName);
+                        await SendCustomShortcutAsync("Alt+Tab", actionName);
                         break;
 
                     case TileActionType.GoToDesktop:
                         await SendCustomShortcutAsync("Win+D", actionName);
                         break;
 
-                    // ── Brightness (WMI via helper) ─────────────────────────
+                    // ── Brightness / Volume (via helper) ───────────────────
                     case TileActionType.BrightnessUp:
                     case TileActionType.BrightnessDown:
                         await AdjustBrightnessViaHelperAsync(actionType == TileActionType.BrightnessUp ? 5 : -5);
+                        break;
+
+                    case TileActionType.VolumeUp:
+                    case TileActionType.VolumeDown:
+                        await AdjustVolumeViaHelperAsync(actionType == TileActionType.VolumeUp ? 5 : -5);
                         break;
 
                     // ── App actions ─────────────────────────────────────────
@@ -2302,6 +2291,18 @@ namespace XboxGamingBar
 
                     case TileActionType.TDPStepDown:
                         StepTDPMode(-1);
+                        break;
+
+                    case TileActionType.TDPIncrBy1W:
+                        AdjustTDPByWatts(+1);
+                        break;
+
+                    case TileActionType.TDPDecrBy1W:
+                        AdjustTDPByWatts(-1);
+                        break;
+
+                    case TileActionType.CycleLimiterMode:
+                        CycleFPSForCurrentMode();
                         break;
                 }
 
@@ -2367,6 +2368,46 @@ namespace XboxGamingBar
         /// Step the TDP mode ComboBox up or down by one position (wraps around).
         /// +1 = next mode, -1 = previous mode.
         /// </summary>
+        /// <summary>
+        /// Adjust current TDP by ±1 W, staying in Custom/Slider mode.
+        /// PL1 clamped to [4 W, 36 W] so PL2 = PL1+1 ≤ 37 W (MSI Claw hardware limit).
+        /// </summary>
+        private void AdjustTDPByWatts(int delta)
+        {
+            if (TDPSlider == null || tdp == null) return;
+
+            // Switch to Custom/Slider mode so the watt value is applied directly
+            int sliderIndex = useCustomTDPPresets && tdpPresets != null
+                ? tdpPresets.Count          // Slider item is always last in custom preset list
+                : TDPModeComboBox?.Items.Count - 1 ?? 5; // last item = Slider in default list
+
+            if (TDPModeComboBox != null && !IsCustomTdpModeSelected())
+                SetTDPModeByIndex(sliderIndex);
+
+            const int TDP_MIN   = 4;
+            const int TDP_MAX   = 36;  // PL2 = PL1+1 = 37 W ≤ MSI Claw max PL2
+            int current = (int)Math.Round(TDPSlider.Value);
+            int next    = Math.Max(TDP_MIN, Math.Min(TDP_MAX, current + delta));
+
+            TDPSlider.Value = next;
+            tdp.SetValue(next);
+            if (SaveTDP && !isLoadingProfile)
+                SaveCurrentSettingsToProfile(currentProfileName);
+
+            Logger.Info($"AdjustTDPByWatts: {current}W → {next}W (delta={delta})");
+        }
+
+        private async Task AdjustVolumeViaHelperAsync(int delta)
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+                var request = new Windows.Foundation.Collections.ValueSet { { "AdjustVolume", delta } };
+                await App.SendMessageAsync(request);
+            }
+            catch (Exception ex) { Logger.Warn($"AdjustVolumeViaHelperAsync: {ex.Message}"); }
+        }
+
         private void StepTDPMode(int direction)
         {
             if (TDPModeComboBox == null) return;

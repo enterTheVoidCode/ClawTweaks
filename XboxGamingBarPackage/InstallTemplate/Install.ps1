@@ -1,11 +1,15 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Custom installer for GoTweaks Xbox Game Bar Widget.
+    Custom installer for ClawTweaks Xbox Game Bar Widget.
 
 .DESCRIPTION
     Professional installer that handles Debug-to-Release upgrades, dependency checking,
-    and blocking process management with user-friendly prompts.
+    prerequisite installation, and blocking process management with user-friendly prompts.
+
+    Prerequisites checked and auto-installed if missing:
+      - ViGEmBus driver  (virtual controller emulation)
+      - RTSS             (FPS limiter + overlay)
 
 .PARAMETER Force
     Suppress confirmation prompts for silent/unattended installation.
@@ -16,6 +20,10 @@
 .PARAMETER CleanInstall
     Remove existing package before installing (loses user settings/profiles).
     Default is to update in-place which preserves user data.
+
+.PARAMETER SkipPrereqs
+    Skip prerequisite checks (ViGEmBus, RTSS).
+    Use if you manage dependencies separately.
 
 .EXAMPLE
     .\Install.ps1
@@ -29,14 +37,19 @@
     .\Install.ps1 -CleanInstall
     Remove existing package first (fresh install, loses settings).
 
+.EXAMPLE
+    .\Install.ps1 -SkipPrereqs
+    Skip prerequisite checks.
+
 .NOTES
     Must be run as Administrator.
 #>
 
 param(
-    [switch]$Force = $false,
+    [switch]$Force          = $false,
     [switch]$SkipCertificate = $false,
-    [switch]$CleanInstall = $false
+    [switch]$CleanInstall   = $false,
+    [switch]$SkipPrereqs    = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -140,7 +153,7 @@ function Exit-WithPause {
 }
 
 function Test-Administrator {
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($identity)
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
@@ -156,9 +169,10 @@ function Request-Elevation {
     }
 
     $paramArgs = @()
-    if ($Force) { $paramArgs += "-Force" }
+    if ($Force)           { $paramArgs += "-Force" }
     if ($SkipCertificate) { $paramArgs += "-SkipCertificate" }
-    if ($CleanInstall) { $paramArgs += "-CleanInstall" }
+    if ($CleanInstall)    { $paramArgs += "-CleanInstall" }
+    if ($SkipPrereqs)     { $paramArgs += "-SkipPrereqs" }
 
     try {
         if (Test-RunningAsExe) {
@@ -245,26 +259,13 @@ function Get-DependencyPackages {
 function Test-DependencyInstalled {
     param([string]$PackageBaseName)
 
-    # Extract the core package name (remove .Debug suffix if present)
-    # e.g., "Microsoft.VCLibs.140.00.Debug" -> "Microsoft.VCLibs.140.00"
     $coreName = $PackageBaseName -replace '\.Debug$', ''
-
-    # Check if either the exact package or the non-debug variant is installed
     $installedPackages = Get-AppxPackage -ErrorAction SilentlyContinue
 
     foreach ($pkg in $installedPackages) {
-        # Check for exact match (e.g., Microsoft.VCLibs.140.00.Debug)
-        if ($pkg.Name -eq $PackageBaseName) {
-            return $true
-        }
-        # Check for non-debug variant (e.g., Microsoft.VCLibs.140.00)
-        if ($pkg.Name -eq $coreName) {
-            return $true
-        }
-        # Check for x64 specific variants
-        if ($pkg.Name -eq "$coreName.x64" -or $pkg.Name -eq "$PackageBaseName.x64") {
-            return $true
-        }
+        if ($pkg.Name -eq $PackageBaseName) { return $true }
+        if ($pkg.Name -eq $coreName)        { return $true }
+        if ($pkg.Name -eq "$coreName.x64" -or $pkg.Name -eq "$PackageBaseName.x64") { return $true }
     }
 
     return $false
@@ -276,14 +277,9 @@ function Get-MissingDependencies {
     $missing = @()
 
     foreach ($dep in $DependencyPackages) {
-        # Extract package name from filename
-        # e.g., "Microsoft.VCLibs.x64.14.00.Desktop.Debug.appx" -> base name analysis
         $baseName = $dep.BaseName -replace '\.x64$|\.x86$|\.arm64$|\.arm$', ''
 
-        # Try to extract a cleaner package name for checking
-        # Handle patterns like "Microsoft.VCLibs.x64.14.00.Desktop.Debug"
         if ($baseName -match '^(Microsoft\.[^.]+)\.x64\.(.+)$') {
-            # Reformat: Microsoft.VCLibs.x64.14.00 -> Microsoft.VCLibs.14.00
             $baseName = "$($Matches[1]).$($Matches[2])"
         }
 
@@ -297,13 +293,209 @@ function Get-MissingDependencies {
 
 function Get-PackageVersion {
     param([string]$PackagePath)
-
-    # Extract version from package filename
-    # e.g., "XboxGamingBarPackage_0.3.1137.0_x64.msixbundle" -> "0.3.1137.0"
     if ($PackagePath -match '_(\d+\.\d+\.\d+\.\d+)_') {
         return $Matches[1]
     }
     return "Unknown"
+}
+
+#endregion
+
+#region Prerequisite Detection & Installation
+
+function Test-ViGEmInstalled {
+    # Check for the kernel driver service
+    $svc = Get-Service -Name "ViGEmBus" -ErrorAction SilentlyContinue
+    if ($svc) { return $true }
+    # Check for the INF file in Windows driver store
+    $inf = Get-ChildItem "C:\Windows\INF" -Filter "ViGEmBus*.inf" -ErrorAction SilentlyContinue
+    if ($inf) { return $true }
+    # Check via PnP device
+    $dev = Get-PnpDevice -FriendlyName "*ViGEm*" -ErrorAction SilentlyContinue
+    if ($dev) { return $true }
+    return $false
+}
+
+function Test-RTSSInstalled {
+    # Check common install locations
+    $paths = @(
+        "$env:ProgramFiles\RivaTuner Statistics Server\RTSS.exe",
+        "${env:ProgramFiles(x86)}\RivaTuner Statistics Server\RTSS.exe"
+    )
+    foreach ($p in $paths) {
+        if (Test-Path $p) { return $true }
+    }
+    # Check registry (RTSS writes install path here)
+    $reg = Get-ItemProperty "HKLM:\SOFTWARE\Guru3D\RTSS" -ErrorAction SilentlyContinue
+    if ($reg) { return $true }
+    $reg2 = Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Guru3D\RTSS" -ErrorAction SilentlyContinue
+    if ($reg2) { return $true }
+    # Check if process is running
+    $proc = Get-Process -Name "RTSS" -ErrorAction SilentlyContinue
+    if ($proc) { return $true }
+    return $false
+}
+
+function Get-WingetExe {
+    # Try winget from PATH
+    $wg = Get-Command "winget.exe" -ErrorAction SilentlyContinue
+    if ($wg) { return $wg.Source }
+    # Try well-known location (Windows App Installer)
+    $candidate = "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe"
+    if (Test-Path $candidate) { return $candidate }
+    return $null
+}
+
+function Install-ViaWinget {
+    param(
+        [string]$PackageId,
+        [string]$DisplayName
+    )
+    $winget = Get-WingetExe
+    if (-not $winget) {
+        Write-Warn "winget not found. Install $DisplayName manually."
+        return $false
+    }
+    Write-Info "Running: winget install --id $PackageId ..."
+    $result = & $winget install --id $PackageId --silent --accept-package-agreements --accept-source-agreements 2>&1
+    if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq -1978335189) {
+        # -1978335189 = APPINSTALLER_ERROR_NO_APPLICABLE_INSTALLER (already installed / no update needed)
+        return $true
+    }
+    Write-Warn "winget returned exit code $LASTEXITCODE"
+    Write-Info ($result | Out-String).Trim()
+    return $false
+}
+
+function Install-ViaDirectDownload {
+    param(
+        [string]$Url,
+        [string]$InstallerName,
+        [string]$SilentArgs,
+        [string]$DisplayName
+    )
+    $tmpPath = Join-Path $env:TEMP $InstallerName
+    try {
+        Write-Info "Downloading $DisplayName..."
+        $wc = New-Object System.Net.WebClient
+        $wc.Headers.Add("User-Agent", "ClawTweaks-Installer/1.0")
+        $wc.DownloadFile($Url, $tmpPath)
+        Write-Info "Installing $DisplayName..."
+        $proc = Start-Process -FilePath $tmpPath -ArgumentList $SilentArgs -Wait -PassThru
+        Remove-Item $tmpPath -Force -ErrorAction SilentlyContinue
+        return ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 1641 -or $proc.ExitCode -eq 3010)
+    }
+    catch {
+        Write-Warn "Direct download/install failed: $_"
+        if (Test-Path $tmpPath) { Remove-Item $tmpPath -Force -ErrorAction SilentlyContinue }
+        return $false
+    }
+}
+
+function Install-ViGEmBus {
+    # Try winget first (cleanest)
+    Write-Info "Attempting install via winget (Nefarius.ViGEmBus)..."
+    $ok = Install-ViaWinget -PackageId "Nefarius.ViGEmBus" -DisplayName "ViGEmBus"
+    if ($ok) { return $true }
+
+    # Fallback: direct download from GitHub latest release
+    Write-Info "winget unavailable or failed — trying direct download..."
+    # GitHub API: get latest release asset URL
+    try {
+        $apiUrl   = "https://api.github.com/repos/nefarius/ViGEmBus/releases/latest"
+        $headers  = @{ "User-Agent" = "ClawTweaks-Installer/1.0" }
+        $release  = Invoke-RestMethod -Uri $apiUrl -Headers $headers -ErrorAction Stop
+        $asset    = $release.assets | Where-Object { $_.name -like "*.exe" -and $_.name -notlike "*symbols*" } | Select-Object -First 1
+        if ($asset) {
+            $ok = Install-ViaDirectDownload `
+                -Url          $asset.browser_download_url `
+                -InstallerName "ViGEmBus_Setup.exe" `
+                -SilentArgs   "/passive /norestart" `
+                -DisplayName  "ViGEmBus"
+            if ($ok) { return $true }
+        }
+    }
+    catch {
+        Write-Warn "GitHub API fetch failed: $_"
+    }
+
+    return $false
+}
+
+function Install-RTSS {
+    # Try winget first
+    Write-Info "Attempting install via winget (Guru3D.RTSS)..."
+    $ok = Install-ViaWinget -PackageId "Guru3D.RTSS" -DisplayName "RivaTuner Statistics Server"
+    if ($ok) { return $true }
+
+    Write-Warn "Automatic RTSS install failed. Please install manually:"
+    Write-Host "       https://www.guru3d.com/files-details/rtss-rivatuner-statistics-server-download.html" -ForegroundColor Cyan
+    return $false
+}
+
+function Invoke-PrerequisiteCheck {
+    $allOk = $true
+
+    # --- ViGEmBus ---
+    Write-Host ""
+    Write-Host "       Checking ViGEmBus (virtual controller driver)..." -ForegroundColor Gray
+    if (Test-ViGEmInstalled) {
+        Write-Success "ViGEmBus: installed"
+    }
+    else {
+        Write-Warn "ViGEmBus: NOT installed  (needed for controller emulation)"
+        $install = $Force
+        if (-not $Force) {
+            $response = Read-Host "       Install ViGEmBus now? (Y/N)"
+            $install  = ($response -eq 'Y' -or $response -eq 'y')
+        }
+        if ($install) {
+            $ok = Install-ViGEmBus
+            if ($ok) {
+                Write-Success "ViGEmBus installed successfully"
+            }
+            else {
+                Write-Warn "ViGEmBus install failed — controller emulation will not work"
+                Write-Info "Get it from: https://github.com/nefarius/ViGEmBus/releases"
+                $allOk = $false
+            }
+        }
+        else {
+            Write-Info "Skipped. Controller emulation features will not work without ViGEmBus."
+            $allOk = $false
+        }
+    }
+
+    # --- RTSS ---
+    Write-Host ""
+    Write-Host "       Checking RTSS (RivaTuner Statistics Server)..." -ForegroundColor Gray
+    if (Test-RTSSInstalled) {
+        Write-Success "RTSS: installed"
+    }
+    else {
+        Write-Warn "RTSS: NOT installed  (needed for FPS limiter and overlay)"
+        $install = $Force
+        if (-not $Force) {
+            $response = Read-Host "       Install RTSS now? (Y/N)"
+            $install  = ($response -eq 'Y' -or $response -eq 'y')
+        }
+        if ($install) {
+            $ok = Install-RTSS
+            if ($ok) {
+                Write-Success "RTSS installed successfully"
+            }
+            else {
+                Write-Warn "RTSS install failed — FPS limiter/overlay will not work"
+                $allOk = $false
+            }
+        }
+        else {
+            Write-Info "Skipped. FPS limiter and overlay features will not work without RTSS."
+            $allOk = $false
+        }
+    }
+
+    return $allOk
 }
 
 #endregion
@@ -330,16 +522,16 @@ $packageVersion = if ($MainPackage) { Get-PackageVersion -PackagePath $MainPacka
 Write-Host ""
 Write-Host "  =============================================" -ForegroundColor Cyan
 Write-Host "                                               " -ForegroundColor Cyan
-Write-Host "         GoTweaks Installer                    " -ForegroundColor White
+Write-Host "         ClawTweaks Installer                  " -ForegroundColor White
 Write-Host "         Xbox Game Bar Widget                  " -ForegroundColor Gray
 Write-Host "                                               " -ForegroundColor Cyan
 Write-Host "         Version: $packageVersion                      " -ForegroundColor DarkGray
 Write-Host "                                               " -ForegroundColor Cyan
 Write-Host "  =============================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  This installer will set up GoTweaks on your system." -ForegroundColor Gray
-Write-Host "  GoTweaks provides TDP control, performance monitoring," -ForegroundColor Gray
-Write-Host "  and more for handheld gaming devices." -ForegroundColor Gray
+Write-Host "  This installer will set up ClawTweaks on your system." -ForegroundColor Gray
+Write-Host "  ClawTweaks provides TDP control, performance monitoring," -ForegroundColor Gray
+Write-Host "  and controller customization for the MSI Claw." -ForegroundColor Gray
 Write-Host ""
 
 # Check for existing installation
@@ -354,8 +546,10 @@ if (-not $Force) {
     Read-Host | Out-Null
 }
 
+$TotalSteps = if ($SkipPrereqs) { 6 } else { 7 }
+
 # Phase 1: Check Administrator
-Write-Step -Step 1 -Total 6 -Message "Checking administrator privileges..."
+Write-Step -Step 1 -Total $TotalSteps -Message "Checking administrator privileges..."
 
 if (-not (Test-Administrator)) {
     Write-Info "Requesting elevation to Administrator..."
@@ -365,7 +559,7 @@ if (-not (Test-Administrator)) {
 Write-Success "Running as Administrator"
 
 # Phase 2: Locate package files
-Write-Step -Step 2 -Total 6 -Message "Locating package files..."
+Write-Step -Step 2 -Total $TotalSteps -Message "Locating package files..."
 
 if (-not $MainPackage) {
     $MainPackage = Get-ChildItem -Path $ScriptDir -Filter "*.appx" -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -388,14 +582,12 @@ else {
 }
 
 # Find dependencies - x64 only
-# Note: We don't force-reinstall dependencies to avoid conflicts with other apps (Dolby, DTS, etc.)
 $DependenciesDir = Join-Path $ScriptDir "Dependencies"
 $depPackages = @()
 if (Test-Path $DependenciesDir) {
     $allDepPackages = Get-DependencyPackages -DependenciesDir $DependenciesDir
     if ($allDepPackages.Count -gt 0) {
         $depPackages = Get-MissingDependencies -DependencyPackages $allDepPackages
-        $skippedCount = $allDepPackages.Count - $depPackages.Count
         if ($depPackages.Count -gt 0) {
             Write-Success "Dependencies: $($depPackages.Count) missing (will install if needed)"
         }
@@ -408,65 +600,40 @@ else {
     Write-Info "No Dependencies folder"
 }
 
-# Phase 3: Check for blocking processes
-Write-Step -Step 3 -Total 6 -Message "Checking for blocking processes..."
+# Phase 3: Prerequisites (ViGEmBus, RTSS) — skippable
+if (-not $SkipPrereqs) {
+    Write-Step -Step 3 -Total $TotalSteps -Message "Checking prerequisites..."
+    $prereqsOk = Invoke-PrerequisiteCheck
+    if (-not $prereqsOk) {
+        Write-Host ""
+        Write-Warn "Some prerequisites are missing. Related features will be unavailable."
+        Write-Info "You can install them later and ClawTweaks will detect them automatically."
+    }
+}
+
+$nextStep = if ($SkipPrereqs) { 3 } else { 4 }
+
+# Phase 4: Check for blocking processes
+Write-Step -Step $nextStep -Total $TotalSteps -Message "Checking for blocking processes..."
+$nextStep++
 
 $runningBlockers = Get-RunningBlockers
 
 if ($runningBlockers.Count -gt 0) {
-    Write-Warn "The following apps need to be closed:"
-    Write-Host ""
-    foreach ($proc in $runningBlockers) {
-        Write-Host "       - $proc" -ForegroundColor Yellow
-    }
-    Write-Host ""
-
-    if (-not $Force) {
-        Write-Host "       Please close Xbox Game Bar (Win+G then close it)" -ForegroundColor Cyan
-        Write-Host "       and any GoTweaks windows, then press Enter." -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "       Or press 'F' to force-close these apps: " -ForegroundColor DarkGray -NoNewline
-        $response = Read-Host
-
-        # Check again after user says they closed
-        $stillRunning = Get-RunningBlockers
-
-        if ($stillRunning.Count -gt 0) {
-            if ($response -eq 'F' -or $response -eq 'f') {
-                Write-Info "Force-closing blocking processes..."
-                $killedProcesses = Stop-BlockingProcesses
-                if ($killedProcesses.Count -gt 0) {
-                    Write-Success "Closed: $($killedProcesses -join ', ')"
-                }
-            }
-            else {
-                Write-Warn "Some apps are still running: $($stillRunning -join ', ')"
-                Write-Info "Attempting to close them..."
-                $killedProcesses = Stop-BlockingProcesses
-                if ($killedProcesses.Count -gt 0) {
-                    Write-Success "Closed: $($killedProcesses -join ', ')"
-                }
-            }
-        }
-        else {
-            Write-Success "All blocking apps closed"
-        }
-    }
-    else {
-        Write-Info "Force mode: Closing blocking processes..."
-        $killedProcesses = Stop-BlockingProcesses
-        if ($killedProcesses.Count -gt 0) {
-            Write-Success "Closed: $($killedProcesses -join ', ')"
-        }
+    Write-Info "Closing blocking processes automatically..."
+    $killedProcesses = Stop-BlockingProcesses
+    if ($killedProcesses.Count -gt 0) {
+        Write-Success "Closed: $($killedProcesses -join ', ')"
     }
 }
 else {
     Write-Success "No blocking processes"
 }
 
-# Phase 4: Handle existing package
+# Phase 5: Handle existing package
 if ($CleanInstall) {
-    Write-Step -Step 4 -Total 6 -Message "Removing existing package (clean install)..."
+    Write-Step -Step $nextStep -Total $TotalSteps -Message "Removing existing package (clean install)..."
+    $nextStep++
 
     $existingPkg = Get-AppxPackage -Name $PackageName -ErrorAction SilentlyContinue
     if ($existingPkg) {
@@ -499,7 +666,9 @@ if ($CleanInstall) {
     }
 }
 else {
-    Write-Step -Step 4 -Total 6 -Message "Checking existing installation..."
+    Write-Step -Step $nextStep -Total $TotalSteps -Message "Checking existing installation..."
+    $nextStep++
+
     $existingPkg = Get-AppxPackage -Name $PackageName -ErrorAction SilentlyContinue
     if ($existingPkg) {
         Write-Info "Will update existing installation (preserving settings)"
@@ -510,8 +679,9 @@ else {
     }
 }
 
-# Phase 5: Install certificate
-Write-Step -Step 5 -Total 6 -Message "Installing certificate..."
+# Phase 6: Install certificate
+Write-Step -Step $nextStep -Total $TotalSteps -Message "Installing certificate..."
+$nextStep++
 
 if ($SkipCertificate) {
     Write-Info "Skipped (--SkipCertificate)"
@@ -558,21 +728,18 @@ else {
     }
 }
 
-# Phase 6: Install package
-Write-Step -Step 6 -Total 6 -Message "Installing package..."
+# Phase 7: Install package
+Write-Step -Step $nextStep -Total $TotalSteps -Message "Installing package..."
 
-$maxRetries = 2
-$retryCount = 0
+$maxRetries    = 2
+$retryCount    = 0
 $installSuccess = $false
 
 while ($retryCount -lt $maxRetries -and -not $installSuccess) {
     try {
         Stop-BlockingProcesses -Quiet | Out-Null
 
-        # Install main package without forcing dependency reinstall
-        # Windows will use already-installed shared dependencies (VCLibs etc.)
-        # This avoids conflicts with other apps using those dependencies
-        Write-Info "Installing GoTweaks package..."
+        Write-Info "Installing ClawTweaks package..."
         Add-AppxPackage -Path $MainPackage.FullName `
             -ForceUpdateFromAnyVersion `
             -ErrorAction Stop
@@ -595,7 +762,6 @@ while ($retryCount -lt $maxRetries -and -not $installSuccess) {
                     Write-Warn "    Could not install (may already be present)"
                 }
             }
-            # Don't count this as a retry, try main package again
             $retryCount--
             Start-Sleep -Seconds 1
             continue
@@ -630,7 +796,7 @@ if ($installedPkg) {
     Write-Host "  Version: $($installedPkg.Version)" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Press Win+G to open Xbox Game Bar" -ForegroundColor Cyan
-    Write-Host "  Then click the Widgets menu to add GoTweaks" -ForegroundColor Cyan
+    Write-Host "  Then click the Widgets menu to add ClawTweaks" -ForegroundColor Cyan
     Write-Host ""
 }
 else {

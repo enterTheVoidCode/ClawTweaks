@@ -138,7 +138,7 @@ Write-Step "Auto-incrementing package version..."
 $ManifestPath = Join-Path $ScriptDir "XboxGamingBarPackage\Package.appxmanifest"
 [xml]$manifest = Get-Content $ManifestPath -Encoding UTF8
 $identityNode  = $manifest.Package.Identity
-$currentVer    = $identityNode.Version
+$currentVer    = $identityNode.Version        # saved for rollback on build failure
 $parts         = $currentVer.Split('.')
 $parts[3]      = ([int]$parts[3] + 1).ToString()
 $newVer        = $parts -join '.'
@@ -182,7 +182,20 @@ $buildArgs = @(
     "/nologo"
 )
 & $msbuild @buildArgs
-if ($LASTEXITCODE -ne 0) { Write-Err "MSBuild failed with exit code $LASTEXITCODE" }
+if ($LASTEXITCODE -ne 0) {
+    # Roll back the version increment so failed builds don't cause gaps
+    # e.g.  0.1.x.130 → (fail) → manifest stays at 0.1.x.130 → next build → 0.1.x.131
+    # without rollback: 0.1.x.130 → (fail) → manifest at 0.1.x.131 → next → 0.1.x.132 (gap!)
+    try {
+        [xml]$mfRollback = Get-Content $ManifestPath -Encoding UTF8
+        $mfRollback.Package.Identity.Version = $currentVer
+        $mfRollback.Save($ManifestPath)
+        Write-Host "   [!] Version rolled back to $currentVer (build failed)" -ForegroundColor Yellow
+    } catch {
+        Write-Host "   [!] Could not roll back version: $_" -ForegroundColor Yellow
+    }
+    Write-Err "MSBuild failed with exit code $LASTEXITCODE"
+}
 Write-Ok "Build succeeded"
 
 Write-Step "Locating build output..."
