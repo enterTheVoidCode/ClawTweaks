@@ -1504,7 +1504,7 @@ namespace XboxGamingBar
                 }
                 if (TDPSlider != null)
                 {
-                    TDPSlider.IsEnabled = false;
+                    TDPSlider.IsEnabled = true;
                 }
                 if (TDPBoostToggle != null)
                 {
@@ -2397,7 +2397,7 @@ namespace XboxGamingBar
             // MSI Center M is running — it owns TDP; keep all TDP controls disabled
             if (msiCenterActive?.Value == true)
             {
-                TDPSlider.IsEnabled = false;
+                TDPSlider.IsEnabled = true;
                 if (TDPBoostToggle != null) { TDPBoostToggle.IsEnabled = false; TDPBoostToggle.IsOn = false; }
                 if (AutoTDPToggle  != null) { AutoTDPToggle.IsEnabled  = false; AutoTDPToggle.IsOn  = false; }
                 if (TDPValueText   != null) TDPValueText.Text = "Unavailable";
@@ -2424,7 +2424,7 @@ namespace XboxGamingBar
             // Note: TDP slider also requires tdp property to be ready (IsEnabled is set elsewhere too)
             if (!isCustomMode)
             {
-                TDPSlider.IsEnabled = false;
+                TDPSlider.IsEnabled = true;
 
                 // Update display to show preset name and TDP value
                 int modeIndex = TDPModeComboBox?.SelectedIndex ?? 1;
@@ -2518,7 +2518,7 @@ namespace XboxGamingBar
             else
             {
                 // In Slider mode, enable if tdp property is ready
-                TDPSlider.IsEnabled = tdp != null;
+                TDPSlider.IsEnabled = true;
 
                 // Hide the hint: slider is now active
                 if (TDPSliderModeHint != null)
