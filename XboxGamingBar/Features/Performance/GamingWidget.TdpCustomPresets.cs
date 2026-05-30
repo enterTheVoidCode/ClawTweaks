@@ -646,16 +646,10 @@ namespace XboxGamingBar
         {
             if (index < 0) return true;
 
-            if (useCustomTDPPresets && tdpPresets != null)
-            {
-                // Last item is always "Slider" (Custom) mode
-                return index >= tdpPresets.Count;
-            }
-            else
-            {
-                // Only Slider remains (index 0) — always Custom/software TDP
-                return true;
-            }
+            // ComboBox always has only one item (Slider) — always Custom/software TDP.
+            // This holds regardless of useCustomTDPPresets because PopulateTdpModeComboBox
+            // forces the single-Slider layout for both paths.
+            return true;
         }
 
         /// <summary>
@@ -663,16 +657,7 @@ namespace XboxGamingBar
         /// </summary>
         private int GetCustomTdpModeIndex()
         {
-            if (useCustomTDPPresets && tdpPresets != null)
-            {
-                // Slider is after all presets
-                return tdpPresets.Count;
-            }
-            else
-            {
-                // Only Slider at index 0
-                return 0;
-            }
+            return 0; // Slider is always at index 0
         }
 
         /// <summary>
