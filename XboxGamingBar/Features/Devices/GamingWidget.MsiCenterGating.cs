@@ -65,7 +65,7 @@ namespace XboxGamingBar
                 // Hard-disable TDP slider and sub-controls; UpdateTDPSliderEnabledState
                 // will also gate on msiActive, but we set IsEnabled=false explicitly
                 // here so the control state is immediate (before the full refresh runs).
-                if (TDPSlider != null)       TDPSlider.IsEnabled       = false;
+                if (TDPSlider != null)       TDPSlider.IsEnabled       = true;  // slider always enabled
                 if (TDPBoostToggle != null)  TDPBoostToggle.IsEnabled  = false;
                 if (AutoTDPToggle != null)   AutoTDPToggle.IsEnabled   = false;
                 if (StickyTDPToggle != null) StickyTDPToggle.IsEnabled = false;
