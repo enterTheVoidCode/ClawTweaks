@@ -290,21 +290,24 @@ namespace XboxGamingBar
 
             TDPModeComboBox.Items.Clear();
 
-            if (useCustomTDPPresets && tdpPresets != null && tdpPresets.Count > 0)
+            // Always show only Slider/Custom mode — named presets hidden for MSI Claw.
+            // This applies regardless of useCustomTDPPresets, so pipe sync or profile load
+            // can never land on a preset index that would disable the slider.
+            if (false && useCustomTDPPresets && tdpPresets != null && tdpPresets.Count > 0)
             {
-                // Use custom presets
+                // (preset items disabled — keeping block to avoid removing dependent logic)
                 for (int i = 0; i < tdpPresets.Count; i++)
                 {
                     var preset = tdpPresets[i];
                     var item = new ComboBoxItem
                     {
                         Content = $"{preset.Name} ({preset.TdpWatts}W)",
-                        Tag = i // Store index as tag for lookup
+                        Tag = i
                     };
                     TDPModeComboBox.Items.Add(item);
                 }
 
-                // Add Slider mode at the end (manual TDP slider control)
+                // (disabled)
                 TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Slider", Tag = -1 });
             }
             else
