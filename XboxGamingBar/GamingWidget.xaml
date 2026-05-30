@@ -1567,7 +1567,8 @@
                                     </StackPanel>
                                 </Border>
                                 <!-- Header: title + ComboBox always visible + expand toggle -->
-                                <Grid>
+                                <!-- TDP Mode row hidden — only Slider/Custom mode used; ComboBox kept for code-behind compat -->
+                                <Grid Visibility="Collapsed">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
