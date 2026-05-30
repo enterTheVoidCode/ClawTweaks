@@ -646,9 +646,8 @@ namespace XboxGamingBar
             }
             else
             {
-                // Default hardcoded items: Max(0), Standard(1), Balanced(2), Battery(3), Super Battery(4), Slider(5)
-                // Slider is the "Custom" mode that enables manual slider control (index 5)
-                return index >= 5;
+                // Only Slider remains (index 0) — always Custom/software TDP
+                return true;
             }
         }
 
@@ -664,8 +663,8 @@ namespace XboxGamingBar
             }
             else
             {
-                // Default hardcoded items: Max(0), Standard(1), Balanced(2), Battery(3), Super Battery(4), Slider(5)
-                return 5;
+                // Only Slider at index 0
+                return 0;
             }
         }
 
