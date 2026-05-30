@@ -275,7 +275,7 @@ namespace XboxGamingBar
             int order = 4;
 
             // Row 1 - Performance Core (most used)
-            AddTileDefinition("TDPMode", "TDP Mode", "\uE945", order: order++);
+            // TDPMode tile removed \u2014 TDP only via slider in Performance tab
             // AddTileDefinition("AutoTDP", "AutoTDP", "\uE9F5", order: order++);  // removed: not applicable on Intel Claw
             // AddTileDefinition("PowerMode", "Power Mode", "\uE945", order: order++);  // removed: not used on MSI Claw
 
