@@ -1615,6 +1615,7 @@ namespace XboxGamingBar
             finally
             {
                 isSwitchingControllerProfile = false;
+                UpdateControllerProfileModeBadge();
             }
         }
 

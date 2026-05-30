@@ -780,11 +780,10 @@ namespace XboxGamingBar
                         AddTextBlock(acDcGrid, rowIndex, 2, gameDC.FPSLimitEnabled ? $"{gameDC.FPSLimitValue}" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
 
-                        // FPS Limiter Mode (RTSS / Intel)
-                        string acDcFpsModeLabel = GetFpsCapModeLabel();
+                        // FPS Limiter Mode — read from saved profile, not live state
                         AddTextBlock(acDcGrid, rowIndex, 0, "FPS Mode", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, acDcFpsModeLabel, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, acDcFpsModeLabel, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, GetFpsCapModeLabel(gameAC), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, GetFpsCapModeLabel(gameDC), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
 
@@ -937,7 +936,7 @@ namespace XboxGamingBar
 
                         // FPS Limiter Mode (RTSS / Intel)
                         AddTextBlock(singleGrid, rowIndex, 0, "FPS Mode", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                        AddTextBlock(singleGrid, rowIndex, 1, GetFpsCapModeLabel(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                        AddTextBlock(singleGrid, rowIndex, 1, GetFpsCapModeLabel(game), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
                         rowIndex++;
                     }
 

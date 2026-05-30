@@ -3036,6 +3036,8 @@ namespace XboxGamingBar
                 LegionControllerProfileGameText.Text = HasValidGame(newGameName) ? newGameName : "No game detected";
             }
 
+            UpdateControllerProfileModeBadge();
+
             // Enable/disable the clear button based on game detection
             if (ClearPerGameControllerProfileButton != null)
             {
@@ -3104,6 +3106,27 @@ namespace XboxGamingBar
                         }
                     }
                 }
+            }
+        }
+
+        private void UpdateControllerProfileModeBadge()
+        {
+            if (ControllerProfileModeText == null || ControllerProfileModeBadge == null) return;
+
+            bool isPerGame = LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName);
+            if (isPerGame)
+            {
+                ControllerProfileModeText.Text = $"Per-Game: {currentGameName}";
+                ControllerProfileModeText.Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 120, 180, 255));
+                ControllerProfileModeBadge.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 20, 30, 55));
+                ControllerProfileModeBadge.BorderBrush = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 80, 160));
+            }
+            else
+            {
+                ControllerProfileModeText.Text = "Global Profile active";
+                ControllerProfileModeText.Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 204, 136));
+                ControllerProfileModeBadge.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 20, 45, 20));
+                ControllerProfileModeBadge.BorderBrush = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 102, 51));
             }
         }
 

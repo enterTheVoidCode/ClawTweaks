@@ -455,7 +455,7 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Returns a short label for the active FPS cap mode (RTSS / Intel tier).
-        /// Reads the global fpsCapMode and intelFpsTier widget properties.
+        /// Reads the global fpsCapMode and intelFpsTier widget properties (live state).
         /// </summary>
         private string GetFpsCapModeLabel()
         {
@@ -463,6 +463,26 @@ namespace XboxGamingBar
             {
                 int tier = intelFpsTier?.Value ?? 0;
                 switch (tier)
+                {
+                    case 1: return "Intel 60";
+                    case 2: return "Intel 40";
+                    case 3: return "Intel 30";
+                    default: return "Intel";
+                }
+            }
+            return "RTSS";
+        }
+
+        /// <summary>
+        /// Reads FPS cap mode from a saved PerformanceProfile — use in profile cards
+        /// so each card shows its own stored settings, not the current live state.
+        /// </summary>
+        private string GetFpsCapModeLabel(PerformanceProfile profile)
+        {
+            if (profile == null) return "RTSS";
+            if (profile.FpsCapMode == 1)
+            {
+                switch (profile.IntelFpsTier)
                 {
                     case 1: return "Intel 60";
                     case 2: return "Intel 40";

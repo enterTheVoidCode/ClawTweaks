@@ -6289,10 +6289,24 @@
                                                   IsEnabled="False"
                                                   Toggled="LegionControllerProfileToggle_Toggled"/>
                                 </Grid>
-                                <TextBlock Text="All controller changes are per game only — launch a game to edit settings."
+                                <!-- Active profile mode badge -->
+                                <Border x:Name="ControllerProfileModeBadge"
+                                        Background="#1A3A1A"
+                                        BorderBrush="#336633"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="8,3"
+                                        Margin="0,8,0,0"
+                                        HorizontalAlignment="Left">
+                                    <TextBlock x:Name="ControllerProfileModeText"
+                                               Text="Global Profile active"
+                                               FontSize="11"
+                                               Foreground="#88CC88"/>
+                                </Border>
+                                <TextBlock Text="Enable the toggle to use a per-game controller profile."
                                            Style="{StaticResource CardCaptionStyle}"
                                            TextWrapping="Wrap"
-                                           Margin="0,8,0,0"/>
+                                           Margin="0,6,0,0"/>
 
                                 <!-- Erase per-game controller settings for the current game -->
                                 <Button x:Name="ClearPerGameControllerProfileButton"
