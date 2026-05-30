@@ -330,6 +330,10 @@ namespace XboxGamingBar
 
             // Default to index 0 (Slider) — only one item exists in non-custom-preset mode
             TDPModeComboBox.SelectedIndex = newIndex >= 0 ? newIndex : 0;
+
+            // Ensure slider enabled state is refreshed — SelectionChanged may have returned early
+            // during initialization (isLoadingProfile=true), leaving the slider disabled.
+            UpdateTDPSliderEnabledState();
         }
 
         private void TDPPresetEditButton_Click(object sender, RoutedEventArgs e)
