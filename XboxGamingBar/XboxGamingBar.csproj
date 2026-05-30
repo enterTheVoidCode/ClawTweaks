@@ -490,6 +490,9 @@
     <Compile Include="Features\Scale\GamingWidget.ScaleTab.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\System\GamingWidget.FactoryReset.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Converter\MegahertzStringConverter.cs" />
     <Compile Include="GamingWidgetSettings.xaml.cs">
       <DependentUpon>GamingWidgetSettings.xaml</DependentUpon>
