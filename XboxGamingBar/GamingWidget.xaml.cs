@@ -3871,23 +3871,23 @@ namespace XboxGamingBar
                     {
                         if (legionGoDetected?.Value == true)
                         {
-                            if (TDPModeComboBox.SelectedIndex != LegionPerformanceModeComboBox.SelectedIndex)
+                            int targetIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                            // Clamp to valid range — ComboBox may have fewer items than expected
+                            // (e.g. Slider-only mode has 1 item; setting index > 0 would crash)
+                            targetIndex = Math.Max(0, Math.Min(targetIndex, TDPModeComboBox.Items.Count - 1));
+
+                            if (TDPModeComboBox.SelectedIndex != targetIndex)
                             {
-                                Logger.Info($"[PIPE] Syncing TDPModeComboBox to match helper's mode: index {LegionPerformanceModeComboBox.SelectedIndex}");
-                                lastTDPModeIndex = LegionPerformanceModeComboBox.SelectedIndex;
-                                TDPModeComboBox.SelectedIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                                Logger.Info($"[PIPE] Syncing TDPModeComboBox to index {targetIndex} (clamped from {LegionPerformanceModeComboBox.SelectedIndex})");
+                                lastTDPModeIndex = targetIndex;
+                                TDPModeComboBox.SelectedIndex = targetIndex;
                             }
                             else
                             {
-                                // Always sync lastTDPModeIndex even when indices already match
-                                // to prevent stale values from a previous session
                                 lastTDPModeIndex = TDPModeComboBox.SelectedIndex;
                             }
 
-                            // Initialize savedCustomTDP from helper's synced TDP value
-                            // This prevents stale savedCustomTDP (default 15W) from overriding
-                            // the helper's actual TDP when TDPModeComboBox_SelectionChanged fires
-                            if (IsCustomTdpModeIndex(LegionPerformanceModeComboBox.SelectedIndex) && tdp != null)
+                            if (IsCustomTdpModeIndex(targetIndex) && tdp != null)
                             {
                                 savedCustomTDP = tdp.Value;
                                 Logger.Info($"[PIPE] Initialized savedCustomTDP from helper's TDP: {savedCustomTDP}W");
@@ -3895,10 +3895,14 @@ namespace XboxGamingBar
                         }
                         else
                         {
-                            // Generic device: sync lastTDPModeIndex from current ComboBox state
-                            // to prevent stale values from causing the first mode change to be skipped
+                            // Generic device: stay on current ComboBox index (always Slider in slider-only mode)
                             lastTDPModeIndex = TDPModeComboBox.SelectedIndex;
-                            Logger.Info($"[PIPE] Synced lastTDPModeIndex for generic device: {lastTDPModeIndex}");
+                            // Always init savedCustomTDP from helper's actual TDP so slider shows correct value
+                            if (tdp != null)
+                            {
+                                savedCustomTDP = tdp.Value;
+                                Logger.Info($"[PIPE] Generic device: savedCustomTDP={savedCustomTDP}W, lastTDPModeIndex={lastTDPModeIndex}");
+                            }
                         }
                     }
 
