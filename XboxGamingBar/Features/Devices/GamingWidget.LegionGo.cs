@@ -1508,7 +1508,7 @@ namespace XboxGamingBar
                 }
                 if (TDPBoostToggle != null)
                 {
-                    TDPBoostToggle.IsEnabled = false;
+                    TDPBoostToggle.IsEnabled = true;
                 }
                 if (AutoTDPToggle != null)
                 {
@@ -2398,7 +2398,7 @@ namespace XboxGamingBar
             if (msiCenterActive?.Value == true)
             {
                 TDPSlider.IsEnabled = true;
-                if (TDPBoostToggle != null) { TDPBoostToggle.IsEnabled = false; TDPBoostToggle.IsOn = false; }
+                if (TDPBoostToggle != null) { TDPBoostToggle.IsEnabled = true; TDPBoostToggle.IsOn = false; }
                 if (AutoTDPToggle  != null) { AutoTDPToggle.IsEnabled  = false; AutoTDPToggle.IsOn  = false; }
                 if (TDPValueText   != null) TDPValueText.Text = "Unavailable";
                 if (CurrentTDPValueText != null) CurrentTDPValueText.Text = "MSI Center M active";
@@ -2461,7 +2461,7 @@ namespace XboxGamingBar
                     // Also disable TDP Boost and AutoTDP controls in preset modes
                     if (TDPBoostToggle != null)
                     {
-                        TDPBoostToggle.IsEnabled = false;
+                        TDPBoostToggle.IsEnabled = true;
                         TDPBoostToggle.IsOn = false; // Turn off when switching to preset mode (binding handles slider visibility)
                     }
                     if (AutoTDPToggle != null)
