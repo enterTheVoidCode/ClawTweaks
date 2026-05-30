@@ -771,11 +771,10 @@ namespace XboxGamingBar
                         UpdateTDPSliderEnabledState();
                     }
                 }
-                // Generic device TDP Mode handling
-                // Note: no !isInitialSync guard here — we must set the ComboBox even at startup so the
-                // UI shows the saved mode. isLoadingProfile=true prevents SelectionChanged from saving or
-                // sending to hardware; ApplyProfileTDPToHelper handles the hardware send after connection.
-                else if (legionGoDetected?.Value != true && TDPModeComboBox != null && defaultGameProfileEnabled?.Value != true)
+                // Generic device TDP Mode handling — skip during initial sync to avoid
+                // ArgumentOutOfRangeException when the ComboBox has fewer items than the
+                // saved profile index. ApplyProfileTDPToHelper sets the correct mode after connection.
+                else if (legionGoDetected?.Value != true && TDPModeComboBox != null && defaultGameProfileEnabled?.Value != true && !isInitialSync)
                 {
                     // Load TDP Mode from profile for generic devices
                     int profileMode = profile.LegionPerformanceMode;
