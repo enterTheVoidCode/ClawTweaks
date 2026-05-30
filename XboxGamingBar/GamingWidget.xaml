@@ -3878,18 +3878,51 @@
                                                       Toggled="EnableDebugToolsToggle_Toggled"/>
                                     </Grid>
 
-                                    <!-- VIIPER Emulation Backend Toggle (experimental) -->
-                                    <Grid Margin="0,16,0,0">
+                                    <!-- Factory Reset -->
+                                    <Border Background="#2A1A1A"
+                                            BorderBrush="#662222"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="12"
+                                            Margin="0,16,0,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Factory Reset" FontSize="14" Foreground="#CC4444" FontWeight="SemiBold"/>
+                                                <TextBlock Text="Deletes all profiles, controller settings, custom tiles, TDP presets and Quick Settings. The app restarts with factory defaults."
+                                                           FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                            </StackPanel>
+                                            <Button x:Name="FactoryResetButton"
+                                                    Grid.Column="1"
+                                                    Content="Reset all"
+                                                    Padding="12,6"
+                                                    Background="#3A1A1A"
+                                                    Foreground="#CC4444"
+                                                    BorderBrush="#662222"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    VerticalAlignment="Center"
+                                                    Click="FactoryResetButton_Click"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- VIIPER Emulation Backend Toggle (coming soon — read-only) -->
+                                    <Grid Margin="0,16,0,0" Opacity="0.5">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Use VIIPER emulation (Experimental)" FontSize="14" Foreground="#FFC107"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Use VIIPER emulation (Experimental)" FontSize="14" Foreground="#FFC107"/>
+                                                <Border Background="#1A3A1A" BorderBrush="#336633" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                    <TextBlock Text="Coming Soon" FontSize="10" Foreground="#88CC88"/>
+                                                </Border>
+                                            </StackPanel>
                                             <TextBlock Text="Replaces the legacy ViGEm controller emulation with VIIPER (USBIP-based). Requires usbip-win2." FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
-                                            <!-- Always-visible USBIP status. Driven from helper-side detection
-                                                 (XboxGamingBarHelper/Settings/UsbipInstalledProperty.cs) so users
-                                                 know the prerequisite state without having to flip the toggle. -->
                                             <TextBlock x:Name="UsbipPrereqStatusLine"
                                                        FontSize="11"
                                                        Margin="0,4,0,0"
@@ -3899,7 +3932,8 @@
                                         <ToggleSwitch x:Name="ViiperEmulationToggle"
                                                       Grid.Column="1"
                                                       OnContent="" OffContent=""
-                                                      IsOn="False"/>
+                                                      IsOn="False"
+                                                      IsEnabled="False"/>
                                     </Grid>
 
                                     <!-- USBIP prerequisite card, visible only when VIIPER toggle is on and usbip-win2 is not installed -->
