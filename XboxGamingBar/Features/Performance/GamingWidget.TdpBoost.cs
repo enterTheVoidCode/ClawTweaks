@@ -79,18 +79,32 @@ namespace XboxGamingBar
             // SPPT Boost slider removed — Intel Lunar Lake uses PL1/PL2 only (no SPPT).
         }
 
+        private bool _syncingBoostSlider = false;
+
         private void TDPBoostFPPTSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
-            if (isLoadingTDPBoostSettings) return;
+            if (isLoadingTDPBoostSettings || _syncingBoostSlider) return;
             if (TDPBoostFPPTSlider == null) return;
 
             int fpptBoost = (int)Math.Round(e.NewValue);
             Logger.Info($"TDP Boost FPPT changed to: {fpptBoost}W");
 
+            // Sync both labels and both sliders (card + settings panel)
             if (TDPBoostFPPTValue != null)
-            {
                 TDPBoostFPPTValue.Text = $"{fpptBoost}W";
+            if (TDPBoostFPPTValueInCard != null)
+                TDPBoostFPPTValueInCard.Text = $"{fpptBoost}W";
+
+            _syncingBoostSlider = true;
+            try
+            {
+                if (TDPBoostFPPTSliderCard != null && (int)Math.Round(TDPBoostFPPTSliderCard.Value) != fpptBoost)
+                    TDPBoostFPPTSliderCard.Value = fpptBoost;
+                if (TDPBoostFPPTSlider != null && sender != TDPBoostFPPTSlider &&
+                    (int)Math.Round(TDPBoostFPPTSlider.Value) != fpptBoost)
+                    TDPBoostFPPTSlider.Value = fpptBoost;
             }
+            finally { _syncingBoostSlider = false; }
 
             // Send to helper
             tdpBoostFPPT?.SetValue(fpptBoost);
@@ -132,13 +146,13 @@ namespace XboxGamingBar
                     }
                 }
                 if (TDPBoostFPPTSlider != null)
-                {
                     TDPBoostFPPTSlider.Value = fpptBoost;
-                }
+                if (TDPBoostFPPTSliderCard != null)
+                    TDPBoostFPPTSliderCard.Value = fpptBoost;
                 if (TDPBoostFPPTValue != null)
-                {
                     TDPBoostFPPTValue.Text = $"{fpptBoost}W";
-                }
+                if (TDPBoostFPPTValueInCard != null)
+                    TDPBoostFPPTValueInCard.Text = $"{fpptBoost}W";
                 tdpBoostFPPT?.SetValue(fpptBoost);
                 // Ensure value is saved (in case it was missing or converted)
                 settings.Values["TDPBoostFPPT"] = fpptBoost;

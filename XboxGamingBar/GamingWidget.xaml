@@ -1998,27 +1998,45 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- TDP Overboost Card (PL2 boost to system max) -->
+                        <!-- TDP Overboost Card (PL2 boost) -->
                         <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Overboost (PL2)" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Boost TDP to system max for short bursts"
-                                               Style="{StaticResource CardCaptionStyle}"
-                                               TextWrapping="Wrap"/>
-                                </StackPanel>
-                                <ToggleSwitch x:Name="TDPBoostToggle"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              IsEnabled="False" Width="52"
-                                              Toggled="TDPBoostToggle_Toggled"
-                                              XYFocusUp="{x:Bind TDPSlider}"
-                                              XYFocusDown="{x:Bind OSPowerModeComboBox}"/>
-                            </Grid>
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Overboost (PL2)" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="PL2 = PL1 + PL2-Boost for short bursts. Max PL2: 37W."
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="TDPBoostToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsEnabled="True" Width="52"
+                                                  Toggled="TDPBoostToggle_Toggled"
+                                                  XYFocusUp="{x:Bind TDPSlider}"
+                                                  XYFocusDown="{x:Bind OSPowerModeComboBox}"/>
+                                </Grid>
+                                <!-- PL2-Boost watt slider — always visible below the toggle -->
+                                <Grid Margin="0,12,0,4">
+                                    <TextBlock Text="PL2-Boost" FontSize="13" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="TDPBoostFPPTValueInCard"
+                                               FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold"
+                                               HorizontalAlignment="Right" VerticalAlignment="Center"
+                                               Text="3W"/>
+                                </Grid>
+                                <Slider x:Name="TDPBoostFPPTSliderCard"
+                                        Style="{StaticResource ModernSliderStyle}"
+                                        Minimum="0" Maximum="37"
+                                        TickFrequency="1" SnapsTo="Ticks"
+                                        Value="3"
+                                        ValueChanged="TDPBoostFPPTSlider_ValueChanged"
+                                        XYFocusUp="{x:Bind TDPBoostToggle}"
+                                        XYFocusDown="{x:Bind OSPowerModeComboBox}"/>
+                            </StackPanel>
                         </Border>
 
                         <!-- OS Power Mode Card -->
