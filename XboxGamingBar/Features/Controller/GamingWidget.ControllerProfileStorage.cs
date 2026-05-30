@@ -1646,9 +1646,28 @@ namespace XboxGamingBar
                 // Reset in-memory game profile object
                 gameControllerProfile = new ControllerProfile();
 
-                // Turn off the toggle — its Toggled handler will load the global profile
-                if (LegionControllerProfileToggle?.IsOn == true)
-                    LegionControllerProfileToggle.IsOn = false;
+                // If a game is running, immediately re-enable per-game profile with fresh defaults.
+                // If no game is running, turn the toggle off so global profile is active.
+                if (HasValidGame(currentGameName))
+                {
+                    // Keep toggle ON (or force it ON) — Toggled handler will create a fresh profile
+                    // from the current UI state since the storage container was just deleted.
+                    if (LegionControllerProfileToggle?.IsOn == false)
+                    {
+                        isSwitchingControllerProfile = true;
+                        try { LegionControllerProfileToggle.IsOn = true; }
+                        finally { isSwitchingControllerProfile = false; }
+                    }
+                    // Re-apply so the Toggled handler runs fresh with empty storage
+                    LoadControllerProfileFromStorage($"Game_{currentGameName}", gameControllerProfile);
+                    ApplyControllerProfile(gameControllerProfile);
+                    Logger.Info($"ClearPerGameControllerProfile: fresh per-game profile activated for '{currentGameName}'");
+                }
+                else
+                {
+                    if (LegionControllerProfileToggle?.IsOn == true)
+                        LegionControllerProfileToggle.IsOn = false;
+                }
 
                 Logger.Info($"ClearPerGameControllerProfile: per-game controller settings erased for '{currentGameName}'");
             }

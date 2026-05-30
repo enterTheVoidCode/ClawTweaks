@@ -3055,15 +3055,12 @@ namespace XboxGamingBar
                 ControllerEditableContentPanel.IsHitTestVisible = gameActive;
             }
 
-            // MSI Claw: per-game profile is ALWAYS active when a game runs — toggle is locked (not user-editable)
             if (LegionControllerProfileToggle != null)
             {
-                // Toggle is always disabled (read-only) — state purely reflects game detection
-                LegionControllerProfileToggle.IsEnabled = false;
-
                 if (!HasValidGame(newGameName))
                 {
-                    // No valid game — turn off toggle and fall back to global profile
+                    // No valid game — disable toggle and fall back to global profile
+                    LegionControllerProfileToggle.IsEnabled = false;
                     if (LegionControllerProfileToggle.IsOn)
                     {
                         isSwitchingControllerProfile = true;
@@ -3082,11 +3079,11 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // Valid game detected — always force per-game profile ON
+                    // Valid game detected — enable toggle so user can switch
+                    LegionControllerProfileToggle.IsEnabled = true;
+
                     if (!LegionControllerProfileToggle.IsOn)
                     {
-                        // Setting to true triggers LegionControllerProfileToggle_Toggled,
-                        // which loads an existing profile or creates a new one from current UI state
                         LegionControllerProfileToggle.IsOn = true;
                         Logger.Info($"Auto-enabled controller profile for {newGameName}");
                     }
