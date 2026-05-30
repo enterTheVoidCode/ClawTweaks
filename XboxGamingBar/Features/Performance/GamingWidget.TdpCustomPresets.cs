@@ -309,13 +309,8 @@ namespace XboxGamingBar
             }
             else
             {
-                // Use default hardcoded items — Standard (index 1) is the startup default
-                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Max (30W)",           Tag = "0" });
-                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Standard (25W)",      Tag = "1" });
-                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Balanced (17W)",      Tag = "2" });
-                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Battery (12W)",       Tag = "3" });
-                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Super Battery (8W)", Tag = "4" });
-                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Slider",              Tag = "255" });
+                // Only Slider/Custom mode — named presets hidden for MSI Claw (unreliable persistence)
+                TDPModeComboBox.Items.Add(new ComboBoxItem { Content = "Slider", Tag = "255" });
             }
 
             // Try to restore previous selection
@@ -333,9 +328,8 @@ namespace XboxGamingBar
                 }
             }
 
-            // Default to Standard (index 1) if no previous selection or couldn't match
-            // Index 0 = Max (30W), Index 1 = Standard (25W, the startup default)
-            TDPModeComboBox.SelectedIndex = newIndex >= 0 ? newIndex : 1;
+            // Default to index 0 (Slider) — only one item exists in non-custom-preset mode
+            TDPModeComboBox.SelectedIndex = newIndex >= 0 ? newIndex : 0;
         }
 
         private void TDPPresetEditButton_Click(object sender, RoutedEventArgs e)
