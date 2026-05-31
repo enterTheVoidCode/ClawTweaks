@@ -415,7 +415,8 @@ namespace XboxGamingBar
         public ButtonMapping ButtonM1 { get; set; } = new ButtonMapping();
         public ButtonMapping ButtonM2 { get; set; } = new ButtonMapping();
         public ButtonMapping ButtonM3 { get; set; } = new ButtonMapping();
-        public ButtonMapping ButtonDesktop { get; set; } = new ButtonMapping();
+        // Default: Action mode (Type=3), Cycle Through Apps (AltTabBack = 13)
+        public ButtonMapping ButtonDesktop { get; set; } = new ButtonMapping { Type = 3, GamepadAction = 13, GamepadActions = new System.Collections.Generic.List<int> { 13 } };
         public ButtonMapping ButtonPage { get; set; } = new ButtonMapping();
         public bool NintendoLayout { get; set; } = false;
         public int VibrationLevel { get; set; } = 2;  // Medium
