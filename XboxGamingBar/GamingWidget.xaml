@@ -3148,8 +3148,8 @@
                             </Grid>
                         </Border>
 
-                        <!-- Display Color Settings Card -->
-                        <Border Style="{StaticResource CardStyle}">
+                        <!-- Display Color Settings Card — hidden (not relevant for MSI Claw) -->
+                        <Border Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -3208,8 +3208,8 @@
                         </Border>
 
 
-                        <!-- Hotkeys Card (Collapsible) - Xbox Controller Button Combos -->
-                        <Border x:Name="HotkeysCard" Style="{StaticResource CardStyle}">
+                        <!-- Hotkeys Card — hidden (controller hotkeys configured via Quick Settings tile bindings) -->
+                        <Border x:Name="HotkeysCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
                                 <!-- Header with Expand/Collapse -->
                                 <Grid>
