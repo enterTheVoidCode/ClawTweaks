@@ -159,9 +159,9 @@ namespace XboxGamingBar
                         if (currentMetricsData.TryGetValue("batteryDrain", out var drain))
                         {
                             if (drain > 0)
-                                displayValue = $"{drain:F1}W";
+                                displayValue = $"-{drain:F1}W";   // draining
                             else if (drain < 0)
-                                displayValue = $"+{-drain:F1}W";
+                                displayValue = $"+{-drain:F1}W";  // charging
                             else
                                 displayValue = "--W";
                         }
