@@ -2725,6 +2725,16 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         /// <summary>
         /// Sets mapping for Legion-specific buttons (Desktop, Page) which use GamepadButton codes.
         /// </summary>
+        /// TileActionType stored for the left MSI (Desktop) button when Type=3 (Action mode).
+        /// -1 = no action assigned. Read by ClawButtonMonitor on button press.
+        public volatile int DesktopButtonTileAction = -1;
+
+        public void SetDesktopButtonTileAction(int tileActionType)
+        {
+            DesktopButtonTileAction = tileActionType;
+            Logger.Info($"LegionManager: DesktopButtonTileAction set to {tileActionType}");
+        }
+
         /// <param name="button">The GamepadButton to map (DesktopButton=0x25, PageButton=0x26)</param>
         /// <param name="mappingType">0=Gamepad, 1=Keyboard, 2=Mouse</param>
         /// <param name="values">Mapping values (key codes, button codes, etc.)</param>

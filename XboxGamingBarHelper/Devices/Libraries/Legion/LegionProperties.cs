@@ -896,7 +896,18 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionButtonDesktop applying mapping: {Value}");
             var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
-            Manager?.SetLegionButtonMapping(GamepadButton.DesktopButton, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
+            if (type == 3)
+            {
+                // Type=3 is a TileActionType — handled in software by ClawButtonMonitor,
+                // not via firmware mapping. Store on the manager and skip hardware call.
+                Manager?.SetDesktopButtonTileAction(gamepadAction);
+                Logger.Info($"LegionButtonDesktop: Action mode, actionType={gamepadAction}");
+            }
+            else
+            {
+                Manager?.SetDesktopButtonTileAction(-1); // clear action mode
+                Manager?.SetLegionButtonMapping(GamepadButton.DesktopButton, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
+            }
         }
     }
 
