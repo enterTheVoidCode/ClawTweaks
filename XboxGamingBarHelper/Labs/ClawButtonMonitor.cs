@@ -198,10 +198,15 @@ namespace XboxGamingBarHelper.Labs
         private const uint MOUSEEVENTF_RIGHTUP   = 0x0010;
         private const uint MOUSEEVENTF_WHEEL     = 0x0800;
 
-        // Mouse mode tuning — mirrored from MSIClawDesktopModeForwarder
-        private const float MouseModeSensitivity  = 20.0f;  // px per tick at full deflection
-        private const float MouseModeScrollRate   = 0.08f;  // notches per tick at full deflection
-        private const float MouseModeDeadzone     = 0.15f;  // 15 % of ±32767
+        // Mouse mode tuning — configurable via SetMouseModeSensitivity / SetMouseModeThreshold.
+        // Sensitivity: 1–400 (widget slider), mapped to px-per-tick via MouseSensitivityScale.
+        //   sensitivity=100 → 20 px/tick (same as original hardcoded value).
+        // Threshold: 0–20 (widget slider), stored as 0–20% deadzone fraction.
+        //   threshold=15 → 15% deadzone = 0.15f (original hardcoded value).
+        private const float MouseModeScrollRate     = 0.08f;  // notches per tick at full deflection
+        private const float MouseSensitivityScale   = 20.0f / 100.0f; // px per tick at sensitivity=100
+        private volatile int   _mouseModeSensitivity = 100;  // 1–400, default 100
+        private volatile int   _mouseModeThreshold   = 15;   // 0–20, default 15% deadzone
 
         public bool IsRunning => _running;
         public bool HasAnyButtonConfigured => _m1Enabled || _m2Enabled;
@@ -298,6 +303,28 @@ namespace XboxGamingBarHelper.Labs
                 _mouseScrollAccum = 0f;
             }
             Logger.Info($"ClawButtonMonitor: MouseMode → {(enabled ? "on" : "off")}");
+        }
+
+        /// <summary>
+        /// Set mouse mode cursor sensitivity (1–400, widget slider range).
+        /// sensitivity=100 → 20 px/tick at full stick deflection.
+        /// Thread-safe: field is volatile.
+        /// </summary>
+        public void SetMouseModeSensitivity(int sensitivity)
+        {
+            _mouseModeSensitivity = Math.Max(1, Math.Min(400, sensitivity));
+            Logger.Info($"ClawButtonMonitor: MouseMode sensitivity → {_mouseModeSensitivity}");
+        }
+
+        /// <summary>
+        /// Set mouse mode stick deadzone threshold (0–20, widget slider range).
+        /// threshold=15 → 15% of full deflection ignored before cursor starts moving.
+        /// Thread-safe: field is volatile.
+        /// </summary>
+        public void SetMouseModeThreshold(int threshold)
+        {
+            _mouseModeThreshold = Math.Max(0, Math.Min(20, threshold));
+            Logger.Info($"ClawButtonMonitor: MouseMode threshold → {_mouseModeThreshold}%");
         }
 
         /// <summary>
@@ -856,13 +883,15 @@ namespace XboxGamingBarHelper.Labs
                 float fx = rightXOut / 32767f;
                 float fy = -(rightYOut / 32767f); // invert Y: stick up → cursor up
 
-                if (Math.Abs(fx) < MouseModeDeadzone) fx = 0f;
-                if (Math.Abs(fy) < MouseModeDeadzone) fy = 0f;
+                float deadzone = _mouseModeThreshold / 100.0f;
+                float sensitivity = _mouseModeSensitivity * MouseSensitivityScale;
+                if (Math.Abs(fx) < deadzone) fx = 0f;
+                if (Math.Abs(fy) < deadzone) fy = 0f;
 
                 if (fx != 0f || fy != 0f)
                 {
-                    _mouseCarryX += fx * MouseModeSensitivity;
-                    _mouseCarryY += fy * MouseModeSensitivity;
+                    _mouseCarryX += fx * sensitivity;
+                    _mouseCarryY += fy * sensitivity;
                     int dx = (int)_mouseCarryX;
                     int dy = (int)_mouseCarryY;
                     _mouseCarryX -= dx;
@@ -878,7 +907,7 @@ namespace XboxGamingBarHelper.Labs
 
                 // Left stick Y → vertical scroll wheel
                 float scrollY = leftYOut / 32767f;
-                if (Math.Abs(scrollY) < MouseModeDeadzone)
+                if (Math.Abs(scrollY) < deadzone)
                 {
                     _mouseScrollAccum = 0f;
                 }

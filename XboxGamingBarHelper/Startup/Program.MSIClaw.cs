@@ -185,6 +185,24 @@ namespace XboxGamingBarHelper
                 // is the authoritative owner; any previous value is safely overwritten.
                 MsiClawControllerModeManager.OnModeChanged = OnMsiClawControllerModeChanged;
 
+                // ── Step 0.1: Wire mouse sensitivity / threshold callbacks ─────────
+                // ControllerEmulationManager is suppressed for MSI Claw, so its
+                // SetMouseSensitivity/SetMouseThreshold never reach ClawButtonMonitor.
+                // We wire Action callbacks here so slider changes propagate at runtime.
+                if (controllerEmulationManager != null)
+                {
+                    controllerEmulationManager.OnMouseSensitivityChanged = s =>
+                    {
+                        lock (clawButtonMonitorLock)
+                            clawButtonMonitor?.SetMouseModeSensitivity(s);
+                    };
+                    controllerEmulationManager.OnMouseThresholdChanged = t =>
+                    {
+                        lock (clawButtonMonitorLock)
+                            clawButtonMonitor?.SetMouseModeThreshold(t);
+                    };
+                }
+
                 // ── Step 1: Suppress legacy ControllerEmulationManager ─────────────
                 // Reuse the same SetSuppressedByViiper() flag that VIIPER uses — identical
                 // intent: tell the legacy backend that a higher-priority backend owns the
@@ -487,6 +505,18 @@ namespace XboxGamingBarHelper
                     }
 
                     Logger.Info("MSIClaw: ClawButtonMonitor running (DInput path)");
+
+                    // Apply current mouse sensitivity / threshold from persisted settings.
+                    // Done here (after Start) so the values are ready before mouse mode
+                    // is potentially activated below.
+                    if (controllerEmulationManager != null)
+                    {
+                        int sens = controllerEmulationManager.ControllerEmulationMouseSensitivity?.Value ?? 100;
+                        int thresh = controllerEmulationManager.ControllerEmulationMouseThreshold?.Value ?? 15;
+                        monitor.SetMouseModeSensitivity(sens);
+                        monitor.SetMouseModeThreshold(thresh);
+                        Logger.Info($"MSIClaw: Mouse mode settings applied — sensitivity={sens}, threshold={thresh}");
+                    }
 
                     // Apply mouse mode immediately if requested (e.g. widget restored mouse mode on reconnect)
                     if (startInMouseMode)

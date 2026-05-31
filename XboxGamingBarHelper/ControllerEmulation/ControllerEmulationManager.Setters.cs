@@ -243,6 +243,18 @@ namespace XboxGamingBarHelper.ControllerEmulation
             ApplyCurrentConfiguration(improvedInputRead ? "improved input changed: on" : "improved input changed: off");
         }
 
+        /// <summary>
+        /// Called by MSI Claw mouse mode when sensitivity changes.
+        /// Wired in Program.MSIClaw.cs → ClawButtonMonitor.SetMouseModeSensitivity().
+        /// </summary>
+        public Action<int> OnMouseSensitivityChanged;
+
+        /// <summary>
+        /// Called by MSI Claw mouse mode when threshold changes.
+        /// Wired in Program.MSIClaw.cs → ClawButtonMonitor.SetMouseModeThreshold().
+        /// </summary>
+        public Action<int> OnMouseThresholdChanged;
+
         public void SetMouseSensitivity(int value)
         {
             int normalized = NormalizeMouseSensitivity(value);
@@ -254,6 +266,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             mouseSensitivity = normalized;
             SaveSettings();
             Logger.Info($"Controller emulation mouse sensitivity set to {mouseSensitivity}");
+            OnMouseSensitivityChanged?.Invoke(mouseSensitivity);
         }
 
         public void SetMouseThreshold(int value)
@@ -267,6 +280,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             mouseThreshold = normalized;
             SaveSettings();
             Logger.Info($"Controller emulation mouse threshold set to {mouseThreshold}");
+            OnMouseThresholdChanged?.Invoke(mouseThreshold);
         }
 
         public void SetMouseAxis(int value)
