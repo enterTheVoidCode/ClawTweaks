@@ -77,6 +77,43 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Apply default controller hotkey bindings for built-in tiles, if not already set.
+        ///
+        /// Called from LoadQuickSettingsConfig() before saved values are applied —
+        /// the user's saved binding always takes precedence.
+        ///
+        /// Guard key: QS_TileHotkey_DefaultsApplied — set once so defaults are only
+        /// written on first launch (or after a factory reset).
+        ///
+        /// Storage format: QS_{tileId}_Hotkey = XInput mask as decimal string.
+        ///   Start = 0x0010 (16), Select/Back = 0x0020 (32), Start+Select = 0x0030 (48)
+        ///
+        /// Per-game storage (reserved, no UI yet):
+        ///   QS_{tileId}_Hotkey_{appIdentity} = XInput mask as decimal string
+        ///   Written/read by future per-game hotkey UI; ignored here.
+        /// </summary>
+        private void ApplyTileHotkeyDefaults(Windows.Storage.ApplicationDataContainer settings)
+        {
+            try
+            {
+                if (settings.Values.ContainsKey("QS_TileHotkey_DefaultsApplied"))
+                    return;
+
+                // Default: Start + Select (0x0010 | 0x0020 = 48) → Toggle Controller/Mouse mode
+                // The MSIClawDesktopMode tile is the primary mode-switch tile on MSI Claw.
+                const uint StartSelect = 0x0010u | 0x0020u; // = 48
+                settings.Values["QS_MSIClawDesktopMode_Hotkey"] = StartSelect.ToString();
+
+                settings.Values["QS_TileHotkey_DefaultsApplied"] = true;
+                Logger.Info($"Tile hotkey defaults applied: MSIClawDesktopMode = Start+Select (0x{StartSelect:X})");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ApplyTileHotkeyDefaults: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Initialize hotkey watchers for Xbox controller button combinations.
         /// These work even when the widget is not visible.
         /// </summary>
