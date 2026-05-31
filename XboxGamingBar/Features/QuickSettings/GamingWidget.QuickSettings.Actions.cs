@@ -2302,6 +2302,9 @@ namespace XboxGamingBar
                     case TileActionType.CycleLimiterMode:
                         CycleFPSForCurrentMode();
                         break;
+                    case TileActionType.ToggleControllerMouseMode:
+                        ToggleMSIClawDesktopMode();
+                        break;
                 }
                 await SendActionNotificationAsync(actionName);
                 Logger.Info($"ExecutePhysicalButtonActionAsync: executed {actionType} ({actionName})");
@@ -2375,6 +2378,10 @@ namespace XboxGamingBar
 
                     case TileActionType.CycleLimiterMode:
                         CycleFPSForCurrentMode();
+                        break;
+
+                    case TileActionType.ToggleControllerMouseMode:
+                        ToggleMSIClawDesktopMode();
                         break;
                 }
 

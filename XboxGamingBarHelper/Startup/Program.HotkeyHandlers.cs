@@ -411,6 +411,9 @@ namespace XboxGamingBarHelper
                             case 28: // VolumeDown
                                 AdjustVolume(-5);
                                 break;
+                            case 29: // ToggleControllerMouseMode — direct toggle in helper, no pipe roundtrip needed
+                                ToggleControllerMouseModeInHelper();
+                                break;
                             case 1:  // KeyboardShortcut (custom)
                                 if (!string.IsNullOrEmpty(capturedShortcut))
                                     ExecuteKeyboardShortcut(capturedShortcut);
@@ -469,6 +472,46 @@ namespace XboxGamingBarHelper
             catch (Exception ex)
             {
                 Logger.Error($"FireTileHotkeyToWidget: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Toggles the MSI Claw Controller/Mouse mode directly in the helper.
+        ///
+        /// Reads the current mode from MsiClawControllerModeProperty, inverts it,
+        /// calls OnMsiClawControllerModeChanged (same path as a widget tile tap), and
+        /// optionally notifies the widget so the tile icon updates.
+        ///
+        /// Works even when the pipe is disconnected — the local toggle is authoritative.
+        /// </summary>
+        private static void ToggleControllerMouseModeInHelper()
+        {
+            try
+            {
+                if (msiClawControllerModeManager == null)
+                {
+                    Logger.Warn("ToggleControllerMouseModeInHelper: msiClawControllerModeManager not available");
+                    return;
+                }
+
+                bool current = msiClawControllerModeManager.MsiClawControllerMode?.Value ?? true;
+                bool newMode = !current;
+
+                // Apply locally — identical to what the widget would trigger via pipe
+                msiClawControllerModeManager.MsiClawControllerMode?.SetValue(newMode);
+
+                string modeName = newMode ? "Controller" : "Mouse";
+                Logger.Info($"ToggleControllerMouseModeInHelper: toggled → {modeName}");
+
+                // Show OSD notification
+                rtssManager?.ShowNotification($"Mode: {modeName}");
+
+                // Notify widget so tile icon updates (best-effort — works when pipe connected)
+                FireTileHotkeyToWidget("MSIClawDesktopMode", $"Mode: {modeName}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ToggleControllerMouseModeInHelper: {ex.Message}");
             }
         }
 

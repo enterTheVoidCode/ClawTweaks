@@ -21,6 +21,7 @@ namespace XboxGamingBarHelper
                 case 26: return "TDP -1W";
                 case 27: return "Volume +5%";
                 case 28: return "Volume -5%";
+                case 29: return "Toggle Controller/Mouse";
                 default: return $"Action {actionType}";
             }
         }
