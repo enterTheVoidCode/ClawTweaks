@@ -142,15 +142,25 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
-                string actionName = $"Action{actionType}";
-                try
-                {
-                    var dispName = XboxGamingBarHelper.TileActionNames.GetDisplayName(actionType);
-                    if (!string.IsNullOrEmpty(dispName)) actionName = dispName;
-                }
-                catch { }
+                string actionName = TileActionNames.GetDisplayName(actionType);
+                Logger.Info($"MSIClaw: Left CLAW button executing action {actionType} ({actionName})");
 
-                FireTileHotkeyToWidget($"__action__{actionType}", actionName);
+                // Execute directly in helper — widget may be suspended when Game Bar is closed.
+                // Actions needing widget state (CycleOverlay) fall back to FireTileHotkeyToWidget.
+                switch (actionType)
+                {
+                    case 10: AdjustBrightness(+5); break;   // BrightnessUp
+                    case 11: AdjustBrightness(-5); break;   // BrightnessDown
+                    case 12: SendKeyboardShortcutViaInputInjector("Alt+Tab"); break; // AltTab
+                    case 13: SendKeyboardShortcutViaInputInjector("Alt+Tab"); break; // AltTabBack
+                    case 14: SendKeyboardShortcutViaInputInjector("Win+D"); break;   // GoToDesktop
+                    case 27: AdjustVolume(+5); break;       // VolumeUp
+                    case 28: AdjustVolume(-5); break;       // VolumeDown
+                    default:
+                        // App actions that need widget state — try widget (may not work when suspended)
+                        FireTileHotkeyToWidget($"__action__{actionType}", actionName);
+                        break;
+                }
             }
             catch (Exception ex)
             {
