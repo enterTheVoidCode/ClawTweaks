@@ -361,22 +361,68 @@ namespace XboxGamingBar
             var keyboardPanel = FindName($"LegionButton{buttonName}KeyboardPanel") as StackPanel;
 
             if (typeCombo == null) return;
-            int type = typeCombo.SelectedIndex;
+            int typeIndex = typeCombo.SelectedIndex;
 
-            // Show/hide appropriate controls
-            if (gamepadCombo != null)
-                gamepadCombo.Visibility = type == 0 ? Visibility.Visible : Visibility.Collapsed;
-            if (mouseCombo != null)
-                mouseCombo.Visibility = type == 2 ? Visibility.Visible : Visibility.Collapsed;
-            if (keyboardPanel != null)
-                keyboardPanel.Visibility = type == 1 ? Visibility.Visible : Visibility.Collapsed;
+            if (buttonName == "Desktop")
+            {
+                // Desktop TypeComboBox: 0=Keyboard, 1=Action
+                var actionCombo = FindName("LegionButtonDesktopActionComboBox") as ComboBox;
+                bool isKeyboard = typeIndex == 0;
+                if (keyboardPanel != null) keyboardPanel.Visibility = isKeyboard ? Visibility.Visible : Visibility.Collapsed;
+                if (actionCombo != null) actionCombo.Visibility = isKeyboard ? Visibility.Collapsed : Visibility.Visible;
+                if (gamepadCombo != null) gamepadCombo.Visibility = Visibility.Collapsed;
+                if (mouseCombo != null) mouseCombo.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                // Standard buttons: 0=Gamepad, 1=Keyboard, 2=Mouse
+                if (gamepadCombo != null)
+                    gamepadCombo.Visibility = typeIndex == 0 ? Visibility.Visible : Visibility.Collapsed;
+                if (mouseCombo != null)
+                    mouseCombo.Visibility = typeIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
+                if (keyboardPanel != null)
+                    keyboardPanel.Visibility = typeIndex == 1 ? Visibility.Visible : Visibility.Collapsed;
 
-            UpdateButtonGamepadComboControls(buttonName);
+                UpdateButtonGamepadComboControls(buttonName);
+            }
 
             // Update the profile and send command
             if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
             {
                 ControllerSettingChanged(typeCombo, null);
+            }
+        }
+
+        /// <summary>
+        /// Populate the Desktop button Action ComboBox with all selectable TileActionType entries.
+        /// Called once during controller section initialization.
+        /// </summary>
+        private void PopulateDesktopButtonActionComboBox()
+        {
+            var combo = FindName("LegionButtonDesktopActionComboBox") as ComboBox;
+            if (combo == null || combo.Items.Count > 0) return;
+
+            string lastGroup = null;
+            foreach (var action in XboxGamingBar.QuickSettings.TileActionHelper.GetAllActions())
+            {
+                string group = XboxGamingBar.QuickSettings.TileActionHelper.GetGroupName(action);
+                if (group != lastGroup)
+                {
+                    string headerLabel = group == "OS" ? "— OS Actions —" : "— App Actions —";
+                    combo.Items.Add(new ComboBoxItem
+                    {
+                        Content = headerLabel,
+                        IsEnabled = false,
+                        FontSize = 11,
+                        Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(180, 180, 180, 180))
+                    });
+                    lastGroup = group;
+                }
+                combo.Items.Add(new ComboBoxItem
+                {
+                    Content = XboxGamingBar.QuickSettings.TileActionHelper.GetDisplayName(action),
+                    Tag = action
+                });
             }
         }
 
@@ -949,6 +995,42 @@ namespace XboxGamingBar
 
             if (mapping == null) mapping = new ButtonMapping();
 
+            // Desktop button: TypeComboBox has Keyboard(0) / Action(1) — not the standard Gamepad/Keyboard/Mouse
+            if (buttonName == "Desktop")
+            {
+                PopulateDesktopButtonActionComboBox();
+                var actionCombo = FindName("LegionButtonDesktopActionComboBox") as ComboBox;
+                bool isAction = mapping.Type == 3;
+                // Map stored type → ComboBox index (Type=1 Keyboard→0, Type=3 Action→1, default→0)
+                if (typeCombo != null) typeCombo.SelectedIndex = isAction ? 1 : 0;
+                if (keyboardPanel != null)
+                {
+                    keyboardPanel.Visibility = isAction ? Visibility.Collapsed : Visibility.Visible;
+                    if (!isAction) UpdateKeyboardKeyTags(buttonName, mapping.KeyboardKeys);
+                }
+                if (actionCombo != null)
+                {
+                    actionCombo.Visibility = isAction ? Visibility.Visible : Visibility.Collapsed;
+                    if (isAction)
+                    {
+                        // Find item whose Tag matches the stored action
+                        for (int i = 0; i < actionCombo.Items.Count; i++)
+                        {
+                            if (actionCombo.Items[i] is ComboBoxItem ci &&
+                                ci.Tag is XboxGamingBar.QuickSettings.TileActionType t &&
+                                (int)t == mapping.GamepadAction)
+                            {
+                                actionCombo.SelectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (gamepadCombo != null) gamepadCombo.Visibility = Visibility.Collapsed;
+                if (mouseCombo != null) mouseCombo.Visibility = Visibility.Collapsed;
+                return;
+            }
+
             if (mapping.GamepadActions == null || mapping.GamepadActions.Count == 0)
             {
                 if (mapping.GamepadAction > 0)
@@ -1104,6 +1186,26 @@ namespace XboxGamingBar
             var typeCombo = FindName($"LegionButton{buttonName}TypeComboBox") as ComboBox;
             var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
             var mouseCombo = FindName($"LegionButton{buttonName}MouseComboBox") as ComboBox;
+
+            // Desktop button: TypeComboBox is Keyboard(0) / Action(1) — translate to stored Type values
+            if (buttonName == "Desktop")
+            {
+                int idx = typeCombo?.SelectedIndex ?? 0;
+                if (idx == 1) // Action
+                {
+                    mapping.Type = 3;
+                    var actionCombo = FindName("LegionButtonDesktopActionComboBox") as ComboBox;
+                    if (actionCombo?.SelectedItem is ComboBoxItem ci &&
+                        ci.Tag is XboxGamingBar.QuickSettings.TileActionType t)
+                        mapping.GamepadAction = (int)t;
+                }
+                else // Keyboard (default)
+                {
+                    mapping.Type = 1;
+                    mapping.KeyboardKeys = GetStoredKeyboardKeys("Desktop");
+                }
+                return mapping;
+            }
 
             mapping.Type = typeCombo?.SelectedIndex ?? 0;
             mapping.MouseButton = mouseCombo?.SelectedIndex ?? 0;
