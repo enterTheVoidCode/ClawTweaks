@@ -77,6 +77,9 @@ namespace XboxGamingBarHelper
             var deviceInfo = Devices.DeviceDetector.DetectDevice();
             if (deviceInfo.DeviceType != DeviceType.MSIClaw) return;
 
+            // Restore persisted action from global settings (survives reinstall)
+            legionManager?.LoadDesktopButtonTileAction();
+
             lock (_clawButtonWatcherLock)
             {
                 if (_clawButtonWatcher != null) return;

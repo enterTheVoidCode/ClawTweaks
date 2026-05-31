@@ -2727,12 +2727,24 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         /// </summary>
         /// TileActionType stored for the left MSI (Desktop) button when Type=3 (Action mode).
         /// -1 = no action assigned. Read by ClawButtonMonitor on button press.
+        private const string DesktopButtonTileActionKey = "LeftMsiButtonTileAction";
         public volatile int DesktopButtonTileAction = -1;
 
         public void SetDesktopButtonTileAction(int tileActionType)
         {
             DesktopButtonTileAction = tileActionType;
+            // Persist globally — independent of per-game controller profiles
+            Settings.LocalSettingsHelper.SetValue(DesktopButtonTileActionKey, tileActionType);
             Logger.Info($"LegionManager: DesktopButtonTileAction set to {tileActionType}");
+        }
+
+        public void LoadDesktopButtonTileAction()
+        {
+            if (Settings.LocalSettingsHelper.TryGetValue(DesktopButtonTileActionKey, out int saved))
+            {
+                DesktopButtonTileAction = saved;
+                Logger.Info($"LegionManager: DesktopButtonTileAction loaded from settings: {saved}");
+            }
         }
 
         /// <param name="button">The GamepadButton to map (DesktopButton=0x25, PageButton=0x26)</param>
