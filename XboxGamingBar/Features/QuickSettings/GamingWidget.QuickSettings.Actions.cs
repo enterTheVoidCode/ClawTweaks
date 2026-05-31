@@ -1744,8 +1744,11 @@ namespace XboxGamingBar
             if (tier < 0) return;
             intelFpsTier.SetValue(tier);
             Logger.Info($"Intel FPS tier set from Performance tab: {tier}");
-            // Refresh the green FPS number above the toggle to show the new Intel tier FPS
             UpdateFPSCapDisplayText();
+            // Save tier change to profile — without this the 60fps default from FPSModeRadio_Changed
+            // is the last saved value, overwriting any subsequent tier selection.
+            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
+                SaveCurrentSettingsToProfile(currentProfileName);
         }
 
         private void ToggleLegionTouchpad()
