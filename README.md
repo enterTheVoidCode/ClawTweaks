@@ -61,7 +61,6 @@ This means you can adjust TDP, brightness, FPS cap, overlay level, or trigger an
 
 **CPU Controls:**
 - CPU Boost enable/disable
-- CPU EPP (Energy Performance Preference, 0–100)
 - OS Power Mode (Efficiency / Balanced / Performance)
 
 ---
@@ -70,31 +69,30 @@ This means you can adjust TDP, brightness, FPS cap, overlay level, or trigger an
 
 The MSI Claw does not have dedicated controller hardware like the Lenovo Legion Go. ClawTweaks implements software controller emulation: it hides the physical controller via HidHide and presents a clean virtual Xbox 360 controller to games and Steam. All features run through this virtual device.
 
-**Controller emulation:**
-- Virtual Xbox 360 controller via ViGEm Bus (DInput path, PID 0x1902)
-- HidHide suppression hides only the gamepad interface — keyboard and Win+G remain fully functional
-- MSI Center M detection — emulation is automatically suspended when MSI Center M is active to avoid conflicts
-- Quick toggle via the **Controller ↔ Mouse** tile in Quick Settings
+**Button remapping — per game:**
+Every hardware button on the Claw is remappable independently for each game. Profiles switch automatically when a game launches.
+- **M1, M2** (right side back buttons) — remap to any gamepad button, D-pad direction, or stick click
+- **Left front OEM button** — remap to any gamepad action
+- All remaps are per-game: M1 can be "Jump" in one game and "Dodge" in another, applied automatically
 
-**Controller mode** (default) — full gamepad emulation:
-- All buttons, sticks, triggers, and D-pad forwarded to the virtual controller
-- M1 / M2 buttons remappable to any gamepad action
-- Per-game button profiles — different mappings per game, auto-applied on launch
+**Gyroscope — per game:**
+- Gyro-to-right-stick — works with any game that supports stick-based aim (gyro aim in Steam, or natively)
+- Gyro-to-mouse — direct cursor movement, useful for desktop or mouse-driven games
+- Sensitivity X/Y, deadzone, and invert per axis
+- Activation: Always On, Hold a button, or Toggle — configurable button (LT, RT, LB, RB, face buttons)
+- Gyro settings saved per-game profile
 
-**Mouse mode** — desktop-friendly input without a mouse:
-- Right stick → mouse cursor
-- Left stick → scroll wheel
-- LB → right click, RB → left click
+**Controller ↔ Mouse mode:**
+- **Controller mode** (default) — full virtual gamepad, all inputs forwarded
+- **Mouse mode** — right stick → cursor, left stick → scroll, LB/RB → mouse buttons
+- Switch instantly via the Quick Settings tile without opening the full widget
 
-**Gyroscope:**
-- Ported from Handheld Companion, tuned for the Claw's sensor orientation
-- Gyro-to-right-stick (for games with native gyro aim support via Steam or in-game settings)
-- Gyro-to-mouse (direct mouse movement)
-- Sensitivity X/Y, deadzone, invert axes
-- Activation modes: Always On, Hold button, Toggle button
-- Activation button configurable (LT, RT, LB, RB, or any face button)
+**Technical:**
+- Virtual Xbox 360 controller via ViGEm (DInput path)
+- HidHide hides only the gamepad interface — keyboard and Win+G stay fully functional
+- MSI Center M detection — emulation suspends automatically when MSI Center M is active
 
-> Controller emulation requires [ViGEmBus](https://github.com/nefarius/ViGEmBus) and [HidHide](https://github.com/nefarius/HidHide) to be installed.
+> Requires [ViGEmBus](https://github.com/nefarius/ViGEmBus) and [HidHide](https://github.com/nefarius/HidHide).
 
 ---
 
@@ -121,26 +119,10 @@ Real-time on-screen display powered by RivaTuner Statistics Server.
 
 ---
 
-### AMD Radeon Features
-For devices with AMD GPUs (not MSI Claw, but supported when an AMD GPU is present).
-
-- Radeon Super Resolution (RSR), AFMF frame generation
-- Radeon Anti-Lag, Radeon Boost, Radeon Chill
-- Image sharpening, display color controls
-
----
-
 ### Lossless Scaling Integration
 - Launch and manage Lossless Scaling from the widget
 - Configure scaling type, factor, and frame generation mode (LSFG2 / LSFG3)
 - Per-profile configurations
-
----
-
-### Graphics & Display
-- Resolution and refresh rate control
-- HDR toggle
-- Display rotation
 
 ---
 
@@ -212,7 +194,6 @@ Required for per-game profiles and AutoTDP:
 - **Optional:**
   - [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) — required for OSD overlay and RTSS FPS limiter
   - [PawnIO](https://github.com/SuporteTI/PawnIO) — required for extended sensors (fan speed, GPU power draw on some devices)
-  - AMD GPU — for Radeon features
   - Lossless Scaling — for scaling integration
 
 ### Smart App Control
@@ -237,7 +218,6 @@ Windows Smart App Control may prevent the app from running correctly. If you exp
 - **LibreHardwareMonitor** — hardware sensors
 - **RyzenAdj** — AMD TDP control (Legion Go path)
 - **RTSSSharedMemoryNET** — OSD overlay with frametime graph support
-- **ADLX** — AMD Display Library for Radeon features
 - **ViGEmBus / HidHide** — virtual controller and HID suppression
 
 ---
