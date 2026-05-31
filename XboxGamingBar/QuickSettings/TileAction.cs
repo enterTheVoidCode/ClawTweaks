@@ -31,6 +31,7 @@ namespace XboxGamingBar.QuickSettings
         TDPDecrBy1W       = 26,   // lower current TDP by exactly 1 W
         VolumeUp          = 27,   // system volume +5 %
         VolumeDown        = 28,   // system volume -5 %
+        ToggleControllerMouseMode = 29, // MSI Claw: toggle Controller ↔ Mouse mode
     }
 
     public static class TileActionHelper
@@ -54,6 +55,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.TDPDecrBy1W:      return "TDP -1W";
                 case TileActionType.VolumeUp:         return "Volume +5%";
                 case TileActionType.VolumeDown:       return "Volume -5%";
+                case TileActionType.ToggleControllerMouseMode: return "Toggle Controller/Mouse";
                 default: return "Unknown";
             }
         }
@@ -77,6 +79,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.CycleLimiterMode: return "CycleFPS";
                 case TileActionType.TDPIncrBy1W:      return "TDP+1";
                 case TileActionType.TDPDecrBy1W:      return "TDP-1";
+                case TileActionType.ToggleControllerMouseMode: return "Ctrl/Mouse";
                 default: return GetDisplayName(action);
             }
         }
@@ -98,6 +101,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.TDPDecrBy1W:      return "";  // Remove
                 case TileActionType.VolumeUp:         return "";  // Volume 2
                 case TileActionType.VolumeDown:       return "";  // Volume 0
+                case TileActionType.ToggleControllerMouseMode: return "";  // Game controller
                 default: return "";
             }
         }
@@ -109,6 +113,12 @@ namespace XboxGamingBar.QuickSettings
             if (v == 27 || v == 28) return "OS";  // VolumeUp / VolumeDown
             if (v >= 20) return "App";
             return "";
+        }
+
+        /// <summary>Returns true if this action type is only relevant for MSI Claw devices.</summary>
+        public static bool IsMsiClawOnly(TileActionType action)
+        {
+            return action == TileActionType.ToggleControllerMouseMode;
         }
 
         /// <summary>Returns all user-selectable action types in display order.</summary>
@@ -127,6 +137,8 @@ namespace XboxGamingBar.QuickSettings
             yield return TileActionType.CycleLimiterMode;
             yield return TileActionType.TDPIncrBy1W;
             yield return TileActionType.TDPDecrBy1W;
+            // MSI Claw only
+            yield return TileActionType.ToggleControllerMouseMode;
         }
     }
 }
