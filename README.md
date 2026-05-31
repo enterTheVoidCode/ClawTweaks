@@ -30,8 +30,16 @@ Customizable dashboard with quick-access tiles for your most-used settings.
 - One-tap toggles for TDP, FPS Limit, Overlay, Profile, and more
 - **Controller ↔ Mouse mode tile** — switch input mode without opening the full settings
 - Custom keyboard shortcut tiles and predefined action tiles (Brightness, Volume, Desktop, etc.)
-- Tile hotkeys — bind controller button combos to trigger any tile from in-game
 - Device-specific tiles appear only when the relevant hardware or software is detected
+
+**In-game controller shortcuts:**
+Every tile can be assigned a controller button combo that triggers it directly while in a game — without opening the Game Bar. Examples:
+- `Start + D-Pad Up/Down` — raise or lower TDP by 1W on the fly
+- `Start + D-Pad Left/Right` — cycle FPS limit up or down
+- `Select + A/B` — toggle brightness up/down
+- Any combination of 2+ buttons can be assigned to any tile
+
+This means you can adjust TDP, brightness, FPS cap, overlay level, or trigger any custom action mid-game using only the controller — no interruption to gameplay.
 
 ---
 
