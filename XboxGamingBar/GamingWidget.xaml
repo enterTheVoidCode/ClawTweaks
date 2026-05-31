@@ -4873,7 +4873,7 @@
                                         <TextBlock Text="Left MSI&#10;Button" VerticalAlignment="Center"
                                                    Foreground="#AAAAAA" FontSize="12"/>
                                         <ComboBox x:Name="LegionButtonDesktopTypeComboBox" Grid.Column="1" Margin="0,0,8,0"
-                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                                  Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="1">
                                             <x:String>Keyboard</x:String>
                                             <x:String>Action</x:String>
                                         </ComboBox>
