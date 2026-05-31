@@ -6765,7 +6765,7 @@
                                             <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
-                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                            <x:String>Select</x:String><x:String>Start</x:String>
                                         </ComboBox>
                                         <ComboBox x:Name="LegionButtonY1MouseComboBox" Grid.Column="2" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
@@ -6808,7 +6808,7 @@
                                             <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
-                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                            <x:String>Select</x:String><x:String>Start</x:String>
                                         </ComboBox>
                                         <ComboBox x:Name="LegionButtonY2MouseComboBox" Grid.Column="2" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
@@ -6845,7 +6845,7 @@
                                             <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
-                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                            <x:String>Select</x:String><x:String>Start</x:String>
                                         </ComboBox>
                                         <ComboBox x:Name="LegionButtonY3MouseComboBox" Grid.Column="2" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
@@ -6882,7 +6882,7 @@
                                             <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
-                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                            <x:String>Select</x:String><x:String>Start</x:String>
                                         </ComboBox>
                                         <ComboBox x:Name="LegionButtonM1MouseComboBox" Grid.Column="2" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
@@ -6919,7 +6919,7 @@
                                             <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
-                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                            <x:String>Select</x:String><x:String>Start</x:String>
                                         </ComboBox>
                                         <ComboBox x:Name="LegionButtonM2MouseComboBox" Grid.Column="2" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
@@ -6956,7 +6956,7 @@
                                             <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
-                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                            <x:String>Select</x:String><x:String>Start</x:String>
                                         </ComboBox>
                                         <ComboBox x:Name="LegionButtonM3MouseComboBox" Grid.Column="2" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
@@ -7035,7 +7035,7 @@
                                             <x:String>D-Pad Up</x:String><x:String>D-Pad Down</x:String><x:String>D-Pad Left</x:String><x:String>D-Pad Right</x:String>
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
-                                            <x:String>View</x:String><x:String>Menu</x:String>
+                                            <x:String>Select</x:String><x:String>Start</x:String>
                                         </ComboBox>
                                         <!-- Mouse action dropdown (hidden by default) -->
                                         <ComboBox x:Name="LegionGamepadMouseComboBox" Grid.Column="2" Visibility="Collapsed"
