@@ -31,12 +31,7 @@ This means you can adjust TDP, brightness, FPS cap, overlay level, or trigger an
 
 **TDP Management:**
 - Adjust power limits with real-time monitoring
-- Sticky TDP — restores TDP if changed by another app
 - TDP Boost (PL2 / Overboost) with separate slider
-
-**AutoTDP (Beta):**
-- Automatically adjusts TDP to hold a target FPS
-- Real-time status shown in OSD overlay
 
 **FPS Limiter:**
 - **Intel IGCL** — driver-level limiter built into the Intel GPU. Unlike RTSS it does not render and then discard a frame — the limit is applied before rendering, so it costs no extra GPU work and does not consume an FPS from your headroom. Tiers: Performance (60), Balanced (40), Efficiency (30).
@@ -99,7 +94,7 @@ Real-time on-screen display powered by RivaTuner Statistics Server.
 - Power consumption, memory, VRAM
 - Battery level and charge status
 - Fan speed (supported devices)
-- TDP limits and AutoTDP status
+- TDP limits
 
 ---
 
@@ -124,7 +119,7 @@ See the release page for step-by-step instructions.
 
 ### Enable Game Detection
 
-Required for per-game profiles and AutoTDP:
+Required for per-game profiles:
 
 1. Open Xbox Game Bar → **Settings** → **More Settings**
 2. Find **Gaming** widget
