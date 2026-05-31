@@ -234,14 +234,15 @@ namespace XboxGamingBar
             Logger.Info($"SimulateTileHotkeyFired: '{tileId}'");
 
             // Left MSI button Action mode: "__action__{TileActionType int}"
+            // Game Bar is NOT open when the physical button fires — skip Win+G close step.
             if (tileId.StartsWith("__action__"))
             {
                 if (int.TryParse(tileId.Substring("__action__".Length), out int actionInt))
                 {
                     var actionType = (XboxGamingBar.QuickSettings.TileActionType)actionInt;
                     string displayName = XboxGamingBar.QuickSettings.TileActionHelper.GetDisplayName(actionType);
-                    Logger.Info($"SimulateTileHotkeyFired: dispatching action {actionType} ({displayName})");
-                    _ = ExecuteTileActionAsync(actionType, displayName);
+                    Logger.Info($"SimulateTileHotkeyFired: dispatching physical-button action {actionType} ({displayName})");
+                    _ = ExecutePhysicalButtonActionAsync(actionType, displayName);
                 }
                 return;
             }
@@ -2260,6 +2261,53 @@ namespace XboxGamingBar
         // ──────────────────────────────────────────────────────────────────────
         // Predefined-action execution
         // ──────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Execute an action triggered by the physical left MSI button (Game Bar is NOT open).
+        /// Uses SendKeyboardShortcutViaHelper directly — no Win+G prefix needed.
+        /// </summary>
+        private async Task ExecutePhysicalButtonActionAsync(TileActionType actionType, string actionName)
+        {
+            try
+            {
+                switch (actionType)
+                {
+                    case TileActionType.AltTab:
+                    case TileActionType.AltTabBack:
+                        await SendKeyboardShortcutViaHelper("Alt+Tab");
+                        break;
+                    case TileActionType.GoToDesktop:
+                        await SendKeyboardShortcutViaHelper("Win+D");
+                        break;
+                    case TileActionType.BrightnessUp:
+                    case TileActionType.BrightnessDown:
+                        await AdjustBrightnessViaHelperAsync(actionType == TileActionType.BrightnessUp ? 5 : -5);
+                        break;
+                    case TileActionType.VolumeUp:
+                    case TileActionType.VolumeDown:
+                        await AdjustVolumeViaHelperAsync(actionType == TileActionType.VolumeUp ? 5 : -5);
+                        break;
+                    case TileActionType.CycleOverlayMode:
+                        CyclePerformanceOverlay();
+                        break;
+                    case TileActionType.TDPIncrBy1W:
+                        AdjustTDPByWatts(+1);
+                        break;
+                    case TileActionType.TDPDecrBy1W:
+                        AdjustTDPByWatts(-1);
+                        break;
+                    case TileActionType.CycleLimiterMode:
+                        CycleFPSForCurrentMode();
+                        break;
+                }
+                await SendActionNotificationAsync(actionName);
+                Logger.Info($"ExecutePhysicalButtonActionAsync: executed {actionType} ({actionName})");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ExecutePhysicalButtonActionAsync: {ex.Message}");
+            }
+        }
 
         /// <summary>
         /// Execute a predefined tile action and show an RTSS OSD notification.
