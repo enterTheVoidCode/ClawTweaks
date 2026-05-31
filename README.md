@@ -46,7 +46,7 @@ This means you can adjust TDP, brightness, FPS cap, overlay level, or trigger an
 
 ### Controller (MSI Claw)
 
-The MSI Claw does not have dedicated controller hardware like the Lenovo Legion Go. ClawTweaks implements software controller emulation: it hides the physical controller via HidHide and presents a clean virtual Xbox 360 controller to games and Steam. All features run through this virtual device.
+ClawTweaks implements software controller emulation: it hides the physical controller via HidHide and presents a clean virtual Xbox 360 controller to games and Steam. All features run through this virtual device.
 
 **Button remapping — per game:**
 Every hardware button on the Claw is remappable independently for each game. Profiles switch automatically when a game launches.
@@ -168,11 +168,6 @@ Windows Smart App Control may prevent the app from running correctly. If you exp
 Based on [GoTweaks](https://github.com/corando98/GoTweaks) by [namquang93](https://github.com/namquang93) / [corando98](https://github.com/corando98).
 
 Controller emulation and gyro implementation adapted from [Handheld Companion](https://github.com/Valkirie/HandheldCompanion).
-
-**Special Thanks:**
-- **Mute** (Legion Go Discord) — testing and feedback on the original GoTweaks
-- **[GameTechPlanet](https://www.youtube.com/@GameTechPlanet)** — covering GoTweaks
-- **The Community** — bug reports and feedback
 
 ## License
 
