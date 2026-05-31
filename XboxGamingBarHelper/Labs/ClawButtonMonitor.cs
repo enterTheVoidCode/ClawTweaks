@@ -176,6 +176,33 @@ namespace XboxGamingBarHelper.Labs
         // Whether to use new-firmware M1/M2 bytes (Claw 8 AI A2VM, fw >= 0x166)
         private bool _useNewFirmware = true;
 
+        // ── Mouse mode (Controller ↔ Mouse tile) ─────────────────────────────────
+        // When true, the DInput poll loop translates right stick → cursor movement,
+        // left stick Y → scroll wheel, and LB/RB → mouse buttons via mouse_event(),
+        // instead of forwarding to ViGEm. Physical controller stays hidden (HidHide
+        // active, DInput mode unchanged) — identical to how HC fork handles desktop mode.
+        // Written from UI thread; read from monitor thread.
+        private volatile bool _mouseModeEnabled;
+
+        // Mouse mode sub-pixel carry (monitor thread only)
+        private float _mouseCarryX, _mouseCarryY;
+        // Mouse mode scroll accumulator (monitor thread only)
+        private float _mouseScrollAccum;
+        // Mouse mode button state tracking for edge detection (monitor thread only)
+        private bool _mouseLbWasDown, _mouseRbWasDown;
+
+        // mouse_event flags reused from gyro path
+        private const uint MOUSEEVENTF_LEFTDOWN  = 0x0002;
+        private const uint MOUSEEVENTF_LEFTUP    = 0x0004;
+        private const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
+        private const uint MOUSEEVENTF_RIGHTUP   = 0x0010;
+        private const uint MOUSEEVENTF_WHEEL     = 0x0800;
+
+        // Mouse mode tuning — mirrored from MSIClawDesktopModeForwarder
+        private const float MouseModeSensitivity  = 20.0f;  // px per tick at full deflection
+        private const float MouseModeScrollRate   = 0.08f;  // notches per tick at full deflection
+        private const float MouseModeDeadzone     = 0.15f;  // 15 % of ±32767
+
         public bool IsRunning => _running;
         public bool HasAnyButtonConfigured => _m1Enabled || _m2Enabled;
 
@@ -236,6 +263,41 @@ namespace XboxGamingBarHelper.Labs
             if (isM1) _m1RemapAction = action;
             else      _m2RemapAction = action;
             Logger.Info($"ClawButtonMonitor: {button} XInput remap → {action} (actionIndex={actionIndex})");
+        }
+
+        /// <summary>
+        /// Enable or disable software mouse mode.
+        ///
+        /// When enabled, the DInput poll loop translates physical stick/button inputs into
+        /// Windows mouse events (right stick → cursor, left stick Y → scroll, LB/RB → clicks)
+        /// instead of forwarding to ViGEm. The physical controller stays hidden and DInput
+        /// mode is unchanged — no firmware mode switch or HidHide reset needed.
+        ///
+        /// This matches HC fork's desktop-mode virtual approach: the ViGEm virtual controller
+        /// remains plugged in (ControllerHotkeyMonitor and hotkeys stay functional), but
+        /// mouse events are produced by software from the DInput readings.
+        ///
+        /// Thread-safe: _mouseModeEnabled is volatile.
+        /// </summary>
+        public void SetMouseMode(bool enabled)
+        {
+            _mouseModeEnabled = enabled;
+            if (!enabled)
+            {
+                // Release any stuck mouse buttons when leaving mouse mode
+                try
+                {
+                    mouse_event(MOUSEEVENTF_LEFTUP,  0, 0, 0, IntPtr.Zero);
+                    mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, IntPtr.Zero);
+                }
+                catch { }
+                _mouseLbWasDown   = false;
+                _mouseRbWasDown   = false;
+                _mouseCarryX      = 0f;
+                _mouseCarryY      = 0f;
+                _mouseScrollAccum = 0f;
+            }
+            Logger.Info($"ClawButtonMonitor: MouseMode → {(enabled ? "on" : "off")}");
         }
 
         /// <summary>
@@ -769,9 +831,79 @@ namespace XboxGamingBarHelper.Labs
                 }
             }
 
-            // Forward to ViGEm (with XInput remaps applied)
-            if (_vigem != null && _vigem.IsPluggedIn)
-                _vigem.SubmitXboxState(xiBtnsOut, ltrigOut, rtrigOut, leftXOut, leftYOut, rightXOut, rightYOut);
+            // ── Mouse mode — translate stick/button inputs to Windows mouse events ──
+            // Physical controller stays in DInput mode, HidHide stays active, ViGEm stays
+            // plugged in (so hotkeys keep working). This is the HC fork virtual approach.
+            if (_mouseModeEnabled)
+            {
+                // LB → right click, RB → left click (same mapping as MSIClawDesktopModeForwarder)
+                bool lbDown = (xiBtnsOut & XI_LB) != 0;
+                bool rbDown = (xiBtnsOut & XI_RB) != 0;
+
+                if (lbDown && !_mouseLbWasDown)
+                    mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, IntPtr.Zero);
+                else if (!lbDown && _mouseLbWasDown)
+                    mouse_event(MOUSEEVENTF_RIGHTUP,   0, 0, 0, IntPtr.Zero);
+                _mouseLbWasDown = lbDown;
+
+                if (rbDown && !_mouseRbWasDown)
+                    mouse_event(MOUSEEVENTF_LEFTDOWN,  0, 0, 0, IntPtr.Zero);
+                else if (!rbDown && _mouseRbWasDown)
+                    mouse_event(MOUSEEVENTF_LEFTUP,    0, 0, 0, IntPtr.Zero);
+                _mouseRbWasDown = rbDown;
+
+                // Right stick → cursor movement (sub-pixel carry for smooth movement)
+                float fx = rightXOut / 32767f;
+                float fy = -(rightYOut / 32767f); // invert Y: stick up → cursor up
+
+                if (Math.Abs(fx) < MouseModeDeadzone) fx = 0f;
+                if (Math.Abs(fy) < MouseModeDeadzone) fy = 0f;
+
+                if (fx != 0f || fy != 0f)
+                {
+                    _mouseCarryX += fx * MouseModeSensitivity;
+                    _mouseCarryY += fy * MouseModeSensitivity;
+                    int dx = (int)_mouseCarryX;
+                    int dy = (int)_mouseCarryY;
+                    _mouseCarryX -= dx;
+                    _mouseCarryY -= dy;
+                    if (dx != 0 || dy != 0)
+                        mouse_event(MOUSEEVENTF_MOVE, dx, dy, 0, IntPtr.Zero);
+                }
+                else
+                {
+                    _mouseCarryX = 0f;
+                    _mouseCarryY = 0f;
+                }
+
+                // Left stick Y → vertical scroll wheel
+                float scrollY = leftYOut / 32767f;
+                if (Math.Abs(scrollY) < MouseModeDeadzone)
+                {
+                    _mouseScrollAccum = 0f;
+                }
+                else
+                {
+                    _mouseScrollAccum += scrollY * MouseModeScrollRate;
+                    int notches = (int)_mouseScrollAccum;
+                    if (notches != 0)
+                    {
+                        mouse_event(MOUSEEVENTF_WHEEL, 0, 0, unchecked((uint)(notches * 120)), IntPtr.Zero);
+                        _mouseScrollAccum -= notches;
+                    }
+                }
+
+                // Still submit to ViGEm so hotkeys keep working, but zero out the
+                // sticks and triggers so games don't receive phantom gamepad input.
+                if (_vigem != null && _vigem.IsPluggedIn)
+                    _vigem.SubmitXboxState(xiBtnsOut, 0, 0, 0, 0, 0, 0);
+            }
+            else
+            {
+                // Normal controller mode — forward everything to ViGEm
+                if (_vigem != null && _vigem.IsPluggedIn)
+                    _vigem.SubmitXboxState(xiBtnsOut, ltrigOut, rtrigOut, leftXOut, leftYOut, rightXOut, rightYOut);
+            }
 
             // Feed ControllerHotkeyMonitor — 1:1 HC pattern: single DirectInput reader,
             // hotkey system reads from already-computed ButtonState (no second DI instance).

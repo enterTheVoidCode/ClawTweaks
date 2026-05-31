@@ -230,8 +230,8 @@ namespace XboxGamingBarHelper
                 bool controllerModeOn = msiClawControllerModeManager?.MsiClawControllerMode?.Value ?? true;
                 if (!controllerModeOn)
                 {
-                    Logger.Info("MSIClaw: MsiClawControllerMode=Mouse at startup — starting mouse forwarder");
-                    StartMSIClawMouseForwarderBackground();
+                    Logger.Info("MSIClaw: MsiClawControllerMode=Mouse at startup — starting ClawButtonMonitor in mouse mode");
+                    StartClawButtonMonitorBackground(startInMouseMode: true);
                     return;
                 }
 
@@ -261,26 +261,39 @@ namespace XboxGamingBarHelper
                 if (emulationEnabled)
                 {
                     // Switching to Controller mode:
-                    //   1. Stop mouse forwarder (switches controller back to XInput transiently;
-                    //      ClawButtonMonitor.Start() will switch to DInput immediately after)
-                    //   2. Start ClawButtonMonitor (DInput path, ViGEm virtual Xbox 360)
-                    Logger.Info("MSIClaw: EmulationEnabled → true (Controller mode) — stopping mouse forwarder, starting ClawButtonMonitor");
-                    StopMSIClawMouseForwarder();
-
+                    // Clear mouse mode flag on ClawButtonMonitor — DInput poll loop resumes
+                    // full ViGEm forwarding. No stop/start needed; no mode switch sent.
+                    // If ClawButtonMonitor isn't running yet, start it normally.
+                    Logger.Info("MSIClaw: EmulationEnabled → true (Controller mode) — disabling mouse mode on ClawButtonMonitor");
                     lock (clawButtonMonitorLock)
                     {
-                        if (clawButtonMonitor == null || !clawButtonMonitor.IsRunning)
+                        if (clawButtonMonitor != null && clawButtonMonitor.IsRunning)
+                            clawButtonMonitor.SetMouseMode(false);
+                        else
                             StartClawButtonMonitorBackground();
                     }
                 }
                 else
                 {
                     // Switching to Mouse mode:
-                    //   1. Stop ClawButtonMonitor (unhides physical DInput controller via ForceUnhideAll)
-                    //   2. Start mouse forwarder (switches to XInput mode, then polls XInput)
-                    Logger.Info("MSIClaw: EmulationEnabled → false (Mouse mode) — stopping ClawButtonMonitor, starting mouse forwarder");
-                    StopMSIClawButtonMonitor();
-                    StartMSIClawMouseForwarderBackground();
+                    // Set mouse mode flag on ClawButtonMonitor — DInput poll loop translates
+                    // stick/button inputs to Windows mouse events. Physical controller stays
+                    // hidden (HidHide active), no firmware mode switch needed.
+                    // HC fork approach: mouse mode is virtual, physical device stays in DInput.
+                    Logger.Info("MSIClaw: EmulationEnabled → false (Mouse mode) — enabling mouse mode on ClawButtonMonitor");
+                    lock (clawButtonMonitorLock)
+                    {
+                        if (clawButtonMonitor != null && clawButtonMonitor.IsRunning)
+                            clawButtonMonitor.SetMouseMode(true);
+                        else
+                        {
+                            // ClawButtonMonitor not running — start it and then set mouse mode.
+                            // StartClawButtonMonitorBackground() is async; mouse mode will be
+                            // applied once the monitor is running via the startup flow.
+                            Logger.Info("MSIClaw: ClawButtonMonitor not running — starting in mouse mode");
+                            StartClawButtonMonitorBackground(startInMouseMode: true);
+                        }
+                    }
                 }
             }
             catch (Exception ex)
@@ -410,7 +423,7 @@ namespace XboxGamingBarHelper
         ///
         /// Must not block the caller — DInput mode switch + HidHide settle takes ~2 s.
         /// </summary>
-        private static void StartClawButtonMonitorBackground()
+        private static void StartClawButtonMonitorBackground(bool startInMouseMode = false)
         {
             Task.Run(() =>
             {
@@ -474,6 +487,13 @@ namespace XboxGamingBarHelper
                     }
 
                     Logger.Info("MSIClaw: ClawButtonMonitor running (DInput path)");
+
+                    // Apply mouse mode immediately if requested (e.g. widget restored mouse mode on reconnect)
+                    if (startInMouseMode)
+                    {
+                        monitor.SetMouseMode(true);
+                        Logger.Info("MSIClaw: ClawButtonMonitor started in mouse mode");
+                    }
 
                     // ── Step 2: HidHide — hide physical DInput controller ──────────
                     // PID_1902 is now enumerated (Start() completed the DInput mode switch).
@@ -568,26 +588,20 @@ namespace XboxGamingBarHelper
             if (active)
             {
                 // MSI Center M became active → shut down our controller emulation immediately
-                Logger.Info("[Program.MSIClaw] MSI Center M active → stopping ClawButtonMonitor and mouse forwarder");
+                Logger.Info("[Program.MSIClaw] MSI Center M active → stopping ClawButtonMonitor (mouse mode off)");
+                lock (clawButtonMonitorLock)
+                    clawButtonMonitor?.SetMouseMode(false);
                 StopMSIClawButtonMonitor();
-                StopMSIClawMouseForwarder();
             }
             else
             {
                 // MSI Center M deactivated → restart controller emulation if the master toggle is on
                 Logger.Info("[Program.MSIClaw] MSI Center M deactivated → restarting controller emulation");
                 bool controllerModeOn = msiClawControllerModeManager?.MsiClawControllerMode?.Value ?? true;
+                bool emulationEnabled = controllerEmulationManager?.EmulationEnabled ?? true;
 
-                if (controllerModeOn)
-                {
-                    bool emulationEnabled = controllerEmulationManager?.EmulationEnabled ?? true;
-                    if (emulationEnabled)
-                        StartClawButtonMonitorBackground();
-                }
-                else
-                {
-                    StartMSIClawMouseForwarderBackground();
-                }
+                if (emulationEnabled)
+                    StartClawButtonMonitorBackground(startInMouseMode: !controllerModeOn);
             }
         }
 
