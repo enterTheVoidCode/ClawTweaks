@@ -47,9 +47,9 @@ Customizable dashboard with quick-access tiles for your most-used settings.
 - Real-time status shown in OSD overlay
 
 **FPS Limiter:**
-- RTSS-based limiter (requires RivaTuner Statistics Server)
-- Intel IGCL Endurance Gaming tiers (Performance 60, Balanced 40, Efficiency 30)
-- Quick toggle between RTSS and Intel mode
+- **Intel IGCL** — driver-level limiter built into the Intel GPU. Unlike RTSS it does not render and then discard a frame — the limit is applied before rendering, so it costs no extra GPU work and does not consume an FPS from your headroom. Tiers: Performance (60), Balanced (40), Efficiency (30).
+- **RTSS** — RivaTuner Statistics Server for finer-grained limits (30 / 40 / 60 / 90 / 120 FPS). Requires RTSS to be installed. Adds ~1 FPS of overhead compared to Intel IGCL.
+- Quick toggle between Intel and RTSS mode from the Quick Settings tile or the Performance tab
 
 **CPU Controls:**
 - CPU Boost enable/disable
@@ -60,25 +60,44 @@ Customizable dashboard with quick-access tiles for your most-used settings.
 
 ### Controller (MSI Claw)
 
-ClawTweaks provides software controller emulation for MSI Claw via ViGEm, since the Claw does not have dedicated controller hardware like the Legion Go.
+The MSI Claw does not have dedicated controller hardware like the Lenovo Legion Go. ClawTweaks implements software controller emulation: it hides the physical controller via HidHide and presents a clean virtual Xbox 360 controller to games and Steam. All features run through this virtual device.
 
-- **Controller emulation** — virtual Xbox 360 controller over DInput (HidHide-based suppression)
-- **Mouse mode** — right stick → cursor, left stick → scroll, LB/RB → mouse buttons
-- **Gyroscope** — gyro-to-stick or gyro-to-mouse, with sensitivity, deadzone, invert, and activation button
-- **Button remapping** — M1 / M2 mapped to gamepad actions
-- **Per-game controller profiles**
+**Controller emulation:**
+- Virtual Xbox 360 controller via ViGEm Bus (DInput path, PID 0x1902)
+- HidHide suppression hides only the gamepad interface — keyboard and Win+G remain fully functional
+- MSI Center M detection — emulation is automatically suspended when MSI Center M is active to avoid conflicts
+- Quick toggle via the **Controller ↔ Mouse** tile in Quick Settings
 
-> Controller emulation requires ViGEmBus and HidHide to be installed.
+**Controller mode** (default) — full gamepad emulation:
+- All buttons, sticks, triggers, and D-pad forwarded to the virtual controller
+- M1 / M2 buttons remappable to any gamepad action
+- Per-game button profiles — different mappings per game, auto-applied on launch
+
+**Mouse mode** — desktop-friendly input without a mouse:
+- Right stick → mouse cursor
+- Left stick → scroll wheel
+- LB → right click, RB → left click
+
+**Gyroscope:**
+- Ported from Handheld Companion, tuned for the Claw's sensor orientation
+- Gyro-to-right-stick (for games with native gyro aim support via Steam or in-game settings)
+- Gyro-to-mouse (direct mouse movement)
+- Sensitivity X/Y, deadzone, invert axes
+- Activation modes: Always On, Hold button, Toggle button
+- Activation button configurable (LT, RT, LB, RB, or any face button)
+
+> Controller emulation requires [ViGEmBus](https://github.com/nefarius/ViGEmBus) and [HidHide](https://github.com/nefarius/HidHide) to be installed.
 
 ---
 
 ### Per-Game Profiles
-Automatically apply settings when a game launches.
+Automatically apply your preferred settings the moment a game launches — no manual switching needed.
 
-- Automatic profile switching on game detection
-- Saves TDP, TDP Boost, FPS Limit, CPU settings, controller settings per game
-- Default game profile for unknown titles
-- Profile card shown in the widget while a game is active
+- Automatic profile switching on game detection via Xbox Game Bar's focus API
+- Each profile saves independently: TDP, TDP Boost, FPS Limit, CPU Boost, EPP, OS Power Mode, controller mappings, gyro settings, and more
+- **Default game profile** — applies a single preset to any unknown game (useful for "always cap FPS + set TDP to X for every game I haven't configured yet")
+- Profile card shown in the widget header while a game is active, with the active profile name
+- Per-game controller button remapping — M1/M2 behave differently in each game without touching global settings
 
 ---
 
@@ -119,7 +138,26 @@ For devices with AMD GPUs (not MSI Claw, but supported when an AMD GPU is presen
 
 ## Installation
 
+### Before you install — bring the Claw to a clean state
+
+ClawTweaks takes exclusive ownership of the MSI Claw controller. It hides the physical hardware controller via HidHide and replaces it with a virtual Xbox 360 controller. This is required to enable gyroscope, per-game button remapping, and all other controller features — everything runs through that virtual device.
+
+**If you use Handheld Companion, Winhanced, or any other tool that also manages the controller or HidHide, you must fully exit and ideally uninstall that tool before using ClawTweaks.** Running two tools that both try to own the controller will cause conflicts — double input, lost gyro, or the controller not being detected at all.
+
+Before installing, make sure the Claw is in its default state:
+
+1. **Exit and disable** Handheld Companion, Winhanced, or any similar app (check the system tray)
+2. **Open MSI Center M** (the OEM software) and verify the controller is recognized normally there — this confirms the hardware is back to factory state
+3. If HidHide was previously configured by another tool, open **HidHide Configuration Client** and clear all blocked devices
+4. Optionally reboot to make sure no leftover processes or driver state remain
+
+Once the Claw is back to its stock state ClawTweaks will handle everything from there — it enables and configures HidHide automatically when you turn on controller emulation in the widget.
+
+---
+
 ### Option A: Install Script (Recommended)
+
+The install script must be run as Administrator. Right-clicking and choosing "Run with PowerShell" will request elevation automatically.
 
 1. Download the latest release from [Releases](../../releases)
 2. Extract the package
