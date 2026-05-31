@@ -2,23 +2,7 @@
 
 > **⚠️ Beta Software** — ClawTweaks is actively developed and not yet feature-complete. Tested primarily on **MSI Claw 7 AI** and **MSI Claw 8 AI** (A1M / A2VM). Other MSI Claw models may work but are untested and could have issues. Use at your own risk.
 
-A Game Bar widget for MSI Claw handheld gaming PCs — ported and significantly extended from [GoTweaks](https://github.com/corando98/GoTweaks), originally built for Lenovo Legion Go.
-
-ClawTweaks adapts GoTweaks to the Intel Lunar Lake architecture of the MSI Claw, replaces AMD-specific features with Intel equivalents, and adds MSI Claw-specific functionality that was not present in the original.
-
----
-
-## What's different from GoTweaks
-
-GoTweaks was designed around the Lenovo Legion Go (AMD + dedicated controller hardware). ClawTweaks ports that foundation to MSI Claw:
-
-- **Intel TDP control** — replaces RyzenAdj with Intel-compatible power limit management
-- **Intel IGCL FPS limiter** — alternative to RTSS using Intel's GPU driver API
-- **MSI Claw controller emulation** — DInput path via ViGEm (no Legion controller hardware)
-- **Gyroscope support** — ported from Handheld Companion, tuned for Claw sensor layout
-- **MSI Center gating** — detects MSI Center M and disables conflicting features automatically
-- **Claw-specific Quick Settings tiles** — Mode tile (Controller ↔ Mouse), MSI Center toggle
-- Legion Go-specific tabs and features are hidden automatically when not on a Legion device
+A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [GoTweaks](https://github.com/corando98/GoTweaks) (a Lenovo Legion Go widget), ClawTweaks replaces AMD-specific features with Intel equivalents, adds MSI Claw-specific hardware support, and introduces a range of new features alongside a streamlined UI.
 
 ---
 
