@@ -86,11 +86,11 @@ namespace XboxGamingBar
             GlobalProfileCPUBoostText.Visibility = cpuBoostVisibility;
             GlobalProfileCPUBoostText.Text = globalProfile.CPUBoost ? "On" : "Off";
 
-            // Repurposed: CPU EPP slot → FPS Mode
+            // Repurposed: CPU EPP slot → FPS Mode — read from saved profile, not live state
             GlobalProfileCPUEPPLabel.Text = "FPS Mode";
             GlobalProfileCPUEPPLabel.Visibility = fpsLimitVisibility;
             GlobalProfileCPUEPPText.Visibility = fpsLimitVisibility;
-            GlobalProfileCPUEPPText.Text = GetFpsCapModeLabel();
+            GlobalProfileCPUEPPText.Text = GetFpsCapModeLabel(globalProfile);
 
             // Repurposed: CPU State slot → TDP Overboost
             GlobalProfileCPUStateLabel.Text = "TDP Overboost";
@@ -100,7 +100,7 @@ namespace XboxGamingBar
 
             GlobalProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
             GlobalProfileFPSLimitText.Visibility = fpsLimitVisibility;
-            GlobalProfileFPSLimitText.Text = GetActiveFpsValueLabel();
+            GlobalProfileFPSLimitText.Text = GetFpsValueLabel(globalProfile);
 
             // AutoTDP hidden (not relevant for MSI Claw)
             GlobalProfileAutoTDPLabel.Visibility = Visibility.Collapsed;

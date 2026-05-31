@@ -561,9 +561,15 @@ namespace XboxGamingBar
                         fpsLimit?.SetValue(fpsLimitValue);
                     }
 
-                    // Sync toggle + slider UI state
-                    FPSLimitToggle.IsOn = profile.FPSLimitEnabled || intelMode;
-                    FPSLimitSlider.Value = profile.FPSLimitValue;
+                    // Sync toggle + slider UI state — inside isApplyingHelperUpdate so
+                    // FPSLimitToggle_Toggled doesn't fire and overwrite the loaded values
+                    isApplyingHelperUpdate = true;
+                    try
+                    {
+                        FPSLimitToggle.IsOn = profile.FPSLimitEnabled || intelMode;
+                        FPSLimitSlider.Value = profile.FPSLimitValue;
+                    }
+                    finally { isApplyingHelperUpdate = false; }
                     // Refresh the whole FPS section so mode radio + panels match
                     UpdateFPSLimitControls();
                 }
