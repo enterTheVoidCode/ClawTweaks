@@ -117,7 +117,7 @@ namespace XboxGamingBarHelper
                 int code = 0;
                 try
                 {
-                    code = Convert.ToInt32(e.NewEvent.Properties["WMIEvent"].Value) & 0xFF;
+                    code = Convert.ToInt32(e.NewEvent.Properties["MSIEvt"].Value) & 0xFF;
                 }
                 catch
                 {
