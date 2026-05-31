@@ -43,23 +43,36 @@ namespace XboxGamingBar
                 settings.Values.Clear();
                 Logger.Info("FactoryReset: cleared all LocalSettings values");
 
-                // 3. Delete LocalFolder files (logs are kept, only data files cleared)
+                // 3. Delete LocalFolder files and subfolders (logs are kept).
+                //    This includes the helper's profiles/ subfolder which contains per-game
+                //    XML files (e.g. re2.xml, mgsvtpp.xml). These survived previous resets
+                //    because GetFilesAsync() is not recursive — causing stale DGP preferences
+                //    (DgpEnabledOnAC=true + TDP=16W) to persist across factory resets.
                 try
                 {
                     var localFolder = ApplicationData.Current.LocalFolder;
+
+                    // Delete all non-log files in the root
                     var files = await localFolder.GetFilesAsync();
                     foreach (var file in files)
                     {
-                        // Keep log files so the user can still diagnose after reset
                         if (file.Name.EndsWith(".log", StringComparison.OrdinalIgnoreCase))
                             continue;
                         await file.DeleteAsync();
                         Logger.Info($"FactoryReset: deleted file '{file.Name}'");
                     }
+
+                    // Delete ALL subfolders (profiles/, etc.) recursively
+                    var folders = await localFolder.GetFoldersAsync();
+                    foreach (var folder in folders)
+                    {
+                        await folder.DeleteAsync(Windows.Storage.StorageDeleteOption.PermanentDelete);
+                        Logger.Info($"FactoryReset: deleted folder '{folder.Name}'");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Logger.Warn($"FactoryReset: could not clear local folder files: {ex.Message}");
+                    Logger.Warn($"FactoryReset: could not clear local folder: {ex.Message}");
                 }
 
                 Logger.Info("FactoryReset: complete — requesting app restart");

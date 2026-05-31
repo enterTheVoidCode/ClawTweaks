@@ -69,7 +69,7 @@ namespace XboxGamingBar
         private static readonly string[] GamepadActionShortNames = new[]
         {
             "-", "LSC", "LSU", "LSD", "LSL", "LSR", "RSC", "RSU", "RSD", "RSL", "RSR",
-            "DU", "DD", "DL", "DR", "A", "B", "X", "Y", "LB", "LT", "RB", "RT", "View", "Menu"
+            "DU", "DD", "DL", "DR", "A", "B", "X", "Y", "LB", "LT", "RB", "RT", "Sel", "Strt"
         };
 
         private void RefreshSavedProfilesList()

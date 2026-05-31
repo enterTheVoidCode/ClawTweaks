@@ -485,28 +485,33 @@ namespace XboxGamingBar
             fpsCapMode.SetValue(switchToIntel ? 1 : 0);
             Logger.Info($"FPS mode switched from tile to {(switchToIntel ? "Intel" : "RTSS")}");
 
-            // Mutual exclusion: silence the old limiter immediately
+            // Mutual exclusion: disable old limiter, reset new one to 60fps
             if (switchToIntel)
             {
-                if (fpsLimit != null && fpsLimit.Value != 0)
+                Logger.Info("[FPS-Mode] Tile: switching to Intel, disabling RTSS, setting Intel to 60fps");
+                fpsLimit?.SetValue(0);
+                intelFpsTier?.SetValue(1); // Performance = 60fps
+                isApplyingHelperUpdate = true;
+                try
                 {
-                    Logger.Info("[FPS-Exclusion] Tile mode switch to Intel: disabling RTSS FPS limit");
-                    fpsLimit.SetValue(0);
+                    if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = 1;
+                    if (FPSLimitToggle != null) FPSLimitToggle.IsOn = true;
                 }
+                finally { isApplyingHelperUpdate = false; }
             }
             else
             {
-                if (intelFpsTier != null && intelFpsTier.Value != 0)
+                Logger.Info("[FPS-Mode] Tile: switching to RTSS, disabling Intel, setting RTSS to 60fps");
+                intelFpsTier?.SetValue(0);
+                fpsLimit?.SetValue(60);
+                isApplyingHelperUpdate = true;
+                try
                 {
-                    Logger.Info("[FPS-Exclusion] Tile mode switch to RTSS: disabling Intel FPS tier");
-                    intelFpsTier.SetValue(0);
-                    if (IntelFpsTierComboBox != null)
-                    {
-                        isApplyingHelperUpdate = true;
-                        try { IntelFpsTierComboBox.SelectedIndex = 0; }
-                        finally { isApplyingHelperUpdate = false; }
-                    }
+                    if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = 0;
+                    if (FPSLimitSlider != null) FPSLimitSlider.Value = 60;
+                    if (FPSLimitToggle != null) FPSLimitToggle.IsOn = true;
                 }
+                finally { isApplyingHelperUpdate = false; }
             }
 
             // Sync Performance tab radio button state
@@ -1276,60 +1281,59 @@ namespace XboxGamingBar
         /// </summary>
         private void FPSLimitToggle_Toggled(object sender, RoutedEventArgs e)
         {
-            // Update display text when toggle is enabled
-            if (FPSLimitToggle.IsOn && FPSLimitValue != null)
-            {
-                FPSLimitValue.Text = $"{(int)FPSLimitSlider.Value} FPS";
-            }
+            if (isApplyingHelperUpdate) return;
 
-            if (fpsLimit == null || isApplyingHelperUpdate) return;
+            bool isIntelMode = fpsCapMode?.Value == 1;
 
             if (FPSLimitToggle.IsOn)
             {
-                // Get max refresh rate and update slider
-                int maxRefresh = 60;
-                if (refreshRates?.Value != null && refreshRates.Value.Count > 0)
+                if (isIntelMode)
                 {
-                    maxRefresh = refreshRates.Value.Max();
-                }
-                FPSLimitSlider.Maximum = maxRefresh;
-
-                // If slider is at minimum (15) or below, set to max refresh as default
-                int limit = (int)FPSLimitSlider.Value;
-                if (limit <= 15)
-                {
-                    limit = maxRefresh;
-                    FPSLimitSlider.Value = limit;
-                }
-
-                // Update display text with the final value
-                if (FPSLimitValue != null)
-                {
-                    FPSLimitValue.Text = $"{limit} FPS";
-                }
-
-                fpsLimit.SetValue(limit);
-                Logger.Info($"FPS Limit enabled: {limit}");
-            }
-            else
-            {
-                // Disable RTSS FPS limit
-                fpsLimit.SetValue(0);
-                // Also disable Intel tier if currently active
-                if (fpsCapMode?.Value == 1 && intelFpsTier?.Value > 0)
-                {
-                    intelFpsTier.SetValue(0);
-                    if (IntelFpsTierComboBox != null)
+                    // Intel mode: enable at current tier, default to Performance (60fps) if off
+                    int tier = intelFpsTier?.Value ?? 0;
+                    if (tier == 0) tier = 1; // default to Performance (60fps)
+                    intelFpsTier?.SetValue(tier);
+                    isApplyingHelperUpdate = true;
+                    try
                     {
-                        isApplyingHelperUpdate = true;
-                        try { IntelFpsTierComboBox.SelectedIndex = 0; }
-                        finally { isApplyingHelperUpdate = false; }
+                        if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = tier;
                     }
-                    Logger.Info("FPS Limit disabled: also cleared Intel FPS tier");
+                    finally { isApplyingHelperUpdate = false; }
+                    if (FPSLimitValue != null) FPSLimitValue.Text = tier == 1 ? "60 FPS" : tier == 2 ? "40 FPS" : "30 FPS";
+                    Logger.Info($"FPS Limit enabled (Intel mode): tier {tier}");
                 }
                 else
                 {
-                    Logger.Info("FPS Limit disabled");
+                    // RTSS mode: enable at slider value, default to 60fps if unset
+                    int maxRefresh = 60;
+                    if (refreshRates?.Value != null && refreshRates.Value.Count > 0)
+                        maxRefresh = refreshRates.Value.Max();
+                    FPSLimitSlider.Maximum = maxRefresh;
+                    int limit = (int)FPSLimitSlider.Value;
+                    if (limit <= 15) { limit = 60; FPSLimitSlider.Value = limit; }
+                    fpsLimit?.SetValue(limit);
+                    if (FPSLimitValue != null) FPSLimitValue.Text = $"{limit} FPS";
+                    Logger.Info($"FPS Limit enabled (RTSS mode): {limit}fps");
+                }
+            }
+            else
+            {
+                // Toggle OFF — disable only the currently active limiter, leave fpsCapMode unchanged
+                if (isIntelMode)
+                {
+                    intelFpsTier?.SetValue(0);
+                    isApplyingHelperUpdate = true;
+                    try
+                    {
+                        if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = 0;
+                    }
+                    finally { isApplyingHelperUpdate = false; }
+                    Logger.Info("FPS Limit disabled (Intel mode): cleared Intel tier");
+                }
+                else
+                {
+                    fpsLimit?.SetValue(0);
+                    Logger.Info("FPS Limit disabled (RTSS mode): cleared RTSS limit");
                 }
             }
 
@@ -1367,41 +1371,37 @@ namespace XboxGamingBar
                 Logger.Info($"FPS limiter mode changed to {(isIntel ? "Intel" : "RTSS")}");
             }
 
-            // Mutual exclusion: proactively disable the other limiter when switching mode.
-            // Without this, the old limiter stays active until the helper receives a value change.
+            // Mutual exclusion: disable the old limiter and reset the new one to 60 fps.
             if (isIntel)
             {
-                // Switching to Intel — silence RTSS immediately
-                if (fpsLimit != null && fpsLimit.Value != 0)
-                {
-                    Logger.Info("[FPS-Exclusion] Switching to Intel mode: disabling RTSS FPS limit");
+                // Switching to Intel — disable RTSS, start Intel at 60fps (Performance tier 1)
+                Logger.Info("[FPS-Mode] Switching to Intel: disabling RTSS, setting Intel to 60fps");
+                if (fpsLimit != null)
                     fpsLimit.SetValue(0);
+                intelFpsTier?.SetValue(1);
+                isApplyingHelperUpdate = true;
+                try
+                {
+                    if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = 1;
+                    if (FPSLimitToggle != null) FPSLimitToggle.IsOn = true;
                 }
+                finally { isApplyingHelperUpdate = false; }
             }
             else
             {
-                // Switching to RTSS — first restore the RTSS limit from the slider so the toggle
-                // stays on. Without this, UpdateFPSLimitControls fires on intelFpsTier change
-                // and sees fpsLimit==0 → turns the toggle off.
-                if (intelFpsTier != null && intelFpsTier.Value != 0)
-                {
-                    int rtssValue = (int)(FPSLimitSlider?.Value ?? 0);
-                    if (rtssValue > 15 && fpsLimit != null)
-                    {
-                        Logger.Info($"[FPS-Exclusion] Switching to RTSS mode: restoring RTSS limit to {rtssValue} fps");
-                        fpsLimit.SetValue(rtssValue);
-                    }
-
-                    Logger.Info("[FPS-Exclusion] Switching to RTSS mode: disabling Intel FPS tier");
+                // Switching to RTSS — disable Intel, start RTSS at 60fps
+                Logger.Info("[FPS-Mode] Switching to RTSS: disabling Intel, setting RTSS to 60fps");
+                if (intelFpsTier != null)
                     intelFpsTier.SetValue(0);
-                    // Sync ComboBox to "Off" without re-triggering the handler
-                    if (IntelFpsTierComboBox != null)
-                    {
-                        isApplyingHelperUpdate = true;
-                        try { IntelFpsTierComboBox.SelectedIndex = 0; }
-                        finally { isApplyingHelperUpdate = false; }
-                    }
+                fpsLimit?.SetValue(60);
+                isApplyingHelperUpdate = true;
+                try
+                {
+                    if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = 0;
+                    if (FPSLimitSlider != null) FPSLimitSlider.Value = 60;
+                    if (FPSLimitToggle != null) FPSLimitToggle.IsOn = true;
                 }
+                finally { isApplyingHelperUpdate = false; }
             }
 
             // Update the green FPS display to reflect the now-active limiter
@@ -2094,9 +2094,8 @@ namespace XboxGamingBar
                     return;
                 }
 
-                // Always auto-derive tile name from the action display name, truncated to 5 chars
-                string displayName = TileActionHelper.GetDisplayName(actionType) ?? name;
-                name = displayName.Length > 5 ? displayName.Substring(0, 5).TrimEnd() : displayName;
+                // Auto-derive tile name from the action's short name
+                name = TileActionHelper.GetShortName(actionType);
 
                 AddActionTile(name, actionType);
 
@@ -2165,12 +2164,19 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Toggle MSI Center M OEM software on/off.
-        /// When active → stop processes/service/tasks; when inactive → re-enable.
+        /// When activating MSI Center: disable controller emulation FIRST to avoid
+        /// duplicate controllers (ClawTweaks virtual + MSI physical both active).
+        /// When deactivating: stop processes/service/tasks via helper.
         /// </summary>
         private void ToggleMsiCenter()
         {
             if (msiCenterActive == null) return;
             bool newState = !msiCenterActive.Value;
+            // The helper handles stopping ClawButtonMonitor + MouseForwarder in
+            // OnMsiCenterStateChanged(true) — no pre-stop needed here.
+            // Sending msiClawControllerMode=false first caused a race where the
+            // forwarder started (background task) and was immediately killed by
+            // the msiCenterActive=true message arriving milliseconds later.
             msiCenterActive.SetValue(newState);
             Logger.Info($"MSI Center M toggled → active={newState}");
         }
@@ -2186,8 +2192,9 @@ namespace XboxGamingBar
         {
             _isTileTypeAction = false;
 
-            // Show keyboard section, hide action ComboBox
+            // Show keyboard section + name field, hide action ComboBox
             if (TileKeyboardSection != null) TileKeyboardSection.Visibility = Visibility.Visible;
+            if (CustomShortcutNameBox != null) CustomShortcutNameBox.Visibility = Visibility.Visible;
             if (CustomActionTypeComboBox != null) CustomActionTypeComboBox.Visibility = Visibility.Collapsed;
 
             // Highlight active button
@@ -2215,8 +2222,9 @@ namespace XboxGamingBar
         {
             _isTileTypeAction = true;
 
-            // Hide keyboard section, show action ComboBox
+            // Hide keyboard section + name field, show action ComboBox
             if (TileKeyboardSection != null) TileKeyboardSection.Visibility = Visibility.Collapsed;
+            if (CustomShortcutNameBox != null) CustomShortcutNameBox.Visibility = Visibility.Collapsed;
             if (CustomActionTypeComboBox != null) CustomActionTypeComboBox.Visibility = Visibility.Visible;
 
             // Highlight active button

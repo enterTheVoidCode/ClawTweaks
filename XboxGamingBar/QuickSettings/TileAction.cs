@@ -58,6 +58,29 @@ namespace XboxGamingBar.QuickSettings
             }
         }
 
+        /// <summary>
+        /// Short tile name (≤6 chars) used as the tile label when a predefined action tile is created.
+        /// Distinct per action so tiles are immediately recognisable on the Quick Settings grid.
+        /// </summary>
+        public static string GetShortName(TileActionType action)
+        {
+            switch (action)
+            {
+                case TileActionType.BrightnessUp:     return "Bri+";
+                case TileActionType.BrightnessDown:   return "Bri-";
+                case TileActionType.VolumeUp:         return "Vol+";
+                case TileActionType.VolumeDown:       return "Vol-";
+                case TileActionType.AltTab:           return "AltTb";
+                case TileActionType.AltTabBack:       return "CycleApps";
+                case TileActionType.GoToDesktop:      return "Desk";
+                case TileActionType.CycleOverlayMode: return "CycleOSD";
+                case TileActionType.CycleLimiterMode: return "CycleFPS";
+                case TileActionType.TDPIncrBy1W:      return "TDP+1";
+                case TileActionType.TDPDecrBy1W:      return "TDP-1";
+                default: return GetDisplayName(action);
+            }
+        }
+
         public static string GetGlyph(TileActionType action)
         {
             switch (action)
@@ -101,9 +124,7 @@ namespace XboxGamingBar.QuickSettings
             yield return TileActionType.GoToDesktop;
             // App group
             yield return TileActionType.CycleOverlayMode;
-            yield return TileActionType.CycleTDPMode;
-            yield return TileActionType.TDPStepUp;
-            yield return TileActionType.TDPStepDown;
+            yield return TileActionType.CycleLimiterMode;
             yield return TileActionType.TDPIncrBy1W;
             yield return TileActionType.TDPDecrBy1W;
         }

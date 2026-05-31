@@ -144,6 +144,25 @@ namespace Shared.Data
             }
         }
 
+        /// <summary>
+        /// PL2 Overboost additional watts (FPPT = TDP + this value).
+        /// -1 means "not set" — fall back to LocalSettings / device default.
+        /// </summary>
+        [XmlElement("TDPBoostFPPTWatts")]
+        private int tdpBoostFPPTWatts;
+        public int TDPBoostFPPTWatts
+        {
+            get { return tdpBoostFPPTWatts; }
+            set
+            {
+                if (tdpBoostFPPTWatts != value)
+                {
+                    tdpBoostFPPTWatts = value;
+                    Save();
+                }
+            }
+        }
+
         // ========== DC (Battery) Overrides ==========
         // When null, the AC value (above) is used. When set, overrides for DC power.
 
@@ -1203,6 +1222,7 @@ namespace Shared.Data
             maxCPUState = inMaxCPUState;
             minCPUState = inMinCPUState;
             tdpBoostEnabled = inTDPBoostEnabled;
+            tdpBoostFPPTWatts = 0; // 0 = not set (use device default)
             // DC overrides (null = use AC value)
             tdpDC = null;
             cpuBoostDC = null;

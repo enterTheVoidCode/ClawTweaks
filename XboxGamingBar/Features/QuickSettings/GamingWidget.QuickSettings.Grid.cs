@@ -59,12 +59,12 @@ namespace XboxGamingBar
         /// </summary>
         private static readonly (string Label, uint Bit)[] ClawButtonDefs =
         {
-            ("A",       0x1000u), ("B",       0x2000u), ("X",       0x4000u), ("Y",       0x8000u),
-            ("Menu",    0x0010u), ("View",    0x0020u),
-            ("LB",      0x0100u), ("RB",      0x0200u),
-            ("LS",      0x0040u), ("RS",      0x0080u),
-            ("D-Up",    0x0001u), ("D-Down",  0x0002u), ("D-Left",  0x0004u), ("D-Right", 0x0008u),
-            ("M1",      0x10000u),("M2",      0x20000u),
+            ("A",         0x1000u), ("B",         0x2000u), ("X",         0x4000u), ("Y",         0x8000u),
+            ("Start",     0x0010u), ("Select",    0x0020u),
+            ("LB",        0x0100u), ("RB",        0x0200u),
+            ("LS",        0x0040u), ("RS",        0x0080u),
+            ("D-Pad Up",  0x0001u), ("D-Pad Down",0x0002u), ("D-Pad Left",0x0004u), ("D-Pad Right",0x0008u),
+            ("M1",        0x10000u),("M2",        0x20000u),
         };
 
         /// <summary>
@@ -855,13 +855,13 @@ namespace XboxGamingBar
             if (mask == 0) return "--";
             var parts = new List<string>();
             // Modifier-style buttons first (rendered left of the combo)
-            if ((mask & 0x0010) != 0) parts.Add("Mn");      // Menu  → Mn
-            if ((mask & 0x0020) != 0) parts.Add("Vw");      // View  → Vw
-            // DPad: "D" + arrow symbol
-            if ((mask & 0x0001) != 0) parts.Add("d↑"); // DPad Up    → d↑
-            if ((mask & 0x0002) != 0) parts.Add("d↓"); // DPad Down  → d↓
-            if ((mask & 0x0004) != 0) parts.Add("d←"); // DPad Left  → d←
-            if ((mask & 0x0008) != 0) parts.Add("d→"); // DPad Right → d→
+            if ((mask & 0x0010) != 0) parts.Add("Strt");    // Start  → Strt
+            if ((mask & 0x0020) != 0) parts.Add("Sel");     // Select → Sel
+            // DPad
+            if ((mask & 0x0001) != 0) parts.Add("d Up");
+            if ((mask & 0x0002) != 0) parts.Add("d Dn");
+            if ((mask & 0x0004) != 0) parts.Add("d Lt");
+            if ((mask & 0x0008) != 0) parts.Add("d Rt");
             // Shoulder buttons
             if ((mask & 0x0100) != 0) parts.Add("LB");
             if ((mask & 0x0200) != 0) parts.Add("RB");

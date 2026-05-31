@@ -967,15 +967,33 @@ namespace XboxGamingBar
                 // "Mouse"      = MSIClawDesktopModeForwarder active (RS→cursor, LS→scroll, LB/RB→clicks)
                 if (qsTileMap.TryGetValue("MSIClawDesktopMode", out var clawModeTile) && clawModeTile.TileButton != null)
                 {
-                    // msiClawControllerMode defaults to true (Controller); false = Mouse mode.
-                    bool controllerOn = msiClawControllerMode?.Value != false;
-                    string modeLabel = controllerOn ? "Controller" : "Mouse";
-                    if (clawModeTile.StateText != null)
+                    bool emulationActive = controllerEmulationAvailable?.Value == true
+                                          && controllerEmulationEnabled?.Value == true
+                                          && msiCenterActive?.Value != true;
+
+                    if (!emulationActive)
                     {
-                        clawModeTile.StateText.Text = modeLabel;
-                        clawModeTile.StateText.Foreground = controllerOn ? accentForeground : offForeground;
+                        // Controller emulation not available — show hint, disable tile
+                        if (clawModeTile.StateText != null)
+                        {
+                            clawModeTile.StateText.Text = "Emulation off";
+                            clawModeTile.StateText.Foreground = offForeground;
+                        }
+                        clawModeTile.TileButton.Background = tileOffBrush;
+                        clawModeTile.TileButton.IsEnabled = false;
                     }
-                    clawModeTile.TileButton.Background = controllerOn ? tileOnBrush : tileOffBrush;
+                    else
+                    {
+                        clawModeTile.TileButton.IsEnabled = true;
+                        bool controllerOn = msiClawControllerMode?.Value != false;
+                        string modeLabel = controllerOn ? "Controller" : "Mouse";
+                        if (clawModeTile.StateText != null)
+                        {
+                            clawModeTile.StateText.Text = modeLabel;
+                            clawModeTile.StateText.Foreground = controllerOn ? accentForeground : offForeground;
+                        }
+                        clawModeTile.TileButton.Background = controllerOn ? tileOnBrush : tileOffBrush;
+                    }
                 }
 
                 // MSI Center M OEM software toggle tile

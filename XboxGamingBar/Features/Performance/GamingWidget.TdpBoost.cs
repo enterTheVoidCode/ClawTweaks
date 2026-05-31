@@ -49,6 +49,8 @@ namespace XboxGamingBar
             if (isApplyingHelperUpdate) return;
             // Skip during mode changes - don't save forced-off state
             if (isUpdatingTDPMode) return;
+            // Skip while LoadTDPBoostSettings() is applying stored values
+            if (isLoadingTDPBoostSettings) return;
 
             Logger.Info($"TDP Boost toggled to: {TDPBoostToggle.IsOn}");
 
@@ -112,6 +114,12 @@ namespace XboxGamingBar
             // Save to local settings
             var settings = ApplicationData.Current.LocalSettings;
             settings.Values["TDPBoostFPPT"] = fpptBoost;
+
+            // Persist to profile (always saved alongside TDP Boost toggle)
+            if (!isLoadingProfile && !isSwitchingProfile)
+            {
+                SaveCurrentSettingsToProfile(currentProfileName);
+            }
         }
 
         private void LoadTDPBoostSettings()
@@ -132,8 +140,10 @@ namespace XboxGamingBar
                     Logger.Info($"TDP Boost enabled state loaded from settings: {enabled}");
                 }
 
-                // Load PL2-Boost (default 3W) — SPPT Boost removed (Intel PL1/PL2 only)
-                int fpptBoost = 3; // Default
+                // Load PL2-Boost — check profile first, fall back to LocalSettings, then device default.
+                // MSI Claw standard FPPT limit is 37W; use slider Maximum as device-specific ceiling.
+                int deviceDefault = (int)(TDPBoostFPPTSlider?.Maximum ?? 37);
+                int fpptBoost = deviceDefault; // Device-appropriate default for fresh installs
                 if (settings.Values.TryGetValue("TDPBoostFPPT", out object fpptObj) && fpptObj != null)
                 {
                     try

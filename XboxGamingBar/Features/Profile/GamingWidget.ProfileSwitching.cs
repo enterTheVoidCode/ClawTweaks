@@ -288,6 +288,9 @@ namespace XboxGamingBar
             if (SaveTDP && TDPBoostToggle != null)
             {
                 profile.TDPBoostEnabled = TDPBoostToggle.IsOn;
+                // Save PL2-Overboost watt value alongside the toggle
+                if (TDPBoostFPPTSlider != null)
+                    profile.TDPBoostFPPTWatts = (int)Math.Round(TDPBoostFPPTSlider.Value);
             }
             // HDR
             if (SaveHDR)
@@ -390,6 +393,33 @@ namespace XboxGamingBar
                     // hardcoded 15 W default after every reboot because widget-owned TDP is skipped in
                     // batch sync, then this push overwrites helper's global.xml value before the user
                     // even touches the slider.
+                    // Restore PL2-Overboost watt value BEFORE sending TDP.
+                    // The helper's TDPBoostFPPTProperty skips TDP re-apply when isApplyingProfile=true,
+                    // so FPPT must arrive at the helper before TDP — otherwise SetTDP runs with the
+                    // stale fpptBoost value and PL2 stays at the old level (e.g. 37W instead of 20W).
+                    if (profile.TDPBoostFPPTWatts > 0)
+                    {
+                        isLoadingTDPBoostSettings = true;
+                        try
+                        {
+                            double clamped = Math.Max(TDPBoostFPPTSlider?.Minimum ?? 0,
+                                                      Math.Min(profile.TDPBoostFPPTWatts, TDPBoostFPPTSlider?.Maximum ?? 37));
+                            if (TDPBoostFPPTSlider != null)
+                                TDPBoostFPPTSlider.Value = clamped;
+                            if (TDPBoostFPPTSliderCard != null)
+                                TDPBoostFPPTSliderCard.Value = clamped;
+                            if (TDPBoostFPPTValue != null)
+                                TDPBoostFPPTValue.Text = $"{(int)clamped}W";
+                            if (TDPBoostFPPTValueInCard != null)
+                                TDPBoostFPPTValueInCard.Text = $"{(int)clamped}W";
+                            // Sync LocalSettings so the value survives widget restarts
+                            ApplicationData.Current.LocalSettings.Values["TDPBoostFPPT"] = (int)clamped;
+                            tdpBoostFPPT?.SetValue((int)clamped);
+                            Logger.Info($"PL2-Overboost restored from profile: {(int)clamped}W");
+                        }
+                        finally { isLoadingTDPBoostSettings = false; }
+                    }
+                    // Send TDP AFTER FPPT so the helper's SetTDP uses the updated fpptBoost value
                     if (legionGoDetected?.Value != true && !isApplyingHelperUpdate && !isInitialSync)
                     {
                         tdp?.ForceSetValue((int)profile.TDP);
@@ -401,7 +431,6 @@ namespace XboxGamingBar
                         Logger.Info($"Sticky TDP target updated to: {targetTDPLimit}W (profile load)");
                     }
                     // Load TDP Boost toggle state from profile
-                    // For Legion devices switching to Custom mode: defer sending to helper until mode change is applied
                     if (TDPBoostToggle != null)
                     {
                         TDPBoostToggle.IsOn = profile.TDPBoostEnabled;
@@ -688,13 +717,15 @@ namespace XboxGamingBar
                                     if (TDPBoostToggle != null)
                                     {
                                         tdpBoostEnabled?.ForceSetValue(profile.TDPBoostEnabled);
+                                        if (profile.TDPBoostFPPTWatts > 0)
+                                            tdpBoostFPPT?.ForceSetValue(profile.TDPBoostFPPTWatts);
                                     }
                                     if (SaveCPUEPP)
                                     {
                                         cpuEPP?.ForceSetValue((int)profile.CPUEPP);
                                     }
                                     tdp?.ForceSetValue((int)profile.TDP);
-                                    Logger.Info($"Restored TDP settings after mode change: TDP={profile.TDP}W, Boost={profile.TDPBoostEnabled}, EPP={profile.CPUEPP}");
+                                    Logger.Info($"Restored TDP settings after mode change: TDP={profile.TDP}W, Boost={profile.TDPBoostEnabled}, FPPT={profile.TDPBoostFPPTWatts}W, EPP={profile.CPUEPP}");
                                 });
                             }
                             else
@@ -741,13 +772,15 @@ namespace XboxGamingBar
                                         if (TDPBoostToggle != null)
                                         {
                                             tdpBoostEnabled?.ForceSetValue(profile.TDPBoostEnabled);
+                                            if (profile.TDPBoostFPPTWatts > 0)
+                                                tdpBoostFPPT?.ForceSetValue(profile.TDPBoostFPPTWatts);
                                         }
                                         if (SaveCPUEPP)
                                         {
                                             cpuEPP?.ForceSetValue((int)profile.CPUEPP);
                                         }
                                         tdp?.ForceSetValue((int)profile.TDP);
-                                        Logger.Info($"Applied profile TDP settings after mode change: TDP={profile.TDP}W, Boost={profile.TDPBoostEnabled}, EPP={profile.CPUEPP} for {profileName}");
+                                        Logger.Info($"Applied profile TDP settings after mode change: TDP={profile.TDP}W, Boost={profile.TDPBoostEnabled}, FPPT={profile.TDPBoostFPPTWatts}W, EPP={profile.CPUEPP} for {profileName}");
                                     });
                                 }
                                 else

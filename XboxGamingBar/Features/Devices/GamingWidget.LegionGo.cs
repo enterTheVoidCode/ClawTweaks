@@ -57,13 +57,13 @@ namespace XboxGamingBar
                 Logger.Info($"Legion tab visibility set to: {showTab} (legionDetected={visible}, controllerEmulationSupported={controllerEmulationSupported})");
             }
 
-            // TDP Mode card is always visible for all devices
-            // Legion devices: uses hardware presets (Quiet/Balanced/Performance/Custom)
-            // Generic devices: uses TDP value presets (8W/15W/25W/Custom)
+            // TDP Mode card: only show for Legion devices (hardware presets Quiet/Balanced/Performance/Custom).
+            // On MSI Claw (non-Legion) the ComboBox row and expand button are both Collapsed,
+            // leaving an empty card visible between the Overlay and TDP Power Limit cards.
             if (TDPModeCard != null)
             {
-                TDPModeCard.Visibility = Visibility.Visible;
-                Logger.Info($"TDP Mode card visibility set to: Visible (Legion={visible})");
+                TDPModeCard.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"TDP Mode card visibility set to: {(visible ? "Visible" : "Collapsed")} (Legion={visible})");
 
                 // Update XY focus bindings - TDP Mode card is always present now
                 UpdatePerformanceTabXYFocus(true);
@@ -2172,7 +2172,8 @@ namespace XboxGamingBar
             // Skip during initial sync - ApplyProfileTDPToHelper will set the correct value
             if (TDPModeComboBox != null && LegionPerformanceModeComboBox != null && !isInitialSync)
             {
-                if (TDPModeComboBox.SelectedIndex != LegionPerformanceModeComboBox.SelectedIndex)
+                int targetIndex = Math.Max(0, Math.Min(LegionPerformanceModeComboBox.SelectedIndex, TDPModeComboBox.Items.Count - 1));
+                if (TDPModeComboBox.SelectedIndex != targetIndex)
                 {
                     // Set isApplyingHelperUpdate during sync so TDPModeComboBox_SelectionChanged
                     // returns early (skips profile save and value sends).
@@ -2180,7 +2181,7 @@ namespace XboxGamingBar
                         isApplyingHelperUpdate = true;
                     try
                     {
-                        TDPModeComboBox.SelectedIndex = LegionPerformanceModeComboBox.SelectedIndex;
+                        TDPModeComboBox.SelectedIndex = targetIndex;
                     }
                     finally
                     {

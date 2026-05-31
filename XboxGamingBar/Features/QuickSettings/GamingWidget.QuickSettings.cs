@@ -264,13 +264,13 @@ namespace XboxGamingBar
             qsTileMap.Clear();
 
             // MSI Claw mode tile pinned to position 0 (top-left) \u2014 shown only on MSI Claw (ShouldSkipTile hides it elsewhere).
-            // FPSCombined, Overlay follow at 1-2. All other tiles start at order=4.
+            // Overlay follows at 1. All other tiles start at order=4.
             AddTileDefinition("MSIClawDesktopMode", "Mode",     "\uE7FC", order: 0);               // MSI Claw only \u2014 top-left
-            // FPSLimit + IntelFpsTier merged into one tile with left (mode) / right (value) sub-buttons
-            // AddTileDefinition("FPSLimit",     "FPS Limit", "\uE916", order: 1);                // replaced by FPSCombined
-            // AddTileDefinition("IntelFpsTier", "Intel FPS", "\uE916", order: 2, hasDropdown: true);  // replaced by FPSCombined
-            AddTileDefinition("FPSCombined", "FPS limit.", "\uE916", order: 1, hasDropdown: true);    // RTSS+Intel combined \u2014 main=FPS dropdown, bottom=Mode switch
-            AddTileDefinition("Overlay",      "Overlay",   "\uE7B3", order: 2);
+            // FPS Limit tile disabled \u2014 Performance tab is the single source of truth.
+            // AddTileDefinition("FPSLimit",     "FPS Limit", "\uE916", order: 1);
+            // AddTileDefinition("IntelFpsTier", "Intel FPS", "\uE916", order: 2, hasDropdown: true);
+            // AddTileDefinition("FPSCombined", "FPS limit.", "\uE916", order: 1, hasDropdown: true);
+            AddTileDefinition("Overlay",      "Overlay",   "\uE7B3", order: 1);
 
             int order = 4;
 

@@ -57,22 +57,28 @@ namespace XboxGamingBar
             if (MsiCenterTDPWarning != null)
                 MsiCenterTDPWarning.Visibility = msiActive ? Visibility.Visible : Visibility.Collapsed;
 
+            // TDPModeCard is Legion-only (hardware presets). Always collapsed for MSI Claw —
+            // the MSI Center warning has been moved inline into the TDP Power Limit card.
+            // No action needed here for non-Legion devices.
+
             if (TDPModeComboBox != null)
                 TDPModeComboBox.IsEnabled = !msiActive;
 
             if (msiActive)
             {
-                // Hard-disable TDP slider and sub-controls; UpdateTDPSliderEnabledState
-                // will also gate on msiActive, but we set IsEnabled=false explicitly
-                // here so the control state is immediate (before the full refresh runs).
-                if (TDPSlider != null)       TDPSlider.IsEnabled       = true;  // slider always enabled
-                if (TDPBoostToggle != null)  TDPBoostToggle.IsEnabled  = false;
-                if (AutoTDPToggle != null)   AutoTDPToggle.IsEnabled   = false;
-                if (StickyTDPToggle != null) StickyTDPToggle.IsEnabled = false;
+                // Disable all TDP controls while MSI Center M owns the hardware.
+                if (TDPSlider != null)              TDPSlider.IsEnabled              = false;  // was incorrectly = true before
+                if (TDPBoostToggle != null)         TDPBoostToggle.IsEnabled         = false;
+                if (TDPBoostFPPTSlider != null)     TDPBoostFPPTSlider.IsEnabled     = false;
+                if (TDPBoostFPPTSliderCard != null) TDPBoostFPPTSliderCard.IsEnabled = false;
+                if (AutoTDPToggle != null)          AutoTDPToggle.IsEnabled          = false;
+                if (StickyTDPToggle != null)        StickyTDPToggle.IsEnabled        = false;
             }
             else
             {
                 // Lift the gate — let the normal state machine decide the enabled state
+                if (TDPBoostFPPTSlider != null)     TDPBoostFPPTSlider.IsEnabled     = true;
+                if (TDPBoostFPPTSliderCard != null) TDPBoostFPPTSliderCard.IsEnabled = true;
                 UpdateTDPSliderEnabledState();
             }
 
