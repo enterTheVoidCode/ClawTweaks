@@ -62,7 +62,11 @@ namespace XboxGamingBar
             public bool IsAction { get; set; } = false;   // True for action tiles (Task Manager, Explorer, etc.) - shown at bottom
             public string CustomShortcut { get; set; }              // For custom shortcut tiles
             public TileActionType ActionType { get; set; } = TileActionType.None; // Predefined action
-            public string ControllerHotkey { get; set; }            // Controller button combo (e.g. "LB+RB")
+            public string ControllerHotkey { get; set; }            // Controller button combo mask (global, e.g. "48" = Start+Select)
+
+            // Per-game hotkey overrides: key = app identity (e.g. "game.exe"), value = mask string.
+            // Populated from storage key QS_{Id}_Hotkey_{appId}. Reserved for future per-game UI.
+            public Dictionary<string, string> ControllerHotkeyPerGame { get; set; } = new Dictionary<string, string>();
             public int Order { get; set; } = 0;                     // Display order (lower = first)
             public Button TileButton { get; set; }
             public TextBlock StateText { get; set; }
@@ -614,6 +618,9 @@ namespace XboxGamingBar
                 UpdateMetricCheckboxes();
                 RebuildMetricsGrid();
 
+                // Apply default tile hotkeys before loading saved values so user overrides win
+                ApplyTileHotkeyDefaults(settings);
+
                 foreach (var tile in qsTileDefinitions)
                 {
                     string visKey   = $"QS_{tile.Id}_Visible";
@@ -627,6 +634,10 @@ namespace XboxGamingBar
                     // Restore controller hotkey for built-in tiles (custom tiles load theirs via QuickSettingsConfig)
                     if (!tile.IsTrigger && settings.Values.TryGetValue(hotkeyKey, out object hkVal) && hkVal is string hk && !string.IsNullOrEmpty(hk))
                         tile.ControllerHotkey = hk;
+
+                    // Reserved: per-game hotkey overrides — load QS_{Id}_Hotkey_{appId} entries
+                    // No UI yet; structure populated here for future use.
+                    // (Implementation placeholder — iterate settings keys when per-game UI is built)
                 }
 
                 Logger.Info($"Quick Settings config loaded (columns: {qsColumnCount})");
