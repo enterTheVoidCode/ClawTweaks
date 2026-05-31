@@ -140,9 +140,9 @@ namespace XboxGamingBar
         {
             { MetricType.BatteryDrain, new MetricInfo { Id = "BatteryDrain", Label = "Battery", Glyph = "\uE83F", Unit = "W" } },
             { MetricType.BatteryLevel, new MetricInfo { Id = "BatteryLevel", Label = "Battery", Glyph = "\uE83F", Unit = "%" } },
-            { MetricType.CPUUsage, new MetricInfo { Id = "CPUUsage", Label = "CPU", Glyph = "\uE950", Unit = "%" } },
+            { MetricType.CPUUsage, new MetricInfo { Id = "CPUUsage", Label = "CPU Load", Glyph = "\uE950", Unit = "%" } },
             { MetricType.CPUTemp, new MetricInfo { Id = "CPUTemp", Label = "CPU Temp", Glyph = "\uE9CA", Unit = "°" } },
-            { MetricType.CPUWattage, new MetricInfo { Id = "CPUWattage", Label = "CPU", Glyph = "\uE945", Unit = "W" } },
+            { MetricType.CPUWattage, new MetricInfo { Id = "CPUWattage", Label = "CPU Power", Glyph = "\uE945", Unit = "W" } },
             { MetricType.GPUUsage, new MetricInfo { Id = "GPUUsage", Label = "GPU", Glyph = "\uE7F4", Unit = "%" } },
             { MetricType.GPUTemp, new MetricInfo { Id = "GPUTemp", Label = "GPU Temp", Glyph = "\uE9CA", Unit = "°" } },
             { MetricType.GPUWattage, new MetricInfo { Id = "GPUWattage", Label = "GPU", Glyph = "\uE945", Unit = "W" } },
@@ -590,8 +590,16 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // Default selection: Battery Drain, CPU Usage, CPU Temp, GPU Usage, Time Remaining
-                    selectedMetrics.AddRange(new[] { MetricType.BatteryDrain, MetricType.CPUUsage, MetricType.CPUTemp, MetricType.GPUUsage, MetricType.TimeRemaining });
+                    // Default selection (6): CPU Load, CPU Temp, CPU Power, GPU, Battery, Time — in display order
+                    selectedMetrics.AddRange(new[]
+                    {
+                        MetricType.CPUUsage,
+                        MetricType.CPUTemp,
+                        MetricType.CPUWattage,
+                        MetricType.GPUUsage,
+                        MetricType.BatteryDrain,
+                        MetricType.TimeRemaining
+                    });
                 }
 
                 // Update Quick Metrics UI

@@ -2745,6 +2745,12 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 DesktopButtonTileAction = saved;
                 Logger.Info($"LegionManager: DesktopButtonTileAction loaded from settings: {saved}");
             }
+            else
+            {
+                // Default: Cycle Through Apps (AltTabBack = 13)
+                DesktopButtonTileAction = 13;
+                Logger.Info("LegionManager: DesktopButtonTileAction defaulting to AltTabBack (13)");
+            }
         }
 
         /// <param name="button">The GamepadButton to map (DesktopButton=0x25, PageButton=0x26)</param>
