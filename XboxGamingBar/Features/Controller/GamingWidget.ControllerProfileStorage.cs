@@ -351,6 +351,14 @@ namespace XboxGamingBar
             {
                 keyCombo.SelectionChanged += (s, e) => OnKeyboardKeySelected(buttonName);
             }
+
+            // Desktop button only: wire the Action ComboBox so selecting an action triggers a save
+            if (buttonName == "Desktop")
+            {
+                var actionCombo = FindName("LegionButtonDesktopActionComboBox") as ComboBox;
+                if (actionCombo != null)
+                    actionCombo.SelectionChanged += ControllerSettingChanged;
+            }
         }
 
         private void OnButtonTypeChanged(string buttonName)

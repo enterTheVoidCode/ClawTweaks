@@ -109,18 +109,25 @@ namespace XboxGamingBarHelper
         {
             try
             {
-                // EventCode field carries the WMI event code (1 byte, value 41 = LaunchMcxMainUI)
-                var props = e.NewEvent.Properties;
+                // HC ClawA1M.cs: property name is "WMIEvent", value masked to 1 byte
+                // EventCode 41 (0x29) = LaunchMcxMainUI = left CLAW button
                 int code = 0;
-                foreach (System.Management.PropertyData p in props)
+                try
                 {
-                    if (p.Name.Equals("EventCode", StringComparison.OrdinalIgnoreCase) ||
-                        p.Name.Equals("WMIEvent", StringComparison.OrdinalIgnoreCase))
-                    {
-                        code = Convert.ToInt32(p.Value) & 0xFF;
-                        break;
-                    }
+                    code = Convert.ToInt32(e.NewEvent.Properties["WMIEvent"].Value) & 0xFF;
                 }
+                catch
+                {
+                    // Fallback: log all property names for diagnosis
+                    var sb = new System.Text.StringBuilder();
+                    foreach (System.Management.PropertyData p in e.NewEvent.Properties)
+                        sb.Append($"{p.Name}={p.Value} ");
+                    var names = sb.ToString();
+                    Logger.Info($"MSIClaw: MSI_Event received, properties: {names}");
+                    return;
+                }
+
+                Logger.Info($"MSIClaw: MSI_Event code={code}");
                 if (code != 41) return; // 41 = LaunchMcxMainUI = left CLAW button
 
                 Logger.Info("MSIClaw: Left CLAW button pressed (WMI LaunchMcxMainUI)");
