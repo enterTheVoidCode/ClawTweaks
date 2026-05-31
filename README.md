@@ -1,171 +1,119 @@
-# GoTweaks Widget
+# ClawTweaks
 
-A powerful Game Bar widget for controlling gaming settings with your controller. Designed for handheld gaming PCs with deep integration for Legion Go, AMD Radeon GPUs, and performance tuning.
+> **⚠️ Beta Software** — ClawTweaks is actively developed and not yet feature-complete. Tested primarily on **MSI Claw 7 AI** and **MSI Claw 8 AI** (A1M / A2VM). Other MSI Claw models may work but are untested and could have issues. Use at your own risk.
 
-[![Video Overview](https://img.youtube.com/vi/6zoOBG9X_WU/0.jpg)](https://www.youtube.com/watch?v=6zoOBG9X_WU)
+A Game Bar widget for MSI Claw handheld gaming PCs — ported and significantly extended from [GoTweaks](https://github.com/corando98/GoTweaks), originally built for Lenovo Legion Go.
 
-*Video by [GameTechPlanet](https://www.youtube.com/@GameTechPlanet) - Note: Installation has been simplified and the widget has received many updates since this video.*
+ClawTweaks adapts GoTweaks to the Intel Lunar Lake architecture of the MSI Claw, replaces AMD-specific features with Intel equivalents, and adds MSI Claw-specific functionality that was not present in the original.
+
+---
+
+## What's different from GoTweaks
+
+GoTweaks was designed around the Lenovo Legion Go (AMD + dedicated controller hardware). ClawTweaks ports that foundation to MSI Claw:
+
+- **Intel TDP control** — replaces RyzenAdj with Intel-compatible power limit management
+- **Intel IGCL FPS limiter** — alternative to RTSS using Intel's GPU driver API
+- **MSI Claw controller emulation** — DInput path via ViGEm (no Legion controller hardware)
+- **Gyroscope support** — ported from Handheld Companion, tuned for Claw sensor layout
+- **MSI Center gating** — detects MSI Center M and disables conflicting features automatically
+- **Claw-specific Quick Settings tiles** — Mode tile (Controller ↔ Mouse), MSI Center toggle
+- Legion Go-specific tabs and features are hidden automatically when not on a Legion device
+
+---
 
 ## Features
 
 ### Quick Settings
 Customizable dashboard with quick-access tiles for your most-used settings.
 
-- One-tap toggles for TDP Mode, Profile, Overlay, Lossless Scaling
-- Custom keyboard shortcut tiles with add/remove functionality
-- Device-specific tiles that appear when supported hardware is detected
-
-![Screenshot: Quick Settings](Screenshots/quick_settings.png)
+- One-tap toggles for TDP, FPS Limit, Overlay, Profile, and more
+- **Controller ↔ Mouse mode tile** — switch input mode without opening the full settings
+- Custom keyboard shortcut tiles and predefined action tiles (Brightness, Volume, Desktop, etc.)
+- Tile hotkeys — bind controller button combos to trigger any tile from in-game
+- Device-specific tiles appear only when the relevant hardware or software is detected
 
 ---
 
 ### Performance Control
-Fine-tune power and CPU settings for optimal performance or battery life.
 
 **TDP Management:**
-- **Custom TDP** - Adjust system power limits with real-time monitoring
-- **Sticky TDP** - Automatically restore TDP if changed by other apps
-- **TDP Boost** - Per-game boost with separate SPPT/FPPT controls
+- Adjust power limits with real-time monitoring
+- Sticky TDP — restores TDP if changed by another app
+- TDP Boost (PL2 / Overboost) with separate slider
 
 **AutoTDP (Beta):**
-- Automatically adjusts TDP to maintain your target FPS
-- Smart algorithm finds the minimum power needed
+- Automatically adjusts TDP to hold a target FPS
 - Real-time status shown in OSD overlay
 
-**CPU Controls:**
-- **CPU Boost** - Enable or disable CPU boost
-- **CPU EPP** - Energy Performance Preference (0-100)
-- **Min/Max CPU State** - Control CPU clock speed range
+**FPS Limiter:**
+- RTSS-based limiter (requires RivaTuner Statistics Server)
+- Intel IGCL Endurance Gaming tiers (Performance 60, Balanced 40, Efficiency 30)
+- Quick toggle between RTSS and Intel mode
 
-![Screenshot: Performance Tab](Screenshots/performance.png)
+**CPU Controls:**
+- CPU Boost enable/disable
+- CPU EPP (Energy Performance Preference, 0–100)
+- OS Power Mode (Efficiency / Balanced / Performance)
+
+---
+
+### Controller (MSI Claw)
+
+ClawTweaks provides software controller emulation for MSI Claw via ViGEm, since the Claw does not have dedicated controller hardware like the Legion Go.
+
+- **Controller emulation** — virtual Xbox 360 controller over DInput (HidHide-based suppression)
+- **Mouse mode** — right stick → cursor, left stick → scroll, LB/RB → mouse buttons
+- **Gyroscope** — gyro-to-stick or gyro-to-mouse, with sensitivity, deadzone, invert, and activation button
+- **Button remapping** — M1 / M2 mapped to gamepad actions
+- **Per-game controller profiles**
+
+> Controller emulation requires ViGEmBus and HidHide to be installed.
 
 ---
 
 ### Per-Game Profiles
-Automatically apply your preferred settings when each game launches.
+Automatically apply settings when a game launches.
 
 - Automatic profile switching on game detection
-- Saves all performance settings per game:
-  - TDP, TDP Boost, CPU settings
-  - AMD Radeon features
-  - Lossless Scaling configuration
-  - Legion Go controller settings (if applicable)
-
-![Screenshot: Profiles Tab](Screenshots/profiles.png)
-
----
-
-### Legion Go Support
-Comprehensive support for Legion Go and Legion Go S with automatic device detection.
-
-**Performance Modes:**
-- Quiet, Balanced, Performance, and Custom modes
-- Custom TDP with fine-grained control (SPL, SPPL, FPPT)
-- Fan Full Speed toggle
-
-**Controller Settings:**
-- **Button Remapping** - Customize M2, M3, Y1, Y2, Y3 buttons
-- **Remap type** - Remap to Keyboard shortcuts, keys, gamepad actions, mouse buttons.
-- **Joystick to Mouse** - Emulate a mouse using either the left or rigth stick
-- **Desktop Controls** - Maps the controls to mouse, left mouse button, and right click, similar to Rog Ally. 
-- **Nintendo Layout** - Swap button layout
-- **Stick Deadzones** - Adjust left/right stick deadzones (0-50%)
-- **Gyroscope Settings:**
-  - Enable/disable with target selection
-  - Sensitivity X/Y adjustment
-  - Invert axes options
-  - Activation mode (Hold/Toggle) with button selection
-- **Vibration Mode** - Configure vibration behavior
-- **Touchpad Haptics** - Toggle haptic feedback
-
-**RGB Lighting:**
-- Light mode, color, brightness, and speed control
-- Power light toggle
-
-**Other:**
-- Touchpad toggle
-- Battery charge limit
-
-![Screenshot: Legion Go Tab](Screenshots/legion.png)
-
-![Screenshot: Controller Settings](Screenshots/legion_controller.png)
-
----
-
-### AMD Radeon Features
-GPU-based enhancements for AMD graphics cards.
-
-**Upscaling & Frame Generation:**
-- **Radeon Super Resolution (RSR)** - GPU upscaling with sharpness control
-- **AMD Fluid Motion Frames (AFMF)** - Frame generation
-
-**Performance:**
-- **Radeon Anti-Lag** - Reduce input latency
-- **Radeon Boost** - Dynamic resolution scaling
-
-**Power Saving:**
-- **Radeon Chill** - Reduce power when idle with min/max FPS control
-
-**Image Quality:**
-- **Image Sharpening** - Enhance visual clarity
-- **Display Color Controls** - Brightness, contrast, saturation, color temperature
-
-![Screenshot: AMD Features Tab](Screenshots/amd.png)
-
----
-
-### Lossless Scaling Integration
-Control Lossless Scaling directly from the widget.
-
-- Launch and manage Lossless Scaling
-- Configure scaling type and factor
-- Frame generation modes (LSFG2, LSFG3)
-- Auto-scaling with delay configuration
-- Anime4K and FSR optimization options
-- Per-profile configurations
-
-![Screenshot: Scaling Tab](Screenshots/scaling.png)
-
----
-
-### Graphics Settings
-Display and resolution management.
-
-- Resolution control with auto-detection
-- Refresh rate adjustment
-- HDR toggle (when supported)
-
-![Screenshot: Graphics Tab](Screenshots/graphics.png)
+- Saves TDP, TDP Boost, FPS Limit, CPU settings, controller settings per game
+- Default game profile for unknown titles
+- Profile card shown in the widget while a game is active
 
 ---
 
 ### Performance Overlay (OSD)
 Real-time on-screen display powered by RivaTuner Statistics Server.
 
-**Multiple Detail Levels:**
-- Off, Minimal, Standard, Detailed
-
-**Metrics Displayed:**
 - FPS and frametime graph
-- CPU/GPU usage and temperatures
-- Power consumption
-- Memory and VRAM usage
-- Battery level and status
+- CPU / GPU usage and temperatures
+- Power consumption, memory, VRAM
+- Battery level and charge status
 - Fan speed (supported devices)
-- TDP Limits (SPL/SPPT/FPPT) or current performance mode
-- AutoTDP status (in detailed mode)
-
-![Screenshot: OSD Overlay](Screenshots/osd.png)
+- TDP limits and AutoTDP status
 
 ---
 
-### Controller Navigation
-Designed for full gamepad control - no mouse needed.
+### AMD Radeon Features
+For devices with AMD GPUs (not MSI Claw, but supported when an AMD GPU is present).
 
-- D-pad navigation between all controls
-- Visual focus indicators
-- Automatic scroll to focused items
-- Works with Xbox, PlayStation, and other controllers
+- Radeon Super Resolution (RSR), AFMF frame generation
+- Radeon Anti-Lag, Radeon Boost, Radeon Chill
+- Image sharpening, display color controls
+
+---
+
+### Lossless Scaling Integration
+- Launch and manage Lossless Scaling from the widget
+- Configure scaling type, factor, and frame generation mode (LSFG2 / LSFG3)
+- Per-profile configurations
+
+---
+
+### Graphics & Display
+- Resolution and refresh rate control
+- HDR toggle
+- Display rotation
 
 ---
 
@@ -173,16 +121,12 @@ Designed for full gamepad control - no mouse needed.
 
 ### Option A: Install Script (Recommended)
 
-1. Download the latest release from [Releases](https://github.com/corando98/GoTweaks/releases)
+1. Download the latest release from [Releases](../../releases)
 2. Extract the package
 3. Right-click `Install.ps1` → **Run with PowerShell**
-4. Click **Yes** if prompted for Administrator access
+4. Click **Yes** when prompted for Administrator access
 
-The script automatically handles:
-- Closing blocking processes
-- Uninstalling previous versions
-- Installing certificates and dependencies
-- Installing the widget
+The script handles closing blocking processes, installing certificates, dependencies, and the widget.
 
 **Silent install:** `powershell.exe -ExecutionPolicy Bypass -File .\Install.ps1 -Force`
 
@@ -212,35 +156,30 @@ Required for per-game profiles and AutoTDP:
 2. Find **Gaming** widget
 3. Enable **"Know which game or app is in focus"**
 
-
-
-### Removing Legion Space OEM Widget
-Legion Space widget if undesired can be removed using the following command from a Powershell admin shell, 
-
-```reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\GamingConfiguration" /v OEMGameBarwidget /f```
-Now you can remove the widget by goings to Settings->Apps->Uninstall LegionGoWidget
-To ReAdd: 
-```reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\GamingConfiguration" /v OEMGameBarwidget /t REG_SZ /d "LegionGoGameBarWidget_ra2g5j82mn5h8" /f```
-
-
 ---
 
 ## Requirements
 
 - Windows 10/11
 - Xbox Game Bar
+- **For controller emulation:** [ViGEmBus](https://github.com/nefarius/ViGEmBus) + [HidHide](https://github.com/nefarius/HidHide)
 - **Optional:**
-  - [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) (required for OSD overlay)
-  - [PawnIO](https://github.com/SuporteTI/PawnIO) (required for extended sensors like fan speed, GPU power draw on some devices)
-  - AMD GPU (for Radeon features)
-  - Legion Go/Go S (for device-specific features)
-  - Lossless Scaling (for scaling integration)
+  - [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) — required for OSD overlay and RTSS FPS limiter
+  - [PawnIO](https://github.com/SuporteTI/PawnIO) — required for extended sensors (fan speed, GPU power draw on some devices)
+  - AMD GPU — for Radeon features
+  - Lossless Scaling — for scaling integration
 
 ### Smart App Control
 
-**Important:** Windows Smart App Control may interfere with this application. If you experience issues with the app not working correctly, you may need to disable Smart App Control in Windows Security settings.
+Windows Smart App Control may prevent the app from running correctly. If you experience issues, disable Smart App Control in Windows Security settings.
 
-Note: Other gaming software like ASUS Armoury Crate (for ROG Ally) also faces similar compatibility issues with Smart App Control.
+---
+
+## Known Limitations
+
+- Tested only on **MSI Claw 7 AI (A1M)** and **MSI Claw 8 AI (A2VM)**. Other Claw models are untested.
+- VIIPER controller backend is not yet available (Coming Soon).
+- This is beta software — expect rough edges and report issues.
 
 ---
 
@@ -248,32 +187,26 @@ Note: Other gaming software like ASUS Armoury Crate (for ROG Ally) also faces si
 
 100% free and open source. Built with C#.
 
-### Libraries
-- **LibreHardwareMonitor** - Hardware sensors and monitoring
-- **RyzenAdj** - AMD TDP control
-- **RTSSSharedMemoryNET** - Custom implementation with frametime graph support, optimized for low CPU and memory usage
-- **ADLX** - AMD Display Library for Radeon features
+**Libraries used:**
+- **LibreHardwareMonitor** — hardware sensors
+- **RyzenAdj** — AMD TDP control (Legion Go path)
+- **RTSSSharedMemoryNET** — OSD overlay with frametime graph support
+- **ADLX** — AMD Display Library for Radeon features
+- **ViGEmBus / HidHide** — virtual controller and HID suppression
 
 ---
 
 ## Credits
 
-Original project by [namquang93](https://github.com/namquang93).
+Based on [GoTweaks](https://github.com/corando98/GoTweaks) by [namquang93](https://github.com/namquang93) / [corando98](https://github.com/corando98).
+
+Controller emulation and gyro implementation adapted from [Handheld Companion](https://github.com/Valkirie/HandheldCompanion).
 
 **Special Thanks:**
-- **Mute** (Legion Go Discord) - For always being available for testing and providing valuable user feedback
-- **[GameTechPlanet](https://www.youtube.com/@GameTechPlanet)** - For the opportunity to showcase the app and covering the widget's use cases
-- **The Community** - For reporting issues and helping make this app better for everyone
-
-## Support Development
-- Donations are always appreciated, do not feel obligated to donate. Anything helps
-- [Donate](https://www.paypal.com/paypalme/corando98)
+- **Mute** (Legion Go Discord) — testing and feedback on the original GoTweaks
+- **[GameTechPlanet](https://www.youtube.com/@GameTechPlanet)** — covering GoTweaks
+- **The Community** — bug reports and feedback
 
 ## License
 
 This project is open source. See LICENSE file for details.
-
-
-
-
-
