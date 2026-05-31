@@ -1168,7 +1168,7 @@
                                                   BorderThickness="0"
                                                   Padding="8,4"
                                                   Click="OSDCustomizeExpandButton_Click"
-                                                  XYFocusDown="{x:Bind TDPModeComboBox}"
+                                                  XYFocusDown="{x:Bind TDPSlider}"
                                                   UseSystemFocusVisuals="True">
                                         <FontIcon x:Name="OSDCustomizeExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
@@ -1973,7 +1973,7 @@
                                         TickPlacement="BottomRight"
                                         IsEnabled="False" Value="-5"
                                         ValueChanged="TDPSlider_ValueChanged_UpdateDisplay"
-                                        XYFocusUp="{x:Bind TDPModeComboBox}"
+                                        XYFocusUp="{x:Bind PerformanceOverlayComboBox}"
                                         XYFocusDown="{x:Bind TDPBoostToggle}"
                                         />
                                 <Grid Margin="0,4,0,0">
@@ -2018,7 +2018,7 @@
                                                   IsEnabled="True" Width="52"
                                                   Toggled="TDPBoostToggle_Toggled"
                                                   XYFocusUp="{x:Bind TDPSlider}"
-                                                  XYFocusDown="{x:Bind OSPowerModeComboBox}"/>
+                                                  XYFocusDown="{x:Bind TDPBoostFPPTSliderCard}"/>
                                 </Grid>
                                 <!-- PL2-Boost watt slider — always visible below the toggle -->
                                 <Grid Margin="0,12,0,4">
