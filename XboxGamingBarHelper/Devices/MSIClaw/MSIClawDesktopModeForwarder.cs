@@ -89,8 +89,11 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             // only reads XInput-mode controllers (PID 0x1901).
             bool switched = MSIClawHidController.TrySwitchToXInput();
             Logger.Info($"[MSIClawDesktopModeForwarder] SwitchMode(XInput) = {switched}");
-            if (switched)
-                Thread.Sleep(SwitchModeSettleMs);
+            // Always wait the settle time — even if TrySwitchToXInput returned false,
+            // ClawButtonMonitor may have just switched to DInput→XInput and the device
+            // is still re-enumerating. Without this wait, FindXInputSlot() runs before
+            // PID_1901 appears and returns -1 (no controller found).
+            Thread.Sleep(SwitchModeSettleMs);
 
             // Step 2: Locate physical XInput slot (0-3).
             int slot = FindXInputSlot();
