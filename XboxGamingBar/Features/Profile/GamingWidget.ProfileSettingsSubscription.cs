@@ -81,6 +81,7 @@ namespace XboxGamingBar
             InitializeButtonMappingEvents("M3");
             InitializeButtonMappingEvents("Desktop");
             InitializeButtonMappingEvents("Page");
+            PopulateDesktopButtonActionComboBox();
 
             if (LegionNintendoLayoutToggle != null)
                 LegionNintendoLayoutToggle.Toggled += LegionNintendoLayout_Toggled;
