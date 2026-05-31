@@ -269,7 +269,7 @@ namespace XboxGamingBar
 
             // MSI Claw mode tile pinned to position 0 (top-left) \u2014 shown only on MSI Claw (ShouldSkipTile hides it elsewhere).
             // Overlay follows at 1. All other tiles start at order=4.
-            AddTileDefinition("MSIClawDesktopMode", "Mode",     "\uE7FC", order: 0);               // MSI Claw only \u2014 top-left
+            AddTileDefinition("MSIClawDesktopMode", "Mode",     "\uE7FC", order: 0, actionType: TileActionType.ToggleControllerMouseMode); // MSI Claw only \u2014 top-left
             // FPS Limit tile disabled \u2014 Performance tab is the single source of truth.
             // AddTileDefinition("FPSLimit",     "FPS Limit", "\uE916", order: 1);
             // AddTileDefinition("IntelFpsTier", "Intel FPS", "\uE916", order: 2, hasDropdown: true);
@@ -339,9 +339,9 @@ namespace XboxGamingBar
             // AddTileDefinition("ActionHibernate", "Hibernate", "\uE708", isAction: true, order: actionOrder++);  // removed: not needed on handheld
         }
 
-        private void AddTileDefinition(string id, string name, string glyph, bool isTrigger = false, bool isAction = false, string customShortcut = null, int order = 0, bool hasDropdown = false, bool hasDualButtons = false)
+        private void AddTileDefinition(string id, string name, string glyph, bool isTrigger = false, bool isAction = false, string customShortcut = null, int order = 0, bool hasDropdown = false, bool hasDualButtons = false, TileActionType actionType = TileActionType.None)
         {
-            var def = new TileDefinition { Id = id, Name = name, Glyph = glyph, IsVisible = true, IsTrigger = isTrigger, IsAction = isAction, CustomShortcut = customShortcut, Order = order, HasDropdown = hasDropdown, HasDualButtons = hasDualButtons };
+            var def = new TileDefinition { Id = id, Name = name, Glyph = glyph, IsVisible = true, IsTrigger = isTrigger, IsAction = isAction, CustomShortcut = customShortcut, Order = order, HasDropdown = hasDropdown, HasDualButtons = hasDualButtons, ActionType = actionType };
             qsTileDefinitions.Add(def);
             qsTileMap[id] = def;
         }
