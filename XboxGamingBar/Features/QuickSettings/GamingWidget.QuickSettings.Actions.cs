@@ -1295,7 +1295,7 @@ namespace XboxGamingBar
         /// </summary>
         private void FPSLimitToggle_Toggled(object sender, RoutedEventArgs e)
         {
-            if (isApplyingHelperUpdate) return;
+            if (isApplyingHelperUpdate || isLoadingProfile) return;
 
             bool isIntelMode = fpsCapMode?.Value == 1;
 
