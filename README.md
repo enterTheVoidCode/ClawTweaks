@@ -157,7 +157,6 @@ Windows Smart App Control may prevent the app from running correctly. If you exp
 
 **Libraries used:**
 - **LibreHardwareMonitor** — hardware sensors
-- **RyzenAdj** — AMD TDP control (Legion Go path)
 - **RTSSSharedMemoryNET** — OSD overlay with frametime graph support
 - **ViGEmBus / HidHide** — virtual controller and HID suppression
 
