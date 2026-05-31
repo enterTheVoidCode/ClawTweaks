@@ -8,6 +8,7 @@
     prerequisite installation, and blocking process management with user-friendly prompts.
 
     Prerequisites checked and auto-installed if missing:
+      - PawnIO           (kernel driver for CPU/GPU power sensors — required by LHM 0.9.6+)
       - ViGEmBus driver  (virtual controller emulation)
       - RTSS             (FPS limiter + overlay)
 
@@ -303,6 +304,41 @@ function Get-PackageVersion {
 
 #region Prerequisite Detection & Installation
 
+function Test-PawnIOWorking {
+    # The only reliable test: try to open the \\.\PawnIO device.
+    # Service status is unreliable — the service can show "Running" while the
+    # driver binary is missing (deinstalled), causing error code 2 (FILE_NOT_FOUND).
+    try {
+        $result = & powershell -NonInteractive -Command {
+            try {
+                $handle = [System.IO.File]::Open('\\.\PawnIO',
+                    [System.IO.FileMode]::Open,
+                    [System.IO.FileAccess]::ReadWrite,
+                    [System.IO.FileShare]::ReadWrite)
+                $handle.Close()
+                exit 0
+            } catch { exit 1 }
+        }
+        return ($LASTEXITCODE -eq 0)
+    }
+    catch { return $false }
+}
+
+function Test-PawnIOServiceExists {
+    $svc = Get-Service -Name "PawnIO" -ErrorAction SilentlyContinue
+    return ($svc -ne $null)
+}
+
+function Install-PawnIO {
+    Write-Info "Attempting PawnIO install via winget (namazso.PawnIO)..."
+    $ok = Install-ViaWinget -PackageId "namazso.PawnIO" -DisplayName "PawnIO"
+    if ($ok) { return $true }
+
+    Write-Warn "Automatic PawnIO install failed. Please install manually:"
+    Write-Host "       https://github.com/namazso/PawnIO/releases" -ForegroundColor Cyan
+    return $false
+}
+
 function Test-ViGEmInstalled {
     # Check for the kernel driver service
     $svc = Get-Service -Name "ViGEmBus" -ErrorAction SilentlyContinue
@@ -435,6 +471,45 @@ function Install-RTSS {
 
 function Invoke-PrerequisiteCheck {
     $allOk = $true
+
+    # --- PawnIO ---
+    # Required by LibreHardwareMonitor 0.9.6+ for kernel-level hardware access (RAPL MSRs).
+    # Without a working driver all power sensors return 0W in the overlay.
+    # Detection opens \\.\PawnIO directly — service status alone is unreliable
+    # (driver binary can be missing while service entry still exists after uninstall).
+    Write-Host ""
+    Write-Host "       Checking PawnIO (hardware sensor kernel driver)..." -ForegroundColor Gray
+    if (Test-PawnIOWorking) {
+        Write-Success "PawnIO: working"
+    }
+    else {
+        if (Test-PawnIOServiceExists) {
+            Write-Warn "PawnIO: service entry exists but driver is NOT functional (binary missing or not loaded)"
+        }
+        else {
+            Write-Warn "PawnIO: NOT installed  (needed for CPU/GPU power sensors in overlay)"
+        }
+        $install = $Force
+        if (-not $Force) {
+            $response = Read-Host "       Install / reinstall PawnIO now? (Y/N)"
+            $install  = ($response -eq 'Y' -or $response -eq 'y')
+        }
+        if ($install) {
+            $ok = Install-PawnIO
+            if ($ok) {
+                Write-Success "PawnIO installed — a reboot may be required for the driver to activate"
+            }
+            else {
+                Write-Warn "PawnIO install failed — power sensors will show 0W in overlay"
+                Write-Info "Get it from: https://github.com/namazso/PawnIO/releases"
+                $allOk = $false
+            }
+        }
+        else {
+            Write-Info "Skipped. CPU/GPU power sensors will not work without PawnIO."
+            $allOk = $false
+        }
+    }
 
     # --- ViGEmBus ---
     Write-Host ""

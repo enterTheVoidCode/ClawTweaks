@@ -107,20 +107,27 @@ namespace XboxGamingBar
                 if (PerformanceOverlayComboBox == null) return;
                 isLoadingPerformanceOverlaySetting = true;
                 var settings = ApplicationData.Current.LocalSettings;
-                if (settings.Values.TryGetValue("PerformanceOverlayLevel", out object val) && val is int level)
+
+                int level;
+                if (settings.Values.TryGetValue("PerformanceOverlayLevel", out object val) && val is int savedLevel
+                    && savedLevel >= 0 && savedLevel < PerformanceOverlayComboBox.Items.Count)
                 {
-                    if (level >= 0 && level < PerformanceOverlayComboBox.Items.Count)
-                    {
-                        PerformanceOverlayComboBox.SelectedIndex = level;
-                        // Also set the osd property value directly to avoid debounce delay
-                        // This ensures Quick Settings and helper have the correct value immediately
-                        if (osd != null)
-                        {
-                            osd.SetValue(level);
-                        }
-                        Logger.Debug($"Loaded PerformanceOverlayLevel: {level}");
-                    }
+                    level = savedLevel;
+                    Logger.Debug($"Loaded PerformanceOverlayLevel: {level}");
                 }
+                else
+                {
+                    // No saved value (fresh install / factory reset) — default to H. Detailed (index 3).
+                    // The helper persists OSD level independently and defaults to the same value,
+                    // so this keeps the UI in sync with what's actually active in the overlay.
+                    level = 3;
+                    settings.Values["PerformanceOverlayLevel"] = level;
+                    Logger.Info($"No saved PerformanceOverlayLevel — defaulting to H. Detailed (level {level})");
+                }
+
+                PerformanceOverlayComboBox.SelectedIndex = level;
+                // Set the osd property directly to avoid debounce delay
+                osd?.SetValue(level);
             }
             catch (Exception ex)
             {

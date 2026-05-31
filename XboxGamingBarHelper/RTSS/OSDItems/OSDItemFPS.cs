@@ -44,7 +44,7 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
 
         /// <summary>
         /// Builds a small, muted cap-limit indicator appended after the FPS value.
-        /// e.g. " [60]" for RTSS at 60 fps, " [I]" for Intel.
+        /// e.g. " [RTSS 60]" or " [Intel 60]"
         /// Returns empty string when no cap is active.
         /// </summary>
         private string BuildCapHint()
@@ -52,9 +52,9 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             if (_fpsCapValue <= 0) return string.Empty;
 
             string mutedColor = ApplyOpacity("686868");
-            string label = _fpsCapIsIntel ? "I" : _fpsCapValue.ToString();
+            string mode = _fpsCapIsIntel ? "Intel" : "RTSS";
             // <S=55> = 55% text size (subtly smaller); reset with <S> after
-            return $"<S=55><C={mutedColor}>[{label}]<C><S>";
+            return $"<S=55><C={mutedColor}>[{mode} {_fpsCapValue}]<C><S>";
         }
     }
 }

@@ -83,8 +83,9 @@ namespace XboxGamingBar
         // TDP Mode Index in the TDPModeComboBox (for user-made presets)
         // -1 means use LegionPerformanceMode to determine index (backwards compatibility)
         public int TDPModeIndex { get; set; } = -1;
-        // TDP Boost toggle state (per-profile)
+        // TDP Boost toggle state and PL2-Overboost watt value (per-profile)
         public bool TDPBoostEnabled { get; set; } = false;
+        public int TDPBoostFPPTWatts { get; set; } = 0; // 0 = not set (use device default)
         // HDR and Resolution settings (per-profile)
         public bool HDREnabled { get; set; } = false;
         public string Resolution { get; set; } = "";
@@ -131,6 +132,7 @@ namespace XboxGamingBar
                 LegionPerformanceMode = this.LegionPerformanceMode,
                 TDPModeIndex = this.TDPModeIndex,
                 TDPBoostEnabled = this.TDPBoostEnabled,
+                TDPBoostFPPTWatts = this.TDPBoostFPPTWatts,
                 HDREnabled = this.HDREnabled,
                 Resolution = this.Resolution,
                 RefreshRate = this.RefreshRate,
@@ -1359,6 +1361,9 @@ namespace XboxGamingBar
             isLoadingProfileSettings = true;
             // Prevent TDP limits slider events from saving during XAML initialization
             isLoadingTDPLimits = true;
+            // Prevent TDP Boost slider (TDPBoostFPPTSliderCard Value="3" in XAML) from
+            // overwriting LocalSettings before LoadTDPBoostSettings() reads the stored value.
+            isLoadingTDPBoostSettings = true;
             // Prevent controller profile events from saving during XAML initialization
             // This MUST be set before InitializeComponent() to prevent button ComboBox events
             // from overwriting stored button mappings with defaults
@@ -2969,8 +2974,8 @@ namespace XboxGamingBar
                             }
                         }
 
-                        // Custom controller mapping diff
-                        if (gameCtrlProf != null && HasNonDefaultControllerMapping(gameCtrlProf))
+                        // Custom controller mapping diff — only show when game profile differs from global
+                        if (gameCtrlProf != null && HasDifferentControllerMapping(gameCtrlProf, globalControllerProfile))
                             diffs.Add("Custom Ctrl");
 
                         content = diffs.Count > 0
@@ -3012,54 +3017,67 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Returns true if the controller profile has at least one non-default button mapping.
+        /// Returns true if the game controller profile has at least one button mapping that
+        /// differs from the global controller profile. Used for the game-start notification diff.
         /// </summary>
-        private bool HasNonDefaultControllerMapping(ControllerProfile profile)
+        private bool HasDifferentControllerMapping(ControllerProfile gameProf, ControllerProfile globalProf)
         {
-            if (profile == null) return false;
-            return !profile.ButtonY1.IsDefault
-                || !profile.ButtonY2.IsDefault
-                || !profile.ButtonY3.IsDefault
-                || !profile.ButtonM1.IsDefault
-                || !profile.ButtonM2.IsDefault
-                || !profile.ButtonM3.IsDefault
-                || !profile.ButtonDesktop.IsDefault
-                || !profile.ButtonPage.IsDefault
-                || (profile.GamepadButtonMappings?.Count > 0);
+            if (gameProf == null) return false;
+            if (globalProf == null)
+            {
+                // No global to compare — fall back to checking non-default
+                return !gameProf.ButtonY1.IsDefault
+                    || !gameProf.ButtonY2.IsDefault
+                    || !gameProf.ButtonY3.IsDefault
+                    || !gameProf.ButtonM1.IsDefault
+                    || !gameProf.ButtonM2.IsDefault
+                    || !gameProf.ButtonM3.IsDefault
+                    || !gameProf.ButtonDesktop.IsDefault
+                    || !gameProf.ButtonPage.IsDefault
+                    || (gameProf.GamepadButtonMappings?.Count > 0);
+            }
+            return !ButtonMappingsEqual(gameProf.ButtonY1,      globalProf.ButtonY1)
+                || !ButtonMappingsEqual(gameProf.ButtonY2,      globalProf.ButtonY2)
+                || !ButtonMappingsEqual(gameProf.ButtonY3,      globalProf.ButtonY3)
+                || !ButtonMappingsEqual(gameProf.ButtonM1,      globalProf.ButtonM1)
+                || !ButtonMappingsEqual(gameProf.ButtonM2,      globalProf.ButtonM2)
+                || !ButtonMappingsEqual(gameProf.ButtonM3,      globalProf.ButtonM3)
+                || !ButtonMappingsEqual(gameProf.ButtonDesktop, globalProf.ButtonDesktop)
+                || !ButtonMappingsEqual(gameProf.ButtonPage,    globalProf.ButtonPage)
+                || (gameProf.GamepadButtonMappings?.Count ?? 0) != (globalProf.GamepadButtonMappings?.Count ?? 0);
+        }
+
+        private static bool ButtonMappingsEqual(ButtonMapping a, ButtonMapping b)
+        {
+            if (a == null && b == null) return true;
+            if (a == null || b == null) return false;
+            return a.Type == b.Type
+                && a.GamepadAction == b.GamepadAction
+                && a.GamepadMode == b.GamepadMode;
         }
 
         private void UpdateControllerProfileForGameChange(string newGameName)
         {
-            // Update the game name display in controller profile card
+            bool gameActive = HasValidGame(newGameName);
+
+            // Update subtitle: show game name or "Global Profile"
             if (LegionControllerProfileGameText != null)
-            {
-                LegionControllerProfileGameText.Text = HasValidGame(newGameName) ? newGameName : "No game detected";
-            }
+                LegionControllerProfileGameText.Text = gameActive ? newGameName : "Global Profile";
 
             UpdateControllerProfileModeBadge();
 
-            // Enable/disable the clear button based on game detection
+            // Clear button only makes sense when a game is running
             if (ClearPerGameControllerProfileButton != null)
-            {
-                ClearPerGameControllerProfileButton.IsEnabled = HasValidGame(newGameName);
-            }
+                ClearPerGameControllerProfileButton.IsEnabled = gameActive;
 
-            // Show/hide no-game notice and enable/disable editable content area
-            if (ControllerNoGameNotice != null)
-                ControllerNoGameNotice.Visibility = HasValidGame(newGameName) ? Visibility.Collapsed : Visibility.Visible;
-            if (ControllerEditableContentPanel != null)
-            {
-                // StackPanel has no IsEnabled in UWP — use Opacity+IsHitTestVisible instead
-                bool gameActive = HasValidGame(newGameName);
-                ControllerEditableContentPanel.Opacity = gameActive ? 1.0 : 0.4;
-                ControllerEditableContentPanel.IsHitTestVisible = gameActive;
-            }
-
+            // Per-game toggle: enable only when a game is running (can't use per-game without a game)
+            // The editable content (button mappings, gyro, etc.) is ALWAYS interactive — it edits
+            // the global profile when no game is running, like GoTweaks.
             if (LegionControllerProfileToggle != null)
             {
-                if (!HasValidGame(newGameName))
+                if (!gameActive)
                 {
-                    // No valid game — disable toggle and fall back to global profile
+                    // No game — switch toggle off and load global profile for editing
                     LegionControllerProfileToggle.IsEnabled = false;
                     if (LegionControllerProfileToggle.IsOn)
                     {
@@ -3069,7 +3087,7 @@ namespace XboxGamingBar
                             LegionControllerProfileToggle.IsOn = false;
                             LoadControllerProfileFromStorage("Global", globalControllerProfile);
                             ApplyControllerProfile(globalControllerProfile);
-                            Logger.Info("Game closed - switched to global controller profile");
+                            Logger.Info("Game closed - switched back to global controller profile for editing");
                         }
                         finally
                         {
@@ -3079,23 +3097,21 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // Valid game detected — enable toggle so user can switch
+                    // Valid game — enable toggle so user can switch to per-game.
+                    // Do NOT auto-enable: the user must explicitly click the toggle to create
+                    // a per-game controller profile. Auto-enabling caused profiles to be created
+                    // on every game start even when the user never touched controller settings.
                     LegionControllerProfileToggle.IsEnabled = true;
 
-                    if (!LegionControllerProfileToggle.IsOn)
+                    if (LegionControllerProfileToggle.IsOn)
                     {
-                        LegionControllerProfileToggle.IsOn = true;
-                        Logger.Info($"Auto-enabled controller profile for {newGameName}");
-                    }
-                    else
-                    {
-                        // Toggle already on (switching from one game to another)
+                        // Toggle was already on (user had enabled per-game, or switching game-to-game)
                         isSwitchingControllerProfile = true;
                         try
                         {
                             LoadControllerProfileFromStorage($"Game_{newGameName}", gameControllerProfile);
                             ApplyControllerProfile(gameControllerProfile);
-                            Logger.Info($"Switched to controller profile for {newGameName}");
+                            Logger.Info($"Switched to per-game controller profile for {newGameName}");
                         }
                         finally
                         {
@@ -3541,11 +3557,26 @@ namespace XboxGamingBar
                         }
                     }
 
-                    // Update TDP slider to show helper's actual TDP value
+                    // Update TDP slider to show helper's actual TDP value.
+                    // Exception: on a clean install (no saved profile yet) for non-Legion devices,
+                    // the helper may report a low hardware default (e.g. 11W) while the widget's
+                    // PerformanceProfile default is the correct device standard (25W for MSI Claw).
+                    // In that case we keep the widget default and push it to the helper instead.
                     if (tdp != null && TDPSlider != null)
                     {
                         double helperTDP = tdp.Value;
-                        if (Math.Abs(TDPSlider.Value - helperTDP) > 0.5)
+                        if (isCleanInstall && legionGoDetected?.Value != true)
+                        {
+                            // Push widget default to hardware rather than pulling hardware default into profile.
+                            // ForceSetValue is required: if the helper already caches 25W (its own init default),
+                            // SetValue would be a no-op and SetMsiAcpiTDP would never be called,
+                            // leaving intelLastPL1 = -1 → UpdateCurrentTDP shows "-- W" indefinitely.
+                            double defaultTDP = globalProfile.TDP;
+                            Logger.Info($"Clean install: force-pushing default TDP {defaultTDP}W to helper (helper reported {helperTDP}W)");
+                            tdp.ForceSetValue((int)defaultTDP);
+                            // Slider already shows defaultTDP — no update needed
+                        }
+                        else if (Math.Abs(TDPSlider.Value - helperTDP) > 0.5)
                         {
                             Logger.Info($"Updating TDP slider from stale {TDPSlider.Value}W to helper's {helperTDP}W");
                             TDPSlider.Value = helperTDP;
@@ -3955,9 +3986,16 @@ namespace XboxGamingBar
                     Logger.Info("[PIPE] Inside dispatcher - calling HideConnectionBanner()");
                     HideConnectionBanner();
 
-                    // Update current profile's TDP and mode from helper's synced values
-                    // This prevents stale profile values from being loaded in subsequent LoadProfileSettings calls
-                    if (tdp != null && !string.IsNullOrEmpty(currentProfileName))
+                    // Sync the GLOBAL profile's TDP and mode from the helper's current values.
+                    // Skipped on clean install (non-Legion): widget default is correct starting point.
+                    // Skipped for game profiles: the widget's game profile TDP is the user's intent;
+                    // overwriting it with the helper's current hardware reading would let the helper's
+                    // own game-start logic (global.xml per-game entries, DGP) silently clobber the
+                    // user's saved game profile value (e.g. 25W → 16W from bundled defaults).
+                    bool isGameProfile = currentProfileName != null && currentProfileName.StartsWith("Game_");
+                    if (tdp != null && !string.IsNullOrEmpty(currentProfileName)
+                        && !isGameProfile
+                        && !(isCleanInstall && legionGoDetected?.Value != true))
                     {
                         var profile = GetProfile(currentProfileName);
                         if (profile != null && legionPerformanceMode != null)
@@ -3966,7 +4004,7 @@ namespace XboxGamingBar
                             double helperTDP = tdp.Value;
                             if (profile.LegionPerformanceMode != helperMode || Math.Abs(profile.TDP - helperTDP) > 0.5)
                             {
-                                Logger.Info($"[PIPE] Syncing profile '{currentProfileName}' with helper: TDP {profile.TDP}→{helperTDP}W, Mode {profile.LegionPerformanceMode}→{helperMode}");
+                                Logger.Info($"[PIPE] Syncing global profile '{currentProfileName}' with helper: TDP {profile.TDP}→{helperTDP}W, Mode {profile.LegionPerformanceMode}→{helperMode}");
                                 profile.LegionPerformanceMode = helperMode;
                                 profile.TDP = helperTDP;
                                 SaveProfileToStorage(currentProfileName, profile);

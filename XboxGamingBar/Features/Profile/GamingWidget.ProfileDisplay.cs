@@ -100,7 +100,7 @@ namespace XboxGamingBar
 
             GlobalProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
             GlobalProfileFPSLimitText.Visibility = fpsLimitVisibility;
-            GlobalProfileFPSLimitText.Text = globalProfile.FPSLimitEnabled ? $"{globalProfile.FPSLimitValue}" : "Off";
+            GlobalProfileFPSLimitText.Text = GetActiveFpsValueLabel();
 
             // AutoTDP hidden (not relevant for MSI Claw)
             GlobalProfileAutoTDPLabel.Visibility = Visibility.Collapsed;
@@ -166,8 +166,8 @@ namespace XboxGamingBar
             ACDCProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
             ACProfileFPSLimitText.Visibility = fpsLimitVisibility;
             DCProfileFPSLimitText.Visibility = fpsLimitVisibility;
-            ACProfileFPSLimitText.Text = acProfile.FPSLimitEnabled ? $"{acProfile.FPSLimitValue}" : "Off";
-            DCProfileFPSLimitText.Text = dcProfile.FPSLimitEnabled ? $"{dcProfile.FPSLimitValue}" : "Off";
+            ACProfileFPSLimitText.Text = GetFpsValueLabel(acProfile);
+            DCProfileFPSLimitText.Text = GetFpsValueLabel(dcProfile);
 
             // AutoTDP hidden (not relevant for MSI Claw)
             ACDCProfileAutoTDPLabel.Visibility = Visibility.Collapsed;
@@ -250,8 +250,8 @@ namespace XboxGamingBar
                     GameACDCProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
                     GameACProfileFPSLimitText.Visibility = fpsLimitVisibility;
                     GameDCProfileFPSLimitText.Visibility = fpsLimitVisibility;
-                    GameACProfileFPSLimitText.Text = gameACProfile.FPSLimitEnabled ? $"{gameACProfile.FPSLimitValue}" : "Off";
-                    GameDCProfileFPSLimitText.Text = gameDCProfile.FPSLimitEnabled ? $"{gameDCProfile.FPSLimitValue}" : "Off";
+                    GameACProfileFPSLimitText.Text = GetFpsValueLabel(gameACProfile);
+                    GameDCProfileFPSLimitText.Text = GetFpsValueLabel(gameDCProfile);
 
                     // AutoTDP
                     GameACDCProfileAutoTDPLabel.Visibility = autoTDPVisibility;
@@ -454,6 +454,31 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Returns the active FPS value label for the global profile card.
+        /// Reads live state (fpsCapMode / intelFpsTier / FPSLimitSlider) so the card
+        /// always reflects the currently active limiter, not a stale RTSS slider value.
+        /// </summary>
+        private string GetActiveFpsValueLabel()
+        {
+            if (fpsCapMode?.Value == 1)
+            {
+                // Intel mode — derive fps from tier
+                int tier = intelFpsTier?.Value ?? 0;
+                switch (tier)
+                {
+                    case 1: return "60";
+                    case 2: return "40";
+                    case 3: return "30";
+                    default: return "Off";
+                }
+            }
+            // RTSS mode — use toggle + slider
+            return FPSLimitToggle?.IsOn == true
+                ? $"{(int)(FPSLimitSlider?.Value ?? 0)}"
+                : "Off";
+        }
+
+        /// <summary>
         /// Returns a short label for the active FPS cap mode (RTSS / Intel tier).
         /// Reads the global fpsCapMode and intelFpsTier widget properties (live state).
         /// </summary>
@@ -471,6 +496,27 @@ namespace XboxGamingBar
                 }
             }
             return "RTSS";
+        }
+
+        /// <summary>
+        /// Returns the FPS value label for a saved PerformanceProfile.
+        /// Mode-aware: shows the Intel tier fps when Intel mode is saved,
+        /// not the stale RTSS slider value.
+        /// </summary>
+        private static string GetFpsValueLabel(PerformanceProfile profile)
+        {
+            if (profile == null) return "Off";
+            if (profile.FpsCapMode == 1)
+            {
+                switch (profile.IntelFpsTier)
+                {
+                    case 1: return "60";
+                    case 2: return "40";
+                    case 3: return "30";
+                    default: return "Off";
+                }
+            }
+            return profile.FPSLimitEnabled ? $"{profile.FPSLimitValue}" : "Off";
         }
 
         /// <summary>

@@ -511,10 +511,10 @@ namespace XboxGamingBar
                 case "RSDown": return "RS Down";
                 case "RSLeft": return "RS Left";
                 case "RSRight": return "RS Right";
-                case "DPadUp": return "D-Up";
-                case "DPadDown": return "D-Down";
-                case "DPadLeft": return "D-Left";
-                case "DPadRight": return "D-Right";
+                case "DPadUp": return "D-Pad Up";
+                case "DPadDown": return "D-Pad Down";
+                case "DPadLeft": return "D-Pad Left";
+                case "DPadRight": return "D-Pad Right";
                 default: return buttonName;
             }
         }
@@ -561,8 +561,8 @@ namespace XboxGamingBar
         {
             string[] names = { "Disabled", "LS Click", "LS Up", "LS Down", "LS Left", "LS Right",
                               "RS Click", "RS Up", "RS Down", "RS Left", "RS Right",
-                              "D-Up", "D-Down", "D-Left", "D-Right",
-                              "A", "B", "X", "Y", "LB", "LT", "RB", "RT", "View", "Menu" };
+                              "D-Pad Up", "D-Pad Down", "D-Pad Left", "D-Pad Right",
+                              "A", "B", "X", "Y", "LB", "LT", "RB", "RT", "Select", "Start" };
             return action >= 0 && action < names.Length ? names[action] : $"Action{action}";
         }
 

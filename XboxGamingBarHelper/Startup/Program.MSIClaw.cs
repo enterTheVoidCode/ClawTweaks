@@ -109,10 +109,21 @@ namespace XboxGamingBarHelper
                     controllerEmulationManager.EmulationEnabledChanged += OnMSIClawEmulationEnabledChanged;
                 }
 
-                // ── Step 3: Honour the current mode state ─────────────────────────
+                // ── Step 3: Guard on master "Enable Controller Emulation" toggle ──
+                // The widget sends the persisted value on connect. Until the widget
+                // connects, EmulationEnabled defaults to false — meaning emulation must
+                // NOT start automatically. OnMSIClawEmulationEnabledChanged is already
+                // subscribed (Step 2) and will start the correct path when the toggle
+                // value arrives from the widget.
+                bool emulationEnabled = controllerEmulationManager?.EmulationEnabled ?? false;
+                if (!emulationEnabled)
+                {
+                    Logger.Info("MSIClaw: ControllerEmulationEnabled=false at startup — waiting for widget to send toggle state");
+                    return;
+                }
+
+                // ── Step 4: Honour the current mode state ─────────────────────────
                 // Use MsiClawControllerMode (default true = Controller).
-                // The widget sends the persisted value on connect; until then the default
-                // applies (Controller mode = safe gamepad behaviour on first boot).
                 bool controllerModeOn = msiClawControllerModeManager?.MsiClawControllerMode?.Value ?? true;
                 if (!controllerModeOn)
                 {

@@ -86,6 +86,7 @@ namespace XboxGamingBar
             container.Values["LegionPerformanceMode"] = profile.LegionPerformanceMode;
             container.Values["TDPModeIndex"] = profile.TDPModeIndex;
             container.Values["TDPBoostEnabled"] = profile.TDPBoostEnabled;
+            container.Values["TDPBoostFPPTWatts"] = profile.TDPBoostFPPTWatts;
             container.Values["HDREnabled"] = profile.HDREnabled;
             container.Values["Resolution"] = profile.Resolution;
             if (profile.RefreshRate.HasValue)
@@ -150,6 +151,7 @@ namespace XboxGamingBar
                 // Load TDPModeIndex for custom presets (-1 means use LegionPerformanceMode to determine index)
                 profile.TDPModeIndex = container.Values.ContainsKey("TDPModeIndex") ? (int)container.Values["TDPModeIndex"] : -1;
                 profile.TDPBoostEnabled = container.Values.ContainsKey("TDPBoostEnabled") ? (bool)container.Values["TDPBoostEnabled"] : false;
+                profile.TDPBoostFPPTWatts = container.Values.ContainsKey("TDPBoostFPPTWatts") ? (int)container.Values["TDPBoostFPPTWatts"] : -1;
                 profile.HDREnabled = container.Values.ContainsKey("HDREnabled") ? (bool)container.Values["HDREnabled"] : false;
                 profile.Resolution = container.Values.ContainsKey("Resolution") ? (string)container.Values["Resolution"] : "";
                 profile.RefreshRate = container.Values.ContainsKey("RefreshRate") ? (int?)container.Values["RefreshRate"] : null;

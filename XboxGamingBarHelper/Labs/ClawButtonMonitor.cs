@@ -81,8 +81,8 @@ namespace XboxGamingBarHelper.Labs
         private const int   GyroMouseMaxPixelFrame = 220;         // MouseMaxPixelsPerFrame
         private const float GyroMouseMaxDegPerSec  = 720.0f;      // MouseMaxDegPerSecond
         private const float GyroStickMaxDps        = 220.0f;      // StickDegreesPerSecondAtFullDeflection
-        private const float GyroOneEuroMinCutoff   = 1.2f;        // OneEuroMinCutoff
-        private const float GyroOneEuroBeta        = 0.25f;       // OneEuroBeta
+        private const float GyroOneEuroMinCutoff   = 6.0f;        // OneEuroMinCutoff — raised for less lag at normal speed
+        private const float GyroOneEuroBeta        = 0.0f;        // OneEuroBeta — 0 = linear (no speed-dependent acceleration)
         private const float GyroOneEuroDerivCutoff = 1.5f;        // OneEuroDerivativeCutoff
         private const float GyroDeltaDefault       = 1.0f / 250.0f; // DefaultDeltaSeconds
         private const float GyroDeltaMin           = 0.002f;      // MinDeltaSeconds
@@ -141,7 +141,7 @@ namespace XboxGamingBarHelper.Labs
         private volatile int  _gyroActivationButton;    // 0=None,1=LB,2=LT,3=RB,4=RT
         private volatile int  _gyroSensitivityX = 50;   // 0-100 (from LegionGyroSensitivityX)
         private volatile int  _gyroSensitivityY = 50;   // 0-100 (from LegionGyroSensitivityY)
-        private volatile int  _gyroDeadzone = 10;       // degrees/sec (from LegionGyroDeadzone)
+        private volatile int  _gyroDeadzone = 5;        // degrees/sec (from LegionGyroDeadzone)
         private volatile bool _gyroInvertX;
         private volatile bool _gyroInvertY;
 

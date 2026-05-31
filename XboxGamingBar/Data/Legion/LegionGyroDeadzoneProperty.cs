@@ -9,7 +9,7 @@ namespace XboxGamingBar.Data
     /// </summary>
     internal class LegionGyroDeadzoneProperty : WidgetSliderProperty
     {
-        public LegionGyroDeadzoneProperty(Slider inUI, Page inOwner) : base(10, Function.LegionGyroDeadzone, inUI, inOwner)
+        public LegionGyroDeadzoneProperty(Slider inUI, Page inOwner) : base(5, Function.LegionGyroDeadzone, inUI, inOwner)
         {
         }
     }

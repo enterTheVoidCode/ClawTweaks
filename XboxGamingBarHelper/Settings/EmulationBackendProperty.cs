@@ -20,12 +20,9 @@ namespace XboxGamingBarHelper.Settings
 
         private static bool LoadFromSettings()
         {
-            // Stored as int so future enum expansion stays compatible.
-            if (LocalSettingsHelper.TryGetValue<int>(SettingsKey, out var value))
-            {
-                return value == (int)EmulationBackend.Viiper;
-            }
-            return true; // Default to VIIPER (MSI Claw target — usbip-based, no ViGEmBus required).
+            // VIIPER is not yet released — always use Legacy ViGEm regardless of stored value.
+            // Remove this override and restore the LocalSettings read when VIIPER ships.
+            return false;
         }
 
         private void SaveToSettings()

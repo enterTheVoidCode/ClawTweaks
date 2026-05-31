@@ -227,8 +227,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private const short Ds4DefaultAccelZRaw = -8192;
         private const float MousePixelsPerDegree = 24.0f;
         private const float MouseSensitivityPower = 1.35f;
-        private const float OneEuroMinCutoff = 1.2f;
-        private const float OneEuroBeta = 0.25f;
+        private const float OneEuroMinCutoff = 6.0f;        // raised — less lag at normal speed
+        private const float OneEuroBeta = 0.0f;             // 0 = linear, no speed-dependent acceleration
         private const float OneEuroDerivativeCutoff = 1.5f;
         private const float MouseResidualCutoffDegPerSecond = 0.12f;
         private const float MouseOutlierMaxDeltaDegPerSecond = 420.0f;
