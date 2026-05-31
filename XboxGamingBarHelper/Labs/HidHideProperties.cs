@@ -18,10 +18,44 @@ namespace XboxGamingBarHelper.Labs
 
         public static bool IsInstalled()
         {
+            // Primary: CLI found → definitely installed
             string cliPath = ControllerSuppressionManager.GetDetectedCliPath();
-            bool installed = !string.IsNullOrEmpty(cliPath);
-            Logger.Debug($"HidHide installed check: {installed}{(installed ? $" ({cliPath})" : string.Empty)}");
-            return installed;
+            if (!string.IsNullOrEmpty(cliPath))
+            {
+                Logger.Debug($"HidHide installed check: true (CLI at {cliPath})");
+                return true;
+            }
+
+            // Fallback: kernel driver/service present even if CLI not on PATH
+            if (IsDriverServicePresent())
+            {
+                Logger.Debug("HidHide installed check: true (driver service detected, CLI not on PATH)");
+                return true;
+            }
+
+            Logger.Debug("HidHide installed check: false");
+            return false;
+        }
+
+        private static bool IsDriverServicePresent()
+        {
+            try
+            {
+                using var sc = new System.ServiceProcess.ServiceController("HidHide");
+                _ = sc.Status; // throws InvalidOperationException if service does not exist
+                return true;
+            }
+            catch { }
+
+            try
+            {
+                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    @"SYSTEM\CurrentControlSet\Services\HidHide");
+                return key != null;
+            }
+            catch { }
+
+            return false;
         }
 
         public static bool Install()
