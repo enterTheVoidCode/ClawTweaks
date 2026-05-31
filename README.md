@@ -112,47 +112,9 @@ Real-time on-screen display powered by RivaTuner Statistics Server.
 
 ## Installation
 
-### Before you install — bring the Claw to a clean state
+Download the latest release, extract the ZIP, and run `Install.ps1` with PowerShell (right-click → **Run with PowerShell**). The script handles everything automatically.
 
-ClawTweaks takes exclusive ownership of the MSI Claw controller. It hides the physical hardware controller via HidHide and replaces it with a virtual Xbox 360 controller. This is required to enable gyroscope, per-game button remapping, and all other controller features — everything runs through that virtual device.
-
-**If you use Handheld Companion, Winhanced, or any other tool that also manages the controller or HidHide, you must fully exit and ideally uninstall that tool before using ClawTweaks.** Running two tools that both try to own the controller will cause conflicts — double input, lost gyro, or the controller not being detected at all.
-
-Before installing, make sure the Claw is in its default state:
-
-1. **Exit and disable** Handheld Companion, Winhanced, or any similar app (check the system tray)
-2. **Open MSI Center M** (the OEM software) and verify the controller is recognized normally there — this confirms the hardware is back to factory state
-3. If HidHide was previously configured by another tool, open **HidHide Configuration Client** and clear all blocked devices
-4. Optionally reboot to make sure no leftover processes or driver state remain
-
-Once the Claw is back to its stock state ClawTweaks will handle everything from there — it enables and configures HidHide automatically when you turn on controller emulation in the widget.
-
----
-
-### Option A: Install Script (Recommended)
-
-The install script must be run as Administrator. Right-clicking and choosing "Run with PowerShell" will request elevation automatically.
-
-1. Download the latest release from [Releases](../../releases)
-2. Extract the package
-3. Right-click `Install.ps1` → **Run with PowerShell**
-4. Click **Yes** when prompted for Administrator access
-
-The script handles closing blocking processes, installing certificates, dependencies, and the widget.
-
-**Silent install:** `powershell.exe -ExecutionPolicy Bypass -File .\Install.ps1 -Force`
-
-**Troubleshooting:** If the script doesn't run, open PowerShell as Administrator and run:
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
-.\Install.ps1
-```
-
-### Option B: Manual Install
-
-1. Install the `.cer` certificate → Local Machine → Trusted People
-2. Install dependencies from `Dependencies\x64` folder
-3. Double-click the `.msixbundle` to install
+See the release page for step-by-step instructions.
 
 ### Enable the Widget
 
