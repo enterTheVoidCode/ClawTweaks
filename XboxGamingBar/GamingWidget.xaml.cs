@@ -2974,8 +2974,10 @@ namespace XboxGamingBar
                             }
                         }
 
-                        // Custom controller mapping diff — only show when game profile differs from global
-                        if (gameCtrlProf != null && HasDifferentControllerMapping(gameCtrlProf, globalControllerProfile))
+                        // Custom controller mapping — only show when user explicitly enabled per-game controller profile
+                        if (LegionControllerProfileToggle?.IsOn == true
+                            && gameCtrlProf != null
+                            && HasDifferentControllerMapping(gameCtrlProf, globalControllerProfile))
                             diffs.Add("Custom Ctrl");
 
                         content = diffs.Count > 0
