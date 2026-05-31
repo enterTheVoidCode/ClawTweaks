@@ -308,15 +308,20 @@ namespace XboxGamingBar
                     GameDCProfileCPUEPPText.Visibility = Visibility.Visible;
 
                     // MSI Claw: repurpose CPUStateLabel/Text slot → FPS Limiter Mode
-                    bool acFpsOn = gameACProfile.FPSLimitEnabled || gameDCProfile.FPSLimitEnabled;
-                    if (acFpsOn)
+                    bool acFpsOn = gameACProfile.FPSLimitEnabled
+                                || (gameACProfile.FpsCapMode == 1 && gameACProfile.IntelFpsTier > 0);
+                    bool dcFpsOn = gameDCProfile.FPSLimitEnabled
+                                || (gameDCProfile.FpsCapMode == 1 && gameDCProfile.IntelFpsTier > 0);
+                    if (acFpsOn || dcFpsOn)
                     {
-                        string fpsModeText = (fpsCapMode?.Value == 1) ? "Intel" : "RTSS";
+                        // Use stored profile value, not live fpsCapMode
+                        string acModeText = (gameACProfile.FpsCapMode == 1) ? "Intel" : "RTSS";
+                        string dcModeText = (gameDCProfile.FpsCapMode == 1) ? "Intel" : "RTSS";
                         GameACDCProfileCPUStateLabel.Text = "FPS Mode";
                         GameACDCProfileCPUStateLabel.Visibility = Visibility.Visible;
-                        GameACProfileCPUStateText.Text = fpsModeText;
+                        GameACProfileCPUStateText.Text = acModeText;
                         GameACProfileCPUStateText.Visibility = Visibility.Visible;
-                        GameDCProfileCPUStateText.Text = fpsModeText;
+                        GameDCProfileCPUStateText.Text = dcModeText;
                         GameDCProfileCPUStateText.Visibility = Visibility.Visible;
                     }
                     else

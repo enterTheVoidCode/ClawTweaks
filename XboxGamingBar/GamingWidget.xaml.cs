@@ -2918,8 +2918,8 @@ namespace XboxGamingBar
 
                 if (isPerGameProfile)
                 {
-                    // 🟣 Game profile — purple
-                    title = $"\U0001F7E3 Game: {gameName}";
+                    // 🟢 Game profile — green
+                    title = $"\U0001F7E2 Game: {gameName}";
 
                     if (gameProf != null && globalProfile != null)
                     {
@@ -2957,15 +2957,14 @@ namespace XboxGamingBar
                             {
                                 if (gameIntel)
                                 {
-                                    // Show Intel tier label (P60/B40/E30)
-                                    string[] intelLabels = { "Off", "P60", "B40", "E30" };
+                                    string[] intelLabels = { "Off", "60 FPS", "40 FPS", "30 FPS" };
                                     string tierLabel = (gameProf.IntelFpsTier >= 0 && gameProf.IntelFpsTier < intelLabels.Length)
                                         ? intelLabels[gameProf.IntelFpsTier] : "?";
                                     diffs.Add($"Intel {tierLabel}");
                                 }
                                 else
                                 {
-                                    diffs.Add($"RTSS {gameProf.FPSLimitValue}");
+                                    diffs.Add($"RTSS {gameProf.FPSLimitValue} FPS");
                                 }
                             }
                             else
