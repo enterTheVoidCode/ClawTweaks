@@ -5359,7 +5359,7 @@
                                 <!-- Mouse Emulation Settings -->
                                 <StackPanel x:Name="ControllerEmulationMouseSettingsPanel" Margin="0,16,0,0" Visibility="Collapsed">
                                     <TextBlock Text="Mouse Emulation" FontSize="13" Foreground="#FFFFFF"/>
-                                    <TextBlock Text="Fine-tune gyro mouse behavior"
+                                    <TextBlock Text="Fine-tune mouse behavior"
                                                FontSize="11"
                                                Foreground="#888888"
                                                Margin="0,0,0,6"/>
