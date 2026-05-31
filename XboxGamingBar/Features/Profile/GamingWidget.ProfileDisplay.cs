@@ -368,10 +368,10 @@ namespace XboxGamingBar
                     GameProfileCPUStateText.Visibility = cpuStateVisibility;
                     GameProfileCPUStateText.Text = $"{gameProfile.MinCPUState}-{gameProfile.MaxCPUState}%";
 
-                    // FPS Limit
+                    // FPS Limit — use GetFpsValueLabel so Intel tier is shown correctly
                     GameProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
                     GameProfileFPSLimitText.Visibility = fpsLimitVisibility;
-                    GameProfileFPSLimitText.Text = gameProfile.FPSLimitEnabled ? $"{gameProfile.FPSLimitValue}" : "Off";
+                    GameProfileFPSLimitText.Text = GetFpsValueLabel(gameProfile);
 
                     // AutoTDP
                     GameProfileAutoTDPLabel.Visibility = autoTDPVisibility;
