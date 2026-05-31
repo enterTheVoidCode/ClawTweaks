@@ -232,6 +232,19 @@ namespace XboxGamingBar
         {
             if (string.IsNullOrEmpty(tileId)) return;
             Logger.Info($"SimulateTileHotkeyFired: '{tileId}'");
+
+            // Left MSI button Action mode: "__action__{TileActionType int}"
+            if (tileId.StartsWith("__action__"))
+            {
+                if (int.TryParse(tileId.Substring("__action__".Length), out int actionInt))
+                {
+                    var actionType = (XboxGamingBar.QuickSettings.TileActionType)actionInt;
+                    string displayName = XboxGamingBar.QuickSettings.TileActionHelper.GetDisplayName(actionType);
+                    Logger.Info($"SimulateTileHotkeyFired: dispatching action {actionType} ({displayName})");
+                    _ = ExecuteTileActionAsync(actionType, displayName);
+                }
+                return;
+            }
             _isControllerTriggered = true;
             try
             {

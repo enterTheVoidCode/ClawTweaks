@@ -65,6 +65,89 @@ namespace XboxGamingBarHelper
         /// (ControllerEmulationManager.EmulationEnabled).
         /// Subscribes to EmulationEnabledChanged for dynamic start/stop.
         /// </summary>
+        // ── Left CLAW button WMI listener ────────────────────────────────────────
+        // The left front button (CLAW logo, OEM1) fires a WMI event MSI_Event with
+        // EventCode=41 (LaunchMcxMainUI). Ported from HC ClawA1M.cs specialKeyWatcher.
+        // Started once at startup regardless of emulation state.
+        private static System.Management.ManagementEventWatcher _clawButtonWatcher;
+        private static readonly object _clawButtonWatcherLock = new object();
+
+        private static void StartClawButtonWmiListener()
+        {
+            var deviceInfo = Devices.DeviceDetector.DetectDevice();
+            if (deviceInfo.DeviceType != DeviceType.MSIClaw) return;
+
+            lock (_clawButtonWatcherLock)
+            {
+                if (_clawButtonWatcher != null) return;
+                try
+                {
+                    var scope = new System.Management.ManagementScope(@"\\.\root\WMI");
+                    var query = new System.Management.WqlEventQuery("SELECT * FROM MSI_Event");
+                    _clawButtonWatcher = new System.Management.ManagementEventWatcher(scope, query);
+                    _clawButtonWatcher.EventArrived += OnClawWmiEvent;
+                    _clawButtonWatcher.Start();
+                    Logger.Info("MSIClaw: WMI MSI_Event listener started (left CLAW button)");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"MSIClaw: WMI listener failed to start: {ex.Message}");
+                }
+            }
+        }
+
+        private static void StopClawButtonWmiListener()
+        {
+            lock (_clawButtonWatcherLock)
+            {
+                try { _clawButtonWatcher?.Stop(); _clawButtonWatcher?.Dispose(); } catch { }
+                _clawButtonWatcher = null;
+            }
+        }
+
+        private static void OnClawWmiEvent(object sender, System.Management.EventArrivedEventArgs e)
+        {
+            try
+            {
+                // EventCode field carries the WMI event code (1 byte, value 41 = LaunchMcxMainUI)
+                var props = e.NewEvent.Properties;
+                int code = 0;
+                foreach (System.Management.PropertyData p in props)
+                {
+                    if (p.Name.Equals("EventCode", StringComparison.OrdinalIgnoreCase) ||
+                        p.Name.Equals("WMIEvent", StringComparison.OrdinalIgnoreCase))
+                    {
+                        code = Convert.ToInt32(p.Value) & 0xFF;
+                        break;
+                    }
+                }
+                if (code != 41) return; // 41 = LaunchMcxMainUI = left CLAW button
+
+                Logger.Info("MSIClaw: Left CLAW button pressed (WMI LaunchMcxMainUI)");
+
+                int actionType = legionManager?.DesktopButtonTileAction ?? -1;
+                if (actionType < 0)
+                {
+                    Logger.Debug("MSIClaw: Left CLAW button — no Action mapping configured");
+                    return;
+                }
+
+                string actionName = $"Action{actionType}";
+                try
+                {
+                    var dispName = XboxGamingBarHelper.TileActionNames.GetDisplayName(actionType);
+                    if (!string.IsNullOrEmpty(dispName)) actionName = dispName;
+                }
+                catch { }
+
+                FireTileHotkeyToWidget($"__action__{actionType}", actionName);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"MSIClaw: OnClawWmiEvent threw: {ex.Message}");
+            }
+        }
+
         private static void StartMSIClawControllerEmulation()
         {
             try

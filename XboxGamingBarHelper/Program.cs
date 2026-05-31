@@ -1034,6 +1034,10 @@ namespace XboxGamingBarHelper
             // legionManager is passed so VIIPER can forward LED color reports to the Legion stick lights.
             viiperEmulationManager = new XboxGamingBarHelper.ControllerEmulation.Viiper.ViiperEmulationManager(settingsManager, controllerEmulationManager, legionManager);
 
+            // MSI Claw: WMI listener for left CLAW button (OEM1 / LaunchMcxMainUI).
+            // Runs independently of emulation state — always active on MSI Claw.
+            StartClawButtonWmiListener();
+
             // MSI Claw: dedicated ViGEm forwarder (bypasses legacy ControllerEmulationManager).
             // Suppresses the legacy backend, subscribes to the emulation toggle, and starts
             // the XInput→ViGEm poll loop. No-op on non-MSI-Claw devices.
@@ -1799,6 +1803,8 @@ namespace XboxGamingBarHelper
             viiperEmulationManager = null;
 
             // MSI Claw: stop ViGEm forwarder and unsubscribe emulation toggle event
+            try { StopClawButtonWmiListener(); }
+            catch (Exception ex) { Logger.Warn($"StopClawButtonWmiListener threw: {ex.Message}"); }
             try { DisposeMSIClawControllerEmulation(); }
             catch (Exception ex) { Logger.Warn($"DisposeMSIClawControllerEmulation threw: {ex.Message}"); }
 

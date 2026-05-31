@@ -261,6 +261,7 @@
     <Compile Include="Sidebar\Audio\AudioManager.cs" />
     <Compile Include="Sidebar\BrightnessManager.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="TileActionNames.cs" />
     <Compile Include="Startup\Program.PackageLifecycle.cs" />
     <Compile Include="Startup\Program.TrayAndSidebar.cs" />
     <Compile Include="Startup\Program.ProfileHandlers.cs" />
