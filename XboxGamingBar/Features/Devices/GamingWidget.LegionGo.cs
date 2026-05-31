@@ -57,12 +57,13 @@ namespace XboxGamingBar
                 Logger.Info($"Legion tab visibility set to: {showTab} (legionDetected={visible}, controllerEmulationSupported={controllerEmulationSupported})");
             }
 
-            // TDP Mode card: only show for Legion devices (hardware presets Quiet/Balanced/Performance/Custom).
-            // On MSI Claw (non-Legion) the ComboBox row and expand button are both Collapsed,
-            // leaving an empty card visible between the Overlay and TDP Power Limit cards.
+            // TDP Mode card: only show for actual Legion Go hardware.
+            // MSI Claw sets legionGoDetected=true to enable the controller tab, but does NOT
+            // have Legion hardware presets — showing TDPModeCard for Claw leaves an empty card.
+            bool isActualLegion = visible && msiClawControllerMode == null;
             if (TDPModeCard != null)
             {
-                TDPModeCard.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                TDPModeCard.Visibility = isActualLegion ? Visibility.Visible : Visibility.Collapsed;
                 Logger.Info($"TDP Mode card visibility set to: {(visible ? "Visible" : "Collapsed")} (Legion={visible})");
 
                 // Update XY focus bindings - TDP Mode card is always present now
