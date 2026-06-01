@@ -124,6 +124,7 @@ namespace XboxGamingBar
         private int osdProvider = 0;  // 0=RTSS, 1=AMD
         private int amdOverlayLevel = 0;  // Track AMD overlay level: 0=Off, 1-4=Level 1-4 (can't query from AMD)
         private bool isOSDCustomizeExpanded = false;
+        private bool isProTipsExpanded = false;
         private bool isProfileDetectionExpanded = false;
         private bool isProfileSettingsExpanded = false;
         private bool isTDPSettingsExpanded = false;
@@ -1183,6 +1184,15 @@ namespace XboxGamingBar
                 FeaturesContent.Visibility = isFeaturesExpanded ? Visibility.Visible : Visibility.Collapsed;
             if (FeaturesExpandIcon != null)
                 FeaturesExpandIcon.Glyph = isFeaturesExpanded ? "\uE70E" : "\uE70D";
+        }
+
+        private void ProTipsExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            isProTipsExpanded = !isProTipsExpanded;
+            if (ProTipsContent != null)
+                ProTipsContent.Visibility = isProTipsExpanded ? Visibility.Visible : Visibility.Collapsed;
+            if (ProTipsExpandIcon != null)
+                ProTipsExpandIcon.Glyph = isProTipsExpanded ? "" : "";
         }
 
         private void JoystickOutputExpandToggle_Click(object sender, RoutedEventArgs e)

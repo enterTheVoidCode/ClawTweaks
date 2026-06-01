@@ -164,15 +164,16 @@ namespace XboxGamingBar
         // minimum interval as a belt-and-suspenders debounce.
         private bool ltTriggerHeld;
         private bool rtTriggerHeld;
+        private bool yButtonHeld;
+        private bool xButtonHeld;
         private DateTime lastTriggerNavigateUtc = DateTime.MinValue;
+        private DateTime lastYxButtonUtc = DateTime.MinValue;
         private static readonly TimeSpan TriggerNavigateDebounce = TimeSpan.FromMilliseconds(150);
+        private static readonly TimeSpan YXButtonDebounce = TimeSpan.FromMilliseconds(200);
 
         private void GamingWidget_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            // Handle LT (Left Trigger) and RT (Right Trigger) for tab navigation.
-            // Using PreviewKeyDown to intercept before ScrollViewer handles it.
-            // Skip when the key is auto-repeating while still held — only the initial
-            // press-edge should advance a tab. One press == one tab.
+            // LT / RT — tab navigation
             if (e.Key == VirtualKey.GamepadLeftTrigger)
             {
                 if (!ltTriggerHeld && !e.KeyStatus.WasKeyDown
@@ -197,17 +198,39 @@ namespace XboxGamingBar
                 e.Handled = true;
                 return;
             }
-            // Handle D-pad down from nav items to focus content area (for overflow menu items)
+            // Y — jump focus to the active tab in the nav bar
+            else if (e.Key == VirtualKey.GamepadY)
+            {
+                if (!yButtonHeld && !e.KeyStatus.WasKeyDown
+                    && (DateTime.UtcNow - lastYxButtonUtc) >= YXButtonDebounce)
+                {
+                    yButtonHeld = true;
+                    lastYxButtonUtc = DateTime.UtcNow;
+                    FocusActiveTab();
+                }
+                e.Handled = true;
+                return;
+            }
+            // X — collapse the expanded segment that currently contains focus
+            else if (e.Key == VirtualKey.GamepadX)
+            {
+                if (!xButtonHeld && !e.KeyStatus.WasKeyDown
+                    && (DateTime.UtcNow - lastYxButtonUtc) >= YXButtonDebounce)
+                {
+                    xButtonHeld = true;
+                    lastYxButtonUtc = DateTime.UtcNow;
+                    CollapseContainingSection();
+                }
+                e.Handled = true;
+                return;
+            }
+            // D-pad down from nav area → enter content
             else if (e.Key == VirtualKey.GamepadDPadDown)
             {
                 var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
-                // Check if focus is on a nav RadioButton or within the nav area
                 if (focusedElement != null && IsInNavigationArea(focusedElement))
                 {
-                    // Mark as handled immediately to prevent default XY navigation
                     e.Handled = true;
-
-                    // Use TryMoveFocus to move to the first focusable element downward
                     FocusManager.TryMoveFocus(FocusNavigationDirection.Down);
                 }
             }
@@ -215,17 +238,14 @@ namespace XboxGamingBar
 
         private void GamingWidget_PreviewKeyUp(object sender, KeyRoutedEventArgs e)
         {
-            // Clear the press-edge state so the next LT/RT press advances exactly one
-            // tab. Without this, auto-repeat during a held trigger would cycle through
-            // the entire tab strip.
             if (e.Key == VirtualKey.GamepadLeftTrigger)
-            {
                 ltTriggerHeld = false;
-            }
             else if (e.Key == VirtualKey.GamepadRightTrigger)
-            {
                 rtTriggerHeld = false;
-            }
+            else if (e.Key == VirtualKey.GamepadY)
+                yButtonHeld = false;
+            else if (e.Key == VirtualKey.GamepadX)
+                xButtonHeld = false;
         }
 
         /// <summary>
@@ -323,6 +343,180 @@ namespace XboxGamingBar
                 }
             }
             return visibleItems;
+        }
+
+        /// <summary>
+        /// Y button: move focus to the currently active (checked) tab in the nav bar.
+        /// Falls back to the first visible tab if none is checked.
+        /// </summary>
+        private void FocusActiveTab()
+        {
+            var items = GetVisibleNavigationItems();
+            if (items.Count == 0) return;
+            var active = items.FirstOrDefault(rb => rb.IsChecked == true) ?? items[0];
+            active.Focus(FocusState.Programmatic);
+        }
+
+        /// <summary>
+        /// X button: walk up the visual tree from the focused element and collapse the
+        /// first expandable section that contains it. Focus moves to the section's toggle
+        /// button so the user can re-expand without leaving the card area.
+        /// </summary>
+        private void CollapseContainingSection()
+        {
+            var focused = FocusManager.GetFocusedElement() as DependencyObject;
+            if (focused == null) return;
+
+            var current = focused;
+            while (current != null)
+            {
+                if (current is FrameworkElement fe && TryCollapse(fe))
+                    return;
+                current = VisualTreeHelper.GetParent(current);
+            }
+        }
+
+        private bool TryCollapse(FrameworkElement fe)
+        {
+            // Each entry: content panel, is-expanded flag, collapse action, toggle button to re-focus.
+            // Only collapse when expanded — never accidentally expand.
+            if ((fe == ControllerEmulationContent || fe == ViiperEmulationContent) && isControllerEmulationExpanded)
+            {
+                isControllerEmulationExpanded = false;
+                ControllerEmulationContent.Visibility = Visibility.Collapsed;
+                if (ViiperEmulationContent != null) ViiperEmulationContent.Visibility = Visibility.Collapsed;
+                if (ControllerEmulationExpandIcon != null) ControllerEmulationExpandIcon.Glyph = "";
+                ControllerEmulationExpandButton?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == GyroActivationContent && isGyroActivationExpanded)
+            {
+                isGyroActivationExpanded = false;
+                GyroActivationContent.Visibility = Visibility.Collapsed;
+                if (GyroActivationExpandIcon != null) GyroActivationExpandIcon.Glyph = "";
+                GyroActivationExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == FeaturesContent && isFeaturesExpanded)
+            {
+                isFeaturesExpanded = false;
+                FeaturesContent.Visibility = Visibility.Collapsed;
+                if (FeaturesExpandIcon != null) FeaturesExpandIcon.Glyph = "";
+                FeaturesExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == JoystickOutputContent && isJoystickOutputExpanded)
+            {
+                isJoystickOutputExpanded = false;
+                JoystickOutputContent.Visibility = Visibility.Collapsed;
+                if (JoystickOutputExpandIcon != null) JoystickOutputExpandIcon.Glyph = "";
+                JoystickOutputExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == OSDCustomizeContent && isOSDCustomizeExpanded)
+            {
+                isOSDCustomizeExpanded = false;
+                OSDCustomizeContent.Visibility = Visibility.Collapsed;
+                if (OSDCustomizeExpandIcon != null) OSDCustomizeExpandIcon.Glyph = "";
+                OSDCustomizeExpandButton?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == TDPSettingsContent && isTDPSettingsExpanded)
+            {
+                isTDPSettingsExpanded = false;
+                TDPSettingsContent.Visibility = Visibility.Collapsed;
+                if (TDPSettingsExpandIcon != null) TDPSettingsExpandIcon.Glyph = "";
+                TDPSettingsExpandButton?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == CPUExtrasContent && isCPUExtrasExpanded)
+            {
+                isCPUExtrasExpanded = false;
+                CPUExtrasContent.Visibility = Visibility.Collapsed;
+                CPUExtrasExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == TDPExtrasContent && isTDPExtrasExpanded)
+            {
+                isTDPExtrasExpanded = false;
+                TDPExtrasContent.Visibility = Visibility.Collapsed;
+                TDPExtrasExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == FanCurveContent && isFanCurveExpanded)
+            {
+                isFanCurveExpanded = false;
+                FanCurveContent.Visibility = Visibility.Collapsed;
+                if (FanCurveExpandIcon != null) FanCurveExpandIcon.Glyph = "";
+                FanCurveExpandToggle?.Focus(FocusState.Programmatic);
+                legionFanCurveVisible?.SetVisible(false);
+                return true;
+            }
+            if (fe == ProfileDetectionContent && isProfileDetectionExpanded)
+            {
+                isProfileDetectionExpanded = false;
+                ProfileDetectionContent.Visibility = Visibility.Collapsed;
+                if (ProfileDetectionExpandIcon != null) ProfileDetectionExpandIcon.Glyph = "";
+                ProfileDetectionExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == ProfileSettingsContent && isProfileSettingsExpanded)
+            {
+                isProfileSettingsExpanded = false;
+                ProfileSettingsContent.Visibility = Visibility.Collapsed;
+                if (ProfileSettingsExpandIcon != null) ProfileSettingsExpandIcon.Glyph = "";
+                ProfileSettingsExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == TouchpadVibrationContent && isTouchpadVibrationExpanded)
+            {
+                isTouchpadVibrationExpanded = false;
+                TouchpadVibrationContent.Visibility = Visibility.Collapsed;
+                if (TouchpadVibrationExpandIcon != null) TouchpadVibrationExpandIcon.Glyph = "";
+                TouchpadVibrationExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == GyroSettingsContent && isGyroSettingsExpanded)
+            {
+                isGyroSettingsExpanded = false;
+                GyroSettingsContent.Visibility = Visibility.Collapsed;
+                if (GyroSettingsExpandIcon != null) GyroSettingsExpandIcon.Glyph = "";
+                GyroSettingsExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == ButtonRemappingContent && isButtonRemappingExpanded)
+            {
+                isButtonRemappingExpanded = false;
+                ButtonRemappingContent.Visibility = Visibility.Collapsed;
+                if (ButtonRemappingExpandIcon != null) ButtonRemappingExpandIcon.Glyph = "";
+                ButtonRemappingExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == StickDeadzonesContent && isStickDeadzonesExpanded)
+            {
+                isStickDeadzonesExpanded = false;
+                StickDeadzonesContent.Visibility = Visibility.Collapsed;
+                if (StickDeadzonesExpandIcon != null) StickDeadzonesExpandIcon.Glyph = "";
+                StickDeadzonesExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == SpecialRemappingContent && isSpecialRemappingExpanded)
+            {
+                isSpecialRemappingExpanded = false;
+                SpecialRemappingContent.Visibility = Visibility.Collapsed;
+                if (SpecialRemappingExpandIcon != null) SpecialRemappingExpandIcon.Glyph = "";
+                SpecialRemappingExpandButton?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == LightingContent && isLightingExpanded)
+            {
+                isLightingExpanded = false;
+                LightingContent.Visibility = Visibility.Collapsed;
+                if (LightingExpandIcon != null) LightingExpandIcon.Glyph = "";
+                LightingExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            return false;
         }
 
     }

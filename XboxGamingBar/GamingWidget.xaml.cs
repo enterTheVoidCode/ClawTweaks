@@ -942,6 +942,10 @@ namespace XboxGamingBar
         private readonly ControllerEmulationLedForwardingEnabledProperty controllerEmulationLedForwardingEnabled;
         private readonly ControllerEmulationMouseSensitivityProperty controllerEmulationMouseSensitivity;
         private readonly ControllerEmulationMouseThresholdProperty controllerEmulationMouseThreshold;
+        private readonly ControllerEmulationMouseLeftClickButtonProperty controllerEmulationMouseLeftClickButton;
+        private readonly ControllerEmulationMouseRightClickButtonProperty controllerEmulationMouseRightClickButton;
+        private readonly ControllerEmulationMouseCursorStickProperty controllerEmulationMouseCursorStick;
+        private readonly ControllerEmulationMouseScrollStickProperty controllerEmulationMouseScrollStick;
         private readonly ControllerEmulationMouseAxisProperty controllerEmulationMouseAxis;
         private readonly ControllerEmulationMouseInvertXProperty controllerEmulationMouseInvertX;
         private readonly ControllerEmulationMouseInvertYProperty controllerEmulationMouseInvertY;
@@ -1657,6 +1661,10 @@ namespace XboxGamingBar
             controllerEmulationLedForwardingEnabled = new ControllerEmulationLedForwardingEnabledProperty(ControllerEmulationLedForwardingToggle, this);
             controllerEmulationMouseSensitivity = new ControllerEmulationMouseSensitivityProperty(ControllerEmulationMouseSensitivitySlider, this);
             controllerEmulationMouseThreshold = new ControllerEmulationMouseThresholdProperty(ControllerEmulationMouseThresholdSlider, this);
+            controllerEmulationMouseLeftClickButton = new ControllerEmulationMouseLeftClickButtonProperty(ControllerEmulationMouseLeftClickButtonComboBox, this);
+            controllerEmulationMouseRightClickButton = new ControllerEmulationMouseRightClickButtonProperty(ControllerEmulationMouseRightClickButtonComboBox, this);
+            controllerEmulationMouseCursorStick = new ControllerEmulationMouseCursorStickProperty(ControllerEmulationMouseCursorStickComboBox, this);
+            controllerEmulationMouseScrollStick = new ControllerEmulationMouseScrollStickProperty(ControllerEmulationMouseScrollStickComboBox, this);
             controllerEmulationMouseAxis = new ControllerEmulationMouseAxisProperty(ControllerEmulationMouseAxisComboBox, this);
             controllerEmulationMouseInvertX = new ControllerEmulationMouseInvertXProperty(ControllerEmulationMouseInvertXToggle, this);
             controllerEmulationMouseInvertY = new ControllerEmulationMouseInvertYProperty(ControllerEmulationMouseInvertYToggle, this);
@@ -2081,6 +2089,10 @@ namespace XboxGamingBar
                 controllerEmulationLedForwardingEnabled,
                 controllerEmulationMouseSensitivity,
                 controllerEmulationMouseThreshold,
+                controllerEmulationMouseLeftClickButton,
+                controllerEmulationMouseRightClickButton,
+                controllerEmulationMouseCursorStick,
+                controllerEmulationMouseScrollStick,
                 controllerEmulationMouseAxis,
                 controllerEmulationMouseInvertX,
                 controllerEmulationMouseInvertY,
@@ -3068,9 +3080,13 @@ namespace XboxGamingBar
 
             UpdateControllerProfileModeBadge();
 
-            // Clear button only makes sense when a game is running
+            // Clear button only makes sense when a game is running (kept for compat, hidden in UI)
             if (ClearPerGameControllerProfileButton != null)
                 ClearPerGameControllerProfileButton.IsEnabled = gameActive;
+
+            // Compact mode when no game: show small hint text, hide when game active
+            if (PerGameProfileHelpText != null)
+                PerGameProfileHelpText.Visibility = gameActive ? Visibility.Collapsed : Visibility.Visible;
 
             // Per-game toggle: enable only when a game is running (can't use per-game without a game)
             // The editable content (button mappings, gyro, etc.) is ALWAYS interactive — it edits

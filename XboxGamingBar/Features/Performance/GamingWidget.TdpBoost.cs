@@ -140,10 +140,9 @@ namespace XboxGamingBar
                     Logger.Info($"TDP Boost enabled state loaded from settings: {enabled}");
                 }
 
-                // Load PL2-Boost — check profile first, fall back to LocalSettings, then device default.
-                // MSI Claw standard FPPT limit is 37W; use slider Maximum as device-specific ceiling.
+                // Load PL2-Boost — absolute PL2 target value. Default: slider Maximum (37W).
                 int deviceDefault = (int)(TDPBoostFPPTSlider?.Maximum ?? 37);
-                int fpptBoost = deviceDefault; // Device-appropriate default for fresh installs
+                int fpptBoost = deviceDefault;
                 if (settings.Values.TryGetValue("TDPBoostFPPT", out object fpptObj) && fpptObj != null)
                 {
                     try

@@ -379,6 +379,10 @@
         ControllerEmulationMouseInvertY,      // bool - invert vertical
         ControllerEmulationMouseGainX,        // int - 25-400 (percent)
         ControllerEmulationMouseGainY,        // int - 25-400 (percent)
+        ControllerEmulationMouseLeftClickButton,  // int - 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS
+        ControllerEmulationMouseRightClickButton, // int - same index set
+        ControllerEmulationMouseCursorStick,      // int - 0=Right,1=Left
+        ControllerEmulationMouseScrollStick,      // int - 0=Left,1=Right
         ControllerEmulationStickSensitivity,  // int - 1-400 (percent scaling)
         ControllerEmulationStickThreshold,    // int - 0-20 (deg/s deadzone)
         ControllerEmulationStickAxis,         // int - axis mapping (0=XY(Yaw), 1=XZ(Roll), 2=Yaw+Pitch)
