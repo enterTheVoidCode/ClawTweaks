@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Builds the ClawTweaks release MSIX and assembles a ready-to-deploy installer folder.
@@ -23,6 +23,7 @@ Start-Transcript -Path $LogFile -Force | Out-Null
 $ScriptDir   = $PSScriptRoot
 $WapProj     = Join-Path $ScriptDir "XboxGamingBarPackage\XboxGamingBarPackage.wapproj"
 $InstallPs1  = Join-Path $ScriptDir "XboxGamingBarPackage\InstallTemplate\Install.ps1"
+$InstallBat  = Join-Path $ScriptDir "XboxGamingBarPackage\InstallTemplate\Install.bat"
 $AppPackages = Join-Path $ScriptDir "XboxGamingBarPackage\AppPackages"
 $CertPfxPath = Join-Path $ScriptDir "XboxGamingBarPackage\ClawTweaks.pfx"
 $CertSubject = "CN=ClawTweaks Dev, O=MSIClaw"
@@ -78,6 +79,7 @@ Write-Ok $msbuild
 
 if (-not (Test-Path $WapProj))    { Write-Err "WAP project not found: $WapProj" }
 if (-not (Test-Path $InstallPs1)) { Write-Err "Install.ps1 not found: $InstallPs1" }
+if (-not (Test-Path $InstallBat)) { Write-Err "Install.bat not found: $InstallBat" }
 
 Write-Step "Preparing code-signing certificate..."
 $pfxValid = $false
@@ -220,8 +222,15 @@ Copy-Item "$($pkgFolder.FullName)\*" -Destination $InstallerDir -Recurse -Force
 Write-Ok "Package files copied"
 Export-Certificate -Cert $signingCert -FilePath (Join-Path $InstallerDir "ClawTweaks.cer") -Type CERT | Out-Null
 Write-Ok "Certificate exported"
-Copy-Item $InstallPs1 -Destination (Join-Path $InstallerDir "Install.ps1") -Force
-Write-Ok "Install.ps1 copied"
+# Install.bat goes in the root — this is what the user sees and clicks
+Copy-Item $InstallBat -Destination (Join-Path $InstallerDir "Install.bat") -Force
+Write-Ok "Install.bat copied (user-facing entry point)"
+
+# Install.ps1 goes into _Installer\ subfolder — called by the bat, not shown directly
+$SubDir = Join-Path $InstallerDir "_Installer"
+if (-not (Test-Path $SubDir)) { New-Item -ItemType Directory -Path $SubDir | Out-Null }
+Copy-Item $InstallPs1 -Destination (Join-Path $SubDir "Install.ps1") -Force
+Write-Ok "Install.ps1 copied to _Installer\"
 
 Write-Step "Creating installer ZIP..."
 $ZipPath = Join-Path $BuildDir "ClawTweaks_${newVer}_Installer.zip"
