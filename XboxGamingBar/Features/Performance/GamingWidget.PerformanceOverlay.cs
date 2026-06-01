@@ -88,11 +88,37 @@ namespace XboxGamingBar
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
-                bool fpsExpanded = FPSLimiterModePanel?.Visibility == Windows.UI.Xaml.Visibility.Visible;
-                var target = (fpsExpanded && FPSModeRTSSRadio != null)
-                    ? (Windows.UI.Xaml.Controls.Control)FPSModeRTSSRadio
-                    : TDPSlider;
+                // FPS panel is always visible — always navigate into it
+                var target = FPSModeRTSSRadio ?? (Windows.UI.Xaml.Controls.Control)TDPSlider;
                 target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
+        private void FPSModeRTSSRadio_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                FPSLimitToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                FPSLimitSlider?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
+        private void FPSLimitSlider_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                FPSModeRTSSRadio?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                TDPSlider?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
         }
@@ -101,11 +127,12 @@ namespace XboxGamingBar
         {
             if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
-                // Walk up the spine: skip disabled controls (IsEnabled=false → not focusable in UWP)
-                Windows.UI.Xaml.Controls.Control target = null;
-                if (FPSLimitToggle?.IsEnabled == true)          target = FPSLimitToggle;
-                else if (PerGameProfileToggle?.IsEnabled == true) target = PerGameProfileToggle;
-                else                                              target = PerformanceNavItem;
+                // Go up through FPS slider → mode radio → FPS toggle
+                Windows.UI.Xaml.Controls.Control target =
+                    (Windows.UI.Xaml.Controls.Control)FPSLimitSlider
+                    ?? (Windows.UI.Xaml.Controls.Control)FPSLimitToggle
+                    ?? (Windows.UI.Xaml.Controls.Control)PerGameProfileToggle
+                    ?? (Windows.UI.Xaml.Controls.Control)PerformanceNavItem;
                 target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
