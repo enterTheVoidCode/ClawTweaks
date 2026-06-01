@@ -1666,201 +1666,6 @@
                             </Grid>
                         </Border>
 
-
-
-                        <!-- Fan Curve Graph Card (moved from Controls tab) -->
-                        <Border x:Name="LegionFanCurveCard" Style="{StaticResource CardStyle}">
-                            <StackPanel IsHitTestVisible="False" Opacity="0.5">
-                                <!-- Coming Soon notice -->
-                                <Border Background="#1A3A1A" CornerRadius="4" Padding="8,4" Margin="0,0,0,8" HorizontalAlignment="Left">
-                                    <TextBlock Text="Coming soon" FontSize="11" Foreground="#4CAF50" FontWeight="SemiBold"/>
-                                </Border>
-                                <!-- Header with expand toggle -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Fan Curve" Style="{StaticResource CardTitleStyle}"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Fan: " Style="{StaticResource CardCaptionStyle}"/>
-                                            <TextBlock x:Name="FanRPMLabel" Text="-- RPM" Style="{StaticResource CardCaptionStyle}"/>
-                                        </StackPanel>
-                                        <TextBlock x:Name="FanCurveActiveModeLabel"
-                                                   FontSize="10" Foreground="#88B0E0" Margin="0,2,0,0"
-                                                   TextWrapping="Wrap" Visibility="Collapsed"/>
-                                    </StackPanel>
-                                    <ComboBox x:Name="FanCurvePresetComboBox"
-                                              Grid.Column="1"
-                                              Width="120"
-                                              VerticalAlignment="Center"
-                                              Margin="0,0,8,0"
-                                              SelectionChanged="FanCurvePresetComboBox_SelectionChanged">
-                                        <ComboBoxItem Content="Quiet"       Tag="1"/>
-                                        <ComboBoxItem Content="Balanced"    Tag="2" IsSelected="True"/>
-                                        <ComboBoxItem Content="Performance" Tag="3"/>
-                                        <ComboBoxItem Content="Custom"      Tag="255"/>
-                                    </ComboBox>
-                                    <ToggleButton x:Name="FanCurveExpandToggle"
-                                                  Grid.Column="2"
-                                                  IsChecked="False"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="FanCurveExpandToggle_Click">
-                                        <FontIcon x:Name="FanCurveExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-
-                                <Border x:Name="FanCurveHelperDisconnectedWarning"
-                                        Background="#3D2A1A" CornerRadius="4" Padding="10" Margin="0,8,0,0"
-                                        Visibility="Collapsed">
-                                    <TextBlock Foreground="#FFB060" FontSize="11" TextWrapping="Wrap"
-                                               Text="&#x26A0; Helper disconnected with EC override active. Fan may be stuck at the last RPM until the helper reconnects, or reboot to clear."/>
-                                </Border>
-
-                                <Grid Margin="0,8,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Unlock Fan Curve Override" FontSize="13" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Bypass firmware minimums via direct EC write (per-mode)"
-                                                   FontSize="11" Foreground="#A0A0A0" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="LegionUnlockFanCurveToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsOn="False"
-                                                  Toggled="LegionUnlockFanCurveToggle_Toggled"/>
-                                </Grid>
-
-                                <muxc:Expander x:Name="FanCurveInfoExpander"
-                                               Margin="0,8,0,0"
-                                               HorizontalAlignment="Stretch"
-                                               HorizontalContentAlignment="Stretch"
-                                               IsExpanded="False">
-                                    <muxc:Expander.Header>
-                                        <TextBlock Text="Info &amp; safety notes" FontSize="12" Foreground="#C0C8D0"/>
-                                    </muxc:Expander.Header>
-                                    <StackPanel>
-                                        <Border Background="#3D2A1A" CornerRadius="4" Padding="10"
-                                                x:Name="UnlockFanCurveWarningBorder">
-                                            <StackPanel>
-                                                <TextBlock Foreground="#FFB060" FontWeight="SemiBold" FontSize="12">
-                                                    &#x26A0; Aggressive curves can damage hardware
-                                                </TextBlock>
-                                                <TextBlock Foreground="#DDB890" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
-                                                           Text="&#x2022; Never 0% above ~50&#xB0;C&#x0a;&#x2022; 101&#xB0;C software failsafe forces max RPM"/>
-                                            </StackPanel>
-                                        </Border>
-
-                                        <TextBlock FontSize="11" Foreground="#9098A0" TextWrapping="Wrap" Margin="0,8,0,0"
-                                                   Text="&#x2022; Curves &amp; unlock state save per power mode&#x0a;&#x2022; Dropdown selects which mode to edit, not the active one&#x0a;&#x2022; Unlock OFF: firmware drives the fan (Custom only via WMI, with firmware-enforced floors)&#x0a;&#x2022; Unlock ON: helper writes the curve directly to EC every 3s, in any mode&#x0a;&#x2022; Axis labels (10&#xB0;C&#x2013;100&#xB0;C) are how the curve is stored; firmware modes may map temps differently"/>
-
-                                        <TextBlock FontSize="10" Foreground="#707880" TextWrapping="Wrap" Margin="0,8,0,0">
-                                            Credits:
-                                            <Hyperlink NavigateUri="https://github.com/Rodpad/LeGo2-Fan-Control">Rodpad/LeGo2-Fan-Control</Hyperlink>
-                                            &#xB7;
-                                            <Hyperlink NavigateUri="https://github.com/Undervoltologist/legiongo2_ec_reverse_engineer">Undervoltologist EC RE</Hyperlink>
-                                            &#xB7;
-                                            <Hyperlink NavigateUri="https://github.com/namazso/PawnIO.Modules">namazso/PawnIO.Modules</Hyperlink>
-                                        </TextBlock>
-                                    </StackPanel>
-                                </muxc:Expander>
-
-                                <StackPanel x:Name="FanCurveContent" Margin="0,12,0,0" Visibility="Collapsed">
-                                    <TextBlock Text="Fan %" FontSize="11" Foreground="#999999" Margin="0,0,0,4"/>
-                                    <Grid Height="150">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="30"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Stretch">
-                                            <TextBlock Text="100" FontSize="10" Foreground="#666666" VerticalAlignment="Top"/>
-                                            <TextBlock Text="75" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>
-                                            <TextBlock Text="50" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>
-                                            <TextBlock Text="25" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>
-                                            <TextBlock Text="0" FontSize="10" Foreground="#666666" VerticalAlignment="Bottom"/>
-                                        </StackPanel>
-                                        <Canvas x:Name="FanCurveCanvas"
-                                                Grid.Column="1"
-                                                Background="#1A1A1A"
-                                                PointerPressed="FanCurveCanvas_PointerPressed"
-                                                PointerMoved="FanCurveCanvas_PointerMoved"
-                                                PointerReleased="FanCurveCanvas_PointerReleased"
-                                                PointerCaptureLost="FanCurveCanvas_PointerReleased"
-                                                SizeChanged="FanCurveCanvas_SizeChanged">
-                                            <Polygon x:Name="FanCurveFill"
-                                                     Fill="#3300AAFF"
-                                                     Stroke="Transparent"/>
-                                            <Polyline x:Name="ECFloorPolyline"
-                                                      Stroke="#FF6600"
-                                                      StrokeThickness="1.5"
-                                                      StrokeDashArray="4,2"
-                                                      Opacity="0.7"/>
-                                            <Polyline x:Name="FanCurvePolyline"
-                                                      Stroke="#00AAFF"
-                                                      StrokeThickness="2"
-                                                      StrokeLineJoin="Round"/>
-                                            <Line x:Name="TempIndicatorLine"
-                                                  Y1="0" Y2="150"
-                                                  Stroke="#FF8800"
-                                                  StrokeThickness="2"
-                                                  StrokeDashArray="4,2"
-                                                  Visibility="Collapsed"/>
-                                            <Line x:Name="RPMIndicatorLine"
-                                                  X1="0" X2="300"
-                                                  Stroke="#00FF88"
-                                                  StrokeThickness="2"
-                                                  StrokeDashArray="4,2"
-                                                  Visibility="Collapsed"/>
-                                        </Canvas>
-                                    </Grid>
-                                    <Grid x:Name="FanCurveTempAxisGrid" Margin="30,4,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="10&#xB0;C" FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="1" Text="20"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="2" Text="30"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="3" Text="40"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="4" Text="50"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="5" Text="60"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="6" Text="70"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="7" Text="80"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="8" Text="90"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="8" Text="100&#xB0;C" FontSize="9" Foreground="#666666" HorizontalAlignment="Right"/>
-                                    </Grid>
-                                    <TextBlock x:Name="FanCurveLockedAxisHint"
-                                               Visibility="Collapsed"
-                                               FontSize="9" Foreground="#666666"
-                                               HorizontalAlignment="Center"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" HorizontalAlignment="Center">
-                                        <TextBlock x:Name="CurrentTempPrefixLabel" Text="Fan Sensor Temp: " FontSize="12" Foreground="#999999"/>
-                                        <TextBlock x:Name="CurrentTempLabel" Text="--&#xB0;C" FontSize="12" Foreground="#FF8800" FontWeight="SemiBold"/>
-                                    </StackPanel>
-                                    <StackPanel x:Name="ECFloorLegendPanel" Orientation="Horizontal" Margin="0,4,0,0" HorizontalAlignment="Center">
-                                        <Line X1="0" Y1="0" X2="20" Y2="0" Stroke="#FF8800" StrokeThickness="2" StrokeDashArray="4,2" VerticalAlignment="Center"/>
-                                        <TextBlock Text=" EC Protection Floor" FontSize="10" Foreground="#888888" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-
                         <!-- Overlay Card (merged Performance Overlay + OSD Customization) -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -1881,8 +1686,7 @@
                                               Grid.Column="1"
                                               Margin="0,0,8,0"
                                               SelectionChanged="PerformanceOverlayComboBox_SelectionChanged"
-                                              XYFocusUp="{x:Bind FPSLimitToggle}"
-                                              XYFocusDown="{x:Bind TDPSlider}"
+                                              KeyDown="PerformanceOverlayComboBox_KeyDown"
                                               XYFocusLeft="{x:Bind PerformanceNavItem}">
                                         <ComboBoxItem Content="Off" Tag="0" IsSelected="True"/>
                                         <ComboBoxItem Content="Basic" Tag="1"/>
@@ -2233,6 +2037,198 @@
                                                    Foreground="#A0A0A0"
                                                    FontSize="12"
                                                    TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Fan Curve Graph Card (Coming Soon) -->
+                        <Border x:Name="LegionFanCurveCard" Style="{StaticResource CardStyle}">
+                            <StackPanel IsHitTestVisible="False" Opacity="0.5">
+                                <!-- Coming Soon notice -->
+                                <Border Background="#1A3A1A" CornerRadius="4" Padding="8,4" Margin="0,0,0,8" HorizontalAlignment="Left">
+                                    <TextBlock Text="Coming soon" FontSize="11" Foreground="#4CAF50" FontWeight="SemiBold"/>
+                                </Border>
+                                <!-- Header with expand toggle -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Fan Curve" Style="{StaticResource CardTitleStyle}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Fan: " Style="{StaticResource CardCaptionStyle}"/>
+                                            <TextBlock x:Name="FanRPMLabel" Text="-- RPM" Style="{StaticResource CardCaptionStyle}"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="FanCurveActiveModeLabel"
+                                                   FontSize="10" Foreground="#88B0E0" Margin="0,2,0,0"
+                                                   TextWrapping="Wrap" Visibility="Collapsed"/>
+                                    </StackPanel>
+                                    <ComboBox x:Name="FanCurvePresetComboBox"
+                                              Grid.Column="1"
+                                              Width="120"
+                                              VerticalAlignment="Center"
+                                              Margin="0,0,8,0"
+                                              SelectionChanged="FanCurvePresetComboBox_SelectionChanged">
+                                        <ComboBoxItem Content="Quiet"       Tag="1"/>
+                                        <ComboBoxItem Content="Balanced"    Tag="2" IsSelected="True"/>
+                                        <ComboBoxItem Content="Performance" Tag="3"/>
+                                        <ComboBoxItem Content="Custom"      Tag="255"/>
+                                    </ComboBox>
+                                    <ToggleButton x:Name="FanCurveExpandToggle"
+                                                  Grid.Column="2"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="FanCurveExpandToggle_Click">
+                                        <FontIcon x:Name="FanCurveExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <Border x:Name="FanCurveHelperDisconnectedWarning"
+                                        Background="#3D2A1A" CornerRadius="4" Padding="10" Margin="0,8,0,0"
+                                        Visibility="Collapsed">
+                                    <TextBlock Foreground="#FFB060" FontSize="11" TextWrapping="Wrap"
+                                               Text="&#x26A0; Helper disconnected with EC override active. Fan may be stuck at the last RPM until the helper reconnects, or reboot to clear."/>
+                                </Border>
+
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Unlock Fan Curve Override" FontSize="13" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Bypass firmware minimums via direct EC write (per-mode)"
+                                                   FontSize="11" Foreground="#A0A0A0" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="LegionUnlockFanCurveToggle"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsOn="False"
+                                                  Toggled="LegionUnlockFanCurveToggle_Toggled"/>
+                                </Grid>
+
+                                <muxc:Expander x:Name="FanCurveInfoExpander"
+                                               Margin="0,8,0,0"
+                                               HorizontalAlignment="Stretch"
+                                               HorizontalContentAlignment="Stretch"
+                                               IsExpanded="False">
+                                    <muxc:Expander.Header>
+                                        <TextBlock Text="Info &amp; safety notes" FontSize="12" Foreground="#C0C8D0"/>
+                                    </muxc:Expander.Header>
+                                    <StackPanel>
+                                        <Border Background="#3D2A1A" CornerRadius="4" Padding="10"
+                                                x:Name="UnlockFanCurveWarningBorder">
+                                            <StackPanel>
+                                                <TextBlock Foreground="#FFB060" FontWeight="SemiBold" FontSize="12">
+                                                    &#x26A0; Aggressive curves can damage hardware
+                                                </TextBlock>
+                                                <TextBlock Foreground="#DDB890" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                                                           Text="&#x2022; Never 0% above ~50&#xB0;C&#x0a;&#x2022; 101&#xB0;C software failsafe forces max RPM"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <TextBlock FontSize="11" Foreground="#9098A0" TextWrapping="Wrap" Margin="0,8,0,0"
+                                                   Text="&#x2022; Curves &amp; unlock state save per power mode&#x0a;&#x2022; Dropdown selects which mode to edit, not the active one&#x0a;&#x2022; Unlock OFF: firmware drives the fan (Custom only via WMI, with firmware-enforced floors)&#x0a;&#x2022; Unlock ON: helper writes the curve directly to EC every 3s, in any mode&#x0a;&#x2022; Axis labels (10&#xB0;C&#x2013;100&#xB0;C) are how the curve is stored; firmware modes may map temps differently"/>
+
+                                        <TextBlock FontSize="10" Foreground="#707880" TextWrapping="Wrap" Margin="0,8,0,0">
+                                            Credits:
+                                            <Hyperlink NavigateUri="https://github.com/Rodpad/LeGo2-Fan-Control">Rodpad/LeGo2-Fan-Control</Hyperlink>
+                                            &#xB7;
+                                            <Hyperlink NavigateUri="https://github.com/Undervoltologist/legiongo2_ec_reverse_engineer">Undervoltologist EC RE</Hyperlink>
+                                            &#xB7;
+                                            <Hyperlink NavigateUri="https://github.com/namazso/PawnIO.Modules">namazso/PawnIO.Modules</Hyperlink>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </muxc:Expander>
+
+                                <StackPanel x:Name="FanCurveContent" Margin="0,12,0,0" Visibility="Collapsed">
+                                    <TextBlock Text="Fan %" FontSize="11" Foreground="#999999" Margin="0,0,0,4"/>
+                                    <Grid Height="150">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="30"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Stretch">
+                                            <TextBlock Text="100" FontSize="10" Foreground="#666666" VerticalAlignment="Top"/>
+                                            <TextBlock Text="75" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>
+                                            <TextBlock Text="50" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>
+                                            <TextBlock Text="25" FontSize="10" Foreground="#666666" VerticalAlignment="Top" Margin="0,25,0,0"/>
+                                            <TextBlock Text="0" FontSize="10" Foreground="#666666" VerticalAlignment="Bottom"/>
+                                        </StackPanel>
+                                        <Canvas x:Name="FanCurveCanvas"
+                                                Grid.Column="1"
+                                                Background="#1A1A1A"
+                                                PointerPressed="FanCurveCanvas_PointerPressed"
+                                                PointerMoved="FanCurveCanvas_PointerMoved"
+                                                PointerReleased="FanCurveCanvas_PointerReleased"
+                                                PointerCaptureLost="FanCurveCanvas_PointerReleased"
+                                                SizeChanged="FanCurveCanvas_SizeChanged">
+                                            <Polygon x:Name="FanCurveFill"
+                                                     Fill="#3300AAFF"
+                                                     Stroke="Transparent"/>
+                                            <Polyline x:Name="ECFloorPolyline"
+                                                      Stroke="#FF6600"
+                                                      StrokeThickness="1.5"
+                                                      StrokeDashArray="4,2"
+                                                      Opacity="0.7"/>
+                                            <Polyline x:Name="FanCurvePolyline"
+                                                      Stroke="#00AAFF"
+                                                      StrokeThickness="2"
+                                                      StrokeLineJoin="Round"/>
+                                            <Line x:Name="TempIndicatorLine"
+                                                  Y1="0" Y2="150"
+                                                  Stroke="#FF8800"
+                                                  StrokeThickness="2"
+                                                  StrokeDashArray="4,2"
+                                                  Visibility="Collapsed"/>
+                                            <Line x:Name="RPMIndicatorLine"
+                                                  X1="0" X2="300"
+                                                  Stroke="#00FF88"
+                                                  StrokeThickness="2"
+                                                  StrokeDashArray="4,2"
+                                                  Visibility="Collapsed"/>
+                                        </Canvas>
+                                    </Grid>
+                                    <Grid x:Name="FanCurveTempAxisGrid" Margin="30,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="10&#xB0;C" FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="1" Text="20"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="2" Text="30"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="3" Text="40"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="4" Text="50"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="5" Text="60"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="6" Text="70"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="7" Text="80"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="8" Text="90"   FontSize="9"  Foreground="#666666" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="8" Text="100&#xB0;C" FontSize="9" Foreground="#666666" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <TextBlock x:Name="FanCurveLockedAxisHint"
+                                               Visibility="Collapsed"
+                                               FontSize="9" Foreground="#666666"
+                                               HorizontalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" HorizontalAlignment="Center">
+                                        <TextBlock x:Name="CurrentTempPrefixLabel" Text="Fan Sensor Temp: " FontSize="12" Foreground="#999999"/>
+                                        <TextBlock x:Name="CurrentTempLabel" Text="--&#xB0;C" FontSize="12" Foreground="#FF8800" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                    <StackPanel x:Name="ECFloorLegendPanel" Orientation="Horizontal" Margin="0,4,0,0" HorizontalAlignment="Center">
+                                        <Line X1="0" Y1="0" X2="20" Y2="0" Stroke="#FF8800" StrokeThickness="2" StrokeDashArray="4,2" VerticalAlignment="Center"/>
+                                        <TextBlock Text=" EC Protection Floor" FontSize="10" Foreground="#888888" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>
