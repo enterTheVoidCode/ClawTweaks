@@ -2886,6 +2886,12 @@ namespace XboxGamingBar
 
                 SyncPowerSourceProfileToggleForCurrentContext();
 
+                // Always refresh the active profile indicator after a game change.
+                // This handles the edge case where the toggle was already OFF when the
+                // game closed — in that case the Toggled handler never fires, so
+                // ActiveProfileText could stay showing the old game name.
+                UpdateActiveProfileIndicator();
+
                 // Update game profile card visibility and display
                 UpdateGameProfileCardVisibility();
                 UpdateProfileDisplay();

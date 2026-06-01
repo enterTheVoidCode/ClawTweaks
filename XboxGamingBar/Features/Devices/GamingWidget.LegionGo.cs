@@ -1128,75 +1128,129 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Updates XY focus navigation for the Performance tab based on current state.
-        /// Flow: Nav -> DGP Toggle (if visible) -> PerGameProfile Toggle (if game detected) -> Performance Overlay -> ...
-        /// When DGP is ON: Nav -> DGP Toggle -> TDP Extras (skip disabled TDP/FPS controls)
+        ///
+        /// Full card order (MSI Claw):
+        ///   [DGP card — optional]  →  Per-Game Profile  →  FPS Limit  →  (FPS Mode + Slider when expanded)
+        ///   →  TDP Power Limit  →  TDP Overboost (toggle + PL2 slider)
+        ///   →  OS Power Mode  →  CPU Boost  →  Overlay  →  (loop to top)
+        ///
+        /// When DGP is ON: Nav → DGP Toggle → TDP Extras (skips disabled TDP/FPS)
         /// </summary>
         private void UpdatePerformanceTabXYNavigation()
         {
-            // Early exit if UI elements aren't ready
-            if (PerformanceNavItem == null || PerformanceOverlayComboBox == null) return;
+            // Early exit if critical UI elements aren't ready
+            if (PerformanceNavItem == null) return;
 
-            bool dgpVisible = DefaultGameProfileCard?.Visibility == Visibility.Visible;
-            bool dgpEnabled = defaultGameProfileEnabled?.Value == true;
+            bool dgpVisible   = DefaultGameProfileCard?.Visibility == Visibility.Visible;
+            bool dgpEnabled   = defaultGameProfileEnabled?.Value == true;
             bool gameDetected = runningGame?.Value.IsValid() == true;
 
             Logger.Debug($"UpdatePerformanceTabXYNavigation: dgpVisible={dgpVisible}, dgpEnabled={dgpEnabled}, gameDetected={gameDetected}");
 
-            // Determine the chain of focusable elements
-            // Start from PerformanceNavItem going down
+            // ── Determine the first focusable element below the nav bar ──────────────
+            // Always include Per-Game Profile (even when disabled/no-game — keeps navigation consistent)
+            Windows.UI.Xaml.Controls.Control firstElement =
+                (dgpVisible && DefaultProfileToggle != null) ? (Windows.UI.Xaml.Controls.Control)DefaultProfileToggle :
+                (PerGameProfileToggle != null)               ? (Windows.UI.Xaml.Controls.Control)PerGameProfileToggle :
+                (Windows.UI.Xaml.Controls.Control)FPSLimitToggle;
 
+            PerformanceNavItem.XYFocusDown = firstElement;
+
+            // ── Default Game Profile card (optional, Legion Go only) ─────────────────
             if (dgpVisible && DefaultProfileToggle != null)
             {
-                // DGP is visible: Nav -> DefaultProfileToggle
-                PerformanceNavItem.XYFocusDown = DefaultProfileToggle;
                 DefaultProfileToggle.XYFocusUp = PerformanceNavItem;
 
                 if (dgpEnabled && TDPExtrasExpandToggle != null)
                 {
-                    // DGP is ON: skip disabled TDP/FPS controls, go to TDP Extras dropdown
-                    // (OS Power Mode and CPU Extras are still available)
+                    // DGP ON → skip disabled TDP/FPS controls, jump straight to TDP Extras
                     DefaultProfileToggle.XYFocusDown = TDPExtrasExpandToggle;
-                    TDPExtrasExpandToggle.XYFocusUp = DefaultProfileToggle;
-
-                    // Set navigation from TDP Extras down to OS Power Mode, and OS Power Mode up to TDP Extras
+                    TDPExtrasExpandToggle.XYFocusUp  = DefaultProfileToggle;
                     if (OSPowerModeComboBox != null)
                     {
-                        TDPExtrasExpandToggle.XYFocusDown = OSPowerModeComboBox;
-                        OSPowerModeComboBox.XYFocusUp = TDPExtrasExpandToggle;
+                        TDPExtrasExpandToggle.XYFocusDown  = OSPowerModeComboBox;
+                        OSPowerModeComboBox.XYFocusUp      = TDPExtrasExpandToggle;
                     }
-                }
-                else if (gameDetected && PerGameProfileToggle != null)
-                {
-                    // DGP visible but OFF, game detected: DGP Toggle -> PerGameProfile Toggle -> Overlay
-                    DefaultProfileToggle.XYFocusDown = PerGameProfileToggle;
-                    PerGameProfileToggle.XYFocusUp = DefaultProfileToggle;
-                    PerGameProfileToggle.XYFocusDown = PerformanceOverlayComboBox;
-                    PerformanceOverlayComboBox.XYFocusUp = PerGameProfileToggle;
+                    // For DGP-ON the remainder of the chain is handled below (CPU Boost → Overlay)
                 }
                 else
                 {
-                    // DGP visible but OFF, no game: DGP Toggle -> Overlay (skip disabled PerGameProfile)
-                    DefaultProfileToggle.XYFocusDown = PerformanceOverlayComboBox;
-                    PerformanceOverlayComboBox.XYFocusUp = DefaultProfileToggle;
+                    // DGP visible but OFF → continue down to Per-Game Profile
+                    DefaultProfileToggle.XYFocusDown = PerGameProfileToggle ?? (Windows.UI.Xaml.Controls.Control)FPSLimitToggle;
                 }
             }
-            else
+
+            // ── Per-Game Profile toggle ───────────────────────────────────────────────
+            // Always include (even disabled) so the user can see the current profile state.
+            if (PerGameProfileToggle != null)
             {
-                // DGP not visible
-                if (gameDetected && PerGameProfileToggle != null)
-                {
-                    // No DGP, game detected: Nav -> PerGameProfile Toggle -> Overlay
-                    PerformanceNavItem.XYFocusDown = PerGameProfileToggle;
-                    PerGameProfileToggle.XYFocusUp = PerformanceNavItem;
-                    PerGameProfileToggle.XYFocusDown = PerformanceOverlayComboBox;
-                    PerformanceOverlayComboBox.XYFocusUp = PerGameProfileToggle;
-                }
-                else
-                {
-                    // No DGP, no game: Nav -> Overlay (skip disabled PerGameProfile)
-                    PerformanceNavItem.XYFocusDown = PerformanceOverlayComboBox;
-                    PerformanceOverlayComboBox.XYFocusUp = PerformanceNavItem;
-                }
+                PerGameProfileToggle.XYFocusUp   = (dgpVisible && DefaultProfileToggle != null)
+                                                       ? (Windows.UI.Xaml.Controls.Control)DefaultProfileToggle
+                                                       : PerformanceNavItem;
+                PerGameProfileToggle.XYFocusDown = FPSLimitToggle ?? (Windows.UI.Xaml.Controls.Control)TDPSlider;
+            }
+
+            // ── FPS Limit toggle ──────────────────────────────────────────────────────
+            if (FPSLimitToggle != null)
+            {
+                FPSLimitToggle.XYFocusUp = PerGameProfileToggle
+                                               ?? (dgpVisible && DefaultProfileToggle != null
+                                                       ? (Windows.UI.Xaml.Controls.Control)DefaultProfileToggle
+                                                       : PerformanceNavItem);
+                // When the FPS mode panel is expanded FPSModeRTSSRadio is the next focusable element.
+                // When collapsed, UWP skips it (element not focusable inside Visibility=Collapsed parent)
+                // and falls through to natural spatial navigation → finds TDPSlider below.
+                if (FPSModeRTSSRadio != null)
+                    FPSLimitToggle.XYFocusDown = FPSModeRTSSRadio;
+                else if (TDPSlider != null)
+                    FPSLimitToggle.XYFocusDown = TDPSlider;
+            }
+
+            // FPS inner panel (Mode radios + sliders) — wired in XAML; their Down-exit is TDPSlider.
+
+            // ── TDP Power Limit slider ────────────────────────────────────────────────
+            if (TDPSlider != null)
+            {
+                // Up: go back to FPS toggle (XYFocusDown on FPS content already exits to TDPSlider)
+                TDPSlider.XYFocusUp = FPSLimitToggle ?? (Windows.UI.Xaml.Controls.Control)PerGameProfileToggle;
+                // Down: TDPBoostToggle — already set in XAML, but ensure it's correct here too
+                if (TDPBoostToggle != null)
+                    TDPSlider.XYFocusDown = TDPBoostToggle;
+            }
+
+            // ── TDP Overboost toggle + PL2 slider ────────────────────────────────────
+            // TDPBoostToggle Up=TDPSlider, Down=TDPBoostFPPTSliderCard — set in XAML, no change needed.
+            // TDPBoostFPPTSliderCard Up=TDPBoostToggle, Down=OSPowerModeComboBox — set in XAML.
+
+            // ── OS Power Mode ComboBox ────────────────────────────────────────────────
+            if (OSPowerModeComboBox != null && !dgpEnabled)
+            {
+                // Up: TDP Boost PL2 slider (was wrongly pointing to TDPSlider in XAML)
+                if (TDPBoostFPPTSliderCard != null)
+                    OSPowerModeComboBox.XYFocusUp = TDPBoostFPPTSliderCard;
+                // Down: CPUBoostToggle — already set in XAML
+            }
+
+            // ── CPU Boost toggle ──────────────────────────────────────────────────────
+            if (CPUBoostToggle != null && PerformanceOverlayComboBox != null)
+            {
+                // Up: OSPowerModeComboBox — already set in XAML
+                // Down: Overlay card (was missing)
+                CPUBoostToggle.XYFocusDown = PerformanceOverlayComboBox;
+            }
+
+            // ── Overlay card (ComboBox + Expand button) ───────────────────────────────
+            // Overlay is now at the BOTTOM of the list, after CPU Boost.
+            if (PerformanceOverlayComboBox != null)
+            {
+                PerformanceOverlayComboBox.XYFocusUp   = CPUBoostToggle ?? (Windows.UI.Xaml.Controls.Control)OSPowerModeComboBox;
+                // Down from Overlay loops back to the top of the list
+                PerformanceOverlayComboBox.XYFocusDown = firstElement;
+            }
+            if (OSDCustomizeExpandButton != null)
+            {
+                OSDCustomizeExpandButton.XYFocusUp   = CPUBoostToggle ?? (Windows.UI.Xaml.Controls.Control)OSPowerModeComboBox;
+                OSDCustomizeExpandButton.XYFocusDown = firstElement;
             }
         }
 
