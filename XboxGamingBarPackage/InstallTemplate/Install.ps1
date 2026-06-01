@@ -50,7 +50,8 @@ param(
     [switch]$Force          = $false,
     [switch]$SkipCertificate = $false,
     [switch]$CleanInstall   = $false,
-    [switch]$SkipPrereqs    = $false
+    [switch]$SkipPrereqs    = $false,
+    [switch]$CalledFromBat  = $false   # Set by Install.bat — suppresses ReadKey so BAT handles pausing
 )
 
 $ErrorActionPreference = "Stop"
@@ -67,8 +68,11 @@ trap {
     Write-Host "Stack Trace:" -ForegroundColor Yellow
     Write-Host $_.ScriptStackTrace -ForegroundColor Gray
     Write-Host ""
-    Write-Host "Press any key to exit..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    # When called from Install.bat, skip ReadKey — bat handles the pause.
+    if (-not $CalledFromBat) {
+        Write-Host "Press any key to exit..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    }
     exit 1
 }
 
@@ -142,13 +146,18 @@ function Write-Err {
 
 function Exit-WithPause {
     param([int]$ExitCode = 0)
-    Write-Host ""
-    Write-Host "Press any key to exit..." -ForegroundColor Gray
-    try {
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    }
-    catch {
-        Read-Host "Press Enter to exit"
+    # When called from Install.bat, skip the ReadKey — the bat handles pausing.
+    # When run directly (right-click → Run with PowerShell), pause here so the
+    # window stays open and the user can read the output.
+    if (-not $CalledFromBat) {
+        Write-Host ""
+        Write-Host "Press any key to exit..." -ForegroundColor Gray
+        try {
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        }
+        catch {
+            Read-Host "Press Enter to exit"
+        }
     }
     exit $ExitCode
 }
@@ -165,7 +174,7 @@ function Request-Elevation {
     if (-not $elevateScriptPath) {
         Write-Err "Cannot determine installer path for elevation."
         Write-Host "Please run this installer as Administrator manually." -ForegroundColor Yellow
-        pause
+        if (-not $CalledFromBat) { pause }
         exit 1
     }
 
@@ -197,8 +206,10 @@ function Request-Elevation {
         Write-Err "Failed to elevate to Administrator: $_"
         Write-Host "Please right-click the installer and select 'Run as Administrator'." -ForegroundColor Yellow
         Write-Host ""
-        Write-Host "Press any key to exit..." -ForegroundColor Gray
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        if (-not $CalledFromBat) {
+            Write-Host "Press any key to exit..." -ForegroundColor Gray
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        }
         exit 1
     }
 }
