@@ -1010,7 +1010,8 @@
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
                                               IsEnabled="False"
-                                              VerticalAlignment="Top"/>
+                                              VerticalAlignment="Top"
+                                              KeyDown="PerGameProfileToggle_KeyDown"/>
                             </Grid>
                         </Border>
 
@@ -1040,7 +1041,8 @@
                                     <ToggleSwitch x:Name="FPSLimitToggle"
                                                   Grid.Column="2"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False" Width="52"/>
+                                                  IsEnabled="False" Width="52"
+                                                  KeyDown="FPSLimitToggle_KeyDown"/>
                                 </Grid>
 
                                 <!-- Mode + content panel: visible only when FPS Limit is ON -->
@@ -1537,7 +1539,7 @@
                                         TickPlacement="BottomRight"
                                         IsEnabled="False" Value="-5"
                                         ValueChanged="TDPSlider_ValueChanged_UpdateDisplay"
-                                        XYFocusDown="{x:Bind TDPBoostToggle}"/>
+                                        KeyDown="TDPSlider_KeyDown"/>
                                 <Grid Margin="0,4,0,0">
                                     <TextBlock x:Name="CurrentTDPText"
                                                Text="Limits:"
@@ -1579,8 +1581,7 @@
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   IsEnabled="True" Width="52"
                                                   Toggled="TDPBoostToggle_Toggled"
-                                                  XYFocusUp="{x:Bind TDPSlider}"
-                                                  XYFocusDown="{x:Bind TDPBoostFPPTSliderCard}"/>
+                                                  KeyDown="TDPBoostToggle_KeyDown"/>
                                 </Grid>
                                 <!-- PL2-Boost watt slider — always visible below the toggle -->
                                 <Grid Margin="0,12,0,4">
@@ -1596,8 +1597,7 @@
                                         TickFrequency="1" SnapsTo="Ticks"
                                         Value="3"
                                         ValueChanged="TDPBoostFPPTSlider_ValueChanged"
-                                        XYFocusUp="{x:Bind TDPBoostToggle}"
-                                        XYFocusDown="{x:Bind OSPowerModeComboBox}"/>
+                                        KeyDown="TDPBoostFPPTSliderCard_KeyDown"/>
                             </StackPanel>
                         </Border>
 
@@ -1629,7 +1629,8 @@
                                           Style="{StaticResource ModernComboBoxStyle}"
                                           SelectedIndex="1"
                                           SelectionChanged="OSPowerModeComboBox_SelectionChanged"
-                                          XYFocusDown="{x:Bind CPUBoostToggle}">
+                                          XYFocusDown="{x:Bind CPUBoostToggle}"
+                                          KeyDown="OSPowerModeComboBox_KeyDown">
                                     <ComboBoxItem Content="Best Power Efficiency"/>
                                     <ComboBoxItem Content="Balanced"/>
                                     <ComboBoxItem Content="Best Performance"/>
@@ -1662,7 +1663,7 @@
                                               Style="{StaticResource ModernToggleStyle}"
                                               Grid.Column="1"
                                               IsEnabled="False"
-                                              XYFocusUp="{x:Bind OSPowerModeComboBox}"/>
+                                              KeyDown="CPUBoostToggle_KeyDown"/>
                             </Grid>
                         </Border>
 
