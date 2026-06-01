@@ -44,6 +44,129 @@ namespace XboxGamingBar
     public sealed partial class GamingWidget
     {
 
+        // ── Performance tab D-Pad navigation helpers ────────────────────────────
+        //
+        // UWP Sliders consume D-Pad Up/Down to change value → XYFocusUp/Down never fires.
+        // UWP ToggleSwitches with custom styles can also swallow D-Pad keys.
+        // Solution: KeyDown handlers on every element in the spine that call Focus()
+        // directly, mirroring what the ComboBox handler below does.
+        //
+        // Spine (top→bottom, MSI Claw):
+        //   PerGameProfileToggle → FPSLimitToggle → [FPS mode/slider when expanded]
+        //   → TDPSlider → TDPBoostToggle → TDPBoostFPPTSliderCard
+        //   → OSPowerModeComboBox → CPUBoostToggle → PerformanceOverlayComboBox → (loop)
+        // ────────────────────────────────────────────────────────────────────────────────
+
+        private void PerfNav_FocusUp(Windows.UI.Xaml.Controls.Control target)
+        {
+            target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+        }
+
+        private void PerGameProfileToggle_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                PerformanceNavItem?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                FPSLimitToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
+        private void FPSLimitToggle_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                var target = PerGameProfileToggle ?? (Windows.UI.Xaml.Controls.Control)PerformanceNavItem;
+                target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                bool fpsExpanded = FPSLimiterModePanel?.Visibility == Windows.UI.Xaml.Visibility.Visible;
+                var target = (fpsExpanded && FPSModeRTSSRadio != null)
+                    ? (Windows.UI.Xaml.Controls.Control)FPSModeRTSSRadio
+                    : TDPSlider;
+                target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
+        private void TDPSlider_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                var target = FPSLimitToggle ?? (Windows.UI.Xaml.Controls.Control)PerGameProfileToggle;
+                target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                TDPBoostToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
+        private void TDPBoostToggle_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                TDPSlider?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                TDPBoostFPPTSliderCard?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
+        private void TDPBoostFPPTSliderCard_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                TDPBoostToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                OSPowerModeComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
+        private void OSPowerModeComboBox_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (OSPowerModeComboBox?.IsDropDownOpen == true) return;
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                TDPBoostFPPTSliderCard?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                CPUBoostToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
+        private void CPUBoostToggle_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                OSPowerModeComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                PerformanceOverlayComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
         /// <summary>
         /// UWP ComboBox consumes D-Pad Up/Down for item selection, bypassing XYFocusUp/Down.
         /// This handler intercepts Up/Down and manually moves focus to the correct neighbour.
@@ -54,15 +177,13 @@ namespace XboxGamingBar
 
             if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
-                // Navigate up to CPU Boost (or OS Power Mode as fallback)
-                var target = CPUBoostToggle?.IsEnabled == true ? (Windows.UI.Xaml.Controls.Control)CPUBoostToggle
-                           : OSPowerModeComboBox;
+                var target = CPUBoostToggle ?? (Windows.UI.Xaml.Controls.Control)OSPowerModeComboBox;
                 target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
-                // Navigate down = loop back to top of Performance tab
+                // Loop back to top of Performance tab
                 var target = PerGameProfileToggle ?? (Windows.UI.Xaml.Controls.Control)FPSLimitToggle;
                 target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
