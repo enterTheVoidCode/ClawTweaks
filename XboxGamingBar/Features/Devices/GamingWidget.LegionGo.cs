@@ -1191,29 +1191,36 @@ namespace XboxGamingBar
             }
 
             // ── FPS Limit toggle ──────────────────────────────────────────────────────
+            // Check FPS panel visibility FIRST — never point to an element in a collapsed panel.
+            // UWP does NOT reliably fall through collapsed XYFocus targets; spatial fallback is
+            // inconsistent depending on scroll position and which tab was previously active.
+            bool fpsExpanded = FPSLimiterModePanel?.Visibility == Visibility.Visible;
+
             if (FPSLimitToggle != null)
             {
                 FPSLimitToggle.XYFocusUp = PerGameProfileToggle
                                                ?? (dgpVisible && DefaultProfileToggle != null
                                                        ? (Windows.UI.Xaml.Controls.Control)DefaultProfileToggle
                                                        : PerformanceNavItem);
-                // When the FPS mode panel is expanded FPSModeRTSSRadio is the next focusable element.
-                // When collapsed, UWP skips it (element not focusable inside Visibility=Collapsed parent)
-                // and falls through to natural spatial navigation → finds TDPSlider below.
-                if (FPSModeRTSSRadio != null)
+                // Only point into the expanded FPS panel if it is actually visible.
+                // Otherwise go directly to TDPSlider — no collapsed-element indirection.
+                if (fpsExpanded && FPSModeRTSSRadio != null)
                     FPSLimitToggle.XYFocusDown = FPSModeRTSSRadio;
                 else if (TDPSlider != null)
                     FPSLimitToggle.XYFocusDown = TDPSlider;
             }
 
-            // FPS inner panel (Mode radios + sliders) — wired in XAML; their Down-exit is TDPSlider.
+            // ── FPS inner panel (wired in XAML, only reachable when panel is visible) ──
+            // TDPSlider.Up is also adjusted: when FPS panel is expanded, the last element
+            // in the panel (FPSLimitSlider / IntelFpsTierComboBox) exits down to TDPSlider,
+            // so TDPSlider.Up should point back to FPSLimitToggle so the user can exit
+            // the FPS panel upwards without getting stuck.
 
             // ── TDP Power Limit slider ────────────────────────────────────────────────
             if (TDPSlider != null)
             {
-                // Up: go back to FPS toggle (XYFocusDown on FPS content already exits to TDPSlider)
+                // Up always returns to FPS Limit toggle (panel content's Down already exits here)
                 TDPSlider.XYFocusUp = FPSLimitToggle ?? (Windows.UI.Xaml.Controls.Control)PerGameProfileToggle;
-                // Down: TDPBoostToggle — already set in XAML, but ensure it's correct here too
                 if (TDPBoostToggle != null)
                     TDPSlider.XYFocusDown = TDPBoostToggle;
             }

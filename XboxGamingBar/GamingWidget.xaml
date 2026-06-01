@@ -1010,9 +1010,7 @@
                                               Grid.Column="1"
                                               Style="{StaticResource ModernToggleStyle}"
                                               IsEnabled="False"
-                                              VerticalAlignment="Top"
-                                              XYFocusUp="{x:Bind PerformanceNavItem}"
-                                              XYFocusDown="{x:Bind PerformanceOverlayComboBox}"/>
+                                              VerticalAlignment="Top"/>
                             </Grid>
                         </Border>
 
@@ -1042,9 +1040,7 @@
                                     <ToggleSwitch x:Name="FPSLimitToggle"
                                                   Grid.Column="2"
                                                   Style="{StaticResource ModernToggleStyle}"
-                                                  IsEnabled="False" Width="52"
-                                                  XYFocusUp="{x:Bind PerGameProfileToggle}"
-                                                  XYFocusDown="{x:Bind PerformanceOverlayComboBox}"/>
+                                                  IsEnabled="False" Width="52"/>
                                 </Grid>
 
                                 <!-- Mode + content panel: visible only when FPS Limit is ON -->
@@ -1541,9 +1537,7 @@
                                         TickPlacement="BottomRight"
                                         IsEnabled="False" Value="-5"
                                         ValueChanged="TDPSlider_ValueChanged_UpdateDisplay"
-                                        XYFocusUp="{x:Bind PerformanceOverlayComboBox}"
-                                        XYFocusDown="{x:Bind TDPBoostToggle}"
-                                        />
+                                        XYFocusDown="{x:Bind TDPBoostToggle}"/>
                                 <Grid Margin="0,4,0,0">
                                     <TextBlock x:Name="CurrentTDPText"
                                                Text="Limits:"
@@ -1635,7 +1629,6 @@
                                           Style="{StaticResource ModernComboBoxStyle}"
                                           SelectedIndex="1"
                                           SelectionChanged="OSPowerModeComboBox_SelectionChanged"
-                                          XYFocusUp="{x:Bind TDPSlider}"
                                           XYFocusDown="{x:Bind CPUBoostToggle}">
                                     <ComboBoxItem Content="Best Power Efficiency"/>
                                     <ComboBoxItem Content="Balanced"/>
