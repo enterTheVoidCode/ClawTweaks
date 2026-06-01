@@ -1067,11 +1067,15 @@
                                                      Content="RTSS"
                                                      Margin="0,0,12,0"
                                                      IsChecked="True"
-                                                     Checked="FPSModeRadio_Changed"/>
+                                                     Checked="FPSModeRadio_Changed"
+                                                     XYFocusUp="{x:Bind FPSLimitToggle}"
+                                                     XYFocusDown="{x:Bind FPSLimitSlider}"/>
                                         <RadioButton x:Name="FPSModeIntelRadio"
                                                      Grid.Column="2"
                                                      Content="Intel"
-                                                     Checked="FPSModeRadio_Changed"/>
+                                                     Checked="FPSModeRadio_Changed"
+                                                     XYFocusUp="{x:Bind FPSLimitToggle}"
+                                                     XYFocusDown="{x:Bind IntelFpsTierComboBox}"/>
                                     </Grid>
 
                                     <!-- RTSS sub-panel: shows the FPS slider -->
@@ -1082,7 +1086,9 @@
                                                 StepFrequency="1"
                                                 TickFrequency="15"
                                                 TickPlacement="Outside"
-                                                SnapsTo="StepValues"/>
+                                                SnapsTo="StepValues"
+                                                XYFocusUp="{x:Bind FPSModeRTSSRadio}"
+                                                XYFocusDown="{x:Bind TDPSlider}"/>
                                     </StackPanel>
 
                                     <!-- Intel sub-panel: hint + IGCL tier ComboBox -->
@@ -1094,7 +1100,9 @@
                                                    Margin="0,0,0,8"/>
                                         <ComboBox x:Name="IntelFpsTierComboBox"
                                                   Style="{StaticResource ModernComboBoxStyle}"
-                                                  SelectionChanged="IntelFpsTierComboBox_SelectionChanged">
+                                                  SelectionChanged="IntelFpsTierComboBox_SelectionChanged"
+                                                  XYFocusUp="{x:Bind FPSModeIntelRadio}"
+                                                  XYFocusDown="{x:Bind TDPSlider}">
                                             <ComboBoxItem Content="Off" Tag="0"/>
                                             <ComboBoxItem Content="Performance  60 FPS" Tag="1"/>
                                             <ComboBoxItem Content="Balanced  40 FPS" Tag="2"/>
