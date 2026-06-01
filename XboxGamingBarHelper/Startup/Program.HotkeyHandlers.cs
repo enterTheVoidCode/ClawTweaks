@@ -379,6 +379,7 @@ namespace XboxGamingBarHelper
                     Action callback = () =>
                     {
                         Logger.Info($"ApplyTileHotkeys: Tile '{capturedName}' (id='{capturedId}') triggered (action={capturedActionType}, shortcut='{capturedShortcut}')");
+                        bool skipGenericNotification = false;
                         switch (capturedActionType)
                         {
                             case 10: // BrightnessUp
@@ -412,7 +413,8 @@ namespace XboxGamingBarHelper
                                 AdjustVolume(-5);
                                 break;
                             case 29: // ToggleControllerMouseMode — direct toggle in helper, no pipe roundtrip needed
-                                ToggleControllerMouseModeInHelper();
+                                ToggleControllerMouseModeInHelper(); // shows its own "Hotkey: Mouse/Controller" notification
+                                skipGenericNotification = true;
                                 break;
                             case 1:  // KeyboardShortcut (custom)
                                 if (!string.IsNullOrEmpty(capturedShortcut))
@@ -443,7 +445,9 @@ namespace XboxGamingBarHelper
                                 break;
                         }
                         // Show RTSS notification — "Hotkey: <name>" for 4 seconds
-                        rtssManager?.ShowNotification($"Hotkey: {capturedName}", 4000);
+                        // (skipped for case 29 which shows its own "Hotkey: Mouse/Controller" notification)
+                        if (!skipGenericNotification)
+                            rtssManager?.ShowNotification($"Hotkey: {capturedName}", 4000);
                     };
 
                     controllerHotkeyMonitor.RegisterTileHotkey(mask, callback, name);

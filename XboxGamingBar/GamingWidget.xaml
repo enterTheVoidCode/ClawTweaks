@@ -7431,7 +7431,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Saved Performance Profiles" Style="{StaticResource CardTitleStyle}" Grid.Column="0"/>
+                                    <TextBlock Text="Saved Controller Profiles" Style="{StaticResource CardTitleStyle}" Grid.Column="0"/>
                                     <ToggleButton x:Name="SavedProfilesExpandToggle"
                                                   Grid.Column="1"
                                                   IsChecked="False"
