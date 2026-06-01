@@ -98,6 +98,16 @@ namespace XboxGamingBar
             GlobalProfileCPUStateText.Visibility = tdpVisibility;
             GlobalProfileCPUStateText.Text = globalProfile.TDPBoostEnabled ? "On" : "Off";
 
+            // PL2 value — shown as sub-row when Overboost is on
+            var pl2Visibility = (globalProfile.TDPBoostEnabled && tdpVisibility == Visibility.Visible)
+                ? Visibility.Visible : Visibility.Collapsed;
+            if (GlobalProfilePL2Label != null) GlobalProfilePL2Label.Visibility = pl2Visibility;
+            if (GlobalProfilePL2Text  != null)
+            {
+                GlobalProfilePL2Text.Visibility = pl2Visibility;
+                GlobalProfilePL2Text.Text = $"{globalProfile.TDPBoostFPPTWatts}W";
+            }
+
             GlobalProfileFPSLimitLabel.Visibility = fpsLimitVisibility;
             GlobalProfileFPSLimitText.Visibility = fpsLimitVisibility;
             GlobalProfileFPSLimitText.Text = GetFpsValueLabel(globalProfile);
@@ -348,10 +358,21 @@ namespace XboxGamingBar
                     GameProfileTDPText.Visibility = tdpVisibility;
                     GameProfileTDPText.Text = $"{gameProfile.TDP}W";
 
-                    // TDP Boost (saved with TDP)
+                    // TDP Overboost (saved with TDP)
+                    GameProfileTDPBoostLabel.Text = "TDP Overboost";
                     GameProfileTDPBoostLabel.Visibility = tdpVisibility;
                     GameProfileTDPBoostText.Visibility = tdpVisibility;
                     GameProfileTDPBoostText.Text = gameProfile.TDPBoostEnabled ? "On" : "Off";
+
+                    // PL2 value — sub-row when Overboost is on
+                    var gamePl2Visibility = (gameProfile.TDPBoostEnabled && tdpVisibility == Visibility.Visible)
+                        ? Visibility.Visible : Visibility.Collapsed;
+                    if (GameProfilePL2Label != null) GameProfilePL2Label.Visibility = gamePl2Visibility;
+                    if (GameProfilePL2Text  != null)
+                    {
+                        GameProfilePL2Text.Visibility = gamePl2Visibility;
+                        GameProfilePL2Text.Text = $"{gameProfile.TDPBoostFPPTWatts}W";
+                    }
 
                     // CPU Boost
                     GameProfileCPUBoostLabel.Visibility = cpuBoostVisibility;

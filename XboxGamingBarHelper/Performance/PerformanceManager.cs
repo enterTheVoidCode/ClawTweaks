@@ -1188,11 +1188,12 @@ namespace XboxGamingBarHelper.Performance
 
                 if (tdpBoostEnabled?.Value == true)
                 {
-                    int spptBoost = tdpBoostSPPT?.Value ?? 1;
-                    int fpptBoost = tdpBoostFPPT?.Value ?? 3;
-                    sppt = tdp + spptBoost;
-                    fppt = tdp + fpptBoost;
-                    Logger.Info($"TDP Boost enabled: SPL={spl}W, SPPT={sppt}W (+{spptBoost}), FPPT={fppt}W (+{fpptBoost})");
+                    // PL2-Boost is an absolute PL2 target value (not an offset).
+                    // Enforce PL2 >= PL1+1 so hardware constraint is always met.
+                    int fpptTarget = tdpBoostFPPT?.Value ?? (tdp + 3);
+                    fppt = Math.Max(fpptTarget, tdp + 1);
+                    sppt = fppt; // SPPT = FPPT for MSI Claw (single burst limit)
+                    Logger.Info($"TDP Boost enabled: PL1={spl}W, PL2={fppt}W (target={fpptTarget}W)");
                 }
 
                 // Note: CurrentSPL/SPPT/FPPT are now updated from actual hardware values

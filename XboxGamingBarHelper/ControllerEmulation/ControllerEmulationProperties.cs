@@ -233,6 +233,42 @@ namespace XboxGamingBarHelper.ControllerEmulation
         }
     }
 
+    internal class ControllerEmulationMouseLeftClickButtonProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        public ControllerEmulationMouseLeftClickButtonProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationMouseLeftClickButton, manager) { }
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        { base.NotifyPropertyChanged(propertyName); Logger.Info($"ControllerEmulationMouseLeftClickButton changed to {Value}"); Manager?.SetMouseLeftClickButton(Value); }
+    }
+
+    internal class ControllerEmulationMouseRightClickButtonProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        public ControllerEmulationMouseRightClickButtonProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationMouseRightClickButton, manager) { }
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        { base.NotifyPropertyChanged(propertyName); Logger.Info($"ControllerEmulationMouseRightClickButton changed to {Value}"); Manager?.SetMouseRightClickButton(Value); }
+    }
+
+    internal class ControllerEmulationMouseCursorStickProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        public ControllerEmulationMouseCursorStickProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationMouseCursorStick, manager) { }
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        { base.NotifyPropertyChanged(propertyName); Logger.Info($"ControllerEmulationMouseCursorStick changed to {Value}"); Manager?.SetMouseCursorStick(Value); }
+    }
+
+    internal class ControllerEmulationMouseScrollStickProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        public ControllerEmulationMouseScrollStickProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationMouseScrollStick, manager) { }
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        { base.NotifyPropertyChanged(propertyName); Logger.Info($"ControllerEmulationMouseScrollStick changed to {Value}"); Manager?.SetMouseScrollStick(Value); }
+    }
+
     internal class ControllerEmulationMouseAxisProperty : HelperProperty<int, ControllerEmulationManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();

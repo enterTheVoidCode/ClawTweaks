@@ -466,6 +466,58 @@ namespace XboxGamingBar.Data
         }
     }
 
+    internal class ControllerEmulationMouseLeftClickButtonProperty : WidgetControlProperty<int, ComboBox>
+    {
+        public ControllerEmulationMouseLeftClickButtonProperty(ComboBox inUI, Page inOwner)
+            : base(6, Function.ControllerEmulationMouseLeftClickButton, inUI, inOwner) // default 6=RB
+        {
+            if (UI != null) { UI.SelectionChanged += ComboBox_SelectionChanged; if (UI.Items.Count > Value) UI.SelectedIndex = Value; }
+        }
+        private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        { int i = UI.SelectedIndex; if (i >= 0 && i != Value) { Logger.Info($"{Function} updated to {i}."); SetValue(i); } }
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        { base.NotifyPropertyChanged(propertyName); if (UI != null && Owner != null) await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => { if (UI.Items.Count > Value && UI.SelectedIndex != Value) UI.SelectedIndex = Value; }); }
+    }
+
+    internal class ControllerEmulationMouseRightClickButtonProperty : WidgetControlProperty<int, ComboBox>
+    {
+        public ControllerEmulationMouseRightClickButtonProperty(ComboBox inUI, Page inOwner)
+            : base(5, Function.ControllerEmulationMouseRightClickButton, inUI, inOwner) // default 5=LB
+        {
+            if (UI != null) { UI.SelectionChanged += ComboBox_SelectionChanged; if (UI.Items.Count > Value) UI.SelectedIndex = Value; }
+        }
+        private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        { int i = UI.SelectedIndex; if (i >= 0 && i != Value) { Logger.Info($"{Function} updated to {i}."); SetValue(i); } }
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        { base.NotifyPropertyChanged(propertyName); if (UI != null && Owner != null) await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => { if (UI.Items.Count > Value && UI.SelectedIndex != Value) UI.SelectedIndex = Value; }); }
+    }
+
+    internal class ControllerEmulationMouseCursorStickProperty : WidgetControlProperty<int, ComboBox>
+    {
+        public ControllerEmulationMouseCursorStickProperty(ComboBox inUI, Page inOwner)
+            : base(0, Function.ControllerEmulationMouseCursorStick, inUI, inOwner) // default 0=Right Stick
+        {
+            if (UI != null) { UI.SelectionChanged += ComboBox_SelectionChanged; if (UI.Items.Count > Value) UI.SelectedIndex = Value; }
+        }
+        private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        { int i = UI.SelectedIndex; if (i >= 0 && i != Value) { Logger.Info($"{Function} updated to {i}."); SetValue(i); } }
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        { base.NotifyPropertyChanged(propertyName); if (UI != null && Owner != null) await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => { if (UI.Items.Count > Value && UI.SelectedIndex != Value) UI.SelectedIndex = Value; }); }
+    }
+
+    internal class ControllerEmulationMouseScrollStickProperty : WidgetControlProperty<int, ComboBox>
+    {
+        public ControllerEmulationMouseScrollStickProperty(ComboBox inUI, Page inOwner)
+            : base(0, Function.ControllerEmulationMouseScrollStick, inUI, inOwner) // default 0=Left Stick
+        {
+            if (UI != null) { UI.SelectionChanged += ComboBox_SelectionChanged; if (UI.Items.Count > Value) UI.SelectedIndex = Value; }
+        }
+        private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        { int i = UI.SelectedIndex; if (i >= 0 && i != Value) { Logger.Info($"{Function} updated to {i}."); SetValue(i); } }
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        { base.NotifyPropertyChanged(propertyName); if (UI != null && Owner != null) await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => { if (UI.Items.Count > Value && UI.SelectedIndex != Value) UI.SelectedIndex = Value; }); }
+    }
+
     internal class ControllerEmulationMouseInvertXProperty : WidgetToggleProperty
     {
         public ControllerEmulationMouseInvertXProperty(ToggleSwitch inUI, Page inOwner)

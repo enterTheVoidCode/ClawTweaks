@@ -283,6 +283,51 @@ namespace XboxGamingBarHelper.ControllerEmulation
             OnMouseThresholdChanged?.Invoke(mouseThreshold);
         }
 
+        public Action<int> OnMouseLeftClickButtonChanged;
+        public Action<int> OnMouseRightClickButtonChanged;
+        public Action<int> OnMouseCursorStickChanged;
+        public Action<int> OnMouseScrollStickChanged;
+
+        public void SetMouseLeftClickButton(int value)
+        {
+            value = Math.Max(0, Math.Min(8, value));
+            if (mouseLeftClickButton == value) return;
+            mouseLeftClickButton = value;
+            SaveSettings();
+            Logger.Info($"Controller emulation mouse left-click button set to {mouseLeftClickButton}");
+            OnMouseLeftClickButtonChanged?.Invoke(mouseLeftClickButton);
+        }
+
+        public void SetMouseRightClickButton(int value)
+        {
+            value = Math.Max(0, Math.Min(8, value));
+            if (mouseRightClickButton == value) return;
+            mouseRightClickButton = value;
+            SaveSettings();
+            Logger.Info($"Controller emulation mouse right-click button set to {mouseRightClickButton}");
+            OnMouseRightClickButtonChanged?.Invoke(mouseRightClickButton);
+        }
+
+        public void SetMouseCursorStick(int value)
+        {
+            value = Math.Max(0, Math.Min(1, value));
+            if (mouseCursorStick == value) return;
+            mouseCursorStick = value;
+            SaveSettings();
+            Logger.Info($"Controller emulation mouse cursor stick set to {mouseCursorStick}");
+            OnMouseCursorStickChanged?.Invoke(mouseCursorStick);
+        }
+
+        public void SetMouseScrollStick(int value)
+        {
+            value = Math.Max(0, Math.Min(1, value));
+            if (mouseScrollStick == value) return;
+            mouseScrollStick = value;
+            SaveSettings();
+            Logger.Info($"Controller emulation mouse scroll stick set to {mouseScrollStick}");
+            OnMouseScrollStickChanged?.Invoke(mouseScrollStick);
+        }
+
         public void SetMouseAxis(int value)
         {
             int normalized = NormalizeMouseAxis(value);

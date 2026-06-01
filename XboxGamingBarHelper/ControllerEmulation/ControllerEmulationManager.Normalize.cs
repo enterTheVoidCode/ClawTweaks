@@ -407,6 +407,26 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     mouseThreshold = 2;
                 }
 
+                if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseLeftClickButton", out int savedLeftClickButton))
+                    mouseLeftClickButton = Math.Max(0, Math.Min(8, savedLeftClickButton));
+                else
+                    mouseLeftClickButton = 6; // default RB
+
+                if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseRightClickButton", out int savedRightClickButton))
+                    mouseRightClickButton = Math.Max(0, Math.Min(8, savedRightClickButton));
+                else
+                    mouseRightClickButton = 5; // default LB
+
+                if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseCursorStick", out int savedCursorStick))
+                    mouseCursorStick = Math.Max(0, Math.Min(1, savedCursorStick));
+                else
+                    mouseCursorStick = 0; // default Right Stick
+
+                if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseScrollStick", out int savedScrollStick))
+                    mouseScrollStick = Math.Max(0, Math.Min(1, savedScrollStick));
+                else
+                    mouseScrollStick = 0; // default Left Stick
+
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseAxis", out int savedAxis))
                 {
                     mouseAxis = NormalizeMouseAxis(savedAxis);
@@ -648,6 +668,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 LocalSettingsHelper.SetValue("ControllerEmulationPs4TouchpadEnabled", ps4TouchpadEnabled);
                 LocalSettingsHelper.SetValue("ControllerEmulationMouseSensitivity", mouseSensitivity);
                 LocalSettingsHelper.SetValue("ControllerEmulationMouseThreshold", mouseThreshold);
+                LocalSettingsHelper.SetValue("ControllerEmulationMouseLeftClickButton", mouseLeftClickButton);
+                LocalSettingsHelper.SetValue("ControllerEmulationMouseRightClickButton", mouseRightClickButton);
+                LocalSettingsHelper.SetValue("ControllerEmulationMouseCursorStick", mouseCursorStick);
+                LocalSettingsHelper.SetValue("ControllerEmulationMouseScrollStick", mouseScrollStick);
                 LocalSettingsHelper.SetValue("ControllerEmulationMouseAxis", mouseAxis);
                 LocalSettingsHelper.SetValue("ControllerEmulationMouseInvertX", mouseInvertX);
                 LocalSettingsHelper.SetValue("ControllerEmulationMouseInvertY", mouseInvertY);

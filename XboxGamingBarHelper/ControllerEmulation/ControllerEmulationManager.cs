@@ -45,6 +45,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private int ds4Orientation;
         private int mouseSensitivity;
         private int mouseThreshold;
+        private int mouseLeftClickButton;   // 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS
+        private int mouseRightClickButton;
+        private int mouseCursorStick;       // 0=Right,1=Left
+        private int mouseScrollStick;       // 0=Left,1=Right
         private int mouseAxis;
         private bool mouseInvertX;
         private bool mouseInvertY;
@@ -425,6 +429,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
         public readonly ControllerEmulationPs4TouchpadEnabledProperty ControllerEmulationPs4TouchpadEnabled;
         public readonly ControllerEmulationMouseSensitivityProperty ControllerEmulationMouseSensitivity;
         public readonly ControllerEmulationMouseThresholdProperty ControllerEmulationMouseThreshold;
+        public readonly ControllerEmulationMouseLeftClickButtonProperty ControllerEmulationMouseLeftClickButton;
+        public readonly ControllerEmulationMouseRightClickButtonProperty ControllerEmulationMouseRightClickButton;
+        public readonly ControllerEmulationMouseCursorStickProperty ControllerEmulationMouseCursorStick;
+        public readonly ControllerEmulationMouseScrollStickProperty ControllerEmulationMouseScrollStick;
         public readonly ControllerEmulationMouseAxisProperty ControllerEmulationMouseAxis;
         public readonly ControllerEmulationMouseInvertXProperty ControllerEmulationMouseInvertX;
         public readonly ControllerEmulationMouseInvertYProperty ControllerEmulationMouseInvertY;
@@ -474,6 +482,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 yield return ControllerEmulationPs4TouchpadEnabled;
                 yield return ControllerEmulationMouseSensitivity;
                 yield return ControllerEmulationMouseThreshold;
+                yield return ControllerEmulationMouseLeftClickButton;
+                yield return ControllerEmulationMouseRightClickButton;
+                yield return ControllerEmulationMouseCursorStick;
+                yield return ControllerEmulationMouseScrollStick;
                 yield return ControllerEmulationMouseAxis;
                 yield return ControllerEmulationMouseInvertX;
                 yield return ControllerEmulationMouseInvertY;
@@ -534,6 +546,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
             ControllerEmulationPs4TouchpadEnabled = new ControllerEmulationPs4TouchpadEnabledProperty(ps4TouchpadEnabled, this);
             ControllerEmulationMouseSensitivity = new ControllerEmulationMouseSensitivityProperty(mouseSensitivity, this);
             ControllerEmulationMouseThreshold = new ControllerEmulationMouseThresholdProperty(mouseThreshold, this);
+            ControllerEmulationMouseLeftClickButton = new ControllerEmulationMouseLeftClickButtonProperty(mouseLeftClickButton, this);
+            ControllerEmulationMouseRightClickButton = new ControllerEmulationMouseRightClickButtonProperty(mouseRightClickButton, this);
+            ControllerEmulationMouseCursorStick = new ControllerEmulationMouseCursorStickProperty(mouseCursorStick, this);
+            ControllerEmulationMouseScrollStick = new ControllerEmulationMouseScrollStickProperty(mouseScrollStick, this);
             ControllerEmulationMouseAxis = new ControllerEmulationMouseAxisProperty(mouseAxis, this);
             ControllerEmulationMouseInvertX = new ControllerEmulationMouseInvertXProperty(mouseInvertX, this);
             ControllerEmulationMouseInvertY = new ControllerEmulationMouseInvertYProperty(mouseInvertY, this);

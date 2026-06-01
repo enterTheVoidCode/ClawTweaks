@@ -1,42 +1,35 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 
-:: ============================================================
-::  ClawTweaks Installer
-::  Launches Install.ps1 with ExecutionPolicy Bypass so the
-::  script runs regardless of system PowerShell policy.
-::  All errors are caught and displayed — window never closes.
-:: ============================================================
-
 title ClawTweaks Installer
 
-:: Store paths in variables early so special chars are handled once
+:: ── Store paths ───────────────────────────────────────────────
 set "BAT_PATH=%~f0"
-set "BAT_DIR=%~dp0"
 set "PS1_PATH=%~dp0_Installer\Install.ps1"
 
-:: ── Elevation check ──────────────────────────────────────────
-:: Use PowerShell for the admin check — more reliable than net session
-:: which can fail on domain machines even when the user is admin.
-:: Note: no ternary operator — must be compatible with PowerShell 5.1.
-powershell.exe -NoProfile -Command "if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { exit 0 } else { exit 1 }" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo Requesting Administrator privileges...
-    echo If a UAC prompt appears, click Yes to continue.
-    echo.
-    :: Launch elevated without -Wait so this window closes immediately.
-    :: The elevated window takes over and handles all output.
-    :: If UAC is cancelled, Start-Process throws and PS exits 1.
-    powershell.exe -NoProfile -Command "try { Start-Process -FilePath 'cmd.exe' -ArgumentList '/c \"%BAT_PATH%\"' -Verb RunAs; exit 0 } catch { exit 1 }" >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo.
-        echo [ERROR] UAC prompt was cancelled or elevation failed.
-        echo         Please right-click Install.bat and select "Run as administrator".
-        echo.
-        goto :end
-    )
-    exit /b
-)
+:: ── Admin check via fsutil ────────────────────────────────────
+:: fsutil dirty query exits 0 only when caller has admin privileges.
+:: No PowerShell round-trip needed, no output produced.
+fsutil dirty query %SystemDrive% >nul 2>&1
+if %errorlevel% == 0 goto :run
+
+:: ── Not admin — re-launch elevated ───────────────────────────
+echo Requesting Administrator privileges...
+echo If a UAC prompt appears, click Yes to continue.
+echo.
+:: Pass path via environment variable to avoid quoting issues with spaces/special chars.
+:: No try/catch: if UAC is cancelled the window simply closes (exit /b).
+:: The elevated window takes over; this non-elevated window is no longer needed.
+set "CT_SELF=%BAT_PATH%"
+powershell.exe -NoProfile -WindowStyle Hidden -Command ^
+    "Start-Process cmd.exe -ArgumentList ('/c',$env:CT_SELF) -Verb RunAs"
+exit /b
+
+:: ── Running as admin ─────────────────────────────────────────
+:run
+:: Set CWD to the BAT's own directory now that we are elevated.
+:: (Mapped-drive CWD errors from CMD startup are suppressed via 2>nul.)
+cd /d "%~dp0" 2>nul
 
 :: ── PowerShell check ─────────────────────────────────────────
 where powershell.exe >nul 2>&1

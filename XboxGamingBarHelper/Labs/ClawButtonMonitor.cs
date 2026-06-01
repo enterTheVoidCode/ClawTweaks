@@ -88,10 +88,43 @@ namespace XboxGamingBarHelper.Labs
         private const float GyroDeltaMin           = 0.002f;      // MinDeltaSeconds
         private const float GyroDeltaMax           = 0.05f;       // MaxDeltaSeconds
 
-        // ── Gyro mouse P/Invoke ───────────────────────────────────────────────────
-        // Using mouse_event (simpler than SendInput — no struct needed, same effect).
+        // ── Mouse P/Invoke ────────────────────────────────────────────────────────
         [DllImport("user32.dll")]
         private static extern void mouse_event(uint dwFlags, int dx, int dy, uint dwData, IntPtr dwExtraInfo);
+
+        // SendInput with MOUSEINPUT — modern replacement for mouse_event.
+        // Browsers and modern apps treat SendInput events as real hardware input,
+        // enabling smooth-scroll animations that mouse_event does not trigger.
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MOUSEINPUT
+        {
+            public int      dx;
+            public int      dy;
+            public uint     mouseData;
+            public uint     dwFlags;
+            public uint     time;
+            public IntPtr   dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct INPUT_MOUSE
+        {
+            public uint       type;      // INPUT_MOUSE = 0
+            public MOUSEINPUT mi;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint SendInput(uint nInputs, [In] INPUT_MOUSE[] pInputs, int cbSize);
+
+        private static void SendMouseWheel(int delta)
+        {
+            var inp = new INPUT_MOUSE[1];
+            inp[0].type = 0; // INPUT_MOUSE
+            inp[0].mi.dwFlags = MOUSEEVENTF_WHEEL;
+            inp[0].mi.mouseData = unchecked((uint)delta);
+            SendInput(1, inp, Marshal.SizeOf(typeof(INPUT_MOUSE)));
+        }
+
         private const uint MOUSEEVENTF_MOVE = 0x0001;
 
         // ── State ─────────────────────────────────────────────────────────────────
@@ -199,14 +232,18 @@ namespace XboxGamingBarHelper.Labs
         private const uint MOUSEEVENTF_WHEEL     = 0x0800;
 
         // Mouse mode tuning — configurable via SetMouseModeSensitivity / SetMouseModeThreshold.
-        // Sensitivity: 1–400 (widget slider), mapped to px-per-tick via MouseSensitivityScale.
-        //   sensitivity=100 → 20 px/tick (same as original hardcoded value).
-        // Threshold: 0–20 (widget slider), stored as 0–20% deadzone fraction.
-        //   threshold=15 → 15% deadzone = 0.15f (original hardcoded value).
-        private const float MouseModeScrollRate     = 0.08f;  // notches per tick at full deflection
-        private const float MouseSensitivityScale   = 20.0f / 100.0f; // px per tick at sensitivity=100
-        private volatile int   _mouseModeSensitivity = 100;  // 1–400, default 100
-        private volatile int   _mouseModeThreshold   = 15;   // 0–20, default 15% deadzone
+        private const float MouseModeScrollRate     = 0.08f;
+        private const float MouseSensitivityScale   = 20.0f / 100.0f;
+        private volatile int   _mouseModeSensitivity = 100;
+        private volatile int   _mouseModeThreshold   = 15;
+
+        // Mouse mode button/stick mapping — configurable via Set* methods.
+        // Button indices: 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS
+        // Stick indices:  0=Right,1=Left (cursor); 0=Left,1=Right (scroll)
+        private volatile int _mouseLeftClickButton  = 6; // default RB
+        private volatile int _mouseRightClickButton = 5; // default LB
+        private volatile int _mouseCursorStick      = 0; // default Right Stick
+        private volatile int _mouseScrollStick      = 0; // default Left Stick
 
         public bool IsRunning => _running;
         public bool HasAnyButtonConfigured => _m1Enabled || _m2Enabled;
@@ -325,6 +362,30 @@ namespace XboxGamingBarHelper.Labs
         {
             _mouseModeThreshold = Math.Max(0, Math.Min(20, threshold));
             Logger.Info($"ClawButtonMonitor: MouseMode threshold → {_mouseModeThreshold}%");
+        }
+
+        public void SetMouseLeftClickButton(int button)
+        {
+            _mouseLeftClickButton = Math.Max(0, Math.Min(8, button));
+            Logger.Info($"ClawButtonMonitor: MouseMode left-click button → {_mouseLeftClickButton}");
+        }
+
+        public void SetMouseRightClickButton(int button)
+        {
+            _mouseRightClickButton = Math.Max(0, Math.Min(8, button));
+            Logger.Info($"ClawButtonMonitor: MouseMode right-click button → {_mouseRightClickButton}");
+        }
+
+        public void SetMouseCursorStick(int stick)
+        {
+            _mouseCursorStick = Math.Max(0, Math.Min(1, stick));
+            Logger.Info($"ClawButtonMonitor: MouseMode cursor stick → {(_mouseCursorStick == 0 ? "Right" : "Left")}");
+        }
+
+        public void SetMouseScrollStick(int stick)
+        {
+            _mouseScrollStick = Math.Max(0, Math.Min(1, stick));
+            Logger.Info($"ClawButtonMonitor: MouseMode scroll stick → {(_mouseScrollStick == 0 ? "Left" : "Right")}");
         }
 
         /// <summary>
@@ -863,25 +924,27 @@ namespace XboxGamingBarHelper.Labs
             // plugged in (so hotkeys keep working). This is the HC fork virtual approach.
             if (_mouseModeEnabled)
             {
-                // LB → right click, RB → left click (same mapping as MSIClawDesktopModeForwarder)
-                bool lbDown = (xiBtnsOut & XI_LB) != 0;
-                bool rbDown = (xiBtnsOut & XI_RB) != 0;
+                // Configurable button → left/right click
+                bool leftClickDown  = GetMouseModeButton(_mouseLeftClickButton,  xiBtnsOut, ltrigOut, rtrigOut);
+                bool rightClickDown = GetMouseModeButton(_mouseRightClickButton, xiBtnsOut, ltrigOut, rtrigOut);
 
-                if (lbDown && !_mouseLbWasDown)
-                    mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, IntPtr.Zero);
-                else if (!lbDown && _mouseLbWasDown)
-                    mouse_event(MOUSEEVENTF_RIGHTUP,   0, 0, 0, IntPtr.Zero);
-                _mouseLbWasDown = lbDown;
-
-                if (rbDown && !_mouseRbWasDown)
+                if (leftClickDown && !_mouseLbWasDown)
                     mouse_event(MOUSEEVENTF_LEFTDOWN,  0, 0, 0, IntPtr.Zero);
-                else if (!rbDown && _mouseRbWasDown)
+                else if (!leftClickDown && _mouseLbWasDown)
                     mouse_event(MOUSEEVENTF_LEFTUP,    0, 0, 0, IntPtr.Zero);
-                _mouseRbWasDown = rbDown;
+                _mouseLbWasDown = leftClickDown;
 
-                // Right stick → cursor movement (sub-pixel carry for smooth movement)
-                float fx = rightXOut / 32767f;
-                float fy = -(rightYOut / 32767f); // invert Y: stick up → cursor up
+                if (rightClickDown && !_mouseRbWasDown)
+                    mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, IntPtr.Zero);
+                else if (!rightClickDown && _mouseRbWasDown)
+                    mouse_event(MOUSEEVENTF_RIGHTUP,   0, 0, 0, IntPtr.Zero);
+                _mouseRbWasDown = rightClickDown;
+
+                // Configurable cursor stick
+                short cursorX = _mouseCursorStick == 0 ? rightXOut : leftXOut;
+                short cursorY = _mouseCursorStick == 0 ? rightYOut : leftYOut;
+                float fx = cursorX / 32767f;
+                float fy = -(cursorY / 32767f);
 
                 float deadzone = _mouseModeThreshold / 100.0f;
                 float sensitivity = _mouseModeSensitivity * MouseSensitivityScale;
@@ -905,20 +968,27 @@ namespace XboxGamingBarHelper.Labs
                     _mouseCarryY = 0f;
                 }
 
-                // Left stick Y → vertical scroll wheel
-                float scrollY = leftYOut / 32767f;
+                // Configurable scroll stick Y — fractional WHEEL_DELTA for smooth browser scrolling.
+                // Accumulate sub-unit carry and send delta each tick the stick is active.
+                // Fires from tick 1 (no 104ms startup delay), sends small continuous values
+                // that modern browsers smooth-scroll rather than stepping in full notches.
+                short scrollRaw = _mouseScrollStick == 0 ? leftYOut : rightYOut;
+                float scrollY = scrollRaw / 32767f;
                 if (Math.Abs(scrollY) < deadzone)
                 {
                     _mouseScrollAccum = 0f;
                 }
                 else
                 {
-                    _mouseScrollAccum += scrollY * MouseModeScrollRate;
-                    int notches = (int)_mouseScrollAccum;
-                    if (notches != 0)
+                    // Fractional WHEEL_DELTA via SendInput: fires from tick 1 (no startup delay),
+                    // sends small continuous values that browsers smooth-scroll.
+                    // Win32 apps (Explorer) require a prior click to accept focus before scrolling.
+                    _mouseScrollAccum += scrollY * MouseModeScrollRate * 120f;
+                    int delta = (int)_mouseScrollAccum;
+                    if (delta != 0)
                     {
-                        mouse_event(MOUSEEVENTF_WHEEL, 0, 0, unchecked((uint)(notches * 120)), IntPtr.Zero);
-                        _mouseScrollAccum -= notches;
+                        SendMouseWheel(delta);
+                        _mouseScrollAccum -= delta;
                     }
                 }
 
@@ -965,6 +1035,23 @@ namespace XboxGamingBarHelper.Labs
         /// MapRange(raw, 0, 65535, -32768, 32767)  or  MapRange(raw, 65535, 0, -32768, 32767).
         /// 1:1 from HC InputUtils.MapRange used in DClawController.Tick().
         /// </summary>
+        // Button index: 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS
+        private static bool GetMouseModeButton(int buttonIndex, ushort xiBtns, byte ltrig, byte rtrig)
+        {
+            return buttonIndex switch
+            {
+                1 => (xiBtns & XI_A)    != 0,
+                2 => (xiBtns & XI_B)    != 0,
+                3 => (xiBtns & XI_X)    != 0,
+                4 => (xiBtns & XI_Y)    != 0,
+                5 => (xiBtns & XI_LB)   != 0,
+                6 => (xiBtns & XI_RB)   != 0,
+                7 => (xiBtns & XI_LS)   != 0,
+                8 => (xiBtns & XI_RS)   != 0,
+                _ => false,
+            };
+        }
+
         private static short MapToStick(int raw, bool invert)
         {
             // Non-inverted: v = raw - 32768

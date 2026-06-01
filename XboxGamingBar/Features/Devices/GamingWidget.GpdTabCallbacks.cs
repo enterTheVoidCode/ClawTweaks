@@ -271,6 +271,14 @@ namespace XboxGamingBar
                 ControllerEmulationMouseSensitivitySlider.IsEnabled = mouseControlsEnabled;
             if (ControllerEmulationMouseThresholdSlider != null)
                 ControllerEmulationMouseThresholdSlider.IsEnabled = mouseControlsEnabled;
+            if (ControllerEmulationMouseLeftClickButtonComboBox != null)
+                ControllerEmulationMouseLeftClickButtonComboBox.IsEnabled = mouseControlsEnabled;
+            if (ControllerEmulationMouseRightClickButtonComboBox != null)
+                ControllerEmulationMouseRightClickButtonComboBox.IsEnabled = mouseControlsEnabled;
+            if (ControllerEmulationMouseCursorStickComboBox != null)
+                ControllerEmulationMouseCursorStickComboBox.IsEnabled = mouseControlsEnabled;
+            if (ControllerEmulationMouseScrollStickComboBox != null)
+                ControllerEmulationMouseScrollStickComboBox.IsEnabled = mouseControlsEnabled;
             if (ControllerEmulationMouseAxisComboBox != null)
                 ControllerEmulationMouseAxisComboBox.IsEnabled = mouseControlsEnabled;
             if (ControllerEmulationMouseInvertXToggle != null)
