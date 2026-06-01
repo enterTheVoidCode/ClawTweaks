@@ -18,7 +18,8 @@ set "PS1_PATH=%~dp0_Installer\Install.ps1"
 :: ── Elevation check ──────────────────────────────────────────
 :: Use PowerShell for the admin check — more reliable than net session
 :: which can fail on domain machines even when the user is admin.
-powershell.exe -NoProfile -Command "exit ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) ? 0 : 1" >nul 2>&1
+:: Note: no ternary operator — must be compatible with PowerShell 5.1.
+powershell.exe -NoProfile -Command "if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { exit 0 } else { exit 1 }" >nul 2>&1
 if %errorlevel% neq 0 (
     echo Requesting Administrator privileges...
     echo If a UAC prompt appears, click Yes to continue.
