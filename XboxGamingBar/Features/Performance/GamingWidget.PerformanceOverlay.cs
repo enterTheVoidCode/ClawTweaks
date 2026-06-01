@@ -80,7 +80,9 @@ namespace XboxGamingBar
         {
             if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
-                var target = PerGameProfileToggle ?? (Windows.UI.Xaml.Controls.Control)PerformanceNavItem;
+                Windows.UI.Xaml.Controls.Control target = null;
+                if (PerGameProfileToggle?.IsEnabled == true) target = PerGameProfileToggle;
+                else                                         target = PerformanceNavItem;
                 target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
@@ -99,7 +101,11 @@ namespace XboxGamingBar
         {
             if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
-                var target = FPSLimitToggle ?? (Windows.UI.Xaml.Controls.Control)PerGameProfileToggle;
+                // Walk up the spine: skip disabled controls (IsEnabled=false → not focusable in UWP)
+                Windows.UI.Xaml.Controls.Control target = null;
+                if (FPSLimitToggle?.IsEnabled == true)          target = FPSLimitToggle;
+                else if (PerGameProfileToggle?.IsEnabled == true) target = PerGameProfileToggle;
+                else                                              target = PerformanceNavItem;
                 target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
