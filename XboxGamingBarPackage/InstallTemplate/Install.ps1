@@ -580,13 +580,7 @@ function Invoke-PrerequisiteCheck {
 Clear-Host
 
 # Get installer directory
-# When Install.ps1 lives in _Installer\ (called by Install.bat), the package
-# files (.msix, .cer, Dependencies\) are in the parent folder — use that instead.
 $ScriptDir = Get-InstallerDirectory
-$parentDir = Split-Path $ScriptDir -Parent
-if ((Split-Path $ScriptDir -Leaf) -eq "_Installer" -and (Test-Path $parentDir)) {
-    $ScriptDir = $parentDir
-}
 
 # Find main package early so we can show version
 $MainPackage = Get-ChildItem -Path $ScriptDir -Filter "*.msixbundle" -ErrorAction SilentlyContinue | Select-Object -First 1

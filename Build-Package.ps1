@@ -212,25 +212,26 @@ if (-not $pkgFolder) { Write-Err "No package folder found under $AppPackages" }
 Write-Ok "Package folder: $($pkgFolder.FullName)"
 
 $InstallerDir = Join-Path $BuildDir "Installer"
+$SubDir       = Join-Path $InstallerDir "_Installer"
 Write-Step "Assembling installer folder: $InstallerDir"
-if (-not (Test-Path $InstallerDir)) { New-Item -ItemType Directory -Path $InstallerDir | Out-Null }
-Get-ChildItem $InstallerDir -File | Where-Object {
-    $_.Extension -in '.msix','.appxsym','.ps1','.bat' -or ($_.Extension -eq '.cer' -and $_.Name -ne 'ClawTweaks.cer')
-} | Remove-Item -Force -ErrorAction SilentlyContinue
-Write-Info "Cleared old versioned package files"
-Copy-Item "$($pkgFolder.FullName)\*" -Destination $InstallerDir -Recurse -Force
-Write-Ok "Package files copied"
-Export-Certificate -Cert $signingCert -FilePath (Join-Path $InstallerDir "ClawTweaks.cer") -Type CERT | Out-Null
-Write-Ok "Certificate exported"
-# Install.bat goes in the root — this is what the user sees and clicks
-Copy-Item $InstallBat -Destination (Join-Path $InstallerDir "Install.bat") -Force
-Write-Ok "Install.bat copied (user-facing entry point)"
 
-# Install.ps1 goes into _Installer\ subfolder — called by the bat, not shown directly
-$SubDir = Join-Path $InstallerDir "_Installer"
-if (-not (Test-Path $SubDir)) { New-Item -ItemType Directory -Path $SubDir | Out-Null }
+# Wipe and recreate to ensure a clean state
+if (Test-Path $InstallerDir) { Remove-Item $InstallerDir -Recurse -Force }
+New-Item -ItemType Directory -Path $InstallerDir | Out-Null
+New-Item -ItemType Directory -Path $SubDir       | Out-Null
+Write-Info "Cleared installer folder"
+
+# All package files go into _Installer\ — only Install.bat lives in the root
+Copy-Item "$($pkgFolder.FullName)\*" -Destination $SubDir -Recurse -Force
+Write-Ok "Package files copied to _Installer\"
+Export-Certificate -Cert $signingCert -FilePath (Join-Path $SubDir "ClawTweaks.cer") -Type CERT | Out-Null
+Write-Ok "Certificate exported to _Installer\"
 Copy-Item $InstallPs1 -Destination (Join-Path $SubDir "Install.ps1") -Force
 Write-Ok "Install.ps1 copied to _Installer\"
+
+# Install.bat is the only file in the root — this is what the user double-clicks
+Copy-Item $InstallBat -Destination (Join-Path $InstallerDir "Install.bat") -Force
+Write-Ok "Install.bat copied to root (user-facing entry point)"
 
 Write-Step "Creating installer ZIP..."
 $ZipPath = Join-Path $BuildDir "ClawTweaks_${newVer}_Installer.zip"
