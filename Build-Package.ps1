@@ -215,7 +215,7 @@ $InstallerDir = Join-Path $BuildDir "Installer"
 Write-Step "Assembling installer folder: $InstallerDir"
 if (-not (Test-Path $InstallerDir)) { New-Item -ItemType Directory -Path $InstallerDir | Out-Null }
 Get-ChildItem $InstallerDir -File | Where-Object {
-    $_.Extension -in '.msix','.appxsym' -or ($_.Extension -eq '.cer' -and $_.Name -ne 'ClawTweaks.cer')
+    $_.Extension -in '.msix','.appxsym','.ps1','.bat' -or ($_.Extension -eq '.cer' -and $_.Name -ne 'ClawTweaks.cer')
 } | Remove-Item -Force -ErrorAction SilentlyContinue
 Write-Info "Cleared old versioned package files"
 Copy-Item "$($pkgFolder.FullName)\*" -Destination $InstallerDir -Recurse -Force
