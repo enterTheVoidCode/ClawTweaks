@@ -419,6 +419,15 @@ namespace XboxGamingBarHelper
                                     ExecuteKeyboardShortcut(capturedShortcut);
                                 break;
                             case 0:  // None — use shortcut field; if empty, forward to widget
+                                // Helper fires directly — no Win+G, no GameBar interaction.
+                                // Key goes straight to the foreground game window.
+                                //
+                                // !! DO NOT CHANGE TO User32.SendKeyboardShortcut !!
+                                // InputInjector MUST be used here. Switching to Win32 SendInput
+                                // broke OptiScaler (Insert key stopped reaching the game).
+                                // InputInjector correctly delivers extended nav keys (Home/Insert)
+                                // to in-process overlays. Win32 path had timing/flag differences
+                                // that OptiScaler's hook rejected. Tested: v0.1.197.234.
                                 if (!string.IsNullOrEmpty(capturedShortcut))
                                     ExecuteKeyboardShortcut(capturedShortcut);
                                 else
@@ -433,8 +442,8 @@ namespace XboxGamingBarHelper
                                 FireTileHotkeyToWidget(capturedId, capturedName);
                                 break;
                         }
-                        // Show RTSS notification
-                        rtssManager?.ShowNotification(capturedName);
+                        // Show RTSS notification — "Hotkey: <name>" for 4 seconds
+                        rtssManager?.ShowNotification($"Hotkey: {capturedName}", 4000);
                     };
 
                     controllerHotkeyMonitor.RegisterTileHotkey(mask, callback, name);
@@ -504,7 +513,7 @@ namespace XboxGamingBarHelper
                 Logger.Info($"ToggleControllerMouseModeInHelper: toggled → {modeName}");
 
                 // Show OSD notification
-                rtssManager?.ShowNotification($"Mode: {modeName}");
+                rtssManager?.ShowNotification($"Hotkey: {modeName}", 4000);
 
                 // Notify widget so tile icon updates (best-effort — works when pipe connected)
                 FireTileHotkeyToWidget("MSIClawDesktopMode", $"Mode: {modeName}");
@@ -731,16 +740,32 @@ namespace XboxGamingBarHelper
                     keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mod, KeyOptions = InjectedInputKeyOptions.None });
                 }
 
+                // Extended navigation keys require InjectedInputKeyOptions.ExtendedKey so they
+                // are not misinterpreted as numpad keys by the OS or low-level hooks.
+                var extendedVKs = new HashSet<ushort> {
+                    0x21, 0x22, 0x23, 0x24, // PageUp, PageDown, End, Home
+                    0x25, 0x26, 0x27, 0x28, // Arrow keys Left/Up/Right/Down
+                    0x2D, 0x2E,             // Insert, Delete
+                    0x5B, 0x5C,             // Win keys
+                    0x2C,                   // PrintScreen
+                };
+
                 // Press all main keys
                 foreach (var key in mainKeys)
                 {
-                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = key, KeyOptions = InjectedInputKeyOptions.None });
+                    var opts = extendedVKs.Contains(key)
+                        ? InjectedInputKeyOptions.ExtendedKey
+                        : InjectedInputKeyOptions.None;
+                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = key, KeyOptions = opts });
                 }
 
                 // Release all main keys in reverse order
                 for (int i = mainKeys.Count - 1; i >= 0; i--)
                 {
-                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mainKeys[i], KeyOptions = InjectedInputKeyOptions.KeyUp });
+                    var opts = extendedVKs.Contains(mainKeys[i])
+                        ? InjectedInputKeyOptions.ExtendedKey | InjectedInputKeyOptions.KeyUp
+                        : InjectedInputKeyOptions.KeyUp;
+                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mainKeys[i], KeyOptions = opts });
                 }
 
                 // Release modifiers in reverse order

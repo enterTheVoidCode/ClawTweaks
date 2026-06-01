@@ -298,8 +298,8 @@ namespace XboxGamingBar
             // Row 4 - Overlay Tools (hotkey tiles \u2014 close Game Bar then send key to game)
             // AddTileDefinition("AFMF", "AFMF", "\uE916", order: order++);   // removed: AMD-only feature
             // AddTileDefinition("AntiLag", "Anti-Lag", "\uE916", order: order++);  // removed: AMD-only feature
-            AddTileDefinition("OptiScaler", "OptiScaler", "\uE736", order: order++);  // sends Insert key
-            AddTileDefinition("ReShade",    "ReShade",    "\uE8B8", order: order++);  // sends Home/Pos1 key
+            AddTileDefinition("OptiScaler", "OptiScaler", "\uE736", order: order++, customShortcut: "Insert");  // Insert = OptiScaler overlay toggle; shortcut populated so helper fires directly when GameBar is closed
+            AddTileDefinition("ReShade",    "ReShade",    "\uE8B8", order: order++, customShortcut: "Home");    // Home   = ReShade overlay toggle
 
             // Row 5 - Scaling/Quality
             AddTileDefinition("LosslessScaling", "Lossless", "\uE8A3", order: order++);  // E8A3 = zoom-in (magnifier+plus) \u2014 matches Lossl tab icon
