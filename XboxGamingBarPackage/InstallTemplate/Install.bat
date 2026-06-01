@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal EnableExtensions DisableDelayedExpansion
 
 :: ============================================================
 ::  ClawTweaks Installer
@@ -10,14 +10,21 @@ setlocal
 
 title ClawTweaks Installer
 
+:: Store paths in variables early so special chars are handled once
+set "BAT_PATH=%~f0"
+set "BAT_DIR=%~dp0"
+set "PS1_PATH=%~dp0_Installer\Install.ps1"
+
 :: ── Elevation check ──────────────────────────────────────────
-:: Re-launch this bat elevated if not already admin.
-net session >nul 2>&1
+:: Use PowerShell for the admin check — more reliable than net session
+:: which can fail on domain machines even when the user is admin.
+powershell.exe -NoProfile -Command "exit ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) ? 0 : 1" >nul 2>&1
 if %errorlevel% neq 0 (
     echo Requesting Administrator privileges...
     echo If a UAC prompt appears, click Yes to continue.
     echo.
-    powershell -Command "Start-Process -FilePath '%~f0' -Verb RunAs -Wait" >nul 2>&1
+    :: Use cmd /c with fully quoted path to handle spaces and most special chars
+    powershell.exe -NoProfile -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/c \"%BAT_PATH%\"' -Verb RunAs -Wait" >nul 2>&1
     if %errorlevel% neq 0 (
         echo.
         echo [ERROR] Could not obtain Administrator privileges.
@@ -38,12 +45,23 @@ if %errorlevel% neq 0 (
     goto :end
 )
 
+:: ── PS1 existence check ──────────────────────────────────────
+if not exist "%PS1_PATH%" (
+    echo.
+    echo [ERROR] Installer script not found:
+    echo         %PS1_PATH%
+    echo.
+    echo         The ZIP may be incomplete. Please re-download and extract again.
+    echo.
+    goto :end
+)
+
 :: ── Run installer ────────────────────────────────────────────
 echo.
 echo Starting ClawTweaks installation...
 echo.
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0_Installer\Install.ps1" -CalledFromBat %*
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PS1_PATH%" -CalledFromBat
 
 set "EXIT_CODE=%errorlevel%"
 
