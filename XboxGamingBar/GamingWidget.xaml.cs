@@ -2299,6 +2299,11 @@ namespace XboxGamingBar
 
             // Initialize Labs section (DAService status polling)
             InitializeLabsSection();
+
+            // Wire up XY navigation for the Performance tab.
+            // Must run after all UI elements are ready so that XYFocusUp/Down
+            // on TDPSlider, PerGameProfileToggle etc. are set from the start.
+            UpdatePerformanceTabXYNavigation();
         }
 
         private void AutoTDPCurrentFPS_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)

@@ -44,6 +44,31 @@ namespace XboxGamingBar
     public sealed partial class GamingWidget
     {
 
+        /// <summary>
+        /// UWP ComboBox consumes D-Pad Up/Down for item selection, bypassing XYFocusUp/Down.
+        /// This handler intercepts Up/Down and manually moves focus to the correct neighbour.
+        /// </summary>
+        private void PerformanceOverlayComboBox_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (PerformanceOverlayComboBox?.IsDropDownOpen == true) return; // let the open dropdown handle keys
+
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                // Navigate up to CPU Boost (or OS Power Mode as fallback)
+                var target = CPUBoostToggle?.IsEnabled == true ? (Windows.UI.Xaml.Controls.Control)CPUBoostToggle
+                           : OSPowerModeComboBox;
+                target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                // Navigate down = loop back to top of Performance tab
+                var target = PerGameProfileToggle ?? (Windows.UI.Xaml.Controls.Control)FPSLimitToggle;
+                target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
         private void PerformanceOverlayComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (PerformanceOverlayComboBox != null && PerformanceOverlaySlider != null)
