@@ -24,11 +24,13 @@ if %errorlevel% neq 0 (
     echo Requesting Administrator privileges...
     echo If a UAC prompt appears, click Yes to continue.
     echo.
-    :: Use cmd /c with fully quoted path to handle spaces and most special chars
-    powershell.exe -NoProfile -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/c \"%BAT_PATH%\"' -Verb RunAs -Wait" >nul 2>&1
+    :: Launch elevated without -Wait so this window closes immediately.
+    :: The elevated window takes over and handles all output.
+    :: If UAC is cancelled, Start-Process throws and PS exits 1.
+    powershell.exe -NoProfile -Command "try { Start-Process -FilePath 'cmd.exe' -ArgumentList '/c \"%BAT_PATH%\"' -Verb RunAs; exit 0 } catch { exit 1 }" >nul 2>&1
     if %errorlevel% neq 0 (
         echo.
-        echo [ERROR] Could not obtain Administrator privileges.
+        echo [ERROR] UAC prompt was cancelled or elevation failed.
         echo         Please right-click Install.bat and select "Run as administrator".
         echo.
         goto :end
