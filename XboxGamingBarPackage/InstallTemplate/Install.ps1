@@ -7,7 +7,7 @@
     Professional installer that handles Debug-to-Release upgrades, dependency checking,
     prerequisite installation, and blocking process management with user-friendly prompts.
 
-    Prerequisites checked and auto-installed if missing:
+    Prerequisites checked and auto-installed if missing (ViGEmBus, HidHide, PawnIO, RTSS):
       - PawnIO           (kernel driver for CPU/GPU power sensors — required by LHM 0.9.6+)
       - ViGEmBus driver  (virtual controller emulation)
       - RTSS             (FPS limiter + overlay)
@@ -469,6 +469,46 @@ function Install-ViGEmBus {
     return $false
 }
 
+function Test-HidHideInstalled {
+    $svc = Get-Service -Name "HidHide" -ErrorAction SilentlyContinue
+    if ($svc) { return $true }
+    $reg = Get-ItemProperty "HKLM:\SOFTWARE\Nefarius Software Solutions e.U.\HidHide" -ErrorAction SilentlyContinue
+    if ($reg) { return $true }
+    $dev = Get-PnpDevice -FriendlyName "*HidHide*" -ErrorAction SilentlyContinue
+    if ($dev) { return $true }
+    return $false
+}
+
+function Install-HidHide {
+    Write-Info "Attempting install via winget (Nefarius.HidHide)..."
+    $ok = Install-ViaWinget -PackageId "Nefarius.HidHide" -DisplayName "HidHide"
+    if ($ok) { return $true }
+
+    # Fallback: direct download from GitHub latest release
+    Write-Info "winget unavailable or failed — trying direct download..."
+    try {
+        $apiUrl  = "https://api.github.com/repos/nefarius/HidHide/releases/latest"
+        $headers = @{ "User-Agent" = "ClawTweaks-Installer/1.0" }
+        $release = Invoke-RestMethod -Uri $apiUrl -Headers $headers -ErrorAction Stop
+        $asset   = $release.assets | Where-Object { $_.name -like "*.exe" -and $_.name -notlike "*symbols*" } | Select-Object -First 1
+        if ($asset) {
+            $ok = Install-ViaDirectDownload `
+                -Url           $asset.browser_download_url `
+                -InstallerName "HidHide_Setup.exe" `
+                -SilentArgs    "/passive /norestart" `
+                -DisplayName   "HidHide"
+            if ($ok) { return $true }
+        }
+    }
+    catch {
+        Write-Warn "GitHub API fetch failed: $_"
+    }
+
+    Write-Warn "Automatic HidHide install failed. Please install manually:"
+    Write-Host "       https://github.com/nefarius/HidHide/releases" -ForegroundColor Cyan
+    return $false
+}
+
 function Install-RTSS {
     # Try winget first
     Write-Info "Attempting install via winget (Guru3D.RTSS)..."
@@ -548,6 +588,36 @@ function Invoke-PrerequisiteCheck {
         }
         else {
             Write-Info "Skipped. Controller emulation features will not work without ViGEmBus."
+            $allOk = $false
+        }
+    }
+
+    # --- HidHide ---
+    Write-Host ""
+    Write-Host "       Checking HidHide (controller hiding driver)..." -ForegroundColor Gray
+    if (Test-HidHideInstalled) {
+        Write-Success "HidHide: installed"
+    }
+    else {
+        Write-Warn "HidHide: NOT installed  (needed to hide physical controller during emulation)"
+        $install = $Force
+        if (-not $Force) {
+            $response = Read-Host "       Install HidHide now? (Y/N)"
+            $install  = ($response -eq 'Y' -or $response -eq 'y')
+        }
+        if ($install) {
+            $ok = Install-HidHide
+            if ($ok) {
+                Write-Success "HidHide installed successfully — a reboot may be required"
+            }
+            else {
+                Write-Warn "HidHide install failed — physical controller may be visible alongside virtual one"
+                Write-Info "Get it from: https://github.com/nefarius/HidHide/releases"
+                $allOk = $false
+            }
+        }
+        else {
+            Write-Info "Skipped. Physical controller may conflict with virtual controller without HidHide."
             $allOk = $false
         }
     }
