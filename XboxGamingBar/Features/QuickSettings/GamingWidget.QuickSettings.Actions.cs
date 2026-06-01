@@ -1444,9 +1444,13 @@ namespace XboxGamingBar
             if (FPSLimiterModePanel == null) return;
 
             bool isOn = FPSLimitToggle?.IsOn == true;
-            FPSLimiterModePanel.Visibility = isOn ? Visibility.Visible : Visibility.Collapsed;
 
-            if (!isOn) return;
+            // Always keep the mode panel VISIBLE so the radio buttons and slider
+            // remain focusable for D-Pad navigation (collapsed elements can't receive focus).
+            // When FPS limiter is off, grey the panel out so the user knows it's inactive.
+            FPSLimiterModePanel.Visibility = Visibility.Visible;
+            FPSLimiterModePanel.Opacity    = isOn ? 1.0 : 0.4;
+            FPSLimiterModePanel.IsHitTestVisible = isOn; // pointer interaction only when active
 
             bool isIntel = fpsCapMode?.Value == 1;
 
@@ -1470,8 +1474,7 @@ namespace XboxGamingBar
             // Update the green FPS cap number above the toggle to reflect the active limiter
             UpdateFPSCapDisplayText();
 
-            // Panel visibility changed → re-wire XY navigation so FPSLimitToggle.Down
-            // points to the correct target (FPS mode row when expanded, TDPSlider when collapsed).
+            // Panel is always visible now — navigation always goes FPSLimitToggle → FPSModeRTSSRadio
             UpdatePerformanceTabXYNavigation();
         }
 
