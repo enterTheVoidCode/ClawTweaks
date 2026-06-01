@@ -1469,6 +1469,10 @@ namespace XboxGamingBar
 
             // Update the green FPS cap number above the toggle to reflect the active limiter
             UpdateFPSCapDisplayText();
+
+            // Panel visibility changed → re-wire XY navigation so FPSLimitToggle.Down
+            // points to the correct target (FPS mode row when expanded, TDPSlider when collapsed).
+            UpdatePerformanceTabXYNavigation();
         }
 
         /// <summary>
