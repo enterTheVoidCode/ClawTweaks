@@ -216,9 +216,17 @@ namespace XboxGamingBar
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
-                // Loop back to top of Performance tab
-                var target = PerGameProfileToggle ?? (Windows.UI.Xaml.Controls.Control)FPSLimitToggle;
-                target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                // On MSI Claw the fan card sits below the overlay card — continue into it.
+                if (MsiFanCard != null && MsiFanCard.Visibility == Windows.UI.Xaml.Visibility.Visible && MsiFanEnableToggle != null)
+                {
+                    MsiFanEnableToggle.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                }
+                else
+                {
+                    // Loop back to top of Performance tab
+                    var target = PerGameProfileToggle ?? (Windows.UI.Xaml.Controls.Control)FPSLimitToggle;
+                    target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                }
                 e.Handled = true;
             }
         }

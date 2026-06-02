@@ -2351,7 +2351,12 @@ namespace XboxGamingBar
                 msiClawControllerMode.PropertyChanged += QuickSettingsProperty_Changed;
             // DeviceDisplayName drives isMsiClaw detection in ShouldSkipTile — re-evaluate tiles when it arrives.
             if (deviceDisplayName != null)
+            {
                 deviceDisplayName.PropertyChanged += QuickSettingsProperty_Changed;
+                // Show/initialize the MSI Claw fan card once the device name is known.
+                deviceDisplayName.PropertyChanged += (s, e) => InitializeMsiFanCard();
+            }
+            InitializeMsiFanCard();
             if (osPowerMode != null)
                 osPowerMode.PropertyChanged += OSPowerMode_PropertyChanged;
             if (resolution != null)
