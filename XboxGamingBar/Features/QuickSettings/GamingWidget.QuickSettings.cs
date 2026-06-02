@@ -307,7 +307,7 @@ namespace XboxGamingBar
 
             // Row 6 - Input & Interaction
             // AddTileDefinition("ScreenSaver", "Idle Screen Off", "\uE7E8", order: order++);  // removed: not needed on Claw
-            // AddTileDefinition("Keyboard", "Keyboard", "\uE765", isTrigger: true, order: order++);  // removed: on-screen keyboard not used on MSI Claw
+            AddTileDefinition("Keyboard", "Keyboard", "\uE765", isTrigger: true, order: order++);  // on-screen / touch keyboard toggle (TriggerOnScreenKeyboard)
             // AddTileDefinition("LegionTouchpad", "Touchpad", "\uE962", order: order++);  // removed: MSI Claw has no touchpad
             // AddTileDefinition("LegionRemapControls", "Remap", "\uE7FC", order: order++);  // removed: redundant \u2014 controller settings are in Per Game Contr. tab
             // AddTileDefinition("LegionDesktopControls", "Desktop", "\uE7F4", order: order++);  // removed: not used on MSI Claw

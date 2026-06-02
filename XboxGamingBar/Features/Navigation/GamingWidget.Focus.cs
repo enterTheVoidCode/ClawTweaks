@@ -392,6 +392,26 @@ namespace XboxGamingBar
             ClearCardFocus();
         }
 
+        /// <summary>
+        /// Trap D-Pad/keyboard Up on the tab strip so focus can't escape upward out of the
+        /// widget. There is nothing focusable above the tab row inside our XAML, so an Up
+        /// press would otherwise hand focus to the Game Bar host's title/drag chrome
+        /// ("nirvana") — a spot the user can't navigate back down from. Keeping focus on the
+        /// current tab makes Up a no-op at the top boundary, which is the expected behavior
+        /// for a contained widget.
+        /// </summary>
+        private void MainNavPanel_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case Windows.System.VirtualKey.Up:
+                case Windows.System.VirtualKey.GamepadDPadUp:
+                case Windows.System.VirtualKey.GamepadLeftThumbstickUp:
+                    e.Handled = true;  // stop XY focus from leaving the widget upward
+                    break;
+            }
+        }
+
         private void StandaloneControl_GotFocus(object sender, RoutedEventArgs e)
         {
             // Clear card highlight when standalone controls (not in cards) get focus
