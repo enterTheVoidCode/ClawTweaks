@@ -2276,6 +2276,52 @@ namespace XboxGamingBar
         /// Execute an action triggered by the physical left MSI button (Game Bar is NOT open).
         /// Uses SendKeyboardShortcutViaHelper directly — no Win+G prefix needed.
         /// </summary>
+        /// <summary>Maps a launcher TileActionType to the helper-side launcher key string.</summary>
+        private static string LauncherKey(TileActionType actionType)
+        {
+            switch (actionType)
+            {
+                case TileActionType.SteamBigPicture: return "SteamBigPicture";
+                case TileActionType.Playnite:        return "Playnite";
+                case TileActionType.XboxApp:         return "XboxApp";
+                default:                             return "";
+            }
+        }
+
+        /// <summary>
+        /// Ask the helper to open a launcher (Steam Big Picture / Playnite / Xbox app). The helper
+        /// runs in the user session and launches it whether the launcher is already running or not.
+        /// Optionally closes the Game Bar first (tile-click path) so the launcher takes foreground.
+        /// </summary>
+        private async Task LaunchLauncherViaHelper(string which, bool closeGameBar)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(which)) return;
+
+                if (closeGameBar && widget != null)
+                {
+                    await SendKeyboardShortcutViaHelper("Win+G");
+                    await Task.Delay(150);
+                }
+
+                if (App.IsConnected)
+                {
+                    var msg = new Windows.Foundation.Collections.ValueSet { { "LaunchLauncher", which } };
+                    await App.SendMessageAsync(msg);
+                    Logger.Info($"LaunchLauncherViaHelper: requested '{which}' (closeGameBar={closeGameBar})");
+                }
+                else
+                {
+                    Logger.Warn($"LaunchLauncherViaHelper: helper not connected, cannot launch '{which}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LaunchLauncherViaHelper({which}): {ex.Message}");
+            }
+        }
+
         private async Task ExecutePhysicalButtonActionAsync(TileActionType actionType, string actionName)
         {
             try
@@ -2311,6 +2357,12 @@ namespace XboxGamingBar
                         break;
                     case TileActionType.ToggleControllerMouseMode:
                         ToggleMSIClawDesktopMode();
+                        break;
+                    // Launcher actions — Game Bar is already closed on this path.
+                    case TileActionType.SteamBigPicture:
+                    case TileActionType.Playnite:
+                    case TileActionType.XboxApp:
+                        await LaunchLauncherViaHelper(LauncherKey(actionType), closeGameBar: false);
                         break;
                 }
                 await SendActionNotificationAsync(actionName);
@@ -2389,6 +2441,16 @@ namespace XboxGamingBar
 
                     case TileActionType.ToggleControllerMouseMode:
                         ToggleMSIClawDesktopMode();
+                        break;
+
+                    // ── Launcher actions ────────────────────────────────────
+                    // Launched by the helper (user session, works whether the launcher is
+                    // already running or not). Close Game Bar first so the launcher takes
+                    // the foreground cleanly.
+                    case TileActionType.SteamBigPicture:
+                    case TileActionType.Playnite:
+                    case TileActionType.XboxApp:
+                        await LaunchLauncherViaHelper(LauncherKey(actionType), closeGameBar: true);
                         break;
                 }
 

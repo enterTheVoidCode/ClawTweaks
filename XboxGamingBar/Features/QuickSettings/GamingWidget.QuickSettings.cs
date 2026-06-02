@@ -805,7 +805,13 @@ namespace XboxGamingBar
                     if (group != lastGroup)
                     {
                         // Add a disabled group-header item
-                        string headerLabel = group == "OS" ? "— OS Aktionen —" : "— App Aktionen —";
+                        string headerLabel;
+                        switch (group)
+                        {
+                            case "OS":       headerLabel = "— OS Actions —"; break;
+                            case "Launcher": headerLabel = "— Launcher Actions —"; break;
+                            default:         headerLabel = "— ClawTweaks Actions —"; break;
+                        }
                         var header = new ComboBoxItem
                         {
                             Content = headerLabel,
