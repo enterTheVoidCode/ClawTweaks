@@ -743,6 +743,15 @@ namespace XboxGamingBar
                         AddTextBlock(acDcGrid, rowIndex, 1, gameAC.TDPBoostEnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         AddTextBlock(acDcGrid, rowIndex, 2, gameDC.TDPBoostEnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
+
+                        // PL2 overboost value — sub-row shown when either profile has Overboost on.
+                        if (gameAC.TDPBoostEnabled || gameDC.TDPBoostEnabled)
+                        {
+                            AddTextBlock(acDcGrid, rowIndex, 0, "PL2 Overboost", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                            AddTextBlock(acDcGrid, rowIndex, 1, gameAC.TDPBoostEnabled ? $"{gameAC.TDPBoostFPPTWatts}W" : "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 2, gameDC.TDPBoostEnabled ? $"{gameDC.TDPBoostFPPTWatts}W" : "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            rowIndex++;
+                        }
                     }
 
                     // Boost
@@ -901,6 +910,16 @@ namespace XboxGamingBar
                         AddTextBlock(singleGrid, rowIndex, 0, "TDP Overboost", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
                         AddTextBlock(singleGrid, rowIndex, 1, game.TDPBoostEnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
                         rowIndex++;
+
+                        // PL2 overboost value — sub-row shown when Overboost is on.
+                        // Matches the global/live game cards (GlobalProfilePL2 / GameProfilePL2)
+                        // which surface the FPPT watt value the saved card previously omitted.
+                        if (game.TDPBoostEnabled)
+                        {
+                            AddTextBlock(singleGrid, rowIndex, 0, "PL2 Overboost", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
+                            AddTextBlock(singleGrid, rowIndex, 1, $"{game.TDPBoostFPPTWatts}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
+                            rowIndex++;
+                        }
                     }
 
                     // CPU Boost
