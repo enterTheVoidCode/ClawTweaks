@@ -413,7 +413,8 @@
                             Orientation="Horizontal"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
-                            XYFocusKeyboardNavigation="Disabled">
+                            XYFocusKeyboardNavigation="Disabled"
+                            KeyDown="MainNavPanel_KeyDown">
                     <RadioButton x:Name="QuickNavItem" Tag="Quick" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
                         <RadioButton.Content>
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
