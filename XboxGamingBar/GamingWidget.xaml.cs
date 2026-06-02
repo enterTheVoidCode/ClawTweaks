@@ -3191,26 +3191,28 @@ namespace XboxGamingBar
 
                     if (isOnAC)
                     {
-                        ActiveProfileText.Text = $"{currentGameName} (AC)";
+                        ActiveProfileText.Text = $"On · {currentGameName} (AC)";
                     }
                     else
                     {
-                        ActiveProfileText.Text = $"{currentGameName} (DC)";
+                        ActiveProfileText.Text = $"On · {currentGameName} (DC)";
                     }
                 }
                 else
                 {
                     // Game profile without power source split
-                    ActiveProfileText.Text = currentGameName;
+                    ActiveProfileText.Text = $"On · {currentGameName}";
                 }
             }
             else
             {
-                // Global profiles
+                // Global profiles — Per-Game Profile is OFF, so the Global profile applies.
+                // Make that relationship explicit so the user understands why the per-game
+                // toggle being off means global settings are in effect.
                 if (!GetGlobalPowerSourceProfileEnabled())
                 {
                     // Power source profiles disabled, show global
-                    ActiveProfileText.Text = "Global Settings";
+                    ActiveProfileText.Text = "Off · Using Global Settings";
                 }
                 else
                 {
@@ -3226,11 +3228,11 @@ namespace XboxGamingBar
 
                     if (isOnAC)
                     {
-                        ActiveProfileText.Text = "AC Profile (Plugged In)";
+                        ActiveProfileText.Text = "Off · Global AC Profile (Plugged In)";
                     }
                     else
                     {
-                        ActiveProfileText.Text = "DC Profile (Battery)";
+                        ActiveProfileText.Text = "Off · Global DC Profile (Battery)";
                     }
                 }
             }

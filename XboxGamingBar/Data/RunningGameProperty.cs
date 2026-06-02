@@ -103,7 +103,9 @@ namespace XboxGamingBar.Data
                     // Update detected game text on Performance tab
                     if (detectedGameText != null)
                     {
-                        detectedGameText.Text = Value.IsValid() ? Value.GameId.Name : "No game detected";
+                        detectedGameText.Text = Value.IsValid()
+                            ? $"Detected: {Value.GameId.Name}"
+                            : "No app/game detected";
                     }
 
                     // Notify callback for XY navigation update

@@ -186,8 +186,41 @@ namespace XboxGamingBar
             tile.StateTextCanvas = canvas;
             tile.StateTextTransform = transform;
 
-            // All tiles: main content goes directly into the button (no nested split)
-            button.Content = content;
+            // Controller-hotkey indicator: a small teal dot in the top-right corner,
+            // shown when this tile has a controller combo assigned via Customize Tiles.
+            // The teal matches the bound-combo color used in the Customize Tiles panel.
+            // A tooltip reveals the concrete combo after the focus dwell delay.
+            bool hasControllerHotkey = !string.IsNullOrEmpty(tile.ControllerHotkey);
+            if (hasControllerHotkey)
+            {
+                var overlay = new Grid
+                {
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Stretch
+                };
+                overlay.Children.Add(content);
+
+                var dot = new Windows.UI.Xaml.Shapes.Ellipse
+                {
+                    Width = 9,
+                    Height = 9,
+                    Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 80, 220, 200)),
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(0, -6, -4, 0)
+                };
+                overlay.Children.Add(dot);
+                button.Content = overlay;
+
+                // Tooltip shows the concrete combo when focus/hover dwells on the tile.
+                string comboText = XInputMaskToDisplayString(ParseHotkeyMaskUInt(tile.ControllerHotkey));
+                ToolTipService.SetToolTip(button, new ToolTip { Content = $"Controller: {comboText}" });
+            }
+            else
+            {
+                // All tiles: main content goes directly into the button (no nested split)
+                button.Content = content;
+            }
             button.Click += QuickSettingsTile_Click;
             tile.TileButton = button;
             tile.StateText = stateText;

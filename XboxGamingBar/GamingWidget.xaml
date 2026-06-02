@@ -995,7 +995,7 @@
                                             <RectangleGeometry Rect="0,0,200,14"/>
                                         </Canvas.Clip>
                                         <TextBlock x:Name="DetectedGameText"
-                                                   Text="No game detected"
+                                                   Text="No app/game detected"
                                                    FontSize="11"
                                                    Foreground="#666666">
                                             <TextBlock.RenderTransform>
