@@ -275,6 +275,70 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
+        /// Opens a game launcher in the user session. Works whether the launcher is already
+        /// running (foreground or background) or not yet started.
+        ///   - SteamBigPicture: steam://open/bigpicture URI — handled by the user-session Steam
+        ///     (running or not) and forces Big Picture; using the URI (not an elevated child
+        ///     process) keeps Steam out of an elevated context.
+        ///   - Playnite: launches %LOCALAPPDATA%\Playnite\Playnite.FullscreenApp.exe (single-instance,
+        ///     brings itself to the foreground if already running).
+        ///   - XboxApp: launches the Xbox (Game Pass) app via its AppsFolder AUMID.
+        /// </summary>
+        internal static async void LaunchLauncher(string which)
+        {
+            try
+            {
+                switch (which)
+                {
+                    case "SteamBigPicture":
+                        await global::Windows.System.Launcher.LaunchUriAsync(new Uri("steam://open/bigpicture"));
+                        Logger.Info("LaunchLauncher: Steam Big Picture requested (steam://open/bigpicture)");
+                        break;
+
+                    case "Playnite":
+                        {
+                            string playnite = System.IO.Path.Combine(
+                                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                                "Playnite", "Playnite.FullscreenApp.exe");
+                            if (System.IO.File.Exists(playnite))
+                            {
+                                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                                {
+                                    FileName = playnite,
+                                    WorkingDirectory = System.IO.Path.GetDirectoryName(playnite),
+                                    UseShellExecute = true
+                                });
+                                Logger.Info($"LaunchLauncher: Playnite Fullscreen launched from {playnite}");
+                            }
+                            else
+                            {
+                                Logger.Warn($"LaunchLauncher: Playnite not found at {playnite}");
+                            }
+                        }
+                        break;
+
+                    case "XboxApp":
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = "explorer.exe",
+                            Arguments = @"shell:AppsFolder\Microsoft.GamingApp_8wekyb3d8bbwe!Microsoft.Xbox.App",
+                            UseShellExecute = true
+                        });
+                        Logger.Info("LaunchLauncher: Xbox app launched via AppsFolder AUMID");
+                        break;
+
+                    default:
+                        Logger.Warn($"LaunchLauncher: unknown launcher '{which}'");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LaunchLauncher({which}): {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Apply controller hotkey configuration received from the widget.
         /// Enables/disables XInput-based button combo detection.
         /// </summary>
@@ -420,6 +484,15 @@ namespace XboxGamingBarHelper
                             case 29: // ToggleControllerMouseMode — direct toggle in helper, no pipe roundtrip needed
                                 ToggleControllerMouseModeInHelper(); // shows its own "Hotkey: Mouse/Controller" notification
                                 skipGenericNotification = true;
+                                break;
+                            case 40: // SteamBigPicture — launcher action, runs helper-side (GameBar closed)
+                                LaunchLauncher("SteamBigPicture");
+                                break;
+                            case 41: // Playnite
+                                LaunchLauncher("Playnite");
+                                break;
+                            case 42: // XboxApp
+                                LaunchLauncher("XboxApp");
                                 break;
                             case 1:  // KeyboardShortcut (custom)
                                 if (!string.IsNullOrEmpty(capturedShortcut))

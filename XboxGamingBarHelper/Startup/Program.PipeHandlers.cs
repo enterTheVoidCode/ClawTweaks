@@ -111,6 +111,23 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Handle launcher open request (Steam Big Picture / Playnite / Xbox app)
+                if (pipeMsg.Extra.TryGetValue("LaunchLauncher", out object launcherObj) && launcherObj is string launcherKey)
+                {
+                    try
+                    {
+                        Logger.Info($"Pipe: LaunchLauncher request received: {launcherKey}");
+                        LaunchLauncher(launcherKey);
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: Failed to launch '{launcherKey}': {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
                 // Handle LaunchUrl request (for Donate button, etc.)
                 if (pipeMsg.Extra.TryGetValue("LaunchUrl", out object urlValue) && urlValue is string url)
                 {

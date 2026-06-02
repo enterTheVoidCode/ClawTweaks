@@ -156,6 +156,11 @@ namespace XboxGamingBarHelper
                     case 14: SendKeyboardShortcutViaInputInjector("Win+D"); break;   // GoToDesktop
                     case 27: AdjustVolume(+5); break;       // VolumeUp
                     case 28: AdjustVolume(-5); break;       // VolumeDown
+                    // Launcher actions run helper-side too, so the Left CLAW button works even
+                    // when the Game Bar is closed (the widget pipe round-trip would fail then).
+                    case 40: LaunchLauncher("SteamBigPicture"); break;
+                    case 41: LaunchLauncher("Playnite"); break;
+                    case 42: LaunchLauncher("XboxApp"); break;
                     default:
                         // App actions that need widget state — try widget (may not work when suspended)
                         FireTileHotkeyToWidget($"__action__{actionType}", actionName);

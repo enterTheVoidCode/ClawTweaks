@@ -22,6 +22,9 @@ namespace XboxGamingBarHelper
                 case 27: return "Volume +5%";
                 case 28: return "Volume -5%";
                 case 29: return "Toggle Controller/Mouse";
+                case 40: return "Steam Big Picture";
+                case 41: return "Playnite";
+                case 42: return "Xbox App";
                 default: return $"Action {actionType}";
             }
         }

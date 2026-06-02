@@ -32,6 +32,11 @@ namespace XboxGamingBar.QuickSettings
         VolumeUp          = 27,   // system volume +5 %
         VolumeDown        = 28,   // system volume -5 %
         ToggleControllerMouseMode = 29, // MSI Claw: toggle Controller ↔ Mouse mode
+
+        // ── Launcher Actions (40–49) ───────────────────────────────────────
+        SteamBigPicture   = 40,   // open Steam Big Picture (steam://open/bigpicture)
+        Playnite          = 41,   // open Playnite Fullscreen
+        XboxApp           = 42,   // open the Xbox (Game Pass) app
     }
 
     public static class TileActionHelper
@@ -56,6 +61,9 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.VolumeUp:         return "Volume +5%";
                 case TileActionType.VolumeDown:       return "Volume -5%";
                 case TileActionType.ToggleControllerMouseMode: return "Toggle Controller/Mouse";
+                case TileActionType.SteamBigPicture:  return "Steam Big Picture";
+                case TileActionType.Playnite:         return "Playnite";
+                case TileActionType.XboxApp:          return "Xbox App";
                 default: return "Unknown";
             }
         }
@@ -80,6 +88,9 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.TDPIncrBy1W:      return "TDP+1";
                 case TileActionType.TDPDecrBy1W:      return "TDP-1";
                 case TileActionType.ToggleControllerMouseMode: return "Ctrl/Mouse";
+                case TileActionType.SteamBigPicture:  return "Steam";
+                case TileActionType.Playnite:         return "Playnite";
+                case TileActionType.XboxApp:          return "Xbox";
                 default: return GetDisplayName(action);
             }
         }
@@ -110,7 +121,8 @@ namespace XboxGamingBar.QuickSettings
         {
             int v = (int)action;
             if (v >= 10 && v < 20) return "OS";
-            if (v == 27 || v == 28) return "OS";  // VolumeUp / VolumeDown
+            if (v == 27 || v == 28) return "OS";       // VolumeUp / VolumeDown
+            if (v >= 40 && v < 50) return "Launcher";  // Launcher actions (Steam BP, Playnite, Xbox)
             if (v >= 20) return "App";
             return "";
         }
@@ -139,6 +151,10 @@ namespace XboxGamingBar.QuickSettings
             yield return TileActionType.TDPDecrBy1W;
             // MSI Claw only
             yield return TileActionType.ToggleControllerMouseMode;
+            // Launcher group
+            yield return TileActionType.SteamBigPicture;
+            yield return TileActionType.Playnite;
+            yield return TileActionType.XboxApp;
         }
     }
 }
