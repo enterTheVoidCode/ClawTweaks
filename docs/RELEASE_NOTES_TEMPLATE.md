@@ -33,6 +33,23 @@ refactors, build-system changes, and code cleanups.
 
 ---
 
+## Callout convention
+
+Use GitHub callouts to add visual variation and draw the eye to the things that
+matter — don't leave the notes as one flat bullet list. Keep them short.
+
+- `> [!TIP]` — optional but helpful guidance. Use for the handheld "just run
+  `Install.bat`, no keyboard needed" hint and for widget reordering.
+- `> [!IMPORTANT]` — must-know to avoid a broken experience. Use for the MSI Claw
+  hardware mouse/controller switch (hold **Start** ≥ 3 s when the controller seems dead).
+- `> [!NOTE]` — neutral side info (e.g. reordering widgets) when it isn't really a tip.
+
+Aim for at least a `[!TIP]` near the top of Installation and the `[!IMPORTANT]`
+hardware-switch note after the setup steps, so every release has consistent
+visual structure.
+
+---
+
 ## Template
 
 ```
@@ -40,6 +57,10 @@ refactors, build-system changes, and code cleanups.
 
 Before installing, exit any competing controller management tools like Handheld
 Companion or Winhanced to avoid conflicts.
+
+> [!TIP]
+> On a handheld, just run Install.bat. It auto-elevates, installs everything, and
+> closes itself afterwards — no keyboard input required at any point.
 
 **Setup process:**
 1. Extract the ZIP file to your chosen directory
@@ -52,12 +73,13 @@ Companion or Winhanced to avoid conflicts.
 8. Enable Virtual Controller & Mouse in the Controls tab
 9. By default you can switch between Mouse and Controller mode with Start + Select
 
-> No controller input? If nothing on the controller works and the left stick only
-> moves the mouse cursor, the MSI Claw's hardware mouse/controller switch is in mouse
-> mode. Hold the Start button for at least 3 seconds to switch it back.
+> [!IMPORTANT]
+> No controller input at all? If nothing on the controller works and the left stick
+> only moves the mouse cursor, the MSI Claw's hardware mouse/controller switch is in
+> mouse mode. Hold the Start button for at least 3 seconds to switch it back.
 
-**Recommended tips:**
-- Reorder widgets by removing and re-adding them in desired sequence
+> [!NOTE]
+> Reordering widgets: remove and re-add them in the desired sequence.
 
 The installer uses a self-signed certificate (CN=ClawTweaks Dev) with automatic trust handling.
 
