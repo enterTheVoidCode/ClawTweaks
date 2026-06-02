@@ -560,8 +560,12 @@ namespace XboxGamingBarHelper
                 // Show OSD notification
                 rtssManager?.ShowNotification($"Hotkey: {modeName}", 4000);
 
-                // Notify widget so tile icon updates (best-effort — works when pipe connected)
-                FireTileHotkeyToWidget("MSIClawDesktopMode", $"Mode: {modeName}");
+                // NOTE: do NOT FireTileHotkeyToWidget here. The helper already toggled the mode
+                // authoritatively above; the widget's MsiClawControllerMode property is synced
+                // from that SetValue and refreshes the tile icon via QuickSettingsProperty_Changed.
+                // Firing TileHotkeyFired would make the widget re-run the tile's toggle action
+                // (SimulateTileHotkeyFired → QuickSettingsTile_Click), double-toggling the mode
+                // back so it appeared to never change.
             }
             catch (Exception ex)
             {

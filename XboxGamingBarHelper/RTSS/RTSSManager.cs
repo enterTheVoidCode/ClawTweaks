@@ -205,6 +205,75 @@ namespace XboxGamingBarHelper.RTSS
         }
 
         /// <summary>
+        /// Re-pushes the RTSS framerate limit once RTSS has actually hooked a game.
+        ///
+        /// RTSS only enforces a cap on a process it has already hooked. At game start the limit
+        /// is set before RTSS hooks the new render process (which can be many seconds late for
+        /// launchers / anti-cheat / shader compile), so the cap never reaches the game — the user
+        /// had to nudge the value to trigger a re-push. This polls the RTSS shared-memory app list
+        /// and re-applies the limit as soon as a hooked app appears, so the cap takes effect on
+        /// its own. Aborts if the limit value changes meanwhile (profile switch / user change).
+        /// </summary>
+        // Guards against stacking multiple re-apply poll loops when RunningGame fires
+        // repeatedly (e.g. foreground changes for the same game).
+        private int _fpsReapplyPolling = 0;
+
+        public void ReapplyFpsLimitWhenHooked(int fpsLimit)
+        {
+            if (fpsLimit <= 0) return;
+
+            // Only one poll loop at a time — if one is already running, let it finish.
+            if (System.Threading.Interlocked.CompareExchange(ref _fpsReapplyPolling, 1, 0) != 0)
+                return;
+
+            _ = System.Threading.Tasks.Task.Run(async () =>
+            {
+                try
+                {
+                    // Hard-bounded poll: ~30s max (15 × 2s). Stops immediately once the limit is
+                    // applied to a hooked app, or if the value changes meanwhile. Never loops
+                    // indefinitely.
+                    for (int attempt = 0; attempt < 15; attempt++)
+                    {
+                        await System.Threading.Tasks.Task.Delay(2000);
+
+                        // Value changed since scheduling (profile switch / user edit) → abandon.
+                        if (FPSLimit.Value != fpsLimit) return;
+
+                        try
+                        {
+                            var entries = OSD.GetAppEntries(AppFlags.MASK);
+                            bool hooked = false;
+                            if (entries != null)
+                            {
+                                foreach (var entry in entries)
+                                {
+                                    if (entry.ProcessId != 0) { hooked = true; break; }
+                                }
+                            }
+
+                            if (hooked)
+                            {
+                                RTSSFPSLimiter.SetFPSLimit(fpsLimit);
+                                Logger.Info($"RTSSManager: Re-applied FPS limit {fpsLimit} after RTSS hooked the game (attempt {attempt + 1})");
+                                return;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Debug($"ReapplyFpsLimitWhenHooked: {ex.Message}");
+                        }
+                    }
+                    Logger.Debug("ReapplyFpsLimitWhenHooked: gave up after ~30s (no hooked app detected)");
+                }
+                finally
+                {
+                    System.Threading.Interlocked.Exchange(ref _fpsReapplyPolling, 0);
+                }
+            });
+        }
+
+        /// <summary>
         /// Parses the OSD configuration string from the widget.
         /// Format: "Position:0;Columns:3;TextSize:100;TextColor:FFFFFF;BackgroundColor:80000000;L1:FPS,Battery;L2:...;L1_Custom:tags"
         /// </summary>

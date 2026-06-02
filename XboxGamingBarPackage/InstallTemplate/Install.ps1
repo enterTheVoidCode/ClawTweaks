@@ -697,10 +697,8 @@ if ($existingPkg) {
     Write-Host ""
 }
 
-if (-not $Force) {
-    Write-Host "  Press Enter to continue or Ctrl+C to cancel..." -ForegroundColor DarkGray
-    Read-Host | Out-Null
-}
+# Installation starts automatically (no Enter prompt). Press Ctrl+C to cancel.
+Write-Host "  Starting installation..." -ForegroundColor DarkGray
 
 $TotalSteps = if ($SkipPrereqs) { 6 } else { 7 }
 

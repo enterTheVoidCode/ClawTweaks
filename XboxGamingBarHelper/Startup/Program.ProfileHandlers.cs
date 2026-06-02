@@ -1087,6 +1087,16 @@ namespace XboxGamingBarHelper
                         var gamePath = systemManager.RunningGame.Value.GameId.Path;
                         losslessScalingManager.SetCurrentGame(gameName, gamePath);
                     }
+
+                    // RTSS only enforces a framerate cap on a game once it has hooked that process.
+                    // At game start the limit is set before RTSS hooks the new render process (which
+                    // can be many seconds late), so the cap never reaches the game until the user
+                    // nudges the value. Poll for the hook (bounded ~30s) and re-push the limit once
+                    // RTSS is hooked. RTSS mode only — Intel tier has its own apply path.
+                    if (rtssManager.FPSLimit.Value > 0 && intelGpuManager.IntelFpsTier.Value == 0)
+                    {
+                        rtssManager.ReapplyFpsLimitWhenHooked(rtssManager.FPSLimit.Value);
+                    }
                 }
                 else
                 {
