@@ -67,7 +67,13 @@ namespace XboxGamingBar
                     return;
                 }
 
-                Logger.Debug($"Widget received pipe message: Function={message["Function"]}");
+                // Use TryGetValue — not every helper→widget message carries a "Function" key
+                // (e.g. TileHotkeyFired, DriverUpdatesAvailable, GoTweaksUpdate). Indexing a
+                // missing key threw KeyNotFoundException here, which aborted the whole handler
+                // (logged as "Error processing pipe message from helper: key") and silently
+                // dropped those messages.
+                object funcForLog = message.TryGetValue("Function", out var funcLogVal) ? funcLogVal : "(none)";
+                Logger.Debug($"Widget received pipe message: Function={funcForLog}");
 
                 // Check for focus widget request from helper
                 if (message.TryGetValue("Function", out object funcObj) &&
