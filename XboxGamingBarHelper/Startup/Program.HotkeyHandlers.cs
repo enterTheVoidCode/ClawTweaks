@@ -246,14 +246,17 @@ namespace XboxGamingBarHelper
         /// <summary>
         /// Toggles OSD visibility by cycling through OSD levels (0=Off, 1, 2, 3)
         /// </summary>
-        private static void ToggleOSD()
+        /// <summary>
+        /// Cycle the OSD overlay level 0→1→2→3→0. Returns the new level, or -1 on failure.
+        /// </summary>
+        private static int ToggleOSD()
         {
             try
             {
                 if (onScreenDisplay == null)
                 {
                     Logger.Warn("ToggleOSD: OSD property not initialized");
-                    return;
+                    return -1;
                 }
 
                 // Cycle through levels: 0 -> 1 -> 2 -> 3 -> 0
@@ -262,10 +265,12 @@ namespace XboxGamingBarHelper
 
                 onScreenDisplay.SetValue(newLevel);
                 Logger.Info($"ToggleOSD: OSD level changed from {currentLevel} to {newLevel}");
+                return newLevel;
             }
             catch (Exception ex)
             {
                 Logger.Error($"ToggleOSD: {ex.Message}");
+                return -1;
             }
         }
 
@@ -431,9 +436,39 @@ namespace XboxGamingBarHelper
                                 // to in-process overlays. Win32 path had timing/flag differences
                                 // that OptiScaler's hook rejected. Tested: v0.1.197.234.
                                 if (!string.IsNullOrEmpty(capturedShortcut))
+                                {
                                     ExecuteKeyboardShortcut(capturedShortcut);
+                                }
                                 else
-                                    FireTileHotkeyToWidget(capturedId, capturedName);
+                                {
+                                    // Built-in tiles that have no keyboard shortcut need a helper-side
+                                    // action: when the Game Bar is closed the widget is suspended, so
+                                    // FireTileHotkeyToWidget reaches nothing. Run their action directly
+                                    // in the helper instead. (Tiles WITH a shortcut — OptiScaler/ReShade —
+                                    // never enter this branch and stay untouched.)
+                                    switch (capturedId)
+                                    {
+                                        case "Keyboard":
+                                            // Toggle the on-screen / touch keyboard (same as the tile click).
+                                            TouchKeyboardHelper.Toggle();
+                                            break;
+                                        case "Overlay":
+                                            // Cycle the OSD overlay levels 0→1→2→3→0 (same states the
+                                            // tile dropdown exposes) and show the level we switched to —
+                                            // including "Off" (level 0) — instead of the generic name.
+                                            int overlayLevel = ToggleOSD();
+                                            if (overlayLevel >= 0)
+                                            {
+                                                string overlayLabel = overlayLevel == 0 ? "Off" : overlayLevel.ToString();
+                                                rtssManager?.ShowNotification($"Overlay: {overlayLabel}", 4000);
+                                                skipGenericNotification = true;
+                                            }
+                                            break;
+                                        default:
+                                            FireTileHotkeyToWidget(capturedId, capturedName);
+                                            break;
+                                    }
+                                }
                                 break;
                             default:
                                 // Widget-side app actions (21=CycleTDPMode, 22=TDPStepUp, 23=TDPStepDown,
@@ -805,6 +840,53 @@ namespace XboxGamingBarHelper
         private interface ITipInvocation
         {
             void Toggle(IntPtr hwnd);
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        // Touch keyboard host window class. When the on-screen keyboard is shown this
+        // window is visible; when hidden it isn't (or doesn't exist yet).
+        private const string TouchKeyboardWindowClass = "IPTip_Main_Window";
+
+        /// <summary>True when the on-screen / touch keyboard is currently shown.</summary>
+        private static bool IsKeyboardVisible()
+        {
+            try
+            {
+                IntPtr hwnd = FindWindow(TouchKeyboardWindowClass, null);
+                return hwnd != IntPtr.Zero && IsWindowVisible(hwnd);
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// Reliably SHOW the keyboard. Used by the Quick Settings "Keyboard" tile, whose
+        /// intent is "open the keyboard" — unlike the controller hotkey which keeps the raw
+        /// COM toggle. Because <see cref="Toggle"/> is a blind toggle, clicking the tile while
+        /// the keyboard is already up (e.g. opened earlier via the hotkey) would close it and
+        /// look broken. Here we only toggle when it isn't already visible, so the tile always
+        /// ends with the keyboard shown.
+        /// </summary>
+        public static void EnsureOpen()
+        {
+            try
+            {
+                if (IsKeyboardVisible())
+                {
+                    Logger.Info("Touch keyboard already visible — tile open is a no-op");
+                    return;
+                }
+                Toggle(); // closed → open
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"EnsureOpen error: {ex.Message}");
+                TryLaunchTabTip();
+            }
         }
 
         public static void Toggle()

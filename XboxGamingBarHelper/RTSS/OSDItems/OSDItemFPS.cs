@@ -51,10 +51,12 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         {
             if (_fpsCapValue <= 0) return string.Empty;
 
-            string mutedColor = ApplyOpacity("686868");
+            // Use the standard text color (same opacity as FPS/frametime) so the cap info
+            // reads like every other OSD element instead of a faded/transparent grey.
+            string textColor = GetTextColorWithOpacity();
             string mode = _fpsCapIsIntel ? "Intel" : "RTSS";
             // <S=55> = 55% text size (subtly smaller); reset with <S> after
-            return $"<S=55><C={mutedColor}>[{mode} {_fpsCapValue}]<C><S>";
+            return $"<S=55><C={textColor}>[{mode} {_fpsCapValue}]<C><S>";
         }
     }
 }

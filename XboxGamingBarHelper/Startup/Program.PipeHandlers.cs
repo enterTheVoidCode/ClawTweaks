@@ -96,8 +96,11 @@ namespace XboxGamingBarHelper
                     try
                     {
                         Logger.Info("Pipe: ToggleTouchKeyboard request received");
-                        TouchKeyboardHelper.Toggle();
-                        Logger.Info("Pipe: Touch keyboard toggled");
+                        // Tile intent is "open the keyboard": EnsureOpen avoids the blind-toggle
+                        // race where the keyboard (already opened via the controller hotkey) would
+                        // be closed by the tile click. The hotkey path keeps the raw Toggle.
+                        TouchKeyboardHelper.EnsureOpen();
+                        Logger.Info("Pipe: Touch keyboard ensure-open executed");
                         SendPipeAck(pipeMsg.RequestId);
                     }
                     catch (Exception ex)

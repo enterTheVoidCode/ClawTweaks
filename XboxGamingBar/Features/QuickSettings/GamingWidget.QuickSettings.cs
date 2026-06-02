@@ -631,8 +631,12 @@ namespace XboxGamingBar
                         tile.IsVisible = visible;
                     if (settings.Values.TryGetValue(orderKey, out object orderVal) && orderVal is int order)
                         tile.Order = order;
-                    // Restore controller hotkey for built-in tiles (custom tiles load theirs via QuickSettingsConfig)
-                    if (!tile.IsTrigger && settings.Values.TryGetValue(hotkeyKey, out object hkVal) && hkVal is string hk && !string.IsNullOrEmpty(hk))
+                    // Restore controller hotkey for built-in tiles (custom tiles load theirs via QuickSettingsConfig).
+                    // Distinguish by config membership, not IsTrigger: the built-in "Keyboard" tile is a trigger
+                    // tile yet is NOT a QuickSettingsConfig entry, so it must persist via the QS_ key like other
+                    // built-ins (mirrors BtnBindCommit's save path).
+                    bool isConfigTile = QuickSettings.QuickSettingsConfig.Instance.GetTile(tile.Id) != null;
+                    if (!isConfigTile && settings.Values.TryGetValue(hotkeyKey, out object hkVal) && hkVal is string hk && !string.IsNullOrEmpty(hk))
                         tile.ControllerHotkey = hk;
 
                     // Reserved: per-game hotkey overrides — load QS_{Id}_Hotkey_{appId} entries
@@ -664,8 +668,10 @@ namespace XboxGamingBar
                 {
                     settings.Values[$"QS_{tile.Id}_Visible"] = tile.IsVisible;
                     settings.Values[$"QS_{tile.Id}_Order"]   = tile.Order;
-                    // Persist controller hotkey for built-in tiles (custom tiles use QuickSettingsConfig)
-                    if (!tile.IsTrigger)
+                    // Persist controller hotkey for built-in tiles (custom tiles use QuickSettingsConfig).
+                    // Config membership — not IsTrigger — is the correct discriminator so the built-in
+                    // "Keyboard" trigger tile keeps its hotkey across restarts.
+                    if (QuickSettings.QuickSettingsConfig.Instance.GetTile(tile.Id) == null)
                         settings.Values[$"QS_{tile.Id}_Hotkey"] = tile.ControllerHotkey ?? "";
                 }
 
