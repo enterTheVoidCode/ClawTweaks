@@ -2274,17 +2274,10 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Global Profile Section -->
-                        <TextBlock Text="Globale perf. profile"
-                                   FontSize="16"
-                                   Foreground="#00C8FF"
-                                   FontWeight="SemiBold"
-                                   Margin="0,16,0,8"/>
-
                         <!-- Global Profile Card -->
-                        <Border Style="{StaticResource CardStyle}">
+                        <Border Style="{StaticResource CardStyle}" Margin="0,16,0,0">
                             <StackPanel>
-                                <TextBlock Text="Global"
+                                <TextBlock Text="Global performance profile"
                                            Style="{StaticResource CardTitleStyle}"
                                            Foreground="#00FF88"
                                            FontSize="14"/>

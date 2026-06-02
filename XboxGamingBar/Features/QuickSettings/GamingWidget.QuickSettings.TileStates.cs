@@ -202,19 +202,19 @@ namespace XboxGamingBar
 
                 var dot = new Windows.UI.Xaml.Shapes.Ellipse
                 {
-                    Width = 9,
-                    Height = 9,
+                    Width = 5,
+                    Height = 5,
                     Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 80, 220, 200)),
                     HorizontalAlignment = HorizontalAlignment.Right,
                     VerticalAlignment = VerticalAlignment.Top,
-                    Margin = new Thickness(0, -6, -4, 0)
+                    Margin = new Thickness(0, -4, -2, 0)
                 };
                 overlay.Children.Add(dot);
                 button.Content = overlay;
 
                 // Tooltip shows the concrete combo when focus/hover dwells on the tile.
                 string comboText = XInputMaskToDisplayString(ParseHotkeyMaskUInt(tile.ControllerHotkey));
-                ToolTipService.SetToolTip(button, new ToolTip { Content = $"Controller: {comboText}" });
+                ToolTipService.SetToolTip(button, new ToolTip { Content = $"Hotkey: {comboText}" });
             }
             else
             {
