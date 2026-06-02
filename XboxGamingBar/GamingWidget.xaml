@@ -965,7 +965,7 @@
 
                                 <!-- Left: label + active profile name + game detection -->
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
-                                    <TextBlock Text="Per-Game Profile"
+                                    <TextBlock Text="Per Game performance profile"
                                                FontSize="13"
                                                FontWeight="SemiBold"
                                                Foreground="#FFFFFF"/>
@@ -987,23 +987,33 @@
                                             </TextBlock.RenderTransform>
                                         </TextBlock>
                                     </Canvas>
-                                    <!-- Detected game name — shown when game runs -->
-                                    <Canvas x:Name="DetectedGameTextCanvas"
-                                            Height="14"
-                                            Margin="0,2,0,0"
-                                            HorizontalAlignment="Left">
-                                        <Canvas.Clip>
-                                            <RectangleGeometry Rect="0,0,200,14"/>
-                                        </Canvas.Clip>
-                                        <TextBlock x:Name="DetectedGameText"
-                                                   Text="No app/game detected"
-                                                   FontSize="11"
-                                                   Foreground="#666666">
-                                            <TextBlock.RenderTransform>
-                                                <TranslateTransform x:Name="DetectedGameTextTransform"/>
-                                            </TextBlock.RenderTransform>
-                                        </TextBlock>
-                                    </Canvas>
+                                    <!-- Detected game name — shown when game runs.
+                                         Game icon shown to the left, same layout as the
+                                         Controls tab's Per-Game Controller Profile card. -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <Image x:Name="PerGamePerformanceProfileGameIcon"
+                                               Width="16" Height="16"
+                                               Margin="0,0,6,0"
+                                               Stretch="UniformToFill"
+                                               VerticalAlignment="Center"
+                                               Visibility="Collapsed"/>
+                                        <Canvas x:Name="DetectedGameTextCanvas"
+                                                Height="14"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Center">
+                                            <Canvas.Clip>
+                                                <RectangleGeometry Rect="0,0,200,14"/>
+                                            </Canvas.Clip>
+                                            <TextBlock x:Name="DetectedGameText"
+                                                       Text="No app/game detected"
+                                                       FontSize="11"
+                                                       Foreground="#666666">
+                                                <TextBlock.RenderTransform>
+                                                    <TranslateTransform x:Name="DetectedGameTextTransform"/>
+                                                </TextBlock.RenderTransform>
+                                            </TextBlock>
+                                        </Canvas>
+                                    </StackPanel>
                                 </StackPanel>
 
                                 <!-- Right: toggle top-aligned -->

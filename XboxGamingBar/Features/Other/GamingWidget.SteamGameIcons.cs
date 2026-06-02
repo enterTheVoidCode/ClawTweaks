@@ -297,6 +297,11 @@ namespace XboxGamingBar
                         LegionControllerProfileGameIcon.Source = null;
                         LegionControllerProfileGameIcon.Visibility = Visibility.Collapsed;
                     }
+                    if (PerGamePerformanceProfileGameIcon != null)
+                    {
+                        PerGamePerformanceProfileGameIcon.Source = null;
+                        PerGamePerformanceProfileGameIcon.Visibility = Visibility.Collapsed;
+                    }
                 });
                 return;
             }
@@ -343,6 +348,11 @@ namespace XboxGamingBar
                             LegionControllerProfileGameIcon.Source = null;
                             LegionControllerProfileGameIcon.Visibility = Visibility.Collapsed;
                         }
+                        if (PerGamePerformanceProfileGameIcon != null)
+                        {
+                            PerGamePerformanceProfileGameIcon.Source = null;
+                            PerGamePerformanceProfileGameIcon.Visibility = Visibility.Collapsed;
+                        }
                     });
                     return;
                 }
@@ -368,6 +378,11 @@ namespace XboxGamingBar
                                 LegionControllerProfileGameIcon.Source = bitmapImage;
                                 LegionControllerProfileGameIcon.Visibility = Visibility.Visible;
                             }
+                            if (PerGamePerformanceProfileGameIcon != null)
+                            {
+                                PerGamePerformanceProfileGameIcon.Source = bitmapImage;
+                                PerGamePerformanceProfileGameIcon.Visibility = Visibility.Visible;
+                            }
                             Logger.Info($"LoadCurrentGameIcon: Icon loaded successfully");
                         }
                     }
@@ -383,6 +398,11 @@ namespace XboxGamingBar
                         {
                             LegionControllerProfileGameIcon.Source = null;
                             LegionControllerProfileGameIcon.Visibility = Visibility.Collapsed;
+                        }
+                        if (PerGamePerformanceProfileGameIcon != null)
+                        {
+                            PerGamePerformanceProfileGameIcon.Source = null;
+                            PerGamePerformanceProfileGameIcon.Visibility = Visibility.Collapsed;
                         }
                     }
                 });

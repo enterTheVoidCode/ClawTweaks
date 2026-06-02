@@ -72,15 +72,19 @@ if %EXIT_CODE% neq 0 (
     echo take a screenshot and report it on GitHub:
     echo https://github.com/enterTheVoidCode/ClawTweaks/issues
     echo.
-) else (
-    echo.
-    echo =============================================
-    echo   Installation complete!
-    echo =============================================
-    echo.
+    echo Press any key to close this window...
+    pause >nul
+    endlocal
+    exit /b %EXIT_CODE%
 )
 
-:end
-echo Press any key to close this window...
-pause >nul
+:: ── Success — auto-close after 2 seconds ─────────────────────
+echo.
+echo =============================================
+echo   Installation complete!
+echo =============================================
+echo.
+echo This window will close automatically in 2 seconds...
+timeout /t 2 /nobreak >nul
 endlocal
+exit /b 0
