@@ -397,6 +397,9 @@
     <Compile Include="Features\Devices\GamingWidget.GpdFanCurve.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\Devices\GamingWidget.MsiFanControl.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\Hotkeys\GamingWidget.KeyDropdowns.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>

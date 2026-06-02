@@ -108,6 +108,17 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Helper pushes MSI fan EC read-back in response to a verify request.
+                if (message.TryGetValue("MsiFanStatus", out object msiFanStatusObj) && msiFanStatusObj is string msiFanStatus)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnMsiFanStatus(msiFanStatus); }
+                        catch (Exception ex) { Logger.Error($"OnMsiFanStatus dispatch error: {ex.Message}"); }
+                    });
+                    return;
+                }
+
                 // Helper pushes DriverUpdatesAvailable as an unsolicited message
                 // after its startup driver probe completes. Light up the Quick
                 // tab tile; no other state needs updating yet.

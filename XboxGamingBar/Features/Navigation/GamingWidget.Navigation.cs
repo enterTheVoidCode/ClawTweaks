@@ -78,6 +78,10 @@ namespace XboxGamingBar
                     case "Performance":
                         PerformanceScrollViewer.Visibility = Visibility.Visible;
                         PerformanceScrollViewer.ChangeView(null, 0, null, true);
+                        // Re-evaluate the MSI fan card here too: the device name may have
+                        // arrived after Loaded, and this guarantees a fresh check on the
+                        // instance the user is actually viewing.
+                        InitializeMsiFanCard();
                         break;
                     case "Game":
                         GameScrollViewer.Visibility = Visibility.Visible;

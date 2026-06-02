@@ -111,6 +111,58 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Handle MSI Claw fan-control request (0/1/2 = preset, -1 = firmware)
+                if (pipeMsg.Extra.TryGetValue("MsiFanControl", out object msiFanObj))
+                {
+                    try
+                    {
+                        int value = Convert.ToInt32(msiFanObj);
+                        Logger.Info($"Pipe: MsiFanControl request received: {value}");
+                        ApplyMsiFan(value);
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: MsiFanControl failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // Handle MSI Claw fan verification request → read EC values and push status back
+                if (pipeMsg.Extra.ContainsKey("MsiFanVerify"))
+                {
+                    try
+                    {
+                        Logger.Info("Pipe: MsiFanVerify request received");
+                        ReportMsiFanStatus();
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: MsiFanVerify failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // Handle MSI Claw custom fan curve (CSV of 11 values 0-100)
+                if (pipeMsg.Extra.TryGetValue("MsiFanCurve", out object msiFanCurveObj) && msiFanCurveObj is string msiFanCsv)
+                {
+                    try
+                    {
+                        Logger.Info($"Pipe: MsiFanCurve request received: '{msiFanCsv}'");
+                        ApplyMsiFanCurve(msiFanCsv);
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: MsiFanCurve failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
                 // Handle launcher open request (Steam Big Picture / Playnite / Xbox app)
                 if (pipeMsg.Extra.TryGetValue("LaunchLauncher", out object launcherObj) && launcherObj is string launcherKey)
                 {

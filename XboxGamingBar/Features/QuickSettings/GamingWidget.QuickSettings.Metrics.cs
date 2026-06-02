@@ -127,6 +127,9 @@ namespace XboxGamingBar
                     try
                     {
                         UpdateMetricsDisplay();
+                        // Feed the MSI fan graph's live CPU package-temperature indicator.
+                        if (currentMetricsData.TryGetValue("cpuTemp", out var ct) && ct > 0)
+                            UpdateMsiFanGraphTemp(ct);
                     }
                     catch (Exception ex)
                     {

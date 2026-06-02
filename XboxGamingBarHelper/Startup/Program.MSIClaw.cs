@@ -173,6 +173,222 @@ namespace XboxGamingBarHelper
             }
         }
 
+        /// <summary>
+        /// Apply an MSI Claw fan command from the widget.
+        /// value: 0/1/2 = software preset (Quiet/Default/Aggressive); -1 = disable → firmware control.
+        /// Persisted so it can be re-applied on startup (the EC resets across reboots).
+        /// </summary>
+        internal static void ApplyMsiFan(int value)
+        {
+            try
+            {
+                Logger.Info($"ApplyMsiFan: value={value}");
+                Settings.LocalSettingsHelper.SetValue("MsiFan_Value", value);
+
+                if (value < 0)
+                {
+                    MsiClawFanController.RestoreFirmwareControl();
+                    return;
+                }
+
+                // 3 = custom curve stored as CSV; 0/1/2 = built-in presets.
+                if (value == 3)
+                {
+                    if (Settings.LocalSettingsHelper.TryGetValue<string>("MsiFan_Curve", out string csv)
+                        && TryParseCurve(csv, out double[] custom))
+                    {
+                        MsiClawFanController.ApplySoftwareCurve(custom);
+                    }
+                    else
+                    {
+                        Logger.Warn("ApplyMsiFan: custom selected but no valid saved curve — falling back to Default");
+                        MsiClawFanController.ApplySoftwareCurve(MsiClawFanController.Curve_Default);
+                    }
+                    return;
+                }
+
+                double[] curve;
+                switch (value)
+                {
+                    case 0:  curve = MsiClawFanController.Curve_Quiet;      break;
+                    case 2:  curve = MsiClawFanController.Curve_Aggressive; break;
+                    default: curve = MsiClawFanController.Curve_Default;    break;
+                }
+                MsiClawFanController.ApplySoftwareCurve(curve);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ApplyMsiFan({value}) failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Read the current EC fan table + control bit and push it back to the widget as
+        /// "MsiFanStatus":"b0,..,b7|controlBit|readOk" so the widget can verify against the graph.
+        /// </summary>
+        internal static void ReportMsiFanStatus()
+        {
+            try
+            {
+                bool ok = MsiClawFanController.ReadStatus(out byte[] table, out bool controlOn);
+                string csv = string.Join(",", table);
+                string json = $"{{\"MsiFanStatus\":\"{csv}|{(controlOn ? 1 : 0)}|{(ok ? 1 : 0)}\"}}";
+                if (pipeServer != null && pipeServer.IsConnected)
+                {
+                    pipeServer.SendMessage(json);
+                    Logger.Info($"ReportMsiFanStatus: sent '{csv}|{(controlOn ? 1 : 0)}|{(ok ? 1 : 0)}'");
+                }
+                else
+                {
+                    Logger.Warn("ReportMsiFanStatus: pipe not connected");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ReportMsiFanStatus failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>Apply and persist a custom 11-point fan curve sent as a CSV string.</summary>
+        internal static void ApplyMsiFanCurve(string csv)
+        {
+            try
+            {
+                Logger.Info($"ApplyMsiFanCurve: csv='{csv}'");
+                if (!TryParseCurve(csv, out double[] curve))
+                {
+                    Logger.Warn("ApplyMsiFanCurve: could not parse curve");
+                    return;
+                }
+                Settings.LocalSettingsHelper.SetValue("MsiFan_Curve", csv);
+                Settings.LocalSettingsHelper.SetValue("MsiFan_Value", 3); // 3 = custom
+                MsiClawFanController.ApplySoftwareCurve(curve);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ApplyMsiFanCurve failed: {ex.Message}");
+            }
+        }
+
+        private static bool TryParseCurve(string csv, out double[] curve)
+        {
+            curve = null;
+            if (string.IsNullOrWhiteSpace(csv)) return false;
+            var parts = csv.Split(',');
+            if (parts.Length != 11) return false;
+            var result = new double[11];
+            for (int i = 0; i < 11; i++)
+            {
+                if (!double.TryParse(parts[i], System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out double v))
+                    return false;
+                result[i] = Math.Max(0, Math.Min(100, v));
+            }
+            curve = result;
+            return true;
+        }
+
+        /// <summary>
+        /// Re-apply the last saved MSI fan command at startup (EC resets on reboot).
+        /// Only acts when a custom curve was enabled; otherwise leaves firmware control alone.
+        /// </summary>
+        private static void RestoreMsiFanOnStartup()
+        {
+            try
+            {
+                if (Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int value) && value >= 0)
+                {
+                    Logger.Info($"RestoreMsiFanOnStartup: re-applying saved MSI fan preset {value}");
+                    ApplyMsiFan(value);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"RestoreMsiFanOnStartup failed: {ex.Message}");
+            }
+        }
+
+        // Set once the fan-sensor probe has run, so we don't repeat the (potentially slow)
+        // SuperIO/EC enumeration.
+        private static bool _msiFanSensorsProbed;
+
+        /// <summary>
+        /// One-shot diagnostic: spin up an ISOLATED LibreHardwareMonitor instance with the
+        /// Motherboard + Controller sources enabled (the main PerformanceManager keeps them off
+        /// because SuperIO probing can hang) and log every Fan / Control sensor it finds. This
+        /// tells us whether the MSI Claw exposes a readable fan RPM and from which hardware/sensor.
+        /// Runs on a background thread, fully guarded, and disposes the probe instance afterwards.
+        /// </summary>
+        private static void ProbeMsiFanSensors()
+        {
+            if (_msiFanSensorsProbed) return;
+            _msiFanSensorsProbed = true;
+
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                LibreHardwareMonitor.Hardware.Computer probe = null;
+                try
+                {
+                    Logger.Info("FanProbe: opening isolated LHM instance (Motherboard+Controller enabled) to scan for fan sensors...");
+                    probe = new LibreHardwareMonitor.Hardware.Computer
+                    {
+                        IsMotherboardEnabled = true,
+                        IsControllerEnabled  = true,
+                        IsCpuEnabled         = false,
+                        IsGpuEnabled         = false,
+                        IsMemoryEnabled      = false,
+                        IsStorageEnabled     = false,
+                        IsNetworkEnabled     = false,
+                        IsBatteryEnabled     = false,
+                    };
+                    probe.Open();
+
+                    int fanCount = 0;
+                    foreach (var hw in probe.Hardware)
+                    {
+                        try { hw.Update(); } catch { }
+                        Logger.Info($"FanProbe: hardware '{hw.Name}' ({hw.HardwareType})");
+
+                        foreach (var sensor in hw.Sensors)
+                        {
+                            if (sensor.SensorType == LibreHardwareMonitor.Hardware.SensorType.Fan ||
+                                sensor.SensorType == LibreHardwareMonitor.Hardware.SensorType.Control)
+                            {
+                                fanCount++;
+                                Logger.Info($"FanProbe:   [{sensor.SensorType}] '{sensor.Name}' = {(sensor.Value.HasValue ? sensor.Value.Value.ToString("0.#") : "null")} (id={sensor.Identifier})");
+                            }
+                        }
+
+                        foreach (var sub in hw.SubHardware)
+                        {
+                            try { sub.Update(); } catch { }
+                            Logger.Info($"FanProbe:   sub-hardware '{sub.Name}' ({sub.HardwareType})");
+                            foreach (var sensor in sub.Sensors)
+                            {
+                                if (sensor.SensorType == LibreHardwareMonitor.Hardware.SensorType.Fan ||
+                                    sensor.SensorType == LibreHardwareMonitor.Hardware.SensorType.Control)
+                                {
+                                    fanCount++;
+                                    Logger.Info($"FanProbe:     [{sensor.SensorType}] '{sensor.Name}' = {(sensor.Value.HasValue ? sensor.Value.Value.ToString("0.#") : "null")} (id={sensor.Identifier})");
+                                }
+                            }
+                        }
+                    }
+
+                    Logger.Info($"FanProbe: done — found {fanCount} fan/control sensor(s). " +
+                                (fanCount > 0 ? "RPM is readable via LHM." : "No fan sensor exposed via LHM on this device."));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"FanProbe: failed: {ex.Message}");
+                }
+                finally
+                {
+                    try { probe?.Close(); } catch { }
+                }
+            });
+        }
+
         private static void StartMSIClawControllerEmulation()
         {
             try
@@ -183,6 +399,12 @@ namespace XboxGamingBarHelper
                     Logger.Debug("MSIClaw: DInput path skipped (not an MSI Claw)");
                     return;
                 }
+
+                // Re-apply any saved custom fan curve (EC resets across reboots).
+                RestoreMsiFanOnStartup();
+
+                // One-shot diagnostic: log which fan/RPM sensors LHM can see on this device.
+                ProbeMsiFanSensors();
 
                 // ── Step 0: Register MsiClawControllerMode callback ──────────────
                 // MsiClawControllerModeManager.OnModeChanged is a static delegate.
