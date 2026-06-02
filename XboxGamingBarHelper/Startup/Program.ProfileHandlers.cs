@@ -542,6 +542,22 @@ namespace XboxGamingBarHelper
             {
                 _applyingFpsProfile = false;
             }
+
+            // Initialize the OSD cap-hint directly: the FPSLimit/IntelFpsTier PropertyChanged
+            // handlers (which normally call SetFpsCapDisplay) are suppressed while
+            // _applyingFpsProfile is true, so on startup / profile-apply the overlay would
+            // otherwise show no cap until the user changes the limiter.
+            if (profile.FpsCapMode == 1 && profile.IntelFpsTier > 0)
+            {
+                int intelFps = profile.IntelFpsTier == 1 ? 60
+                             : profile.IntelFpsTier == 2 ? 40
+                             : profile.IntelFpsTier == 3 ? 30 : 0;
+                rtssManager?.SetFpsCapDisplay(intelFps, true);
+            }
+            else
+            {
+                rtssManager?.SetFpsCapDisplay(profile.FPSLimit, false);
+            }
         }
 
         private static void CurrentProfile_PropertyChanged(object sender, PropertyChangedEventArgs e)

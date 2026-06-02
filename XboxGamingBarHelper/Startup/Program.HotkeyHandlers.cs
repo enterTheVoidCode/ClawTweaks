@@ -459,7 +459,13 @@ namespace XboxGamingBarHelper
                                             int overlayLevel = ToggleOSD();
                                             if (overlayLevel >= 0)
                                             {
-                                                string overlayLabel = overlayLevel == 0 ? "Off" : overlayLevel.ToString();
+                                                // Map the level to the same friendly names the widget's
+                                                // overlay dropdown uses, so the OSD shows e.g. "Overlay: Horizontal"
+                                                // instead of a bare level code.
+                                                string[] overlayNames = { "Off", "Basic", "Horizontal", "H. Detailed", "Full" };
+                                                string overlayLabel = (overlayLevel >= 0 && overlayLevel < overlayNames.Length)
+                                                    ? overlayNames[overlayLevel]
+                                                    : overlayLevel.ToString();
                                                 rtssManager?.ShowNotification($"Overlay: {overlayLabel}", 4000);
                                                 skipGenericNotification = true;
                                             }
