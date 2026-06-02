@@ -31,6 +31,7 @@ namespace XboxGamingBar
 
         private readonly double[] _msiFanCurve = (double[])MsiCurveDefault.Clone();
         private readonly Ellipse[] _msiFanPoints = new Ellipse[11];
+        private readonly TextBlock[] _msiFanValueLabels = new TextBlock[11];
         private bool _msiFanPointsBuilt;
         private bool _msiFanInitializing;
         private int _msiFanDragIndex = -1;
@@ -95,6 +96,16 @@ namespace XboxGamingBar
                 };
                 _msiFanPoints[i] = ellipse;
                 MsiFanCurveCanvas.Children.Add(ellipse);
+
+                // Value label shown above each control point.
+                var label = new TextBlock
+                {
+                    FontSize = 9,
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    IsHitTestVisible = false
+                };
+                _msiFanValueLabels[i] = label;
+                MsiFanCurveCanvas.Children.Add(label);
             }
             _msiFanPointsBuilt = true;
         }
@@ -154,8 +165,19 @@ namespace XboxGamingBar
                 fill.Add(new Windows.Foundation.Point(x, y));
                 if (_msiFanPoints[i] != null)
                 {
-                    Canvas.SetLeft(_msiFanPoints[i], x - 7);
-                    Canvas.SetTop(_msiFanPoints[i], y - 7);
+                    double r = _msiFanPoints[i].Width / 2.0;
+                    Canvas.SetLeft(_msiFanPoints[i], x - r);
+                    Canvas.SetTop(_msiFanPoints[i], y - r);
+                }
+
+                // Value label above the point (kept inside the canvas at the top edge).
+                if (_msiFanValueLabels[i] != null)
+                {
+                    _msiFanValueLabels[i].Text = ((int)Math.Round(_msiFanCurve[i])).ToString();
+                    double ly = y - 20;
+                    if (ly < 0) ly = y + 8;               // flip below the point if too high
+                    Canvas.SetLeft(_msiFanValueLabels[i], x - 8);
+                    Canvas.SetTop(_msiFanValueLabels[i], ly);
                 }
             }
             MsiFanCurvePolyline.Points = pts;
@@ -292,6 +314,7 @@ namespace XboxGamingBar
                 {
                     await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "MsiFanControl", -1 } });
                     Logger.Info("SendMsiFanStateToHelper: disabled -> firmware control (-1)");
+                    AutoVerifyAfterApply();
                     return;
                 }
 
@@ -304,6 +327,7 @@ namespace XboxGamingBar
 
                 await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "MsiFanControl", preset } });
                 Logger.Info($"SendMsiFanStateToHelper: preset={preset}");
+                AutoVerifyAfterApply();
             }
             catch (Exception ex)
             {
@@ -557,6 +581,11 @@ namespace XboxGamingBar
                     : Windows.UI.ColorHelper.FromArgb(255, 0, 170, 255);                     // blue
                 _msiFanPoints[i].Fill = new SolidColorBrush(c);
                 _msiFanPoints[i].Width = _msiFanPoints[i].Height = sel ? 18 : 14;
+                if (_msiFanValueLabels[i] != null)
+                {
+                    _msiFanValueLabels[i].Foreground = new SolidColorBrush(sel ? c : Windows.UI.Colors.White);
+                    _msiFanValueLabels[i].FontWeight = sel ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
+                }
             }
             RenderMsiFanCurve(); // re-center the (now larger) selected ellipse
         }
@@ -598,10 +627,28 @@ namespace XboxGamingBar
                 string csv = CurveToCsv();
                 await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "MsiFanCurve", csv } });
                 Logger.Info($"SendMsiFanCurveToHelper: '{csv}'");
+                AutoVerifyAfterApply();
             }
             catch (Exception ex)
             {
                 Logger.Error($"SendMsiFanCurveToHelper: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// After an apply, wait briefly for the helper to write the EC, then auto-run the
+        /// verification so the status reflects reality without the user clicking Check.
+        /// </summary>
+        private async void AutoVerifyAfterApply()
+        {
+            try
+            {
+                await System.Threading.Tasks.Task.Delay(500);
+                VerifyMsiFan();
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"AutoVerifyAfterApply: {ex.Message}");
             }
         }
     }
