@@ -3832,7 +3832,7 @@
                                                 Click="RestartHelperButton_Click"/>
                                         <Button x:Name="KillGoTweaksButton"
                                                 Grid.Column="2"
-                                                Content="Kill GoTweaks"
+                                                Content="Kill ClawTweaks"
                                                 HorizontalAlignment="Stretch"
                                                 Style="{StaticResource StandaloneButtonStyle}"
                                                 Click="KillGoTweaksButton_Click"/>
@@ -3855,7 +3855,8 @@
                                         </Grid.ColumnDefinitions>
                                         <Button x:Name="CheckForUpdateButton"
                                                 Grid.Column="0"
-                                                Content="Check for Update"
+                                                Content="Check for Update (Coming Soon)"
+                                                IsEnabled="False"
                                                 HorizontalAlignment="Stretch"
                                                 Style="{StaticResource StandaloneButtonStyle}"
                                                 Click="CheckForUpdateButton_Click"/>
@@ -3873,16 +3874,18 @@
                                          and the banner is hidden when "Hide banner" is
                                          on. Persisted per-user in LocalSettings. -->
                                     <CheckBox x:Name="GoTweaksUpdateOnStartCheckbox"
-                                              Content="Check for updates on start"
-                                              IsChecked="True"
+                                              Content="Check for updates on start (Coming Soon)"
+                                              IsChecked="False"
+                                              IsEnabled="False"
                                               FontSize="12"
                                               Foreground="#AAAAAA"
                                               Margin="0,8,0,0"
                                               Checked="GoTweaksUpdateOnStartCheckbox_Changed"
                                               Unchecked="GoTweaksUpdateOnStartCheckbox_Changed"/>
                                     <CheckBox x:Name="GoTweaksHideBannerCheckbox"
-                                              Content="Hide GoTweaks update banner on Quick tab"
+                                              Content="Hide ClawTweaks update banner on Quick tab"
                                               IsChecked="False"
+                                              IsEnabled="False"
                                               FontSize="12"
                                               Foreground="#AAAAAA"
                                               Checked="GoTweaksHideBannerCheckbox_Changed"
@@ -3890,7 +3893,8 @@
 
                                     <!-- Export Default Game Profiles Button -->
                                     <Button x:Name="ExportDGPsButton"
-                                            Content="Export DGPs (Desktop)"
+                                            Content="Export DGPs (Coming Soon)"
+                                            IsEnabled="False"
                                             HorizontalAlignment="Stretch"
                                             Margin="0,8,0,0"
                                             Style="{StaticResource StandaloneButtonStyle}"
@@ -3905,21 +3909,24 @@
                                         </Grid.ColumnDefinitions>
                                         <Button x:Name="ExportAllDataButton"
                                                 Grid.Column="0"
-                                                Content="Export All Data"
+                                                Content="Export All Data (Coming Soon)"
+                                                IsEnabled="False"
                                                 HorizontalAlignment="Stretch"
                                                 Style="{StaticResource StandaloneButtonStyle}"
                                                 Click="ExportAllDataButton_Click"/>
                                         <Button x:Name="ImportAllDataButton"
                                                 Grid.Column="2"
-                                                Content="Import All Data"
+                                                Content="Import All Data (Coming Soon)"
+                                                IsEnabled="False"
                                                 HorizontalAlignment="Stretch"
                                                 Style="{StaticResource StandaloneButtonStyle}"
                                                 Click="ImportAllDataButton_Click"/>
                                     </Grid>
 
-                                    <!-- Prepare for Uninstall Button -->
+                                    <!-- Prepare for Uninstall Button — hidden for now -->
                                     <Button x:Name="PrepareForUninstallButton"
                                             Content="Prepare for Uninstall"
+                                            Visibility="Collapsed"
                                             HorizontalAlignment="Stretch"
                                             Margin="0,8,0,0"
                                             Style="{StaticResource StandaloneButtonStyle}"
