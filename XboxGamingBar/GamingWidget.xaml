@@ -4512,6 +4512,16 @@
 
                         <TextBlock Text="Display (Intel)" Style="{StaticResource CardTitleStyle}"/>
 
+                        <!-- Profile status badge: green = per-game active, orange = editing global -->
+                        <Border x:Name="DisplayProfileModeBadge"
+                                Background="#37260C" BorderBrush="#A06E28" BorderThickness="1"
+                                CornerRadius="4" Padding="8,3" Margin="0,2,0,2"
+                                HorizontalAlignment="Left">
+                            <TextBlock x:Name="DisplayProfileModeText"
+                                       Text="Editing Global profile"
+                                       FontSize="11" Foreground="#FFAA46"/>
+                        </Border>
+
                         <!-- Reference image (gallery logic ported from TnC) — the IGCL color
                              transform is applied desktop-wide, so this preview shows the effect
                              live. Tap to cycle if more images are added. -->
