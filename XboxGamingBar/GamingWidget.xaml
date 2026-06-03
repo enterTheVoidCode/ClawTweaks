@@ -4555,15 +4555,34 @@
                                        FontSize="11" Foreground="#FFAA46"/>
                         </Border>
 
-                        <!-- Reference image (gallery logic ported from TnC) — the IGCL color
-                             transform is applied desktop-wide, so this preview shows the effect
-                             live. Tap to cycle if more images are added. -->
-                        <Border CornerRadius="8" Margin="0,4,0,4" Background="#20000000">
-                            <Image x:Name="DisplayReferenceImage"
-                                   HorizontalAlignment="Stretch" VerticalAlignment="Top"
-                                   MinHeight="80" MaxHeight="130" Stretch="UniformToFill"
-                                   Tapped="DisplayReferenceImage_Tapped"/>
-                        </Border>
+                        <!-- Reference image gallery (logic ported from TnC). The IGCL color transform
+                             is applied desktop-wide, so this preview shows the effect live. Taller
+                             preview; cycle by tapping the image, the on-screen arrows, or — with a
+                             controller — by focusing an arrow and pressing A. Dots show the count. -->
+                        <Grid Margin="0,4,0,4">
+                            <Border CornerRadius="8" Background="#20000000">
+                                <Image x:Name="DisplayReferenceImage"
+                                       HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                       MinHeight="190" MaxHeight="290" Stretch="UniformToFill"
+                                       Tapped="DisplayReferenceImage_Tapped"/>
+                            </Border>
+                            <Button x:Name="DisplayRefPrevButton" Click="DisplayRefPrevButton_Click"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center" Margin="6,0,0,0"
+                                    Width="34" Height="34" Padding="0" CornerRadius="17"
+                                    Background="#90000000" BorderThickness="0"
+                                    ToolTipService.ToolTip="Previous image">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE76B;" FontSize="14" Foreground="#FFFFFF"/>
+                            </Button>
+                            <Button x:Name="DisplayRefNextButton" Click="DisplayRefNextButton_Click"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"
+                                    Width="34" Height="34" Padding="0" CornerRadius="17"
+                                    Background="#90000000" BorderThickness="0"
+                                    ToolTipService.ToolTip="Next image">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE76C;" FontSize="14" Foreground="#FFFFFF"/>
+                            </Button>
+                            <StackPanel x:Name="DisplayRefDots" Orientation="Horizontal" Spacing="5"
+                                        HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,8"/>
+                        </Grid>
 
                         <!-- Color Remaster sliders -->
                         <Border Style="{StaticResource CardStyle}">
@@ -4576,7 +4595,7 @@
                                 </Grid>
                                 <Slider x:Name="DisplaySaturationSlider" Minimum="0" Maximum="100" Value="50" StepFrequency="1"
                                         ValueChanged="DisplaySlider_ValueChanged"
-                                        XYFocusLeft="{x:Bind DisplayNavItem}" XYFocusDown="{x:Bind DisplayHueSlider}"/>
+                                        XYFocusLeft="{x:Bind DisplayNavItem}" XYFocusUp="{x:Bind DisplayRefNextButton}" XYFocusDown="{x:Bind DisplayHueSlider}"/>
 
                                 <!-- Hue -->
                                 <Grid>
