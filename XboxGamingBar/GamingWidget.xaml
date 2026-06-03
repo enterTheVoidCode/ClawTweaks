@@ -415,6 +415,7 @@
                             VerticalAlignment="Center"
                             XYFocusKeyboardNavigation="Disabled"
                             KeyDown="MainNavPanel_KeyDown">
+                    <!-- Tab order: Main, Performance, Display, Profiles, Controls, Fan, Lossless, System -->
                     <RadioButton x:Name="QuickNavItem" Tag="Quick" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Main">
                         <RadioButton.Content>
                             <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE713;" FontSize="17" VerticalAlignment="Center"/>
@@ -425,9 +426,19 @@
                             <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE945;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="ProfilesNavItem" Tag="Game" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Profile">
+                    <RadioButton x:Name="DisplayNavItem" Tag="Display" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Display">
                         <RadioButton.Content>
-                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE77B;" FontSize="17" VerticalAlignment="Center"/>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7F4;" FontSize="17" VerticalAlignment="Center"/>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <RadioButton x:Name="ProfilesNavItem" Tag="Game" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Profiles (Performance &amp; Display)">
+                        <RadioButton.Content>
+                            <!-- Person bundling performance (lightning) + display settings -->
+                            <Grid Width="22" Height="18">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE77B;" FontSize="17" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE945;" FontSize="9" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="-1,0,0,-1"/>
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7F4;" FontSize="9" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,-1,-1"/>
+                            </Grid>
                         </RadioButton.Content>
                     </RadioButton>
                     <RadioButton x:Name="LegionNavItem" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Controls">
@@ -435,11 +446,22 @@
                             <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7FC;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="DisplayNavItem" Tag="Display" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Display">
+                    <RadioButton x:Name="FanNavItem" Tag="Fan" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Fan">
                         <RadioButton.Content>
-                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7F4;" FontSize="17" VerticalAlignment="Center"/>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE72C;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
+                    <RadioButton x:Name="ScalingNavItem" Tag="Scaling" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Lossless Scaling">
+                        <RadioButton.Content>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8A3;" FontSize="17" VerticalAlignment="Center"/>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <RadioButton x:Name="SystemNavItem" Tag="System" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="System">
+                        <RadioButton.Content>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE946;" FontSize="17" VerticalAlignment="Center"/>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <!-- Collapsed/legacy tabs (kept for code-behind compatibility, never shown) -->
                     <RadioButton x:Name="GraphicsNavItem" Tag="AMD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Graphics">
                         <RadioButton.Content>
                             <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7F4;" FontSize="17" VerticalAlignment="Center"/>
@@ -450,19 +472,9 @@
                             <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE945;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="ScalingNavItem" Tag="Scaling" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Lossless Scaling">
-                        <RadioButton.Content>
-                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8A3;" FontSize="17" VerticalAlignment="Center"/>
-                        </RadioButton.Content>
-                    </RadioButton>
                     <RadioButton x:Name="GPDNavItem" Tag="GPD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="GPD">
                         <RadioButton.Content>
                             <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7EF;" FontSize="17" VerticalAlignment="Center"/>
-                        </RadioButton.Content>
-                    </RadioButton>
-                    <RadioButton x:Name="SystemNavItem" Tag="System" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="System">
-                        <RadioButton.Content>
-                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE946;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
                 </StackPanel>
@@ -4597,6 +4609,25 @@
 
                         <TextBlock Text="Note: these affect the whole screen (desktop-wide), like Intel Graphics Software. They reset to your global profile when no game is running."
                                    Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- FAN TAB (MSI Claw) — the Fan Control card is reparented here at runtime -->
+                <ScrollViewer x:Name="FanScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16" Spacing="12">
+                        <TextBlock Text="Fan" Style="{StaticResource CardTitleStyle}"/>
+
+                        <!-- Hardcoded global badge: per-game fan profiles are not supported yet -->
+                        <Border Background="#37260C" BorderBrush="#A06E28" BorderThickness="1"
+                                CornerRadius="4" Padding="8,3" Margin="0,2,0,0" HorizontalAlignment="Left">
+                            <TextBlock Text="Editing Global Profile" FontSize="11" Foreground="#FFAA46"/>
+                        </Border>
+                        <TextBlock Text="Per-game fan profiles — coming soon. The fan curve is currently global (applies on every game)."
+                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+
+                        <!-- The Fan Control card (MsiFanCard) is moved here from the Performance tab at runtime. -->
+                        <StackPanel x:Name="FanTabContent"/>
                     </StackPanel>
                 </ScrollViewer>
 

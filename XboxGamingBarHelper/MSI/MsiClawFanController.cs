@@ -64,7 +64,11 @@ namespace XboxGamingBarHelper.MSI
 
             SetFanTable(table);
             SetFanControl(true);   // software mode → EC follows our table
-            Logger.Info($"MsiClawFanController: applied software fan curve [{string.Join(",", table)}]");
+            // Critical: clear the "full speed" override (block 152 bit7). If MSI Center or a
+            // prior state left it set, the fan runs 100% regardless of our table — the EC
+            // ignores the curve entirely. Without this, even a Quiet curve can be deafening.
+            SetFanFullSpeed(false);
+            Logger.Info($"MsiClawFanController: applied software fan curve [{string.Join(",", table)}] (full-speed cleared)");
             return true;
         }
 
