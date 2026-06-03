@@ -238,6 +238,20 @@ namespace XboxGamingBar
             {
                 profile.CPUBoost = CPUBoostToggle.IsOn;
             }
+            // CPU advanced (ToothNClaw port): capture combo selections into the profile so the
+            // saved cards reflect them. Tracked under the CPU Boost save flag (same CPU group).
+            if (SaveCPUBoost)
+            {
+                if (CpuBoostModeComboBox != null)
+                    profile.CpuBoostMode = (CPUBoostToggle != null && CPUBoostToggle.IsOn)
+                        ? GetSelectedTagInt(CpuBoostModeComboBox, 1) : 0;
+                if (SchedulingPolicyComboBox != null)
+                    profile.ProcessorSchedulingPolicy = GetSelectedTagInt(SchedulingPolicyComboBox, 0);
+                if (MaxPCoreFreqComboBox != null)
+                    profile.MaxPCoreFreqMHz = GetSelectedTagInt(MaxPCoreFreqComboBox, 0);
+                if (MaxECoreFreqComboBox != null)
+                    profile.MaxECoreFreqMHz = GetSelectedTagInt(MaxECoreFreqComboBox, 0);
+            }
             if (SaveCPUEPP && CPUEPPSlider != null)
             {
                 profile.CPUEPP = CPUEPPSlider.Value;
@@ -449,6 +463,9 @@ namespace XboxGamingBar
                     {
                         cpuBoost?.SetValue(profile.CPUBoost);
                     }
+
+                    // CPU advanced (ToothNClaw port): restore combo selections + push to helper.
+                    ApplyCpuAdvancedFromProfile(profile);
                 }
                 if (SaveCPUEPP)
                 {
