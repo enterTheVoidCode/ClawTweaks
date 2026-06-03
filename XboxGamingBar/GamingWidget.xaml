@@ -959,24 +959,28 @@
                                                FontSize="13"
                                                FontWeight="SemiBold"
                                                Foreground="#FFFFFF"/>
-                                    <!-- Active profile name — marquee canvas kept for long-name scrolling -->
-                                    <Canvas x:Name="ActiveProfileTextCanvas"
-                                            Height="18"
-                                            Margin="0,3,0,0"
-                                            HorizontalAlignment="Stretch">
-                                        <Canvas.Clip>
-                                            <RectangleGeometry Rect="0,0,0,18"/>
-                                        </Canvas.Clip>
-                                        <TextBlock x:Name="ActiveProfileText"
-                                                   Text="Global Settings"
-                                                   FontSize="12"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#00C8FF">
-                                            <TextBlock.RenderTransform>
-                                                <TranslateTransform x:Name="ActiveProfileTextTransform"/>
-                                            </TextBlock.RenderTransform>
-                                        </TextBlock>
-                                    </Canvas>
+                                    <!-- Status badge: orange = global active, green = per-game active -->
+                                    <Border x:Name="ActiveProfileBadge"
+                                            Background="#37260C" BorderBrush="#A06E28" BorderThickness="1"
+                                            CornerRadius="4" Padding="8,2" Margin="0,4,0,0"
+                                            HorizontalAlignment="Left">
+                                        <Canvas x:Name="ActiveProfileTextCanvas"
+                                                Height="18" MinWidth="100"
+                                                HorizontalAlignment="Stretch">
+                                            <Canvas.Clip>
+                                                <RectangleGeometry Rect="0,0,0,18"/>
+                                            </Canvas.Clip>
+                                            <TextBlock x:Name="ActiveProfileText"
+                                                       Text="Global Profile active"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#FFAA46">
+                                                <TextBlock.RenderTransform>
+                                                    <TranslateTransform x:Name="ActiveProfileTextTransform"/>
+                                                </TextBlock.RenderTransform>
+                                            </TextBlock>
+                                        </Canvas>
+                                    </Border>
                                     <!-- Detected game name — shown when game runs -->
                                     <Canvas x:Name="DetectedGameTextCanvas"
                                             Height="14"
@@ -2485,7 +2489,7 @@
                             <StackPanel>
                                 <TextBlock Text="Global performance &amp; display profile"
                                            Style="{StaticResource CardTitleStyle}"
-                                           Foreground="#00FF88"
+                                           Foreground="#FFAA46"
                                            FontSize="14"/>
 
                                 <!-- Simple Mode (Power Source Toggle OFF) -->
@@ -6897,8 +6901,8 @@
                                 </Grid>
                                 <!-- Active profile mode badge -->
                                 <Border x:Name="ControllerProfileModeBadge"
-                                        Background="#1A3A1A"
-                                        BorderBrush="#336633"
+                                        Background="#37260C"
+                                        BorderBrush="#A06E28"
                                         BorderThickness="1"
                                         CornerRadius="4"
                                         Padding="8,3"
@@ -6907,7 +6911,7 @@
                                     <TextBlock x:Name="ControllerProfileModeText"
                                                Text="Global Profile active"
                                                FontSize="11"
-                                               Foreground="#88CC88"/>
+                                               Foreground="#FFAA46"/>
                                 </Border>
                                 <TextBlock x:Name="PerGameProfileHelpText"
                                            Text="Start a game to enable a per-game controller profile."

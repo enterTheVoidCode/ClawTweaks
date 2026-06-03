@@ -3250,75 +3250,42 @@ namespace XboxGamingBar
             bool hasGame = HasValidGame(currentGameName);
             bool perGameEnabled = PerGameProfileToggle?.IsOn ?? false;
 
-            // Check if we should use per-game profiles
-            if (perGameEnabled && hasGame)
+            // Build the status label. Per-game active = green "Per-Game: <game>"; global =
+            // orange "Global Profile active". Keep an AC/DC suffix when the power-source split
+            // is on so the user still sees which sub-profile is in effect.
+            bool perGameActive = perGameEnabled && hasGame;
+            string label;
+            if (perGameActive)
             {
-                // Per-game profile is active
                 if (GetPerGamePowerSourceProfileEnabled(currentGameName))
                 {
-                    // Check power status for AC/DC
-                    // Only consider DC (battery) when power supply is NotPresent (actually unplugged)
-                    // Inadequate means charger is connected but can't keep up - still treat as AC
-                    var powerSupplyStatus = PowerManager.PowerSupplyStatus;
-                    bool isOnAC = powerSupplyStatus != PowerSupplyStatus.NotPresent;
-
-                    if (isOnAC)
-                    {
-                        ActiveProfileText.Text = $"On · {currentGameName} (AC)";
-                    }
-                    else
-                    {
-                        ActiveProfileText.Text = $"On · {currentGameName} (DC)";
-                    }
+                    bool isOnAC = PowerManager.PowerSupplyStatus != PowerSupplyStatus.NotPresent;
+                    label = $"Per-Game: {currentGameName} ({(isOnAC ? "AC" : "DC")})";
                 }
                 else
                 {
-                    // Game profile without power source split
-                    ActiveProfileText.Text = $"On · {currentGameName}";
+                    label = $"Per-Game: {currentGameName}";
                 }
             }
             else
             {
-                // Global profiles — Per-Game Profile is OFF, so the Global profile applies.
-                // Make that relationship explicit so the user understands why the per-game
-                // toggle being off means global settings are in effect.
                 if (!GetGlobalPowerSourceProfileEnabled())
                 {
-                    // Power source profiles disabled, show global
-                    ActiveProfileText.Text = "Off · Using Global Settings";
+                    label = "Global Profile active";
                 }
                 else
                 {
-                    // Check power status
-                    // Only consider DC (battery) when power supply is NotPresent (actually unplugged)
-                    // Inadequate means charger is connected but can't keep up - still treat as AC
-                    var powerSupplyStatus = PowerManager.PowerSupplyStatus;
-                    var remainingCharge = PowerManager.RemainingChargePercent;
-
-                    Logger.Info($"Power status - PowerSupply: {powerSupplyStatus}, Charge: {remainingCharge}%");
-
-                    bool isOnAC = powerSupplyStatus != PowerSupplyStatus.NotPresent;
-
-                    if (isOnAC)
-                    {
-                        ActiveProfileText.Text = "Off · Global AC Profile (Plugged In)";
-                    }
-                    else
-                    {
-                        ActiveProfileText.Text = "Off · Global DC Profile (Battery)";
-                    }
+                    bool isOnAC = PowerManager.PowerSupplyStatus != PowerSupplyStatus.NotPresent;
+                    label = $"Global Profile active ({(isOnAC ? "AC" : "DC")})";
                 }
             }
 
-            Logger.Info($"Active profile updated to: {ActiveProfileText.Text}");
-
-            // Status colour: per-game active = green, global = orange (consistent with the
-            // controller and Display-tab badges).
-            bool perGameActive = perGameEnabled && hasGame;
-            if (ActiveProfileText != null)
-                ActiveProfileText.Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(
-                    perGameActive ? ProfileGreenText : ProfileOrangeText);
+            // Apply text + green/orange colours to the badge (consistent with the controller
+            // and Display-tab badges).
+            ApplyProfileStatusBadge(ActiveProfileBadge, ActiveProfileText, perGameActive, label);
             UpdateDisplayProfileBadge();
+
+            Logger.Info($"Active profile updated to: {ActiveProfileText.Text}");
 
             // Start scrolling animation if text is too long
             UpdateActiveProfileScrollAnimation();
