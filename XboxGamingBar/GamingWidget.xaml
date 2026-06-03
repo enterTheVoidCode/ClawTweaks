@@ -4511,6 +4511,17 @@
                     <StackPanel Padding="16,8,16,16" Spacing="12">
 
                         <TextBlock Text="Display (Intel)" Style="{StaticResource CardTitleStyle}"/>
+
+                        <!-- Reference image (gallery logic ported from TnC) — the IGCL color
+                             transform is applied desktop-wide, so this preview shows the effect
+                             live. Tap to cycle if more images are added. -->
+                        <Border CornerRadius="8" Margin="0,4,0,4" Background="#20000000">
+                            <Image x:Name="DisplayReferenceImage"
+                                   HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                                   MinHeight="80" MaxHeight="130" Stretch="UniformToFill"
+                                   Tapped="DisplayReferenceImage_Tapped"/>
+                        </Border>
+
                         <TextBlock Text="Saturation / Contrast / Brightness: 50 = normal (0 = grayscale, 100 = max). Gamma: 1.00 = normal. Hue: 0 = normal. Saved per-game and globally in the Performance &amp; Display profile."
                                    Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
 
