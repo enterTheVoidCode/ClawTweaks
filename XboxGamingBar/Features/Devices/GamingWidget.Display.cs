@@ -41,6 +41,12 @@ namespace XboxGamingBar
                 if (DisplayNavItem != null)
                     DisplayNavItem.Visibility = IsMsiClawDevice() ? Visibility.Visible : Visibility.Collapsed;
 
+                // Hide the carousel controls when there's nothing to cycle.
+                var multi = _displayRefImages.Length > 1 ? Visibility.Visible : Visibility.Collapsed;
+                if (DisplayRefPrevButton != null) DisplayRefPrevButton.Visibility = multi;
+                if (DisplayRefNextButton != null) DisplayRefNextButton.Visibility = multi;
+                if (DisplayRefDots != null) DisplayRefDots.Visibility = multi;
+
                 UpdateDisplayReferenceImage();
                 UpdateDisplayProfileBadge();
             }
@@ -71,6 +77,7 @@ namespace XboxGamingBar
                 if (_displayRefIndex < 0 || _displayRefIndex >= _displayRefImages.Length) _displayRefIndex = 0;
                 DisplayReferenceImage.Source = new Windows.UI.Xaml.Media.Imaging.BitmapImage(
                     new Uri(_displayRefImages[_displayRefIndex]));
+                UpdateDisplayRefDots();
             }
             catch (Exception ex)
             {
@@ -78,12 +85,51 @@ namespace XboxGamingBar
             }
         }
 
-        private void DisplayReferenceImage_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+        /// <summary>Rebuilds the dot indicator so the user can see how many images exist
+        /// and which one is shown — the active dot is solid white, the rest dim.</summary>
+        private void UpdateDisplayRefDots()
         {
-            if (_displayRefImages.Length <= 1) return; // single image — nothing to cycle
-            _displayRefIndex = (_displayRefIndex + 1) % _displayRefImages.Length;
+            if (DisplayRefDots == null) return;
+            try
+            {
+                DisplayRefDots.Children.Clear();
+                if (_displayRefImages.Length <= 1) return;
+                for (int i = 0; i < _displayRefImages.Length; i++)
+                {
+                    bool active = i == _displayRefIndex;
+                    DisplayRefDots.Children.Add(new Windows.UI.Xaml.Shapes.Ellipse
+                    {
+                        Width = active ? 8 : 6,
+                        Height = active ? 8 : 6,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Fill = new Windows.UI.Xaml.Media.SolidColorBrush(
+                            active ? Windows.UI.Colors.White
+                                   : Windows.UI.Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"UpdateDisplayRefDots: {ex.Message}");
+            }
+        }
+
+        private void CycleDisplayReference(int delta)
+        {
+            if (_displayRefImages.Length <= 1) return;
+            int n = _displayRefImages.Length;
+            _displayRefIndex = ((_displayRefIndex + delta) % n + n) % n; // wrap both directions
             UpdateDisplayReferenceImage();
         }
+
+        // Tapping the image and the on-screen arrows all cycle the gallery. The arrows are real
+        // Buttons so they're reachable + clickable with the controller (A), not just the mouse.
+        private void DisplayReferenceImage_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+            => CycleDisplayReference(+1);
+
+        private void DisplayRefNextButton_Click(object sender, RoutedEventArgs e) => CycleDisplayReference(+1);
+
+        private void DisplayRefPrevButton_Click(object sender, RoutedEventArgs e) => CycleDisplayReference(-1);
 
         /// <summary>Updates the value label next to each slider (gamma shown as x.xx).</summary>
         private void DisplaySlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)

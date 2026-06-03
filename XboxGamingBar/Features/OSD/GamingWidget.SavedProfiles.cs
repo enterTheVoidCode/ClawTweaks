@@ -161,7 +161,9 @@ namespace XboxGamingBar
                     // Check gyro settings
                     if (container.Values.TryGetValue("GyroTarget", out var gyroTarget) && (int)gyroTarget > 0)
                     {
-                        var gyroTargets = new[] { "", "LStick", "RStick", "Mouse" };
+                        // Index order matches the (swapped) gyro menu on the MSI Claw, where the
+                        // physical sticks are reversed: GyroTarget 1 = Right Stick, 2 = Left Stick.
+                        var gyroTargets = new[] { "", "RStick", "LStick", "Mouse" };
                         var targetIdx = (int)gyroTarget;
                         if (targetIdx > 0 && targetIdx < gyroTargets.Length)
                             summaryParts.Add($"Gyro:{gyroTargets[targetIdx]}");
