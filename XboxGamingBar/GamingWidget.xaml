@@ -59,7 +59,7 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="MinWidth" Value="0"/>
             <Setter Property="MinHeight" Value="0"/>
-            <Setter Property="Padding" Value="8,5,8,5"/>
+            <Setter Property="Padding" Value="11,7,11,7"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="UseSystemFocusVisuals" Value="False"/>
@@ -98,9 +98,15 @@
                                             <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
                                                 <DiscreteObjectKeyFrame KeyTime="0" Value="{StaticResource SystemAccentBrush}"/>
                                             </ObjectAnimationUsingKeyFrames>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionIndicator" Storyboard.TargetProperty="Visibility">
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionGlow" Storyboard.TargetProperty="Visibility">
                                                 <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
                                             </ObjectAnimationUsingKeyFrames>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionBackground" Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
+                                            </ObjectAnimationUsingKeyFrames>
+                                            <!-- subtle "lift": the icon scales up a touch for a 3D/raised feel -->
+                                            <DoubleAnimation Storyboard.TargetName="ContentScale" Storyboard.TargetProperty="ScaleX" To="1.08" Duration="0:0:0.12"/>
+                                            <DoubleAnimation Storyboard.TargetName="ContentScale" Storyboard.TargetProperty="ScaleY" To="1.08" Duration="0:0:0.12"/>
                                         </Storyboard>
                                     </VisualState>
                                     <VisualState x:Name="Unchecked"/>
@@ -118,13 +124,29 @@
                                     <VisualState x:Name="PointerFocused"/>
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
-                            <!-- Focus border with rounded corners -->
-                            <Border x:Name="FocusBorder"
-                                    BorderBrush="White"
-                                    BorderThickness="2"
-                                    CornerRadius="6"
-                                    Margin="-2"
+                            <!-- Active-tab glow: soft accent halo around the pill (back layer) -->
+                            <Border x:Name="SelectionGlow"
+                                    CornerRadius="11"
+                                    Margin="-3"
+                                    BorderBrush="{StaticResource SystemAccentBrush}"
+                                    BorderThickness="3"
+                                    Opacity="0.22"
                                     Visibility="Collapsed"/>
+                            <!-- Active-tab "register" pill: raised rounded surface (subtle 3D
+                                 gradient, lighter top → darker bottom) with an accent outline.
+                                 Replaces the old thin underline and gives the tab room to breathe. -->
+                            <Border x:Name="SelectionBackground"
+                                    CornerRadius="9"
+                                    BorderThickness="1.2"
+                                    BorderBrush="{StaticResource SystemAccentBrush}"
+                                    Visibility="Collapsed">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#454049" Offset="0"/>
+                                        <GradientStop Color="#211F26" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
                             <ContentPresenter x:Name="ContentPresenter"
                                               Content="{TemplateBinding Content}"
                                               ContentTemplate="{TemplateBinding ContentTemplate}"
@@ -132,14 +154,18 @@
                                               Padding="{TemplateBinding Padding}"
                                               HorizontalContentAlignment="Center"
                                               VerticalContentAlignment="Center"
-                                              AutomationProperties.AccessibilityView="Raw"/>
-                            <Border x:Name="SelectionIndicator"
-                                    Height="3"
-                                    Background="{StaticResource SystemAccentBrush}"
-                                    CornerRadius="1.5"
-                                    VerticalAlignment="Bottom"
-                                    HorizontalAlignment="Stretch"
-                                    Margin="6,0,6,2"
+                                              RenderTransformOrigin="0.5,0.5"
+                                              AutomationProperties.AccessibilityView="Raw">
+                                <ContentPresenter.RenderTransform>
+                                    <ScaleTransform x:Name="ContentScale" ScaleX="1" ScaleY="1"/>
+                                </ContentPresenter.RenderTransform>
+                            </ContentPresenter>
+                            <!-- Focus ring (D-pad navigation) — stays on top so it's always visible -->
+                            <Border x:Name="FocusBorder"
+                                    BorderBrush="White"
+                                    BorderThickness="2"
+                                    CornerRadius="9"
+                                    Margin="-2"
                                     Visibility="Collapsed"/>
                         </Grid>
                     </ControlTemplate>
@@ -413,6 +439,7 @@
                             Orientation="Horizontal"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
+                            Spacing="6"
                             XYFocusKeyboardNavigation="Disabled"
                             KeyDown="MainNavPanel_KeyDown">
                     <!-- Tab order: Main, Performance, Display, Profiles, Controls, Fan, Lossless, System -->
