@@ -60,7 +60,7 @@ namespace XboxGamingBar
             if (DisplayProfileModeBadge == null || DisplayProfileModeText == null) return;
             bool isPerGame = (PerGameProfileToggle?.IsOn ?? false) && HasValidGame(currentGameName);
             ApplyProfileStatusBadge(DisplayProfileModeBadge, DisplayProfileModeText, isPerGame,
-                isPerGame ? $"Per-Game: {currentGameName}" : "Editing Global profile");
+                isPerGame ? "Editing Game Profile" : "Editing Global Profile");
         }
 
         private void UpdateDisplayReferenceImage()

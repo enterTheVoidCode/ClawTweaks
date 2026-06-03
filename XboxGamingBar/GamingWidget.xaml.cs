@@ -3242,7 +3242,7 @@ namespace XboxGamingBar
             bool isPerGame = LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName);
             // Per-game active = green; global = orange.
             ApplyProfileStatusBadge(ControllerProfileModeBadge, ControllerProfileModeText, isPerGame,
-                isPerGame ? $"Per-Game: {currentGameName}" : "Global Profile active");
+                isPerGame ? "Editing Game Profile" : "Editing Global Profile");
         }
 
         private void UpdateActiveProfileIndicator()
@@ -3260,23 +3260,23 @@ namespace XboxGamingBar
                 if (GetPerGamePowerSourceProfileEnabled(currentGameName))
                 {
                     bool isOnAC = PowerManager.PowerSupplyStatus != PowerSupplyStatus.NotPresent;
-                    label = $"Per-Game: {currentGameName} ({(isOnAC ? "AC" : "DC")})";
+                    label = $"Editing Game Profile ({(isOnAC ? "AC" : "DC")})";
                 }
                 else
                 {
-                    label = $"Per-Game: {currentGameName}";
+                    label = "Editing Game Profile";
                 }
             }
             else
             {
                 if (!GetGlobalPowerSourceProfileEnabled())
                 {
-                    label = "Global Profile active";
+                    label = "Editing Global Profile";
                 }
                 else
                 {
                     bool isOnAC = PowerManager.PowerSupplyStatus != PowerSupplyStatus.NotPresent;
-                    label = $"Global Profile active ({(isOnAC ? "AC" : "DC")})";
+                    label = $"Editing Global Profile ({(isOnAC ? "AC" : "DC")})";
                 }
             }
 
@@ -3286,9 +3286,6 @@ namespace XboxGamingBar
             UpdateDisplayProfileBadge();
 
             Logger.Info($"Active profile updated to: {ActiveProfileText.Text}");
-
-            // Start scrolling animation if text is too long
-            UpdateActiveProfileScrollAnimation();
 
             // Switch profile if needed
             SwitchProfile();
@@ -3410,14 +3407,6 @@ namespace XboxGamingBar
             storyboard.Begin();
         }
 
-        /// <summary>
-        /// Marquees the active profile name. Called from UpdateActiveProfileIndicator
-        /// every time the displayed profile / game name changes.
-        /// </summary>
-        private void UpdateActiveProfileScrollAnimation()
-        {
-            UpdateMarqueeScrollAnimation(ActiveProfileText, ActiveProfileTextCanvas, ActiveProfileTextTransform);
-        }
 
         /// <summary>
         /// Marquees the detected-game name shown next to the per-game-profile toggle on
