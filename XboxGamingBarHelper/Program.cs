@@ -1187,6 +1187,8 @@ namespace XboxGamingBarHelper
                 rtssManager.DisplayOSDConfig,
                 intelGpuManager.IntelFpsTier,
                 intelGpuManager.FpsCapMode,
+                intelGpuManager.IntelAdaptiveSharpness,
+                intelGpuManager.IntelColorSaturation,
                 msiCenterManager.MsiCenterActive,
                 msiClawControllerModeManager.MsiClawControllerMode,
                 settingsManager.IsForeground,
@@ -1462,6 +1464,8 @@ namespace XboxGamingBarHelper
             // Intel FPS tier — mutual exclusion with RTSS FPS limit (ported from IntelGameBar)
             rtssManager.FPSLimit.PropertyChanged += FPSLimit_IntelExclusion_PropertyChanged;
             intelGpuManager.IntelFpsTier.PropertyChanged += IntelFpsTier_PropertyChanged;
+            intelGpuManager.IntelAdaptiveSharpness.PropertyChanged += IntelDisplay_PropertyChanged;
+            intelGpuManager.IntelColorSaturation.PropertyChanged += IntelDisplay_PropertyChanged;
 
             // Subscribe to Legion controller property changes to save to profile
             if (legionManager != null)

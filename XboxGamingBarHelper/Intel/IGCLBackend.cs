@@ -88,6 +88,26 @@ namespace XboxGamingBarHelper.Intel
             MAX         = 3
         }
 
+        // ── Display: Adaptive Sharpness + Saturation (high-level wrapper exports) ──
+
+        public enum ctl_sharpness_filter_type_flag_t : uint
+        {
+            NON_ADAPTIVE = 1,
+            ADAPTIVE     = 2,
+            MAX          = 0x80000000
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct ctl_sharpness_settings_t
+        {
+            public uint Size;
+            public byte Version;
+            [MarshalAs(UnmanagedType.U1)]
+            public bool Enable;
+            public ctl_sharpness_filter_type_flag_t FilterType;
+            public float Intensity;
+        }
+
         // ── Kernel32 imports ─────────────────────────────────────────────────
 
         [DllImport("kernel32")]
@@ -104,6 +124,10 @@ namespace XboxGamingBarHelper.Intel
         private delegate ctl_result_t GetDevicePropertiesDelegate(ctl_device_adapter_handle_t hDev, ref ctl_device_adapter_properties_t props);
         private delegate ctl_result_t GetEnduranceGamingSettingsDelegate(ctl_device_adapter_handle_t hDev, ref ctl_endurance_gaming_t settings);
         private delegate ctl_result_t SetEnduranceGamingSettingsDelegate(ctl_device_adapter_handle_t hDev, ctl_endurance_gaming_t settings);
+        // Display features (separate set so a missing export never disables the FPS limiter).
+        private delegate ctl_result_t GetSharpnessSettingsDelegate(ctl_device_adapter_handle_t hDev, uint displayIdx, ref ctl_sharpness_settings_t s);
+        private delegate ctl_result_t SetSharpnessSettingsDelegate(ctl_device_adapter_handle_t hDev, uint displayIdx, ctl_sharpness_settings_t s);
+        private delegate ctl_result_t SetHueSaturationValuesDelegate(ctl_device_adapter_handle_t hDev, double hue, double saturation);
 
         // ── Loaded delegates ─────────────────────────────────────────────────
 
@@ -113,6 +137,9 @@ namespace XboxGamingBarHelper.Intel
         private static GetDevicePropertiesDelegate        _GetDeviceProperties;
         private static GetEnduranceGamingSettingsDelegate _GetEnduranceGamingSettings;
         private static SetEnduranceGamingSettingsDelegate _SetEnduranceGamingSettings;
+        private static GetSharpnessSettingsDelegate       _GetSharpnessSettings;
+        private static SetSharpnessSettingsDelegate       _SetSharpnessSettings;
+        private static SetHueSaturationValuesDelegate     _SetHueSaturationValues;
 
         // ── State ─────────────────────────────────────────────────────────────
 
@@ -120,6 +147,10 @@ namespace XboxGamingBarHelper.Intel
 
         private static IntPtr  _hDll = IntPtr.Zero;
         private static bool    _ready = false;
+        private static bool    _displayReady = false;
+
+        /// <summary>True when the adaptive-sharpness / saturation exports bound successfully.</summary>
+        public static bool IsDisplayReady => _displayReady;
 
         // Relative path: IGCL_Wrapper.dll sits next to the helper .exe
         private const string DllName = "IGCL_Wrapper.dll";
@@ -164,6 +195,23 @@ namespace XboxGamingBarHelper.Intel
 
             _ready = true;
             Console.WriteLine("[IGCL] Initialized successfully.");
+
+            // Bind the display-feature exports separately: if any is missing we only lose
+            // sharpness/saturation, never the (already-working) FPS limiter.
+            try
+            {
+                _GetSharpnessSettings   = GetDelegate<GetSharpnessSettingsDelegate>("GetSharpnessSettings");
+                _SetSharpnessSettings   = GetDelegate<SetSharpnessSettingsDelegate>("SetSharpnessSettings");
+                _SetHueSaturationValues = GetDelegate<SetHueSaturationValuesDelegate>("SetHueSaturationValues");
+                _displayReady = true;
+                Console.WriteLine("[IGCL] Display features (sharpness/saturation) bound.");
+            }
+            catch (Exception ex)
+            {
+                _displayReady = false;
+                Console.WriteLine($"[IGCL] Display features unavailable: {ex.Message}");
+            }
+
             return true;
         }
 
@@ -216,6 +264,65 @@ namespace XboxGamingBarHelper.Intel
             var hDev     = new ctl_device_adapter_handle_t { handle = Devices[deviceIdx] };
             var res      = _SetEnduranceGamingSettings!(hDev, settings);
             return res == ctl_result_t.CTL_RESULT_SUCCESS;
+        }
+
+        /// <summary>
+        /// Apply adaptive sharpness on a display output. intensity 0 = disable; 1..100 = enable
+        /// adaptive filter at that intensity. Returns true on success (and read-back match).
+        /// </summary>
+        public static bool SetAdaptiveSharpness(int deviceIdx, uint displayIdx, int intensity)
+        {
+            if (!_displayReady || deviceIdx < 0 || deviceIdx >= Devices.Length) return false;
+            var hDev = new ctl_device_adapter_handle_t { handle = Devices[deviceIdx] };
+
+            var s = new ctl_sharpness_settings_t();
+            var res = _GetSharpnessSettings!(hDev, displayIdx, ref s);
+            if (res != ctl_result_t.CTL_RESULT_SUCCESS)
+            {
+                Console.WriteLine($"[IGCL] GetSharpnessSettings(d{displayIdx}) failed: 0x{(uint)res:X8}");
+                return false;
+            }
+
+            if (intensity <= 0)
+            {
+                s.Enable = false;
+                s.Intensity = 0;
+            }
+            else
+            {
+                if (intensity > 100) intensity = 100;
+                s.Enable = true;
+                s.FilterType = ctl_sharpness_filter_type_flag_t.ADAPTIVE;
+                s.Intensity = intensity;
+            }
+
+            res = _SetSharpnessSettings!(hDev, displayIdx, s);
+            if (res != ctl_result_t.CTL_RESULT_SUCCESS)
+            {
+                Console.WriteLine($"[IGCL] SetSharpnessSettings(d{displayIdx}, {intensity}) failed: 0x{(uint)res:X8}");
+                return false;
+            }
+
+            Console.WriteLine($"[IGCL] Adaptive sharpness applied: enable={s.Enable}, intensity={s.Intensity} (display {displayIdx}).");
+            return true;
+        }
+
+        /// <summary>
+        /// Apply colour saturation as a multiplier (1.0 = neutral). Hue is held at 0.
+        /// The wrapper builds the CSC matrix internally.
+        /// </summary>
+        public static bool SetSaturation(int deviceIdx, double saturation)
+        {
+            if (!_displayReady || deviceIdx < 0 || deviceIdx >= Devices.Length) return false;
+            var hDev = new ctl_device_adapter_handle_t { handle = Devices[deviceIdx] };
+            var res = _SetHueSaturationValues!(hDev, 0.0, saturation);
+            if (res != ctl_result_t.CTL_RESULT_SUCCESS)
+            {
+                Console.WriteLine($"[IGCL] SetHueSaturationValues({saturation}) failed: 0x{(uint)res:X8}");
+                return false;
+            }
+            Console.WriteLine($"[IGCL] Saturation applied: {saturation:0.00} (hue 0).");
+            return true;
         }
 
         public static void Terminate()

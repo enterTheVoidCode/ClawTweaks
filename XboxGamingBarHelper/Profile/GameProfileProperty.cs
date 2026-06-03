@@ -95,6 +95,19 @@ namespace XboxGamingBarHelper.Profile
             set { if (this.value.MaxECoreFreqMHz != value) this.value.MaxECoreFreqMHz = value; }
         }
 
+        // Intel Display (IGCL)
+        public int IntelAdaptiveSharpness
+        {
+            get { return value.IntelAdaptiveSharpness; }
+            set { if (this.value.IntelAdaptiveSharpness != value) this.value.IntelAdaptiveSharpness = value; }
+        }
+
+        public int IntelColorSaturation
+        {
+            get { return value.IntelColorSaturation; }
+            set { if (this.value.IntelColorSaturation != value) this.value.IntelColorSaturation = value; }
+        }
+
         public bool TDPBoostEnabled
         {
             get { return value.TDPBoostEnabled; }

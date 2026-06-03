@@ -18,8 +18,17 @@ namespace XboxGamingBarHelper.Intel
         private readonly FpsCapModeProperty fpsCapMode;
         public  FpsCapModeProperty          FpsCapMode => fpsCapMode;
 
+        private readonly IntelAdaptiveSharpnessProperty intelAdaptiveSharpness;
+        public  IntelAdaptiveSharpnessProperty          IntelAdaptiveSharpness => intelAdaptiveSharpness;
+
+        private readonly IntelColorSaturationProperty intelColorSaturation;
+        public  IntelColorSaturationProperty          IntelColorSaturation => intelColorSaturation;
+
         /// <summary>Index of the selected Intel adapter (populated after Initialize()).</summary>
         private int _deviceIdx = -1;
+
+        /// <summary>Display-output index for sharpness/saturation (internal eDP panel = 0).</summary>
+        private const uint DisplayIdx = 0;
 
         /// <summary>True when the IGCL DLL is loaded and an Intel GPU was found.</summary>
         public bool IsAvailable => IGCLBackend.IsReady && _deviceIdx >= 0;
@@ -28,6 +37,8 @@ namespace XboxGamingBarHelper.Intel
         {
             intelFpsTier = new IntelFpsTierProperty(this);
             fpsCapMode   = new FpsCapModeProperty(this);
+            intelAdaptiveSharpness = new IntelAdaptiveSharpnessProperty(this);
+            intelColorSaturation   = new IntelColorSaturationProperty(this);
 
             Initialize();
         }
@@ -88,6 +99,31 @@ namespace XboxGamingBarHelper.Intel
 
             bool ok = IGCLBackend.SetEnduranceGaming(_deviceIdx, control, mode);
             Logger.Info($"[IntelGpuManager] SetEnduranceGaming tier={tier} control={control} mode={mode} ok={ok}");
+        }
+
+        /// <summary>Apply adaptive sharpness (0 = off, 1..100 intensity) on the internal panel.</summary>
+        public void ApplyAdaptiveSharpness(int intensity)
+        {
+            if (!IsAvailable || !IGCLBackend.IsDisplayReady)
+            {
+                Logger.Debug("[IntelGpuManager] ApplyAdaptiveSharpness skipped — IGCL display features unavailable.");
+                return;
+            }
+            bool ok = IGCLBackend.SetAdaptiveSharpness(_deviceIdx, DisplayIdx, intensity);
+            Logger.Info($"[IntelGpuManager] AdaptiveSharpness intensity={intensity} ok={ok}");
+        }
+
+        /// <summary>Apply colour saturation (percent, 100 = neutral) — converted to a multiplier.</summary>
+        public void ApplySaturation(int saturationPercent)
+        {
+            if (!IsAvailable || !IGCLBackend.IsDisplayReady)
+            {
+                Logger.Debug("[IntelGpuManager] ApplySaturation skipped — IGCL display features unavailable.");
+                return;
+            }
+            double mult = saturationPercent / 100.0;
+            bool ok = IGCLBackend.SetSaturation(_deviceIdx, mult);
+            Logger.Info($"[IntelGpuManager] Saturation={saturationPercent}% ({mult:0.00}x) ok={ok}");
         }
 
         protected override void Dispose(bool disposing)

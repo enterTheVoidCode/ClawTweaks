@@ -306,6 +306,7 @@
     <Compile Include="Intel\IGCLBackend.cs" />
     <Compile Include="Intel\IntelGpuManager.cs" />
     <Compile Include="Intel\IntelFpsTierProperty.cs" />
+    <Compile Include="Intel\IntelDisplayProperties.cs" />
     <Compile Include="Intel\FpsCapModeProperty.cs" />
     <Compile Include="Intel\KxExeService.cs" />
     <Compile Include="MSI\ServiceUtils.cs" />

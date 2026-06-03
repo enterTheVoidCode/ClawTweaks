@@ -51,6 +51,7 @@ namespace XboxGamingBarHelper
             public static bool CPUEPP = true;
             public static bool CPUState = true;
             public static bool CpuAdvanced = true;
+            public static bool IntelDisplay = true;
             public static bool AMDFeatures = false;
             public static bool FPSLimit = true;
             public static bool AutoTDP = true;
@@ -78,6 +79,7 @@ namespace XboxGamingBarHelper
                 if (cfg.TryGetValue("CPUEPP", out var v3)) ProfileSaveFlagsState.CPUEPP = v3;
                 if (cfg.TryGetValue("CPUState", out var v4)) ProfileSaveFlagsState.CPUState = v4;
                 if (cfg.TryGetValue("CpuAdvanced", out var vCpuAdv)) ProfileSaveFlagsState.CpuAdvanced = vCpuAdv;
+                if (cfg.TryGetValue("IntelDisplay", out var vDisp)) ProfileSaveFlagsState.IntelDisplay = vDisp;
                 if (cfg.TryGetValue("AMDFeatures", out var v5)) ProfileSaveFlagsState.AMDFeatures = v5;
                 if (cfg.TryGetValue("FPSLimit", out var v6)) ProfileSaveFlagsState.FPSLimit = v6;
                 if (cfg.TryGetValue("AutoTDP", out var v7)) ProfileSaveFlagsState.AutoTDP = v7;
@@ -501,6 +503,9 @@ namespace XboxGamingBarHelper
             powerManager.SchedulingPolicy.SetValue(profileManager.GlobalProfile.ProcessorSchedulingPolicy);
             powerManager.MaxPCoreFreq.SetValue(profileManager.GlobalProfile.MaxPCoreFreqMHz);
             powerManager.MaxECoreFreq.SetValue(profileManager.GlobalProfile.MaxECoreFreqMHz);
+            // Intel display (IGCL) — part of the performance profile
+            intelGpuManager.IntelAdaptiveSharpness.SetValue(profileManager.GlobalProfile.IntelAdaptiveSharpness);
+            intelGpuManager.IntelColorSaturation.SetValue(profileManager.GlobalProfile.IntelColorSaturation);
             profileManager.PerGameProfile.SetValue(false);
 
             // Restore FPS limiter from global profile (mutual exclusion: only one active at a time)
@@ -638,6 +643,9 @@ namespace XboxGamingBarHelper
                         powerManager.SchedulingPolicy.SetValue(profileManager.CurrentProfile.ProcessorSchedulingPolicy);
                         powerManager.MaxPCoreFreq.SetValue(profileManager.CurrentProfile.MaxPCoreFreqMHz);
                         powerManager.MaxECoreFreq.SetValue(profileManager.CurrentProfile.MaxECoreFreqMHz);
+                        // Intel display (IGCL)
+                        intelGpuManager.IntelAdaptiveSharpness.SetValue(profileManager.CurrentProfile.IntelAdaptiveSharpness);
+                        intelGpuManager.IntelColorSaturation.SetValue(profileManager.CurrentProfile.IntelColorSaturation);
                         profileManager.PerGameProfile.SetValue(profileManager.CurrentProfile.Use);
 
                         // Use .Value to access the underlying GameProfile struct (GameProfileProperty
@@ -743,6 +751,9 @@ namespace XboxGamingBarHelper
                     powerManager.SchedulingPolicy.SetValue(gameProfile.ProcessorSchedulingPolicy);
                     powerManager.MaxPCoreFreq.SetValue(gameProfile.MaxPCoreFreqMHz);
                     powerManager.MaxECoreFreq.SetValue(gameProfile.MaxECoreFreqMHz);
+                    // Intel display (IGCL)
+                    intelGpuManager.IntelAdaptiveSharpness.SetValue(gameProfile.IntelAdaptiveSharpness);
+                    intelGpuManager.IntelColorSaturation.SetValue(gameProfile.IntelColorSaturation);
 
                     ApplyFpsLimiterFromProfile(gameProfile);
                 }

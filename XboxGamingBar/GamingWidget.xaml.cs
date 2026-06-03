@@ -102,6 +102,9 @@ namespace XboxGamingBar
         public int ProcessorSchedulingPolicy { get; set; } = -1;
         public int MaxPCoreFreqMHz { get; set; } = 0;
         public int MaxECoreFreqMHz { get; set; } = 0;
+        // Intel Display (IGCL): -1 = unset; sharpness 0=off/1..100, saturation 100=neutral.
+        public int IntelAdaptiveSharpness { get; set; } = -1;
+        public int IntelColorSaturation { get; set; } = -1;
 
         public PerformanceProfile Clone()
         {
@@ -148,7 +151,9 @@ namespace XboxGamingBar
                 CpuBoostMode = this.CpuBoostMode,
                 ProcessorSchedulingPolicy = this.ProcessorSchedulingPolicy,
                 MaxPCoreFreqMHz = this.MaxPCoreFreqMHz,
-                MaxECoreFreqMHz = this.MaxECoreFreqMHz
+                MaxECoreFreqMHz = this.MaxECoreFreqMHz,
+                IntelAdaptiveSharpness = this.IntelAdaptiveSharpness,
+                IntelColorSaturation = this.IntelColorSaturation
             };
         }
     }
@@ -1434,6 +1439,10 @@ namespace XboxGamingBar
             maxPCoreFreq = new CpuIntComboProperty(0, Shared.Enums.Function.MaxPCoreFreqMHz, MaxPCoreFreqComboBox, this);
             maxECoreFreq = new CpuIntComboProperty(0, Shared.Enums.Function.MaxECoreFreqMHz, MaxECoreFreqComboBox, this);
             InitializeCpuAdvanced();
+            // Intel Display (IGCL) — saved in the Performance & Display profile
+            intelSaturation = new CpuIntComboProperty(100, Shared.Enums.Function.IntelColorSaturation, DisplaySaturationComboBox, this);
+            intelSharpness  = new CpuIntComboProperty(0, Shared.Enums.Function.IntelAdaptiveSharpness, DisplaySharpnessComboBox, this);
+            InitializeDisplayTab();
             maxCPUState = new MaxCPUStateProperty();
             minCPUState = new MinCPUStateProperty();
             // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
@@ -1865,6 +1874,8 @@ namespace XboxGamingBar
                 schedulingPolicy,
                 maxPCoreFreq,
                 maxECoreFreq,
+                intelSaturation,
+                intelSharpness,
                 maxCPUState,
                 minCPUState,
                 // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)

@@ -166,6 +166,18 @@ namespace XboxGamingBarHelper
                 glo => { glo.MaxPCoreFreqMHz = powerManager.MaxPCoreFreq; glo.MaxECoreFreqMHz = powerManager.MaxECoreFreq; });
         }
 
+        // ===== Intel Display (IGCL): adaptive sharpness + saturation =====
+        // Stored in the existing performance profile (renamed "Performance & Display").
+        private static void IntelDisplay_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (isApplyingProfile) { Logger.Debug("Skipping IntelDisplay_PropertyChanged - applying profile"); return; }
+            if (IsInProfileSwitchCooldown()) { Logger.Debug("Skipping IntelDisplay_PropertyChanged - cooldown"); return; }
+
+            RouteProfileSave(ProfileSaveFlagsState.IntelDisplay, "IntelDisplay",
+                cur => { cur.IntelAdaptiveSharpness = intelGpuManager.IntelAdaptiveSharpness; cur.IntelColorSaturation = intelGpuManager.IntelColorSaturation; },
+                glo => { glo.IntelAdaptiveSharpness = intelGpuManager.IntelAdaptiveSharpness; glo.IntelColorSaturation = intelGpuManager.IntelColorSaturation; });
+        }
+
         private static void AutoHibernateEnabled_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             if (settingsManager?.AutoHibernateEnabled == null) return;

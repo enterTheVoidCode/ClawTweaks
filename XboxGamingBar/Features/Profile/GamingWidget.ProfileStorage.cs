@@ -101,6 +101,8 @@ namespace XboxGamingBar
             container.Values["ProcessorSchedulingPolicy"] = profile.ProcessorSchedulingPolicy;
             container.Values["MaxPCoreFreqMHz"] = profile.MaxPCoreFreqMHz;
             container.Values["MaxECoreFreqMHz"] = profile.MaxECoreFreqMHz;
+            container.Values["IntelAdaptiveSharpness"] = profile.IntelAdaptiveSharpness;
+            container.Values["IntelColorSaturation"] = profile.IntelColorSaturation;
             // Last-saved timestamp drives the "modified Nm/h/d ago" line on the profile
             // card and the "Last Modified" sort option in the Profiles tab. Stored as
             // UTC ticks so it survives timezone changes.
@@ -167,6 +169,8 @@ namespace XboxGamingBar
                 profile.ProcessorSchedulingPolicy = container.Values.ContainsKey("ProcessorSchedulingPolicy") ? (int)container.Values["ProcessorSchedulingPolicy"] : -1;
                 profile.MaxPCoreFreqMHz = container.Values.ContainsKey("MaxPCoreFreqMHz") ? (int)container.Values["MaxPCoreFreqMHz"] : 0;
                 profile.MaxECoreFreqMHz = container.Values.ContainsKey("MaxECoreFreqMHz") ? (int)container.Values["MaxECoreFreqMHz"] : 0;
+                profile.IntelAdaptiveSharpness = container.Values.ContainsKey("IntelAdaptiveSharpness") ? (int)container.Values["IntelAdaptiveSharpness"] : -1;
+                profile.IntelColorSaturation = container.Values.ContainsKey("IntelColorSaturation") ? (int)container.Values["IntelColorSaturation"] : -1;
 
                 Logger.Info($"Loaded {profileName} profile from storage");
             }
