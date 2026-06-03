@@ -25,11 +25,12 @@ namespace XboxGamingBar
         // Reference-image carousel (gallery logic ported from TnC ColorRemasterMainPage):
         // an array of packaged images + an index; tapping advances and wraps. Currently one
         // image; add more URIs here (and Content-include the assets) to grow the gallery.
+        // Exact order: FF16, Dark (and Darker), Stardew Valley.
         private readonly string[] _displayRefImages = new[]
         {
-            "ms-appx:///Assets/ColorReference.jpg",
-            "ms-appx:///Assets/ColorReference2.jpg",
-            "ms-appx:///Assets/ColorReference3.jpg",
+            "ms-appx:///Assets/ColorReference1.png",
+            "ms-appx:///Assets/ColorReference2.png",
+            "ms-appx:///Assets/ColorReference3.png",
         };
         private int _displayRefIndex = 0;
 
