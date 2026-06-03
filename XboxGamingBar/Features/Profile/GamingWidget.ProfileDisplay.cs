@@ -144,6 +144,13 @@ namespace XboxGamingBar
             GlobalProfileCpuAdvText.Visibility = globalCpuAdvVis;
             GlobalProfileCpuAdvText.Text = globalCpuAdv ?? "";
 
+            // Intel Display (IGCL) summary row — part of the Performance & Display profile.
+            string globalDisp = BuildDisplaySummary(globalProfile);
+            var globalDispVis = string.IsNullOrEmpty(globalDisp) ? Visibility.Collapsed : Visibility.Visible;
+            GlobalProfileDisplayLabel.Visibility = globalDispVis;
+            GlobalProfileDisplayText.Visibility = globalDispVis;
+            GlobalProfileDisplayText.Text = globalDisp ?? "";
+
             // Update AC/DC profile display
             ACDCProfileTDPModeLabel.Visibility = tdpModeVisibility;
             ACProfileTDPModeText.Visibility = tdpModeVisibility;
@@ -438,6 +445,13 @@ namespace XboxGamingBar
                     GameProfileCpuAdvLabel.Visibility = gameCpuAdvVis;
                     GameProfileCpuAdvText.Visibility = gameCpuAdvVis;
                     GameProfileCpuAdvText.Text = gameCpuAdv ?? "";
+
+                    // Intel Display (IGCL) summary row
+                    string gameDisp = BuildDisplaySummary(gameProfile);
+                    var gameDispVis = string.IsNullOrEmpty(gameDisp) ? Visibility.Collapsed : Visibility.Visible;
+                    GameProfileDisplayLabel.Visibility = gameDispVis;
+                    GameProfileDisplayText.Visibility = gameDispVis;
+                    GameProfileDisplayText.Text = gameDisp ?? "";
 
                     // MSI Claw: repurpose CPUEPPLabel/Text slot → Gyro On/Off
                     bool gyroOn = (legionGyroTarget?.Value ?? 0) != 0;

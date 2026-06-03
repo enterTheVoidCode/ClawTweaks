@@ -793,6 +793,22 @@ namespace XboxGamingBar
                         }
                     }
 
+                    // Intel Display (IGCL) — part of the Performance & Display profile.
+                    if ((gameAC.IntelColorSaturation >= 0 && gameAC.IntelColorSaturation != 100) || (gameDC.IntelColorSaturation >= 0 && gameDC.IntelColorSaturation != 100))
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Saturation", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.IntelColorSaturation >= 0 ? $"{gameAC.IntelColorSaturation}%" : "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.IntelColorSaturation >= 0 ? $"{gameDC.IntelColorSaturation}%" : "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+                    if (gameAC.IntelAdaptiveSharpness > 0 || gameDC.IntelAdaptiveSharpness > 0)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Sharpness", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.IntelAdaptiveSharpness > 0 ? gameAC.IntelAdaptiveSharpness.ToString() : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.IntelAdaptiveSharpness > 0 ? gameDC.IntelAdaptiveSharpness.ToString() : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+
                     // EPP
                     //if (SaveCPUEPP)
                     //{
@@ -942,6 +958,12 @@ namespace XboxGamingBar
                         if (game.MaxECoreFreqMHz > 0)
                             pairs.Add(("E-Core Max", GetFreqLabel(game.MaxECoreFreqMHz)));
                     }
+
+                    // Intel Display (IGCL) — part of the Performance & Display profile.
+                    if (game.IntelColorSaturation >= 0 && game.IntelColorSaturation != 100)
+                        pairs.Add(("Saturation", $"{game.IntelColorSaturation}%"));
+                    if (game.IntelAdaptiveSharpness > 0)
+                        pairs.Add(("Sharpness", game.IntelAdaptiveSharpness.ToString()));
 
                     if (SaveFPSLimit)
                     {

@@ -252,6 +252,12 @@ namespace XboxGamingBar
                 if (MaxECoreFreqComboBox != null)
                     profile.MaxECoreFreqMHz = GetSelectedTagInt(MaxECoreFreqComboBox, 0);
             }
+
+            // Intel Display (IGCL) — always captured into the Performance & Display profile.
+            if (DisplaySaturationComboBox != null)
+                profile.IntelColorSaturation = GetSelectedTagInt(DisplaySaturationComboBox, 100);
+            if (DisplaySharpnessComboBox != null)
+                profile.IntelAdaptiveSharpness = GetSelectedTagInt(DisplaySharpnessComboBox, 0);
             if (SaveCPUEPP && CPUEPPSlider != null)
             {
                 profile.CPUEPP = CPUEPPSlider.Value;
@@ -466,6 +472,8 @@ namespace XboxGamingBar
 
                     // CPU advanced (ToothNClaw port): restore combo selections + push to helper.
                     ApplyCpuAdvancedFromProfile(profile);
+                    // Intel Display (IGCL): restore saturation/sharpness combos + push to helper.
+                    ApplyDisplayFromProfile(profile);
                 }
                 if (SaveCPUEPP)
                 {

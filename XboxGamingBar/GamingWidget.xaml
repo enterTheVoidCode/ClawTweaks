@@ -955,7 +955,7 @@
 
                                 <!-- Middle: label + active profile name + game detection -->
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
-                                    <TextBlock Text="Per Game performance profile"
+                                    <TextBlock Text="Per Game performance &amp; display profile"
                                                FontSize="13"
                                                FontWeight="SemiBold"
                                                Foreground="#FFFFFF"/>
@@ -2483,7 +2483,7 @@
                         <!-- Global Profile Card -->
                         <Border Style="{StaticResource CardStyle}" Margin="0,16,0,0">
                             <StackPanel>
-                                <TextBlock Text="Global performance profile"
+                                <TextBlock Text="Global performance &amp; display profile"
                                            Style="{StaticResource CardTitleStyle}"
                                            Foreground="#00FF88"
                                            FontSize="14"/>
@@ -2491,6 +2491,7 @@
                                 <!-- Simple Mode (Power Source Toggle OFF) -->
                                 <Grid x:Name="GlobalProfileSimple" Margin="0,8,0,0">
                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
@@ -2552,6 +2553,9 @@
 
                                     <TextBlock Grid.Row="13" Grid.Column="0" x:Name="GlobalProfileCpuAdvLabel" Text="CPU" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="13" Grid.Column="1" x:Name="GlobalProfileCpuAdvText" Text="" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+
+                                    <TextBlock Grid.Row="14" Grid.Column="0" x:Name="GlobalProfileDisplayLabel" Text="Display" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="14" Grid.Column="1" x:Name="GlobalProfileDisplayText" Text="" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
                                 </Grid>
 
                                 <!-- AC/DC Mode (Power Source Toggle ON) -->
@@ -2839,6 +2843,7 @@
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -2889,6 +2894,9 @@
 
                                         <TextBlock Grid.Row="14" Grid.Column="0" x:Name="GameProfileCpuAdvLabel" Text="CPU" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="14" Grid.Column="1" x:Name="GameProfileCpuAdvText" Text="" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+
+                                        <TextBlock Grid.Row="15" Grid.Column="0" x:Name="GameProfileDisplayLabel" Text="Display" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="15" Grid.Column="1" x:Name="GameProfileDisplayText" Text="" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
@@ -4490,6 +4498,64 @@
                             </StackPanel>
                         </Border>
 
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- DISPLAY TAB (Intel IGCL) — saved in the Performance & Display profile -->
+                <ScrollViewer x:Name="DisplayScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16" Spacing="12">
+
+                        <TextBlock Text="Display (Intel)" Style="{StaticResource CardTitleStyle}"/>
+                        <TextBlock Text="Saturation &amp; adaptive sharpness are saved per-game and globally in the Performance &amp; Display profile — they follow the running game."
+                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+
+                        <!-- Saturation -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Color Saturation" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="100% = neutral / Intel default"
+                                           Style="{StaticResource CardCaptionStyle}"/>
+                                <ComboBox x:Name="DisplaySaturationComboBox"
+                                          Margin="0,8,0,0"
+                                          HorizontalAlignment="Stretch"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          XYFocusLeft="{x:Bind DisplayNavItem}"
+                                          XYFocusDown="{x:Bind DisplaySharpnessComboBox}">
+                                    <ComboBoxItem Content="50% (muted)" Tag="50"/>
+                                    <ComboBoxItem Content="75%" Tag="75"/>
+                                    <ComboBoxItem Content="100% (neutral)" Tag="100" IsSelected="True"/>
+                                    <ComboBoxItem Content="125%" Tag="125"/>
+                                    <ComboBoxItem Content="150% (vivid)" Tag="150"/>
+                                    <ComboBoxItem Content="175%" Tag="175"/>
+                                    <ComboBoxItem Content="200% (max)" Tag="200"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Adaptive Sharpness -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Adaptive Sharpness" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Intel adaptive sharpening intensity (Off = disabled)"
+                                           Style="{StaticResource CardCaptionStyle}"/>
+                                <ComboBox x:Name="DisplaySharpnessComboBox"
+                                          Margin="0,8,0,0"
+                                          HorizontalAlignment="Stretch"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          XYFocusLeft="{x:Bind DisplayNavItem}"
+                                          XYFocusUp="{x:Bind DisplaySaturationComboBox}">
+                                    <ComboBoxItem Content="Off" Tag="0" IsSelected="True"/>
+                                    <ComboBoxItem Content="Low (25)" Tag="25"/>
+                                    <ComboBoxItem Content="Medium (50)" Tag="50"/>
+                                    <ComboBoxItem Content="High (75)" Tag="75"/>
+                                    <ComboBoxItem Content="Max (100)" Tag="100"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="Note: these affect the whole screen (desktop-wide), like Intel Graphics Software. They reset to your global profile when no game is running."
+                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                     </StackPanel>
                 </ScrollViewer>
 

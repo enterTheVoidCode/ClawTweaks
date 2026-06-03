@@ -456,5 +456,9 @@
         ProcessorSchedulingPolicy,   // int - 0=Auto, 1=PreferPCore, 2=PreferECore, 3=OnlyPCore, 4=OnlyECore
         MaxPCoreFreqMHz,             // int - P-core (Efficiency Class 1) max frequency in MHz (0 = unlimited)
         MaxECoreFreqMHz,             // int - E-core/all-core max frequency in MHz (0 = unlimited)
+
+        // Intel Display (IGCL) — stored in the existing performance profile (global + per-game).
+        IntelAdaptiveSharpness,      // int - 0 = off, 1..100 = adaptive sharpness intensity
+        IntelColorSaturation,        // int - saturation percent, 100 = neutral (1.0x); e.g. 0..200
     }
 }

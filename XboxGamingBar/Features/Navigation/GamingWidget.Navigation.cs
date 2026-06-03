@@ -55,6 +55,7 @@ namespace XboxGamingBar
                 PerformanceScrollViewer.Visibility = Visibility.Collapsed;
                 GameScrollViewer.Visibility = Visibility.Collapsed;
                 AMDScrollViewer.Visibility = Visibility.Collapsed;
+                if (DisplayScrollViewer != null) DisplayScrollViewer.Visibility = Visibility.Collapsed;
                 ScalingScrollViewer.Visibility = Visibility.Collapsed;
                 LegionScrollViewer.Visibility = Visibility.Collapsed;
                 GPDScrollViewer.Visibility = Visibility.Collapsed;
@@ -90,6 +91,13 @@ namespace XboxGamingBar
                     case "AMD":
                         AMDScrollViewer.Visibility = Visibility.Visible;
                         AMDScrollViewer.ChangeView(null, 0, null, true);
+                        break;
+                    case "Display":
+                        if (DisplayScrollViewer != null)
+                        {
+                            DisplayScrollViewer.Visibility = Visibility.Visible;
+                            DisplayScrollViewer.ChangeView(null, 0, null, true);
+                        }
                         break;
                     // case "Trigger":  // Hotkeys tab hidden — redundant with Main > Customize keyboard hotkeys
                     //     TriggerScrollViewer.Visibility = Visibility.Visible;
