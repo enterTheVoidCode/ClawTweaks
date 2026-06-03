@@ -61,38 +61,59 @@ Modi (`SchedulingPolicyMode` → (Policy, ThreadPolicy, ShortThreadPolicy)):
 
 ---
 
-## 2. Display / Intel-Farbe (Phase 2 — NUR ANALYSE, später)
+## 2. Display / Intel-Farbe (Phase 2)
 
-TnC-Dateien: `Tooth.Backend/IGCLBackend.cs` (~2000 Z. P/Invoke), `DisplayController.cs`,
-`Tooth/ColorRemaster*.cs`, native `Tooth.Backend/Libraries/IGCL_Wrapper.dll`.
+> **KORREKTUR (nach Code-Prüfung):** Die ursprüngliche Einschätzung „aufwändige native Abhängigkeit" war
+> falsch. **Wir liefern `IGCL_Wrapper.dll` bereits aus und laden sie schon** — für den Intel-FPS-Limiter
+> (Endurance Gaming), der einwandfrei läuft. Sättigung und adaptive Schärfung sind damit **trivial**
+> nachrüstbar: kein neues DLL, kein Rebuild, keine Zusatz-Installation.
 
-### 2.1 Technik
-Farb-Features (Sättigung, Hue, adaptive Schärfung, Kontrast, Gamma) laufen **nicht** über Standard-Windows-APIs,
-sondern über die **Intel Graphics Control Library (IGCL)** via einer vorkompilierten nativen C++-Wrapper-DLL
-(`IGCL_Wrapper.dll`, abgeleitet aus Intels IGCL-Sample, MIT). `IGCLBackend.cs` ist das P/Invoke-Mapping
-(ctl_* Strukturen, `ctl_result_t`, Pixel-Transformation-Blöcke, Sharpness-Filter, etc.).
+### 2.1 Was schon da ist
+- `XboxGamingBarHelper/Intel/IGCLBackend.cs` lädt `IGCL_Wrapper.dll` per `LoadLibrary` + `GetProcAddress`
+  und bindet aktuell **nur 6** Exporte (Endurance Gaming / FPS-Tier).
+- `dumpbin /exports IGCL_Wrapper.dll` zeigt: die DLL exportiert den **kompletten** IGCL-Umfang
+  **plus fertige High-Level-Helfer**, u. a.:
+  - **Adaptive Sharpness:** `GetSharpnessCaps`, `GetSharpnessSettings`, `SetSharpnessSettings`
+    (+ roh `ctlGetSharpnessCaps`, `ctlSetCurrentSharpness`).
+  - **Sättigung / Hue:** `SetHueSaturationValues` (Wrapper rechnet die CSC-Matrix intern!),
+    `ApplyHueSaturation`, `GenerateHueSaturationMatrix`, `MapSaturation`, `SetCsc`.
+  - Bonus: `SetBrightnessContrastGammaValues` / `GetSetGamma` (Kontrast/Gamma, falls später gewünscht).
+- IGCL-Runtime = der **installierte Intel-Grafiktreiber** (Lunar Lake Xe2). Kein separater Installer —
+  bewiesen dadurch, dass der FPS-Limiter über genau diese DLL bereits funktioniert.
 
-Relevante IGCL-Bausteine:
-- **Pixel Transformation (Pixtx)**: 3x3-Color-Matrix / CSC für Sättigung & Hue, LUT für Gamma/Kontrast
-  (`ctl_pixtx_*`, Block-IDs; Fehlercodes `..._INVALID_PIXTX_*`).
-- **Sharpness**: `ctl_sharpness_settings_t` (Enable, FilterType `NON_ADAPTIVE`/`ADAPTIVE`, Intensity),
-  Caps via `ctl_sharpness_caps_t` → adaptive Schärfung = `CTL_SHARPNESS_FILTER_TYPE_FLAG_ADAPTIVE`.
-- Init über `ctlInit` (ctl_init_args_t), Adapter-Enumeration, Display-Output-Handles.
+### 2.2 Exakte Signaturen (aus TnC `Tooth.Backend/IGCLBackend.cs` verifiziert)
+```csharp
+// Adaptive Sharpness
+struct ctl_sharpness_settings_t { uint Size; byte Version; bool Enable;
+                                  ctl_sharpness_filter_type_flag_t FilterType; float Intensity; }
+// FilterType: NON_ADAPTIVE=1, ADAPTIVE=2
+ctl_result_t GetSharpnessSettings(ctl_device_adapter_handle_t hDevice, uint displayIdx, ref ctl_sharpness_settings_t s);
+ctl_result_t SetSharpnessSettings(ctl_device_adapter_handle_t hDevice, uint displayIdx, ctl_sharpness_settings_t s);
+// Apply adaptive: s.Enable=true; s.FilterType=ADAPTIVE; s.Intensity=<0..100>; Set; dann Get zum Verifizieren.
 
-### 2.2 Aufwand / Risiko
-- **Native Abhängigkeit**: `IGCL_Wrapper.dll` muss mitgeliefert + in unseren Helper geladen werden
-  (Helper läuft elevated, hat GPU-Zugriff). Lizenz MIT — Übernahme von DLL + `IGCLBackend.cs` möglich.
-- Treiberabhängig (nur Intel Arc/iGPU mit IGCL-fähigem Treiber, Lunar Lake Xe2 = ok).
-- Werte sind **kein** Power-Tweak, sondern echte GPU-Pixel-Transformation → eigener Manager im Helper nötig.
+// Sättigung / Hue (DLL macht die Matrix intern)
+ctl_result_t SetHueSaturationValues(ctl_device_adapter_handle_t hDevice, double Hue, double Saturation);
+// Default/neutral: Hue=0, Saturation=1.0. Sättigung als Multiplikator (TnC-Slider-Range prüfen, grob 0..4).
+```
 
-### 2.3 Geplante ClawTweaks-Umsetzung
+### 2.3 Aufwand
+- **Adaptive Sharpness:** ~30–40 Z. C# (3 Delegates + 1 Struct + 1 Enum in `IGCLBackend.cs`, eine
+  `SetAdaptiveSharpness(intensity)`-Methode) + Toggle/Slider. **Klein.** Hinweis: pro Display-Output
+  (`displayIdx`), i. d. R. das interne eDP-Panel = 0; ggf. Display-Outputs enumerieren.
+- **Sättigung:** ~15 Z. C# (1 Delegate `SetHueSaturationValues` + `SetSaturation(value)`) + Slider.
+  **Sehr klein.** Hue lassen wir auf 0 (nicht zwingend nötig).
+- **Persistenz:** wie CPU-Sektion — Felder im `GameProfile` (global + per-game), Apply-Pfade, Function-Enum.
+- **Reset/Restore:** CSC/Sharpness sind global (Desktop-weit) und persistent bis zurückgesetzt → „Reset"
+  (Saturation=1.0, Sharpness off) anbieten und beim Helper-Start den gespeicherten Wert re-applien.
+
+### 2.4 Geplante ClawTweaks-Umsetzung
 - Neuer **Display-Tab** rechts neben „Controls". Vorarbeit erledigt: `DisplayNavItem` (Tag `Display`,
-  aktuell `Visibility=Collapsed`) liegt bereits in `GamingWidget.xaml`. Zum Aktivieren: Visibility entfernen,
-  ScrollViewer/Content mit Tag `Display` ergänzen, in `NavRadioButton_Checked` Routing prüfen.
-- Helper: `IntelColorManager` (Wrapper um `IGCLBackend`) + Functions
-  `IntelColorSaturation`, `IntelColorHue`, `IntelAdaptiveSharpness`, `IntelDisplayContrast`, `IntelDisplayGamma`.
-- Werte per-game/global im `GameProfile` (Pattern wie CPU-Sektion).
-- `IGCL_Wrapper.dll` ins Helper-Output + ins Package aufnehmen (csproj `<Content>` + Build-Script).
+  `Visibility=Collapsed`) liegt bereits in `GamingWidget.xaml`. Aktivieren: Visibility entfernen,
+  ScrollViewer/Content mit Tag `Display` ergänzen, Routing in `NavRadioButton_Checked` prüfen.
+- Helper: `IGCLBackend` um Sharpness-/Saturation-Exporte erweitern; ein kleiner `IntelDisplayManager`
+  oder direkt in `IntelGpuManager` integrieren. Functions z. B. `IntelAdaptiveSharpness` (int 0..100,
+  0=off) und `IntelColorSaturation` (int, 100=neutral).
+- DLL bereits im Package (kein csproj/Build-Script-Change nötig).
 
 ---
 
