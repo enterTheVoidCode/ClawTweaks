@@ -2549,6 +2549,9 @@
 
                                     <TextBlock Grid.Row="12" Grid.Column="0" x:Name="GlobalProfileStickyTDPLabel" Text="Sticky TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="12" Grid.Column="1" x:Name="GlobalProfileStickyTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                    <TextBlock Grid.Row="13" Grid.Column="0" x:Name="GlobalProfileCpuAdvLabel" Text="CPU" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="13" Grid.Column="1" x:Name="GlobalProfileCpuAdvText" Text="" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
                                 </Grid>
 
                                 <!-- AC/DC Mode (Power Source Toggle ON) -->
@@ -2835,6 +2838,7 @@
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -2882,6 +2886,9 @@
 
                                         <TextBlock Grid.Row="13" Grid.Column="0" x:Name="GameProfileStickyTDPLabel" Text="Sticky TDP" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="13" Grid.Column="1" x:Name="GameProfileStickyTDPText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
+
+                                        <TextBlock Grid.Row="14" Grid.Column="0" x:Name="GameProfileCpuAdvLabel" Text="CPU" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="14" Grid.Column="1" x:Name="GameProfileCpuAdvText" Text="" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>

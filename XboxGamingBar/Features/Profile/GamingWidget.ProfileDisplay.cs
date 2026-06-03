@@ -137,6 +137,13 @@ namespace XboxGamingBar
             GlobalProfileStickyTDPText.Visibility = stickyTDPVisibility;
             GlobalProfileStickyTDPText.Text = globalProfile.StickyTDPEnabled ? "On" : "Off";
 
+            // CPU advanced (ToothNClaw port) summary row — only shown when something is set.
+            string globalCpuAdv = BuildCpuAdvancedSummary(globalProfile);
+            var globalCpuAdvVis = string.IsNullOrEmpty(globalCpuAdv) ? Visibility.Collapsed : Visibility.Visible;
+            GlobalProfileCpuAdvLabel.Visibility = globalCpuAdvVis;
+            GlobalProfileCpuAdvText.Visibility = globalCpuAdvVis;
+            GlobalProfileCpuAdvText.Text = globalCpuAdv ?? "";
+
             // Update AC/DC profile display
             ACDCProfileTDPModeLabel.Visibility = tdpModeVisibility;
             ACProfileTDPModeText.Visibility = tdpModeVisibility;
@@ -424,6 +431,13 @@ namespace XboxGamingBar
                     GameProfileStickyTDPLabel.Visibility = stickyTDPVisibility;
                     GameProfileStickyTDPText.Visibility = stickyTDPVisibility;
                     GameProfileStickyTDPText.Text = gameProfile.StickyTDPEnabled ? "On" : "Off";
+
+                    // CPU advanced (ToothNClaw port) summary row — only shown when set.
+                    string gameCpuAdv = BuildCpuAdvancedSummary(gameProfile);
+                    var gameCpuAdvVis = string.IsNullOrEmpty(gameCpuAdv) ? Visibility.Collapsed : Visibility.Visible;
+                    GameProfileCpuAdvLabel.Visibility = gameCpuAdvVis;
+                    GameProfileCpuAdvText.Visibility = gameCpuAdvVis;
+                    GameProfileCpuAdvText.Text = gameCpuAdv ?? "";
 
                     // MSI Claw: repurpose CPUEPPLabel/Text slot → Gyro On/Off
                     bool gyroOn = (legionGyroTarget?.Value ?? 0) != 0;
