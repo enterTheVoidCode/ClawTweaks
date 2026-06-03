@@ -28,6 +28,8 @@ namespace XboxGamingBar
         private readonly string[] _displayRefImages = new[]
         {
             "ms-appx:///Assets/ColorReference.jpg",
+            "ms-appx:///Assets/ColorReference2.jpg",
+            "ms-appx:///Assets/ColorReference3.jpg",
         };
         private int _displayRefIndex = 0;
 
