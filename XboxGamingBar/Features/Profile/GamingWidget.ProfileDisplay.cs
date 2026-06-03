@@ -62,6 +62,13 @@ namespace XboxGamingBar
             var resolutionVisibility = SaveResolution ? Visibility.Visible : Visibility.Collapsed;
             var stickyTDPVisibility = SaveStickyTDP ? Visibility.Visible : Visibility.Collapsed;
 
+            // Multi-column rendering of the simple global profile (matches the saved cards).
+            if (GlobalProfilePairs != null)
+            {
+                GlobalProfilePairs.Children.Clear();
+                GlobalProfilePairs.Children.Add(RenderPairsGrid(BuildProfileCardPairs(globalProfile)));
+            }
+
             // Update Global profile display (simple mode)
             GlobalProfileTDPModeLabel.Visibility = tdpModeVisibility;
             GlobalProfileTDPModeText.Visibility = tdpModeVisibility;
@@ -362,6 +369,13 @@ namespace XboxGamingBar
                 }
                 else
                 {
+                    // Multi-column rendering of the Now Playing profile (matches the saved cards).
+                    if (GameProfilePairs != null)
+                    {
+                        GameProfilePairs.Children.Clear();
+                        GameProfilePairs.Children.Add(RenderPairsGrid(BuildProfileCardPairs(gameProfile)));
+                    }
+
                     // Show single game profile - TDP Mode (Legion only)
                     GameProfileTDPModeLabel.Visibility = tdpModeVisibility;
                     GameProfileTDPModeText.Visibility = tdpModeVisibility;
