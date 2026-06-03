@@ -580,7 +580,9 @@ namespace XboxGamingBar
                         if (IntelFpsTierComboBox != null)
                         {
                             isApplyingHelperUpdate = true;
-                            try { IntelFpsTierComboBox.SelectedIndex = profile.IntelFpsTier; }
+                            // Clamp: setting SelectedIndex >= Items.Count throws ArgumentException
+                            // ("Value does not fall within the expected range") which fail-fasts the widget.
+                            try { IntelFpsTierComboBox.SelectedIndex = ClampComboIndex(IntelFpsTierComboBox, profile.IntelFpsTier); }
                             finally { isApplyingHelperUpdate = false; }
                         }
                     }
@@ -636,7 +638,7 @@ namespace XboxGamingBar
                         // Update controller type selection (0=PID, 1=Q-Learning, 2=SARSA)
                         if (AutoTDPControllerModeComboBox != null)
                         {
-                            AutoTDPControllerModeComboBox.SelectedIndex = profile.AutoTDPControllerType;
+                            AutoTDPControllerModeComboBox.SelectedIndex = ClampComboIndex(AutoTDPControllerModeComboBox, profile.AutoTDPControllerType);
                             UpdateAutoTDPMLInfoPanelVisibility();
                         }
                         // NOTE: Do NOT send to helper here - helper is source of truth for profile values
@@ -652,7 +654,7 @@ namespace XboxGamingBar
                     isLoadingOSPowerMode = true;
                     try
                     {
-                        OSPowerModeComboBox.SelectedIndex = profile.OSPowerMode;
+                        OSPowerModeComboBox.SelectedIndex = ClampComboIndex(OSPowerModeComboBox, profile.OSPowerMode);
                         if (profile.OSPowerMode >= 0 && profile.OSPowerMode < OSPowerModeNames.Length)
                         {
                             OSPowerModeValue.Text = OSPowerModeNames[profile.OSPowerMode];
@@ -1060,10 +1062,41 @@ namespace XboxGamingBar
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                // CRITICAL: LoadProfileSettings is invoked from OnGameTextChanged, which is a
+                // DependencyProperty-changed callback. An exception escaping here is not a normal
+                // managed exception — XAML wraps it into a stowed exception (0xc000027b) and
+                // FAIL-FASTS the whole process, taking down the entire Game Bar widget. That is
+                // exactly the "helper goes away / no game-start notification after a game ends"
+                // crash loop seen in the field: a single profile with an out-of-range ComboBox
+                // index (e.g. OSPowerMode/IntelFpsTier/AutoTDPControllerType larger than the
+                // control's item count) killed the widget on every game start/stop transition.
+                // Swallow + log so one bad value can never crash the widget; the rest of the
+                // profile is best-effort applied and the user keeps notifications + connection.
+                Logger.Error($"LoadProfileSettings('{profileName}') threw and was contained to prevent a widget crash: {ex}");
+            }
             finally
             {
                 isLoadingProfile = false;
             }
+        }
+
+        /// <summary>
+        /// Clamps a desired ComboBox index to the valid range [-1 .. Items.Count-1].
+        /// Setting ComboBox.SelectedIndex to a value >= Items.Count throws
+        /// ArgumentException ("Value does not fall within the expected range"), which—when it
+        /// happens inside a DependencyProperty callback like the profile-switch path—fail-fasts
+        /// the entire Game Bar widget. Profiles can legitimately hold an index that no longer
+        /// fits the current control (item count differs by device/driver), so clamp instead of throw.
+        /// </summary>
+        private static int ClampComboIndex(ComboBox combo, int desired)
+        {
+            if (combo == null) return -1;
+            int max = combo.Items.Count - 1;
+            if (desired > max) return max;   // -1 when the combo is empty, otherwise last item
+            if (desired < -1) return -1;
+            return desired;
         }
 
         private PerformanceProfile GetProfile(string profileName)
