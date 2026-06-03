@@ -721,6 +721,10 @@ namespace XboxGamingBarHelper
                     // without changing the running power mode.
                     try { legionManager?.PushAllPerModeStateToWidget(); }
                     catch (Exception ex) { Logger.Warn($"Failed to push per-mode fan curve state on connect: {ex.Message}"); }
+                    // MSI Claw: push the persisted fan preset/curve so the widget UI reflects what
+                    // the helper restored at boot (helper is the single source of truth).
+                    try { PushMsiFanStateToWidget(); }
+                    catch (Exception ex) { Logger.Warn($"Failed to push MSI fan state on connect: {ex.Message}"); }
                 };
                 pipeServer.Disconnected += (s, e) => Logger.Info("Widget disconnected from Named Pipe");
                 pipeServer.Start();

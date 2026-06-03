@@ -448,7 +448,10 @@
                     </RadioButton>
                     <RadioButton x:Name="FanNavItem" Tag="Fan" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Fan">
                         <RadioButton.Content>
-                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE72C;" FontSize="17" VerticalAlignment="Center"/>
+                            <!-- Proper 3-blade fan (vector) — Segoe MDL2 has no fan glyph -->
+                            <Viewbox Width="18" Height="18" VerticalAlignment="Center">
+                                <PathIcon Data="M12,11A1,1 0 0,0 11,12A1,1 0 0,0 12,13A1,1 0 0,0 13,12A1,1 0 0,0 12,11M12.5,2C17,2 17.11,5.57 14.75,6.75C13.76,7.24 13.32,8.29 13.13,9.22C13.61,9.46 14,9.85 14.25,10.32C18.36,8.4 21.34,11.3 20.71,15.5C20.71,15.5 17.55,13.5 14.86,15.21C14.59,15.61 14.21,15.92 13.76,16.11C13.96,17.04 14.39,18.09 15.39,18.58C17.75,19.76 17.65,23.33 13.15,23.33L12.85,23.33C8.35,23.33 8.24,19.76 10.6,18.58C11.59,18.09 12.03,17.04 12.22,16.11C11.78,15.91 11.39,15.6 11.13,15.2C8.44,13.5 5.29,15.5 5.29,15.5C4.66,11.3 7.64,8.4 11.75,10.32C12,9.85 12.39,9.46 12.87,9.22C12.68,8.29 12.24,7.24 11.25,6.75C8.89,5.57 9,2 13.5,2L12.5,2Z"/>
+                            </Viewbox>
                         </RadioButton.Content>
                     </RadioButton>
                     <RadioButton x:Name="ScalingNavItem" Tag="Scaling" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Lossless Scaling">
@@ -2489,10 +2492,12 @@
                         <!-- Global Profile Card -->
                         <Border Style="{StaticResource CardStyle}" Margin="0,16,0,0">
                             <StackPanel>
-                                <TextBlock Text="Global performance &amp; display profile"
-                                           Style="{StaticResource CardTitleStyle}"
-                                           Foreground="#FFAA46"
-                                           FontSize="14"/>
+                                <!-- Orange framed title (matches the "Editing Global Profile" badge) -->
+                                <Border Background="#37260C" BorderBrush="#A06E28" BorderThickness="1"
+                                        CornerRadius="4" Padding="8,3" Margin="0,0,0,4" HorizontalAlignment="Left">
+                                    <TextBlock Text="Global performance &amp; display profile"
+                                               Foreground="#FFAA46" FontSize="14" FontWeight="Bold"/>
+                                </Border>
 
                                 <!-- Simple Mode (Power Source Toggle OFF) -->
                                 <Grid x:Name="GlobalProfileSimple" Margin="0,8,0,0">

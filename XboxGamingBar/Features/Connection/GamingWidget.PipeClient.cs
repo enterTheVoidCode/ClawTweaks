@@ -119,6 +119,18 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Helper pushes the persisted MSI fan preset/curve on connect (helper is the
+                // single source of truth). The widget reflects it WITHOUT echoing back.
+                if (message.TryGetValue("MsiFanState", out object msiFanStateObj) && msiFanStateObj is string msiFanState)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnMsiFanState(msiFanState); }
+                        catch (Exception ex) { Logger.Error($"OnMsiFanState dispatch error: {ex.Message}"); }
+                    });
+                    return;
+                }
+
                 // Helper pushes DriverUpdatesAvailable as an unsolicited message
                 // after its startup driver probe completes. Light up the Quick
                 // tab tile; no other state needs updating yet.

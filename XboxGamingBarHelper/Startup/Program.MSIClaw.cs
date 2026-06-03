@@ -249,6 +249,29 @@ namespace XboxGamingBarHelper
             }
         }
 
+        /// <summary>
+        /// Push the persisted MSI fan state (preset value + custom curve) to the widget on
+        /// connect, so its UI reflects what the helper actually restored at boot. The helper is
+        /// the single source of truth; the widget must NOT push its own state on open.
+        /// Format: "MsiFanState":"&lt;value&gt;|&lt;curveCsvOrEmpty&gt;".
+        /// </summary>
+        internal static void PushMsiFanStateToWidget()
+        {
+            try
+            {
+                if (pipeServer == null || !pipeServer.IsConnected) return;
+                int value = Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int v) ? v : -1;
+                string curve = (value == 3 && Settings.LocalSettingsHelper.TryGetValue<string>("MsiFan_Curve", out string c)) ? c : "";
+                string json = $"{{\"MsiFanState\":\"{value}|{curve}\"}}";
+                pipeServer.SendMessage(json);
+                Logger.Info($"PushMsiFanStateToWidget: sent value={value} curve='{curve}'");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"PushMsiFanStateToWidget failed: {ex.Message}");
+            }
+        }
+
         /// <summary>Apply and persist a custom 11-point fan curve sent as a CSV string.</summary>
         internal static void ApplyMsiFanCurve(string csv)
         {
