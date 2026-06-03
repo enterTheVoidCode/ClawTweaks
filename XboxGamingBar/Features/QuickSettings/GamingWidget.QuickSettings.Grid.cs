@@ -689,12 +689,12 @@ namespace XboxGamingBar
                 _btnBindFlyout?.Hide();
                 _btnBindTileId = tileId;
 
-                // Preload existing binding into selection list
+                // Start with an EMPTY selection so a newly picked combo fully REPLACES the
+                // previous one instead of being added on top of it. Pre-seeding the existing
+                // binding made the default Start+Select on the built-in "Mode" tile sticky:
+                // users who changed it ended up with Start+Select still baked into the saved
+                // combo (it kept firing). Empty start = clean replace, Start+Select freed.
                 _btnBindSelectedBits.Clear();
-                uint existingMask = ParseHotkeyMaskUInt(tile.ControllerHotkey);
-                foreach (var (_, bit) in ClawButtonDefs)
-                    if (bit != 0 && (existingMask & bit) == bit)
-                        _btnBindSelectedBits.Add(bit);
 
                 // ── Build flyout UI ──────────────────────────────────────────────
                 var panel = new StackPanel { Padding = new Thickness(16), MinWidth = 268 };
