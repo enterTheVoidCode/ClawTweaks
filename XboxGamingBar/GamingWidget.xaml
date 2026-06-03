@@ -415,76 +415,54 @@
                             VerticalAlignment="Center"
                             XYFocusKeyboardNavigation="Disabled"
                             KeyDown="MainNavPanel_KeyDown">
-                    <RadioButton x:Name="QuickNavItem" Tag="Quick" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                    <RadioButton x:Name="QuickNavItem" Tag="Quick" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Main">
                         <RadioButton.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE713;" FontSize="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="Main" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE713;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="PerformanceNavItem" Tag="Performance" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                    <RadioButton x:Name="PerformanceNavItem" Tag="Performance" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Performance">
                         <RadioButton.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE945;" FontSize="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="Perf" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE945;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="ProfilesNavItem" Tag="Game" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                    <RadioButton x:Name="ProfilesNavItem" Tag="Game" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Profile">
                         <RadioButton.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE77B;" FontSize="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="Profile" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE77B;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="LegionNavItem" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                    <RadioButton x:Name="LegionNavItem" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Controls">
                         <RadioButton.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7FC;" FontSize="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="Controls" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7FC;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="GraphicsNavItem" Tag="AMD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked">
+                    <RadioButton x:Name="DisplayNavItem" Tag="Display" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Display">
                         <RadioButton.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7F4;" FontSize="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="Disp" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7F4;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="TriggerNavItem" Tag="Trigger" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" Visibility="Collapsed">
+                    <RadioButton x:Name="GraphicsNavItem" Tag="AMD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Graphics">
                         <RadioButton.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE945;" FontSize="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="Hotkeys" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7F4;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="ScalingNavItem" Tag="Scaling" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                    <RadioButton x:Name="TriggerNavItem" Tag="Trigger" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" Visibility="Collapsed" ToolTipService.ToolTip="Hotkeys">
                         <RadioButton.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8A3;" FontSize="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="Lossl" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE945;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="GPDNavItem" Tag="GPD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked">
+                    <RadioButton x:Name="ScalingNavItem" Tag="Scaling" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Lossless Scaling">
                         <RadioButton.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7EF;" FontSize="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="GPD" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8A3;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="SystemNavItem" Tag="System" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked">
+                    <RadioButton x:Name="GPDNavItem" Tag="GPD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="GPD">
                         <RadioButton.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE946;" FontSize="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="Sys" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7EF;" FontSize="17" VerticalAlignment="Center"/>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <RadioButton x:Name="SystemNavItem" Tag="System" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="System">
+                        <RadioButton.Content>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE946;" FontSize="17" VerticalAlignment="Center"/>
                         </RadioButton.Content>
                     </RadioButton>
                 </StackPanel>
@@ -1659,23 +1637,112 @@
                         <FontIcon x:Name="TDPExtrasExpandIcon" Visibility="Collapsed" Glyph="&#xE70D;"/>
                         <!-- TDPBoostToggle is now a real card (Overboost) above — no stub needed -->
                         <ToggleSwitch x:Name="LegionFanFullSpeedToggle" Visibility="Collapsed"/>
+                        <!-- CPU (collapsible) — Boost mode, scheduling policy, P/E max freq (ToothNClaw port) -->
                         <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="CPU Boost" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Higher boost clocks"
-                                               Style="{StaticResource CardCaptionStyle}"/>
+                            <StackPanel>
+                                <!-- Header: title + CPU Boost on/off + expand toggle -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="CPU" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Boost, scheduling &amp; core frequency"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="CPUBoostToggle"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  Grid.Column="1"
+                                                  Margin="0,0,8,0"
+                                                  IsEnabled="False"
+                                                  KeyDown="CPUBoostToggle_KeyDown"/>
+                                    <ToggleButton x:Name="CpuSectionExpandButton"
+                                                  Grid.Column="2"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="CpuSectionExpandButton_Click"
+                                                  UseSystemFocusVisuals="True">
+                                        <FontIcon x:Name="CpuSectionExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <!-- Collapsible content -->
+                                <StackPanel x:Name="CpuSectionContent" Visibility="Collapsed" Margin="0,12,0,0" Spacing="10">
+                                    <!-- Boost Mode -->
+                                    <StackPanel>
+                                        <TextBlock Text="Boost Mode" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
+                                        <ComboBox x:Name="CpuBoostModeComboBox"
+                                                  Margin="0,4,0,0"
+                                                  HorizontalAlignment="Stretch"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  KeyDown="CpuAdvancedCombo_KeyDown">
+                                            <ComboBoxItem Content="Enabled" Tag="1" IsSelected="True"/>
+                                            <ComboBoxItem Content="Aggressive" Tag="2"/>
+                                            <ComboBoxItem Content="Efficient Enabled" Tag="3"/>
+                                            <ComboBoxItem Content="Efficient Aggressive" Tag="4"/>
+                                            <ComboBoxItem Content="Aggressive (Guaranteed)" Tag="5"/>
+                                            <ComboBoxItem Content="Efficient Aggr. (Guaranteed)" Tag="6"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- Scheduling Policy -->
+                                    <StackPanel>
+                                        <TextBlock Text="Processor Scheduling Policy" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
+                                        <ComboBox x:Name="SchedulingPolicyComboBox"
+                                                  Margin="0,4,0,0"
+                                                  HorizontalAlignment="Stretch"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  KeyDown="CpuAdvancedCombo_KeyDown">
+                                            <ComboBoxItem Content="Auto (default)" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Prefer P-Cores" Tag="1"/>
+                                            <ComboBoxItem Content="Prefer E-Cores" Tag="2"/>
+                                            <ComboBoxItem Content="Only P-Cores" Tag="3"/>
+                                            <ComboBoxItem Content="Only E-Cores" Tag="4"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- P-Core Max Frequency -->
+                                    <StackPanel>
+                                        <TextBlock Text="P-Core Max Frequency" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
+                                        <ComboBox x:Name="MaxPCoreFreqComboBox"
+                                                  Margin="0,4,0,0"
+                                                  HorizontalAlignment="Stretch"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  KeyDown="CpuAdvancedCombo_KeyDown">
+                                            <ComboBoxItem Content="Unlimited" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="4800 MHz" Tag="4800"/>
+                                            <ComboBoxItem Content="4200 MHz" Tag="4200"/>
+                                            <ComboBoxItem Content="3600 MHz" Tag="3600"/>
+                                            <ComboBoxItem Content="3000 MHz" Tag="3000"/>
+                                            <ComboBoxItem Content="2400 MHz" Tag="2400"/>
+                                            <ComboBoxItem Content="1800 MHz" Tag="1800"/>
+                                            <ComboBoxItem Content="1200 MHz" Tag="1200"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- E-Core Max Frequency -->
+                                    <StackPanel>
+                                        <TextBlock Text="E-Core Max Frequency" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
+                                        <ComboBox x:Name="MaxECoreFreqComboBox"
+                                                  Margin="0,4,0,0"
+                                                  HorizontalAlignment="Stretch"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  KeyDown="CpuAdvancedCombo_KeyDown">
+                                            <ComboBoxItem Content="Unlimited" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="2900 MHz" Tag="2900"/>
+                                            <ComboBoxItem Content="2400 MHz" Tag="2400"/>
+                                            <ComboBoxItem Content="1800 MHz" Tag="1800"/>
+                                            <ComboBoxItem Content="1200 MHz" Tag="1200"/>
+                                            <ComboBoxItem Content="800 MHz" Tag="800"/>
+                                        </ComboBox>
+                                    </StackPanel>
                                 </StackPanel>
-                                <ToggleSwitch x:Name="CPUBoostToggle"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              Grid.Column="1"
-                                              IsEnabled="False"
-                                              KeyDown="CPUBoostToggle_KeyDown"/>
-                            </Grid>
+                            </StackPanel>
                         </Border>
 
                         <!-- Overlay Card (merged Performance Overlay + OSD Customization) -->

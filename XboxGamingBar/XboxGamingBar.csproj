@@ -134,6 +134,7 @@
     <Compile Include="Data\HidHideInstalledProperty.cs" />
     <Compile Include="Data\InstallHidHideProperty.cs" />
     <Compile Include="Data\CPUBoostProperty.cs" />
+    <Compile Include="Data\CpuAdvancedProperties.cs" />
     <Compile Include="Data\IsForegroundProperty.cs" />
     <Compile Include="Data\MaxCPUStateProperty.cs" />
     <Compile Include="Data\MinCPUStateProperty.cs" />
@@ -293,6 +294,9 @@
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Performance\GamingWidget.CPUState.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\Performance\GamingWidget.CpuAdvanced.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Profile\GamingWidget.ProfileDeletion.cs">

@@ -449,5 +449,12 @@
         // Helper listens to WmiMonitorBrightnessEvent and re-writes SDR white level via
         // DISPLAYCONFIG_SET_SDR_WHITE_LEVEL on each change.
         SdrWhiteLevelSyncMode,                     // int (SdrWhiteLevelSyncMode enum) - 0=Off, 1=Auto (EDID + gamma), 2=Legion Go 2 preset
+
+        // CPU advanced (ToothNClaw port) — collapsible CPU section in Performance tab.
+        // All persisted per-game AND globally (GameProfile fields).
+        CpuBoostMode,                // int - boost mode 0=Disabled,1=Enabled,2=Aggressive,3=EfficientEnabled,4=EfficientAggressive,5=AggressiveAtGuaranteed,6=EfficientAggressiveAtGuaranteed
+        ProcessorSchedulingPolicy,   // int - 0=Auto, 1=PreferPCore, 2=PreferECore, 3=OnlyPCore, 4=OnlyECore
+        MaxPCoreFreqMHz,             // int - P-core (Efficiency Class 1) max frequency in MHz (0 = unlimited)
+        MaxECoreFreqMHz,             // int - E-core/all-core max frequency in MHz (0 = unlimited)
     }
 }

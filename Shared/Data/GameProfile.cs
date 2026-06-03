@@ -129,6 +129,73 @@ namespace Shared.Data
             }
         }
 
+        // ========== CPU Advanced (ToothNClaw port) ==========
+        // -1 = "unset" (don't apply / fall back). For freq, 0 = unlimited.
+
+        /// <summary>CPU Boost mode: -1=unset(use CPUBoost bool), 0=Disabled,1=Enabled,2=Aggressive,3=EfficientEnabled,4=EfficientAggressive,5=AggressiveAtGuaranteed,6=EfficientAggressiveAtGuaranteed.</summary>
+        [XmlElement("CpuBoostMode")]
+        private int cpuBoostMode;
+        public int CpuBoostMode
+        {
+            get { return cpuBoostMode; }
+            set
+            {
+                if (cpuBoostMode != value)
+                {
+                    cpuBoostMode = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>Processor scheduling policy: -1=unset, 0=Auto, 1=PreferPCore, 2=PreferECore, 3=OnlyPCore, 4=OnlyECore.</summary>
+        [XmlElement("ProcessorSchedulingPolicy")]
+        private int processorSchedulingPolicy;
+        public int ProcessorSchedulingPolicy
+        {
+            get { return processorSchedulingPolicy; }
+            set
+            {
+                if (processorSchedulingPolicy != value)
+                {
+                    processorSchedulingPolicy = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>P-core (Efficiency Class 1) max frequency in MHz. 0 = unlimited.</summary>
+        [XmlElement("MaxPCoreFreqMHz")]
+        private int maxPCoreFreqMHz;
+        public int MaxPCoreFreqMHz
+        {
+            get { return maxPCoreFreqMHz; }
+            set
+            {
+                if (maxPCoreFreqMHz != value)
+                {
+                    maxPCoreFreqMHz = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>E-core / all-core max frequency in MHz. 0 = unlimited.</summary>
+        [XmlElement("MaxECoreFreqMHz")]
+        private int maxECoreFreqMHz;
+        public int MaxECoreFreqMHz
+        {
+            get { return maxECoreFreqMHz; }
+            set
+            {
+                if (maxECoreFreqMHz != value)
+                {
+                    maxECoreFreqMHz = value;
+                    Save();
+                }
+            }
+        }
+
         [XmlElement("TDPBoostEnabled")]
         private bool tdpBoostEnabled;
         public bool TDPBoostEnabled
@@ -1223,6 +1290,11 @@ namespace Shared.Data
             minCPUState = inMinCPUState;
             tdpBoostEnabled = inTDPBoostEnabled;
             tdpBoostFPPTWatts = 0; // 0 = not set (use device default)
+            // CPU advanced (ToothNClaw port): -1 = unset, 0 = unlimited (freq)
+            cpuBoostMode = -1;
+            processorSchedulingPolicy = -1;
+            maxPCoreFreqMHz = 0;
+            maxECoreFreqMHz = 0;
             // DC overrides (null = use AC value)
             tdpDC = null;
             cpuBoostDC = null;
