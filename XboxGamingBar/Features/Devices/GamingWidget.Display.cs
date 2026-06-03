@@ -22,17 +22,50 @@ namespace XboxGamingBar
         private WidgetSliderProperty intelGamma;       // ×100
         private WidgetSliderProperty intelSharpness;
 
+        // Reference-image carousel (gallery logic ported from TnC ColorRemasterMainPage):
+        // an array of packaged images + an index; tapping advances and wraps. Currently one
+        // image; add more URIs here (and Content-include the assets) to grow the gallery.
+        private readonly string[] _displayRefImages = new[]
+        {
+            "ms-appx:///Assets/ColorReference.jpg",
+        };
+        private int _displayRefIndex = 0;
+
         private void InitializeDisplayTab()
         {
             try
             {
                 if (DisplayNavItem != null)
                     DisplayNavItem.Visibility = IsMsiClawDevice() ? Visibility.Visible : Visibility.Collapsed;
+
+                UpdateDisplayReferenceImage();
             }
             catch (Exception ex)
             {
                 Logger.Debug($"InitializeDisplayTab: {ex.Message}");
             }
+        }
+
+        private void UpdateDisplayReferenceImage()
+        {
+            if (DisplayReferenceImage == null || _displayRefImages.Length == 0) return;
+            try
+            {
+                if (_displayRefIndex < 0 || _displayRefIndex >= _displayRefImages.Length) _displayRefIndex = 0;
+                DisplayReferenceImage.Source = new Windows.UI.Xaml.Media.Imaging.BitmapImage(
+                    new Uri(_displayRefImages[_displayRefIndex]));
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"UpdateDisplayReferenceImage: {ex.Message}");
+            }
+        }
+
+        private void DisplayReferenceImage_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            if (_displayRefImages.Length <= 1) return; // single image — nothing to cycle
+            _displayRefIndex = (_displayRefIndex + 1) % _displayRefImages.Length;
+            UpdateDisplayReferenceImage();
         }
 
         /// <summary>Updates the value label next to each slider (gamma shown as x.xx).</summary>
