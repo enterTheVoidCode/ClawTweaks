@@ -56,6 +56,7 @@ namespace XboxGamingBar
                 GameScrollViewer.Visibility = Visibility.Collapsed;
                 AMDScrollViewer.Visibility = Visibility.Collapsed;
                 if (DisplayScrollViewer != null) DisplayScrollViewer.Visibility = Visibility.Collapsed;
+                if (FanScrollViewer != null) FanScrollViewer.Visibility = Visibility.Collapsed;
                 ScalingScrollViewer.Visibility = Visibility.Collapsed;
                 LegionScrollViewer.Visibility = Visibility.Collapsed;
                 GPDScrollViewer.Visibility = Visibility.Collapsed;
@@ -98,6 +99,15 @@ namespace XboxGamingBar
                             DisplayScrollViewer.Visibility = Visibility.Visible;
                             DisplayScrollViewer.ChangeView(null, 0, null, true);
                         }
+                        break;
+                    case "Fan":
+                        if (FanScrollViewer != null)
+                        {
+                            FanScrollViewer.Visibility = Visibility.Visible;
+                            FanScrollViewer.ChangeView(null, 0, null, true);
+                        }
+                        // Ensure the fan card is moved into the Fan tab and up to date.
+                        InitializeMsiFanCard();
                         break;
                     // case "Trigger":  // Hotkeys tab hidden — redundant with Main > Customize keyboard hotkeys
                     //     TriggerScrollViewer.Visibility = Visibility.Visible;

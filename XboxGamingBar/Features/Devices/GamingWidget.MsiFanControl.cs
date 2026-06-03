@@ -41,14 +41,33 @@ namespace XboxGamingBar
             => deviceDisplayName?.Value?.IndexOf("Claw", StringComparison.OrdinalIgnoreCase) >= 0;
 
         /// <summary>Show the fan card on MSI Claw and restore the saved state. Idempotent.</summary>
+        private bool _msiFanReparented;
+
         private void InitializeMsiFanCard()
         {
             if (MsiFanCard == null) return;
+
+            // Fan tab is MSI-Claw-only; gate its nav item like the Display tab.
+            if (FanNavItem != null)
+                FanNavItem.Visibility = IsMsiClawDevice() ? Visibility.Visible : Visibility.Collapsed;
 
             if (!IsMsiClawDevice())
             {
                 MsiFanCard.Visibility = Visibility.Collapsed;
                 return;
+            }
+
+            // Move the Fan Control card out of the Performance tab into the dedicated Fan tab
+            // (once). Done at runtime to avoid relocating the large card markup.
+            if (!_msiFanReparented && FanTabContent != null)
+            {
+                if (MsiFanCard.Parent is Panel oldParent)
+                    oldParent.Children.Remove(MsiFanCard);
+                if (MsiFanCard.Parent == null)
+                {
+                    FanTabContent.Children.Add(MsiFanCard);
+                    _msiFanReparented = true;
+                }
             }
 
             MsiFanCard.Visibility = Visibility.Visible;
