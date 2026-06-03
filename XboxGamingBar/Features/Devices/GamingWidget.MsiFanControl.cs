@@ -43,6 +43,31 @@ namespace XboxGamingBar
         /// <summary>Show the fan card on MSI Claw and restore the saved state. Idempotent.</summary>
         private bool _msiFanReparented;
 
+        /// <summary>
+        /// Moves the Fan Control card out of the Performance tab into the dedicated Fan tab,
+        /// once. Called lazily when the Fan tab is first opened — NOT during startup/BatchSync,
+        /// where mutating the live visual tree triggered a delayed XAML crash. Guarded so a
+        /// failure can never take down the widget.
+        /// </summary>
+        private void EnsureFanCardInFanTab()
+        {
+            if (_msiFanReparented || MsiFanCard == null || FanTabContent == null) return;
+            try
+            {
+                if (MsiFanCard.Parent is Panel oldParent)
+                    oldParent.Children.Remove(MsiFanCard);
+                if (MsiFanCard.Parent == null)
+                {
+                    FanTabContent.Children.Add(MsiFanCard);
+                    _msiFanReparented = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"EnsureFanCardInFanTab failed: {ex.Message}");
+            }
+        }
+
         private void InitializeMsiFanCard()
         {
             if (MsiFanCard == null) return;
@@ -55,19 +80,6 @@ namespace XboxGamingBar
             {
                 MsiFanCard.Visibility = Visibility.Collapsed;
                 return;
-            }
-
-            // Move the Fan Control card out of the Performance tab into the dedicated Fan tab
-            // (once). Done at runtime to avoid relocating the large card markup.
-            if (!_msiFanReparented && FanTabContent != null)
-            {
-                if (MsiFanCard.Parent is Panel oldParent)
-                    oldParent.Children.Remove(MsiFanCard);
-                if (MsiFanCard.Parent == null)
-                {
-                    FanTabContent.Children.Add(MsiFanCard);
-                    _msiFanReparented = true;
-                }
             }
 
             MsiFanCard.Visibility = Visibility.Visible;
