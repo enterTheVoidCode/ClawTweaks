@@ -42,11 +42,25 @@ namespace XboxGamingBar
                     DisplayNavItem.Visibility = IsMsiClawDevice() ? Visibility.Visible : Visibility.Collapsed;
 
                 UpdateDisplayReferenceImage();
+                UpdateDisplayProfileBadge();
             }
             catch (Exception ex)
             {
                 Logger.Debug($"InitializeDisplayTab: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Green "Per-Game: <name>" when a per-game profile is active, otherwise orange
+        /// "Editing Global profile" — same colour scheme as the controller/performance badges.
+        /// Display settings live in the performance profile, so the per-game condition matches.
+        /// </summary>
+        private void UpdateDisplayProfileBadge()
+        {
+            if (DisplayProfileModeBadge == null || DisplayProfileModeText == null) return;
+            bool isPerGame = (PerGameProfileToggle?.IsOn ?? false) && HasValidGame(currentGameName);
+            ApplyProfileStatusBadge(DisplayProfileModeBadge, DisplayProfileModeText, isPerGame,
+                isPerGame ? $"Per-Game: {currentGameName}" : "Editing Global profile");
         }
 
         private void UpdateDisplayReferenceImage()

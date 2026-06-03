@@ -3209,25 +3209,40 @@ namespace XboxGamingBar
             }
         }
 
+        // Shared profile-status colours: per-game active = GREEN, global = ORANGE.
+        // Used by the controller, performance/display, and Display-tab status badges so all
+        // three read consistently.
+        private static readonly Windows.UI.Color ProfileGreenText   = Windows.UI.Color.FromArgb(255, 136, 204, 136);
+        private static readonly Windows.UI.Color ProfileGreenBg      = Windows.UI.Color.FromArgb(255, 20, 45, 20);
+        private static readonly Windows.UI.Color ProfileGreenBorder  = Windows.UI.Color.FromArgb(255, 51, 102, 51);
+        private static readonly Windows.UI.Color ProfileOrangeText   = Windows.UI.Color.FromArgb(255, 255, 170, 70);
+        private static readonly Windows.UI.Color ProfileOrangeBg     = Windows.UI.Color.FromArgb(255, 55, 38, 12);
+        private static readonly Windows.UI.Color ProfileOrangeBorder = Windows.UI.Color.FromArgb(255, 160, 110, 40);
+
+        /// <summary>Applies the green (per-game) / orange (global) status colours to a badge.</summary>
+        private void ApplyProfileStatusBadge(Windows.UI.Xaml.Controls.Border badge, Windows.UI.Xaml.Controls.TextBlock text,
+            bool isPerGame, string label)
+        {
+            if (text != null)
+            {
+                text.Text = label;
+                text.Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(isPerGame ? ProfileGreenText : ProfileOrangeText);
+            }
+            if (badge != null)
+            {
+                badge.Background  = new Windows.UI.Xaml.Media.SolidColorBrush(isPerGame ? ProfileGreenBg : ProfileOrangeBg);
+                badge.BorderBrush = new Windows.UI.Xaml.Media.SolidColorBrush(isPerGame ? ProfileGreenBorder : ProfileOrangeBorder);
+            }
+        }
+
         private void UpdateControllerProfileModeBadge()
         {
             if (ControllerProfileModeText == null || ControllerProfileModeBadge == null) return;
 
             bool isPerGame = LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName);
-            if (isPerGame)
-            {
-                ControllerProfileModeText.Text = $"Per-Game: {currentGameName}";
-                ControllerProfileModeText.Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 120, 180, 255));
-                ControllerProfileModeBadge.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 20, 30, 55));
-                ControllerProfileModeBadge.BorderBrush = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 50, 80, 160));
-            }
-            else
-            {
-                ControllerProfileModeText.Text = "Global Profile active";
-                ControllerProfileModeText.Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 204, 136));
-                ControllerProfileModeBadge.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 20, 45, 20));
-                ControllerProfileModeBadge.BorderBrush = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 102, 51));
-            }
+            // Per-game active = green; global = orange.
+            ApplyProfileStatusBadge(ControllerProfileModeBadge, ControllerProfileModeText, isPerGame,
+                isPerGame ? $"Per-Game: {currentGameName}" : "Global Profile active");
         }
 
         private void UpdateActiveProfileIndicator()
@@ -3296,6 +3311,14 @@ namespace XboxGamingBar
             }
 
             Logger.Info($"Active profile updated to: {ActiveProfileText.Text}");
+
+            // Status colour: per-game active = green, global = orange (consistent with the
+            // controller and Display-tab badges).
+            bool perGameActive = perGameEnabled && hasGame;
+            if (ActiveProfileText != null)
+                ActiveProfileText.Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(
+                    perGameActive ? ProfileGreenText : ProfileOrangeText);
+            UpdateDisplayProfileBadge();
 
             // Start scrolling animation if text is too long
             UpdateActiveProfileScrollAnimation();
