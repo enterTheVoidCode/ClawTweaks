@@ -459,6 +459,10 @@
 
         // Intel Display (IGCL) — stored in the existing performance profile (global + per-game).
         IntelAdaptiveSharpness,      // int - 0 = off, 1..100 = adaptive sharpness intensity
-        IntelColorSaturation,        // int - saturation percent, 100 = neutral (1.0x); e.g. 0..200
+        IntelColorSaturation,        // int - saturation 0..100, 50 = neutral
+        IntelColorHue,               // int - hue -180..180, 0 = neutral
+        IntelDisplayContrast,        // int - contrast 0..100, 50 = neutral
+        IntelDisplayBrightness,      // int - brightness 0..100, 50 = neutral
+        IntelDisplayGamma,           // int - gamma ×100 (30..280), 100 = 1.0 neutral
     }
 }

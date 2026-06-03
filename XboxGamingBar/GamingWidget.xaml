@@ -4511,50 +4511,75 @@
                     <StackPanel Padding="16,8,16,16" Spacing="12">
 
                         <TextBlock Text="Display (Intel)" Style="{StaticResource CardTitleStyle}"/>
-                        <TextBlock Text="Saturation &amp; adaptive sharpness are saved per-game and globally in the Performance &amp; Display profile — they follow the running game."
+                        <TextBlock Text="Color &amp; sharpness are saved per-game and globally in the Performance &amp; Display profile — they follow the running game."
                                    Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
 
-                        <!-- Saturation -->
+                        <!-- Color Remaster sliders -->
                         <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Color Saturation" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="100% = neutral / Intel default"
-                                           Style="{StaticResource CardCaptionStyle}"/>
-                                <ComboBox x:Name="DisplaySaturationComboBox"
-                                          Margin="0,8,0,0"
-                                          HorizontalAlignment="Stretch"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          XYFocusLeft="{x:Bind DisplayNavItem}"
-                                          XYFocusDown="{x:Bind DisplaySharpnessComboBox}">
-                                    <ComboBoxItem Content="50% (muted)" Tag="50"/>
-                                    <ComboBoxItem Content="75%" Tag="75"/>
-                                    <ComboBoxItem Content="100% (neutral)" Tag="100" IsSelected="True"/>
-                                    <ComboBoxItem Content="125%" Tag="125"/>
-                                    <ComboBoxItem Content="150% (vivid)" Tag="150"/>
-                                    <ComboBoxItem Content="175%" Tag="175"/>
-                                    <ComboBoxItem Content="200% (max)" Tag="200"/>
-                                </ComboBox>
-                            </StackPanel>
-                        </Border>
+                            <StackPanel Spacing="10">
+                                <!-- Saturation -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="Saturation" Style="{StaticResource CardCaptionStyle}" Margin="0" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="DisplaySaturationValueText" Grid.Column="1" Text="50" FontSize="13" Foreground="{StaticResource SystemAccentBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Slider x:Name="DisplaySaturationSlider" Minimum="0" Maximum="100" Value="50" StepFrequency="1"
+                                        ValueChanged="DisplaySlider_ValueChanged"
+                                        XYFocusLeft="{x:Bind DisplayNavItem}" XYFocusDown="{x:Bind DisplayHueSlider}"/>
 
-                        <!-- Adaptive Sharpness -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Adaptive Sharpness" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Intel adaptive sharpening intensity (Off = disabled)"
-                                           Style="{StaticResource CardCaptionStyle}"/>
-                                <ComboBox x:Name="DisplaySharpnessComboBox"
-                                          Margin="0,8,0,0"
-                                          HorizontalAlignment="Stretch"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          XYFocusLeft="{x:Bind DisplayNavItem}"
-                                          XYFocusUp="{x:Bind DisplaySaturationComboBox}">
-                                    <ComboBoxItem Content="Off" Tag="0" IsSelected="True"/>
-                                    <ComboBoxItem Content="Low (25)" Tag="25"/>
-                                    <ComboBoxItem Content="Medium (50)" Tag="50"/>
-                                    <ComboBoxItem Content="High (75)" Tag="75"/>
-                                    <ComboBoxItem Content="Max (100)" Tag="100"/>
-                                </ComboBox>
+                                <!-- Hue -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="Hue" Style="{StaticResource CardCaptionStyle}" Margin="0" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="DisplayHueValueText" Grid.Column="1" Text="0" FontSize="13" Foreground="{StaticResource SystemAccentBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Slider x:Name="DisplayHueSlider" Minimum="-180" Maximum="180" Value="0" StepFrequency="1"
+                                        ValueChanged="DisplaySlider_ValueChanged"
+                                        XYFocusLeft="{x:Bind DisplayNavItem}" XYFocusUp="{x:Bind DisplaySaturationSlider}" XYFocusDown="{x:Bind DisplayContrastSlider}"/>
+
+                                <!-- Contrast -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="Contrast" Style="{StaticResource CardCaptionStyle}" Margin="0" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="DisplayContrastValueText" Grid.Column="1" Text="50" FontSize="13" Foreground="{StaticResource SystemAccentBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Slider x:Name="DisplayContrastSlider" Minimum="0" Maximum="100" Value="50" StepFrequency="1"
+                                        ValueChanged="DisplaySlider_ValueChanged"
+                                        XYFocusLeft="{x:Bind DisplayNavItem}" XYFocusUp="{x:Bind DisplayHueSlider}" XYFocusDown="{x:Bind DisplayBrightnessSlider}"/>
+
+                                <!-- Brightness -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="Brightness" Style="{StaticResource CardCaptionStyle}" Margin="0" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="DisplayBrightnessValueText" Grid.Column="1" Text="50" FontSize="13" Foreground="{StaticResource SystemAccentBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Slider x:Name="DisplayBrightnessSlider" Minimum="0" Maximum="100" Value="50" StepFrequency="1"
+                                        ValueChanged="DisplaySlider_ValueChanged"
+                                        XYFocusLeft="{x:Bind DisplayNavItem}" XYFocusUp="{x:Bind DisplayContrastSlider}" XYFocusDown="{x:Bind DisplayGammaSlider}"/>
+
+                                <!-- Gamma (×100 → 0.30..2.80) -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="Gamma" Style="{StaticResource CardCaptionStyle}" Margin="0" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="DisplayGammaValueText" Grid.Column="1" Text="1.00" FontSize="13" Foreground="{StaticResource SystemAccentBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Slider x:Name="DisplayGammaSlider" Minimum="30" Maximum="280" Value="100" StepFrequency="1"
+                                        ValueChanged="DisplaySlider_ValueChanged"
+                                        XYFocusLeft="{x:Bind DisplayNavItem}" XYFocusUp="{x:Bind DisplayBrightnessSlider}" XYFocusDown="{x:Bind DisplaySharpnessSlider}"/>
+
+                                <!-- Adaptive Sharpness -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="Adaptive Sharpness" Style="{StaticResource CardCaptionStyle}" Margin="0" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="DisplaySharpnessValueText" Grid.Column="1" Text="Off" FontSize="13" Foreground="{StaticResource SystemAccentBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Slider x:Name="DisplaySharpnessSlider" Minimum="0" Maximum="100" Value="0" StepFrequency="1"
+                                        ValueChanged="DisplaySlider_ValueChanged"
+                                        XYFocusLeft="{x:Bind DisplayNavItem}" XYFocusUp="{x:Bind DisplayGammaSlider}" XYFocusDown="{x:Bind DisplayResetButton}"/>
+
+                                <Button x:Name="DisplayResetButton" Content="Reset to neutral" Margin="0,4,0,0"
+                                        HorizontalAlignment="Stretch" Click="DisplayResetButton_Click"
+                                        XYFocusLeft="{x:Bind DisplayNavItem}" XYFocusUp="{x:Bind DisplaySharpnessSlider}"/>
                             </StackPanel>
                         </Border>
 
