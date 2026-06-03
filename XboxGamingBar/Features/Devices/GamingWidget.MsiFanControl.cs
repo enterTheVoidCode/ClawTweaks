@@ -34,7 +34,6 @@ namespace XboxGamingBar
         private readonly TextBlock[] _msiFanValueLabels = new TextBlock[11];
         private bool _msiFanPointsBuilt;
         private bool _msiFanInitializing;
-        private bool _msiFanHasSavedState;
         private int _msiFanDragIndex = -1;
 
         private bool IsMsiClawDevice()
@@ -92,10 +91,6 @@ namespace XboxGamingBar
             try
             {
                 var settings = ApplicationData.Current.LocalSettings;
-                // Has the user ever configured the fan card? If not, we must NOT push a default
-                // (disabled) state to the helper on open — that would override the curve the
-                // helper already re-applied at boot from its own persisted value.
-                _msiFanHasSavedState = settings.Values.ContainsKey(MsiFanEnabledKey);
                 bool enabled = settings.Values.TryGetValue(MsiFanEnabledKey, out var enObj) && enObj is bool b && b;
                 int preset = (settings.Values.TryGetValue(MsiFanPresetKey, out var pObj) && pObj is int p) ? p : 1;
                 if (preset < 0 || preset > 3) preset = 1;
@@ -113,11 +108,46 @@ namespace XboxGamingBar
             }
 
             RenderMsiFanCurve();
-            // Only re-send on open when the user has actually saved a fan state. Otherwise the
-            // helper's own boot-restore (from its persisted MsiFan_Value) stays authoritative and
-            // isn't clobbered by a default/disabled push.
-            if (_msiFanHasSavedState)
-                SendMsiFanStateToHelper();
+            // NOTE: deliberately NO SendMsiFanStateToHelper() here. The helper owns the fan state:
+            // it restores MsiFan_Value at boot and pushes it to us via OnMsiFanState on connect.
+            // Pushing on open previously overrode the helper's value (e.g. snapping back to Default).
+        }
+
+        /// <summary>
+        /// Applies the fan state the helper pushed on connect (authoritative). Updates the UI +
+        /// the widget's cached keys without echoing back to the helper.
+        /// Payload: "&lt;value&gt;|&lt;curveCsv&gt;" — value -1=disabled,0=Quiet,1=Default,2=Aggressive,3=Custom.
+        /// </summary>
+        internal void OnMsiFanState(string payload)
+        {
+            if (string.IsNullOrEmpty(payload)) return;
+            var parts = payload.Split('|');
+            if (!int.TryParse(parts[0], out int value)) return;
+            string curve = parts.Length > 1 ? parts[1] : "";
+
+            bool enabled = value >= 0;
+            int preset = (value >= 0 && value <= 3) ? value : 1;
+
+            _msiFanInitializing = true;
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                settings.Values[MsiFanEnabledKey] = enabled;
+                if (value >= 0) settings.Values[MsiFanPresetKey] = preset;
+                if (value == 3 && !string.IsNullOrEmpty(curve))
+                    settings.Values[MsiFanCurveKey] = curve;
+
+                LoadCurveForPreset(preset);
+                if (MsiFanEnableToggle != null) MsiFanEnableToggle.IsOn = enabled;
+                if (MsiFanPresetComboBox != null) MsiFanPresetComboBox.SelectedIndex = preset;
+                if (MsiFanContent != null) MsiFanContent.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+            }
+            finally
+            {
+                _msiFanInitializing = false;
+            }
+            RenderMsiFanCurve();
+            Logger.Info($"OnMsiFanState applied: value={value} enabled={enabled} preset={preset}");
         }
 
         private void BuildMsiFanPoints()
