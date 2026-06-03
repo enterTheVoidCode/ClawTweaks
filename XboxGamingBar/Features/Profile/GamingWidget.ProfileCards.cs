@@ -927,69 +927,9 @@ namespace XboxGamingBar
                         return null;
                     }
 
-                    // Collect label/value pairs, then render across two columns (more compact,
-                    // uses the available card width instead of one long single column).
-                    var pairs = new List<(string Label, string Value)>();
-
-                    if (legionGoDetected?.Value == true && SaveTDP)
-                        pairs.Add(("TDP Mode", GetProfileTDPModeName(game)));
-
-                    if (SaveTDP)
-                    {
-                        pairs.Add(("TDP", $"{game.TDP}W"));
-                        pairs.Add(("TDP Overboost", game.TDPBoostEnabled ? "On" : "Off"));
-                        if (game.TDPBoostEnabled)
-                            pairs.Add(("PL2 Overboost", $"{game.TDPBoostFPPTWatts}W"));
-                    }
-
-                    if (SaveCPUBoost)
-                    {
-                        pairs.Add(("CPU Boost", game.CPUBoost ? "On" : "Off"));
-
-                        // CPU advanced (ToothNClaw port) — only show when set (non-default).
-                        string boostModeName = GetCpuBoostModeName(game.CpuBoostMode);
-                        if (game.CpuBoostMode > 0 && boostModeName != null)
-                            pairs.Add(("Boost Mode", boostModeName));
-                        string schedName = GetSchedulingPolicyName(game.ProcessorSchedulingPolicy);
-                        if (game.ProcessorSchedulingPolicy >= 0 && schedName != null)
-                            pairs.Add(("Scheduling", schedName));
-                        if (game.MaxPCoreFreqMHz > 0)
-                            pairs.Add(("P-Core Max", GetFreqLabel(game.MaxPCoreFreqMHz)));
-                        if (game.MaxECoreFreqMHz > 0)
-                            pairs.Add(("E-Core Max", GetFreqLabel(game.MaxECoreFreqMHz)));
-                    }
-
-                    // Intel Display (IGCL) — part of the Performance & Display profile.
-                    if (game.IntelColorSaturation >= 0 && game.IntelColorSaturation != 100)
-                        pairs.Add(("Saturation", $"{game.IntelColorSaturation}%"));
-                    if (game.IntelAdaptiveSharpness > 0)
-                        pairs.Add(("Sharpness", game.IntelAdaptiveSharpness.ToString()));
-
-                    if (SaveFPSLimit)
-                    {
-                        pairs.Add(("FPS Limit", GetFpsValueLabel(game)));
-                        pairs.Add(("FPS Mode", (game.FpsCapMode == 1) ? "Intel" : "RTSS"));
-                    }
-
-                    if (SaveOSPowerMode)
-                        pairs.Add(("Power Mode", GetPowerModeShortName(game.OSPowerMode)));
-
-                    if (SaveAMDFeatures)
-                    {
-                        var amdFeatures = GetAMDFeaturesShortString(game);
-                        pairs.Add(("AMD", string.IsNullOrEmpty(amdFeatures) ? "Off" : amdFeatures));
-                    }
-
-                    if (SaveHDR)
-                        pairs.Add(("HDR", game.HDREnabled ? "On" : "Off"));
-
-                    if (SaveResolution && !string.IsNullOrEmpty(game.Resolution))
-                        pairs.Add(("Resolution", game.Resolution));
-
-                    if (SaveStickyTDP)
-                        pairs.Add(("Sticky TDP", game.StickyTDPEnabled ? $"{game.StickyTDPInterval}s" : "Off"));
-
-                    stackPanel.Children.Add(RenderPairsGrid(pairs));
+                    // Collect label/value pairs, then render across two columns (shared builder
+                    // — same content/layout as the live Global & Now Playing cards).
+                    stackPanel.Children.Add(RenderPairsGrid(BuildProfileCardPairs(game)));
                 }
 
                 return profileCard;
@@ -1152,6 +1092,74 @@ namespace XboxGamingBar
         internal static string GetFreqLabel(int mhz)
         {
             return mhz <= 0 ? "Unlimited" : $"{mhz} MHz";
+        }
+
+        /// <summary>
+        /// Builds the standard label/value pairs for a performance &amp; display profile card,
+        /// honoring the Save* flags. Shared by the saved-profile cards and the live Global /
+        /// Now Playing cards so they all use the same two-column layout and content.
+        /// </summary>
+        private List<(string Label, string Value)> BuildProfileCardPairs(PerformanceProfile game)
+        {
+            var pairs = new List<(string Label, string Value)>();
+
+            if (legionGoDetected?.Value == true && SaveTDP)
+                pairs.Add(("TDP Mode", GetProfileTDPModeName(game)));
+
+            if (SaveTDP)
+            {
+                pairs.Add(("TDP", $"{game.TDP}W"));
+                pairs.Add(("TDP Overboost", game.TDPBoostEnabled ? "On" : "Off"));
+                if (game.TDPBoostEnabled)
+                    pairs.Add(("PL2 Overboost", $"{game.TDPBoostFPPTWatts}W"));
+            }
+
+            if (SaveCPUBoost)
+            {
+                pairs.Add(("CPU Boost", game.CPUBoost ? "On" : "Off"));
+                string boostModeName = GetCpuBoostModeName(game.CpuBoostMode);
+                if (game.CpuBoostMode > 0 && boostModeName != null)
+                    pairs.Add(("Boost Mode", boostModeName));
+                string schedName = GetSchedulingPolicyName(game.ProcessorSchedulingPolicy);
+                if (game.ProcessorSchedulingPolicy >= 0 && schedName != null)
+                    pairs.Add(("Scheduling", schedName));
+                if (game.MaxPCoreFreqMHz > 0)
+                    pairs.Add(("P-Core Max", GetFreqLabel(game.MaxPCoreFreqMHz)));
+                if (game.MaxECoreFreqMHz > 0)
+                    pairs.Add(("E-Core Max", GetFreqLabel(game.MaxECoreFreqMHz)));
+            }
+
+            // Intel Display (IGCL)
+            if (game.IntelColorSaturation >= 0 && game.IntelColorSaturation != 100)
+                pairs.Add(("Saturation", $"{game.IntelColorSaturation}%"));
+            if (game.IntelAdaptiveSharpness > 0)
+                pairs.Add(("Sharpness", game.IntelAdaptiveSharpness.ToString()));
+
+            if (SaveFPSLimit)
+            {
+                pairs.Add(("FPS Limit", GetFpsValueLabel(game)));
+                pairs.Add(("FPS Mode", (game.FpsCapMode == 1) ? "Intel" : "RTSS"));
+            }
+
+            if (SaveOSPowerMode)
+                pairs.Add(("Power Mode", GetPowerModeShortName(game.OSPowerMode)));
+
+            if (SaveAMDFeatures)
+            {
+                var amdFeatures = GetAMDFeaturesShortString(game);
+                pairs.Add(("AMD", string.IsNullOrEmpty(amdFeatures) ? "Off" : amdFeatures));
+            }
+
+            if (SaveHDR)
+                pairs.Add(("HDR", game.HDREnabled ? "On" : "Off"));
+
+            if (SaveResolution && !string.IsNullOrEmpty(game.Resolution))
+                pairs.Add(("Resolution", game.Resolution));
+
+            if (SaveStickyTDP)
+                pairs.Add(("Sticky TDP", game.StickyTDPEnabled ? $"{game.StickyTDPInterval}s" : "Off"));
+
+            return pairs;
         }
 
         /// <summary>

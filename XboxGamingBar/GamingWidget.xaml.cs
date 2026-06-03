@@ -1240,9 +1240,15 @@ namespace XboxGamingBar
         {
             bool globalPowerSourceSplit = GetGlobalPowerSourceProfileEnabled();
 
+            // The old single-column GlobalProfileSimple grid is superseded by the multi-column
+            // GlobalProfilePairs panel — keep the grid collapsed and toggle the pairs panel.
             if (GlobalProfileSimple != null)
             {
-                GlobalProfileSimple.Visibility = globalPowerSourceSplit ? Visibility.Collapsed : Visibility.Visible;
+                GlobalProfileSimple.Visibility = Visibility.Collapsed;
+            }
+            if (GlobalProfilePairs != null)
+            {
+                GlobalProfilePairs.Visibility = globalPowerSourceSplit ? Visibility.Collapsed : Visibility.Visible;
             }
 
             if (GlobalProfileACDC != null)
@@ -2383,10 +2389,11 @@ namespace XboxGamingBar
             if (deviceDisplayName != null)
             {
                 deviceDisplayName.PropertyChanged += QuickSettingsProperty_Changed;
-                // Show/initialize the MSI Claw fan card once the device name is known.
-                deviceDisplayName.PropertyChanged += (s, e) => InitializeMsiFanCard();
+                // Show/initialize the MSI Claw fan card + Display tab once the device name is known.
+                deviceDisplayName.PropertyChanged += (s, e) => { InitializeMsiFanCard(); InitializeDisplayTab(); };
             }
             InitializeMsiFanCard();
+            InitializeDisplayTab();
             if (osPowerMode != null)
                 osPowerMode.PropertyChanged += OSPowerMode_PropertyChanged;
             if (resolution != null)

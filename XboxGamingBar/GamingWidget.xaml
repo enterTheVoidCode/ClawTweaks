@@ -2557,6 +2557,8 @@
                                     <TextBlock Grid.Row="14" Grid.Column="0" x:Name="GlobalProfileDisplayLabel" Text="Display" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="14" Grid.Column="1" x:Name="GlobalProfileDisplayText" Text="" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
                                 </Grid>
+                                <!-- Multi-column rendering of the simple global profile (replaces the single-column grid above) -->
+                                <StackPanel x:Name="GlobalProfilePairs" Margin="0,8,0,0"/>
 
                                 <!-- AC/DC Mode (Power Source Toggle ON) -->
                                 <Grid x:Name="GlobalProfileACDC" Margin="0,8,0,0" Visibility="Collapsed">
@@ -2826,7 +2828,7 @@
                                                 VerticalAlignment="Center"
                                                 Click="DeleteActiveProfileButton_Click"/>
                                     </Grid>
-                                    <Grid Margin="0,8,0,0">
+                                    <Grid Margin="0,8,0,0" Visibility="Collapsed">
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
@@ -2898,6 +2900,8 @@
                                         <TextBlock Grid.Row="15" Grid.Column="0" x:Name="GameProfileDisplayLabel" Text="Display" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="15" Grid.Column="1" x:Name="GameProfileDisplayText" Text="" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
                                     </Grid>
+                                    <!-- Multi-column rendering of the Now Playing profile (replaces the single-column grid above) -->
+                                    <StackPanel x:Name="GameProfilePairs" Margin="0,8,0,0"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
