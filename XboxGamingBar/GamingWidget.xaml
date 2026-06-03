@@ -959,27 +959,17 @@
                                                FontSize="13"
                                                FontWeight="SemiBold"
                                                Foreground="#FFFFFF"/>
-                                    <!-- Status badge: orange = global active, green = per-game active -->
+                                    <!-- Status badge: orange = global, green = per-game active.
+                                         Auto-width so the full label fits (no marquee/sliding). -->
                                     <Border x:Name="ActiveProfileBadge"
                                             Background="#37260C" BorderBrush="#A06E28" BorderThickness="1"
                                             CornerRadius="4" Padding="8,2" Margin="0,4,0,0"
                                             HorizontalAlignment="Left">
-                                        <Canvas x:Name="ActiveProfileTextCanvas"
-                                                Height="18" MinWidth="100"
-                                                HorizontalAlignment="Stretch">
-                                            <Canvas.Clip>
-                                                <RectangleGeometry Rect="0,0,0,18"/>
-                                            </Canvas.Clip>
-                                            <TextBlock x:Name="ActiveProfileText"
-                                                       Text="Global Profile active"
-                                                       FontSize="11"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#FFAA46">
-                                                <TextBlock.RenderTransform>
-                                                    <TranslateTransform x:Name="ActiveProfileTextTransform"/>
-                                                </TextBlock.RenderTransform>
-                                            </TextBlock>
-                                        </Canvas>
+                                        <TextBlock x:Name="ActiveProfileText"
+                                                   Text="Editing Global Profile"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#FFAA46"/>
                                     </Border>
                                     <!-- Detected game name — shown when game runs -->
                                     <Canvas x:Name="DetectedGameTextCanvas"
@@ -4522,7 +4512,7 @@
                                 CornerRadius="4" Padding="8,3" Margin="0,2,0,2"
                                 HorizontalAlignment="Left">
                             <TextBlock x:Name="DisplayProfileModeText"
-                                       Text="Editing Global profile"
+                                       Text="Editing Global Profile"
                                        FontSize="11" Foreground="#FFAA46"/>
                         </Border>
 
@@ -6909,7 +6899,7 @@
                                         Margin="0,8,0,0"
                                         HorizontalAlignment="Left">
                                     <TextBlock x:Name="ControllerProfileModeText"
-                                               Text="Global Profile active"
+                                               Text="Editing Global Profile"
                                                FontSize="11"
                                                Foreground="#FFAA46"/>
                                 </Border>
