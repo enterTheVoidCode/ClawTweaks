@@ -34,6 +34,7 @@ namespace XboxGamingBar
         private readonly TextBlock[] _msiFanValueLabels = new TextBlock[11];
         private bool _msiFanPointsBuilt;
         private bool _msiFanInitializing;
+        private bool _msiFanHasSavedState;
         private int _msiFanDragIndex = -1;
 
         private bool IsMsiClawDevice()
@@ -60,6 +61,10 @@ namespace XboxGamingBar
             try
             {
                 var settings = ApplicationData.Current.LocalSettings;
+                // Has the user ever configured the fan card? If not, we must NOT push a default
+                // (disabled) state to the helper on open — that would override the curve the
+                // helper already re-applied at boot from its own persisted value.
+                _msiFanHasSavedState = settings.Values.ContainsKey(MsiFanEnabledKey);
                 bool enabled = settings.Values.TryGetValue(MsiFanEnabledKey, out var enObj) && enObj is bool b && b;
                 int preset = (settings.Values.TryGetValue(MsiFanPresetKey, out var pObj) && pObj is int p) ? p : 1;
                 if (preset < 0 || preset > 3) preset = 1;
@@ -77,7 +82,11 @@ namespace XboxGamingBar
             }
 
             RenderMsiFanCurve();
-            SendMsiFanStateToHelper();
+            // Only re-send on open when the user has actually saved a fan state. Otherwise the
+            // helper's own boot-restore (from its persisted MsiFan_Value) stays authoritative and
+            // isn't clobbered by a default/disabled push.
+            if (_msiFanHasSavedState)
+                SendMsiFanStateToHelper();
         }
 
         private void BuildMsiFanPoints()
@@ -535,8 +544,12 @@ namespace XboxGamingBar
                     byte.TryParse(ecParts[i], out ec[i]);
 
                 byte[] expected = MsiExpectedTable();
+                // Compare bytes 1..7 only. Byte 0 is the EC-managed low-temp/idle "backup"
+                // sample (≈40 °C) that the MSI firmware nudges on its own (e.g. 0↔12), which
+                // produced spurious "mismatch" warnings even though the curve is applied
+                // correctly. It has no meaningful effect at idle, so we don't flag it.
                 bool match = true;
-                for (int i = 0; i < 8; i++) if (ec[i] != expected[i]) { match = false; break; }
+                for (int i = 1; i < 8; i++) if (ec[i] != expected[i]) { match = false; break; }
 
                 bool enabled = MsiFanEnableToggle?.IsOn ?? false;
 
