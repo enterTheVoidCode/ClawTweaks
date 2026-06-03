@@ -70,6 +70,31 @@ namespace XboxGamingBarHelper.Profile
             }
         }
 
+        // CPU advanced (ToothNClaw port)
+        public int CpuBoostMode
+        {
+            get { return value.CpuBoostMode; }
+            set { if (this.value.CpuBoostMode != value) this.value.CpuBoostMode = value; }
+        }
+
+        public int ProcessorSchedulingPolicy
+        {
+            get { return value.ProcessorSchedulingPolicy; }
+            set { if (this.value.ProcessorSchedulingPolicy != value) this.value.ProcessorSchedulingPolicy = value; }
+        }
+
+        public int MaxPCoreFreqMHz
+        {
+            get { return value.MaxPCoreFreqMHz; }
+            set { if (this.value.MaxPCoreFreqMHz != value) this.value.MaxPCoreFreqMHz = value; }
+        }
+
+        public int MaxECoreFreqMHz
+        {
+            get { return value.MaxECoreFreqMHz; }
+            set { if (this.value.MaxECoreFreqMHz != value) this.value.MaxECoreFreqMHz = value; }
+        }
+
         public bool TDPBoostEnabled
         {
             get { return value.TDPBoostEnabled; }

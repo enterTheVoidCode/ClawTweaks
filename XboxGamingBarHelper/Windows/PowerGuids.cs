@@ -23,6 +23,11 @@ namespace XboxGamingBarHelper.Windows
         public static readonly Guid GUID_PROCESSOR_THROTTLE_MAX1 = new Guid("bc5038f7-23e0-4960-96da-33abaf5935ed"); // Maximum processor state % for Processor Power Efficiency Class 1
         public static readonly Guid GUID_PROCESSOR_THROTTLE_MIN1 = new Guid("893dee8e-2bef-41e0-89c6-b55d0929964d"); // Minimum processor state % for Processor Power Efficiency Class 1
 
+        // Heterogeneous (P/E core) scheduling policy — set as a trio (ToothNClaw port)
+        public static readonly Guid GUID_PROCESSOR_HETEROGENEOUS_POLICY = new Guid("7f2f5cfa-f10c-4823-b5e1-e93ae85f46b5");
+        public static readonly Guid GUID_PROCESSOR_LONG_THREAD_POLICY = new Guid("93b8b6dc-0698-4d1c-9ee4-0644e900c85d");
+        public static readonly Guid GUID_PROCESSOR_SHORT_THREAD_POLICY = new Guid("bae08b81-2d5e-4688-ad6a-13243356654b");
+
         // Energy Saver settings
         public static readonly Guid GUID_ENERGY_SAVER_SUBGROUP = new Guid("de830923-a562-41af-a086-e3a2c6bad2da");
         public static readonly Guid GUID_ENERGY_SAVER_BATTERY_THRESHOLD = new Guid("e69653ca-cf7f-4f05-aa73-cb833fa90ad4"); // 0=never, 100=always

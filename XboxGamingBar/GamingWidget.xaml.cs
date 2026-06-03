@@ -1419,6 +1419,12 @@ namespace XboxGamingBar
             perGameProfile = new PerGameProfileProperty(PerGameProfileToggle, this);
             cpuBoost = new CPUBoostProperty(CPUBoostToggle, this);
             cpuEPP = new CPUEPPProperty(80, CPUEPPSlider, this);
+            // CPU advanced (ToothNClaw port): boost mode + scheduling policy + P/E max freq
+            cpuBoostMode = new CpuIntComboProperty(1, Shared.Enums.Function.CpuBoostMode, CpuBoostModeComboBox, this);
+            schedulingPolicy = new CpuIntComboProperty(0, Shared.Enums.Function.ProcessorSchedulingPolicy, SchedulingPolicyComboBox, this);
+            maxPCoreFreq = new CpuIntComboProperty(0, Shared.Enums.Function.MaxPCoreFreqMHz, MaxPCoreFreqComboBox, this);
+            maxECoreFreq = new CpuIntComboProperty(0, Shared.Enums.Function.MaxECoreFreqMHz, MaxECoreFreqComboBox, this);
+            InitializeCpuAdvanced();
             maxCPUState = new MaxCPUStateProperty();
             minCPUState = new MinCPUStateProperty();
             // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
@@ -1846,6 +1852,10 @@ namespace XboxGamingBar
                 perGameProfile,
                 cpuBoost,
                 cpuEPP,
+                cpuBoostMode,
+                schedulingPolicy,
+                maxPCoreFreq,
+                maxECoreFreq,
                 maxCPUState,
                 minCPUState,
                 // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)

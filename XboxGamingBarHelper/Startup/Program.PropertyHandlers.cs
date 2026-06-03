@@ -133,6 +133,39 @@ namespace XboxGamingBarHelper
                 glo => glo.CPUEPP = powerManager.CPUEPP);
         }
 
+        // ===== CPU advanced (ToothNClaw port): Boost mode, scheduling policy, P/E max freq =====
+
+        private static void CpuBoostMode_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (isApplyingProfile) { Logger.Debug("Skipping CpuBoostMode_PropertyChanged - applying profile"); return; }
+            if (IsInProfileSwitchCooldown()) { Logger.Debug("Skipping CpuBoostMode_PropertyChanged - cooldown"); return; }
+
+            RouteProfileSave(ProfileSaveFlagsState.CpuAdvanced, "CpuBoostMode",
+                cur => cur.CpuBoostMode = powerManager.CpuBoostMode,
+                glo => glo.CpuBoostMode = powerManager.CpuBoostMode);
+        }
+
+        private static void SchedulingPolicy_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (isApplyingProfile) { Logger.Debug("Skipping SchedulingPolicy_PropertyChanged - applying profile"); return; }
+            if (IsInProfileSwitchCooldown()) { Logger.Debug("Skipping SchedulingPolicy_PropertyChanged - cooldown"); return; }
+
+            RouteProfileSave(ProfileSaveFlagsState.CpuAdvanced, "ProcessorSchedulingPolicy",
+                cur => cur.ProcessorSchedulingPolicy = powerManager.SchedulingPolicy,
+                glo => glo.ProcessorSchedulingPolicy = powerManager.SchedulingPolicy);
+        }
+
+        private static void MaxCoreFreq_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (isApplyingProfile) { Logger.Debug("Skipping MaxCoreFreq_PropertyChanged - applying profile"); return; }
+            if (IsInProfileSwitchCooldown()) { Logger.Debug("Skipping MaxCoreFreq_PropertyChanged - cooldown"); return; }
+
+            // Both P and E core freq are captured together (single CpuAdvanced flag).
+            RouteProfileSave(ProfileSaveFlagsState.CpuAdvanced, "MaxCoreFreq",
+                cur => { cur.MaxPCoreFreqMHz = powerManager.MaxPCoreFreq; cur.MaxECoreFreqMHz = powerManager.MaxECoreFreq; },
+                glo => { glo.MaxPCoreFreqMHz = powerManager.MaxPCoreFreq; glo.MaxECoreFreqMHz = powerManager.MaxECoreFreq; });
+        }
+
         private static void AutoHibernateEnabled_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             if (settingsManager?.AutoHibernateEnabled == null) return;

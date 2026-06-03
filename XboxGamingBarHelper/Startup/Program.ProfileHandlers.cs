@@ -50,6 +50,7 @@ namespace XboxGamingBarHelper
             public static bool CPUBoost = true;
             public static bool CPUEPP = true;
             public static bool CPUState = true;
+            public static bool CpuAdvanced = true;
             public static bool AMDFeatures = false;
             public static bool FPSLimit = true;
             public static bool AutoTDP = true;
@@ -76,6 +77,7 @@ namespace XboxGamingBarHelper
                 if (cfg.TryGetValue("CPUBoost", out var v2)) ProfileSaveFlagsState.CPUBoost = v2;
                 if (cfg.TryGetValue("CPUEPP", out var v3)) ProfileSaveFlagsState.CPUEPP = v3;
                 if (cfg.TryGetValue("CPUState", out var v4)) ProfileSaveFlagsState.CPUState = v4;
+                if (cfg.TryGetValue("CpuAdvanced", out var vCpuAdv)) ProfileSaveFlagsState.CpuAdvanced = vCpuAdv;
                 if (cfg.TryGetValue("AMDFeatures", out var v5)) ProfileSaveFlagsState.AMDFeatures = v5;
                 if (cfg.TryGetValue("FPSLimit", out var v6)) ProfileSaveFlagsState.FPSLimit = v6;
                 if (cfg.TryGetValue("AutoTDP", out var v7)) ProfileSaveFlagsState.AutoTDP = v7;
@@ -494,6 +496,11 @@ namespace XboxGamingBarHelper
             powerManager.CPUEPP.SetValue(profileManager.GlobalProfile.CPUEPP);
             powerManager.MaxCPUState.SetValue(profileManager.GlobalProfile.MaxCPUState);
             powerManager.MinCPUState.SetValue(profileManager.GlobalProfile.MinCPUState);
+            // CPU advanced (ToothNClaw port)
+            powerManager.CpuBoostMode.SetValue(profileManager.GlobalProfile.CpuBoostMode);
+            powerManager.SchedulingPolicy.SetValue(profileManager.GlobalProfile.ProcessorSchedulingPolicy);
+            powerManager.MaxPCoreFreq.SetValue(profileManager.GlobalProfile.MaxPCoreFreqMHz);
+            powerManager.MaxECoreFreq.SetValue(profileManager.GlobalProfile.MaxECoreFreqMHz);
             profileManager.PerGameProfile.SetValue(false);
 
             // Restore FPS limiter from global profile (mutual exclusion: only one active at a time)
@@ -626,6 +633,11 @@ namespace XboxGamingBarHelper
                         powerManager.CPUEPP.SetValue(profileManager.CurrentProfile.CPUEPP);
                         powerManager.MaxCPUState.SetValue(profileManager.CurrentProfile.MaxCPUState);
                         powerManager.MinCPUState.SetValue(profileManager.CurrentProfile.MinCPUState);
+                        // CPU advanced (ToothNClaw port)
+                        powerManager.CpuBoostMode.SetValue(profileManager.CurrentProfile.CpuBoostMode);
+                        powerManager.SchedulingPolicy.SetValue(profileManager.CurrentProfile.ProcessorSchedulingPolicy);
+                        powerManager.MaxPCoreFreq.SetValue(profileManager.CurrentProfile.MaxPCoreFreqMHz);
+                        powerManager.MaxECoreFreq.SetValue(profileManager.CurrentProfile.MaxECoreFreqMHz);
                         profileManager.PerGameProfile.SetValue(profileManager.CurrentProfile.Use);
 
                         // Use .Value to access the underlying GameProfile struct (GameProfileProperty
@@ -726,6 +738,11 @@ namespace XboxGamingBarHelper
                     powerManager.CPUEPP.SetValue(gameProfile.CPUEPP);
                     powerManager.MaxCPUState.SetValue(gameProfile.MaxCPUState);
                     powerManager.MinCPUState.SetValue(gameProfile.MinCPUState);
+                    // CPU advanced (ToothNClaw port)
+                    powerManager.CpuBoostMode.SetValue(gameProfile.CpuBoostMode);
+                    powerManager.SchedulingPolicy.SetValue(gameProfile.ProcessorSchedulingPolicy);
+                    powerManager.MaxPCoreFreq.SetValue(gameProfile.MaxPCoreFreqMHz);
+                    powerManager.MaxECoreFreq.SetValue(gameProfile.MaxECoreFreqMHz);
 
                     ApplyFpsLimiterFromProfile(gameProfile);
                 }

@@ -1161,6 +1161,10 @@ namespace XboxGamingBarHelper
                 powerManager.MaxCPUState,
                 powerManager.MinCPUState,
                 powerManager.OSPowerMode,
+                powerManager.CpuBoostMode,
+                powerManager.SchedulingPolicy,
+                powerManager.MaxPCoreFreq,
+                powerManager.MaxECoreFreq,
                 // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
                 //powerManager.LimitGPUClock,
                 //powerManager.GPUClockMin,
@@ -1435,6 +1439,10 @@ namespace XboxGamingBarHelper
             powerManager.CPUEPP.PropertyChanged += CPUEPP_PropertyChanged;
             powerManager.MaxCPUState.PropertyChanged += CPUState_PropertyChanged;
             powerManager.MinCPUState.PropertyChanged += CPUState_PropertyChanged;
+            powerManager.CpuBoostMode.PropertyChanged += CpuBoostMode_PropertyChanged;
+            powerManager.SchedulingPolicy.PropertyChanged += SchedulingPolicy_PropertyChanged;
+            powerManager.MaxPCoreFreq.PropertyChanged += MaxCoreFreq_PropertyChanged;
+            powerManager.MaxECoreFreq.PropertyChanged += MaxCoreFreq_PropertyChanged;
             if (settingsManager?.AutoHibernateEnabled != null)
             {
                 settingsManager.AutoHibernateEnabled.PropertyChanged += AutoHibernateEnabled_PropertyChanged;

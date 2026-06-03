@@ -46,6 +46,19 @@ namespace XboxGamingBarHelper.Power
             get { return osPowerMode; }
         }
 
+        // CPU advanced (ToothNClaw port)
+        private readonly CpuBoostModeProperty cpuBoostMode;
+        public CpuBoostModeProperty CpuBoostMode { get { return cpuBoostMode; } }
+
+        private readonly ProcessorSchedulingPolicyProperty schedulingPolicy;
+        public ProcessorSchedulingPolicyProperty SchedulingPolicy { get { return schedulingPolicy; } }
+
+        private readonly MaxPCoreFreqProperty maxPCoreFreq;
+        public MaxPCoreFreqProperty MaxPCoreFreq { get { return maxPCoreFreq; } }
+
+        private readonly MaxECoreFreqProperty maxECoreFreq;
+        public MaxECoreFreqProperty MaxECoreFreq { get { return maxECoreFreq; } }
+
         // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
         //private readonly LimitGPUClockProperty limitGPUClock;
         //public LimitGPUClockProperty LimitGPUClock
@@ -84,6 +97,17 @@ namespace XboxGamingBarHelper.Power
             var initialPowerMode = GetOSPowerMode();
             Logger.Info($"Initial OS Power Mode: {initialPowerMode} (0=Efficiency, 1=Balanced, 2=Performance)");
             osPowerMode = new OSPowerModeProperty(initialPowerMode >= 0 ? initialPowerMode : 1, this);
+
+            // CPU advanced (ToothNClaw port). Initialize from current system values so the
+            // widget shows reality; "hasUserModified" guard avoids writing back on first sync.
+            int initBoostMode = GetCpuBoostModeValue(false);
+            uint initPFreq = GetCpuFreqLimit(false, isSecondary: true);
+            uint initEFreq = GetCpuFreqLimit(false, isSecondary: false);
+            Logger.Info($"Initial CPU advanced: BoostMode={initBoostMode}, P-Freq={initPFreq}MHz, E-Freq={initEFreq}MHz");
+            cpuBoostMode = new CpuBoostModeProperty(initBoostMode, this);
+            schedulingPolicy = new ProcessorSchedulingPolicyProperty(-1, this); // read-back not reliable; -1 = unset until user picks
+            maxPCoreFreq = new MaxPCoreFreqProperty((int)initPFreq, this);
+            maxECoreFreq = new MaxECoreFreqProperty((int)initEFreq, this);
 
             // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
             //// Initialize GPU Clock properties
@@ -158,6 +182,113 @@ namespace XboxGamingBarHelper.Power
             Logger.Info($"Set CPU Boost {(isAC ? "AC" : "DC")} to {value}.");
             // Apply the updated plan
             PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
+        }
+
+        /// <summary>
+        /// Reads the raw CPU Boost mode value (0-6). See <see cref="SetCpuBoostModeValue"/>.
+        /// </summary>
+        public static int GetCpuBoostModeValue(bool isAC)
+        {
+            var scheme = GetActiveScheme();
+            var subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
+            var setting = PowerGuids.GUID_PROCESSOR_PERFBOOST_MODE;
+
+            var status = isAC
+                ? PowrProf.PowerReadACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out uint result)
+                : PowrProf.PowerReadDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out result);
+
+            if (status != 0)
+            {
+                Logger.Error("Can't get CPU Boost Mode value?");
+                return -1;
+            }
+
+            return (int)result;
+        }
+
+        private static readonly string[] BoostModeNames =
+            { "Disabled", "Enabled", "Aggressive", "Efficient Enabled", "Efficient Aggressive",
+              "Aggressive At Guaranteed", "Efficient Aggressive At Guaranteed" };
+
+        /// <summary>
+        /// Sets the CPU Boost mode to an explicit value (0-6, ToothNClaw mapping):
+        /// 0=Disabled, 1=Enabled, 2=Aggressive, 3=Efficient Enabled, 4=Efficient Aggressive,
+        /// 5=Aggressive At Guaranteed, 6=Efficient Aggressive At Guaranteed.
+        /// </summary>
+        public static void SetCpuBoostModeValue(bool isAC, int mode)
+        {
+            if (mode < 0) return;          // unset — don't touch
+            if (mode > 6) mode = 6;
+
+            // Save original values before first modification (for clean uninstall)
+            try
+            {
+                bool currentAC = GetCpuBoostMode(true);
+                bool currentDC = GetCpuBoostMode(false);
+                SystemRestoreService.SaveOriginalCpuBoost(currentAC, currentDC);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Failed to save original CPU Boost values: {ex.Message}");
+            }
+
+            var scheme = GetActiveScheme();
+            var subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
+            var setting = PowerGuids.GUID_PROCESSOR_PERFBOOST_MODE;
+            uint value = (uint)mode;
+
+            var status = isAC
+                ? PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, value)
+                : PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, value);
+
+            if (status != 0)
+            {
+                Logger.Error($"Can't set CPU Boost Mode value to {mode}.");
+                return;
+            }
+
+            string name = mode >= 0 && mode < BoostModeNames.Length ? BoostModeNames[mode] : mode.ToString();
+            Logger.Info($"Set CPU Boost Mode {(isAC ? "AC" : "DC")} to {mode} ({name}).");
+            PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
+        }
+
+        /// <summary>
+        /// Sets the heterogeneous (P/E core) scheduling policy. Writes the het-policy,
+        /// long-thread and short-thread policies as a trio (AC+DC). Mode mapping (ToothNClaw):
+        /// 0=Auto(0,5,5), 1=PreferPCore(1,2,2), 2=PreferECore(1,4,4), 3=OnlyPCore(3,1,1), 4=OnlyECore(2,3,3).
+        /// </summary>
+        public static void SetSchedulingPolicy(int mode)
+        {
+            if (mode < 0) return; // unset
+
+            uint policy, threadPolicy, shortThreadPolicy;
+            string name;
+            switch (mode)
+            {
+                case 1: policy = 1; threadPolicy = 2; shortThreadPolicy = 2; name = "Prefer P-Core"; break;
+                case 2: policy = 1; threadPolicy = 4; shortThreadPolicy = 4; name = "Prefer E-Core"; break;
+                case 3: policy = 3; threadPolicy = 1; shortThreadPolicy = 1; name = "Only P-Core"; break;
+                case 4: policy = 2; threadPolicy = 3; shortThreadPolicy = 3; name = "Only E-Core"; break;
+                default: policy = 0; threadPolicy = 5; shortThreadPolicy = 5; name = "Auto"; break;
+            }
+
+            var scheme = GetActiveScheme();
+            var subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
+
+            WriteAcDc(ref scheme, ref subgroup, PowerGuids.GUID_PROCESSOR_HETEROGENEOUS_POLICY, policy);
+            WriteAcDc(ref scheme, ref subgroup, PowerGuids.GUID_PROCESSOR_LONG_THREAD_POLICY, threadPolicy);
+            WriteAcDc(ref scheme, ref subgroup, PowerGuids.GUID_PROCESSOR_SHORT_THREAD_POLICY, shortThreadPolicy);
+
+            Logger.Info($"Set Scheduling Policy to {mode} ({name}) [{policy},{threadPolicy},{shortThreadPolicy}].");
+            PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
+        }
+
+        private static void WriteAcDc(ref Guid scheme, ref Guid subgroup, Guid setting, uint value)
+        {
+            var ac = PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, value);
+            var dc = PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, value);
+            if (ac != 0 || dc != 0)
+                Logger.Warn($"WriteAcDc {setting} = {value} failed (ac={ac}, dc={dc}).");
         }
 
         public static uint GetEppValue(bool isAC)
