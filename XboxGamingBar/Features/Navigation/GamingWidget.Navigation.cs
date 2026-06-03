@@ -101,12 +101,14 @@ namespace XboxGamingBar
                         }
                         break;
                     case "Fan":
+                        // Reparent the card into the Fan tab on first open (stable moment;
+                        // other tabs are collapsed). Then show + refresh.
+                        EnsureFanCardInFanTab();
                         if (FanScrollViewer != null)
                         {
                             FanScrollViewer.Visibility = Visibility.Visible;
                             FanScrollViewer.ChangeView(null, 0, null, true);
                         }
-                        // Ensure the fan card is moved into the Fan tab and up to date.
                         InitializeMsiFanCard();
                         break;
                     // case "Trigger":  // Hotkeys tab hidden — redundant with Main > Customize keyboard hotkeys

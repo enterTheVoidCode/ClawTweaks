@@ -92,6 +92,17 @@ namespace XboxGamingBar
             this.Suspending += OnSuspending;
             this.EnteredBackground += App_EnteredBackground;
             this.LeavingBackground += App_LeavingBackground;
+            // Capture otherwise-silent XAML/async crashes (stowed exceptions) so the cause is
+            // logged instead of only appearing as 0xc000027b in the Windows event log.
+            this.UnhandledException += (s, e) =>
+            {
+                try
+                {
+                    Logger.Error($"!!! UNHANDLED EXCEPTION: {e.Message}\n{e.Exception}");
+                    NLog.LogManager.Flush();
+                }
+                catch { }
+            };
             //var installedLocation = Windows.ApplicationModel.Package.Current.InstalledLocation.Path;
             //var localFolder = ApplicationData.Current.LocalFolder.Path;
             //var localCache = ApplicationData.Current.LocalCacheFolder.Path;
