@@ -84,6 +84,59 @@ namespace XboxGamingBar
             return fallback;
         }
 
+        private static void SelectComboByTag(ComboBox combo, int value)
+        {
+            if (combo == null) return;
+            for (int i = 0; i < combo.Items.Count; i++)
+            {
+                if (combo.Items[i] is ComboBoxItem item && item.Tag is string tag
+                    && int.TryParse(tag, out int v) && v == value)
+                {
+                    if (combo.SelectedIndex != i) combo.SelectedIndex = i;
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Restores the CPU advanced combo selections from a profile and pushes them to the
+        /// helper. When the switch was helper-driven (isApplyingHelperUpdate) we only sync the
+        /// UI and let the helper's own BatchSync carry the values, mirroring the CPU Boost path.
+        /// </summary>
+        private void ApplyCpuAdvancedFromProfile(PerformanceProfile profile)
+        {
+            try
+            {
+                if (isApplyingHelperUpdate)
+                {
+                    // boost mode 0 = off; keep the combo on a valid 1-6 entry for when it re-enables
+                    if (profile.CpuBoostMode > 0) SelectComboByTag(CpuBoostModeComboBox, profile.CpuBoostMode);
+                    if (profile.ProcessorSchedulingPolicy >= 0) SelectComboByTag(SchedulingPolicyComboBox, profile.ProcessorSchedulingPolicy);
+                    SelectComboByTag(MaxPCoreFreqComboBox, profile.MaxPCoreFreqMHz);
+                    SelectComboByTag(MaxECoreFreqComboBox, profile.MaxECoreFreqMHz);
+                }
+                else
+                {
+                    if (profile.CpuBoostMode > 0) SelectComboByTag(CpuBoostModeComboBox, profile.CpuBoostMode);
+                    cpuBoostMode?.SetValue(profile.CpuBoostMode);
+                    if (profile.ProcessorSchedulingPolicy >= 0)
+                    {
+                        SelectComboByTag(SchedulingPolicyComboBox, profile.ProcessorSchedulingPolicy);
+                        schedulingPolicy?.SetValue(profile.ProcessorSchedulingPolicy);
+                    }
+                    SelectComboByTag(MaxPCoreFreqComboBox, profile.MaxPCoreFreqMHz);
+                    maxPCoreFreq?.SetValue(profile.MaxPCoreFreqMHz);
+                    SelectComboByTag(MaxECoreFreqComboBox, profile.MaxECoreFreqMHz);
+                    maxECoreFreq?.SetValue(profile.MaxECoreFreqMHz);
+                }
+                UpdateCpuBoostModeEnabled();
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"ApplyCpuAdvancedFromProfile: {ex.Message}");
+            }
+        }
+
         private void CpuSectionExpandButton_Click(object sender, RoutedEventArgs e)
         {
             if (CpuSectionContent == null || CpuSectionExpandIcon == null) return;

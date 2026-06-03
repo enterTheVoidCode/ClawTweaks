@@ -97,6 +97,11 @@ namespace XboxGamingBar
         public int OverlayLevel { get; set; } = 0;
         // CPU Affinity as "pCores,eCores" string
         public string CPUAffinity { get; set; } = "";
+        // CPU advanced (ToothNClaw port). -1 = unset; for freq 0 = unlimited.
+        public int CpuBoostMode { get; set; } = -1;
+        public int ProcessorSchedulingPolicy { get; set; } = -1;
+        public int MaxPCoreFreqMHz { get; set; } = 0;
+        public int MaxECoreFreqMHz { get; set; } = 0;
 
         public PerformanceProfile Clone()
         {
@@ -139,7 +144,11 @@ namespace XboxGamingBar
                 StickyTDPEnabled = this.StickyTDPEnabled,
                 StickyTDPInterval = this.StickyTDPInterval,
                 OverlayLevel = this.OverlayLevel,
-                CPUAffinity = this.CPUAffinity
+                CPUAffinity = this.CPUAffinity,
+                CpuBoostMode = this.CpuBoostMode,
+                ProcessorSchedulingPolicy = this.ProcessorSchedulingPolicy,
+                MaxPCoreFreqMHz = this.MaxPCoreFreqMHz,
+                MaxECoreFreqMHz = this.MaxECoreFreqMHz
             };
         }
     }

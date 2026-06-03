@@ -708,7 +708,7 @@ namespace XboxGamingBar
                     // Create AC/DC comparison grid
                     var acDcGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
                     // Add rows dynamically based on enabled settings
-                    for (int i = 0; i < 20; i++) // Max rows
+                    for (int i = 0; i < 30; i++) // Max rows
                         acDcGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                     acDcGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -761,6 +761,36 @@ namespace XboxGamingBar
                         AddTextBlock(acDcGrid, rowIndex, 1, gameAC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         AddTextBlock(acDcGrid, rowIndex, 2, gameDC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
+
+                        // CPU advanced (ToothNClaw port) — only when set on either profile.
+                        if (gameAC.CpuBoostMode > 0 || gameDC.CpuBoostMode > 0)
+                        {
+                            AddTextBlock(acDcGrid, rowIndex, 0, "Boost Mode", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                            AddTextBlock(acDcGrid, rowIndex, 1, GetCpuBoostModeName(gameAC.CpuBoostMode) ?? "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 2, GetCpuBoostModeName(gameDC.CpuBoostMode) ?? "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            rowIndex++;
+                        }
+                        if (gameAC.ProcessorSchedulingPolicy >= 0 || gameDC.ProcessorSchedulingPolicy >= 0)
+                        {
+                            AddTextBlock(acDcGrid, rowIndex, 0, "Scheduling", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                            AddTextBlock(acDcGrid, rowIndex, 1, GetSchedulingPolicyName(gameAC.ProcessorSchedulingPolicy) ?? "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 2, GetSchedulingPolicyName(gameDC.ProcessorSchedulingPolicy) ?? "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            rowIndex++;
+                        }
+                        if (gameAC.MaxPCoreFreqMHz > 0 || gameDC.MaxPCoreFreqMHz > 0)
+                        {
+                            AddTextBlock(acDcGrid, rowIndex, 0, "P-Core Max", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                            AddTextBlock(acDcGrid, rowIndex, 1, GetFreqLabel(gameAC.MaxPCoreFreqMHz), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 2, GetFreqLabel(gameDC.MaxPCoreFreqMHz), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            rowIndex++;
+                        }
+                        if (gameAC.MaxECoreFreqMHz > 0 || gameDC.MaxECoreFreqMHz > 0)
+                        {
+                            AddTextBlock(acDcGrid, rowIndex, 0, "E-Core Max", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                            AddTextBlock(acDcGrid, rowIndex, 1, GetFreqLabel(gameAC.MaxECoreFreqMHz), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 2, GetFreqLabel(gameDC.MaxECoreFreqMHz), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            rowIndex++;
+                        }
                     }
 
                     // EPP
@@ -881,136 +911,63 @@ namespace XboxGamingBar
                         return null;
                     }
 
-                    // Create simple grid
-                    var singleGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
-                    // Add rows dynamically based on enabled settings
-                    for (int i = 0; i < 20; i++) // Max rows
-                        singleGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    singleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                    singleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    // Collect label/value pairs, then render across two columns (more compact,
+                    // uses the available card width instead of one long single column).
+                    var pairs = new List<(string Label, string Value)>();
 
-                    int rowIndex = 0;
-
-                    // TDP Mode (Legion only)
                     if (legionGoDetected?.Value == true && SaveTDP)
-                    {
-                        AddTextBlock(singleGrid, rowIndex, 0, "TDP Mode", 10, "#AAAAAA");
-                        AddTextBlock(singleGrid, rowIndex, 1, GetProfileTDPModeName(game), 10, "#FFFFFF");
-                        rowIndex++;
-                    }
+                        pairs.Add(("TDP Mode", GetProfileTDPModeName(game)));
 
-                    // TDP
                     if (SaveTDP)
                     {
-                        AddTextBlock(singleGrid, rowIndex, 0, "TDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                        AddTextBlock(singleGrid, rowIndex, 1, $"{game.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                        rowIndex++;
-
-                        // TDP Boost (saved with TDP)
-                        AddTextBlock(singleGrid, rowIndex, 0, "TDP Overboost", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                        AddTextBlock(singleGrid, rowIndex, 1, game.TDPBoostEnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                        rowIndex++;
-
-                        // PL2 overboost value — sub-row shown when Overboost is on.
-                        // Matches the global/live game cards (GlobalProfilePL2 / GameProfilePL2)
-                        // which surface the FPPT watt value the saved card previously omitted.
+                        pairs.Add(("TDP", $"{game.TDP}W"));
+                        pairs.Add(("TDP Overboost", game.TDPBoostEnabled ? "On" : "Off"));
                         if (game.TDPBoostEnabled)
-                        {
-                            AddTextBlock(singleGrid, rowIndex, 0, "PL2 Overboost", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                            AddTextBlock(singleGrid, rowIndex, 1, $"{game.TDPBoostFPPTWatts}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                            rowIndex++;
-                        }
+                            pairs.Add(("PL2 Overboost", $"{game.TDPBoostFPPTWatts}W"));
                     }
 
-                    // CPU Boost
                     if (SaveCPUBoost)
                     {
-                        AddTextBlock(singleGrid, rowIndex, 0, "CPU Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                        AddTextBlock(singleGrid, rowIndex, 1, game.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                        rowIndex++;
+                        pairs.Add(("CPU Boost", game.CPUBoost ? "On" : "Off"));
+
+                        // CPU advanced (ToothNClaw port) — only show when set (non-default).
+                        string boostModeName = GetCpuBoostModeName(game.CpuBoostMode);
+                        if (game.CpuBoostMode > 0 && boostModeName != null)
+                            pairs.Add(("Boost Mode", boostModeName));
+                        string schedName = GetSchedulingPolicyName(game.ProcessorSchedulingPolicy);
+                        if (game.ProcessorSchedulingPolicy >= 0 && schedName != null)
+                            pairs.Add(("Scheduling", schedName));
+                        if (game.MaxPCoreFreqMHz > 0)
+                            pairs.Add(("P-Core Max", GetFreqLabel(game.MaxPCoreFreqMHz)));
+                        if (game.MaxECoreFreqMHz > 0)
+                            pairs.Add(("E-Core Max", GetFreqLabel(game.MaxECoreFreqMHz)));
                     }
 
-                    // CPU EPP
-                    //if (SaveCPUEPP)
-                    //{
-                    //    AddTextBlock(singleGrid, rowIndex, 0, "CPU EPP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                    //    AddTextBlock(singleGrid, rowIndex, 1, $"{game.CPUEPP}", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                    //    rowIndex++;
-                    //}
-
-                    // CPU State
-                    //if (SaveCPUState)
-                    //{
-                    //    AddTextBlock(singleGrid, rowIndex, 0, "CPU State", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                    //    AddTextBlock(singleGrid, rowIndex, 1, $"{game.MinCPUState}-{game.MaxCPUState}%", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                    //    rowIndex++;
-                    //}
-
-                    // FPS Limit (if enabled)
                     if (SaveFPSLimit)
                     {
-                        // FPS Limit — mode-aware (Intel tier fps vs RTSS value), exactly like
-                        // the Now Playing card (GameProfileFPSLimitText uses GetFpsValueLabel).
-                        AddTextBlock(singleGrid, rowIndex, 0, "FPS Limit", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                        AddTextBlock(singleGrid, rowIndex, 1, GetFpsValueLabel(game), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                        rowIndex++;
-
-                        // FPS Limiter Mode (RTSS / Intel) — plain mode name to match Now Playing.
-                        AddTextBlock(singleGrid, rowIndex, 0, "FPS Mode", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                        AddTextBlock(singleGrid, rowIndex, 1, (game.FpsCapMode == 1) ? "Intel" : "RTSS", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                        rowIndex++;
+                        pairs.Add(("FPS Limit", GetFpsValueLabel(game)));
+                        pairs.Add(("FPS Mode", (game.FpsCapMode == 1) ? "Intel" : "RTSS"));
                     }
 
-                    // AutoTDP (if enabled)
-                    //if (SaveAutoTDP)
-                    //{
-                    //    AddTextBlock(singleGrid, rowIndex, 0, "AutoTDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                    //    AddTextBlock(singleGrid, rowIndex, 1, game.AutoTDPEnabled ? $"{game.AutoTDPTargetFPS}fps" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                    //    rowIndex++;
-                    //}
-
-                    // Power Mode (if enabled)
                     if (SaveOSPowerMode)
-                    {
-                        AddTextBlock(singleGrid, rowIndex, 0, "Power Mode", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                        AddTextBlock(singleGrid, rowIndex, 1, GetPowerModeShortName(game.OSPowerMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                        rowIndex++;
-                    }
+                        pairs.Add(("Power Mode", GetPowerModeShortName(game.OSPowerMode)));
 
-                    // AMD Features (if enabled)
                     if (SaveAMDFeatures)
                     {
                         var amdFeatures = GetAMDFeaturesShortString(game);
-                        AddTextBlock(singleGrid, rowIndex, 0, "AMD", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                        AddTextBlock(singleGrid, rowIndex, 1, string.IsNullOrEmpty(amdFeatures) ? "Off" : amdFeatures, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                        rowIndex++;
+                        pairs.Add(("AMD", string.IsNullOrEmpty(amdFeatures) ? "Off" : amdFeatures));
                     }
 
-                    // HDR (if enabled)
                     if (SaveHDR)
-                    {
-                        AddTextBlock(singleGrid, rowIndex, 0, "HDR", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                        AddTextBlock(singleGrid, rowIndex, 1, game.HDREnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                        rowIndex++;
-                    }
+                        pairs.Add(("HDR", game.HDREnabled ? "On" : "Off"));
 
-                    // Resolution (if enabled)
                     if (SaveResolution && !string.IsNullOrEmpty(game.Resolution))
-                    {
-                        AddTextBlock(singleGrid, rowIndex, 0, "Resolution", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                        AddTextBlock(singleGrid, rowIndex, 1, game.Resolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                        rowIndex++;
-                    }
+                        pairs.Add(("Resolution", game.Resolution));
 
-                    // Sticky TDP (if enabled)
                     if (SaveStickyTDP)
-                    {
-                        AddTextBlock(singleGrid, rowIndex, 0, "Sticky TDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 0, 0));
-                        AddTextBlock(singleGrid, rowIndex, 1, game.StickyTDPEnabled ? $"{game.StickyTDPInterval}s" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0));
-                        rowIndex++;
-                    }
+                        pairs.Add(("Sticky TDP", game.StickyTDPEnabled ? $"{game.StickyTDPInterval}s" : "Off"));
 
-                    stackPanel.Children.Add(singleGrid);
+                    stackPanel.Children.Add(RenderPairsGrid(pairs));
                 }
 
                 return profileCard;
@@ -1143,6 +1100,63 @@ namespace XboxGamingBar
             }
             catch { }
             return max;
+        }
+
+        // ===== CPU advanced (ToothNClaw port) — card formatting helpers =====
+
+        private static readonly string[] CpuBoostModeNames =
+            { "Disabled", "Enabled", "Aggressive", "Eff. Enabled", "Eff. Aggressive", "Aggr. (Guar.)", "Eff. Aggr. (Guar.)" };
+
+        internal static string GetCpuBoostModeName(int mode)
+        {
+            if (mode < 0) return null;            // unset
+            if (mode >= 0 && mode < CpuBoostModeNames.Length) return CpuBoostModeNames[mode];
+            return mode.ToString();
+        }
+
+        internal static string GetSchedulingPolicyName(int policy)
+        {
+            switch (policy)
+            {
+                case 0: return "Auto";
+                case 1: return "Prefer P";
+                case 2: return "Prefer E";
+                case 3: return "Only P";
+                case 4: return "Only E";
+                default: return null;            // unset
+            }
+        }
+
+        internal static string GetFreqLabel(int mhz)
+        {
+            return mhz <= 0 ? "Unlimited" : $"{mhz} MHz";
+        }
+
+        /// <summary>
+        /// Renders label/value pairs into a compact two-column grid (4 grid columns:
+        /// label,value,label,value). Used so profile cards spread across the available width
+        /// instead of one long single column.
+        /// </summary>
+        private Grid RenderPairsGrid(List<(string Label, string Value)> pairs)
+        {
+            var grid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            int rows = (pairs.Count + 1) / 2;
+            for (int i = 0; i < rows; i++)
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            for (int i = 0; i < pairs.Count; i++)
+            {
+                int row = i / 2;
+                int colBase = (i % 2) * 2; // 0 or 2
+                AddTextBlock(grid, row, colBase, pairs[i].Label, 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                AddTextBlock(grid, row, colBase + 1, pairs[i].Value, 10, "#FFFFFF", margin: new Thickness(0, 3, 12, 0));
+            }
+            return grid;
         }
 
         private static string FormatRelativeTime(DateTime utc)
