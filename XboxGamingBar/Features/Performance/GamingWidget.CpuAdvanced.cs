@@ -84,6 +84,27 @@ namespace XboxGamingBar
             return fallback;
         }
 
+        /// <summary>
+        /// Builds a compact one-line CPU advanced summary for the live profile cards
+        /// (e.g. "Aggressive · Prefer P · P4800 · E2400"). Returns null when nothing is set.
+        /// </summary>
+        private string BuildCpuAdvancedSummary(PerformanceProfile p)
+        {
+            if (p == null) return null;
+            var parts = new System.Collections.Generic.List<string>();
+
+            string mode = GetCpuBoostModeName(p.CpuBoostMode);
+            if (p.CpuBoostMode > 0 && mode != null) parts.Add(mode);
+
+            string sched = GetSchedulingPolicyName(p.ProcessorSchedulingPolicy);
+            if (p.ProcessorSchedulingPolicy >= 0 && sched != null) parts.Add(sched);
+
+            if (p.MaxPCoreFreqMHz > 0) parts.Add($"P{p.MaxPCoreFreqMHz}");
+            if (p.MaxECoreFreqMHz > 0) parts.Add($"E{p.MaxECoreFreqMHz}");
+
+            return parts.Count == 0 ? null : string.Join(" · ", parts);
+        }
+
         private static void SelectComboByTag(ComboBox combo, int value)
         {
             if (combo == null) return;
