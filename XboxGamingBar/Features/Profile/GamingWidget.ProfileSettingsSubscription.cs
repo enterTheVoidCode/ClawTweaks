@@ -59,6 +59,15 @@ namespace XboxGamingBar
             HDRToggle.Toggled += SettingChanged;
             ResolutionComboBox.SelectionChanged += SettingChanged;
 
+            // Intel Display (IGCL) sliders — persist into the performance & display profile so
+            // their values appear in the global / per-game cards. (Skipped during helper sync.)
+            if (DisplaySaturationSlider != null) DisplaySaturationSlider.ValueChanged += SettingChanged;
+            if (DisplayHueSlider != null) DisplayHueSlider.ValueChanged += SettingChanged;
+            if (DisplayContrastSlider != null) DisplayContrastSlider.ValueChanged += SettingChanged;
+            if (DisplayBrightnessSlider != null) DisplayBrightnessSlider.ValueChanged += SettingChanged;
+            if (DisplayGammaSlider != null) DisplayGammaSlider.ValueChanged += SettingChanged;
+            if (DisplaySharpnessSlider != null) DisplaySharpnessSlider.ValueChanged += SettingChanged;
+
             // AMD settings
             AMDFluidMotionFrameToggle.Toggled += SettingChanged;
             AMDRadeonSuperResolutionToggle.Toggled += AMDRadeonSuperResolutionToggle_Toggled;
