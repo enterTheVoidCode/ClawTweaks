@@ -323,6 +323,20 @@ namespace XboxGamingBarHelper
             Logger.Info($"=== Helper starting, PID={Process.GetCurrentProcess().Id} ===");
             LogManager.Flush();
 
+            // Run the helper at a higher process priority (HandheldCompanion does the same by
+            // default). The virtual-mouse / controller input loops are latency-sensitive; at
+            // Normal priority they get starved under heavy CPU load, which shows up as the
+            // mouse cursor stuttering. High keeps input smooth without the risks of RealTime.
+            try
+            {
+                Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
+                Logger.Info("Helper process priority set to High (smooth input under load).");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Could not raise process priority: {ex.Message}");
+            }
+
             // Process-exit + unhandled-exception cleanup: release any active EC fan
             // override so the fan doesn't stay stuck at the last RPM we wrote. Without
             // this, a crash leaves 0xC6C8 holding our last value indefinitely (or until

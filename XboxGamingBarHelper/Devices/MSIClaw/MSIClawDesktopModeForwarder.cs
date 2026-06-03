@@ -108,7 +108,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             _pollThread = new Thread(() => PollLoop(slot))
             {
                 IsBackground = true,
-                Priority = ThreadPriority.AboveNormal,
+                Priority = ThreadPriority.Highest,   // drives the virtual mouse — keep smooth under load
                 Name = "MSIClawMousePoll",
             };
             _pollThread.Start();

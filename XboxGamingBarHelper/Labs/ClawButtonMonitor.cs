@@ -441,7 +441,10 @@ namespace XboxGamingBarHelper.Labs
                 Logger.Warn("ClawButtonMonitor: Claw DInput interface not found initially; will retry in MonitorLoop");
 
             _running = true;
-            _thread = new Thread(MonitorLoop) { IsBackground = true, Name = "ClawButtonMonitor" };
+            // Highest priority: this loop reads the controller and drives the virtual mouse /
+            // ViGEm output. At Normal priority it stutters under load (it was the only input
+            // thread without an elevated priority). Mirrors HC's input-thread handling.
+            _thread = new Thread(MonitorLoop) { IsBackground = true, Name = "ClawButtonMonitor", Priority = ThreadPriority.Highest };
             _thread.Start();
 
             // Start gyro adapter if a target is already configured (e.g. profile was loaded before Start).
