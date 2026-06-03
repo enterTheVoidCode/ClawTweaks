@@ -634,48 +634,59 @@ namespace XboxGamingBar
         /// </summary>
         private int GetProfileTDPModeIndex(PerformanceProfile profile)
         {
-            // If TDPModeIndex is set, use it directly (for custom presets)
-            if (profile.TDPModeIndex >= 0)
+            // ROOT CAUSE of the "widget crashes when a game ends" loop: the value returned here
+            // drives TDPModeComboBox.SelectedIndex, so it MUST be valid for the combo's CURRENT
+            // items. TDPModeComboBox is rebuilt when custom presets toggle (see TdpCustomPresets),
+            // and a profile can hold a TDPModeIndex saved under a *different* preset configuration.
+            // This used to validate the saved index against tdpPresets.Count / a hardcoded 5 —
+            // NOT against the live combo — so a stale index slipped through and
+            // "TDPModeComboBox.SelectedIndex = modeIndex" threw ArgumentException, which (inside a
+            // DependencyProperty callback) fail-fasted the whole Game Bar widget. Validate against
+            // the actual combo and clamp the result so an out-of-range index can never escape.
+            int comboCount = TDPModeComboBox?.Items.Count ?? 0;
+            int result;
+
+            // Use the saved index only if it's valid for the combo as it stands right now.
+            if (profile.TDPModeIndex >= 0 && (comboCount == 0 || profile.TDPModeIndex < comboCount))
             {
-                // Validate the index is still valid with current preset configuration.
-                // For custom presets: valid range 0..tdpPresets.Count (Slider = tdpPresets.Count).
-                // For default presets: valid range 0..5 (Max=0..SuperBattery=4, Slider=5).
-                int maxIndex = useCustomTDPPresets && tdpPresets != null ? tdpPresets.Count : 5;
-                if (profile.TDPModeIndex <= maxIndex)
-                {
-                    return profile.TDPModeIndex;
-                }
+                result = profile.TDPModeIndex;
             }
-            // Fall back: no valid TDPModeIndex saved — match by stored TDP watt value so we
-            // don't blindly reset to Standard (25 W) when the user had e.g. Max (30 W) active.
-            bool isLegionDevice = legionGoDetected?.Value == true;
-            if (!isLegionDevice)
+            else
             {
-                int tdpWatts = (int)Math.Round((double)profile.TDP);
-                if (useCustomTDPPresets && tdpPresets != null)
+                // Fall back: match by stored TDP watt value so we don't blindly reset to Standard
+                // (25 W) when the user had e.g. Max (30 W) active.
+                bool isLegionDevice = legionGoDetected?.Value == true;
+                if (!isLegionDevice)
                 {
-                    for (int i = 0; i < tdpPresets.Count; i++)
+                    result = 1; // Default to Standard if no watt match found
+                    int tdpWatts = (int)Math.Round((double)profile.TDP);
+                    if (useCustomTDPPresets && tdpPresets != null)
                     {
-                        if (tdpPresets[i].TdpWatts == tdpWatts)
-                            return i;
+                        for (int i = 0; i < tdpPresets.Count; i++)
+                            if (tdpPresets[i].TdpWatts == tdpWatts) { result = i; break; }
+                    }
+                    else
+                    {
+                        // Default hardcoded preset watts: Max(30), Standard(25), Balanced(17), Battery(12), SuperBattery(8)
+                        int[] defaultTdpValues = { 30, 25, 17, 12, 8 };
+                        for (int i = 0; i < defaultTdpValues.Length; i++)
+                            if (defaultTdpValues[i] == tdpWatts) { result = i; break; }
                     }
                 }
                 else
                 {
-                    // Default hardcoded preset watt values: Max(30), Standard(25), Balanced(17), Battery(12), SuperBattery(8)
-                    int[] defaultTdpValues = { 30, 25, 17, 12, 8 };
-                    for (int i = 0; i < defaultTdpValues.Length; i++)
-                    {
-                        if (defaultTdpValues[i] == tdpWatts)
-                            return i;
-                    }
+                    // Legion device: convert LegionPerformanceMode to index
+                    int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
+                    int index = Array.IndexOf(modeValues, profile.LegionPerformanceMode);
+                    result = index >= 0 ? index : 1; // Default to Balanced for Legion if not found
                 }
-                return 1; // Default to Standard if no watt match found
             }
-            // Legion device: convert LegionPerformanceMode to index
-            int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
-            int index = Array.IndexOf(modeValues, profile.LegionPerformanceMode);
-            return index >= 0 ? index : 1; // Default to Balanced for Legion if not found
+
+            // Final safety clamp: never return an index outside the live combo, regardless of any
+            // preset-config desync — this is what guarantees the SelectedIndex set can't throw.
+            if (comboCount > 0)
+                result = Math.Max(0, Math.Min(result, comboCount - 1));
+            return result;
         }
 
     }
