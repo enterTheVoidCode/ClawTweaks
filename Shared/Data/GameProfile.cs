@@ -197,37 +197,57 @@ namespace Shared.Data
         }
 
         // ========== Intel Display (IGCL) — part of the performance profile ==========
+        // Nullable: null = not configured (don't snap old profiles to grayscale on load).
+        // Units (TnC/IGCL): sharpness 0..100 (0=off); saturation/contrast/brightness 0..100
+        // (50=neutral); hue -180..180 (0); gamma ×100 30..280 (100=1.0).
 
-        /// <summary>Adaptive sharpness intensity: -1 = unset, 0 = off, 1..100 = intensity.</summary>
         [XmlElement("IntelAdaptiveSharpness")]
-        private int intelAdaptiveSharpness;
-        public int IntelAdaptiveSharpness
+        private int? intelAdaptiveSharpness;
+        public int? IntelAdaptiveSharpness
         {
             get { return intelAdaptiveSharpness; }
-            set
-            {
-                if (intelAdaptiveSharpness != value)
-                {
-                    intelAdaptiveSharpness = value;
-                    Save();
-                }
-            }
+            set { if (intelAdaptiveSharpness != value) { intelAdaptiveSharpness = value; Save(); } }
         }
 
-        /// <summary>Colour saturation percent: -1 = unset, 100 = neutral (1.0x).</summary>
         [XmlElement("IntelColorSaturation")]
-        private int intelColorSaturation;
-        public int IntelColorSaturation
+        private int? intelColorSaturation;
+        public int? IntelColorSaturation
         {
             get { return intelColorSaturation; }
-            set
-            {
-                if (intelColorSaturation != value)
-                {
-                    intelColorSaturation = value;
-                    Save();
-                }
-            }
+            set { if (intelColorSaturation != value) { intelColorSaturation = value; Save(); } }
+        }
+
+        [XmlElement("IntelColorHue")]
+        private int? intelColorHue;
+        public int? IntelColorHue
+        {
+            get { return intelColorHue; }
+            set { if (intelColorHue != value) { intelColorHue = value; Save(); } }
+        }
+
+        [XmlElement("IntelDisplayContrast")]
+        private int? intelDisplayContrast;
+        public int? IntelDisplayContrast
+        {
+            get { return intelDisplayContrast; }
+            set { if (intelDisplayContrast != value) { intelDisplayContrast = value; Save(); } }
+        }
+
+        [XmlElement("IntelDisplayBrightness")]
+        private int? intelDisplayBrightness;
+        public int? IntelDisplayBrightness
+        {
+            get { return intelDisplayBrightness; }
+            set { if (intelDisplayBrightness != value) { intelDisplayBrightness = value; Save(); } }
+        }
+
+        /// <summary>Gamma stored ×100 (100 = 1.0).</summary>
+        [XmlElement("IntelDisplayGamma")]
+        private int? intelDisplayGamma;
+        public int? IntelDisplayGamma
+        {
+            get { return intelDisplayGamma; }
+            set { if (intelDisplayGamma != value) { intelDisplayGamma = value; Save(); } }
         }
 
         [XmlElement("TDPBoostEnabled")]
@@ -1329,9 +1349,13 @@ namespace Shared.Data
             processorSchedulingPolicy = -1;
             maxPCoreFreqMHz = 0;
             maxECoreFreqMHz = 0;
-            // Intel display: -1 = unset (don't touch); neutral defaults applied when user enables.
-            intelAdaptiveSharpness = -1;
-            intelColorSaturation = -1;
+            // Intel display: null = not configured.
+            intelAdaptiveSharpness = null;
+            intelColorSaturation = null;
+            intelColorHue = null;
+            intelDisplayContrast = null;
+            intelDisplayBrightness = null;
+            intelDisplayGamma = null;
             // DC overrides (null = use AC value)
             tdpDC = null;
             cpuBoostDC = null;

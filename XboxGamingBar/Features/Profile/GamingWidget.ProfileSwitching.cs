@@ -253,11 +253,13 @@ namespace XboxGamingBar
                     profile.MaxECoreFreqMHz = GetSelectedTagInt(MaxECoreFreqComboBox, 0);
             }
 
-            // Intel Display (IGCL) — always captured into the Performance & Display profile.
-            if (DisplaySaturationComboBox != null)
-                profile.IntelColorSaturation = GetSelectedTagInt(DisplaySaturationComboBox, 100);
-            if (DisplaySharpnessComboBox != null)
-                profile.IntelAdaptiveSharpness = GetSelectedTagInt(DisplaySharpnessComboBox, 0);
+            // Intel Display (IGCL) — full Color Remaster set captured into the Performance & Display profile.
+            if (DisplaySaturationSlider != null) profile.IntelColorSaturation = (int)DisplaySaturationSlider.Value;
+            if (DisplayHueSlider != null) profile.IntelColorHue = (int)DisplayHueSlider.Value;
+            if (DisplayContrastSlider != null) profile.IntelDisplayContrast = (int)DisplayContrastSlider.Value;
+            if (DisplayBrightnessSlider != null) profile.IntelDisplayBrightness = (int)DisplayBrightnessSlider.Value;
+            if (DisplayGammaSlider != null) profile.IntelDisplayGammaX100 = (int)DisplayGammaSlider.Value;
+            if (DisplaySharpnessSlider != null) profile.IntelAdaptiveSharpness = (int)DisplaySharpnessSlider.Value;
             if (SaveCPUEPP && CPUEPPSlider != null)
             {
                 profile.CPUEPP = CPUEPPSlider.Value;

@@ -1189,6 +1189,10 @@ namespace XboxGamingBarHelper
                 intelGpuManager.FpsCapMode,
                 intelGpuManager.IntelAdaptiveSharpness,
                 intelGpuManager.IntelColorSaturation,
+                intelGpuManager.IntelColorHue,
+                intelGpuManager.IntelDisplayContrast,
+                intelGpuManager.IntelDisplayBrightness,
+                intelGpuManager.IntelDisplayGamma,
                 msiCenterManager.MsiCenterActive,
                 msiClawControllerModeManager.MsiClawControllerMode,
                 settingsManager.IsForeground,
@@ -1466,6 +1470,10 @@ namespace XboxGamingBarHelper
             intelGpuManager.IntelFpsTier.PropertyChanged += IntelFpsTier_PropertyChanged;
             intelGpuManager.IntelAdaptiveSharpness.PropertyChanged += IntelDisplay_PropertyChanged;
             intelGpuManager.IntelColorSaturation.PropertyChanged += IntelDisplay_PropertyChanged;
+            intelGpuManager.IntelColorHue.PropertyChanged += IntelDisplay_PropertyChanged;
+            intelGpuManager.IntelDisplayContrast.PropertyChanged += IntelDisplay_PropertyChanged;
+            intelGpuManager.IntelDisplayBrightness.PropertyChanged += IntelDisplay_PropertyChanged;
+            intelGpuManager.IntelDisplayGamma.PropertyChanged += IntelDisplay_PropertyChanged;
 
             // Subscribe to Legion controller property changes to save to profile
             if (legionManager != null)

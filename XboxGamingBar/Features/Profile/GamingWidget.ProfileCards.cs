@@ -793,12 +793,40 @@ namespace XboxGamingBar
                         }
                     }
 
-                    // Intel Display (IGCL) — part of the Performance & Display profile.
-                    if ((gameAC.IntelColorSaturation >= 0 && gameAC.IntelColorSaturation != 100) || (gameDC.IntelColorSaturation >= 0 && gameDC.IntelColorSaturation != 100))
+                    // Intel Display (IGCL) — show channels that differ from neutral on either profile.
+                    if (gameAC.IntelColorSaturation != 50 || gameDC.IntelColorSaturation != 50)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "Saturation", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.IntelColorSaturation >= 0 ? $"{gameAC.IntelColorSaturation}%" : "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.IntelColorSaturation >= 0 ? $"{gameDC.IntelColorSaturation}%" : "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.IntelColorSaturation.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.IntelColorSaturation.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+                    if (gameAC.IntelColorHue != 0 || gameDC.IntelColorHue != 0)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Hue", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.IntelColorHue.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.IntelColorHue.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+                    if (gameAC.IntelDisplayContrast != 50 || gameDC.IntelDisplayContrast != 50)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Contrast", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.IntelDisplayContrast.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.IntelDisplayContrast.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+                    if (gameAC.IntelDisplayBrightness != 50 || gameDC.IntelDisplayBrightness != 50)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Brightness", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.IntelDisplayBrightness.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.IntelDisplayBrightness.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+                    if (gameAC.IntelDisplayGammaX100 != 100 || gameDC.IntelDisplayGammaX100 != 100)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Gamma", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, (gameAC.IntelDisplayGammaX100 / 100.0).ToString("0.00"), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, (gameDC.IntelDisplayGammaX100 / 100.0).ToString("0.00"), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
                     if (gameAC.IntelAdaptiveSharpness > 0 || gameDC.IntelAdaptiveSharpness > 0)
@@ -1129,9 +1157,17 @@ namespace XboxGamingBar
                     pairs.Add(("E-Core Max", GetFreqLabel(game.MaxECoreFreqMHz)));
             }
 
-            // Intel Display (IGCL)
-            if (game.IntelColorSaturation >= 0 && game.IntelColorSaturation != 100)
-                pairs.Add(("Saturation", $"{game.IntelColorSaturation}%"));
+            // Intel Display (IGCL) — only show non-neutral channels.
+            if (game.IntelColorSaturation != 50)
+                pairs.Add(("Saturation", game.IntelColorSaturation.ToString()));
+            if (game.IntelColorHue != 0)
+                pairs.Add(("Hue", game.IntelColorHue.ToString()));
+            if (game.IntelDisplayContrast != 50)
+                pairs.Add(("Contrast", game.IntelDisplayContrast.ToString()));
+            if (game.IntelDisplayBrightness != 50)
+                pairs.Add(("Brightness", game.IntelDisplayBrightness.ToString()));
+            if (game.IntelDisplayGammaX100 != 100)
+                pairs.Add(("Gamma", (game.IntelDisplayGammaX100 / 100.0).ToString("0.00")));
             if (game.IntelAdaptiveSharpness > 0)
                 pairs.Add(("Sharpness", game.IntelAdaptiveSharpness.ToString()));
 

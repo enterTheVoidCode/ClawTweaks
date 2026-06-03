@@ -174,8 +174,24 @@ namespace XboxGamingBarHelper
             if (IsInProfileSwitchCooldown()) { Logger.Debug("Skipping IntelDisplay_PropertyChanged - cooldown"); return; }
 
             RouteProfileSave(ProfileSaveFlagsState.IntelDisplay, "IntelDisplay",
-                cur => { cur.IntelAdaptiveSharpness = intelGpuManager.IntelAdaptiveSharpness; cur.IntelColorSaturation = intelGpuManager.IntelColorSaturation; },
-                glo => { glo.IntelAdaptiveSharpness = intelGpuManager.IntelAdaptiveSharpness; glo.IntelColorSaturation = intelGpuManager.IntelColorSaturation; });
+                cur =>
+                {
+                    cur.IntelAdaptiveSharpness = intelGpuManager.IntelAdaptiveSharpness;
+                    cur.IntelColorSaturation   = intelGpuManager.IntelColorSaturation;
+                    cur.IntelColorHue          = intelGpuManager.IntelColorHue;
+                    cur.IntelDisplayContrast   = intelGpuManager.IntelDisplayContrast;
+                    cur.IntelDisplayBrightness = intelGpuManager.IntelDisplayBrightness;
+                    cur.IntelDisplayGamma      = intelGpuManager.IntelDisplayGamma;
+                },
+                glo =>
+                {
+                    glo.IntelAdaptiveSharpness = intelGpuManager.IntelAdaptiveSharpness;
+                    glo.IntelColorSaturation   = intelGpuManager.IntelColorSaturation;
+                    glo.IntelColorHue          = intelGpuManager.IntelColorHue;
+                    glo.IntelDisplayContrast   = intelGpuManager.IntelDisplayContrast;
+                    glo.IntelDisplayBrightness = intelGpuManager.IntelDisplayBrightness;
+                    glo.IntelDisplayGamma      = intelGpuManager.IntelDisplayGamma;
+                });
         }
 
         private static void AutoHibernateEnabled_PropertyChanged(object sender, PropertyChangedEventArgs e)

@@ -125,6 +125,21 @@ namespace XboxGamingBarHelper
             }
         }
 
+        // Applies the profile's Intel display (IGCL) channels, mapping null (= not configured)
+        // to the neutral default so switching to an unconfigured profile resets the screen.
+        private static void ApplyIntelDisplayFromProfile(Shared.Data.GameProfile p)
+        {
+            if (intelGpuManager == null) return;
+            // Hue+Sat and Contrast+Brightness+Gamma are grouped in the wrapper; set hue before
+            // saturation and contrast/brightness before gamma so the final grouped call is correct.
+            intelGpuManager.IntelColorHue.SetValue(p.IntelColorHue ?? 0);
+            intelGpuManager.IntelColorSaturation.SetValue(p.IntelColorSaturation ?? 50);
+            intelGpuManager.IntelDisplayContrast.SetValue(p.IntelDisplayContrast ?? 50);
+            intelGpuManager.IntelDisplayBrightness.SetValue(p.IntelDisplayBrightness ?? 50);
+            intelGpuManager.IntelDisplayGamma.SetValue(p.IntelDisplayGamma ?? 100);
+            intelGpuManager.IntelAdaptiveSharpness.SetValue(p.IntelAdaptiveSharpness ?? 0);
+        }
+
         private static void AutoTDPSetting_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             // Skip during profile application to prevent cross-contamination
@@ -504,8 +519,7 @@ namespace XboxGamingBarHelper
             powerManager.MaxPCoreFreq.SetValue(profileManager.GlobalProfile.MaxPCoreFreqMHz);
             powerManager.MaxECoreFreq.SetValue(profileManager.GlobalProfile.MaxECoreFreqMHz);
             // Intel display (IGCL) — part of the performance profile
-            intelGpuManager.IntelAdaptiveSharpness.SetValue(profileManager.GlobalProfile.IntelAdaptiveSharpness);
-            intelGpuManager.IntelColorSaturation.SetValue(profileManager.GlobalProfile.IntelColorSaturation);
+            ApplyIntelDisplayFromProfile(profileManager.GlobalProfile);
             profileManager.PerGameProfile.SetValue(false);
 
             // Restore FPS limiter from global profile (mutual exclusion: only one active at a time)
@@ -644,8 +658,7 @@ namespace XboxGamingBarHelper
                         powerManager.MaxPCoreFreq.SetValue(profileManager.CurrentProfile.MaxPCoreFreqMHz);
                         powerManager.MaxECoreFreq.SetValue(profileManager.CurrentProfile.MaxECoreFreqMHz);
                         // Intel display (IGCL)
-                        intelGpuManager.IntelAdaptiveSharpness.SetValue(profileManager.CurrentProfile.IntelAdaptiveSharpness);
-                        intelGpuManager.IntelColorSaturation.SetValue(profileManager.CurrentProfile.IntelColorSaturation);
+                        ApplyIntelDisplayFromProfile(profileManager.CurrentProfile.Value);
                         profileManager.PerGameProfile.SetValue(profileManager.CurrentProfile.Use);
 
                         // Use .Value to access the underlying GameProfile struct (GameProfileProperty
@@ -752,8 +765,7 @@ namespace XboxGamingBarHelper
                     powerManager.MaxPCoreFreq.SetValue(gameProfile.MaxPCoreFreqMHz);
                     powerManager.MaxECoreFreq.SetValue(gameProfile.MaxECoreFreqMHz);
                     // Intel display (IGCL)
-                    intelGpuManager.IntelAdaptiveSharpness.SetValue(gameProfile.IntelAdaptiveSharpness);
-                    intelGpuManager.IntelColorSaturation.SetValue(gameProfile.IntelColorSaturation);
+                    ApplyIntelDisplayFromProfile(gameProfile);
 
                     ApplyFpsLimiterFromProfile(gameProfile);
                 }

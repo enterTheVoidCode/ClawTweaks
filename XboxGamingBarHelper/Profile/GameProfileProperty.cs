@@ -95,17 +95,41 @@ namespace XboxGamingBarHelper.Profile
             set { if (this.value.MaxECoreFreqMHz != value) this.value.MaxECoreFreqMHz = value; }
         }
 
-        // Intel Display (IGCL)
-        public int IntelAdaptiveSharpness
+        // Intel Display (IGCL) — nullable (null = not configured)
+        public int? IntelAdaptiveSharpness
         {
             get { return value.IntelAdaptiveSharpness; }
             set { if (this.value.IntelAdaptiveSharpness != value) this.value.IntelAdaptiveSharpness = value; }
         }
 
-        public int IntelColorSaturation
+        public int? IntelColorSaturation
         {
             get { return value.IntelColorSaturation; }
             set { if (this.value.IntelColorSaturation != value) this.value.IntelColorSaturation = value; }
+        }
+
+        public int? IntelColorHue
+        {
+            get { return value.IntelColorHue; }
+            set { if (this.value.IntelColorHue != value) this.value.IntelColorHue = value; }
+        }
+
+        public int? IntelDisplayContrast
+        {
+            get { return value.IntelDisplayContrast; }
+            set { if (this.value.IntelDisplayContrast != value) this.value.IntelDisplayContrast = value; }
+        }
+
+        public int? IntelDisplayBrightness
+        {
+            get { return value.IntelDisplayBrightness; }
+            set { if (this.value.IntelDisplayBrightness != value) this.value.IntelDisplayBrightness = value; }
+        }
+
+        public int? IntelDisplayGamma
+        {
+            get { return value.IntelDisplayGamma; }
+            set { if (this.value.IntelDisplayGamma != value) this.value.IntelDisplayGamma = value; }
         }
 
         public bool TDPBoostEnabled

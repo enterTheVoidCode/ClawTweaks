@@ -102,9 +102,13 @@ namespace XboxGamingBar
         public int ProcessorSchedulingPolicy { get; set; } = -1;
         public int MaxPCoreFreqMHz { get; set; } = 0;
         public int MaxECoreFreqMHz { get; set; } = 0;
-        // Intel Display (IGCL): -1 = unset; sharpness 0=off/1..100, saturation 100=neutral.
-        public int IntelAdaptiveSharpness { get; set; } = -1;
-        public int IntelColorSaturation { get; set; } = -1;
+        // Intel Display (IGCL) — TnC Color Remaster units. Neutral defaults.
+        public int IntelAdaptiveSharpness { get; set; } = 0;    // 0 = off, 1..100
+        public int IntelColorSaturation { get; set; } = 50;     // 0..100, 50 = neutral
+        public int IntelColorHue { get; set; } = 0;             // -180..180, 0 = neutral
+        public int IntelDisplayContrast { get; set; } = 50;     // 0..100, 50 = neutral
+        public int IntelDisplayBrightness { get; set; } = 50;   // 0..100, 50 = neutral
+        public int IntelDisplayGammaX100 { get; set; } = 100;   // ×100, 100 = 1.0 neutral
 
         public PerformanceProfile Clone()
         {
@@ -153,7 +157,11 @@ namespace XboxGamingBar
                 MaxPCoreFreqMHz = this.MaxPCoreFreqMHz,
                 MaxECoreFreqMHz = this.MaxECoreFreqMHz,
                 IntelAdaptiveSharpness = this.IntelAdaptiveSharpness,
-                IntelColorSaturation = this.IntelColorSaturation
+                IntelColorSaturation = this.IntelColorSaturation,
+                IntelColorHue = this.IntelColorHue,
+                IntelDisplayContrast = this.IntelDisplayContrast,
+                IntelDisplayBrightness = this.IntelDisplayBrightness,
+                IntelDisplayGammaX100 = this.IntelDisplayGammaX100
             };
         }
     }
@@ -1445,9 +1453,13 @@ namespace XboxGamingBar
             maxPCoreFreq = new CpuIntComboProperty(0, Shared.Enums.Function.MaxPCoreFreqMHz, MaxPCoreFreqComboBox, this);
             maxECoreFreq = new CpuIntComboProperty(0, Shared.Enums.Function.MaxECoreFreqMHz, MaxECoreFreqComboBox, this);
             InitializeCpuAdvanced();
-            // Intel Display (IGCL) — saved in the Performance & Display profile
-            intelSaturation = new CpuIntComboProperty(100, Shared.Enums.Function.IntelColorSaturation, DisplaySaturationComboBox, this);
-            intelSharpness  = new CpuIntComboProperty(0, Shared.Enums.Function.IntelAdaptiveSharpness, DisplaySharpnessComboBox, this);
+            // Intel Display (IGCL) — full Color Remaster set, saved in the Performance & Display profile
+            intelSaturation = new WidgetSliderProperty(50, Shared.Enums.Function.IntelColorSaturation, DisplaySaturationSlider, this);
+            intelHue        = new WidgetSliderProperty(0, Shared.Enums.Function.IntelColorHue, DisplayHueSlider, this);
+            intelContrast   = new WidgetSliderProperty(50, Shared.Enums.Function.IntelDisplayContrast, DisplayContrastSlider, this);
+            intelBrightness = new WidgetSliderProperty(50, Shared.Enums.Function.IntelDisplayBrightness, DisplayBrightnessSlider, this);
+            intelGamma      = new WidgetSliderProperty(100, Shared.Enums.Function.IntelDisplayGamma, DisplayGammaSlider, this);
+            intelSharpness  = new WidgetSliderProperty(0, Shared.Enums.Function.IntelAdaptiveSharpness, DisplaySharpnessSlider, this);
             InitializeDisplayTab();
             maxCPUState = new MaxCPUStateProperty();
             minCPUState = new MinCPUStateProperty();
@@ -1881,6 +1893,10 @@ namespace XboxGamingBar
                 maxPCoreFreq,
                 maxECoreFreq,
                 intelSaturation,
+                intelHue,
+                intelContrast,
+                intelBrightness,
+                intelGamma,
                 intelSharpness,
                 maxCPUState,
                 minCPUState,

@@ -128,6 +128,7 @@ namespace XboxGamingBarHelper.Intel
         private delegate ctl_result_t GetSharpnessSettingsDelegate(ctl_device_adapter_handle_t hDev, uint displayIdx, ref ctl_sharpness_settings_t s);
         private delegate ctl_result_t SetSharpnessSettingsDelegate(ctl_device_adapter_handle_t hDev, uint displayIdx, ctl_sharpness_settings_t s);
         private delegate ctl_result_t SetHueSaturationValuesDelegate(ctl_device_adapter_handle_t hDev, double hue, double saturation);
+        private delegate ctl_result_t SetBrightnessContrastGammaValuesDelegate(ctl_device_adapter_handle_t hDev, double contrast, double panelGamma, double brightness);
 
         // ── Loaded delegates ─────────────────────────────────────────────────
 
@@ -140,6 +141,7 @@ namespace XboxGamingBarHelper.Intel
         private static GetSharpnessSettingsDelegate       _GetSharpnessSettings;
         private static SetSharpnessSettingsDelegate       _SetSharpnessSettings;
         private static SetHueSaturationValuesDelegate     _SetHueSaturationValues;
+        private static SetBrightnessContrastGammaValuesDelegate _SetBrightnessContrastGammaValues;
 
         // ── State ─────────────────────────────────────────────────────────────
 
@@ -203,6 +205,7 @@ namespace XboxGamingBarHelper.Intel
                 _GetSharpnessSettings   = GetDelegate<GetSharpnessSettingsDelegate>("GetSharpnessSettings");
                 _SetSharpnessSettings   = GetDelegate<SetSharpnessSettingsDelegate>("SetSharpnessSettings");
                 _SetHueSaturationValues = GetDelegate<SetHueSaturationValuesDelegate>("SetHueSaturationValues");
+                _SetBrightnessContrastGammaValues = GetDelegate<SetBrightnessContrastGammaValuesDelegate>("SetBrightnessContrastGammaValues");
                 _displayReady = true;
                 Console.WriteLine("[IGCL] Display features (sharpness/saturation) bound.");
             }
@@ -308,20 +311,39 @@ namespace XboxGamingBarHelper.Intel
         }
 
         /// <summary>
-        /// Apply colour saturation as a multiplier (1.0 = neutral). Hue is held at 0.
-        /// The wrapper builds the CSC matrix internally.
+        /// Apply hue (-180..180, 0 = neutral) + saturation (0..100, 50 = neutral). Values are
+        /// passed through in TnC/IGCL units; the wrapper builds the CSC matrix internally.
         /// </summary>
-        public static bool SetSaturation(int deviceIdx, double saturation)
+        public static bool SetHueSaturation(int deviceIdx, double hue, double saturation)
         {
             if (!_displayReady || deviceIdx < 0 || deviceIdx >= Devices.Length) return false;
             var hDev = new ctl_device_adapter_handle_t { handle = Devices[deviceIdx] };
-            var res = _SetHueSaturationValues!(hDev, 0.0, saturation);
+            var res = _SetHueSaturationValues!(hDev, hue, saturation);
             if (res != ctl_result_t.CTL_RESULT_SUCCESS)
             {
-                Console.WriteLine($"[IGCL] SetHueSaturationValues({saturation}) failed: 0x{(uint)res:X8}");
+                Console.WriteLine($"[IGCL] SetHueSaturationValues(hue={hue}, sat={saturation}) failed: 0x{(uint)res:X8}");
                 return false;
             }
-            Console.WriteLine($"[IGCL] Saturation applied: {saturation:0.00} (hue 0).");
+            Console.WriteLine($"[IGCL] Hue/Saturation applied: hue={hue}, sat={saturation}.");
+            return true;
+        }
+
+        /// <summary>
+        /// Apply contrast (0..100, 50 = neutral), gamma (0.3..2.8, 1.0 = neutral) and
+        /// brightness (0..100, 50 = neutral) together — single wrapper call.
+        /// </summary>
+        public static bool SetBrightnessContrastGamma(int deviceIdx, double contrast, double gamma, double brightness)
+        {
+            if (!_displayReady || deviceIdx < 0 || deviceIdx >= Devices.Length) return false;
+            if (_SetBrightnessContrastGammaValues == null) return false;
+            var hDev = new ctl_device_adapter_handle_t { handle = Devices[deviceIdx] };
+            var res = _SetBrightnessContrastGammaValues(hDev, contrast, gamma, brightness);
+            if (res != ctl_result_t.CTL_RESULT_SUCCESS)
+            {
+                Console.WriteLine($"[IGCL] SetBrightnessContrastGammaValues(c={contrast}, g={gamma}, b={brightness}) failed: 0x{(uint)res:X8}");
+                return false;
+            }
+            Console.WriteLine($"[IGCL] Brightness/Contrast/Gamma applied: contrast={contrast}, gamma={gamma:0.00}, brightness={brightness}.");
             return true;
         }
 

@@ -103,6 +103,10 @@ namespace XboxGamingBar
             container.Values["MaxECoreFreqMHz"] = profile.MaxECoreFreqMHz;
             container.Values["IntelAdaptiveSharpness"] = profile.IntelAdaptiveSharpness;
             container.Values["IntelColorSaturation"] = profile.IntelColorSaturation;
+            container.Values["IntelColorHue"] = profile.IntelColorHue;
+            container.Values["IntelDisplayContrast"] = profile.IntelDisplayContrast;
+            container.Values["IntelDisplayBrightness"] = profile.IntelDisplayBrightness;
+            container.Values["IntelDisplayGammaX100"] = profile.IntelDisplayGammaX100;
             // Last-saved timestamp drives the "modified Nm/h/d ago" line on the profile
             // card and the "Last Modified" sort option in the Profiles tab. Stored as
             // UTC ticks so it survives timezone changes.
@@ -169,8 +173,12 @@ namespace XboxGamingBar
                 profile.ProcessorSchedulingPolicy = container.Values.ContainsKey("ProcessorSchedulingPolicy") ? (int)container.Values["ProcessorSchedulingPolicy"] : -1;
                 profile.MaxPCoreFreqMHz = container.Values.ContainsKey("MaxPCoreFreqMHz") ? (int)container.Values["MaxPCoreFreqMHz"] : 0;
                 profile.MaxECoreFreqMHz = container.Values.ContainsKey("MaxECoreFreqMHz") ? (int)container.Values["MaxECoreFreqMHz"] : 0;
-                profile.IntelAdaptiveSharpness = container.Values.ContainsKey("IntelAdaptiveSharpness") ? (int)container.Values["IntelAdaptiveSharpness"] : -1;
-                profile.IntelColorSaturation = container.Values.ContainsKey("IntelColorSaturation") ? (int)container.Values["IntelColorSaturation"] : -1;
+                profile.IntelAdaptiveSharpness = container.Values.ContainsKey("IntelAdaptiveSharpness") ? (int)container.Values["IntelAdaptiveSharpness"] : 0;
+                profile.IntelColorSaturation = container.Values.ContainsKey("IntelColorSaturation") ? (int)container.Values["IntelColorSaturation"] : 50;
+                profile.IntelColorHue = container.Values.ContainsKey("IntelColorHue") ? (int)container.Values["IntelColorHue"] : 0;
+                profile.IntelDisplayContrast = container.Values.ContainsKey("IntelDisplayContrast") ? (int)container.Values["IntelDisplayContrast"] : 50;
+                profile.IntelDisplayBrightness = container.Values.ContainsKey("IntelDisplayBrightness") ? (int)container.Values["IntelDisplayBrightness"] : 50;
+                profile.IntelDisplayGammaX100 = container.Values.ContainsKey("IntelDisplayGammaX100") ? (int)container.Values["IntelDisplayGammaX100"] : 100;
 
                 Logger.Info($"Loaded {profileName} profile from storage");
             }

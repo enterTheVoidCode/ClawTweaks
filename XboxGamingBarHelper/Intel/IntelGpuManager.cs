@@ -24,6 +24,18 @@ namespace XboxGamingBarHelper.Intel
         private readonly IntelColorSaturationProperty intelColorSaturation;
         public  IntelColorSaturationProperty          IntelColorSaturation => intelColorSaturation;
 
+        private readonly IntelColorHueProperty intelColorHue;
+        public  IntelColorHueProperty          IntelColorHue => intelColorHue;
+
+        private readonly IntelDisplayContrastProperty intelDisplayContrast;
+        public  IntelDisplayContrastProperty          IntelDisplayContrast => intelDisplayContrast;
+
+        private readonly IntelDisplayBrightnessProperty intelDisplayBrightness;
+        public  IntelDisplayBrightnessProperty          IntelDisplayBrightness => intelDisplayBrightness;
+
+        private readonly IntelDisplayGammaProperty intelDisplayGamma;
+        public  IntelDisplayGammaProperty          IntelDisplayGamma => intelDisplayGamma;
+
         /// <summary>Index of the selected Intel adapter (populated after Initialize()).</summary>
         private int _deviceIdx = -1;
 
@@ -39,6 +51,10 @@ namespace XboxGamingBarHelper.Intel
             fpsCapMode   = new FpsCapModeProperty(this);
             intelAdaptiveSharpness = new IntelAdaptiveSharpnessProperty(this);
             intelColorSaturation   = new IntelColorSaturationProperty(this);
+            intelColorHue          = new IntelColorHueProperty(this);
+            intelDisplayContrast   = new IntelDisplayContrastProperty(this);
+            intelDisplayBrightness = new IntelDisplayBrightnessProperty(this);
+            intelDisplayGamma      = new IntelDisplayGammaProperty(this);
 
             Initialize();
         }
@@ -104,26 +120,30 @@ namespace XboxGamingBarHelper.Intel
         /// <summary>Apply adaptive sharpness (0 = off, 1..100 intensity) on the internal panel.</summary>
         public void ApplyAdaptiveSharpness(int intensity)
         {
-            if (!IsAvailable || !IGCLBackend.IsDisplayReady)
-            {
-                Logger.Debug("[IntelGpuManager] ApplyAdaptiveSharpness skipped — IGCL display features unavailable.");
-                return;
-            }
+            if (!IsAvailable || !IGCLBackend.IsDisplayReady) return;
             bool ok = IGCLBackend.SetAdaptiveSharpness(_deviceIdx, DisplayIdx, intensity);
             Logger.Info($"[IntelGpuManager] AdaptiveSharpness intensity={intensity} ok={ok}");
         }
 
-        /// <summary>Apply colour saturation (percent, 100 = neutral) — converted to a multiplier.</summary>
-        public void ApplySaturation(int saturationPercent)
+        /// <summary>Apply hue (-180..180) + saturation (0..100, 50 = neutral) together.</summary>
+        public void ApplyHueSaturation()
         {
-            if (!IsAvailable || !IGCLBackend.IsDisplayReady)
-            {
-                Logger.Debug("[IntelGpuManager] ApplySaturation skipped — IGCL display features unavailable.");
-                return;
-            }
-            double mult = saturationPercent / 100.0;
-            bool ok = IGCLBackend.SetSaturation(_deviceIdx, mult);
-            Logger.Info($"[IntelGpuManager] Saturation={saturationPercent}% ({mult:0.00}x) ok={ok}");
+            if (!IsAvailable || !IGCLBackend.IsDisplayReady) return;
+            int hue = intelColorHue?.Value ?? 0;
+            int sat = intelColorSaturation?.Value ?? 50;
+            bool ok = IGCLBackend.SetHueSaturation(_deviceIdx, hue, sat);
+            Logger.Info($"[IntelGpuManager] Hue={hue}, Saturation={sat} ok={ok}");
+        }
+
+        /// <summary>Apply contrast (0..100,50), gamma (stored ×100 → 0.30..2.80) and brightness (0..100,50).</summary>
+        public void ApplyBrightnessContrastGamma()
+        {
+            if (!IsAvailable || !IGCLBackend.IsDisplayReady) return;
+            int contrast   = intelDisplayContrast?.Value ?? 50;
+            int brightness = intelDisplayBrightness?.Value ?? 50;
+            double gamma   = (intelDisplayGamma?.Value ?? 100) / 100.0;
+            bool ok = IGCLBackend.SetBrightnessContrastGamma(_deviceIdx, contrast, gamma, brightness);
+            Logger.Info($"[IntelGpuManager] Contrast={contrast}, Gamma={gamma:0.00}, Brightness={brightness} ok={ok}");
         }
 
         protected override void Dispose(bool disposing)
