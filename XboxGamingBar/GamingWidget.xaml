@@ -4511,7 +4511,7 @@
                     <StackPanel Padding="16,8,16,16" Spacing="12">
 
                         <TextBlock Text="Display (Intel)" Style="{StaticResource CardTitleStyle}"/>
-                        <TextBlock Text="Color &amp; sharpness are saved per-game and globally in the Performance &amp; Display profile — they follow the running game."
+                        <TextBlock Text="Saturation / Contrast / Brightness: 50 = normal (0 = grayscale, 100 = max). Gamma: 1.00 = normal. Hue: 0 = normal. Saved per-game and globally in the Performance &amp; Display profile."
                                    Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
 
                         <!-- Color Remaster sliders -->
