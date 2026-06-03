@@ -474,8 +474,12 @@ namespace XboxGamingBar
 
                     // CPU advanced (ToothNClaw port): restore combo selections + push to helper.
                     ApplyCpuAdvancedFromProfile(profile);
-                    // Intel Display (IGCL): restore saturation/sharpness combos + push to helper.
-                    ApplyDisplayFromProfile(profile);
+                    // Intel Display (IGCL): the HELPER owns display state — it applies the active
+                    // profile and pushes the values back via the property sync (BatchSync on open,
+                    // per-property push on in-session switch). The widget must NOT push its own
+                    // (possibly stale) stored values here, or it overrides the user's last setting
+                    // on every Game Bar reopen (slider snapped back to a stale value). UI follows
+                    // the helper instead.
                 }
                 if (SaveCPUEPP)
                 {

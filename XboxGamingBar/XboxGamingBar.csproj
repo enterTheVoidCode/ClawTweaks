@@ -522,6 +522,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\ColorReference.jpg" />
+    <Content Include="Assets\ColorReference2.jpg" />
+    <Content Include="Assets\ColorReference3.jpg" />
     <Content Include="Assets\Icons\icon.light.targetsize-16.png" />
     <Content Include="Assets\Icons\icon.light.targetsize-20.png" />
     <Content Include="Assets\Icons\icon.light.targetsize-24.png" />
