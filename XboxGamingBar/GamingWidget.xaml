@@ -3339,6 +3339,34 @@
                 <ScrollViewer x:Name="SystemScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
+                        <!-- Appearance / Theme (moved out of Debug to the top of the System tab) -->
+                        <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Theme" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Change the widget appearance" FontSize="11" Foreground="#888888"/>
+                                </StackPanel>
+                                <ComboBox x:Name="ThemeComboBox"
+                                          Grid.Column="1"
+                                          Width="150"
+                                          VerticalAlignment="Center"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          SelectionChanged="ThemeComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Next Gen Claw" IsSelected="True"/>
+                                    <ComboBoxItem Content="Default"/>
+                                    <ComboBoxItem Content="Dark"/>
+                                    <ComboBoxItem Content="OLED"/>
+                                    <ComboBoxItem Content="Dracula"/>
+                                    <ComboBoxItem Content="Nord"/>
+                                    <ComboBoxItem Content="Catppuccin"/>
+                                </ComboBox>
+                            </Grid>
+                        </Border>
+
                         <!-- Pro Tips Card -->
                         <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
                             <StackPanel>
@@ -4178,29 +4206,7 @@
 
                                 <!-- Collapsible Content -->
                                 <StackPanel x:Name="DebugContent" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <!-- Theme Selector -->
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Theme" FontSize="14" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Change widget appearance" FontSize="11" Foreground="#888888"/>
-                                        </StackPanel>
-                                        <ComboBox x:Name="ThemeComboBox"
-                                                  Grid.Column="1"
-                                                  Width="130"
-                                                  SelectionChanged="ThemeComboBox_SelectionChanged">
-                                            <ComboBoxItem Content="Next Gen Claw" IsSelected="True"/>
-                                            <ComboBoxItem Content="Default"/>
-                                            <ComboBoxItem Content="Dark"/>
-                                            <ComboBoxItem Content="OLED"/>
-                                            <ComboBoxItem Content="Dracula"/>
-                                            <ComboBoxItem Content="Nord"/>
-                                            <ComboBoxItem Content="Catppuccin"/>
-                                        </ComboBox>
-                                    </Grid>
+                                    <!-- Theme selector moved to the top of the System tab (Appearance card) -->
 
                                     <!-- Restart Helper / Kill GoTweaks Buttons (side by side) -->
                                     <Grid>
