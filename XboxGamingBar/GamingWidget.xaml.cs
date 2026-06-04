@@ -191,6 +191,13 @@ namespace XboxGamingBar
         public Windows.UI.Color? TileOn2 { get; set; }
         /// <summary>Optional accent glow colour (e.g. tile/active borders). Null → no glow.</summary>
         public Windows.UI.Color? GlowColor { get; set; }
+
+        // Optional metrics-bar (the stats row above the tiles) colours. When MetricsBackground is
+        // set, the bar is repainted to it (with MetricsBackground2 as the gradient bottom stop);
+        // otherwise it keeps its built-in look. Meant to sit a touch lighter than the active tiles.
+        public Windows.UI.Color? MetricsBackground { get; set; }
+        public Windows.UI.Color? MetricsBackground2 { get; set; }
+        public Windows.UI.Color? MetricsBorder { get; set; }
     }
 
     /// <summary>
@@ -616,7 +623,11 @@ namespace XboxGamingBar
                 TileOff2        = Windows.UI.Color.FromArgb(235, 14, 30, 58),       // #0E1E3A (bottom)
                 TileOn          = Windows.UI.Color.FromArgb(255, 38, 110, 196),     // #266EC4 (top)
                 TileOn2         = Windows.UI.Color.FromArgb(255, 26, 78, 150),      // #1A4E96 (bottom)
-                GlowColor       = Windows.UI.Color.FromArgb(255, 78, 170, 255)      // #4EAAFF glow
+                GlowColor       = Windows.UI.Color.FromArgb(255, 78, 170, 255),     // #4EAAFF glow
+                // Metrics bar — a touch lighter than the active tiles (#266EC4)
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 60, 132, 220),  // #3C84DC (top)
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 44, 104, 184),  // #2C68B8 (bottom)
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 96, 162, 236)   // #60A2EC
             }},
             { "Default", new ThemeColors {
                 Name = "Default",

@@ -102,6 +102,21 @@ namespace XboxGamingBar
                 Logger.Warn($"Theme: tile refresh failed: {ex.Message}");
             }
 
+            // Metrics bar (stats row above the tiles) — repaint when the theme defines it
+            // (intended a touch lighter than the active tiles).
+            try
+            {
+                if (QuickMetricsRow != null && theme.MetricsBackground != null)
+                {
+                    QuickMetricsRow.Background = ThemeFill(theme.MetricsBackground.Value, theme.MetricsBackground2);
+                    QuickMetricsRow.BorderBrush = new SolidColorBrush(theme.MetricsBorder ?? theme.CardBorder);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Theme: metrics bar refresh failed: {ex.Message}");
+            }
+
             // Update resource brushes (for new elements)
             try
             {
