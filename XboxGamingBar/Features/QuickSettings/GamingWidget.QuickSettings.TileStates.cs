@@ -122,7 +122,7 @@ namespace XboxGamingBar
             // so the tile still looks centered.
             var content = new StackPanel { HorizontalAlignment = HorizontalAlignment.Stretch };
 
-            content.Children.Add(BuildTileIconElement(tile.ActionType, tile.Glyph, 28, null));
+            content.Children.Add(BuildTileIconElement(tile.ActionType, tile.Id, tile.Glyph, 28, null));
 
             content.Children.Add(new TextBlock
             {

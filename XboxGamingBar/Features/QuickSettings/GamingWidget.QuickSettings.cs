@@ -859,9 +859,10 @@ namespace XboxGamingBar
         /// (SVG) icon — the new Program / Website / media actions — this renders a crisp PathIcon
         /// in a Viewbox; everything else falls back to the Segoe MDL2 glyph as before.
         /// </summary>
-        private FrameworkElement BuildTileIconElement(TileActionType actionType, string glyph, double size, Windows.UI.Xaml.Media.Brush foreground)
+        private FrameworkElement BuildTileIconElement(TileActionType actionType, string tileId, string glyph, double size, Windows.UI.Xaml.Media.Brush foreground)
         {
-            string path = TileActionHelper.GetFluentIconPath(actionType);
+            string path = TileActionHelper.GetFluentIconPath(actionType)
+                          ?? TileActionHelper.GetFluentIconPathForTileId(tileId);
             if (!string.IsNullOrEmpty(path))
             {
                 try
