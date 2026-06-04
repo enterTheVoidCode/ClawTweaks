@@ -134,12 +134,7 @@ namespace XboxGamingBar
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            stack.Children.Add(new FontIcon
-            {
-                Glyph = tile.Glyph,
-                FontSize = 18,
-                Foreground = new SolidColorBrush(fgColor)
-            });
+            stack.Children.Add(BuildTileIconElement(tile.ActionType, tile.Glyph, 18, new SolidColorBrush(fgColor)));
             stack.Children.Add(new TextBlock
             {
                 Text = tile.Name,

@@ -855,6 +855,42 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Builds the icon visual for a tile. For action types that have a dedicated Fluent
+        /// (SVG) icon — the new Program / Website / media actions — this renders a crisp PathIcon
+        /// in a Viewbox; everything else falls back to the Segoe MDL2 glyph as before.
+        /// </summary>
+        private FrameworkElement BuildTileIconElement(TileActionType actionType, string glyph, double size, Windows.UI.Xaml.Media.Brush foreground)
+        {
+            string path = TileActionHelper.GetFluentIconPath(actionType);
+            if (!string.IsNullOrEmpty(path))
+            {
+                try
+                {
+                    string xaml = "<PathIcon xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" Data=\"" + path + "\"/>";
+                    var pathIcon = (Windows.UI.Xaml.Controls.PathIcon)Windows.UI.Xaml.Markup.XamlReader.Load(xaml);
+                    if (foreground != null) pathIcon.Foreground = foreground;
+                    return new Viewbox
+                    {
+                        Width = size,
+                        Height = size,
+                        Child = pathIcon,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                }
+                catch { /* fall through to glyph */ }
+            }
+
+            return new FontIcon
+            {
+                Glyph = glyph,
+                FontSize = size,
+                Foreground = foreground ?? new SolidColorBrush(Windows.UI.Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+        }
+
+        /// <summary>
         /// Send current controller hotkey config to helper via pipe so it can update
         /// its cached config for XInput-based button combo detection.
         /// </summary>
