@@ -612,25 +612,27 @@ namespace XboxGamingBar
             // (lighter top) over a deep navy, an azure accent and an accent glow on active tiles.
             { "Next Gen Claw", new ThemeColors {
                 Name = "Next Gen Claw",
-                PageBackground  = Windows.UI.Color.FromArgb(255, 9, 20, 40),       // #091428 (top)
-                PageBackground2 = Windows.UI.Color.FromArgb(255, 13, 40, 84),      // #0D2854 (bottom)
-                CardBackground  = Windows.UI.Color.FromArgb(210, 22, 46, 84),      // translucent blue
-                CardBorder      = Windows.UI.Color.FromArgb(255, 47, 92, 158),     // #2F5C9E
-                AccentColor     = Windows.UI.Color.FromArgb(255, 46, 155, 255),    // #2E9BFF azure
-                TextPrimary     = Windows.UI.Color.FromArgb(255, 240, 247, 255),   // near-white
-                TextSecondary   = Windows.UI.Color.FromArgb(255, 150, 184, 226),   // light blue-grey
-                ButtonBackground= Windows.UI.Color.FromArgb(255, 27, 56, 100),     // #1B3864
-                ButtonBorder    = Windows.UI.Color.FromArgb(255, 58, 111, 176),    // #3A6FB0
-                TileOff         = Windows.UI.Color.FromArgb(235, 30, 60, 108),      // #1E3C6C translucent (top, lighter for visible gradient)
-                TileOff2        = Windows.UI.Color.FromArgb(235, 12, 26, 52),       // #0C1A34 (bottom)
-                TileOn          = Windows.UI.Color.FromArgb(255, 52, 130, 224),     // #3482E0 (top, brighter)
-                TileOn2         = Windows.UI.Color.FromArgb(255, 24, 70, 138),      // #18468A (bottom)
-                GlowColor       = Windows.UI.Color.FromArgb(255, 78, 170, 255),     // #4EAAFF glow
-                TileIcon        = Windows.UI.Color.FromArgb(255, 199, 226, 255),    // #C7E2FF light azure icons
-                // Metrics bar — a touch lighter than the active tiles (#266EC4)
-                MetricsBackground  = Windows.UI.Color.FromArgb(255, 60, 132, 220),  // #3C84DC (top)
-                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 44, 104, 184),  // #2C68B8 (bottom)
-                MetricsBorder      = Windows.UI.Color.FromArgb(255, 96, 162, 236)   // #60A2EC
+                // Vibrant neon diagonal: electric blue → violet
+                PageBackground  = Windows.UI.Color.FromArgb(255, 20, 34, 140),      // #14228C (top-left, electric blue)
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 74, 34, 160),      // #4A22A0 (bottom-right, neon violet)
+                CardBackground  = Windows.UI.Color.FromArgb(195, 40, 52, 130),      // translucent indigo (glass)
+                CardBorder      = Windows.UI.Color.FromArgb(255, 96, 120, 230),     // #6078E6
+                AccentColor     = Windows.UI.Color.FromArgb(255, 58, 140, 255),     // #3A8CFF modern neon blue
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 240, 246, 255),    // near-white
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 170, 190, 240),    // light blue
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 36, 58, 134),      // #243A86
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 90, 110, 220),     // #5A6EDC
+                // Glass tiles: translucent (page shows through), glossy lighter top stop
+                TileOff         = Windows.UI.Color.FromArgb(180, 70, 104, 210),     // #4668D2 @70% (glossy sheen top)
+                TileOff2        = Windows.UI.Color.FromArgb(180, 22, 26, 70),       // #161A46 @70% (deep indigo bottom)
+                TileOn          = Windows.UI.Color.FromArgb(255, 58, 140, 255),     // #3A8CFF (neon blue top)
+                TileOn2         = Windows.UI.Color.FromArgb(255, 123, 63, 242),     // #7B3FF2 (neon violet bottom)
+                GlowColor       = Windows.UI.Color.FromArgb(255, 110, 176, 255),    // #6EB0FF glow
+                TileIcon        = Windows.UI.Color.FromArgb(255, 143, 184, 255),    // #8FB8FF bluer icons
+                // Metrics bar — lighter than the active tiles, blue→violet
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 74, 144, 232),  // #4A90E8 (top)
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 106, 82, 218),  // #6A52DA (bottom, into violet)
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 122, 174, 242)  // #7AAEF2
             }},
             { "Default", new ThemeColors {
                 Name = "Default",
