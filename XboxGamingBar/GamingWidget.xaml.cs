@@ -182,6 +182,15 @@ namespace XboxGamingBar
         public Windows.UI.Color ButtonBorder { get; set; }
         public Windows.UI.Color TileOff { get; set; }
         public Windows.UI.Color TileOn { get; set; }
+
+        // Optional second stop for a vertical (top→bottom) gradient. When set, the corresponding
+        // surface is painted with a LinearGradientBrush (glass look) instead of a flat colour.
+        // Null → solid colour (all the classic flat themes leave these null).
+        public Windows.UI.Color? PageBackground2 { get; set; }
+        public Windows.UI.Color? TileOff2 { get; set; }
+        public Windows.UI.Color? TileOn2 { get; set; }
+        /// <summary>Optional accent glow colour (e.g. tile/active borders). Null → no glow.</summary>
+        public Windows.UI.Color? GlowColor { get; set; }
     }
 
     /// <summary>
@@ -590,6 +599,25 @@ namespace XboxGamingBar
         // Theme definitions
         private static readonly Dictionary<string, ThemeColors> WidgetThemes = new Dictionary<string, ThemeColors>
         {
+            // MSI-inspired blue "glass" look — the new default. Page + tiles use vertical gradients
+            // (lighter top) over a deep navy, an azure accent and an accent glow on active tiles.
+            { "Next Gen Claw", new ThemeColors {
+                Name = "Next Gen Claw",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 9, 20, 40),       // #091428 (top)
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 13, 40, 84),      // #0D2854 (bottom)
+                CardBackground  = Windows.UI.Color.FromArgb(210, 22, 46, 84),      // translucent blue
+                CardBorder      = Windows.UI.Color.FromArgb(255, 47, 92, 158),     // #2F5C9E
+                AccentColor     = Windows.UI.Color.FromArgb(255, 46, 155, 255),    // #2E9BFF azure
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 240, 247, 255),   // near-white
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 150, 184, 226),   // light blue-grey
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 27, 56, 100),     // #1B3864
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 58, 111, 176),    // #3A6FB0
+                TileOff         = Windows.UI.Color.FromArgb(235, 20, 42, 78),       // #142A4E translucent (top)
+                TileOff2        = Windows.UI.Color.FromArgb(235, 14, 30, 58),       // #0E1E3A (bottom)
+                TileOn          = Windows.UI.Color.FromArgb(255, 38, 110, 196),     // #266EC4 (top)
+                TileOn2         = Windows.UI.Color.FromArgb(255, 26, 78, 150),      // #1A4E96 (bottom)
+                GlowColor       = Windows.UI.Color.FromArgb(255, 78, 170, 255)      // #4EAAFF glow
+            }},
             { "Default", new ThemeColors {
                 Name = "Default",
                 PageBackground = Windows.UI.Color.FromArgb(255, 37, 40, 44),      // #25282C
@@ -670,7 +698,7 @@ namespace XboxGamingBar
             }}
         };
 
-        private string currentThemeName = "Default";
+        private string currentThemeName = "Next Gen Claw";
 
         // Xbox Game Bar logic
         private XboxGameBarWidget widget = null;
@@ -680,7 +708,7 @@ namespace XboxGamingBar
         private XboxGameBarAppTargetTracker appTargetTracker = null;
         private bool appIsInBackground = false;
 
-        private SolidColorBrush widgetDarkThemeBrush = null;
+        private Brush widgetDarkThemeBrush = null;
         private SolidColorBrush widgetLightThemeBrush = null;
 
         // Compact mode detection (based on window width)

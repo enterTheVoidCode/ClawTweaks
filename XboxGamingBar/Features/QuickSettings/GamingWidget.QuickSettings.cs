@@ -43,10 +43,10 @@ namespace XboxGamingBar
 {
     public sealed partial class GamingWidget
     {
-        // Tile brushes
-        private SolidColorBrush tileOffBrush;
-        private SolidColorBrush tileOnBrush;
-        private SolidColorBrush tileActiveBrush;
+        // Tile brushes (Brush, not SolidColorBrush, so themes can supply gradients)
+        private Brush tileOffBrush;
+        private Brush tileOnBrush;
+        private Brush tileActiveBrush;
         private SolidColorBrush tileTriggerBrush;
         private LinearGradientBrush tileDefaultProfileBrush;
         private bool quickSettingsInitialized = false;
