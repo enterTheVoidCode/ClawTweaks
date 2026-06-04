@@ -89,13 +89,18 @@ namespace XboxGamingBar
             this.Background = pageBrush;
             widgetDarkThemeBrush = pageBrush;
 
-            // Tiles are built in code from these brushes — refresh them from the theme and repaint
-            // the grid so theme changes actually reach the Quick Settings tiles (incl. gradients).
+            // Refresh the tile brushes from the theme. On the initial load the grid is built AFTER
+            // this with the brushes already set (see InitializeQuickSettings), so we must NOT rebuild
+            // here then — doing so disturbed scroll/focus/metrics. Only repaint the grid for a real
+            // runtime theme switch (isThemeInitialized == true), and restore tile states afterwards.
             try
             {
                 UpdateTileBrushesFromTheme(theme);
-                RebuildQuickSettingsTiles();
-                BuildSortableGrid();
+                if (isThemeInitialized && quickSettingsInitialized)
+                {
+                    RebuildQuickSettingsTiles();
+                    UpdateQuickSettingsTileStates();
+                }
             }
             catch (Exception ex)
             {
