@@ -62,7 +62,7 @@ namespace XboxGamingBar
                         if (mappedTile.ActionType != TileActionType.None &&
                             mappedTile.ActionType != TileActionType.KeyboardShortcut)
                         {
-                            _ = ExecuteTileActionAsync(mappedTile.ActionType, mappedTile.Name);
+                            _ = ExecuteTileActionAsync(mappedTile.ActionType, mappedTile.Name, mappedTile.ActionParam);
                             UpdateQuickSettingsTileStates();
                             return;
                         }
@@ -2112,16 +2112,27 @@ namespace XboxGamingBar
                 // Action tile branch
                 if (CustomActionTypeComboBox == null ||
                     !(CustomActionTypeComboBox.SelectedItem is ComboBoxItem selectedItem) ||
-                    !(selectedItem.Tag is TileActionType actionType))
+                    !(selectedItem.Tag is ActionChoice choice))
                 {
                     Logger.Warn("No action selected");
                     return;
                 }
 
-                // Auto-derive tile name from the action's short name
-                name = TileActionHelper.GetShortName(actionType);
+                TileActionType actionType = choice.Type;
+                // Auto-derive tile name: user entries keep their friendly name (sans "(User)"),
+                // built-ins use the short name.
+                if (!string.IsNullOrEmpty(choice.Param))
+                {
+                    string disp = choice.Display ?? "";
+                    name = disp.EndsWith(" (User)") ? disp.Substring(0, disp.Length - " (User)".Length) : disp;
+                    if (name.Length > 12) name = name.Substring(0, 12);
+                }
+                else
+                {
+                    name = TileActionHelper.GetShortName(actionType);
+                }
 
-                AddActionTile(name, actionType);
+                AddActionTile(name, actionType, choice.Param);
 
                 // Clear name input; leave ComboBox at last selection for convenience
                 if (CustomShortcutNameBox != null) CustomShortcutNameBox.Text = "";
@@ -2322,7 +2333,77 @@ namespace XboxGamingBar
             }
         }
 
-        private async Task ExecutePhysicalButtonActionAsync(TileActionType actionType, string actionName)
+        /// <summary>Ask the helper to launch a program target (a path, a URI scheme, or @DefaultBrowser).</summary>
+        private async Task LaunchProgramViaHelper(string target, bool closeGameBar)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(target)) return;
+                if (closeGameBar && widget != null)
+                {
+                    await SendKeyboardShortcutViaHelper("Win+G");
+                    await Task.Delay(150);
+                }
+                if (App.IsConnected)
+                {
+                    var msg = new Windows.Foundation.Collections.ValueSet { { "LaunchProgram", target } };
+                    await App.SendMessageAsync(msg);
+                    Logger.Info($"LaunchProgramViaHelper: requested '{target}' (closeGameBar={closeGameBar})");
+                }
+                else Logger.Warn($"LaunchProgramViaHelper: helper not connected ('{target}')");
+            }
+            catch (Exception ex) { Logger.Error($"LaunchProgramViaHelper({target}): {ex.Message}"); }
+        }
+
+        /// <summary>Ask the helper to open a URL in the default browser.</summary>
+        private async Task LaunchUrlViaHelper(string url, bool closeGameBar)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(url)) return;
+                if (closeGameBar && widget != null)
+                {
+                    await SendKeyboardShortcutViaHelper("Win+G");
+                    await Task.Delay(150);
+                }
+                if (App.IsConnected)
+                {
+                    var msg = new Windows.Foundation.Collections.ValueSet { { "LaunchUrl", url } };
+                    await App.SendMessageAsync(msg);
+                    Logger.Info($"LaunchUrlViaHelper: requested '{url}' (closeGameBar={closeGameBar})");
+                }
+                else Logger.Warn($"LaunchUrlViaHelper: helper not connected ('{url}')");
+            }
+            catch (Exception ex) { Logger.Error($"LaunchUrlViaHelper({url}): {ex.Message}"); }
+        }
+
+        /// <summary>Resolves the launch target for a program action (default token or the user param).</summary>
+        private static string ResolveProgramTarget(TileActionType actionType, string actionParam)
+        {
+            if (actionType == TileActionType.LaunchUserProgram) return actionParam;
+            return TileActionHelper.GetDefaultProgramTarget(actionType);
+        }
+
+        /// <summary>Resolves the URL for a website action (default URL or the user param).</summary>
+        private static string ResolveWebsiteUrl(TileActionType actionType, string actionParam)
+        {
+            if (actionType == TileActionType.OpenUserWebsite) return actionParam;
+            return TileActionHelper.GetDefaultWebsiteUrl(actionType);
+        }
+
+        /// <summary>Media-key token for a media action, or null.</summary>
+        private static string MediaShortcut(TileActionType actionType)
+        {
+            switch (actionType)
+            {
+                case TileActionType.MediaNextTrack: return "MEDIA_NEXT_TRACK";
+                case TileActionType.MediaPrevTrack: return "MEDIA_PREV_TRACK";
+                case TileActionType.MediaPlayPause: return "MEDIA_PLAY_PAUSE";
+                default: return null;
+            }
+        }
+
+        private async Task ExecutePhysicalButtonActionAsync(TileActionType actionType, string actionName, string actionParam = null)
         {
             try
             {
@@ -2364,9 +2445,31 @@ namespace XboxGamingBar
                     case TileActionType.XboxApp:
                         await LaunchLauncherViaHelper(LauncherKey(actionType), closeGameBar: false);
                         break;
+                    // Media keys
+                    case TileActionType.MediaNextTrack:
+                    case TileActionType.MediaPrevTrack:
+                    case TileActionType.MediaPlayPause:
+                        await SendKeyboardShortcutViaHelper(MediaShortcut(actionType));
+                        break;
+                    // Program / Website actions
+                    case TileActionType.OpenDefaultBrowser:
+                    case TileActionType.OpenWindowsStore:
+                    case TileActionType.OpenChrome:
+                    case TileActionType.OpenSpotify:
+                    case TileActionType.LaunchUserProgram:
+                        await LaunchProgramViaHelper(ResolveProgramTarget(actionType, actionParam), closeGameBar: false);
+                        break;
+                    case TileActionType.OpenExophase:
+                    case TileActionType.OpenRetroAchievements:
+                    case TileActionType.OpenGoogle:
+                    case TileActionType.OpenClawTweaksReleases:
+                    case TileActionType.OpenClawTweaksFaq:
+                    case TileActionType.OpenUserWebsite:
+                        await LaunchUrlViaHelper(ResolveWebsiteUrl(actionType, actionParam), closeGameBar: false);
+                        break;
                 }
                 await SendActionNotificationAsync(actionName);
-                Logger.Info($"ExecutePhysicalButtonActionAsync: executed {actionType} ({actionName})");
+                Logger.Info($"ExecutePhysicalButtonActionAsync: executed {actionType} ({actionName}) param='{actionParam}'");
             }
             catch (Exception ex)
             {
@@ -2377,7 +2480,7 @@ namespace XboxGamingBar
         /// <summary>
         /// Execute a predefined tile action and show an RTSS OSD notification.
         /// </summary>
-        private async Task ExecuteTileActionAsync(TileActionType actionType, string actionName)
+        private async Task ExecuteTileActionAsync(TileActionType actionType, string actionName, string actionParam = null)
         {
             try
             {
@@ -2451,6 +2554,32 @@ namespace XboxGamingBar
                     case TileActionType.Playnite:
                     case TileActionType.XboxApp:
                         await LaunchLauncherViaHelper(LauncherKey(actionType), closeGameBar: true);
+                        break;
+
+                    // ── Media keys (no need to close Game Bar) ──────────────
+                    case TileActionType.MediaNextTrack:
+                    case TileActionType.MediaPrevTrack:
+                    case TileActionType.MediaPlayPause:
+                        await SendKeyboardShortcutViaHelper(MediaShortcut(actionType));
+                        break;
+
+                    // ── Program Actions ─────────────────────────────────────
+                    case TileActionType.OpenDefaultBrowser:
+                    case TileActionType.OpenWindowsStore:
+                    case TileActionType.OpenChrome:
+                    case TileActionType.OpenSpotify:
+                    case TileActionType.LaunchUserProgram:
+                        await LaunchProgramViaHelper(ResolveProgramTarget(actionType, actionParam), closeGameBar: true);
+                        break;
+
+                    // ── Launch Website ──────────────────────────────────────
+                    case TileActionType.OpenExophase:
+                    case TileActionType.OpenRetroAchievements:
+                    case TileActionType.OpenGoogle:
+                    case TileActionType.OpenClawTweaksReleases:
+                    case TileActionType.OpenClawTweaksFaq:
+                    case TileActionType.OpenUserWebsite:
+                        await LaunchUrlViaHelper(ResolveWebsiteUrl(actionType, actionParam), closeGameBar: true);
                         break;
                 }
 

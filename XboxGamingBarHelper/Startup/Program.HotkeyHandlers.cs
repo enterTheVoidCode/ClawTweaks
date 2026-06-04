@@ -339,6 +339,178 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
+        /// Launches a "Program Action" target. Handles:
+        ///  - "@DefaultBrowser": resolves the registered http handler and launches it
+        ///  - "*.ps1": runs via powershell.exe -File
+        ///  - a URI scheme (ms-windows-store:, spotify:, http(s)://): LaunchUriAsync
+        ///  - "chrome" or any other token/path: Process.Start with UseShellExecute (App Paths / PATH)
+        /// Runs in the user session, so it works whether the Game Bar is open or not.
+        /// </summary>
+        internal static async void LaunchProgramTarget(string target)
+        {
+            if (string.IsNullOrWhiteSpace(target)) return;
+            try
+            {
+                target = target.Trim().Trim('"');
+
+                if (string.Equals(target, "@DefaultBrowser", StringComparison.OrdinalIgnoreCase))
+                {
+                    LaunchDefaultBrowser();
+                    return;
+                }
+
+                string ext = "";
+                try { ext = System.IO.Path.GetExtension(target).ToLowerInvariant(); } catch { }
+
+                if (ext == ".ps1")
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "powershell.exe",
+                        Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{target}\"",
+                        UseShellExecute = true,
+                        WorkingDirectory = SafeDir(target)
+                    });
+                    Logger.Info($"LaunchProgramTarget: ran PowerShell script {target}");
+                    return;
+                }
+
+                // URI scheme (contains "://" or "scheme:") and not a drive path like C:\...
+                int colon = target.IndexOf(':');
+                bool looksLikeScheme = target.Contains("://") ||
+                    (colon > 1 && !(colon == 1 && target.Length > 2 && (target[2] == '\\' || target[2] == '/')));
+                if (looksLikeScheme && ext != ".exe")
+                {
+                    await global::Windows.System.Launcher.LaunchUriAsync(new Uri(target));
+                    Logger.Info($"LaunchProgramTarget: launched URI {target}");
+                    return;
+                }
+
+                // Plain exe path or a bare command (e.g. "chrome") resolved via App Paths / PATH.
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = target,
+                    UseShellExecute = true,
+                    WorkingDirectory = SafeDir(target)
+                });
+                Logger.Info($"LaunchProgramTarget: started process {target}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LaunchProgramTarget({target}): {ex.Message}");
+            }
+        }
+
+        /// <summary>Opens a URL in the default browser. Works whether the Game Bar is open or not.</summary>
+        internal static void LaunchUrl(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return;
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+                Logger.Info($"LaunchUrl: {url}");
+            }
+            catch (Exception ex) { Logger.Error($"LaunchUrl({url}): {ex.Message}"); }
+        }
+
+        /// <summary>Maps a built-in Program-Action id to its launch target, or returns the user param.</summary>
+        internal static string ResolveProgramTargetHelper(int actionType, string param)
+        {
+            switch (actionType)
+            {
+                case 50: return "@DefaultBrowser";
+                case 51: return "ms-windows-store:";
+                case 52: return "chrome";
+                case 53: return "spotify:";
+                default: return param; // 59 = LaunchUserProgram
+            }
+        }
+
+        /// <summary>Maps a built-in Launch-Website id to its URL, or returns the user param.</summary>
+        internal static string ResolveWebsiteUrlHelper(int actionType, string param)
+        {
+            switch (actionType)
+            {
+                case 60: return "https://www.exophase.com/";
+                case 61: return "https://retroachievements.org/";
+                case 62: return "https://www.google.com/";
+                case 63: return "https://github.com/enterTheVoidCode/ClawTweaks/releases";
+                case 64: return "https://github.com/enterTheVoidCode/ClawTweaks";
+                default: return param; // 69 = OpenUserWebsite
+            }
+        }
+
+        private static string SafeDir(string path)
+        {
+            try
+            {
+                string dir = System.IO.Path.GetDirectoryName(path);
+                return System.IO.Directory.Exists(dir) ? dir : "";
+            }
+            catch { return ""; }
+        }
+
+        /// <summary>Resolves the user's default browser from the registry and launches it (no page).</summary>
+        private static void LaunchDefaultBrowser()
+        {
+            try
+            {
+                string progId = null;
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                    @"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice"))
+                {
+                    progId = key?.GetValue("ProgId") as string;
+                }
+                string command = null;
+                if (!string.IsNullOrEmpty(progId))
+                {
+                    using (var cmdKey = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(progId + @"\shell\open\command"))
+                    {
+                        command = cmdKey?.GetValue(null) as string;
+                    }
+                }
+                if (!string.IsNullOrEmpty(command))
+                {
+                    // command is like: "C:\...\app.exe" --args "%1"
+                    string exe = command;
+                    if (command.StartsWith("\""))
+                    {
+                        int end = command.IndexOf('"', 1);
+                        if (end > 1) exe = command.Substring(1, end - 1);
+                    }
+                    else
+                    {
+                        int sp = command.IndexOf(' ');
+                        if (sp > 0) exe = command.Substring(0, sp);
+                    }
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = exe,
+                        UseShellExecute = true,
+                        WorkingDirectory = SafeDir(exe)
+                    });
+                    Logger.Info($"LaunchDefaultBrowser: launched {exe} (ProgId={progId})");
+                    return;
+                }
+                // Fallback: open about:blank, which the default browser handles.
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "https://www.google.com/",
+                    UseShellExecute = true
+                });
+                Logger.Info("LaunchDefaultBrowser: fallback via http URL");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LaunchDefaultBrowser: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Apply controller hotkey configuration received from the widget.
         /// Enables/disables XInput-based button combo detection.
         /// </summary>
@@ -435,6 +607,9 @@ namespace XboxGamingBarHelper
                         shortcut = scEl.GetString() ?? "";
                     if (entry.TryGetProperty("name", out var nameEl))
                         name = nameEl.GetString() ?? "Tile";
+                    string param = "";
+                    if (entry.TryGetProperty("param", out var paramEl))
+                        param = paramEl.GetString() ?? "";
 
                     Logger.Debug($"ApplyTileHotkeys: Entry id='{id}' name='{name}' mask=0x{mask:X5} action={actionType} shortcut='{shortcut}'");
                     if (mask == 0) { Logger.Warn("ApplyTileHotkeys: Entry skipped — mask is 0"); continue; }
@@ -444,6 +619,7 @@ namespace XboxGamingBarHelper
                     string capturedShortcut = shortcut;
                     string capturedName = name;
                     string capturedId = id;
+                    string capturedParam = param;
 
                     Action callback = () =>
                     {
@@ -493,6 +669,30 @@ namespace XboxGamingBarHelper
                                 break;
                             case 42: // XboxApp
                                 LaunchLauncher("XboxApp");
+                                break;
+                            case 30: // MediaNextTrack
+                                ExecuteKeyboardShortcut("MEDIA_NEXT_TRACK");
+                                break;
+                            case 31: // MediaPrevTrack
+                                ExecuteKeyboardShortcut("MEDIA_PREV_TRACK");
+                                break;
+                            case 32: // MediaPlayPause
+                                ExecuteKeyboardShortcut("MEDIA_PLAY_PAUSE");
+                                break;
+                            case 50: // OpenDefaultBrowser
+                            case 51: // OpenWindowsStore
+                            case 52: // OpenChrome
+                            case 53: // OpenSpotify
+                            case 59: // LaunchUserProgram (param = exe/ps1 path)
+                                LaunchProgramTarget(ResolveProgramTargetHelper(capturedActionType, capturedParam));
+                                break;
+                            case 60: // OpenExophase
+                            case 61: // OpenRetroAchievements
+                            case 62: // OpenGoogle
+                            case 63: // OpenClawTweaksReleases
+                            case 64: // OpenClawTweaksFaq
+                            case 69: // OpenUserWebsite (param = url)
+                                LaunchUrl(ResolveWebsiteUrlHelper(capturedActionType, capturedParam));
                                 break;
                             case 1:  // KeyboardShortcut (custom)
                                 if (!string.IsNullOrEmpty(capturedShortcut))
@@ -815,6 +1015,12 @@ namespace XboxGamingBarHelper
                         vk = 0xAE; // VK_VOLUME_DOWN
                     else if (upper == "VOLUME_MUTE" || upper == "VOLUMEMUTE" || upper == "MUTE")
                         vk = 0xAD; // VK_VOLUME_MUTE
+                    else if (upper == "MEDIA_NEXT_TRACK" || upper == "MEDIANEXTTRACK")
+                        vk = 0xB0; // VK_MEDIA_NEXT_TRACK
+                    else if (upper == "MEDIA_PREV_TRACK" || upper == "MEDIAPREVTRACK")
+                        vk = 0xB1; // VK_MEDIA_PREV_TRACK
+                    else if (upper == "MEDIA_PLAY_PAUSE" || upper == "MEDIAPLAYPAUSE")
+                        vk = 0xB3; // VK_MEDIA_PLAY_PAUSE
                     else if (trimmed == "[" || upper == "LEFTBRACKET")
                         vk = 0xDB; // VK_OEM_4 (left bracket)
                     else if (trimmed == "]" || upper == "RIGHTBRACKET")

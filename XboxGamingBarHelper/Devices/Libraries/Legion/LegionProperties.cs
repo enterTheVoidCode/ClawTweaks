@@ -22,6 +22,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             public bool Turbo { get; set; }
             public int[] KeyboardKeys { get; set; } = Array.Empty<int>();
             public int MouseButton { get; set; }
+            public string ActionParam { get; set; } = "";
         }
 
         public static (int type, int gamepadAction, int[] keyboardKeys, int mouseButton) Parse(string json)
@@ -47,6 +48,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 parsed.Turbo = ExtractBool(json, "Turbo") ?? false;
                 parsed.MouseButton = ExtractInt(json, "MouseButton") ?? 0;
                 parsed.KeyboardKeys = ExtractIntArray(json, "KeyboardKeys");
+                parsed.ActionParam = ExtractString(json, "ActionParam") ?? "";
 
                 // Backward/forward compatibility:
                 // if old/new payload has only one of the fields, hydrate the other.
@@ -74,6 +76,14 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             if (match.Success && int.TryParse(match.Groups[1].Value, out int value))
                 return value;
             return null;
+        }
+
+        private static string ExtractString(string json, string property)
+        {
+            // Matches "Prop":"value with \" and \\ escapes"
+            var match = Regex.Match(json, $"\"{property}\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"");
+            if (!match.Success) return null;
+            return match.Groups[1].Value.Replace("\\\"", "\"").Replace("\\\\", "\\");
         }
 
         private static bool? ExtractBool(string json, string property)
@@ -895,18 +905,22 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionButtonDesktop applying mapping: {Value}");
-            var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
+            var parsed = ButtonMappingParser.ParseExtended(Value);
+            int type = parsed.Type;
+            int gamepadAction = parsed.GamepadAction;
             if (type == 3)
             {
                 // Type=3 is a TileActionType — handled in software by ClawButtonMonitor,
                 // not via firmware mapping. Store on the manager and skip hardware call.
                 Manager?.SetDesktopButtonTileAction(gamepadAction);
-                Logger.Info($"LegionButtonDesktop: Action mode, actionType={gamepadAction}");
+                Manager?.SetDesktopButtonTileActionParam(parsed.ActionParam);
+                Logger.Info($"LegionButtonDesktop: Action mode, actionType={gamepadAction}, param='{parsed.ActionParam}'");
             }
             else
             {
                 Manager?.SetDesktopButtonTileAction(-1); // clear action mode
-                Manager?.SetLegionButtonMapping(GamepadButton.DesktopButton, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
+                Manager?.SetDesktopButtonTileActionParam("");
+                Manager?.SetLegionButtonMapping(GamepadButton.DesktopButton, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, parsed.KeyboardKeys, parsed.MouseButton));
             }
         }
     }

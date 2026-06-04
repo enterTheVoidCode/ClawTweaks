@@ -2728,7 +2728,10 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         /// TileActionType stored for the left MSI (Desktop) button when Type=3 (Action mode).
         /// -1 = no action assigned. Read by ClawButtonMonitor on button press.
         private const string DesktopButtonTileActionKey = "LeftMsiButtonTileAction";
+        private const string DesktopButtonTileActionParamKey = "LeftMsiButtonActionParam";
         public volatile int DesktopButtonTileAction = -1;
+        /// <summary>Payload for program/website actions on the Left MSI button (exe/ps1 path or URL).</summary>
+        public volatile string DesktopButtonTileActionParam = "";
 
         public void SetDesktopButtonTileAction(int tileActionType)
         {
@@ -2736,6 +2739,13 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             // Persist globally — independent of per-game controller profiles
             Settings.LocalSettingsHelper.SetValue(DesktopButtonTileActionKey, tileActionType);
             Logger.Info($"LegionManager: DesktopButtonTileAction set to {tileActionType}");
+        }
+
+        public void SetDesktopButtonTileActionParam(string param)
+        {
+            DesktopButtonTileActionParam = param ?? "";
+            Settings.LocalSettingsHelper.SetValue(DesktopButtonTileActionParamKey, DesktopButtonTileActionParam);
+            Logger.Info($"LegionManager: DesktopButtonTileActionParam set to '{DesktopButtonTileActionParam}'");
         }
 
         public void LoadDesktopButtonTileAction()
@@ -2751,6 +2761,9 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 DesktopButtonTileAction = 13;
                 Logger.Info("LegionManager: DesktopButtonTileAction defaulting to AltTabBack (13)");
             }
+
+            if (Settings.LocalSettingsHelper.TryGetValue(DesktopButtonTileActionParamKey, out string savedParam))
+                DesktopButtonTileActionParam = savedParam ?? "";
         }
 
         /// <param name="button">The GamepadButton to map (DesktopButton=0x25, PageButton=0x26)</param>

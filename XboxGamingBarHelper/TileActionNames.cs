@@ -22,9 +22,23 @@ namespace XboxGamingBarHelper
                 case 27: return "Volume +5%";
                 case 28: return "Volume -5%";
                 case 29: return "Toggle Controller/Mouse";
+                case 30: return "Next Track";
+                case 31: return "Previous Track";
+                case 32: return "Play / Pause";
                 case 40: return "Steam Big Picture";
                 case 41: return "Playnite";
                 case 42: return "Xbox App";
+                case 50: return "Open Default Browser";
+                case 51: return "Open Windows Store";
+                case 52: return "Open Chrome";
+                case 53: return "Open Spotify";
+                case 59: return "Program (User)";
+                case 60: return "Open Exophase (Achievements)";
+                case 61: return "Open Retro Achievements";
+                case 62: return "Open Google";
+                case 63: return "Open ClawTweaks Releases";
+                case 64: return "Open ClawTweaks FAQ";
+                case 69: return "Website (User)";
                 default: return $"Action {actionType}";
             }
         }

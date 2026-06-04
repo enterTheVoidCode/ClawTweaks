@@ -62,6 +62,7 @@ namespace XboxGamingBar
             public bool IsAction { get; set; } = false;   // True for action tiles (Task Manager, Explorer, etc.) - shown at bottom
             public string CustomShortcut { get; set; }              // For custom shortcut tiles
             public TileActionType ActionType { get; set; } = TileActionType.None; // Predefined action
+            public string ActionParam { get; set; }                 // Payload for LaunchUserProgram (path) / OpenUserWebsite (url)
             public string ControllerHotkey { get; set; }            // Controller button combo mask (global, e.g. "48" = Start+Select)
 
             // Per-game hotkey overrides: key = app identity (e.g. "game.exe"), value = mask string.
@@ -176,6 +177,10 @@ namespace XboxGamingBar
 
             try
             {
+                // Load user-defined Program/URL actions first so the action dropdowns include them.
+                InitializeProgramActions();
+                InitializeUrlActions();
+
                 // Clear any stale state from previous initialization attempts
                 // This ensures fresh state when widget is reloaded
                 qsTileDefinitions.Clear();
@@ -382,6 +387,7 @@ namespace XboxGamingBar
                         IsTrigger = true,
                         CustomShortcut = tile.CustomShortcut,
                         ActionType = tile.ActionType,
+                        ActionParam = tile.ActionParam,
                         ControllerHotkey = tile.ControllerHotkey,
                         Order = startingOrder + index
                     };
@@ -509,22 +515,23 @@ namespace XboxGamingBar
         /// <summary>
         /// Add a new predefined-action tile
         /// </summary>
-        private void AddActionTile(string name, TileActionType actionType)
+        private void AddActionTile(string name, TileActionType actionType, string actionParam = null)
         {
             try
             {
                 var config = QuickSettings.QuickSettingsConfig.Instance;
-                var configTile = config.AddActionTile(name, actionType);
+                var configTile = config.AddActionTile(name, actionType, actionParam);
 
                 int maxOrder = qsTileDefinitions.Count > 0 ? qsTileDefinitions.Max(t => t.Order) : 0;
                 var def = new TileDefinition
                 {
                     Id = configTile.Id,
                     Name = name,
-                    Glyph = TileActionHelper.GetGlyph(actionType),
+                    Glyph = configTile.Icon,
                     IsVisible = true,
                     IsTrigger = true,
                     ActionType = actionType,
+                    ActionParam = actionParam,
                     Order = maxOrder + 1
                 };
                 qsTileDefinitions.Add(def);
@@ -533,7 +540,7 @@ namespace XboxGamingBar
 
                 RebuildQuickSettingsTiles();
                 BuildSortableGrid();
-                Logger.Info($"Added action tile: {name} -> {actionType} (id: {def.Id})");
+                Logger.Info($"Added action tile: {name} -> {actionType} param='{actionParam}' (id: {def.Id})");
             }
             catch (Exception ex)
             {
@@ -794,49 +801,57 @@ namespace XboxGamingBar
         {
             try
             {
-                if (CustomActionTypeComboBox == null) return;
-
-                CustomActionTypeComboBox.Items.Clear();
-
-                string lastGroup = null;
-                foreach (var action in TileActionHelper.GetAllActions())
-                {
-                    string group = TileActionHelper.GetGroupName(action);
-                    if (group != lastGroup)
-                    {
-                        // Add a disabled group-header item
-                        string headerLabel;
-                        switch (group)
-                        {
-                            case "OS":       headerLabel = "— OS Actions —"; break;
-                            case "Launcher": headerLabel = "— Launcher Actions —"; break;
-                            default:         headerLabel = "— ClawTweaks Actions —"; break;
-                        }
-                        var header = new ComboBoxItem
-                        {
-                            Content = headerLabel,
-                            IsEnabled = false,
-                            FontSize = 11,
-                            Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(180, 180, 180, 180))
-                        };
-                        CustomActionTypeComboBox.Items.Add(header);
-                        lastGroup = group;
-                    }
-
-                    var item = new ComboBoxItem
-                    {
-                        Content = TileActionHelper.GetDisplayName(action),
-                        Tag = action
-                    };
-                    CustomActionTypeComboBox.Items.Add(item);
-                }
-
+                FillActionComboBox(CustomActionTypeComboBox);
                 Logger.Info("Action type ComboBox populated");
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error populating action ComboBox: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Fills an action-selection ComboBox with the full grouped list of actions (built-ins +
+        /// user-defined programs/URLs). Each selectable item carries an <see cref="ActionChoice"/>
+        /// in its Tag. Shared by the Custom-Tile picker and the Left-MSI/Front-Button picker so
+        /// both always show the same entries. Safe to call repeatedly (re-populates).
+        /// </summary>
+        internal void FillActionComboBox(ComboBox combo)
+        {
+            if (combo == null) return;
+            combo.Items.Clear();
+
+            var choices = ActionChoiceBuilder.Build(_programActions, _urlActions, IsMsiClawDevice());
+            string lastGroup = null;
+            foreach (var choice in choices)
+            {
+                string group = TileActionHelper.GetGroupName(choice.Type);
+                if (group != lastGroup)
+                {
+                    combo.Items.Add(new ComboBoxItem
+                    {
+                        Content = TileActionHelper.GetGroupHeader(group),
+                        IsEnabled = false,
+                        FontSize = 11,
+                        Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(180, 180, 180, 180))
+                    });
+                    lastGroup = group;
+                }
+                combo.Items.Add(new ComboBoxItem { Content = choice.Display, Tag = choice });
+            }
+        }
+
+        /// <summary>Re-populates both action dropdowns (Custom Tile + Front Button) after the
+        /// user's program/URL lists change.</summary>
+        internal void RefreshActionDropdowns()
+        {
+            try { FillActionComboBox(CustomActionTypeComboBox); } catch { }
+            try
+            {
+                var combo = FindName("LegionButtonDesktopActionComboBox") as ComboBox;
+                if (combo != null) FillActionComboBox(combo);
+            }
+            catch { }
         }
 
         /// <summary>

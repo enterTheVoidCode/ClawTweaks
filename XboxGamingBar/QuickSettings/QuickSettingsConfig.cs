@@ -125,7 +125,8 @@ namespace XboxGamingBar.QuickSettings
                                 CustomShortcut = tileData.CustomShortcut,
                                 CustomColor = tileData.CustomColor,
                                 ActionType = (TileActionType)tileData.ActionType,
-                                ControllerHotkey = tileData.ControllerHotkey
+                                ControllerHotkey = tileData.ControllerHotkey,
+                                ActionParam = tileData.ActionParam
                             };
                             Tiles.Add(tile);
                         }
@@ -166,7 +167,8 @@ namespace XboxGamingBar.QuickSettings
                     CustomShortcut = t.CustomShortcut,
                     CustomColor = t.CustomColor,
                     ActionType = (int)t.ActionType,
-                    ControllerHotkey = t.ControllerHotkey
+                    ControllerHotkey = t.ControllerHotkey,
+                    ActionParam = t.ActionParam
                 }).ToList();
 
                 var data = SerializeTileDataList(tileDataList);
@@ -183,23 +185,31 @@ namespace XboxGamingBar.QuickSettings
         /// <summary>
         /// Add a predefined-action tile
         /// </summary>
-        public QuickSettingsTile AddActionTile(string name, TileActionType actionType)
+        public QuickSettingsTile AddActionTile(string name, TileActionType actionType, string actionParam = null)
         {
+            string glyph = TileActionHelper.GetGlyph(actionType);
+            if (string.IsNullOrEmpty(glyph))
+            {
+                int v = (int)actionType;
+                if (v >= 60 && v < 70) glyph = "";       // Website → globe
+                else if (v >= 50 && v < 60) glyph = "";  // Program → app window
+            }
             var tile = new QuickSettingsTile
             {
                 Id = Guid.NewGuid().ToString(),
                 Type = TileType.CustomShortcut,
                 Name = name,
-                Icon = TileActionHelper.GetGlyph(actionType),
+                Icon = glyph,
                 CurrentState = 0,
                 Order = Tiles.Count,
                 IsVisible = true,
-                ActionType = actionType
+                ActionType = actionType,
+                ActionParam = actionParam
             };
             Tiles.Add(tile);
             Save();
             OnPropertyChanged(nameof(VisibleTiles));
-            Logger.Info($"Added action tile: {name} -> {actionType}");
+            Logger.Info($"Added action tile: {name} -> {actionType} param='{actionParam}'");
             return tile;
         }
 
@@ -406,7 +416,7 @@ namespace XboxGamingBar.QuickSettings
         private static string SerializeTileDataList(List<TileData> tiles)
         {
             var tileStrings = tiles.Select(t =>
-                $"{Escape(t.Id)};{t.Type};{Escape(t.Name)};{Escape(t.Icon)};{t.CurrentState};{t.Order};{t.IsVisible};{Escape(t.CustomShortcut)};{Escape(t.CustomColor)};{t.ActionType};{Escape(t.ControllerHotkey)}");
+                $"{Escape(t.Id)};{t.Type};{Escape(t.Name)};{Escape(t.Icon)};{t.CurrentState};{t.Order};{t.IsVisible};{Escape(t.CustomShortcut)};{Escape(t.CustomColor)};{t.ActionType};{Escape(t.ControllerHotkey)};{Escape(t.ActionParam)}");
             return string.Join("|", tileStrings);
         }
 
@@ -441,7 +451,9 @@ namespace XboxGamingBar.QuickSettings
                         CustomColor = Unescape(parts[8]),
                         // Fields added in v2 — optional for backward compatibility
                         ActionType = parts.Length >= 10 && int.TryParse(parts[9], out var at) ? at : 0,
-                        ControllerHotkey = parts.Length >= 11 ? Unescape(parts[10]) : null
+                        ControllerHotkey = parts.Length >= 11 ? Unescape(parts[10]) : null,
+                        // Field added in v3 — optional for backward compatibility
+                        ActionParam = parts.Length >= 12 ? Unescape(parts[11]) : null
                     });
                 }
             }
@@ -483,6 +495,7 @@ namespace XboxGamingBar.QuickSettings
             public string CustomColor { get; set; }
             public int ActionType { get; set; }
             public string ControllerHotkey { get; set; }
+            public string ActionParam { get; set; }
         }
     }
 }

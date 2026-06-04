@@ -180,23 +180,35 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
-                // Handle LaunchUrl request (for Donate button, etc.)
+                // Handle LaunchUrl request (Donate button, Launch Website actions, etc.)
                 if (pipeMsg.Extra.TryGetValue("LaunchUrl", out object urlValue) && urlValue is string url)
                 {
                     try
                     {
                         Logger.Info($"Pipe: LaunchUrl request received: {url}");
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                        {
-                            FileName = url,
-                            UseShellExecute = true
-                        });
-                        Logger.Info("Pipe: URL launched successfully");
+                        LaunchUrl(url);
                         SendPipeAck(pipeMsg.RequestId);
                     }
                     catch (Exception ex)
                     {
                         Logger.Error($"Pipe: Failed to launch URL: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // Handle LaunchProgram request (Program Actions: default targets + user exe/ps1)
+                if (pipeMsg.Extra.TryGetValue("LaunchProgram", out object progValue) && progValue is string progTarget)
+                {
+                    try
+                    {
+                        Logger.Info($"Pipe: LaunchProgram request received: {progTarget}");
+                        LaunchProgramTarget(progTarget);
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: Failed to launch program: {ex.Message}");
                         SendPipeAck(pipeMsg.RequestId, false);
                     }
                     return;

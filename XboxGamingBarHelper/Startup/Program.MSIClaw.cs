@@ -143,7 +143,8 @@ namespace XboxGamingBarHelper
                 }
 
                 string actionName = TileActionNames.GetDisplayName(actionType);
-                Logger.Info($"MSIClaw: Left CLAW button executing action {actionType} ({actionName})");
+                string actionParam = legionManager?.DesktopButtonTileActionParam ?? "";
+                Logger.Info($"MSIClaw: Left CLAW button executing action {actionType} ({actionName}) param='{actionParam}'");
 
                 // Execute directly in helper — widget may be suspended when Game Bar is closed.
                 // Actions needing widget state (CycleOverlay) fall back to FireTileHotkeyToWidget.
@@ -161,6 +162,15 @@ namespace XboxGamingBarHelper
                     case 40: LaunchLauncher("SteamBigPicture"); break;
                     case 41: LaunchLauncher("Playnite"); break;
                     case 42: LaunchLauncher("XboxApp"); break;
+                    case 30: SendKeyboardShortcutViaInputInjector("MEDIA_NEXT_TRACK"); break;
+                    case 31: SendKeyboardShortcutViaInputInjector("MEDIA_PREV_TRACK"); break;
+                    case 32: SendKeyboardShortcutViaInputInjector("MEDIA_PLAY_PAUSE"); break;
+                    case 50: case 51: case 52: case 53: case 59: // Program Actions
+                        LaunchProgramTarget(ResolveProgramTargetHelper(actionType, actionParam));
+                        break;
+                    case 60: case 61: case 62: case 63: case 64: case 69: // Launch Website
+                        LaunchUrl(ResolveWebsiteUrlHelper(actionType, actionParam));
+                        break;
                     default:
                         // App actions that need widget state — try widget (may not work when suspended)
                         FireTileHotkeyToWidget($"__action__{actionType}", actionName);
