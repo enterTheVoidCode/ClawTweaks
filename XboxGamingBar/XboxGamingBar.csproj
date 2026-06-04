@@ -407,6 +407,12 @@
     <Compile Include="Features\Devices\GamingWidget.Display.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\System\GamingWidget.ProgramActions.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\System\GamingWidget.UrlActions.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\Hotkeys\GamingWidget.KeyDropdowns.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>

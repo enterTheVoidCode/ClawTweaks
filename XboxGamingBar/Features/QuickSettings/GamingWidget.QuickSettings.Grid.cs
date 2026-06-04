@@ -902,9 +902,10 @@ namespace XboxGamingBar
 
                     string tileName = (tile.Name          ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
                     string shortcut = (tile.CustomShortcut ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
+                    string param    = (tile.ActionParam    ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
                     int    actionType = (int)tile.ActionType;
 
-                    sb.Append($"{{\"id\":\"{tile.Id}\",\"name\":\"{tileName}\",\"mask\":{mask},\"actionType\":{actionType},\"shortcut\":\"{shortcut}\"}}");
+                    sb.Append($"{{\"id\":\"{tile.Id}\",\"name\":\"{tileName}\",\"mask\":{mask},\"actionType\":{actionType},\"shortcut\":\"{shortcut}\",\"param\":\"{param}\"}}");
                 }
                 sb.Append("]");
 

@@ -124,6 +124,7 @@ namespace XboxGamingBar.QuickSettings
 
         private TileActionType _actionType;
         private string _controllerHotkey;
+        private string _actionParam;
 
         /// <summary>
         /// Predefined action to execute. None = keyboard shortcut tile.
@@ -132,6 +133,16 @@ namespace XboxGamingBar.QuickSettings
         {
             get => _actionType;
             set { _actionType = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>
+        /// Optional payload for the action: the exe/ps1 path for LaunchUserProgram, or the URL
+        /// for OpenUserWebsite. Empty for built-in actions.
+        /// </summary>
+        public string ActionParam
+        {
+            get => _actionParam;
+            set { _actionParam = value; OnPropertyChanged(); }
         }
 
         /// <summary>

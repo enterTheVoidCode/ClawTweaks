@@ -3869,6 +3869,98 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- ===== Program Actions management ===== -->
+                        <TextBlock Text="PROGRAM ACTIONS" Style="{StaticResource SectionHeaderStyle}"/>
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Manage Program Actions" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Add .exe or .ps1 files. They appear under &quot;Program Actions (User)&quot; when assigning tiles or the front buttons."
+                                           Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+
+                                <ItemsControl x:Name="ProgramActionsItemsControl" Margin="0,8,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding DisplayName}" FontSize="14" Foreground="#FFFFFF"/>
+                                                    <TextBlock Text="{Binding Path}" FontSize="11" Foreground="#888888" TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="1" FontSize="12" Padding="8,4" Background="#2A2A2A"
+                                                        Click="ProgramActionDeleteButton_Click" Tag="{Binding}"
+                                                        VerticalAlignment="Center">
+                                                    <FontIcon Glyph="&#xE74D;" FontSize="12" Foreground="#FF6B6B"/>
+                                                </Button>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="ProgramActionPathTextBox" Grid.Column="0"
+                                             PlaceholderText="Path to .exe or .ps1"
+                                             VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Button x:Name="ProgramActionBrowseButton" Grid.Column="1" Content="Browse…"
+                                            FontSize="13" Padding="10,6" Margin="0,0,8,0" Background="#2A2A2A"
+                                            Click="BrowseProgramAction_Click"/>
+                                    <Button x:Name="ProgramActionAddButton" Grid.Column="2" Content="Add"
+                                            FontSize="13" Padding="12,6" Background="#2A2A2A"
+                                            Click="AddProgramAction_Click"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ===== URL Actions management ===== -->
+                        <TextBlock Text="URL ACTIONS" Style="{StaticResource SectionHeaderStyle}"/>
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Manage URL Actions" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Add websites. They appear under &quot;Launch Website (User)&quot; when assigning tiles or the front buttons."
+                                           Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+
+                                <ItemsControl x:Name="UrlActionsItemsControl" Margin="0,8,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Url}" FontSize="14" Foreground="#FFFFFF"
+                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                <Button Grid.Column="1" FontSize="12" Padding="8,4" Background="#2A2A2A"
+                                                        Click="UrlActionDeleteButton_Click" Tag="{Binding}"
+                                                        VerticalAlignment="Center">
+                                                    <FontIcon Glyph="&#xE74D;" FontSize="12" Foreground="#FF6B6B"/>
+                                                </Button>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="UrlActionTextBox" Grid.Column="0"
+                                             PlaceholderText="https://example.com"
+                                             VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Button x:Name="UrlActionAddButton" Grid.Column="1" Content="Add"
+                                            FontSize="13" Padding="12,6" Background="#2A2A2A"
+                                            Click="AddUrlAction_Click"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
                         <!-- MSI Claw Driver Updates Card -->
                         <TextBlock Text="DRIVER UPDATES" Style="{StaticResource SectionHeaderStyle}"/>
                         <Border x:Name="DriverUpdatesCard" Style="{StaticResource CardStyle}">

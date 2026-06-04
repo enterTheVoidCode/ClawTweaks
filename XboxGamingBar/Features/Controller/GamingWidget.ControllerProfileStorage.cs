@@ -408,30 +408,11 @@ namespace XboxGamingBar
         private void PopulateDesktopButtonActionComboBox()
         {
             var combo = FindName("LegionButtonDesktopActionComboBox") as ComboBox;
-            if (combo == null || combo.Items.Count > 0) return;
-
-            string lastGroup = null;
-            foreach (var action in XboxGamingBar.QuickSettings.TileActionHelper.GetAllActions())
-            {
-                string group = XboxGamingBar.QuickSettings.TileActionHelper.GetGroupName(action);
-                if (group != lastGroup)
-                {
-                    string headerLabel = group == "OS" ? "— OS Actions —" : "— App Actions —";
-                    combo.Items.Add(new ComboBoxItem
-                    {
-                        Content = headerLabel,
-                        IsEnabled = false,
-                        FontSize = 11,
-                        Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(180, 180, 180, 180))
-                    });
-                    lastGroup = group;
-                }
-                combo.Items.Add(new ComboBoxItem
-                {
-                    Content = XboxGamingBar.QuickSettings.TileActionHelper.GetDisplayName(action),
-                    Tag = action
-                });
-            }
+            if (combo == null) return;
+            // Shared builder: same grouped entries as the Custom-Tile picker (OS incl. media,
+            // ClawTweaks, Launcher, Program + user programs, Website + user URLs). Each item's
+            // Tag is an ActionChoice carrying the type and (for user entries) the path/URL.
+            FillActionComboBox(combo);
         }
 
         private bool IsImprovedButtonComboUiEnabled()
@@ -1021,12 +1002,15 @@ namespace XboxGamingBar
                     actionCombo.Visibility = isAction ? Visibility.Visible : Visibility.Collapsed;
                     if (isAction)
                     {
-                        // Find item whose Tag matches the stored action
+                        // Find the item whose ActionChoice matches the stored action id; for
+                        // user program/website entries also match the payload (path/url).
                         for (int i = 0; i < actionCombo.Items.Count; i++)
                         {
                             if (actionCombo.Items[i] is ComboBoxItem ci &&
-                                ci.Tag is XboxGamingBar.QuickSettings.TileActionType t &&
-                                (int)t == mapping.GamepadAction)
+                                ci.Tag is XboxGamingBar.QuickSettings.ActionChoice choice &&
+                                (int)choice.Type == mapping.GamepadAction &&
+                                (string.IsNullOrEmpty(choice.Param) ||
+                                 string.Equals(choice.Param, mapping.ActionParam, StringComparison.OrdinalIgnoreCase)))
                             {
                                 actionCombo.SelectedIndex = i;
                                 break;
@@ -1204,8 +1188,11 @@ namespace XboxGamingBar
                     mapping.Type = 3;
                     var actionCombo = FindName("LegionButtonDesktopActionComboBox") as ComboBox;
                     if (actionCombo?.SelectedItem is ComboBoxItem ci &&
-                        ci.Tag is XboxGamingBar.QuickSettings.TileActionType t)
-                        mapping.GamepadAction = (int)t;
+                        ci.Tag is XboxGamingBar.QuickSettings.ActionChoice choice)
+                    {
+                        mapping.GamepadAction = (int)choice.Type;
+                        mapping.ActionParam = choice.Param ?? "";
+                    }
                 }
                 else // Keyboard (default)
                 {

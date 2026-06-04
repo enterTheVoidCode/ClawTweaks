@@ -310,6 +310,9 @@ namespace XboxGamingBar
         public List<int> KeyboardKeys { get; set; } = new List<int>();
         /// <summary>Mouse button code (1-7)</summary>
         public int MouseButton { get; set; } = 0;
+        /// <summary>Action payload for Type=3 program/website actions: the exe/ps1 path
+        /// (LaunchUserProgram) or the URL (OpenUserWebsite). Empty for built-in actions.</summary>
+        public string ActionParam { get; set; } = "";
 
         /// <summary>
         /// Returns true if this mapping represents "no mapping" / default state.
@@ -325,7 +328,8 @@ namespace XboxGamingBar
             GamepadActions = new List<int>(this.GamepadActions),
             Turbo = this.Turbo,
             KeyboardKeys = new List<int>(this.KeyboardKeys),
-            MouseButton = this.MouseButton
+            MouseButton = this.MouseButton,
+            ActionParam = this.ActionParam
         };
 
         /// <summary>
@@ -337,7 +341,8 @@ namespace XboxGamingBar
             var gamepadActions = GamepadActions.Count > 0 ? string.Join(",", GamepadActions) : "";
             var keys = KeyboardKeys.Count > 0 ? string.Join(",", KeyboardKeys) : "";
             string turboJson = Turbo ? "true" : "false";
-            return $"{{\"Type\":{Type},\"GamepadAction\":{GamepadAction},\"GamepadMode\":{GamepadMode},\"GamepadActions\":[{gamepadActions}],\"Turbo\":{turboJson},\"KeyboardKeys\":[{keys}],\"MouseButton\":{MouseButton}}}";
+            string paramJson = (ActionParam ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
+            return $"{{\"Type\":{Type},\"GamepadAction\":{GamepadAction},\"GamepadMode\":{GamepadMode},\"GamepadActions\":[{gamepadActions}],\"Turbo\":{turboJson},\"KeyboardKeys\":[{keys}],\"MouseButton\":{MouseButton},\"ActionParam\":\"{paramJson}\"}}";
         }
 
         /// <summary>
@@ -377,6 +382,11 @@ namespace XboxGamingBar
                 var mouseMatch = System.Text.RegularExpressions.Regex.Match(json, "\"MouseButton\"\\s*:\\s*(-?\\d+)");
                 if (mouseMatch.Success && int.TryParse(mouseMatch.Groups[1].Value, out int mouseButton))
                     result.MouseButton = mouseButton;
+
+                // Parse ActionParam (string; may contain escaped quotes/backslashes)
+                var paramMatch = System.Text.RegularExpressions.Regex.Match(json, "\"ActionParam\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"");
+                if (paramMatch.Success)
+                    result.ActionParam = paramMatch.Groups[1].Value.Replace("\\\"", "\"").Replace("\\\\", "\\");
 
                 // Parse GamepadActions array
                 var gamepadActionsMatch = System.Text.RegularExpressions.Regex.Match(json, "\"GamepadActions\"\\s*:\\s*\\[([^\\]]*)\\]");
