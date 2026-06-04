@@ -634,6 +634,94 @@ namespace XboxGamingBar
                 MetricsBackground2 = Windows.UI.Color.FromArgb(255, 106, 82, 218),  // #6A52DA (bottom, into violet)
                 MetricsBorder      = Windows.UI.Color.FromArgb(255, 122, 174, 242)  // #7AAEF2
             }},
+            // The earlier Next Gen Claw look: solid (non-glass) blue, no violet (pre-glass/shimmer).
+            { "Claw Blue", new ThemeColors {
+                Name = "Claw Blue",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 9, 20, 40),       // #091428
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 13, 40, 84),      // #0D2854
+                CardBackground  = Windows.UI.Color.FromArgb(210, 22, 46, 84),
+                CardBorder      = Windows.UI.Color.FromArgb(255, 47, 92, 158),
+                AccentColor     = Windows.UI.Color.FromArgb(255, 46, 155, 255),    // #2E9BFF
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 240, 247, 255),
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 224, 233, 255),
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 27, 56, 100),
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 58, 111, 176),
+                TileOff         = Windows.UI.Color.FromArgb(255, 30, 60, 108),      // opaque #1E3C6C
+                TileOff2        = Windows.UI.Color.FromArgb(255, 14, 30, 58),       // #0E1E3A
+                TileOn          = Windows.UI.Color.FromArgb(255, 38, 110, 196),     // #266EC4
+                TileOn2         = Windows.UI.Color.FromArgb(255, 26, 78, 150),      // #1A4E96
+                GlowColor       = Windows.UI.Color.FromArgb(255, 78, 170, 255),
+                TileIcon        = Windows.UI.Color.FromArgb(255, 199, 226, 255),
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 60, 132, 220),
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 44, 104, 184),
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 96, 162, 236)
+            }},
+            // Xbox-inspired: near-black → dark green, Xbox green accent.
+            { "Box X", new ThemeColors {
+                Name = "Box X",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 10, 14, 10),       // near-black
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 12, 40, 16),       // dark green
+                CardBackground  = Windows.UI.Color.FromArgb(210, 18, 40, 20),
+                CardBorder      = Windows.UI.Color.FromArgb(255, 46, 125, 50),
+                AccentColor     = Windows.UI.Color.FromArgb(255, 22, 198, 12),      // #16C60C Xbox green
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 240, 255, 240),
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 210, 240, 210),
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 20, 58, 20),
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 46, 125, 50),
+                TileOff         = Windows.UI.Color.FromArgb(255, 21, 48, 26),       // opaque dark green
+                TileOff2        = Windows.UI.Color.FromArgb(255, 12, 26, 12),
+                TileOn          = Windows.UI.Color.FromArgb(255, 25, 150, 25),      // green active
+                TileOn2         = Windows.UI.Color.FromArgb(255, 12, 94, 12),
+                GlowColor       = Windows.UI.Color.FromArgb(255, 90, 230, 90),
+                TileIcon        = Windows.UI.Color.FromArgb(255, 199, 255, 203),
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 46, 168, 46),
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 28, 122, 28),
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 90, 200, 90)
+            }},
+            // Nintendo-inspired: red surfaces, white text/icons.
+            { "Nintendon't", new ThemeColors {
+                Name = "Nintendon't",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 122, 0, 8),        // deep red
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 176, 0, 14),       // red
+                CardBackground  = Windows.UI.Color.FromArgb(210, 138, 10, 18),
+                CardBorder      = Windows.UI.Color.FromArgb(255, 255, 176, 176),
+                AccentColor     = Windows.UI.Color.FromArgb(255, 255, 255, 255),    // white accent
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 255, 255, 255),
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 255, 224, 224),
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 160, 16, 24),
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 255, 138, 138),
+                TileOff         = Windows.UI.Color.FromArgb(255, 154, 8, 16),       // opaque red
+                TileOff2        = Windows.UI.Color.FromArgb(255, 106, 4, 10),
+                TileOn          = Windows.UI.Color.FromArgb(255, 224, 16, 32),      // brighter red active
+                TileOn2         = Windows.UI.Color.FromArgb(255, 160, 8, 20),
+                GlowColor       = Windows.UI.Color.FromArgb(255, 255, 176, 176),
+                TileIcon        = Windows.UI.Color.FromArgb(255, 255, 255, 255),    // white icons
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 255, 68, 68),
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 200, 16, 34),
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 255, 154, 154)
+            }},
+            // Violet/yellow combo (per reference image).
+            { "Chrilleteur", new ThemeColors {
+                Name = "Chrilleteur",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 106, 0, 138),      // violet
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 166, 0, 154),      // magenta
+                CardBackground  = Windows.UI.Color.FromArgb(210, 94, 10, 114),
+                CardBorder      = Windows.UI.Color.FromArgb(255, 198, 120, 220),
+                AccentColor     = Windows.UI.Color.FromArgb(255, 255, 230, 0),      // yellow
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 255, 242, 0),      // yellow text
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 255, 230, 128),
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 106, 10, 128),
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 176, 48, 192),
+                TileOff         = Windows.UI.Color.FromArgb(255, 122, 10, 142),     // opaque violet
+                TileOff2        = Windows.UI.Color.FromArgb(255, 78, 6, 96),
+                TileOn          = Windows.UI.Color.FromArgb(255, 196, 0, 176),      // magenta active
+                TileOn2         = Windows.UI.Color.FromArgb(255, 138, 0, 126),
+                GlowColor       = Windows.UI.Color.FromArgb(255, 255, 230, 0),      // yellow glow
+                TileIcon        = Windows.UI.Color.FromArgb(255, 255, 240, 0),      // yellow icons
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 200, 40, 184),
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 138, 26, 134),
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 255, 230, 0)
+            }},
             { "Default", new ThemeColors {
                 Name = "Default",
                 PageBackground = Windows.UI.Color.FromArgb(255, 37, 40, 44),      // #25282C

@@ -3357,6 +3357,10 @@
                                           Style="{StaticResource ModernComboBoxStyle}"
                                           SelectionChanged="ThemeComboBox_SelectionChanged">
                                     <ComboBoxItem Content="Next Gen Claw" IsSelected="True"/>
+                                    <ComboBoxItem Content="Claw Blue"/>
+                                    <ComboBoxItem Content="Box X"/>
+                                    <ComboBoxItem Content="Nintendon't"/>
+                                    <ComboBoxItem Content="Chrilleteur"/>
                                     <ComboBoxItem Content="Default"/>
                                     <ComboBoxItem Content="Dark"/>
                                     <ComboBoxItem Content="OLED"/>
