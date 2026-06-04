@@ -458,6 +458,9 @@
     <Compile Include="Features\Controller\GamingWidget.ControllerProfileStorage.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\Controller\GamingWidget.LeftMsiDoubleClick.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\Controller\GamingWidget.ScrollWheelRemap.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>

@@ -119,6 +119,18 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Helper reports a resolved Left-MSI button click ("single"/"double") so the
+                // double-click settings UI can flash a detection indicator for fine-tuning.
+                if (message.TryGetValue("ClawClick", out object clawClickObj) && clawClickObj is string clawClick)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnClawClickDetected(clawClick); }
+                        catch (Exception ex) { Logger.Error($"OnClawClickDetected dispatch error: {ex.Message}"); }
+                    });
+                    return;
+                }
+
                 // Helper pushes the persisted MSI fan preset/curve on connect (helper is the
                 // single source of truth). The widget reflects it WITHOUT echoing back.
                 if (message.TryGetValue("MsiFanState", out object msiFanStateObj) && msiFanStateObj is string msiFanState)

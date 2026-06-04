@@ -5502,6 +5502,41 @@
                                             <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>0</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LWin</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RWin</x:String><x:String>Home</x:String><x:String>End</x:String><x:String>PgUp</x:String><x:String>PgDn</x:String><x:String>Insert</x:String><x:String>Delete</x:String><x:String>PrintScr</x:String><x:String>Pause</x:String><x:String>VolUp</x:String><x:String>VolDown</x:String><x:String>VolMute</x:String>
                                         </ComboBox>
                                     </StackPanel>
+
+                                    <!-- Optional double-click action for the Left MSI button -->
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Double-click action" Foreground="#AAAAAA" FontSize="12" VerticalAlignment="Center"/>
+                                        <ToggleSwitch x:Name="LeftMsiDoubleClickToggle" Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="LeftMsiDoubleClickToggle_Toggled"/>
+                                    </Grid>
+                                    <StackPanel x:Name="LeftMsiDoubleClickPanel" Visibility="Collapsed" Margin="0,8,0,0">
+                                        <TextBlock Text="Runs a second action on a quick double-press. The single press is held back for the window below, so the simple press becomes slightly delayed while this is on."
+                                                   Foreground="#808080" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                        <ComboBox x:Name="LeftMsiDoubleActionComboBox" HorizontalAlignment="Stretch"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  PlaceholderText="Select double-click action..."
+                                                  SelectionChanged="LeftMsiDoubleAction_SelectionChanged"/>
+                                        <Grid Margin="0,8,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Detection window" Foreground="#AAAAAA" FontSize="12" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="LeftMsiDoubleDelayValue" Grid.Column="1" Text="300 ms"
+                                                       Foreground="{StaticResource SystemAccentBrush}" FontSize="12" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Slider x:Name="LeftMsiDoubleDelaySlider" Minimum="150" Maximum="600" StepFrequency="25" Value="300"
+                                                ValueChanged="LeftMsiDoubleDelay_ValueChanged"/>
+                                        <Border Background="#20000000" CornerRadius="6" Padding="8,6" Margin="0,4,0,0">
+                                            <TextBlock x:Name="LeftMsiDoubleDetectText" Text="Press the Left MSI button to test…"
+                                                       Foreground="#808080" FontSize="12"/>
+                                        </Border>
+                                    </StackPanel>
                                 </StackPanel>
 
                                 <!-- Right MSI Button — Game Bar, cannot be remapped -->
