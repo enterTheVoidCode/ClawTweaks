@@ -316,7 +316,21 @@
                             <VisualStateManager.VisualStateGroups>
                                 <VisualStateGroup x:Name="CommonStates">
                                     <VisualState x:Name="Normal"/>
-                                    <VisualState x:Name="PointerOver"/>
+                                    <VisualState x:Name="PointerOver">
+                                        <Storyboard>
+                                            <!-- Diagonal light band sweeps across the tile once on hover -->
+                                            <DoubleAnimation Storyboard.TargetName="Shimmer" Storyboard.TargetProperty="Opacity"
+                                                             From="0" To="1" Duration="0:0:0.08"/>
+                                            <DoubleAnimation Storyboard.TargetName="ShimmerTransform" Storyboard.TargetProperty="X"
+                                                             From="-220" To="220" Duration="0:0:0.65">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseInOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="Shimmer" Storyboard.TargetProperty="Opacity"
+                                                             To="0" BeginTime="0:0:0.55" Duration="0:0:0.12"/>
+                                        </Storyboard>
+                                    </VisualState>
                                     <VisualState x:Name="Pressed">
                                         <Storyboard>
                                             <ObjectAnimationUsingKeyFrames Storyboard.TargetName="PressedOverlay" Storyboard.TargetProperty="Visibility">
@@ -348,12 +362,26 @@
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
 
-                            <!-- Background with light border -->
+                            <!-- Background with light-grey border. Hosts the hover shimmer as its
+                                 child so the diagonal light band is clipped to the rounded corners. -->
                             <Border x:Name="BackgroundBorder"
                                     Background="{TemplateBinding Background}"
-                                    BorderBrush="#50555C"
+                                    BorderBrush="#AEB6C4"
                                     BorderThickness="1"
-                                    CornerRadius="12"/>
+                                    CornerRadius="12">
+                                <Rectangle x:Name="Shimmer" Opacity="0" IsHitTestVisible="False">
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#00FFFFFF" Offset="0.35"/>
+                                            <GradientStop Color="#40FFFFFF" Offset="0.50"/>
+                                            <GradientStop Color="#00FFFFFF" Offset="0.65"/>
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                    <Rectangle.RenderTransform>
+                                        <TranslateTransform x:Name="ShimmerTransform" X="-220"/>
+                                    </Rectangle.RenderTransform>
+                                </Rectangle>
+                            </Border>
 
                             <!-- Pressed overlay (10% darker) -->
                             <Border x:Name="PressedOverlay"
