@@ -2779,7 +2779,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         private const string DcActionKey  = "LeftMsiDoubleClickTileAction";
         private const string DcParamKey   = "LeftMsiDoubleClickActionParam";
         public volatile bool DoubleClickEnabled;
-        public volatile int DoubleClickDelayMs = 300;
+        public volatile int DoubleClickDelayMs = 220;
         public volatile int DoubleClickAction;
         public volatile string DoubleClickParam = "";
 

@@ -178,7 +178,7 @@ namespace XboxGamingBarHelper
         private static void HandleLeftClawPress()
         {
             bool dcEnabled = legionManager?.DoubleClickEnabled ?? false;
-            int delay = legionManager?.DoubleClickDelayMs ?? 300;
+            int delay = legionManager?.DoubleClickDelayMs ?? 220;
 
             if (!dcEnabled)
             {
@@ -248,6 +248,9 @@ namespace XboxGamingBarHelper
             // Execute directly in helper — widget may be suspended when Game Bar is closed.
             switch (actionType)
             {
+                case 1: // KeyboardShortcut — used by the double-click "Keyboard" mode (param = token string)
+                    if (!string.IsNullOrWhiteSpace(actionParam)) SendKeyboardShortcutViaInputInjector(actionParam);
+                    break;
                 case 10: AdjustBrightness(+5); break;   // BrightnessUp
                 case 11: AdjustBrightness(-5); break;   // BrightnessDown
                 case 12: SendKeyboardShortcutViaInputInjector("Alt+Tab"); break; // AltTab
