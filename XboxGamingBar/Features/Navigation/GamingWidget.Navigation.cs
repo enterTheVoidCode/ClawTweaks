@@ -50,6 +50,10 @@ namespace XboxGamingBar
             {
                 string tag = selectedItem.Tag?.ToString() ?? "";
 
+                // Ensure the active-tab pill is themed (some tab templates aren't realised yet when
+                // ApplyTheme runs at load, so they'd show the un-themed grey pill on first select).
+                ApplyNavPillTheme(selectedItem);
+
                 // Hide all sections
                 QuickSettingsScrollViewer.Visibility = Visibility.Collapsed;
                 PerformanceScrollViewer.Visibility = Visibility.Collapsed;
