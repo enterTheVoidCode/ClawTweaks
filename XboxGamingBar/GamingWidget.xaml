@@ -318,9 +318,16 @@
                                     <VisualState x:Name="Normal"/>
                                     <VisualState x:Name="PointerOver">
                                         <Storyboard>
-                                            <!-- Diagonal light band sweeps top-left → bottom-right on hover -->
-                                            <DoubleAnimation Storyboard.TargetName="Shimmer" Storyboard.TargetProperty="Opacity"
-                                                             From="0" To="1" Duration="0:0:0.06"/>
+                                            <!-- Diagonal light band sweeps top-left → bottom-right on hover.
+                                                 Shimmer.Opacity fade-in + fade-out are a single key-frame
+                                                 animation: two separate DoubleAnimations targeting the same
+                                                 property in one Storyboard is illegal in WinRT and throws. -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Shimmer" Storyboard.TargetProperty="Opacity">
+                                                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0"/>
+                                                <LinearDoubleKeyFrame KeyTime="0:0:0.06" Value="1"/>
+                                                <LinearDoubleKeyFrame KeyTime="0:0:0.5" Value="1"/>
+                                                <LinearDoubleKeyFrame KeyTime="0:0:0.65" Value="0"/>
+                                            </DoubleAnimationUsingKeyFrames>
                                             <DoubleAnimation Storyboard.TargetName="ShimGS1" Storyboard.TargetProperty="Offset"
                                                              From="0.0" To="0.85" Duration="0:0:0.6">
                                                 <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
@@ -333,8 +340,6 @@
                                                              From="0.15" To="1.0" Duration="0:0:0.6">
                                                 <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                             </DoubleAnimation>
-                                            <DoubleAnimation Storyboard.TargetName="Shimmer" Storyboard.TargetProperty="Opacity"
-                                                             To="0" BeginTime="0:0:0.5" Duration="0:0:0.15"/>
                                         </Storyboard>
                                     </VisualState>
                                     <VisualState x:Name="Pressed">
