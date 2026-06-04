@@ -197,6 +197,28 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Handle Left MSI button double-click config update from the widget.
+                if (pipeMsg.Extra.TryGetValue("LeftMsiDoubleClick", out object dcObj) && dcObj is string dcJson)
+                {
+                    try
+                    {
+                        bool enabled = System.Text.RegularExpressions.Regex.Match(dcJson, "\"enabled\"\\s*:\\s*(true|false)").Groups[1].Value == "true";
+                        int delay = int.TryParse(System.Text.RegularExpressions.Regex.Match(dcJson, "\"delayMs\"\\s*:\\s*(\\d+)").Groups[1].Value, out var d) ? d : 300;
+                        int action = int.TryParse(System.Text.RegularExpressions.Regex.Match(dcJson, "\"action\"\\s*:\\s*(-?\\d+)").Groups[1].Value, out var a) ? a : 0;
+                        var pm = System.Text.RegularExpressions.Regex.Match(dcJson, "\"param\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"");
+                        string param = pm.Success ? pm.Groups[1].Value.Replace("\\\"", "\"").Replace("\\\\", "\\") : "";
+                        legionManager?.SetDoubleClickConfig(enabled, delay, action, param);
+                        Logger.Info($"Pipe: LeftMsiDoubleClick updated (enabled={enabled}, delay={delay}, action={action})");
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: LeftMsiDoubleClick parse failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
                 // Handle LaunchProgram request (Program Actions: default targets + user exe/ps1)
                 if (pipeMsg.Extra.TryGetValue("LaunchProgram", out object progValue) && progValue is string progTarget)
                 {

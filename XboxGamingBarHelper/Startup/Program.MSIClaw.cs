@@ -156,52 +156,121 @@ namespace XboxGamingBarHelper
                 if (code != 41) return; // 41 = LaunchMcxMainUI = left CLAW button
 
                 Logger.Info("MSIClaw: Left CLAW button pressed (WMI LaunchMcxMainUI)");
-
-                int actionType = legionManager?.DesktopButtonTileAction ?? -1;
-                if (actionType < 0)
-                {
-                    Logger.Debug("MSIClaw: Left CLAW button — no Action mapping configured");
-                    return;
-                }
-
-                string actionName = TileActionNames.GetDisplayName(actionType);
-                string actionParam = legionManager?.DesktopButtonTileActionParam ?? "";
-                Logger.Info($"MSIClaw: Left CLAW button executing action {actionType} ({actionName}) param='{actionParam}'");
-
-                // Execute directly in helper — widget may be suspended when Game Bar is closed.
-                // Actions needing widget state (CycleOverlay) fall back to FireTileHotkeyToWidget.
-                switch (actionType)
-                {
-                    case 10: AdjustBrightness(+5); break;   // BrightnessUp
-                    case 11: AdjustBrightness(-5); break;   // BrightnessDown
-                    case 12: SendKeyboardShortcutViaInputInjector("Alt+Tab"); break; // AltTab
-                    case 13: SendKeyboardShortcutViaInputInjector("Alt+Tab"); break; // AltTabBack
-                    case 14: SendKeyboardShortcutViaInputInjector("Win+D"); break;   // GoToDesktop
-                    case 27: AdjustVolume(+5); break;       // VolumeUp
-                    case 28: AdjustVolume(-5); break;       // VolumeDown
-                    // Launcher actions run helper-side too, so the Left CLAW button works even
-                    // when the Game Bar is closed (the widget pipe round-trip would fail then).
-                    case 40: LaunchLauncher("SteamBigPicture"); break;
-                    case 41: LaunchLauncher("Playnite"); break;
-                    case 42: LaunchLauncher("XboxApp"); break;
-                    case 30: SendKeyboardShortcutViaInputInjector("MEDIA_NEXT_TRACK"); break;
-                    case 31: SendKeyboardShortcutViaInputInjector("MEDIA_PREV_TRACK"); break;
-                    case 32: SendKeyboardShortcutViaInputInjector("MEDIA_PLAY_PAUSE"); break;
-                    case 50: case 51: case 52: case 53: case 59: // Program Actions
-                        LaunchProgramTarget(ResolveProgramTargetHelper(actionType, actionParam));
-                        break;
-                    case 60: case 61: case 62: case 63: case 64: case 65: case 69: // Launch Website
-                        LaunchUrl(ResolveWebsiteUrlHelper(actionType, actionParam));
-                        break;
-                    default:
-                        // App actions that need widget state — try widget (may not work when suspended)
-                        FireTileHotkeyToWidget($"__action__{actionType}", actionName);
-                        break;
-                }
+                HandleLeftClawPress();
             }
             catch (Exception ex)
             {
                 Logger.Warn($"MSIClaw: OnClawWmiEvent threw: {ex.Message}");
+            }
+        }
+
+        // Double-click state for the Left MSI button.
+        private static readonly object _clawClickLock = new object();
+        private static System.Threading.Timer _clawSingleTimer;
+        private static bool _clawSinglePending;
+
+        /// <summary>
+        /// Routes a Left-CLAW press. When double-click is disabled the single action fires
+        /// immediately (no latency). When enabled, the first press is held for the configured
+        /// window; a second press within it fires the double-click action instead, otherwise the
+        /// single action fires when the window elapses.
+        /// </summary>
+        private static void HandleLeftClawPress()
+        {
+            bool dcEnabled = legionManager?.DoubleClickEnabled ?? false;
+            int delay = legionManager?.DoubleClickDelayMs ?? 300;
+
+            if (!dcEnabled)
+            {
+                FireClawClickToWidget("single");
+                ExecuteLeftClawAction(legionManager?.DesktopButtonTileAction ?? -1,
+                                      legionManager?.DesktopButtonTileActionParam ?? "");
+                return;
+            }
+
+            lock (_clawClickLock)
+            {
+                if (_clawSinglePending)
+                {
+                    // Second press within the window → double-click.
+                    _clawSinglePending = false;
+                    _clawSingleTimer?.Dispose();
+                    _clawSingleTimer = null;
+                    int dcAction = legionManager?.DoubleClickAction ?? 0;
+                    string dcParam = legionManager?.DoubleClickParam ?? "";
+                    Logger.Info($"MSIClaw: Left CLAW DOUBLE-click → action {dcAction}");
+                    FireClawClickToWidget("double");
+                    ExecuteLeftClawAction(dcAction, dcParam);
+                    return;
+                }
+
+                // First press: arm a one-shot timer for the single action.
+                _clawSinglePending = true;
+                _clawSingleTimer?.Dispose();
+                _clawSingleTimer = new System.Threading.Timer(_ =>
+                {
+                    bool fire = false;
+                    lock (_clawClickLock)
+                    {
+                        if (_clawSinglePending) { _clawSinglePending = false; fire = true; }
+                        _clawSingleTimer?.Dispose();
+                        _clawSingleTimer = null;
+                    }
+                    if (fire)
+                    {
+                        Logger.Info("MSIClaw: Left CLAW single-click (window elapsed)");
+                        FireClawClickToWidget("single");
+                        ExecuteLeftClawAction(legionManager?.DesktopButtonTileAction ?? -1,
+                                              legionManager?.DesktopButtonTileActionParam ?? "");
+                    }
+                }, null, delay, System.Threading.Timeout.Infinite);
+            }
+        }
+
+        /// <summary>Notify the widget (when connected) of a resolved click so its UI can flash a
+        /// detection indicator. Best-effort.</summary>
+        private static void FireClawClickToWidget(string kind)
+        {
+            try { pipeServer?.SendMessage($"{{\"ClawClick\":\"{kind}\"}}"); } catch { }
+        }
+
+        /// <summary>Executes a Left-CLAW action id (same dispatch the tile/front-button path uses).</summary>
+        private static void ExecuteLeftClawAction(int actionType, string actionParam)
+        {
+            if (actionType < 0)
+            {
+                Logger.Debug("MSIClaw: Left CLAW button — no Action mapping configured");
+                return;
+            }
+            string actionName = TileActionNames.GetDisplayName(actionType);
+            Logger.Info($"MSIClaw: Left CLAW executing action {actionType} ({actionName}) param='{actionParam}'");
+
+            // Execute directly in helper — widget may be suspended when Game Bar is closed.
+            switch (actionType)
+            {
+                case 10: AdjustBrightness(+5); break;   // BrightnessUp
+                case 11: AdjustBrightness(-5); break;   // BrightnessDown
+                case 12: SendKeyboardShortcutViaInputInjector("Alt+Tab"); break; // AltTab
+                case 13: SendKeyboardShortcutViaInputInjector("Alt+Tab"); break; // AltTabBack
+                case 14: SendKeyboardShortcutViaInputInjector("Win+D"); break;   // GoToDesktop
+                case 27: AdjustVolume(+5); break;       // VolumeUp
+                case 28: AdjustVolume(-5); break;       // VolumeDown
+                case 40: LaunchLauncher("SteamBigPicture"); break;
+                case 41: LaunchLauncher("Playnite"); break;
+                case 42: LaunchLauncher("XboxApp"); break;
+                case 30: SendKeyboardShortcutViaInputInjector("MEDIA_NEXT_TRACK"); break;
+                case 31: SendKeyboardShortcutViaInputInjector("MEDIA_PREV_TRACK"); break;
+                case 32: SendKeyboardShortcutViaInputInjector("MEDIA_PLAY_PAUSE"); break;
+                case 50: case 51: case 52: case 53: case 59: // Program Actions
+                    LaunchProgramTarget(ResolveProgramTargetHelper(actionType, actionParam));
+                    break;
+                case 60: case 61: case 62: case 63: case 64: case 65: case 69: // Launch Website
+                    LaunchUrl(ResolveWebsiteUrlHelper(actionType, actionParam));
+                    break;
+                default:
+                    // App actions that need widget state — try widget (may not work when suspended)
+                    FireTileHotkeyToWidget($"__action__{actionType}", actionName);
+                    break;
             }
         }
 

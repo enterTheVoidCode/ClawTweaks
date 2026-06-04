@@ -2764,6 +2764,36 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
 
             if (Settings.LocalSettingsHelper.TryGetValue(DesktopButtonTileActionParamKey, out string savedParam))
                 DesktopButtonTileActionParam = savedParam ?? "";
+
+            // Double-click config
+            if (Settings.LocalSettingsHelper.TryGetValue(DcEnabledKey, out bool dcEn)) DoubleClickEnabled = dcEn;
+            if (Settings.LocalSettingsHelper.TryGetValue(DcDelayKey, out int dcDelay) && dcDelay > 0) DoubleClickDelayMs = dcDelay;
+            if (Settings.LocalSettingsHelper.TryGetValue(DcActionKey, out int dcAct)) DoubleClickAction = dcAct;
+            if (Settings.LocalSettingsHelper.TryGetValue(DcParamKey, out string dcParam)) DoubleClickParam = dcParam ?? "";
+            Logger.Info($"LegionManager: DoubleClick loaded enabled={DoubleClickEnabled} delay={DoubleClickDelayMs} action={DoubleClickAction}");
+        }
+
+        // ── Left MSI button double-click (optional) ──────────────────────────────────────────
+        private const string DcEnabledKey = "LeftMsiDoubleClickEnabled";
+        private const string DcDelayKey   = "LeftMsiDoubleClickDelayMs";
+        private const string DcActionKey  = "LeftMsiDoubleClickTileAction";
+        private const string DcParamKey   = "LeftMsiDoubleClickActionParam";
+        public volatile bool DoubleClickEnabled;
+        public volatile int DoubleClickDelayMs = 300;
+        public volatile int DoubleClickAction;
+        public volatile string DoubleClickParam = "";
+
+        public void SetDoubleClickConfig(bool enabled, int delayMs, int action, string param)
+        {
+            DoubleClickEnabled = enabled;
+            if (delayMs > 0) DoubleClickDelayMs = delayMs;
+            DoubleClickAction = action;
+            DoubleClickParam = param ?? "";
+            Settings.LocalSettingsHelper.SetValue(DcEnabledKey, enabled);
+            Settings.LocalSettingsHelper.SetValue(DcDelayKey, DoubleClickDelayMs);
+            Settings.LocalSettingsHelper.SetValue(DcActionKey, action);
+            Settings.LocalSettingsHelper.SetValue(DcParamKey, DoubleClickParam);
+            Logger.Info($"LegionManager: DoubleClick set enabled={enabled} delay={DoubleClickDelayMs} action={action} param='{DoubleClickParam}'");
         }
 
         /// <param name="button">The GamepadButton to map (DesktopButton=0x25, PageButton=0x26)</param>
