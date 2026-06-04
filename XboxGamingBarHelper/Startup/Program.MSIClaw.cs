@@ -168,7 +168,7 @@ namespace XboxGamingBarHelper
                     case 50: case 51: case 52: case 53: case 59: // Program Actions
                         LaunchProgramTarget(ResolveProgramTargetHelper(actionType, actionParam));
                         break;
-                    case 60: case 61: case 62: case 63: case 64: case 69: // Launch Website
+                    case 60: case 61: case 62: case 63: case 64: case 65: case 69: // Launch Website
                         LaunchUrl(ResolveWebsiteUrlHelper(actionType, actionParam));
                         break;
                     default:

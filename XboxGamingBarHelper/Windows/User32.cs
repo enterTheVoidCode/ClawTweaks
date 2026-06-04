@@ -712,6 +712,10 @@ namespace XboxGamingBarHelper.Windows
             { "PageUp", 0x21 }, { "PgUp", 0x21 },
             { "PageDown", 0x22 }, { "PgDn", 0x22 },
 
+            // Media / volume keys (also handled in the InputInjector parser; here for the fallback path)
+            { "VOLUME_UP", 0xAF }, { "VOLUME_DOWN", 0xAE }, { "VOLUME_MUTE", 0xAD },
+            { "MEDIA_NEXT_TRACK", 0xB0 }, { "MEDIA_PREV_TRACK", 0xB1 }, { "MEDIA_PLAY_PAUSE", 0xB3 },
+
             // Arrow keys
             { "Up", 0x26 }, { "Down", 0x28 }, { "Left", 0x25 }, { "Right", 0x27 },
 

@@ -2464,6 +2464,7 @@ namespace XboxGamingBar
                     case TileActionType.OpenGoogle:
                     case TileActionType.OpenClawTweaksReleases:
                     case TileActionType.OpenClawTweaksFaq:
+                    case TileActionType.OpenYouTube:
                     case TileActionType.OpenUserWebsite:
                         await LaunchUrlViaHelper(ResolveWebsiteUrl(actionType, actionParam), closeGameBar: false);
                         break;
@@ -2578,6 +2579,7 @@ namespace XboxGamingBar
                     case TileActionType.OpenGoogle:
                     case TileActionType.OpenClawTweaksReleases:
                     case TileActionType.OpenClawTweaksFaq:
+                    case TileActionType.OpenYouTube:
                     case TileActionType.OpenUserWebsite:
                         await LaunchUrlViaHelper(ResolveWebsiteUrl(actionType, actionParam), closeGameBar: true);
                         break;

@@ -38,6 +38,7 @@ namespace XboxGamingBarHelper
                 case 62: return "Open Google";
                 case 63: return "Open ClawTweaks Releases";
                 case 64: return "Open ClawTweaks FAQ";
+                case 65: return "Open YouTube";
                 case 69: return "Website (User)";
                 default: return $"Action {actionType}";
             }

@@ -440,6 +440,7 @@ namespace XboxGamingBarHelper
                 case 62: return "https://www.google.com/";
                 case 63: return "https://github.com/enterTheVoidCode/ClawTweaks/releases";
                 case 64: return "https://github.com/enterTheVoidCode/ClawTweaks";
+                case 65: return "https://www.youtube.com/";
                 default: return param; // 69 = OpenUserWebsite
             }
         }
