@@ -98,15 +98,12 @@
                                             <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
                                                 <DiscreteObjectKeyFrame KeyTime="0" Value="{StaticResource SystemAccentBrush}"/>
                                             </ObjectAnimationUsingKeyFrames>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionGlow" Storyboard.TargetProperty="Visibility">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
-                                            </ObjectAnimationUsingKeyFrames>
                                             <ObjectAnimationUsingKeyFrames Storyboard.TargetName="SelectionBackground" Storyboard.TargetProperty="Visibility">
                                                 <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
                                             </ObjectAnimationUsingKeyFrames>
                                             <!-- subtle "lift": the icon scales up a touch for a 3D/raised feel -->
-                                            <DoubleAnimation Storyboard.TargetName="ContentScale" Storyboard.TargetProperty="ScaleX" To="1.08" Duration="0:0:0.12"/>
-                                            <DoubleAnimation Storyboard.TargetName="ContentScale" Storyboard.TargetProperty="ScaleY" To="1.08" Duration="0:0:0.12"/>
+                                            <DoubleAnimation Storyboard.TargetName="ContentScale" Storyboard.TargetProperty="ScaleX" To="1.05" Duration="0:0:0.12"/>
+                                            <DoubleAnimation Storyboard.TargetName="ContentScale" Storyboard.TargetProperty="ScaleY" To="1.05" Duration="0:0:0.12"/>
                                         </Storyboard>
                                     </VisualState>
                                     <VisualState x:Name="Unchecked"/>
@@ -124,19 +121,14 @@
                                     <VisualState x:Name="PointerFocused"/>
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
-                            <!-- Active-tab glow: soft accent halo around the pill (back layer) -->
-                            <Border x:Name="SelectionGlow"
-                                    CornerRadius="11"
-                                    Margin="-3"
-                                    BorderBrush="{StaticResource SystemAccentBrush}"
-                                    BorderThickness="3"
-                                    Opacity="0.22"
-                                    Visibility="Collapsed"/>
                             <!-- Active-tab "register" pill: raised rounded surface (subtle 3D
                                  gradient, lighter top → darker bottom) with an accent outline.
-                                 Replaces the old thin underline and gives the tab room to breathe. -->
+                                 Fully contained within the button bounds (small inset margin, no
+                                 negative margins) so it stays centered on the icon and is never
+                                 clipped by the nav bar. -->
                             <Border x:Name="SelectionBackground"
-                                    CornerRadius="9"
+                                    Margin="2"
+                                    CornerRadius="8"
                                     BorderThickness="1.2"
                                     BorderBrush="{StaticResource SystemAccentBrush}"
                                     Visibility="Collapsed">
