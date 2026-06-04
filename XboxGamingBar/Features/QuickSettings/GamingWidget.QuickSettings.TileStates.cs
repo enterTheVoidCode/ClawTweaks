@@ -141,7 +141,7 @@ namespace XboxGamingBar
                 FontSize = 13,
                 Foreground = tile.IsAction
                     ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 150, 200))  // Light purple for action
-                    : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136)),
+                    : tileTextBrush,  // theme secondary (near-white) instead of dim grey
                 HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0),
