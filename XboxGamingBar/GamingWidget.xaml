@@ -4159,7 +4159,8 @@
                                                   Grid.Column="1"
                                                   Width="130"
                                                   SelectionChanged="ThemeComboBox_SelectionChanged">
-                                            <ComboBoxItem Content="Default" IsSelected="True"/>
+                                            <ComboBoxItem Content="Next Gen Claw" IsSelected="True"/>
+                                            <ComboBoxItem Content="Default"/>
                                             <ComboBoxItem Content="Dark"/>
                                             <ComboBoxItem Content="OLED"/>
                                             <ComboBoxItem Content="Dracula"/>

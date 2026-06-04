@@ -84,14 +84,28 @@ namespace XboxGamingBar
             currentThemeName = themeName;
             Logger.Info($"Applying theme: {themeName}");
 
-            // Update page background
-            this.Background = new SolidColorBrush(theme.PageBackground);
-            widgetDarkThemeBrush = new SolidColorBrush(theme.PageBackground);
+            // Update page background (gradient when the theme defines a second stop = glass look)
+            var pageBrush = ThemeFill(theme.PageBackground, theme.PageBackground2);
+            this.Background = pageBrush;
+            widgetDarkThemeBrush = pageBrush;
+
+            // Tiles are built in code from these brushes — refresh them from the theme and repaint
+            // the grid so theme changes actually reach the Quick Settings tiles (incl. gradients).
+            try
+            {
+                UpdateTileBrushesFromTheme(theme);
+                RebuildQuickSettingsTiles();
+                BuildSortableGrid();
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Theme: tile refresh failed: {ex.Message}");
+            }
 
             // Update resource brushes (for new elements)
             try
             {
-                Resources["PageBackgroundBrush"] = new SolidColorBrush(theme.PageBackground);
+                Resources["PageBackgroundBrush"] = ThemeFill(theme.PageBackground, theme.PageBackground2);
                 Resources["CardBackgroundBrush"] = new SolidColorBrush(theme.CardBackground);
                 Resources["CardBorderBrush"] = new SolidColorBrush(theme.CardBorder);
                 Resources["ButtonBackground"] = new SolidColorBrush(theme.ButtonBackground);
@@ -121,6 +135,37 @@ namespace XboxGamingBar
             {
                 Logger.Error($"Error applying theme to visual tree: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Returns a vertical (top→bottom) LinearGradientBrush when <paramref name="c2"/> is set
+        /// (glass look), otherwise a flat SolidColorBrush of <paramref name="c1"/>.
+        /// </summary>
+        private static Windows.UI.Xaml.Media.Brush ThemeFill(Windows.UI.Color c1, Windows.UI.Color? c2)
+        {
+            if (c2 == null) return new SolidColorBrush(c1);
+            return new LinearGradientBrush
+            {
+                StartPoint = new Windows.Foundation.Point(0, 0),
+                EndPoint = new Windows.Foundation.Point(0, 1),
+                GradientStops = new GradientStopCollection
+                {
+                    new GradientStop { Color = c1, Offset = 0 },
+                    new GradientStop { Color = c2.Value, Offset = 1 }
+                }
+            };
+        }
+
+        /// <summary>
+        /// Rebuilds the Quick Settings tile brushes from a theme (gradient when the theme provides
+        /// a second stop). Called from ApplyTheme; the grid is repainted afterwards.
+        /// </summary>
+        private void UpdateTileBrushesFromTheme(ThemeColors theme)
+        {
+            tileOffBrush = ThemeFill(theme.TileOff, theme.TileOff2);
+            tileOnBrush  = ThemeFill(theme.TileOn,  theme.TileOn2);
+            // Active/trigger accents derive from the theme accent so they fit the palette.
+            tileActiveBrush = new SolidColorBrush(theme.GlowColor ?? theme.AccentColor);
         }
 
         private void ApplyThemeToVisualTree(DependencyObject parent, ThemeColors theme,
@@ -228,11 +273,10 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // No saved theme - mark as initialized so user can save their choice
-                    _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
-                    {
-                        isThemeInitialized = true;
-                    });
+                    // No saved theme → apply the new default look ("Next Gen Claw") so fresh
+                    // installs get it, then allow saves.
+                    currentThemeName = "Next Gen Claw";
+                    _ = ApplyThemeOnLoadAsync("Next Gen Claw");
                 }
             }
             catch (Exception ex)
