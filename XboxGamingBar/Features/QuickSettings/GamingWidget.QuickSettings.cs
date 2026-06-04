@@ -48,6 +48,7 @@ namespace XboxGamingBar
         private Brush tileOnBrush;
         private Brush tileActiveBrush;
         private SolidColorBrush tileTriggerBrush;
+        private Brush tileIconBrush;   // theme colour for tile icons (null → white)
         private LinearGradientBrush tileDefaultProfileBrush;
         private bool quickSettingsInitialized = false;
 
@@ -861,6 +862,10 @@ namespace XboxGamingBar
         /// </summary>
         private FrameworkElement BuildTileIconElement(TileActionType actionType, string tileId, string glyph, double size, Windows.UI.Xaml.Media.Brush foreground)
         {
+            // Main tiles pass null → use the theme's tile-icon tint (light azure for Next Gen Claw,
+            // white otherwise). The edit-mode mini tiles pass an explicit visible/disabled brush.
+            if (foreground == null) foreground = tileIconBrush;
+
             string path = TileActionHelper.GetFluentIconPath(actionType)
                           ?? TileActionHelper.GetFluentIconPathForTileId(tileId);
             if (!string.IsNullOrEmpty(path))

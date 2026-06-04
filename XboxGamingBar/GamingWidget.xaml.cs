@@ -198,6 +198,8 @@ namespace XboxGamingBar
         public Windows.UI.Color? MetricsBackground { get; set; }
         public Windows.UI.Color? MetricsBackground2 { get; set; }
         public Windows.UI.Color? MetricsBorder { get; set; }
+        /// <summary>Optional colour for the tile icons. Null → white (classic look).</summary>
+        public Windows.UI.Color? TileIcon { get; set; }
     }
 
     /// <summary>
@@ -619,11 +621,12 @@ namespace XboxGamingBar
                 TextSecondary   = Windows.UI.Color.FromArgb(255, 150, 184, 226),   // light blue-grey
                 ButtonBackground= Windows.UI.Color.FromArgb(255, 27, 56, 100),     // #1B3864
                 ButtonBorder    = Windows.UI.Color.FromArgb(255, 58, 111, 176),    // #3A6FB0
-                TileOff         = Windows.UI.Color.FromArgb(235, 20, 42, 78),       // #142A4E translucent (top)
-                TileOff2        = Windows.UI.Color.FromArgb(235, 14, 30, 58),       // #0E1E3A (bottom)
-                TileOn          = Windows.UI.Color.FromArgb(255, 38, 110, 196),     // #266EC4 (top)
-                TileOn2         = Windows.UI.Color.FromArgb(255, 26, 78, 150),      // #1A4E96 (bottom)
+                TileOff         = Windows.UI.Color.FromArgb(235, 30, 60, 108),      // #1E3C6C translucent (top, lighter for visible gradient)
+                TileOff2        = Windows.UI.Color.FromArgb(235, 12, 26, 52),       // #0C1A34 (bottom)
+                TileOn          = Windows.UI.Color.FromArgb(255, 52, 130, 224),     // #3482E0 (top, brighter)
+                TileOn2         = Windows.UI.Color.FromArgb(255, 24, 70, 138),      // #18468A (bottom)
                 GlowColor       = Windows.UI.Color.FromArgb(255, 78, 170, 255),     // #4EAAFF glow
+                TileIcon        = Windows.UI.Color.FromArgb(255, 199, 226, 255),    // #C7E2FF light azure icons
                 // Metrics bar — a touch lighter than the active tiles (#266EC4)
                 MetricsBackground  = Windows.UI.Color.FromArgb(255, 60, 132, 220),  // #3C84DC (top)
                 MetricsBackground2 = Windows.UI.Color.FromArgb(255, 44, 104, 184),  // #2C68B8 (bottom)
