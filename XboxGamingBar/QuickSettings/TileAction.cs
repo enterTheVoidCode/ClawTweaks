@@ -56,6 +56,7 @@ namespace XboxGamingBar.QuickSettings
         OpenGoogle             = 62,
         OpenClawTweaksReleases = 63,
         OpenClawTweaksFaq      = 64,
+        OpenYouTube            = 65,
         OpenUserWebsite        = 69,  // generic: opens the URL carried in ActionParam
     }
 
@@ -96,6 +97,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.OpenGoogle:             return "Open Google";
                 case TileActionType.OpenClawTweaksReleases: return "Open ClawTweaks Releases";
                 case TileActionType.OpenClawTweaksFaq:      return "Open ClawTweaks FAQ";
+                case TileActionType.OpenYouTube:            return "Open YouTube";
                 default: return "Unknown";
             }
         }
@@ -135,6 +137,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.OpenGoogle:             return "Google";
                 case TileActionType.OpenClawTweaksReleases: return "Releases";
                 case TileActionType.OpenClawTweaksFaq:      return "FAQ";
+                case TileActionType.OpenYouTube:            return "YouTube";
                 default: return GetDisplayName(action);
             }
         }
@@ -213,6 +216,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.OpenGoogle:             return "https://www.google.com/";
                 case TileActionType.OpenClawTweaksReleases: return "https://github.com/enterTheVoidCode/ClawTweaks/releases";
                 case TileActionType.OpenClawTweaksFaq:      return "https://github.com/enterTheVoidCode/ClawTweaks";
+                case TileActionType.OpenYouTube:            return "https://www.youtube.com/";
                 default: return null;
             }
         }
@@ -257,6 +261,7 @@ namespace XboxGamingBar.QuickSettings
             yield return TileActionType.OpenExophase;
             yield return TileActionType.OpenRetroAchievements;
             yield return TileActionType.OpenGoogle;
+            yield return TileActionType.OpenYouTube;
             yield return TileActionType.OpenClawTweaksReleases;
             yield return TileActionType.OpenClawTweaksFaq;
         }
