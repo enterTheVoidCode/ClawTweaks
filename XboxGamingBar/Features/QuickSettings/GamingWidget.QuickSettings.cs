@@ -230,6 +230,12 @@ namespace XboxGamingBar
                 // Load visibility settings from storage
                 LoadQuickSettingsConfig();
 
+                // Theme the tile brushes from the current theme BEFORE the first build, so tiles
+                // are painted in the active theme immediately (no load-time grid rebuild needed —
+                // that rebuild used to fire from ApplyTheme and disturbed scroll/focus state).
+                if (WidgetThemes.TryGetValue(currentThemeName, out var initTheme))
+                    UpdateTileBrushesFromTheme(initTheme);
+
                 // Build tile UI
                 RebuildQuickSettingsTiles();
 

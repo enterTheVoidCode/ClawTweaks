@@ -318,17 +318,23 @@
                                     <VisualState x:Name="Normal"/>
                                     <VisualState x:Name="PointerOver">
                                         <Storyboard>
-                                            <!-- Diagonal light band sweeps across the tile once on hover -->
+                                            <!-- Diagonal light band sweeps top-left → bottom-right on hover -->
                                             <DoubleAnimation Storyboard.TargetName="Shimmer" Storyboard.TargetProperty="Opacity"
-                                                             From="0" To="1" Duration="0:0:0.08"/>
-                                            <DoubleAnimation Storyboard.TargetName="ShimmerTransform" Storyboard.TargetProperty="X"
-                                                             From="-220" To="220" Duration="0:0:0.65">
-                                                <DoubleAnimation.EasingFunction>
-                                                    <CubicEase EasingMode="EaseInOut"/>
-                                                </DoubleAnimation.EasingFunction>
+                                                             From="0" To="1" Duration="0:0:0.06"/>
+                                            <DoubleAnimation Storyboard.TargetName="ShimGS1" Storyboard.TargetProperty="Offset"
+                                                             From="0.0" To="0.85" Duration="0:0:0.6">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="ShimGS2" Storyboard.TargetProperty="Offset"
+                                                             From="0.0" To="0.93" Duration="0:0:0.6">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="ShimGS3" Storyboard.TargetProperty="Offset"
+                                                             From="0.15" To="1.0" Duration="0:0:0.6">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                             </DoubleAnimation>
                                             <DoubleAnimation Storyboard.TargetName="Shimmer" Storyboard.TargetProperty="Opacity"
-                                                             To="0" BeginTime="0:0:0.55" Duration="0:0:0.12"/>
+                                                             To="0" BeginTime="0:0:0.5" Duration="0:0:0.15"/>
                                         </Storyboard>
                                     </VisualState>
                                     <VisualState x:Name="Pressed">
@@ -366,20 +372,19 @@
                                  child so the diagonal light band is clipped to the rounded corners. -->
                             <Border x:Name="BackgroundBorder"
                                     Background="{TemplateBinding Background}"
-                                    BorderBrush="#AEB6C4"
+                                    BorderBrush="#80B8C0CE"
                                     BorderThickness="1"
                                     CornerRadius="12">
                                 <Rectangle x:Name="Shimmer" Opacity="0" IsHitTestVisible="False">
                                     <Rectangle.Fill>
+                                        <!-- Diagonal bright band; the stop offsets animate from
+                                             top-left to bottom-right on hover to sweep the sheen. -->
                                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                            <GradientStop Color="#00FFFFFF" Offset="0.35"/>
-                                            <GradientStop Color="#40FFFFFF" Offset="0.50"/>
-                                            <GradientStop Color="#00FFFFFF" Offset="0.65"/>
+                                            <GradientStop x:Name="ShimGS1" Color="#00FFFFFF" Offset="0.0"/>
+                                            <GradientStop x:Name="ShimGS2" Color="#A0FFFFFF" Offset="0.0"/>
+                                            <GradientStop x:Name="ShimGS3" Color="#00FFFFFF" Offset="0.15"/>
                                         </LinearGradientBrush>
                                     </Rectangle.Fill>
-                                    <Rectangle.RenderTransform>
-                                        <TranslateTransform x:Name="ShimmerTransform" X="-220"/>
-                                    </Rectangle.RenderTransform>
                                 </Rectangle>
                             </Border>
 
