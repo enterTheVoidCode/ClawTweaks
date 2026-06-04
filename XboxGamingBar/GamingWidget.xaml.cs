@@ -613,13 +613,13 @@ namespace XboxGamingBar
             { "Next Gen Claw", new ThemeColors {
                 Name = "Next Gen Claw",
                 // Vibrant neon diagonal: electric blue → violet
-                PageBackground  = Windows.UI.Color.FromArgb(255, 20, 34, 140),      // #14228C (top-left, electric blue)
-                PageBackground2 = Windows.UI.Color.FromArgb(255, 74, 34, 160),      // #4A22A0 (bottom-right, neon violet)
+                PageBackground  = Windows.UI.Color.FromArgb(255, 22, 38, 168),      // #1626A8 (top-left, brighter electric blue)
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 62, 26, 142),      // #3E1A8E (bottom-right, deeper neon violet)
                 CardBackground  = Windows.UI.Color.FromArgb(195, 40, 52, 130),      // translucent indigo (glass)
                 CardBorder      = Windows.UI.Color.FromArgb(255, 96, 120, 230),     // #6078E6
                 AccentColor     = Windows.UI.Color.FromArgb(255, 58, 140, 255),     // #3A8CFF modern neon blue
-                TextPrimary     = Windows.UI.Color.FromArgb(255, 240, 246, 255),    // near-white
-                TextSecondary   = Windows.UI.Color.FromArgb(255, 170, 190, 240),    // light blue
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 245, 249, 255),    // near-white
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 224, 233, 255),    // #E0E9FF near-white (was dim)
                 ButtonBackground= Windows.UI.Color.FromArgb(255, 36, 58, 134),      // #243A86
                 ButtonBorder    = Windows.UI.Color.FromArgb(255, 90, 110, 220),     // #5A6EDC
                 // Glass tiles: translucent (page shows through), glossy lighter top stop

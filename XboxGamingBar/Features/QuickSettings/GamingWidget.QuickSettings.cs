@@ -49,6 +49,9 @@ namespace XboxGamingBar
         private Brush tileActiveBrush;
         private SolidColorBrush tileTriggerBrush;
         private Brush tileIconBrush;   // theme colour for tile icons (null → white)
+        // Secondary caption text on tiles + the metrics-row labels. Theme-driven so it can be
+        // near-white instead of dim grey. Initialised light; overridden in UpdateTileBrushesFromTheme.
+        private Brush tileTextBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 214, 226, 255));
         private LinearGradientBrush tileDefaultProfileBrush;
         private bool quickSettingsInitialized = false;
 

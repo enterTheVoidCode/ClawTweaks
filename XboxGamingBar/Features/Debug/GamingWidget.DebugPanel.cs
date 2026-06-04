@@ -108,7 +108,7 @@ namespace XboxGamingBar
             {
                 if (QuickMetricsRow != null && theme.MetricsBackground != null)
                 {
-                    QuickMetricsRow.Background = ThemeFill(theme.MetricsBackground.Value, theme.MetricsBackground2);
+                    QuickMetricsRow.Background = ThemeFill(theme.MetricsBackground.Value, theme.MetricsBackground2, diagonal: true);
                     QuickMetricsRow.BorderBrush = new SolidColorBrush(theme.MetricsBorder ?? theme.CardBorder);
                 }
             }
@@ -177,14 +177,17 @@ namespace XboxGamingBar
         /// </summary>
         private void UpdateTileBrushesFromTheme(ThemeColors theme)
         {
-            tileOffBrush = ThemeFill(theme.TileOff, theme.TileOff2);
-            tileOnBrush  = ThemeFill(theme.TileOn,  theme.TileOn2);
+            // Diagonal (top-left→bottom-right) gradients so tiles match the page sheen.
+            tileOffBrush = ThemeFill(theme.TileOff, theme.TileOff2, diagonal: true);
+            tileOnBrush  = ThemeFill(theme.TileOn,  theme.TileOn2,  diagonal: true);
             // Active/trigger accents derive from the theme accent so they fit the palette.
             tileActiveBrush = new SolidColorBrush(theme.GlowColor ?? theme.AccentColor);
             // Tile icon tint (light azure for Next Gen Claw, white otherwise).
             tileIconBrush = theme.TileIcon != null
                 ? new SolidColorBrush(theme.TileIcon.Value)
                 : new SolidColorBrush(Windows.UI.Colors.White);
+            // Secondary caption text (tiles + metrics labels) — from the theme's secondary colour.
+            tileTextBrush = new SolidColorBrush(theme.TextSecondary);
         }
 
         private void ApplyThemeToVisualTree(DependencyObject parent, ThemeColors theme,

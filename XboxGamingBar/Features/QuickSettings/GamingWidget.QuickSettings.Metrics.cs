@@ -439,7 +439,7 @@ namespace XboxGamingBar
                 {
                     Text = info.Label,
                     FontSize = 10,
-                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136)), // #888888
+                    Foreground = tileTextBrush, // theme secondary (near-white) instead of dim grey
                     HorizontalAlignment = HorizontalAlignment.Center
                 };
                 info.LabelTextBlock = labelText;
