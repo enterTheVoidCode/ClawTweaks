@@ -195,9 +195,19 @@ namespace XboxGamingBar
                 // Update Border elements (cards use CardStyle with specific properties)
                 if (child is Border border)
                 {
+                    // Active-tab "register" pill (template part). Recolour it per theme so the
+                    // selected tab matches the palette: gradient themes (Next Gen Claw) get the
+                    // tile-on gradient, flat themes a solid button surface; border = accent/glow.
+                    if (border.Name == "SelectionBackground")
+                    {
+                        border.Background = (theme.TileOn2 != null)
+                            ? ThemeFill(theme.TileOn, theme.TileOn2)
+                            : new SolidColorBrush(theme.ButtonBackground);
+                        border.BorderBrush = new SolidColorBrush(theme.GlowColor ?? theme.AccentColor);
+                    }
                     // Check if this looks like a card (has corner radius and padding typical of CardStyle)
                     // Skip borders with LinearGradientBrush backgrounds (custom gradients for "smart" features like DGP card)
-                    if (border.CornerRadius.TopLeft == 8 && border.Padding.Left == 12 &&
+                    else if (border.CornerRadius.TopLeft == 8 && border.Padding.Left == 12 &&
                         !(border.Background is LinearGradientBrush))
                     {
                         border.Background = cardBgBrush;
