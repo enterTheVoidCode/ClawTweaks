@@ -253,6 +253,50 @@ function Stop-BlockingProcesses {
     return ($killed | Select-Object -Unique)
 }
 
+function Reset-DeployedHelper {
+    param([string]$PackageFamilyName)
+
+    # The elevated helper does NOT run from the installed MSIX package — it runs from a
+    # deployed copy under the package LocalCache (…\ClawTweaks\Helper), launched at logon by
+    # the scheduled task "\ClawTweaks\ClawTweaksHelper". An in-place package update therefore
+    # leaves the OLD helper process AND its deployed binary in place until the next reboot/logon,
+    # so new features the widget sends (e.g. new pipe commands) silently do nothing until then.
+    #
+    # To make updates take effect immediately (no reboot), after installing the new package we:
+    #   1. end the scheduled task so it can't relaunch the stale helper mid-reset,
+    #   2. kill any running helper,
+    #   3. delete the deployed helper copy — the widget redeploys the NEW version automatically
+    #      on next launch (the bootstrapper detects the missing/changed deployment).
+    try {
+        & schtasks.exe /End /TN "ClawTweaks\ClawTweaksHelper" 2>$null | Out-Null
+
+        Get-Process -Name "XboxGamingBarHelper" -ErrorAction SilentlyContinue |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 600
+
+        $helperDir = $null
+        if ($PackageFamilyName) {
+            $helperDir = Join-Path $env:LOCALAPPDATA "Packages\$PackageFamilyName\LocalCache\ClawTweaks\Helper"
+        }
+        if ($helperDir -and (Test-Path $helperDir)) {
+            Remove-Item -Path $helperDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        if ($helperDir -and -not (Test-Path $helperDir)) {
+            Write-Success "Old helper cleared — the new version deploys automatically on next launch (no reboot needed)"
+        }
+        else {
+            # Either nothing to delete or it couldn't be removed (locked). Killing + ending the
+            # task is usually enough for the bootstrapper to redeploy the new version anyway.
+            Write-Info "Helper reset requested — new version will deploy on next launch"
+        }
+    }
+    catch {
+        Write-Warn "Could not fully reset the deployed helper: $_"
+        Write-Info "If new features don't appear, reboot once to refresh the helper."
+    }
+}
+
 function Get-DependencyPackages {
     param([string]$DependenciesDir)
 
@@ -940,6 +984,10 @@ while ($retryCount -lt $maxRetries -and -not $installSuccess) {
 # Verify installation
 $installedPkg = Get-AppxPackage -Name $PackageName -ErrorAction SilentlyContinue
 if ($installedPkg) {
+    # Force the elevated helper to redeploy the new version immediately (no reboot needed).
+    Write-Info "Refreshing background helper to the new version..."
+    Reset-DeployedHelper -PackageFamilyName $installedPkg.PackageFamilyName
+
     Write-Host ""
     Write-Host "  =============================================" -ForegroundColor Green
     Write-Host "                                               " -ForegroundColor Green
