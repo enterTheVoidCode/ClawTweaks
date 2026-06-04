@@ -84,8 +84,8 @@ namespace XboxGamingBar
             currentThemeName = themeName;
             Logger.Info($"Applying theme: {themeName}");
 
-            // Update page background (gradient when the theme defines a second stop = glass look)
-            var pageBrush = ThemeFill(theme.PageBackground, theme.PageBackground2);
+            // Update page background (diagonal gradient when the theme defines a second stop = glass look)
+            var pageBrush = ThemeFill(theme.PageBackground, theme.PageBackground2, diagonal: true);
             this.Background = pageBrush;
             widgetDarkThemeBrush = pageBrush;
 
@@ -156,13 +156,13 @@ namespace XboxGamingBar
         /// Returns a vertical (top→bottom) LinearGradientBrush when <paramref name="c2"/> is set
         /// (glass look), otherwise a flat SolidColorBrush of <paramref name="c1"/>.
         /// </summary>
-        private static Windows.UI.Xaml.Media.Brush ThemeFill(Windows.UI.Color c1, Windows.UI.Color? c2)
+        private static Windows.UI.Xaml.Media.Brush ThemeFill(Windows.UI.Color c1, Windows.UI.Color? c2, bool diagonal = false)
         {
             if (c2 == null) return new SolidColorBrush(c1);
             return new LinearGradientBrush
             {
                 StartPoint = new Windows.Foundation.Point(0, 0),
-                EndPoint = new Windows.Foundation.Point(0, 1),
+                EndPoint = diagonal ? new Windows.Foundation.Point(1, 1) : new Windows.Foundation.Point(0, 1),
                 GradientStops = new GradientStopCollection
                 {
                     new GradientStop { Color = c1, Offset = 0 },
@@ -181,6 +181,10 @@ namespace XboxGamingBar
             tileOnBrush  = ThemeFill(theme.TileOn,  theme.TileOn2);
             // Active/trigger accents derive from the theme accent so they fit the palette.
             tileActiveBrush = new SolidColorBrush(theme.GlowColor ?? theme.AccentColor);
+            // Tile icon tint (light azure for Next Gen Claw, white otherwise).
+            tileIconBrush = theme.TileIcon != null
+                ? new SolidColorBrush(theme.TileIcon.Value)
+                : new SolidColorBrush(Windows.UI.Colors.White);
         }
 
         private void ApplyThemeToVisualTree(DependencyObject parent, ThemeColors theme,
