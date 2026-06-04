@@ -108,16 +108,22 @@ namespace XboxGamingBarHelper
             }
         }
 
+        // Debug: timestamp of the previous CLAW WMI event, to log the gap between events
+        // (used while investigating long-press / double-press detection on the left OEM button).
+        private static long _lastClawWmiTicks;
+
         private static void OnClawWmiEvent(object sender, System.Management.EventArrivedEventArgs e)
         {
             try
             {
                 // HC ClawA1M.cs: property name is "WMIEvent", value masked to 1 byte
                 // EventCode 41 (0x29) = LaunchMcxMainUI = left CLAW button
+                long raw = 0;
                 int code = 0;
                 try
                 {
-                    code = Convert.ToInt32(e.NewEvent.Properties["MSIEvt"].Value) & 0xFF;
+                    raw = Convert.ToInt64(e.NewEvent.Properties["MSIEvt"].Value);
+                    code = (int)(raw & 0xFF);
                 }
                 catch
                 {
@@ -130,7 +136,23 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
-                Logger.Info($"MSIClaw: MSI_Event code={code}");
+                // ── DEBUG: every CLAW WMI event with timing + all properties ──────────────
+                // Lets us see, from a log, whether HOLDING the left OEM button repeats the
+                // event, fires a separate release/up event, or sends only one event per press
+                // (which would mean long-press can't be derived from WMI alone). Also captures
+                // the gap between events for short/long/double-press sequences.
+                try
+                {
+                    long nowTicks = DateTime.UtcNow.Ticks;
+                    double dtMs = _lastClawWmiTicks == 0 ? 0 : (nowTicks - _lastClawWmiTicks) / 10000.0;
+                    _lastClawWmiTicks = nowTicks;
+                    var props = new System.Text.StringBuilder();
+                    foreach (System.Management.PropertyData p in e.NewEvent.Properties)
+                        props.Append($"{p.Name}={p.Value} ");
+                    Logger.Info($"MSIClaw[WMI-DEBUG]: raw=0x{raw:X} ({raw}) code={code} dtSinceLast={dtMs:F0}ms props=[ {props}]");
+                }
+                catch { /* logging only */ }
+
                 if (code != 41) return; // 41 = LaunchMcxMainUI = left CLAW button
 
                 Logger.Info("MSIClaw: Left CLAW button pressed (WMI LaunchMcxMainUI)");

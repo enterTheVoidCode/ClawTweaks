@@ -195,6 +195,40 @@ namespace XboxGamingBar
             tileTextBrush = new SolidColorBrush(theme.TextSecondary);
         }
 
+        /// <summary>
+        /// Recolours a nav tab's active "SelectionBackground" pill from the current theme. Called
+        /// when a tab is checked, so pills whose templates weren't realised at ApplyTheme time
+        /// (collapsed/lazy tabs) still get the themed look instead of the default grey gradient.
+        /// </summary>
+        private void ApplyNavPillTheme(DependencyObject navItem)
+        {
+            try
+            {
+                if (navItem == null) return;
+                if (!WidgetThemes.TryGetValue(currentThemeName, out var theme)) return;
+                var pill = FindDescendantByName(navItem, "SelectionBackground") as Border;
+                if (pill == null) return;
+                pill.Background = (theme.TileOn2 != null)
+                    ? ThemeFill(theme.TileOn, theme.TileOn2, diagonal: true)
+                    : new SolidColorBrush(theme.ButtonBackground);
+                pill.BorderBrush = new SolidColorBrush(theme.GlowColor ?? theme.AccentColor);
+            }
+            catch (Exception ex) { Logger.Debug($"ApplyNavPillTheme: {ex.Message}"); }
+        }
+
+        private static FrameworkElement FindDescendantByName(DependencyObject parent, string name)
+        {
+            int count = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is FrameworkElement fe && fe.Name == name) return fe;
+                var found = FindDescendantByName(child, name);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
         private void ApplyThemeToVisualTree(DependencyObject parent, ThemeColors theme,
             SolidColorBrush cardBgBrush, SolidColorBrush cardBorderBrush,
             SolidColorBrush accentBrush, SolidColorBrush textSecondaryBrush)
