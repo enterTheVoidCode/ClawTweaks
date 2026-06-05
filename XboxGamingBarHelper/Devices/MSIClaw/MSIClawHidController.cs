@@ -96,6 +96,9 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
 
         // ── Private helpers ──────────────────────────────────────────────
 
+        /// <summary>Exposed as internal so MsiClawLedController can reuse device discovery.</summary>
+        internal static HidDevice FindClawHidDeviceInternal() => FindClawHidDevice();
+
         private static HidDevice FindClawHidDevice()
         {
             try

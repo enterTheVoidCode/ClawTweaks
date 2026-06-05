@@ -230,6 +230,87 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // ── MSI Claw: LED color ──────────────────────────────────────────────────────
+                // Payload: "MsiLedColor" = "R,G,B" (comma-separated bytes 0-255)
+                if (pipeMsg.Extra.TryGetValue("MsiLedColor", out object ledColorObj) && ledColorObj is string ledColorStr)
+                {
+                    try
+                    {
+                        var parts = ledColorStr.Split(',');
+                        if (parts.Length == 3
+                            && byte.TryParse(parts[0].Trim(), out byte lr)
+                            && byte.TryParse(parts[1].Trim(), out byte lg)
+                            && byte.TryParse(parts[2].Trim(), out byte lb))
+                        {
+                            bool ok = Devices.MSIClaw.MsiClawLedController.TrySetLedColor(lr, lg, lb);
+                            Logger.Info($"Pipe: MsiLedColor R={lr} G={lg} B={lb} → ok={ok}");
+                            SendPipeAck(pipeMsg.RequestId, ok);
+                        }
+                        else
+                        {
+                            Logger.Warn($"Pipe: MsiLedColor bad format: '{ledColorStr}'");
+                            SendPipeAck(pipeMsg.RequestId, false);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: MsiLedColor failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // ── MSI Claw: battery charge limit ───────────────────────────────────────────
+                // Payload: "MsiChargeLimit" = "enabled:percent" e.g. "true:80" or "false:100"
+                if (pipeMsg.Extra.TryGetValue("MsiChargeLimit", out object chgObj) && chgObj is string chgStr)
+                {
+                    try
+                    {
+                        var parts = chgStr.Split(':');
+                        bool enabled = parts.Length > 0 && parts[0].Trim().ToLowerInvariant() == "true";
+                        int  percent = parts.Length > 1 && int.TryParse(parts[1].Trim(), out int p) ? p : 80;
+
+                        bool ok1 = Devices.MSIClaw.MsiClawBatteryManager.SetPercent(percent);
+                        bool ok2 = Devices.MSIClaw.MsiClawBatteryManager.SetEnabled(enabled);
+                        Logger.Info($"Pipe: MsiChargeLimit enabled={enabled} percent={percent} → ok={ok1&&ok2}");
+                        SendPipeAck(pipeMsg.RequestId, ok1 && ok2);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: MsiChargeLimit failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // ── MSI Claw: query current charge limit ─────────────────────────────────────
+                // Widget sends "MsiChargeLimitGet" = true to read current ACPI state.
+                // Response: "MsiChargeLimitStatus" = "enabled:percent" e.g. "true:80"
+                if (pipeMsg.Extra.ContainsKey("MsiChargeLimitGet"))
+                {
+                    try
+                    {
+                        int percent = Devices.MSIClaw.MsiClawBatteryManager.GetConfig(out bool enabled);
+                        Logger.Info($"Pipe: MsiChargeLimitGet → enabled={enabled} percent={percent}");
+                        var responseVs = new global::Windows.Foundation.Collections.ValueSet
+                        {
+                            { "MsiChargeLimitStatus", $"{enabled}:{percent}" }
+                        };
+                        if (pipeServer != null && pipeServer.IsConnected)
+                        {
+                            var responseMsg = Shared.IPC.PipeMessage.FromValueSet(responseVs);
+                            responseMsg.RequestId = pipeMsg.RequestId;
+                            pipeServer.SendMessage(responseMsg.ToJson());
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: MsiChargeLimitGet failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
                 // Handle LaunchProgram request (Program Actions: default targets + user exe/ps1)
                 if (pipeMsg.Extra.TryGetValue("LaunchProgram", out object progValue) && progValue is string progTarget)
                 {
