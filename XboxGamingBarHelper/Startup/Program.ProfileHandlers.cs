@@ -241,9 +241,19 @@ namespace XboxGamingBarHelper
             void ApplyButton(int idx, string json, string name)
             {
                 if (legionManager == null) return;
-                var (type, action, keys, mouse) = ButtonMappingParser.Parse(json ?? "");
+                if (string.IsNullOrEmpty(json))
+                {
+                    // null/empty = not configured in this profile — skip entirely.
+                    // DO NOT call SetButtonMappingAdvanced with defaults because that
+                    // sends a Clear command to hardware, wiping whatever the widget
+                    // already pushed (global remappings). The widget re-pushes the
+                    // correct profile after the cooldown window.
+                    Logger.Debug($"[CtrlApply] Button {name}(idx={idx}): null — skipping (widget owns button data)");
+                    return;
+                }
+                var (type, action, keys, mouse) = ButtonMappingParser.Parse(json);
                 var values = ButtonMappingParser.GetMappingValues(type, action, keys, mouse);
-                Logger.Info($"[CtrlApply] Button {name}(idx={idx}): json='{json ?? "null(clear)"}' type={type} action={action}");
+                Logger.Info($"[CtrlApply] Button {name}(idx={idx}): json='{json}' type={type} action={action}");
                 try { legionManager.SetButtonMappingAdvanced(idx, type, values); } catch (Exception ex) { Logger.Warn($"[CtrlApply] Button {name} failed: {ex.Message}"); }
             }
             ApplyButton(0, profile.LegionButtonY1, "Y1");

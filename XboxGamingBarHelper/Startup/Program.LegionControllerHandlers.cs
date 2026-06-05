@@ -41,19 +41,20 @@ namespace XboxGamingBarHelper
 
         private static void LegionControllerSetting_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            // Skip during profile application to prevent cross-contamination
+            // Skip during profile application to prevent cross-contamination.
+            // The widget will re-push correct values after isApplyingProfile clears.
             if (isApplyingProfile)
             {
-                Logger.Debug("Skipping LegionControllerSetting_PropertyChanged - already applying profile");
+                Logger.Debug("Skipping LegionControllerSetting_PropertyChanged - isApplyingProfile (widget re-pushes after)");
                 return;
             }
 
-            // Skip stale widget messages during cooldown after profile switch
-            if (IsInProfileSwitchCooldown())
-            {
-                Logger.Debug("Skipping LegionControllerSetting_PropertyChanged - in profile switch cooldown");
-                return;
-            }
+            // NOTE: no cooldown check here. The widget is the source of truth for
+            // controller settings (buttons, gyro). Its push must always be processed,
+            // including immediately after a profile switch. The cooldown guards
+            // performance settings (TDP_PropertyChanged etc.) against RTSS races —
+            // it must not block the widget's authoritative controller push.
+            Logger.Debug($"[CtrlHandler] Processing controller setting change from widget (sender={sender?.GetType().Name})");
 
             // Per-setting routing: buttons/gamepad-mapping/nintendo/vibration/lighting consult the
             // widget's save-flags. Gyro, stick deadzones, triggers, joystick-as-mouse, and
