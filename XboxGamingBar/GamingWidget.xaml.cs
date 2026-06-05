@@ -3306,14 +3306,29 @@ namespace XboxGamingBar
             if (!gameActive)
             {
                 // No game → load + apply global profile; toggle off + disabled.
+                // Gyro is always disabled outside of games — send explicit 0 regardless
+                // of what the global profile contains. Gyro is a game-only feature.
                 isSwitchingControllerProfile = true;
                 try
                 {
                     bool wasOn = LegionControllerProfileToggle.IsOn;
                     if (wasOn) LegionControllerProfileToggle.IsOn = false;
                     LoadControllerProfileFromStorage("Global", globalControllerProfile);
-                    Logger.Info($"[CtrlProfile] Game closed — applying GLOBAL profile to UI+hardware (gyroTarget={globalControllerProfile.GyroTarget}, wasPerGame={wasOn})");
-                    ApplyControllerProfile(globalControllerProfile);
+                    // Force gyro off for the apply — do not inherit global profile gyro value
+                    var profileForApply = globalControllerProfile.Clone();
+                    profileForApply.GyroTarget = 0;
+                    profileForApply.GyroSensitivityX = 50;
+                    profileForApply.GyroSensitivityY = 50;
+                    profileForApply.GyroDeadzone = 1;
+                    profileForApply.GyroInvertX = false;
+                    profileForApply.GyroInvertY = false;
+                    profileForApply.GyroMappingType = 0;
+                    profileForApply.GyroActivationMode = 0;
+                    profileForApply.GyroActivationButton = 0;
+                    Logger.Info($"[CtrlProfile] No game — applying GLOBAL profile, gyro forced OFF (wasPerGame={wasOn})");
+                    ApplyControllerProfile(profileForApply);
+                    // Sync the in-memory global profile's gyro state to match what we sent
+                    globalControllerProfile.GyroTarget = 0;
                 }
                 finally { isSwitchingControllerProfile = false; }
                 LegionControllerProfileToggle.IsEnabled = false;
