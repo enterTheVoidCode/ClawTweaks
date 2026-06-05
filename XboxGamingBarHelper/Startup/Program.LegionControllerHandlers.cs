@@ -338,6 +338,22 @@ namespace XboxGamingBarHelper
                 // Apply gyro OFF live so it takes effect immediately (no reboot required).
                 try { legionManager?.LegionGyroTarget?.SetValue(0); } catch { }
                 try { clawButtonMonitor?.SetGyroTarget(0); } catch { }
+
+                // Clear hardware/software button remappings live.
+                // SetValue("") → ButtonMappingParser.Parse("") → type=0, action=0
+                // → SetButtonMappingAdvanced(idx, 0, {0}) → ClearButtonMapping (Legion HID)
+                //   or OnButtonMappingChanged(idx, 0, {0}) (MSI Claw ClawButtonMonitor).
+                // Without this, M1/M2/Y1/Y2/Y3/M3 keep their old remappings on hardware
+                // even though the widget UI shows empty remaps after factory reset.
+                try { legionManager?.LegionButtonY1?.SetValue(""); } catch { }
+                try { legionManager?.LegionButtonY2?.SetValue(""); } catch { }
+                try { legionManager?.LegionButtonY3?.SetValue(""); } catch { }
+                try { legionManager?.LegionButtonM1?.SetValue(""); } catch { }
+                try { legionManager?.LegionButtonM2?.SetValue(""); } catch { }
+                try { legionManager?.LegionButtonM3?.SetValue(""); } catch { }
+                // Page button (Win+Tab default): clear any remap, hardware will use its built-in default
+                try { legionManager?.LegionButtonPage?.SetValue(""); } catch { }
+                Logger.Info("FactoryReset: cleared hardware button remappings (Y1-Y3, M1-M3, Page)");
             }
             catch (Exception ex)
             {
