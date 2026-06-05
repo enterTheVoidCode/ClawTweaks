@@ -1542,11 +1542,9 @@ namespace XboxGamingBar
                     ActiveProfileCard.Visibility = Visibility.Visible;
                 }
 
-                // Re-enable the per-game profile toggle
-                if (PerGameProfileToggle != null)
-                {
-                    PerGameProfileToggle.IsEnabled = runningGame?.Value.IsValid() == true;
-                }
+                // Update per-game profile toggle availability (keeps IsEnabled=true for nav,
+                // uses Opacity to show inactive state when no game is running).
+                SetPerGameProfileAvailable(runningGame?.Value.IsValid() == true);
 
                 Logger.Debug("Active Profile card shown - Default Game Profile is inactive");
             }
@@ -1581,11 +1579,10 @@ namespace XboxGamingBar
                     StickyTDPToggle.IsEnabled = false;
                 }
 
-                // Also disable FPS limit controls (controlled by Default Game Profile)
-                if (FPSLimitToggle != null)
-                {
-                    FPSLimitToggle.IsEnabled = false;
-                }
+                // FPS limit is not available while Default Game Profile is active.
+                // SetFpsLimitNavAvailable keeps FPSLimitToggle IsEnabled=true (nav-focusable)
+                // but dims it with Opacity. Sub-controls still get IsEnabled=false.
+                SetFpsLimitNavAvailable(false);
                 if (FPSLimitSlider != null)
                 {
                     FPSLimitSlider.IsEnabled = false;
@@ -1601,11 +1598,10 @@ namespace XboxGamingBar
                     TDPModeComboBox.IsEnabled = true;
                 }
 
-                // Re-enable FPS limit controls
-                if (FPSLimitToggle != null)
-                {
-                    FPSLimitToggle.IsEnabled = true;
-                }
+                // FPS limit available again — restore nav availability and re-enable sub-controls.
+                // UpdateFPSLimitControls will immediately re-evaluate RTSS/Intel availability
+                // and may call SetFpsLimitNavAvailable(false) again if neither is present.
+                SetFpsLimitNavAvailable(true);
                 if (FPSLimitSlider != null)
                 {
                     FPSLimitSlider.IsEnabled = true;
