@@ -5410,7 +5410,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Virtual Controller &amp; Mouse" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Aktiviert einen virtuellen Controller, der vollständiges Button-Remapping ermöglicht — inkl. M1, M2, Left-Front-MSI-Buttons und Mouse-Mode. Muss aktiv sein um Buttons und Gyro zu nutzen."
+                                        <TextBlock Text="Enables a virtual controller with full button remapping — including M1, M2, Left-Front-MSI-Buttons and Mouse Mode. Required for button remapping and gyro."
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    TextWrapping="Wrap"/>
                                         <TextBlock x:Name="ControllerEmulationStatusText"
@@ -7212,20 +7212,11 @@
                                 <!-- Shown while a per-game profile exists (toggle locked on): the profile's
                                      existence IS the on/off state, so the only way to turn it off is to delete it. -->
                                 <TextBlock x:Name="LegionControllerProfileLockHint"
-                                           Text="This game has its own controller profile, so it stays active automatically. To switch back to the global profile, delete it below."
+                                           Text="This game has its own controller profile, so it stays active automatically. To switch back to the global profile, delete it under Saved Profiles."
                                            Style="{StaticResource CardCaptionStyle}"
                                            TextWrapping="Wrap"
                                            Margin="0,6,0,0"
                                            Visibility="Collapsed"/>
-
-                                <Button x:Name="ClearPerGameControllerProfileButton"
-                                        Style="{StaticResource StandaloneButtonStyle}"
-                                        Margin="0,8,0,0"
-                                        HorizontalAlignment="Left"
-                                        Visibility="Collapsed"
-                                        Click="ClearPerGameControllerProfile_Click">
-                                    <TextBlock Text="Delete per-game controller profile"/>
-                                </Button>
 
                                 <!-- Per-game capture scope: user picks which categories the per-game
                                      profile should override. Unchecked categories stay global even
@@ -7323,7 +7314,7 @@
                                 </Grid>
                                 <!-- Hint: shown when global profile is active (gyro is per-game only) -->
                                 <TextBlock x:Name="GyroPerGameOnlyHint"
-                                           Text="Gyro ist nur in Per-Game Profilen verfügbar."
+                                           Text="Gyro is only available in per-game profiles."
                                            Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
                                            FontSize="12"
                                            Margin="0,8,0,0"
@@ -8110,18 +8101,19 @@
                                                                        TextTrimming="CharacterEllipsis"/>
                                                         </StackPanel>
                                                         <Button Grid.Column="2"
-                                                                Content="&#xE711;"
-                                                                FontFamily="Segoe MDL2 Assets"
-                                                                FontSize="12"
                                                                 Background="Transparent"
-                                                                Foreground="#FF6666"
+                                                                Foreground="#888888"
                                                                 BorderThickness="0"
-                                                                Padding="8,4"
+                                                                Padding="10,6"
                                                                 VerticalAlignment="Center"
+                                                                IsTabStop="True"
+                                                                UseSystemFocusVisuals="True"
                                                                 Tag="{Binding ProfileKey}"
                                                                 Visibility="{Binding CanDelete}"
                                                                 Click="DeleteSavedProfile_Click"
-                                                                ToolTipService.ToolTip="Delete profile"/>
+                                                                ToolTipService.ToolTip="Delete profile">
+                                                            <FontIcon Glyph="&#xE74D;" FontSize="14"/>
+                                                        </Button>
                                                     </Grid>
                                                 </Border>
                                             </DataTemplate>

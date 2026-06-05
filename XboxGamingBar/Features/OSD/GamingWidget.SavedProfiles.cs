@@ -295,13 +295,26 @@ namespace XboxGamingBar
                         return;
                     }
 
+                    // If this is the currently active per-game profile, delegate to the full
+                    // cleanup handler: it switches hardware+UI back to global, stops gyro,
+                    // resets the toggle, and refreshes the list.
+                    string activePerGameKey = HasValidGame(currentGameName)
+                        ? $"ControllerProfile_Game_{currentGameName}"
+                        : null;
+                    if (profileKey == activePerGameKey)
+                    {
+                        Logger.Info($"[DeleteSavedProfile] Deleting active per-game profile — delegating to full cleanup for '{currentGameName}'");
+                        ClearPerGameControllerProfile_Click(sender, e);
+                        return;
+                    }
+
                     var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
 
                     // Delete the controller profile container
                     if (settings.Containers.ContainsKey(profileKey))
                     {
                         settings.DeleteContainer(profileKey);
-                        Logger.Info($"Deleted controller profile: {profileKey}");
+                        Logger.Info($"[DeleteSavedProfile] Deleted controller profile: {profileKey}");
                     }
 
                     // Refresh the list
