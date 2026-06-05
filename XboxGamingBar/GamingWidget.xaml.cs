@@ -3305,19 +3305,17 @@ namespace XboxGamingBar
             //     so the user can create one (which copies the current global mapping).
             if (!gameActive)
             {
-                // No game → edit the global profile; toggle off + disabled.
-                if (LegionControllerProfileToggle.IsOn)
+                // No game → load + apply global profile; toggle off + disabled.
+                isSwitchingControllerProfile = true;
+                try
                 {
-                    isSwitchingControllerProfile = true;
-                    try
-                    {
-                        LegionControllerProfileToggle.IsOn = false; // Toggled handler loads global
-                        LoadControllerProfileFromStorage("Global", globalControllerProfile);
-                        ApplyControllerProfile(globalControllerProfile);
-                        Logger.Info("Game closed - switched back to global controller profile for editing");
-                    }
-                    finally { isSwitchingControllerProfile = false; }
+                    bool wasOn = LegionControllerProfileToggle.IsOn;
+                    if (wasOn) LegionControllerProfileToggle.IsOn = false;
+                    LoadControllerProfileFromStorage("Global", globalControllerProfile);
+                    Logger.Info($"[CtrlProfile] Game closed — applying GLOBAL profile to UI+hardware (gyroTarget={globalControllerProfile.GyroTarget}, wasPerGame={wasOn})");
+                    ApplyControllerProfile(globalControllerProfile);
                 }
+                finally { isSwitchingControllerProfile = false; }
                 LegionControllerProfileToggle.IsEnabled = false;
                 SetControllerProfileHints(gameActive: false, hasProfile: false);
                 UpdateControllerProfileModeBadge();
@@ -3329,43 +3327,39 @@ namespace XboxGamingBar
 
             if (hasProfile)
             {
-                // Existence == active. Load + apply, then lock the toggle ON.
-                if (!LegionControllerProfileToggle.IsOn)
+                // Per-game profile exists → load + apply, lock toggle ON.
+                isSwitchingControllerProfile = true;
+                try
                 {
-                    // Flip on; the Toggled handler loads the existing profile (no creation since
-                    // the container already exists) and applies + pushes it to the helper.
-                    LegionControllerProfileToggle.IsOn = true;
-                    Logger.Info($"Auto-activated existing per-game controller profile for {newGameName}");
+                    LoadControllerProfileFromStorage($"Game_{newGameName}", gameControllerProfile);
+                    Logger.Info($"[CtrlProfile] Game '{newGameName}' has per-game profile — applying (gyroTarget={gameControllerProfile.GyroTarget} M1={gameControllerProfile.ButtonM1?.GamepadAction} M2={gameControllerProfile.ButtonM2?.GamepadAction})");
+                    if (!LegionControllerProfileToggle.IsOn)
+                        LegionControllerProfileToggle.IsOn = true;
+                    ApplyControllerProfile(gameControllerProfile);
                 }
-                else
-                {
-                    // Already on (e.g. switching game-to-game) → load the new game's profile.
-                    isSwitchingControllerProfile = true;
-                    try
-                    {
-                        LoadControllerProfileFromStorage($"Game_{newGameName}", gameControllerProfile);
-                        ApplyControllerProfile(gameControllerProfile);
-                        Logger.Info($"Switched to per-game controller profile for {newGameName}");
-                    }
-                    finally { isSwitchingControllerProfile = false; }
-                }
+                finally { isSwitchingControllerProfile = false; }
                 LegionControllerProfileToggle.IsEnabled = false; // locked — delete to deactivate
                 SetControllerProfileHints(gameActive: true, hasProfile: true);
             }
             else
             {
                 // No per-game profile → global active; toggle available so the user can create one.
-                if (LegionControllerProfileToggle.IsOn)
+                isSwitchingControllerProfile = true;
+                try
                 {
-                    isSwitchingControllerProfile = true;
-                    try
+                    if (LegionControllerProfileToggle.IsOn)
                     {
-                        LegionControllerProfileToggle.IsOn = false; // Toggled handler loads global
-                        LoadControllerProfileFromStorage("Global", globalControllerProfile);
-                        ApplyControllerProfile(globalControllerProfile);
+                        LegionControllerProfileToggle.IsOn = false;
+                        Logger.Info($"[CtrlProfile] Game '{newGameName}' has no per-game profile — toggle was ON, turning OFF");
                     }
-                    finally { isSwitchingControllerProfile = false; }
+                    // STEP 2: Always push global profile to hardware when game starts with no
+                    // per-game profile. Previously this was skipped when the toggle was already
+                    // OFF, leaving the hardware in whatever state it was in from the last session.
+                    LoadControllerProfileFromStorage("Global", globalControllerProfile);
+                    Logger.Info($"[CtrlProfile] Game '{newGameName}' — applying GLOBAL profile (gyroTarget={globalControllerProfile.GyroTarget})");
+                    ApplyControllerProfile(globalControllerProfile);
                 }
+                finally { isSwitchingControllerProfile = false; }
                 LegionControllerProfileToggle.IsEnabled = true;
                 SetControllerProfileHints(gameActive: true, hasProfile: false);
             }

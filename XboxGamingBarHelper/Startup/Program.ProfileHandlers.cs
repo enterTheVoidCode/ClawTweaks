@@ -216,93 +216,55 @@ namespace XboxGamingBarHelper
             var profile = profileManager.CurrentProfile;
             var profileName = profile.GameId.Name;
 
-            Logger.Info($"Applying Legion controller settings from profile: {profileName}");
+            Logger.Info($"[CtrlApply] Profile='{profileName}' — hardware-only apply (widget is source of truth, no widget echo)");
 
-            // Button mappings - skip empty/null fields (not configured in profile).
-            // An explicit disabled mapping like {"Type":0,"GamepadAction":0,...} MUST be
-            // applied so the hardware clear command is sent; otherwise buttons like Desktop
-            // keep their hardware default (Xbox) even though the UI shows "Disabled".
-            if (!string.IsNullOrEmpty(profile.LegionButtonY1))
-            {
-                Logger.Debug($"Applying LegionButtonY1: {profile.LegionButtonY1}");
-                legionManager.LegionButtonY1.SetValue(profile.LegionButtonY1);
-            }
-            if (!string.IsNullOrEmpty(profile.LegionButtonY2))
-            {
-                Logger.Debug($"Applying LegionButtonY2: {profile.LegionButtonY2}");
-                legionManager.LegionButtonY2.SetValue(profile.LegionButtonY2);
-            }
-            if (!string.IsNullOrEmpty(profile.LegionButtonY3))
-            {
-                Logger.Debug($"Applying LegionButtonY3: {profile.LegionButtonY3}");
-                legionManager.LegionButtonY3.SetValue(profile.LegionButtonY3);
-            }
-            if (!string.IsNullOrEmpty(profile.LegionButtonM1))
-            {
-                Logger.Debug($"Applying LegionButtonM1: {profile.LegionButtonM1}");
-                legionManager.LegionButtonM1.SetValue(profile.LegionButtonM1);
-            }
-            if (!string.IsNullOrEmpty(profile.LegionButtonM2))
-            {
-                Logger.Debug($"Applying LegionButtonM2: {profile.LegionButtonM2}");
-                legionManager.LegionButtonM2.SetValue(profile.LegionButtonM2);
-            }
-            if (!string.IsNullOrEmpty(profile.LegionButtonM3))
-            {
-                Logger.Debug($"Applying LegionButtonM3: {profile.LegionButtonM3}");
-                legionManager.LegionButtonM3.SetValue(profile.LegionButtonM3);
-            }
-            if (!string.IsNullOrEmpty(profile.LegionButtonDesktop))
-            {
-                Logger.Debug($"Applying LegionButtonDesktop: {profile.LegionButtonDesktop}");
-                legionManager.LegionButtonDesktop.SetValue(profile.LegionButtonDesktop);
-            }
-            if (!string.IsNullOrEmpty(profile.LegionButtonPage))
-            {
-                Logger.Debug($"Applying LegionButtonPage: {profile.LegionButtonPage}");
-                legionManager.LegionButtonPage.SetValue(profile.LegionButtonPage);
-            }
-
-            // Gyro settings — two-track approach:
+            // ── DESIGN PRINCIPLE ──────────────────────────────────────────────────────
+            // The widget owns all controller profile data (LocalSettings). The helper is
+            // a pure hardware executor. We must NEVER call legionManager.Xxx.SetValue()
+            // for controller data here, because SetValue() echoes the value back to the
+            // widget UI via the pipe, which corrupts profiles (e.g. per-game gyro leaks
+            // into the global profile after game-end).
             //
-            // TRACK A — legionManager.SetValue(): notifies the widget UI via the pipe.
-            //   Only call when profile has an EXPLICIT value (HasValue). If null, skipping
-            //   prevents the helper from overwriting the widget's per-game gyro UI with
-            //   a stale default (the original "shows Disabled" bug).
-            //
-            // TRACK B — clawButtonMonitor.SetGyroXxx(): drives the actual hardware.
-            //   Always apply (null → safe default) so leftover gyro from a previous game
-            //   session cannot bleed into the next one (regression introduced by skipping
-            //   everything on null — RE2 hardware stayed at gyro=ON after factory reset).
-            //
-            // Result:
-            //   • No explicit profile gyro → hardware is silently reset to 0; widget UI
-            //     is untouched, so the widget's own per-game LocalSettings push arrives
-            //     correctly and both UI and hardware end up at the right value.
-            //   • Explicit profile gyro → both hardware AND widget UI are updated.
+            // BUTTONS: applied directly via SetButtonMappingAdvanced() (bypasses the
+            //   property echo path). Empty/null json → clear (action=0).
+            // GYRO: applied via ClawButtonMonitor only (no legionManager property calls).
+            // STICK DEADZONES / TRIGGERS: still use legionManager.SetValue() because they
+            //   have no direct hardware path yet and rarely cause echo issues.
+            // ─────────────────────────────────────────────────────────────────────────
 
-            int gyroButton          = profile.LegionGyroButton         ?? 0;
-            int gyroTarget          = profile.LegionGyroTarget          ?? 0;
-            int gyroSensX           = profile.LegionGyroSensitivityX    ?? 50;
-            int gyroSensY           = profile.LegionGyroSensitivityY    ?? 50;
-            bool gyroInvertX        = profile.LegionGyroInvertX         ?? false;
-            bool gyroInvertY        = profile.LegionGyroInvertY         ?? false;
-            int gyroMappingType     = profile.LegionGyroMappingType     ?? 0;
-            int gyroActivationMode  = profile.LegionGyroActivationMode  ?? 0;
-            int gyroDeadzone        = profile.LegionGyroDeadzone        ?? 10;
+            // Buttons: Y1(0) Y2(1) Y3(2) M1(3) M2(4) M3(5)
+            // SetButtonMappingAdvanced routes to hardware directly:
+            //   • Legion Go   → HID ClearButtonMapping / SetButtonMappingAdvanced
+            //   • MSI Claw    → OnButtonMappingChanged → ClawButtonMonitor software remap
+            // Desktop/Page buttons have their own higher-level handling and are skipped
+            // here — the widget pushes them via SendButtonMappingsToHelper on game start.
+            void ApplyButton(int idx, string json, string name)
+            {
+                if (legionManager == null) return;
+                var (type, action, keys, mouse) = ButtonMappingParser.Parse(json ?? "");
+                var values = ButtonMappingParser.GetMappingValues(type, action, keys, mouse);
+                Logger.Info($"[CtrlApply] Button {name}(idx={idx}): json='{json ?? "null(clear)"}' type={type} action={action}");
+                try { legionManager.SetButtonMappingAdvanced(idx, type, values); } catch (Exception ex) { Logger.Warn($"[CtrlApply] Button {name} failed: {ex.Message}"); }
+            }
+            ApplyButton(0, profile.LegionButtonY1, "Y1");
+            ApplyButton(1, profile.LegionButtonY2, "Y2");
+            ApplyButton(2, profile.LegionButtonY3, "Y3");
+            ApplyButton(3, profile.LegionButtonM1, "M1");
+            ApplyButton(4, profile.LegionButtonM2, "M2");
+            ApplyButton(5, profile.LegionButtonM3, "M3");
 
-            // Track A: notify widget only when explicit
-            if (profile.LegionGyroButton.HasValue)        legionManager.LegionGyroActivationButton.SetValue(gyroButton);
-            if (profile.LegionGyroTarget.HasValue)        legionManager.LegionGyroTarget.SetValue(gyroTarget);
-            if (profile.LegionGyroSensitivityX.HasValue)  legionManager.LegionGyroSensitivityX.SetValue(gyroSensX);
-            if (profile.LegionGyroSensitivityY.HasValue)  legionManager.LegionGyroSensitivityY.SetValue(gyroSensY);
-            if (profile.LegionGyroInvertX.HasValue)       legionManager.LegionGyroInvertX.SetValue(gyroInvertX);
-            if (profile.LegionGyroInvertY.HasValue)       legionManager.LegionGyroInvertY.SetValue(gyroInvertY);
-            if (profile.LegionGyroMappingType.HasValue)   legionManager.LegionGyroMappingType.SetValue(gyroMappingType);
-            if (profile.LegionGyroActivationMode.HasValue) legionManager.LegionGyroActivationMode.SetValue(gyroActivationMode);
-            if (profile.LegionGyroDeadzone.HasValue)      legionManager.LegionGyroDeadzone.SetValue(gyroDeadzone);
+            // Gyro: hardware only via ClawButtonMonitor. No legionManager.SetValue() calls.
+            int gyroTarget         = profile.LegionGyroTarget         ?? 0;
+            int gyroButton         = profile.LegionGyroButton         ?? 0;
+            int gyroSensX          = profile.LegionGyroSensitivityX   ?? 50;
+            int gyroSensY          = profile.LegionGyroSensitivityY   ?? 50;
+            bool gyroInvertX       = profile.LegionGyroInvertX        ?? false;
+            bool gyroInvertY       = profile.LegionGyroInvertY        ?? false;
+            int gyroMappingType    = profile.LegionGyroMappingType    ?? 0;
+            int gyroActivationMode = profile.LegionGyroActivationMode ?? 0;
+            int gyroDeadzone       = profile.LegionGyroDeadzone       ?? 1;
 
-            // Track B: always reset hardware (silent, no widget notification)
+            Logger.Info($"[CtrlApply] Gyro hardware: target={gyroTarget} button={gyroButton} sensX={gyroSensX} sensY={gyroSensY} mode={gyroActivationMode} deadzone={gyroDeadzone} invertX={gyroInvertX} invertY={gyroInvertY}");
             clawButtonMonitor?.SetGyroTarget(gyroTarget);
             clawButtonMonitor?.SetGyroActivationMode(gyroActivationMode);
             clawButtonMonitor?.SetGyroActivationButton(gyroButton);
@@ -311,10 +273,6 @@ namespace XboxGamingBarHelper
             clawButtonMonitor?.SetGyroInvertX(gyroInvertX);
             clawButtonMonitor?.SetGyroInvertY(gyroInvertY);
             clawButtonMonitor?.SetGyroDeadzone(gyroDeadzone);
-
-            Logger.Debug($"Gyro applied — target={gyroTarget}{(profile.LegionGyroTarget.HasValue ? "" : " (default, UI not notified)")}, " +
-                         $"mode={gyroActivationMode}{(profile.LegionGyroActivationMode.HasValue ? "" : " (default)")}, " +
-                         $"button={gyroButton}{(profile.LegionGyroButton.HasValue ? "" : " (default)")}");
 
             // Stick deadzones
             if (profile.LegionLeftStickDeadzone.HasValue)
