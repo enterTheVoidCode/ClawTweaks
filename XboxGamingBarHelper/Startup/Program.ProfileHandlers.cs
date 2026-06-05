@@ -232,36 +232,17 @@ namespace XboxGamingBarHelper
             //   have no direct hardware path yet and rarely cause echo issues.
             // ─────────────────────────────────────────────────────────────────────────
 
-            // Buttons: Y1(0) Y2(1) Y3(2) M1(3) M2(4) M3(5)
-            // SetButtonMappingAdvanced routes to hardware directly:
-            //   • Legion Go   → HID ClearButtonMapping / SetButtonMappingAdvanced
-            //   • MSI Claw    → OnButtonMappingChanged → ClawButtonMonitor software remap
-            // Desktop/Page buttons have their own higher-level handling and are skipped
-            // here — the widget pushes them via SendButtonMappingsToHelper on game start.
-            void ApplyButton(int idx, string json, string name)
-            {
-                if (legionManager == null) return;
-                if (string.IsNullOrEmpty(json))
-                {
-                    // null/empty = not configured in this profile — skip entirely.
-                    // DO NOT call SetButtonMappingAdvanced with defaults because that
-                    // sends a Clear command to hardware, wiping whatever the widget
-                    // already pushed (global remappings). The widget re-pushes the
-                    // correct profile after the cooldown window.
-                    Logger.Debug($"[CtrlApply] Button {name}(idx={idx}): null — skipping (widget owns button data)");
-                    return;
-                }
-                var (type, action, keys, mouse) = ButtonMappingParser.Parse(json);
-                var values = ButtonMappingParser.GetMappingValues(type, action, keys, mouse);
-                Logger.Info($"[CtrlApply] Button {name}(idx={idx}): json='{json}' type={type} action={action}");
-                try { legionManager.SetButtonMappingAdvanced(idx, type, values); } catch (Exception ex) { Logger.Warn($"[CtrlApply] Button {name} failed: {ex.Message}"); }
-            }
-            ApplyButton(0, profile.LegionButtonY1, "Y1");
-            ApplyButton(1, profile.LegionButtonY2, "Y2");
-            ApplyButton(2, profile.LegionButtonY3, "Y3");
-            ApplyButton(3, profile.LegionButtonM1, "M1");
-            ApplyButton(4, profile.LegionButtonM2, "M2");
-            ApplyButton(5, profile.LegionButtonM3, "M3");
+            // BUTTONS: not handled here at all.
+            // Button remappings are "sticky" — once set on hardware they stay until
+            // explicitly changed. The widget is the sole authority:
+            //   • User changes global buttons   → widget pushes immediately, persists
+            //   • Per-game profile activated     → widget pushes per-game buttons
+            //   • Game ends (was per-game)       → widget pushes global buttons back
+            //   • Game starts, no per-game       → hardware already has correct global
+            //                                      buttons from last widget push, no
+            //                                      action needed
+            // Touching buttons here would only cause races with the widget's own push.
+            Logger.Debug("[CtrlApply] Buttons: skipped — widget manages all button pushes");
 
             // Gyro: hardware only via ClawButtonMonitor. No legionManager.SetValue() calls.
             int gyroTarget         = profile.LegionGyroTarget         ?? 0;
