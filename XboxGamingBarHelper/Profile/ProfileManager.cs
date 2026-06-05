@@ -4,6 +4,7 @@ using Shared.Utilities;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Windows.Storage;
 using XboxGamingBarHelper.Core;
 
@@ -138,6 +139,22 @@ namespace XboxGamingBarHelper.Profile
         public static string GetGlobalProfilePath()
         {
             return Path.Combine(GetLocalFolderPath(), $"{GameProfile.GLOBAL_PROFILE_NAME}{XML_EXTENSION}");
+        }
+
+        /// <summary>
+        /// Removes all per-game profiles from the in-memory cache.
+        /// Called during factory reset after disk files have been deleted, so the
+        /// stale in-memory entries (which could have gyro or other controller settings
+        /// enabled) cannot be re-applied when the next game starts.
+        /// </summary>
+        public void ClearPerGameProfileCache()
+        {
+            var perGameKeys = gameProfiles.Keys
+                .Where(k => k.Name != GameProfile.GLOBAL_PROFILE_NAME)
+                .ToList();
+            foreach (var key in perGameKeys)
+                gameProfiles.Remove(key);
+            Logger.Info($"FactoryReset: cleared {perGameKeys.Count} per-game profiles from in-memory cache");
         }
 
         /// <summary>
