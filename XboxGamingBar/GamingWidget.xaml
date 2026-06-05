@@ -4290,8 +4290,8 @@
                                         </Grid>
                                     </Border>
 
-                                    <!-- VIIPER Emulation Backend Toggle (coming soon — read-only) -->
-                                    <Grid Margin="0,16,0,0" Opacity="0.5">
+                                    <!-- VIIPER Emulation Backend Toggle (coming soon — read-only, non-interactive) -->
+                                    <Grid Margin="0,16,0,0" Opacity="0.5" IsHitTestVisible="False">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
@@ -4333,6 +4333,61 @@
                                             <HyperlinkButton x:Name="UsbipInstallLink"
                                                              Content="Open usbip-win2 releases"
                                                              NavigateUri="https://github.com/vadimgrn/usbip-win2/releases"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Driver dependencies — moved here from Controller tab so it's
+                                         co-located with the backend toggles that depend on these drivers -->
+                                    <Border Background="#1A1A2E" CornerRadius="4" Padding="10" Margin="0,12,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Driver dependencies"
+                                                       FontSize="11"
+                                                       Foreground="#AAAAAA"/>
+                                            <TextBlock Text="ViGEmBus powers virtual controllers. HidHide avoids double-input from stock controllers."
+                                                       FontSize="11"
+                                                       Foreground="#888888"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,2,0,0"/>
+
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock x:Name="ControllerEmulationViGEmBusStatusText"
+                                                           Text="ViGEmBus: Checking..."
+                                                           FontSize="11"
+                                                           Foreground="#888888"
+                                                           VerticalAlignment="Center"/>
+                                                <Button x:Name="ControllerEmulationViGEmBusInstallButton"
+                                                        Grid.Column="1"
+                                                        Content="Install ViGEmBus"
+                                                        Style="{StaticResource ModernButtonStyle}"
+                                                        FontSize="11"
+                                                        Padding="10,4"
+                                                        Margin="12,0,0,0"
+                                                        Click="ViGEmBusInstallButton_Click"/>
+                                            </Grid>
+
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock x:Name="ControllerEmulationHidHideStatusText"
+                                                           Text="HidHide: Checking..."
+                                                           FontSize="11"
+                                                           Foreground="#888888"
+                                                           VerticalAlignment="Center"/>
+                                                <Button x:Name="ControllerEmulationHidHideInstallButton"
+                                                        Grid.Column="1"
+                                                        Content="Install HidHide"
+                                                        Style="{StaticResource ModernButtonStyle}"
+                                                        FontSize="11"
+                                                        Padding="10,4"
+                                                        Margin="12,0,0,0"
+                                                        Click="HidHideInstallButton_Click"/>
+                                            </Grid>
                                         </StackPanel>
                                     </Border>
 
@@ -5730,59 +5785,6 @@
                                                        TextWrapping="Wrap"
                                                        Margin="0,6,0,0"/>
                                         </StackPanel>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Background="#1A1A2E" CornerRadius="4" Padding="10" Margin="0,10,0,0">
-                                    <StackPanel>
-                                        <TextBlock Text="Driver dependencies"
-                                                   FontSize="11"
-                                                   Foreground="#AAAAAA"/>
-                                        <TextBlock Text="ViGEmBus powers virtual controllers. HidHide avoids double-input from stock controllers."
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,2,0,0"/>
-
-                                        <Grid Margin="0,8,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock x:Name="ControllerEmulationViGEmBusStatusText"
-                                                       Text="ViGEmBus: Checking..."
-                                                       FontSize="11"
-                                                       Foreground="#888888"
-                                                       VerticalAlignment="Center"/>
-                                            <Button x:Name="ControllerEmulationViGEmBusInstallButton"
-                                                    Grid.Column="1"
-                                                    Content="Install ViGEmBus"
-                                                    Style="{StaticResource ModernButtonStyle}"
-                                                    FontSize="11"
-                                                    Padding="10,4"
-                                                    Margin="12,0,0,0"
-                                                    Click="ViGEmBusInstallButton_Click"/>
-                                        </Grid>
-
-                                        <Grid Margin="0,8,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock x:Name="ControllerEmulationHidHideStatusText"
-                                                       Text="HidHide: Checking..."
-                                                       FontSize="11"
-                                                       Foreground="#888888"
-                                                       VerticalAlignment="Center"/>
-                                            <Button x:Name="ControllerEmulationHidHideInstallButton"
-                                                    Grid.Column="1"
-                                                    Content="Install HidHide"
-                                                    Style="{StaticResource ModernButtonStyle}"
-                                                    FontSize="11"
-                                                    Padding="10,4"
-                                                    Margin="12,0,0,0"
-                                                    Click="HidHideInstallButton_Click"/>
-                                        </Grid>
                                     </StackPanel>
                                 </Border>
 
