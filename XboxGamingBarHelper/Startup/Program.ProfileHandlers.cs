@@ -244,26 +244,13 @@ namespace XboxGamingBarHelper
             // Touching buttons here would only cause races with the widget's own push.
             Logger.Debug("[CtrlApply] Buttons: skipped — widget manages all button pushes");
 
-            // Gyro: hardware only via ClawButtonMonitor. No legionManager.SetValue() calls.
-            int gyroTarget         = profile.LegionGyroTarget         ?? 0;
-            int gyroButton         = profile.LegionGyroButton         ?? 0;
-            int gyroSensX          = profile.LegionGyroSensitivityX   ?? 50;
-            int gyroSensY          = profile.LegionGyroSensitivityY   ?? 50;
-            bool gyroInvertX       = profile.LegionGyroInvertX        ?? false;
-            bool gyroInvertY       = profile.LegionGyroInvertY        ?? false;
-            int gyroMappingType    = profile.LegionGyroMappingType    ?? 0;
-            int gyroActivationMode = profile.LegionGyroActivationMode ?? 0;
-            int gyroDeadzone       = profile.LegionGyroDeadzone       ?? 1;
-
-            Logger.Info($"[CtrlApply] Gyro hardware: target={gyroTarget} button={gyroButton} sensX={gyroSensX} sensY={gyroSensY} mode={gyroActivationMode} deadzone={gyroDeadzone} invertX={gyroInvertX} invertY={gyroInvertY}");
-            clawButtonMonitor?.SetGyroTarget(gyroTarget);
-            clawButtonMonitor?.SetGyroActivationMode(gyroActivationMode);
-            clawButtonMonitor?.SetGyroActivationButton(gyroButton);
-            clawButtonMonitor?.SetGyroSensitivityX(gyroSensX);
-            clawButtonMonitor?.SetGyroSensitivityY(gyroSensY);
-            clawButtonMonitor?.SetGyroInvertX(gyroInvertX);
-            clawButtonMonitor?.SetGyroInvertY(gyroInvertY);
-            clawButtonMonitor?.SetGyroDeadzone(gyroDeadzone);
+            // GYRO: not handled here.
+            // Gyro is game-only. The widget manages the full gyro lifecycle:
+            //   • Game starts  → widget pushes gyro from the active profile
+            //   • Game ends    → widget explicitly sends gyroTarget=0 (always off)
+            // No helper-side gyro application needed; the widget's push arrives
+            // after isApplyingProfile clears and is processed immediately (no cooldown).
+            Logger.Debug("[CtrlApply] Gyro: skipped — widget sends correct value on game-start and always 0 on game-end");
 
             // Stick deadzones
             if (profile.LegionLeftStickDeadzone.HasValue)
