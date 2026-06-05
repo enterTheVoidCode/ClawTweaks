@@ -7308,6 +7308,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Gyro" Style="{StaticResource CardTitleStyle}" Grid.Column="0"/>
+                                    <!-- Expand toggle: only visible when per-game profile is active -->
                                     <ToggleButton x:Name="GyroSettingsExpandToggle"
                                                   Grid.Column="1"
                                                   IsChecked="False"
@@ -7315,10 +7316,19 @@
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
+                                                  Visibility="Collapsed"
                                                   Click="GyroSettingsExpandToggle_Click">
                                         <FontIcon x:Name="GyroSettingsExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
+                                <!-- Hint: shown when global profile is active (gyro is per-game only) -->
+                                <TextBlock x:Name="GyroPerGameOnlyHint"
+                                           Text="Gyro ist nur in Per-Game Profilen verfügbar."
+                                           Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
+                                           FontSize="12"
+                                           Margin="0,8,0,0"
+                                           Visibility="Visible"
+                                           TextWrapping="Wrap"/>
                                 <StackPanel x:Name="GyroSettingsContent" Spacing="12" Margin="0,12,0,0" Visibility="Collapsed">
                                     <!-- Gyro Target -->
                                 <Grid>

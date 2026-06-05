@@ -2399,6 +2399,8 @@ namespace XboxGamingBar
             // Apply global controller profile to UI controls
             // (ApplyControllerProfile will clear isLoadingControllerProfile when done)
             ApplyControllerProfile(globalControllerProfile);
+            // Gyro is per-game only — start in global (hidden) mode
+            UpdateGyroSectionForProfileMode(perGameActive: false);
 
             // Subscribe to power source profile toggle changes to update game profile card
             PowerSourceProfileToggle.Toggled += PowerSourceToggle_Changed;
@@ -3305,30 +3307,22 @@ namespace XboxGamingBar
             //     so the user can create one (which copies the current global mapping).
             if (!gameActive)
             {
-                // No game → load + apply global profile normally (UI reflects true settings).
-                // Gyro is game-only: after applying the profile we send an explicit gyro=0
-                // to hardware WITHOUT touching the profile or UI — so the card keeps showing
-                // the configured gyro (e.g. "Gyro:LStick") which is correct: it tells the
-                // user "gyro will activate when you next start a game without a per-game profile".
+                // No game → load + apply global profile; gyro section hidden (per-game only).
                 isSwitchingControllerProfile = true;
                 try
                 {
                     bool wasOn = LegionControllerProfileToggle.IsOn;
                     if (wasOn) LegionControllerProfileToggle.IsOn = false;
                     LoadControllerProfileFromStorage("Global", globalControllerProfile);
-                    Logger.Info($"[CtrlProfile] No game — applying GLOBAL profile to UI (gyroTarget={globalControllerProfile.GyroTarget}, wasPerGame={wasOn})");
+                    Logger.Info($"[CtrlProfile] No game — applying GLOBAL profile (wasPerGame={wasOn})");
                     ApplyControllerProfile(globalControllerProfile);
-                    // Gyro always off on hardware outside of games — explicit override
-                    // after the profile push (hardware: LStick→0, brief transition is fine).
-                    if (globalControllerProfile.GyroTarget != 0)
-                    {
-                        Logger.Info("[CtrlProfile] Gyro was active in global profile — forcing hardware OFF (profile setting preserved for next game start)");
-                        legionGyroTarget?.SetValue(0);
-                    }
+                    // Gyro is per-game only — always off on hardware outside of games.
+                    legionGyroTarget?.SetValue(0);
                 }
                 finally { isSwitchingControllerProfile = false; }
                 LegionControllerProfileToggle.IsEnabled = false;
                 SetControllerProfileHints(gameActive: false, hasProfile: false);
+                UpdateGyroSectionForProfileMode(perGameActive: false);
                 UpdateControllerProfileModeBadge();
                 return;
             }
@@ -3338,7 +3332,7 @@ namespace XboxGamingBar
 
             if (hasProfile)
             {
-                // Per-game profile exists → load + apply, lock toggle ON.
+                // Per-game profile exists → load + apply, lock toggle ON, gyro section visible.
                 isSwitchingControllerProfile = true;
                 try
                 {
@@ -3351,10 +3345,11 @@ namespace XboxGamingBar
                 finally { isSwitchingControllerProfile = false; }
                 LegionControllerProfileToggle.IsEnabled = false; // locked — delete to deactivate
                 SetControllerProfileHints(gameActive: true, hasProfile: true);
+                UpdateGyroSectionForProfileMode(perGameActive: true);
             }
             else
             {
-                // No per-game profile → global active; toggle available so the user can create one.
+                // No per-game profile → global active; gyro section hidden (per-game only).
                 isSwitchingControllerProfile = true;
                 try
                 {
@@ -3363,16 +3358,16 @@ namespace XboxGamingBar
                         LegionControllerProfileToggle.IsOn = false;
                         Logger.Info($"[CtrlProfile] Game '{newGameName}' has no per-game profile — toggle was ON, turning OFF");
                     }
-                    // STEP 2: Always push global profile to hardware when game starts with no
-                    // per-game profile. Previously this was skipped when the toggle was already
-                    // OFF, leaving the hardware in whatever state it was in from the last session.
                     LoadControllerProfileFromStorage("Global", globalControllerProfile);
-                    Logger.Info($"[CtrlProfile] Game '{newGameName}' — applying GLOBAL profile (gyroTarget={globalControllerProfile.GyroTarget})");
+                    Logger.Info($"[CtrlProfile] Game '{newGameName}' — applying GLOBAL profile (gyro per-game only, forcing 0)");
                     ApplyControllerProfile(globalControllerProfile);
+                    // Gyro is per-game only — always off when no per-game profile.
+                    legionGyroTarget?.SetValue(0);
                 }
                 finally { isSwitchingControllerProfile = false; }
                 LegionControllerProfileToggle.IsEnabled = true;
                 SetControllerProfileHints(gameActive: true, hasProfile: false);
+                UpdateGyroSectionForProfileMode(perGameActive: false);
             }
 
             UpdateControllerProfileModeBadge();

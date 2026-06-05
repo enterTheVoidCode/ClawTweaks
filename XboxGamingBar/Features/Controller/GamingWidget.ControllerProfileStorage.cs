@@ -1706,9 +1706,10 @@ namespace XboxGamingBar
                         }
 
                         // Existence == active: lock the toggle. Only deleting the profile (Delete
-                        // button) turns it back off.
+                        // button) turns it back off. Gyro section visible in per-game mode.
                         LegionControllerProfileToggle.IsEnabled = false;
                         SetControllerProfileHints(gameActive: true, hasProfile: true);
+                        UpdateGyroSectionForProfileMode(perGameActive: true);
                     }
                     else
                     {
@@ -1721,9 +1722,11 @@ namespace XboxGamingBar
                 else
                 {
                     // Turned OFF — reached only programmatically (game closed, or the profile was
-                    // deleted), since the toggle is locked while a profile exists. Back to global.
+                    // deleted). Back to global; gyro section hidden (per-game only).
                     LoadControllerProfileFromStorage("Global", globalControllerProfile);
                     ApplyControllerProfile(globalControllerProfile);
+                    legionGyroTarget?.SetValue(0);
+                    UpdateGyroSectionForProfileMode(perGameActive: false);
                     Logger.Info("Switched to global controller profile");
                 }
             }
