@@ -408,12 +408,12 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 }
 
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseLeftClickButton", out int savedLeftClickButton))
-                    mouseLeftClickButton = Math.Max(0, Math.Min(8, savedLeftClickButton));
+                    mouseLeftClickButton = Math.Max(0, Math.Min(10, savedLeftClickButton)); // 0-10: None,A,B,X,Y,LB,RB,LS,RS,LT,RT
                 else
                     mouseLeftClickButton = 6; // default RB
 
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseRightClickButton", out int savedRightClickButton))
-                    mouseRightClickButton = Math.Max(0, Math.Min(8, savedRightClickButton));
+                    mouseRightClickButton = Math.Max(0, Math.Min(10, savedRightClickButton));
                 else
                     mouseRightClickButton = 5; // default LB
 
@@ -1081,15 +1081,16 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     EmitForwardingStatsIfDue();
                     if (mode == 0)
                     {
-                        XINPUT_STATE activationState = default;
+                        // Read physical controller state when needed for gyro activation or button clicks.
                         bool hasActivationState = false;
-                        if (gyroActivationMode != 0)
+                        XINPUT_STATE activationState = default;
+                        bool needsState = gyroActivationMode != 0
+                                       || mouseLeftClickButton != 0
+                                       || mouseRightClickButton != 0;
+                        if (needsState)
                         {
                             if (xInputGetState == null)
-                            {
                                 EnsureXInputLoaded();
-                            }
-
                             if (xInputGetState != null)
                             {
                                 hasActivationState = TryReadPhysicalControllerState(out activationState);
@@ -1097,10 +1098,35 @@ namespace XboxGamingBarHelper.ControllerEmulation
                             }
                         }
 
+                        // Gyro-based mouse movement
                         bool mouseGyroActive = IsGyroActivationEnabled(hasActivationState ? activationState.Gamepad : (XINPUT_GAMEPAD?)null);
                         if (mouseGyroActive && TryReadGyroSample(out GyroSample mouseSample))
                         {
                             ApplyMouseFromGyro(mouseSample);
+                        }
+
+                        // Button-mapped mouse clicks — detect press/release edges to avoid
+                        // sending MOUSEDOWN/UP on every loop iteration.
+                        if (hasActivationState)
+                        {
+                            if (mouseLeftClickButton != 0)
+                            {
+                                bool nowPressed = IsMouseClickButtonPressed(activationState.Gamepad, mouseLeftClickButton);
+                                if (nowPressed != mouseLeftClickPrev)
+                                {
+                                    SendMouseMapping(1, nowPressed); // 1 = left click
+                                    mouseLeftClickPrev = nowPressed;
+                                }
+                            }
+                            if (mouseRightClickButton != 0)
+                            {
+                                bool nowPressed = IsMouseClickButtonPressed(activationState.Gamepad, mouseRightClickButton);
+                                if (nowPressed != mouseRightClickPrev)
+                                {
+                                    SendMouseMapping(2, nowPressed); // 2 = right click
+                                    mouseRightClickPrev = nowPressed;
+                                }
+                            }
                         }
 
                         Thread.Sleep(ForwardingIntervalMs);
@@ -1340,6 +1366,32 @@ namespace XboxGamingBarHelper.ControllerEmulation
             mouseFilteredDerivativeVertical = 0.0f;
             mouseFilterInitialized = false;
             mouseLastSampleTicksUtc = 0;
+            mouseLeftClickPrev = false;
+            mouseRightClickPrev = false;
+        }
+
+        /// <summary>
+        /// Returns true when the button assigned to a mouse click slot is currently pressed,
+        /// based on raw XInput gamepad state. Handles both digital buttons (wButtons bitmask)
+        /// and analog triggers (bLeftTrigger / bRightTrigger with the standard XInput threshold).
+        /// Index mapping: 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS,9=LT,10=RT
+        /// </summary>
+        private bool IsMouseClickButtonPressed(XINPUT_GAMEPAD gamepad, int buttonIndex)
+        {
+            switch (buttonIndex)
+            {
+                case 1:  return (gamepad.wButtons & XINPUT_GAMEPAD_A) != 0;
+                case 2:  return (gamepad.wButtons & XINPUT_GAMEPAD_B) != 0;
+                case 3:  return (gamepad.wButtons & XINPUT_GAMEPAD_X) != 0;
+                case 4:  return (gamepad.wButtons & XINPUT_GAMEPAD_Y) != 0;
+                case 5:  return (gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
+                case 6:  return (gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
+                case 7:  return (gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB) != 0;
+                case 8:  return (gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB) != 0;
+                case 9:  return gamepad.bLeftTrigger > XINPUT_TRIGGER_THRESHOLD;    // LT
+                case 10: return gamepad.bRightTrigger > XINPUT_TRIGGER_THRESHOLD;   // RT
+                default: return false;
+            }
         }
 
         private void ResetStickRuntimeState()

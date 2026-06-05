@@ -45,8 +45,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private int ds4Orientation;
         private int mouseSensitivity;
         private int mouseThreshold;
-        private int mouseLeftClickButton;   // 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS
+        private int mouseLeftClickButton;   // 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS,9=LT,10=RT
         private int mouseRightClickButton;
+        private bool mouseLeftClickPrev;    // edge tracking — was the mapped button pressed last loop?
+        private bool mouseRightClickPrev;
         private int mouseCursorStick;       // 0=Right,1=Left
         private int mouseScrollStick;       // 0=Left,1=Right
         private int mouseAxis;
