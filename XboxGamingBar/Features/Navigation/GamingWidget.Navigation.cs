@@ -268,6 +268,9 @@ namespace XboxGamingBar
             // back to the active nav tab. This is the ONLY reliable escape from a
             // "stuck below disabled controls" situation; XYFocusUp bindings on disabled
             // targets are silently ignored by UWP.
+            // We ALWAYS mark e.Handled here to prevent per-control KeyDown handlers from
+            // double-navigating: PreviewKeyDown (tunneling) fires before KeyDown (bubbling),
+            // so consuming the event here stops the per-control handler from also acting.
             else if (e.Key == VirtualKey.GamepadDPadUp)
             {
                 var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
@@ -278,9 +281,10 @@ namespace XboxGamingBar
                     {
                         // Nothing enabled above — always let the user escape to the nav bar.
                         FocusActiveTab();
-                        e.Handled = true;
                     }
-                    // If moved successfully, let UWP handle focus change normally (don't mark Handled).
+                    // Always consume — prevent per-control KeyDown from double-navigating
+                    // (both TryMoveFocus success and fallback paths need this).
+                    e.Handled = true;
                 }
             }
         }
@@ -431,8 +435,17 @@ namespace XboxGamingBar
 
             if (PerformanceScrollViewer?.Visibility == Visibility.Visible)
             {
-                // Performance tab: Per-Game profile toggle is always enabled and at the very top.
-                target = PerGameProfileToggle;
+                // Performance tab: try enabled controls top-to-bottom.
+                // PerGameProfileToggle and FPSLimitToggle can be disabled (depends on
+                // whether RTSS is available and a game profile is active). Always pick
+                // the topmost currently-enabled control so D-pad Down from the nav bar
+                // lands at the correct starting point rather than falling through to
+                // FindFirstFocusableElement which would skip to the TDP slider.
+                if (PerGameProfileToggle?.IsEnabled == true)
+                    target = PerGameProfileToggle;
+                else if (FPSLimitToggle?.IsEnabled == true)
+                    target = FPSLimitToggle;
+                // else: fall through to FindFirstFocusableElement (TDP slider or first enabled)
             }
             else if (SystemScrollViewer?.Visibility == Visibility.Visible)
             {
