@@ -2416,6 +2416,9 @@ namespace XboxGamingBar
                     case TileActionType.GoToDesktop:
                         await SendKeyboardShortcutViaHelper("Win+D");
                         break;
+                    case TileActionType.ShowKeyboard:
+                        TriggerOnScreenKeyboard();
+                        break;
                     case TileActionType.BrightnessUp:
                     case TileActionType.BrightnessDown:
                         await AdjustBrightnessViaHelperAsync(actionType == TileActionType.BrightnessUp ? 5 : -5);
@@ -2501,6 +2504,10 @@ namespace XboxGamingBar
 
                     case TileActionType.GoToDesktop:
                         await SendCustomShortcutAsync("Win+D", actionName);
+                        break;
+
+                    case TileActionType.ShowKeyboard:
+                        TriggerOnScreenKeyboard();
                         break;
 
                     // ── Brightness / Volume (via helper) ───────────────────

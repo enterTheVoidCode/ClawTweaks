@@ -851,8 +851,9 @@ namespace XboxGamingBar
             }
         }
 
-        /// <summary>Re-populates both action dropdowns (Custom Tile + Front Button) after the
-        /// user's program/URL lists change.</summary>
+        /// <summary>Re-populates all action dropdowns (Custom Tile + Front Button single-click +
+        /// Left MSI double-click) after the user's program/URL lists change, or when the device
+        /// name is first received (ensures MSI-Claw actions are always visible).</summary>
         internal void RefreshActionDropdowns()
         {
             try { FillActionComboBox(CustomActionTypeComboBox); } catch { }
@@ -860,6 +861,11 @@ namespace XboxGamingBar
             {
                 var combo = FindName("LegionButtonDesktopActionComboBox") as ComboBox;
                 if (combo != null) FillActionComboBox(combo);
+            }
+            catch { }
+            try
+            {
+                if (LeftMsiDoubleActionComboBox != null) FillActionComboBox(LeftMsiDoubleActionComboBox);
             }
             catch { }
         }

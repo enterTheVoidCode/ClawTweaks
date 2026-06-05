@@ -2550,7 +2550,9 @@ namespace XboxGamingBar
             {
                 deviceDisplayName.PropertyChanged += QuickSettingsProperty_Changed;
                 // Show/initialize the MSI Claw fan card + Display tab once the device name is known.
-                deviceDisplayName.PropertyChanged += (s, e) => { InitializeMsiFanCard(); InitializeDisplayTab(); };
+                // Also re-populate all action dropdowns so MSI-Claw-specific entries appear even
+                // if the helper's device name arrived after the initial dropdown population.
+                deviceDisplayName.PropertyChanged += (s, e) => { InitializeMsiFanCard(); InitializeDisplayTab(); RefreshActionDropdowns(); };
             }
             InitializeMsiFanCard();
             InitializeDisplayTab();

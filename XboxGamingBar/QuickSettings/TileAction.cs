@@ -20,6 +20,7 @@ namespace XboxGamingBar.QuickSettings
         AltTab         = 12,
         AltTabBack     = 13,
         GoToDesktop    = 14,
+        ShowKeyboard   = 15,   // toggle on-screen/touch keyboard
 
         // ── OS Actions: media keys (30–39) ─────────────────────────────────
         MediaNextTrack = 30,   // VK_MEDIA_NEXT_TRACK (0xB0)
@@ -72,6 +73,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.AltTab:           return "Window Overview (Alt+Tab)";
                 case TileActionType.AltTabBack:       return "Cycle Through Apps";
                 case TileActionType.GoToDesktop:      return "Show Desktop (Win+D)";
+                case TileActionType.ShowKeyboard:     return "Show Keyboard";
                 case TileActionType.MediaNextTrack:   return "Next Track";
                 case TileActionType.MediaPrevTrack:   return "Previous Track";
                 case TileActionType.MediaPlayPause:   return "Play / Pause";
@@ -117,6 +119,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.AltTab:           return "AltTb";
                 case TileActionType.AltTabBack:       return "CycleApps";
                 case TileActionType.GoToDesktop:      return "Desk";
+                case TileActionType.ShowKeyboard:     return "Keyboard";
                 case TileActionType.MediaNextTrack:   return "Next";
                 case TileActionType.MediaPrevTrack:   return "Prev";
                 case TileActionType.MediaPlayPause:   return "Play";
@@ -271,6 +274,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.VolumeUp:       return PathSpeaker2;
                 case TileActionType.VolumeDown:     return PathSpeaker1;
                 case TileActionType.GoToDesktop:    return PathDesktop;
+                case TileActionType.ShowKeyboard:   return PathKeyboard;
                 case TileActionType.CycleOverlayMode: return PathGauge;
                 case TileActionType.ToggleControllerMouseMode: return PathGames;
 
@@ -321,11 +325,9 @@ namespace XboxGamingBar.QuickSettings
             }
         }
 
-        /// <summary>Returns true if this action type is only relevant for MSI Claw devices.</summary>
-        public static bool IsMsiClawOnly(TileActionType action)
-        {
-            return action == TileActionType.ToggleControllerMouseMode;
-        }
+        /// <summary>Returns true if this action type is only relevant for MSI Claw devices.
+        /// ClawTweaks is always running on MSI Claw, so this always returns false.</summary>
+        public static bool IsMsiClawOnly(TileActionType action) => false;
 
         /// <summary>Returns all user-selectable action types in display order.</summary>
         public static IEnumerable<TileActionType> GetAllActions()
@@ -341,12 +343,12 @@ namespace XboxGamingBar.QuickSettings
             yield return TileActionType.AltTab;
             yield return TileActionType.AltTabBack;
             yield return TileActionType.GoToDesktop;
+            yield return TileActionType.ShowKeyboard;
             // App group
             yield return TileActionType.CycleOverlayMode;
             yield return TileActionType.CycleLimiterMode;
             yield return TileActionType.TDPIncrBy1W;
             yield return TileActionType.TDPDecrBy1W;
-            // MSI Claw only
             yield return TileActionType.ToggleControllerMouseMode;
             // Launcher group
             yield return TileActionType.SteamBigPicture;
