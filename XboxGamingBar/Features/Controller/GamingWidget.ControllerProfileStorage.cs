@@ -1795,8 +1795,13 @@ namespace XboxGamingBar
             // Update slider value displays
             UpdateControllerSliderDisplays(sender);
 
-            // Don't save during profile loading, switching, widget unloading, or helper sync
-            if (isLoadingControllerProfile || isSwitchingControllerProfile || isUnloading || isApplyingHelperUpdate)
+            // Don't save during profile loading, switching, widget unloading, or helper sync.
+            // HelperSyncCount > 0 covers the WidgetProperty.NotifyPropertyChanged path which
+            // uses HelperSyncCount (not isApplyingHelperUpdate) — this prevents a delayed helper
+            // echo of per-game gyro values from being saved to the global profile after the game
+            // ends and the toggle flips OFF.
+            if (isLoadingControllerProfile || isSwitchingControllerProfile || isUnloading
+                || isApplyingHelperUpdate || XboxGamingBar.Data.WidgetSliderProperty.HelperSyncCount > 0)
                 return;
 
             // Skip if a profile was just applied (prevents duplicate sends from queued UI events)
