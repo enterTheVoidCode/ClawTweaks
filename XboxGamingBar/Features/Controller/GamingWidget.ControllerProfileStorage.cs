@@ -1585,6 +1585,16 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Deep-copies a ControllerProfile. Used when creating a new per-game profile
+        /// from the in-memory global profile so all fields (including gyro) are correctly
+        /// inherited without relying on the UI state, which may lag behind saved values.
+        /// </summary>
+        private static ControllerProfile CopyControllerProfile(ControllerProfile source)
+        {
+            return source.Clone();
+        }
+
         private ControllerProfile GetCurrentControllerProfileFromUI()
         {
             // Get the current profile to preserve lighting if color picker isn't available
@@ -1671,12 +1681,17 @@ namespace XboxGamingBar
                         string profileKey = $"ControllerProfile_Game_{currentGameName}";
                         if (!settings.Containers.ContainsKey(profileKey))
                         {
-                            // Activating: create the per-game profile immediately from the current
-                            // (global) mapping and persist it right away — even if the user never
-                            // changes anything — so the per-game card always reflects live settings.
-                            gameControllerProfile = GetCurrentControllerProfileFromUI();
+                            // Activating: create the per-game profile from the in-memory global
+                            // profile object (not just the UI snapshot). The UI may not reflect
+                            // the saved global values yet — e.g. gyro was configured in a
+                            // previous desktop session and the UI was never re-applied since.
+                            // Using globalControllerProfile guarantees the correct baseline.
+                            gameControllerProfile = CopyControllerProfile(globalControllerProfile);
                             SaveControllerProfileToStorage($"Game_{currentGameName}", gameControllerProfile);
-                            Logger.Info($"Created per-game controller profile for {currentGameName} from global mapping");
+                            // Apply to UI so the user sees the new per-game profile values
+                            // (including gyro) immediately — same behaviour as the load path.
+                            ApplyControllerProfile(gameControllerProfile);
+                            Logger.Info($"Created per-game controller profile for {currentGameName} from global profile (gyroTarget={gameControllerProfile.GyroTarget})");
 
                             // Refresh saved profiles list if expanded
                             if (isSavedProfilesExpanded)
