@@ -1085,6 +1085,7 @@
                                               Style="{StaticResource ModernToggleStyle}"
                                               IsEnabled="False"
                                               VerticalAlignment="Top"
+                                              XYFocusUp="{x:Bind PerformanceNavItem}"
                                               KeyDown="PerGameProfileToggle_KeyDown"/>
                             </Grid>
                         </Border>
@@ -1116,6 +1117,7 @@
                                                   Grid.Column="2"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   IsEnabled="False" Width="52"
+                                                  XYFocusUp="{x:Bind PerGameProfileToggle}"
                                                   KeyDown="FPSLimitToggle_KeyDown"/>
                                 </Grid>
 
@@ -1610,6 +1612,7 @@
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
                                         IsEnabled="False" Value="-5"
+                                        XYFocusUp="{x:Bind FPSLimitToggle}"
                                         ValueChanged="TDPSlider_ValueChanged_UpdateDisplay"
                                         KeyDown="TDPSlider_KeyDown"/>
                                 <Grid Margin="0,4,0,0">
@@ -4903,10 +4906,16 @@
                                             XYFocusUp="{x:Bind ScalingNavItem}"/>
                                     <Button x:Name="LaunchLosslessScalingButton"
                                             Grid.Column="2"
-                                            Content="Launch"
                                             Visibility="Collapsed"
+                                            FontSize="16"
+                                            FontWeight="SemiBold"
                                             Click="LaunchLosslessScalingButton_Click"
-                                            XYFocusUp="{x:Bind ScalingNavItem}"/>
+                                            XYFocusUp="{x:Bind ScalingNavItem}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE768;" FontSize="14" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Launch" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
                                 </Grid>
                                 <TextBlock x:Name="LosslessScalingStatusText"
                                            Text="Not Installed"
@@ -4937,6 +4946,8 @@
                                             Content="Create Profile"
                                             VerticalAlignment="Center"
                                             IsEnabled="False"
+                                            FontSize="16"
+                                            FontWeight="SemiBold"
                                             Click="LosslessScalingCreateProfileButton_Click"
                                             XYFocusUp="{x:Bind ScalingNavItem}"/>
                                 </Grid>
@@ -4945,13 +4956,19 @@
 
                         <!-- Scale Toggle Button -->
                         <ToggleButton x:Name="LosslessScalingEnabledToggle"
-                                      Content="Start Lossless Scaling"
                                       HorizontalAlignment="Stretch"
                                       IsEnabled="False"
                                       FontSize="16"
                                       FontWeight="SemiBold"
                                       Margin="0,10,0,0"
-                                      Style="{StaticResource StandaloneToggleButtonStyle}"/>
+                                      Style="{StaticResource StandaloneToggleButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                                <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                                    <PathIcon Data="M5 5.27368C5 3.56682 6.82609 2.48151 8.32538 3.2973L20.687 10.0235C22.2531 10.8756 22.2531 13.124 20.687 13.9762L8.32538 20.7024C6.82609 21.5181 5 20.4328 5 18.726V5.27368Z"/>
+                                </Viewbox>
+                                <TextBlock Text="Lossless Scaling" VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </ToggleButton>
 
                         <!-- Apply and Restart Button -->
                         <Button x:Name="LosslessScalingSaveSettingsButton"
@@ -4959,6 +4976,8 @@
                                 HorizontalAlignment="Stretch"
                                 Margin="0,8,0,0"
                                 IsEnabled="False"
+                                FontSize="16"
+                                FontWeight="SemiBold"
                                 Style="{StaticResource StandaloneButtonStyle}"
                                 Click="LosslessScalingSaveSettingsButton_Click"/>
 
@@ -4968,6 +4987,8 @@
                                 HorizontalAlignment="Stretch"
                                 Margin="0,8,0,0"
                                 IsEnabled="False"
+                                FontSize="16"
+                                FontWeight="SemiBold"
                                 Style="{StaticResource StandaloneButtonStyle}"
                                 Click="LosslessScalingResetProfileButton_Click"/>
 
