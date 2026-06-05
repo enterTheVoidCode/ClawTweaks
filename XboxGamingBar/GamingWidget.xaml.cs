@@ -3377,8 +3377,8 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Toggles the per-game controller card's hint text + delete button to match state.
-        /// gameActive=false → "start a game" hint; hasProfile=true → locked-toggle hint + Delete button.
+        /// Toggles the per-game controller card's hint text to match state.
+        /// gameActive=false → "start a game" hint; hasProfile=true → locked-toggle hint pointing to Saved Profiles.
         /// </summary>
         private void SetControllerProfileHints(bool gameActive, bool hasProfile)
         {
@@ -3386,11 +3386,6 @@ namespace XboxGamingBar
                 PerGameProfileHelpText.Visibility = gameActive ? Visibility.Collapsed : Visibility.Visible;
             if (LegionControllerProfileLockHint != null)
                 LegionControllerProfileLockHint.Visibility = (gameActive && hasProfile) ? Visibility.Visible : Visibility.Collapsed;
-            if (ClearPerGameControllerProfileButton != null)
-            {
-                ClearPerGameControllerProfileButton.Visibility = (gameActive && hasProfile) ? Visibility.Visible : Visibility.Collapsed;
-                ClearPerGameControllerProfileButton.IsEnabled = gameActive && hasProfile;
-            }
         }
 
         // Shared profile-status colours: per-game active = GREEN, global = ORANGE.
