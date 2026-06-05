@@ -5410,7 +5410,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Virtual Controller &amp; Mouse" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Hide your Claw hardware controller to use per-game button remapping, virtual mouse with smooth scrolling, and custom button configuration"
+                                        <TextBlock Text="Aktiviert einen virtuellen Controller, der vollständiges Button-Remapping ermöglicht — inkl. M1, M2, Left-Front-MSI-Buttons und Mouse-Mode. Muss aktiv sein um Buttons und Gyro zu nutzen."
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    TextWrapping="Wrap"/>
                                         <TextBlock x:Name="ControllerEmulationStatusText"
