@@ -844,19 +844,60 @@ namespace XboxGamingBar
 
         /// <summary>Re-populates all action dropdowns (Custom Tile + Front Button single-click +
         /// Left MSI double-click) after the user's program/URL lists change, or when the device
-        /// name is first received (ensures MSI-Claw actions are always visible).</summary>
+        /// name is first received (ensures MSI-Claw actions are always visible).
+        /// IMPORTANT: FillActionComboBox calls Items.Clear() which loses the current selection.
+        /// Each combo's ActionChoice is snapshotted before clearing and restored after so the
+        /// user's configured button actions stay visible after every refresh.</summary>
         internal void RefreshActionDropdowns()
         {
             try { FillActionComboBox(CustomActionTypeComboBox); } catch { }
+
+            // Single-click action — snapshot current ActionChoice, repopulate, re-select.
             try
             {
                 var combo = FindName("LegionButtonDesktopActionComboBox") as ComboBox;
-                if (combo != null) FillActionComboBox(combo);
+                if (combo != null)
+                {
+                    ActionChoice prev = (combo.SelectedItem as Windows.UI.Xaml.Controls.ComboBoxItem)?.Tag as ActionChoice;
+                    FillActionComboBox(combo);
+                    if (prev != null)
+                    {
+                        for (int i = 0; i < combo.Items.Count; i++)
+                        {
+                            if (combo.Items[i] is Windows.UI.Xaml.Controls.ComboBoxItem ci && ci.Tag is ActionChoice ch &&
+                                ch.Type == prev.Type &&
+                                string.Equals(ch.Param ?? "", prev.Param ?? "", StringComparison.OrdinalIgnoreCase))
+                            {
+                                combo.SelectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
             }
             catch { }
+
+            // Double-click action — same snapshot/restore pattern.
             try
             {
-                if (LeftMsiDoubleActionComboBox != null) FillActionComboBox(LeftMsiDoubleActionComboBox);
+                if (LeftMsiDoubleActionComboBox != null)
+                {
+                    ActionChoice prev = (LeftMsiDoubleActionComboBox.SelectedItem as Windows.UI.Xaml.Controls.ComboBoxItem)?.Tag as ActionChoice;
+                    FillActionComboBox(LeftMsiDoubleActionComboBox);
+                    if (prev != null)
+                    {
+                        for (int i = 0; i < LeftMsiDoubleActionComboBox.Items.Count; i++)
+                        {
+                            if (LeftMsiDoubleActionComboBox.Items[i] is Windows.UI.Xaml.Controls.ComboBoxItem ci && ci.Tag is ActionChoice ch &&
+                                ch.Type == prev.Type &&
+                                string.Equals(ch.Param ?? "", prev.Param ?? "", StringComparison.OrdinalIgnoreCase))
+                            {
+                                LeftMsiDoubleActionComboBox.SelectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
             }
             catch { }
         }

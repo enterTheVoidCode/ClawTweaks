@@ -290,7 +290,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
         public void SetMouseLeftClickButton(int value)
         {
-            value = Math.Max(0, Math.Min(8, value));
+            value = Math.Max(0, Math.Min(10, value)); // 0-10: None,A,B,X,Y,LB,RB,LS,RS,LT,RT
             if (mouseLeftClickButton == value) return;
             mouseLeftClickButton = value;
             SaveSettings();
@@ -300,7 +300,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
         public void SetMouseRightClickButton(int value)
         {
-            value = Math.Max(0, Math.Min(8, value));
+            value = Math.Max(0, Math.Min(10, value)); // 0-10: None,A,B,X,Y,LB,RB,LS,RS,LT,RT
             if (mouseRightClickButton == value) return;
             mouseRightClickButton = value;
             SaveSettings();
