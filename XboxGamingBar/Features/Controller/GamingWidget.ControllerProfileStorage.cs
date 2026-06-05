@@ -1681,17 +1681,15 @@ namespace XboxGamingBar
                         string profileKey = $"ControllerProfile_Game_{currentGameName}";
                         if (!settings.Containers.ContainsKey(profileKey))
                         {
-                            // Activating: create the per-game profile from the in-memory global
-                            // profile object (not just the UI snapshot). The UI may not reflect
-                            // the saved global values yet — e.g. gyro was configured in a
-                            // previous desktop session and the UI was never re-applied since.
-                            // Using globalControllerProfile guarantees the correct baseline.
-                            gameControllerProfile = CopyControllerProfile(globalControllerProfile);
+                            // STEP 3: Per-game profile starts on a GREEN FIELD — blank defaults.
+                            // We do NOT copy from global. The user explicitly chose to create a
+                            // per-game profile; they start with a clean slate and configure only
+                            // what they need for this game.
+                            // Global settings only apply when no per-game profile exists.
+                            gameControllerProfile = new ControllerProfile();
                             SaveControllerProfileToStorage($"Game_{currentGameName}", gameControllerProfile);
-                            // Apply to UI so the user sees the new per-game profile values
-                            // (including gyro) immediately — same behaviour as the load path.
                             ApplyControllerProfile(gameControllerProfile);
-                            Logger.Info($"Created per-game controller profile for {currentGameName} from global profile (gyroTarget={gameControllerProfile.GyroTarget})");
+                            Logger.Info($"[CtrlProfile] Created BLANK per-game controller profile for '{currentGameName}' (green field — no global inheritance)");
 
                             // Refresh saved profiles list if expanded
                             if (isSavedProfilesExpanded)
@@ -1795,13 +1793,10 @@ namespace XboxGamingBar
             // Update slider value displays
             UpdateControllerSliderDisplays(sender);
 
-            // Don't save during profile loading, switching, widget unloading, or helper sync.
-            // HelperSyncCount > 0 covers the WidgetProperty.NotifyPropertyChanged path which
-            // uses HelperSyncCount (not isApplyingHelperUpdate) — this prevents a delayed helper
-            // echo of per-game gyro values from being saved to the global profile after the game
-            // ends and the toggle flips OFF.
-            if (isLoadingControllerProfile || isSwitchingControllerProfile || isUnloading
-                || isApplyingHelperUpdate || XboxGamingBar.Data.WidgetSliderProperty.HelperSyncCount > 0)
+            // STEP 4: Simplified guards. The helper no longer echoes controller values
+            // back to the widget (Track A removed), so we only need to guard against
+            // in-progress profile loads and switches — not against helper sync.
+            if (isLoadingControllerProfile || isSwitchingControllerProfile || isUnloading)
                 return;
 
             // Skip if a profile was just applied (prevents duplicate sends from queued UI events)
@@ -1812,16 +1807,48 @@ namespace XboxGamingBar
             ControllerProfile profile;
             if (LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName))
             {
-                // Save to game controller profile
+                // Save to per-game controller profile
                 gameControllerProfile = GetCurrentControllerProfileFromUI();
+
+                // STEP 5: Gyro Target = Disabled → proactively reset all other gyro values.
+                // When gyro is off, the other values are irrelevant and should not persist
+                // as stale data. This keeps profiles clean and predictable.
+                if (gameControllerProfile.GyroTarget == 0)
+                {
+                    gameControllerProfile.GyroSensitivityX = 50;
+                    gameControllerProfile.GyroSensitivityY = 50;
+                    gameControllerProfile.GyroDeadzone = 1;
+                    gameControllerProfile.GyroInvertX = false;
+                    gameControllerProfile.GyroInvertY = false;
+                    gameControllerProfile.GyroMappingType = 0;
+                    gameControllerProfile.GyroActivationMode = 0;
+                    gameControllerProfile.GyroActivationButton = 0;
+                }
+
                 SaveControllerProfileToStorage($"Game_{currentGameName}", gameControllerProfile);
+                Logger.Info($"[CtrlSave] Per-game '{currentGameName}': gyroTarget={gameControllerProfile.GyroTarget} M1={FormatButtonMapping(gameControllerProfile.ButtonM1)} M2={FormatButtonMapping(gameControllerProfile.ButtonM2)}");
                 profile = gameControllerProfile;
             }
             else
             {
                 // Save to global controller profile
                 globalControllerProfile = GetCurrentControllerProfileFromUI();
+
+                // STEP 5: same gyro reset for global profile
+                if (globalControllerProfile.GyroTarget == 0)
+                {
+                    globalControllerProfile.GyroSensitivityX = 50;
+                    globalControllerProfile.GyroSensitivityY = 50;
+                    globalControllerProfile.GyroDeadzone = 1;
+                    globalControllerProfile.GyroInvertX = false;
+                    globalControllerProfile.GyroInvertY = false;
+                    globalControllerProfile.GyroMappingType = 0;
+                    globalControllerProfile.GyroActivationMode = 0;
+                    globalControllerProfile.GyroActivationButton = 0;
+                }
+
                 SaveControllerProfileToStorage("Global", globalControllerProfile);
+                Logger.Info($"[CtrlSave] Global: gyroTarget={globalControllerProfile.GyroTarget} M1={FormatButtonMapping(globalControllerProfile.ButtonM1)} M2={FormatButtonMapping(globalControllerProfile.ButtonM2)}");
                 profile = globalControllerProfile;
             }
 
