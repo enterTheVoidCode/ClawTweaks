@@ -938,6 +938,33 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Shows or hides the gyro section based on whether a per-game controller profile
+        /// is active. Gyro is per-game only \u2014 it has no effect outside of a game context.
+        ///   perGameActive=true  \u2192 expand toggle visible, hint hidden, content accessible
+        ///   perGameActive=false \u2192 expand toggle hidden, content collapsed, hint shown
+        /// </summary>
+        internal void UpdateGyroSectionForProfileMode(bool perGameActive)
+        {
+            if (GyroSettingsExpandToggle != null)
+                GyroSettingsExpandToggle.Visibility = perGameActive ? Visibility.Visible : Visibility.Collapsed;
+
+            if (GyroPerGameOnlyHint != null)
+                GyroPerGameOnlyHint.Visibility = perGameActive ? Visibility.Collapsed : Visibility.Visible;
+
+            // Collapse gyro content when switching to global (gyro stays expanded for per-game)
+            if (!perGameActive)
+            {
+                isGyroSettingsExpanded = false;
+                if (GyroSettingsContent != null)
+                    GyroSettingsContent.Visibility = Visibility.Collapsed;
+                if (GyroSettingsExpandIcon != null)
+                    GyroSettingsExpandIcon.Glyph = "\uE70D"; // ChevronDown
+            }
+
+            Logger.Info($"[GyroUI] Profile mode = {(perGameActive ? "per-game (gyro editable)" : "global (gyro hidden)")}");
+        }
+
         private void StickDeadzonesExpandToggle_Click(object sender, RoutedEventArgs e)
         {
             isStickDeadzonesExpanded = !isStickDeadzonesExpanded;
