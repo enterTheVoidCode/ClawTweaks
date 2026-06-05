@@ -7209,12 +7209,22 @@
                                            Margin="0,6,0,0"
                                            Visibility="Collapsed"/>
 
-                                <!-- Placeholder kept for code-behind compat (IsEnabled used elsewhere) -->
+                                <!-- Shown while a per-game profile exists (toggle locked on): the profile's
+                                     existence IS the on/off state, so the only way to turn it off is to delete it. -->
+                                <TextBlock x:Name="LegionControllerProfileLockHint"
+                                           Text="This game has its own controller profile, so it stays active automatically. To switch back to the global profile, delete it below."
+                                           Style="{StaticResource CardCaptionStyle}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,6,0,0"
+                                           Visibility="Collapsed"/>
+
                                 <Button x:Name="ClearPerGameControllerProfileButton"
+                                        Style="{StaticResource StandaloneButtonStyle}"
+                                        Margin="0,8,0,0"
+                                        HorizontalAlignment="Left"
                                         Visibility="Collapsed"
-                                        IsEnabled="False"
                                         Click="ClearPerGameControllerProfile_Click">
-                                    <TextBlock Text="Clear per-game settings"/>
+                                    <TextBlock Text="Delete per-game controller profile"/>
                                 </Button>
 
                                 <!-- Per-game capture scope: user picks which categories the per-game

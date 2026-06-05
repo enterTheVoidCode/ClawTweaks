@@ -1653,22 +1653,17 @@ namespace XboxGamingBar
                     // Per-game controller profiles enabled - only proceed if we have a valid game
                     if (HasValidGame(currentGameName))
                     {
-                        // Clear the disabled preference since user is enabling it
-                        string disabledKey = $"ControllerProfileDisabled_{currentGameName}";
-                        if (settings.Values.ContainsKey(disabledKey))
-                        {
-                            settings.Values.Remove(disabledKey);
-                            Logger.Info($"Cleared controller profile disabled preference for {currentGameName}");
-                        }
-
-                        // Load or create game controller profile
+                        // The EXISTENCE of the stored profile is the on/off state — no separate
+                        // disabled preference is persisted.
                         string profileKey = $"ControllerProfile_Game_{currentGameName}";
                         if (!settings.Containers.ContainsKey(profileKey))
                         {
-                            // Initialize new game controller profile from current UI state (global)
+                            // Activating: create the per-game profile immediately from the current
+                            // (global) mapping and persist it right away — even if the user never
+                            // changes anything — so the per-game card always reflects live settings.
                             gameControllerProfile = GetCurrentControllerProfileFromUI();
                             SaveControllerProfileToStorage($"Game_{currentGameName}", gameControllerProfile);
-                            Logger.Info($"Initialized game controller profile for {currentGameName} from current settings");
+                            Logger.Info($"Created per-game controller profile for {currentGameName} from global mapping");
 
                             // Refresh saved profiles list if expanded
                             if (isSavedProfilesExpanded)
@@ -1683,6 +1678,11 @@ namespace XboxGamingBar
                             ApplyControllerProfile(gameControllerProfile);
                             Logger.Info($"Loaded existing controller profile for {currentGameName}");
                         }
+
+                        // Existence == active: lock the toggle. Only deleting the profile (Delete
+                        // button) turns it back off.
+                        LegionControllerProfileToggle.IsEnabled = false;
+                        SetControllerProfileHints(gameActive: true, hasProfile: true);
                     }
                     else
                     {
@@ -1694,16 +1694,8 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // Toggle is being turned OFF
-                    if (HasValidGame(currentGameName))
-                    {
-                        // Save user's preference to disable per-game controller profile for this game
-                        string disabledKey = $"ControllerProfileDisabled_{currentGameName}";
-                        settings.Values[disabledKey] = true;
-                        Logger.Info($"Saved controller profile disabled preference for {currentGameName}");
-                    }
-
-                    // Switch back to global controller profile
+                    // Turned OFF — reached only programmatically (game closed, or the profile was
+                    // deleted), since the toggle is locked while a profile exists. Back to global.
                     LoadControllerProfileFromStorage("Global", globalControllerProfile);
                     ApplyControllerProfile(globalControllerProfile);
                     Logger.Info("Switched to global controller profile");
@@ -1736,37 +1728,33 @@ namespace XboxGamingBar
                     Logger.Info($"ClearPerGameControllerProfile: deleted container '{containerKey}'");
                 }
 
-                // Clear the disabled-preference key so the toggle starts fresh next time
-                string disabledKey = $"ControllerProfileDisabled_{currentGameName}";
-                settings.Values.Remove(disabledKey);
+                // Legacy cleanup: older builds stored a disabled-preference key.
+                settings.Values.Remove($"ControllerProfileDisabled_{currentGameName}");
 
                 // Reset in-memory game profile object
                 gameControllerProfile = new ControllerProfile();
 
-                // If a game is running, immediately re-enable per-game profile with fresh defaults.
-                // If no game is running, turn the toggle off so global profile is active.
-                if (HasValidGame(currentGameName))
+                // Deleting the profile is the ONLY way to deactivate it: toggle off + back to global.
+                isSwitchingControllerProfile = true;
+                try
                 {
-                    // Keep toggle ON (or force it ON) — Toggled handler will create a fresh profile
-                    // from the current UI state since the storage container was just deleted.
-                    if (LegionControllerProfileToggle?.IsOn == false)
-                    {
-                        isSwitchingControllerProfile = true;
-                        try { LegionControllerProfileToggle.IsOn = true; }
-                        finally { isSwitchingControllerProfile = false; }
-                    }
-                    // Re-apply so the Toggled handler runs fresh with empty storage
-                    LoadControllerProfileFromStorage($"Game_{currentGameName}", gameControllerProfile);
-                    ApplyControllerProfile(gameControllerProfile);
-                    Logger.Info($"ClearPerGameControllerProfile: fresh per-game profile activated for '{currentGameName}'");
-                }
-                else
-                {
-                    if (LegionControllerProfileToggle?.IsOn == true)
+                    if (LegionControllerProfileToggle != null)
                         LegionControllerProfileToggle.IsOn = false;
+                    LoadControllerProfileFromStorage("Global", globalControllerProfile);
+                    ApplyControllerProfile(globalControllerProfile);
                 }
+                finally { isSwitchingControllerProfile = false; }
 
-                Logger.Info($"ClearPerGameControllerProfile: per-game controller settings erased for '{currentGameName}'");
+                // Unlock the toggle so the user can create a fresh per-game profile again.
+                if (LegionControllerProfileToggle != null)
+                    LegionControllerProfileToggle.IsEnabled = HasValidGame(currentGameName);
+                SetControllerProfileHints(gameActive: HasValidGame(currentGameName), hasProfile: false);
+                UpdateControllerProfileModeBadge();
+
+                if (isSavedProfilesExpanded)
+                    RefreshSavedProfilesList();
+
+                Logger.Info($"ClearPerGameControllerProfile: deactivated + removed per-game controller profile for '{currentGameName}'");
             }
             catch (Exception ex)
             {
