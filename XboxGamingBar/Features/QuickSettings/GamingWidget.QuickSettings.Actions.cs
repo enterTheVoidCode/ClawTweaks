@@ -1664,10 +1664,10 @@ namespace XboxGamingBar
                     if (FPSLimitToggle == null || FPSLimitSlider == null) return;
 
                     // Enable FPS toggle if RTSS is available OR Intel IGCL is available.
-                    // Previously this only checked RTSS, leaving the toggle disabled on MSI Claw
-                    // when RTSS wasn't running — which blocked upward controller navigation.
+                    // Uses SetFpsLimitNavAvailable so FPSLimitToggle stays IsEnabled=true for
+                    // gamepad spine navigation; Opacity shows inactive state when neither is present.
                     bool intelIgclAvailable = intelFpsTier != null;
-                    FPSLimitToggle.IsEnabled = rtssAvailable || intelIgclAvailable;
+                    SetFpsLimitNavAvailable(rtssAvailable || intelIgclAvailable);
 
                     // Update slider maximum to current refresh rate
                     int maxRefresh = 60; // Default
