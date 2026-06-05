@@ -252,17 +252,6 @@ namespace XboxGamingBar
                 e.Handled = true;
                 return;
             }
-            // Gamepad A: block activation of nav-spine controls that are kept IsEnabled=true
-            // for focus traversal but are visually dimmed (Opacity=0.45) because the feature
-            // is not currently available. Without this intercept the ToggleSwitch would flip
-            // its visual state even though the Toggled handler does nothing.
-            else if (e.Key == VirtualKey.GamepadA)
-            {
-                var focused = FocusManager.GetFocusedElement();
-                if ((focused == PerGameProfileToggle && !_perGameProfileAvailable) ||
-                    (focused == FPSLimitToggle && !_fpsLimitNavAvailable))
-                    e.Handled = true;
-            }
             // D-pad down from nav area → enter content at the FIRST element of the active tab.
             else if (e.Key == VirtualKey.GamepadDPadDown)
             {
@@ -446,10 +435,17 @@ namespace XboxGamingBar
 
             if (PerformanceScrollViewer?.Visibility == Visibility.Visible)
             {
-                // Performance tab: PerGameProfileToggle is always IsEnabled=true (kept focusable
-                // for gamepad spine navigation even when logically inactive — see SetPerGameProfileAvailable).
-                // Always land here so D-pad Down from the nav bar starts at the top of the tab.
-                target = PerGameProfileToggle;
+                // Performance tab: try enabled controls top-to-bottom.
+                // PerGameProfileToggle and FPSLimitToggle can be disabled (depends on
+                // whether RTSS is available and a game profile is active). Always pick
+                // the topmost currently-enabled control so D-pad Down from the nav bar
+                // lands at the correct starting point rather than falling through to
+                // FindFirstFocusableElement which would skip to the TDP slider.
+                if (PerGameProfileToggle?.IsEnabled == true)
+                    target = PerGameProfileToggle;
+                else if (FPSLimitToggle?.IsEnabled == true)
+                    target = FPSLimitToggle;
+                // else: fall through to FindFirstFocusableElement (TDP slider or first enabled)
             }
             else if (SystemScrollViewer?.Visibility == Visibility.Visible)
             {

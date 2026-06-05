@@ -44,53 +44,18 @@ namespace XboxGamingBar
     public sealed partial class GamingWidget
     {
 
-        // ── Performance-tab nav spine: "always-focusable" helpers ───────────────
+        // ── Performance tab D-Pad navigation helpers ────────────────────────────
         //
-        // UWP IsEnabled=false makes a control completely invisible to every focus
-        // mechanism — XYFocusUp, TryMoveFocus, and even programmatic Focus() all
-        // silently fail on a disabled control. The only way to let the gamepad D-Pad
-        // navigate THROUGH controls that are logically inactive (no game running /
-        // RTSS not available) is to keep them IsEnabled=true at all times and use
-        // Opacity to show the inactive appearance (0.45 = same as UWP's default
-        // disabled opacity). An _available flag plus an A-button intercept in
-        // PreviewKeyDown prevents the user from accidentally activating them.
+        // UWP Sliders consume D-Pad Up/Down to change value → XYFocusUp/Down never fires.
+        // UWP ToggleSwitches with custom styles can also swallow D-Pad keys.
+        // Solution: KeyDown handlers on every element in the spine that call Focus()
+        // directly, mirroring what the ComboBox handler below does.
         //
         // Spine (top→bottom, MSI Claw):
         //   PerGameProfileToggle → FPSLimitToggle → [FPS mode/slider when expanded]
         //   → TDPSlider → TDPBoostToggle → TDPBoostFPPTSliderCard
         //   → OSPowerModeComboBox → CPUBoostToggle → PerformanceOverlayComboBox → (loop)
         // ────────────────────────────────────────────────────────────────────────────────
-
-        // --- Availability flags for always-enabled nav-spine controls ----------------
-
-        /// <summary>true while a game is running and a per-game profile can be used.</summary>
-        private bool _perGameProfileAvailable = false;
-
-        /// <summary>true while RTSS or Intel IGCL is available for FPS limiting.</summary>
-        private bool _fpsLimitNavAvailable = false;
-
-        /// <summary>
-        /// Update the per-game profile toggle's interactive availability without touching
-        /// IsEnabled. Keeps the control focusable so the gamepad spine navigation works.
-        /// </summary>
-        internal void SetPerGameProfileAvailable(bool available)
-        {
-            _perGameProfileAvailable = available;
-            if (PerGameProfileToggle != null)
-                PerGameProfileToggle.Opacity = available ? 1.0 : 0.45;
-        }
-
-        /// <summary>
-        /// Update the FPS-limit toggle's interactive availability without touching IsEnabled.
-        /// Sub-controls (slider, mode radios) still use IsEnabled=false when unavailable —
-        /// they are not part of the main nav spine so do not need to stay focusable.
-        /// </summary>
-        internal void SetFpsLimitNavAvailable(bool available)
-        {
-            _fpsLimitNavAvailable = available;
-            if (FPSLimitToggle != null)
-                FPSLimitToggle.Opacity = available ? 1.0 : 0.45;
-        }
 
         private void PerfNav_FocusUp(Windows.UI.Xaml.Controls.Control target)
         {
@@ -118,13 +83,14 @@ namespace XboxGamingBar
             // falls back to FocusActiveTab(); it always sets e.Handled so this branch never fires.
             if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
-                // Only navigate into FPS sub-controls when the FPS limit feature is available
-                // (RTSS / Intel IGCL present). When unavailable, sub-controls have IsEnabled=false
-                // so Focus() on them silently fails — skip directly to TDPSlider instead.
+                // Navigate into FPS sub-controls only when they are enabled.
+                // When the FPS toggle is off, sub-controls (FPSModeRTSSRadio, FPSLimitSlider) are
+                // disabled — calling Focus() on them silently does nothing and leaves focus stuck.
+                // In that case skip directly to TDPSlider.
                 Windows.UI.Xaml.Controls.Control target = null;
-                if (_fpsLimitNavAvailable && FPSModeRTSSRadio?.IsEnabled == true) target = FPSModeRTSSRadio;
-                else if (_fpsLimitNavAvailable && FPSLimitSlider?.IsEnabled == true) target = FPSLimitSlider;
-                else target = TDPSlider;
+                if (FPSModeRTSSRadio?.IsEnabled == true)       target = FPSModeRTSSRadio;
+                else if (FPSLimitSlider?.IsEnabled == true)    target = FPSLimitSlider;
+                else                                           target = TDPSlider;
                 target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
