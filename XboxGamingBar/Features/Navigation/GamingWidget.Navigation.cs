@@ -394,25 +394,52 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// D-pad Down from the nav bar: always focus the FIRST focusable element inside the
-        /// currently active tab, scrolled to top. This guarantees consistent behaviour regardless
-        /// of which nav radio button has visual focus (they differ when tabs are changed via LT/RT).
+        /// D-pad Down from the nav bar: focus the known first interactive element for the
+        /// active tab, scrolled to top. Uses explicit per-tab lookups rather than
+        /// FindFirstFocusableElement(), which was unreliable with disabled controls and
+        /// complex ToggleSwitch templates (jumped past the FPS card to TDP slider).
         /// </summary>
         private void FocusFirstTabContentElement()
         {
             var viewer = GetActiveScrollViewer();
             if (viewer == null) { FocusManager.TryMoveFocus(FocusNavigationDirection.Down); return; }
 
-            // Scroll the content back to the top so the first element is on-screen.
+            // Scroll to top so the target element is on-screen.
             viewer.ChangeView(null, 0, null, true);
 
-            // FindFirstFocusableElement walks the visual tree and returns the first element
-            // that can receive focus (IsTabStop=true, Visible, Enabled). Available since Win10 1709.
+            // Per-tab explicit first-element lookup. The element must be enabled (IsEnabled=true)
+            // because UWP can't focus a disabled control regardless of IsTabStop.
+            Control target = null;
+
+            if (PerformanceScrollViewer?.Visibility == Visibility.Visible)
+            {
+                // Performance tab: Per-Game profile toggle is always enabled and at the very top.
+                target = PerGameProfileToggle;
+            }
+            else if (SystemScrollViewer?.Visibility == Visibility.Visible)
+            {
+                target = ThemeComboBox;
+            }
+            else if (ScalingScrollViewer?.Visibility == Visibility.Visible)
+            {
+                target = LosslessScalingEnabledToggle?.IsEnabled == true
+                    ? (Control)LosslessScalingEnabledToggle
+                    : LosslessScalingAutoScaleToggle;
+            }
+
+            if (target != null && target.IsEnabled)
+            {
+                target.Focus(FocusState.Programmatic);
+                return;
+            }
+
+            // Generic fallback: FindFirstFocusableElement for tabs without an explicit mapping
+            // (Quick, Display, Fan, Profiles, GPD, Scaling fallback)
             var first = FocusManager.FindFirstFocusableElement(viewer) as Control;
             if (first != null)
                 first.Focus(FocusState.Programmatic);
             else
-                FocusManager.TryMoveFocus(FocusNavigationDirection.Down); // fallback
+                FocusManager.TryMoveFocus(FocusNavigationDirection.Down);
         }
 
         /// <summary>

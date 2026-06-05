@@ -315,7 +315,7 @@ namespace XboxGamingBar.QuickSettings
                 case "Fullscreen":          return PathFullscr;
                 case "OptiScaler":          return PathResize;
                 case "ReShade":             return PathColor;
-                case "LosslessScaling":     return PathArrowMax;
+                case "LosslessScaling":     return PathResize;
                 case "Keyboard":            return PathKeyboard;
                 case "MsiCenter":           return PathApps;
                 case "ActionTaskManager":   return PathWindow;
