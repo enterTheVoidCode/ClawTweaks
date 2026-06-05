@@ -138,16 +138,15 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Controls visibility and enabled state for the handheld-agnostic Controller Emulation card.
+        /// Controls visibility of the Controller Emulation card based on hardware support
+        /// AND game state. The card is hidden while a game is running — changing the virtual
+        /// controller during gameplay is not supported and wastes screen space.
         /// </summary>
         private void SetControllerEmulationAvailability(bool available)
         {
             controllerEmulationSupported = available;
-
-            if (ControllerEmulationCard != null)
-            {
-                ControllerEmulationCard.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
-            }
+            // Card visibility: only show when supported AND no game running
+            UpdateControllerEmulationCardVisibility();
 
             // For non-Legion devices (MSI Claw): show the Controller tab when emulation is available.
             // Legion devices already have the tab shown via SetLegionTabVisibility(true).
@@ -177,6 +176,19 @@ namespace XboxGamingBar
             // Quick tab tile visibility is gated on availability — refresh the grid so
             // the Controller tile appears/disappears when the helper reports support.
             RefreshQuickSettingsForControllerEmulation();
+        }
+
+        /// <summary>
+        /// Updates Controller Emulation card visibility: visible only when the device
+        /// supports emulation AND no game is currently running.
+        /// </summary>
+        internal void UpdateControllerEmulationCardVisibility()
+        {
+            if (ControllerEmulationCard == null) return;
+            bool gameRunning = HasValidGame(currentGameName);
+            bool show = controllerEmulationSupported && !gameRunning;
+            ControllerEmulationCard.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            Logger.Debug($"[VCtrl] Card visibility: supported={controllerEmulationSupported} gameRunning={gameRunning} → {(show ? "Visible" : "Collapsed")}");
         }
 
         private void RefreshQuickSettingsForControllerEmulation()

@@ -3323,6 +3323,7 @@ namespace XboxGamingBar
                 LegionControllerProfileToggle.IsEnabled = false;
                 SetControllerProfileHints(gameActive: false, hasProfile: false);
                 UpdateGyroSectionForProfileMode(perGameActive: false);
+                UpdateControllerEmulationCardVisibility(); // no game → card visible
                 UpdateControllerProfileModeBadge();
                 return;
             }
@@ -3346,6 +3347,7 @@ namespace XboxGamingBar
                 LegionControllerProfileToggle.IsEnabled = false; // locked — delete to deactivate
                 SetControllerProfileHints(gameActive: true, hasProfile: true);
                 UpdateGyroSectionForProfileMode(perGameActive: true);
+                UpdateControllerEmulationCardVisibility(); // game running → card hidden
             }
             else
             {
@@ -3368,6 +3370,7 @@ namespace XboxGamingBar
                 LegionControllerProfileToggle.IsEnabled = true;
                 SetControllerProfileHints(gameActive: true, hasProfile: false);
                 UpdateGyroSectionForProfileMode(perGameActive: false);
+                UpdateControllerEmulationCardVisibility(); // game running → card hidden
             }
 
             UpdateControllerProfileModeBadge();
