@@ -1085,7 +1085,6 @@
                                               Style="{StaticResource ModernToggleStyle}"
                                               IsEnabled="False"
                                               VerticalAlignment="Top"
-                                              XYFocusUp="{x:Bind PerformanceNavItem}"
                                               KeyDown="PerGameProfileToggle_KeyDown"/>
                             </Grid>
                         </Border>
@@ -1117,7 +1116,6 @@
                                                   Grid.Column="2"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   IsEnabled="False" Width="52"
-                                                  XYFocusUp="{x:Bind PerGameProfileToggle}"
                                                   KeyDown="FPSLimitToggle_KeyDown"/>
                                 </Grid>
 
@@ -1612,7 +1610,6 @@
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
                                         IsEnabled="False" Value="-5"
-                                        XYFocusUp="{x:Bind FPSLimitToggle}"
                                         ValueChanged="TDPSlider_ValueChanged_UpdateDisplay"
                                         KeyDown="TDPSlider_KeyDown"/>
                                 <Grid Margin="0,4,0,0">

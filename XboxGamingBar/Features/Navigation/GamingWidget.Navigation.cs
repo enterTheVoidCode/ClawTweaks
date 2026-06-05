@@ -252,10 +252,7 @@ namespace XboxGamingBar
                 e.Handled = true;
                 return;
             }
-            // D-pad down from nav area → enter content at the FIRST element of the active tab,
-            // regardless of which tab radio button currently has focus. This ensures consistent
-            // behaviour whether the user navigated via LT/RT (focus stays on previously-focused
-            // tab) or via D-pad Left/Right (focus is on the actual active tab).
+            // D-pad down from nav area → enter content at the FIRST element of the active tab.
             else if (e.Key == VirtualKey.GamepadDPadDown)
             {
                 var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
@@ -263,6 +260,27 @@ namespace XboxGamingBar
                 {
                     e.Handled = true;
                     FocusFirstTabContentElement();
+                }
+            }
+            // D-pad up from content area → let UWP spatial navigation try first.
+            // If TryMoveFocus(Up) fails — because all elements above the current focus are
+            // disabled (IsEnabled=false) and therefore invisible to XY navigation — fall
+            // back to the active nav tab. This is the ONLY reliable escape from a
+            // "stuck below disabled controls" situation; XYFocusUp bindings on disabled
+            // targets are silently ignored by UWP.
+            else if (e.Key == VirtualKey.GamepadDPadUp)
+            {
+                var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
+                if (focusedElement != null && !IsInNavigationArea(focusedElement))
+                {
+                    bool moved = FocusManager.TryMoveFocus(FocusNavigationDirection.Up);
+                    if (!moved)
+                    {
+                        // Nothing enabled above — always let the user escape to the nav bar.
+                        FocusActiveTab();
+                        e.Handled = true;
+                    }
+                    // If moved successfully, let UWP handle focus change normally (don't mark Handled).
                 }
             }
         }
