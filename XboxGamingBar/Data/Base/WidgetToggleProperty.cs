@@ -31,9 +31,9 @@ namespace XboxGamingBar.Data
 
         protected virtual void ToggleSwitch_ValueChanged(object sender, RoutedEventArgs e)
         {
-            // Skip if UI is being updated programmatically (from helper sync)
-            // This prevents echoing values back to the helper and potential profile corruption
-            if (isUpdatingUI)
+            // Skip if UI is being updated programmatically (from helper sync OR profile load).
+            // This prevents echoing values back to the helper and potential profile corruption.
+            if (isUpdatingUI || WidgetSliderProperty.HelperSyncCount > 0)
             {
                 return;
             }

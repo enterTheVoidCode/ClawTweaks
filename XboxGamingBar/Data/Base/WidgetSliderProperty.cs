@@ -167,9 +167,10 @@ namespace XboxGamingBar.Data
 
         private void Slider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
         {
-            // Skip if UI is being updated programmatically (from helper sync)
-            // This prevents the debounce timer from being started with stale values
-            if (IsUpdatingUI)
+            // Skip if UI is being updated programmatically (from helper sync OR profile load).
+            // This prevents the debounce timer from being started with stale values and prevents
+            // loading a profile from pushing values back to the helper.
+            if (IsUpdatingUI || HelperSyncCount > 0)
             {
                 return;
             }
