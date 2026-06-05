@@ -1831,6 +1831,14 @@ namespace XboxGamingBar
             {
                 SendLightingToHelper(profile);
             }
+
+            // Refresh the saved profiles card so it reflects the latest settings immediately.
+            // Without this the card keeps showing "Default settings" even after the user
+            // remaps buttons, because the card was last rendered at toggle-on time.
+            if (isSavedProfilesExpanded)
+            {
+                RefreshSavedProfilesList();
+            }
         }
 
         /// <summary>
