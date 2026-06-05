@@ -78,18 +78,19 @@ namespace XboxGamingBar
 
         private void FPSLimitToggle_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            // D-pad Up is now owned by GamingWidget_PreviewKeyDown (tunneling) — do not handle here
+            // to avoid double-navigation conflicts. PreviewKeyDown calls TryMoveFocus(Up) first and
+            // falls back to FocusActiveTab(); it always sets e.Handled so this branch never fires.
+            if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
+                // Navigate into FPS sub-controls only when they are enabled.
+                // When the FPS toggle is off, sub-controls (FPSModeRTSSRadio, FPSLimitSlider) are
+                // disabled — calling Focus() on them silently does nothing and leaves focus stuck.
+                // In that case skip directly to TDPSlider.
                 Windows.UI.Xaml.Controls.Control target = null;
-                if (PerGameProfileToggle?.IsEnabled == true) target = PerGameProfileToggle;
-                else                                         target = PerformanceNavItem;
-                target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
-                e.Handled = true;
-            }
-            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
-            {
-                // FPS panel is always visible — always navigate into it
-                var target = FPSModeRTSSRadio ?? (Windows.UI.Xaml.Controls.Control)TDPSlider;
+                if (FPSModeRTSSRadio?.IsEnabled == true)       target = FPSModeRTSSRadio;
+                else if (FPSLimitSlider?.IsEnabled == true)    target = FPSLimitSlider;
+                else                                           target = TDPSlider;
                 target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
@@ -127,12 +128,18 @@ namespace XboxGamingBar
         {
             if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
-                // Go up through FPS slider → mode radio → FPS toggle
-                Windows.UI.Xaml.Controls.Control target =
-                    (Windows.UI.Xaml.Controls.Control)FPSLimitSlider
-                    ?? (Windows.UI.Xaml.Controls.Control)FPSLimitToggle
-                    ?? (Windows.UI.Xaml.Controls.Control)PerGameProfileToggle
-                    ?? (Windows.UI.Xaml.Controls.Control)PerformanceNavItem;
+                // D-pad Up is now owned by GamingWidget_PreviewKeyDown (tunneling) and will have
+                // already fired and set e.Handled before this bubbling handler runs.
+                // This branch is kept as a safety fallback (e.g. keyboard Up key, which is not
+                // intercepted by PreviewKeyDown) and correctly checks IsEnabled before focusing
+                // to avoid the old bug where cast-based ?? always resolved to a non-null but
+                // disabled FPSLimitSlider, leaving focus stuck on the TDP slider.
+                Windows.UI.Xaml.Controls.Control target = null;
+                if (FPSLimitSlider?.IsEnabled == true)           target = FPSLimitSlider;
+                else if (FPSModeRTSSRadio?.IsEnabled == true)    target = FPSModeRTSSRadio;
+                else if (FPSLimitToggle?.IsEnabled == true)      target = FPSLimitToggle;
+                else if (PerGameProfileToggle?.IsEnabled == true) target = PerGameProfileToggle;
+                else                                             target = PerformanceNavItem;
                 target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
