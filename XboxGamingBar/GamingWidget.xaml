@@ -6183,6 +6183,8 @@
                                             <ComboBoxItem Content="RB"    Tag="6" IsSelected="True"/>
                                             <ComboBoxItem Content="LS"    Tag="7"/>
                                             <ComboBoxItem Content="RS"    Tag="8"/>
+                                            <ComboBoxItem Content="LT"    Tag="9"/>
+                                            <ComboBoxItem Content="RT"    Tag="10"/>
                                         </ComboBox>
                                     </Grid>
 
@@ -6207,6 +6209,8 @@
                                             <ComboBoxItem Content="RB"    Tag="6"/>
                                             <ComboBoxItem Content="LS"    Tag="7"/>
                                             <ComboBoxItem Content="RS"    Tag="8"/>
+                                            <ComboBoxItem Content="LT"    Tag="9"/>
+                                            <ComboBoxItem Content="RT"    Tag="10"/>
                                         </ComboBox>
                                     </Grid>
 
