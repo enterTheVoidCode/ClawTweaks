@@ -50,15 +50,32 @@ namespace XboxGamingBar
 
         private void EnableDebugToolsToggle_Toggled(object sender, RoutedEventArgs e)
         {
+            bool on = EnableDebugToolsToggle?.IsOn ?? false;
+
+            // Switch NLog minimum log level: Debug when on, Info when off.
+            // This lets us capture verbose logs on demand without bloating the
+            // log file during normal use (default minlevel="Info" in NLog.config).
+            try
+            {
+                var targetLevel = on ? NLog.LogLevel.Debug : NLog.LogLevel.Info;
+                if (NLog.LogManager.Configuration != null)
+                {
+                    foreach (var rule in NLog.LogManager.Configuration.LoggingRules)
+                        rule.SetLoggingLevels(targetLevel, NLog.LogLevel.Fatal);
+                    NLog.LogManager.ReconfigExistingLoggers();
+                }
+                Logger.Info($"[Debug] Log level set to {(on ? "Debug" : "Info")}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"EnableDebugTools: could not change log level: {ex.Message}");
+            }
+
+            // Show/hide PawnIO diagnostic tools panel
             if (PawnIODebugTools != null)
             {
-                PawnIODebugTools.Visibility = EnableDebugToolsToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
-
-                if (EnableDebugToolsToggle.IsOn)
-                {
-                    // Request CPU info from helper
-                    _ = UpdatePawnIOCpuInfo();
-                }
+                PawnIODebugTools.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+                if (on) _ = UpdatePawnIOCpuInfo();
             }
         }
 

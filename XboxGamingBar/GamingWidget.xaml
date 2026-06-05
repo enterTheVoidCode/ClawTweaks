@@ -4246,27 +4246,14 @@
                                             Style="{StaticResource StandaloneButtonStyle}"
                                             Click="ExportLogsButton_Click"/>
 
-                                    <!-- Check for Update Buttons (side by side) -->
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Button x:Name="CheckForUpdateButton"
-                                                Grid.Column="0"
-                                                Content="Check for Update (Coming Soon)"
-                                                IsEnabled="False"
-                                                HorizontalAlignment="Stretch"
-                                                Style="{StaticResource StandaloneButtonStyle}"
-                                                Click="CheckForUpdateButton_Click"/>
-                                        <Button x:Name="CheckForUpdateDebugButton"
-                                                Grid.Column="2"
-                                                Content="Update (Debug)"
-                                                HorizontalAlignment="Stretch"
-                                                Style="{StaticResource StandaloneButtonStyle}"
-                                                Click="CheckForUpdateDebugButton_Click"/>
-                                    </Grid>
+                                    <!-- Check for Update Button -->
+                                    <Button x:Name="CheckForUpdateButton"
+                                            Content="Check for Update (Coming Soon)"
+                                            IsEnabled="False"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            Click="CheckForUpdateButton_Click"/>
 
                                     <!-- GoTweaks self-update preferences. Shared with the
                                          Quick-tab update banner: the helper's startup
@@ -4332,23 +4319,6 @@
                                             Style="{StaticResource StandaloneButtonStyle}"
                                             Click="PrepareForUninstallButton_Click"/>
 
-                                    <!-- Sidebar Menu (Beta) Toggle -->
-                                    <Grid Margin="0,16,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Sidebar Menu (Beta)" FontSize="14" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Show overlay instead of Game Bar on Focus GoTweaks" FontSize="11" Foreground="#888888"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="SidebarMenuToggle"
-                                                      Grid.Column="1"
-                                                      OnContent="" OffContent=""
-                                                      IsOn="False"
-                                                      Toggled="SidebarMenuToggle_Toggled"/>
-                                    </Grid>
-
                                     <!-- Enable Debug Tools Toggle -->
                                     <Grid Margin="0,16,0,0">
                                         <Grid.ColumnDefinitions>
@@ -4357,7 +4327,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Enable Debug Tools" FontSize="14" Foreground="#FF6B6B"/>
-                                            <TextBlock Text="Advanced PawnIO testing (use with caution)" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Enables Debug log level + PawnIO diagnostic tools" FontSize="11" Foreground="#888888"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="EnableDebugToolsToggle"
                                                       Grid.Column="1"

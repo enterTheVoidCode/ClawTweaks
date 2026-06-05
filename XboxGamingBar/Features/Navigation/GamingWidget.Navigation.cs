@@ -252,14 +252,17 @@ namespace XboxGamingBar
                 e.Handled = true;
                 return;
             }
-            // D-pad down from nav area → enter content
+            // D-pad down from nav area → enter content at the FIRST element of the active tab,
+            // regardless of which tab radio button currently has focus. This ensures consistent
+            // behaviour whether the user navigated via LT/RT (focus stays on previously-focused
+            // tab) or via D-pad Left/Right (focus is on the actual active tab).
             else if (e.Key == VirtualKey.GamepadDPadDown)
             {
                 var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
                 if (focusedElement != null && IsInNavigationArea(focusedElement))
                 {
                     e.Handled = true;
-                    FocusManager.TryMoveFocus(FocusNavigationDirection.Down);
+                    FocusFirstTabContentElement();
                 }
             }
         }
@@ -325,19 +328,19 @@ namespace XboxGamingBar
             var visibleItems = GetVisibleNavigationItems();
             if (visibleItems.Count == 0) return;
 
-            // Find currently checked item
             var currentItem = visibleItems.FirstOrDefault(rb => rb.IsChecked == true);
             int currentIndex = currentItem != null ? visibleItems.IndexOf(currentItem) : 0;
 
+            RadioButton nextTab;
             if (currentIndex > 0)
-            {
-                visibleItems[currentIndex - 1].IsChecked = true;
-            }
+                nextTab = visibleItems[currentIndex - 1];
             else
-            {
-                // Wrap around to last tab
-                visibleItems[visibleItems.Count - 1].IsChecked = true;
-            }
+                nextTab = visibleItems[visibleItems.Count - 1]; // wrap around
+
+            nextTab.IsChecked = true;
+            // Move visual focus to the newly-active tab so D-pad Down reliably
+            // targets the correct tab's content (spatial nav depends on focus position).
+            nextTab.Focus(FocusState.Programmatic);
         }
 
         private void NavigateToNextTab()
@@ -345,19 +348,17 @@ namespace XboxGamingBar
             var visibleItems = GetVisibleNavigationItems();
             if (visibleItems.Count == 0) return;
 
-            // Find currently checked item
             var currentItem = visibleItems.FirstOrDefault(rb => rb.IsChecked == true);
             int currentIndex = currentItem != null ? visibleItems.IndexOf(currentItem) : 0;
 
+            RadioButton nextTab;
             if (currentIndex < visibleItems.Count - 1)
-            {
-                visibleItems[currentIndex + 1].IsChecked = true;
-            }
+                nextTab = visibleItems[currentIndex + 1];
             else
-            {
-                // Wrap around to first tab
-                visibleItems[0].IsChecked = true;
-            }
+                nextTab = visibleItems[0]; // wrap around
+
+            nextTab.IsChecked = true;
+            nextTab.Focus(FocusState.Programmatic);
         }
 
         private List<RadioButton> GetVisibleNavigationItems()
@@ -371,6 +372,47 @@ namespace XboxGamingBar
                 }
             }
             return visibleItems;
+        }
+
+        /// <summary>
+        /// Returns the ScrollViewer of the currently visible tab, or null if none found.
+        /// Used to determine where D-pad Down should land when focus is in the nav bar.
+        /// </summary>
+        private ScrollViewer GetActiveScrollViewer()
+        {
+            if (QuickSettingsScrollViewer?.Visibility == Visibility.Visible) return QuickSettingsScrollViewer;
+            if (PerformanceScrollViewer?.Visibility == Visibility.Visible) return PerformanceScrollViewer;
+            if (GameScrollViewer?.Visibility == Visibility.Visible) return GameScrollViewer;
+            if (AMDScrollViewer?.Visibility == Visibility.Visible) return AMDScrollViewer;
+            if (DisplayScrollViewer?.Visibility == Visibility.Visible) return DisplayScrollViewer;
+            if (FanScrollViewer?.Visibility == Visibility.Visible) return FanScrollViewer;
+            if (ScalingScrollViewer?.Visibility == Visibility.Visible) return ScalingScrollViewer;
+            if (LegionScrollViewer?.Visibility == Visibility.Visible) return LegionScrollViewer;
+            if (GPDScrollViewer?.Visibility == Visibility.Visible) return GPDScrollViewer;
+            if (SystemScrollViewer?.Visibility == Visibility.Visible) return SystemScrollViewer;
+            return null;
+        }
+
+        /// <summary>
+        /// D-pad Down from the nav bar: always focus the FIRST focusable element inside the
+        /// currently active tab, scrolled to top. This guarantees consistent behaviour regardless
+        /// of which nav radio button has visual focus (they differ when tabs are changed via LT/RT).
+        /// </summary>
+        private void FocusFirstTabContentElement()
+        {
+            var viewer = GetActiveScrollViewer();
+            if (viewer == null) { FocusManager.TryMoveFocus(FocusNavigationDirection.Down); return; }
+
+            // Scroll the content back to the top so the first element is on-screen.
+            viewer.ChangeView(null, 0, null, true);
+
+            // FindFirstFocusableElement walks the visual tree and returns the first element
+            // that can receive focus (IsTabStop=true, Visible, Enabled). Available since Win10 1709.
+            var first = FocusManager.FindFirstFocusableElement(viewer) as Control;
+            if (first != null)
+                first.Focus(FocusState.Programmatic);
+            else
+                FocusManager.TryMoveFocus(FocusNavigationDirection.Down); // fallback
         }
 
         /// <summary>

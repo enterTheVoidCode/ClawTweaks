@@ -589,12 +589,9 @@ namespace XboxGamingBar
                     }
                 }
 
-                // Load Sidebar Menu toggle state
+                // Load Sidebar Menu state (persisted for helper, toggle removed from UI)
                 if (settings.Values.TryGetValue(SidebarMenuEnabledKey, out object sbVal) && sbVal is bool sbEnabled)
-                {
                     sidebarMenuEnabled = sbEnabled;
-                    SidebarMenuToggle.IsOn = sidebarMenuEnabled;
-                }
 
                 // Load Quick Metrics selection
                 selectedMetrics.Clear();
@@ -773,14 +770,8 @@ namespace XboxGamingBar
             }
         }
 
-        private void SidebarMenuToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            sidebarMenuEnabled = SidebarMenuToggle.IsOn;
-            var settings = ApplicationData.Current.LocalSettings;
-            settings.Values[SidebarMenuEnabledKey] = sidebarMenuEnabled;
-            SendSidebarMenuEnabledToHelper();
-            Logger.Info($"Sidebar Menu toggled: {sidebarMenuEnabled}");
-        }
+        // SidebarMenuToggle_Toggled: toggle removed from debug UI; handler kept as dead code
+        // for future re-use. State is persisted/loaded via SidebarMenuEnabledKey.
 
         private void SendSidebarMenuEnabledToHelper()
         {
