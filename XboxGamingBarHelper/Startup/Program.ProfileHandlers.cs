@@ -263,83 +263,58 @@ namespace XboxGamingBarHelper
                 legionManager.LegionButtonPage.SetValue(profile.LegionButtonPage);
             }
 
-            // Gyro settings — only apply values that are EXPLICITLY stored in the profile (HasValue).
-            // If null, skip the SetValue call entirely (same pattern as button mappings skipping
-            // null/empty strings). Reason: gyro is owned by the widget's LocalSettings; the helper
-            // XML never persists it via Save(), so profile.LegionGyro* is always null on repeat
-            // launches. Calling SetValue(null ?? 0) would send LegionGyroTarget=0 back to the
-            // widget UI, overwriting the per-game value the widget just loaded from LocalSettings
-            // and showing "Disabled" even though the hardware is correctly set by the widget push.
-            if (profile.LegionGyroButton.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroButton: {profile.LegionGyroButton.Value}");
-                legionManager.LegionGyroActivationButton.SetValue(profile.LegionGyroButton.Value);
-                clawButtonMonitor?.SetGyroActivationButton(profile.LegionGyroButton.Value);
-            }
-            else { Logger.Debug("LegionGyroButton: null — skipping (widget owns gyro)"); }
+            // Gyro settings — two-track approach:
+            //
+            // TRACK A — legionManager.SetValue(): notifies the widget UI via the pipe.
+            //   Only call when profile has an EXPLICIT value (HasValue). If null, skipping
+            //   prevents the helper from overwriting the widget's per-game gyro UI with
+            //   a stale default (the original "shows Disabled" bug).
+            //
+            // TRACK B — clawButtonMonitor.SetGyroXxx(): drives the actual hardware.
+            //   Always apply (null → safe default) so leftover gyro from a previous game
+            //   session cannot bleed into the next one (regression introduced by skipping
+            //   everything on null — RE2 hardware stayed at gyro=ON after factory reset).
+            //
+            // Result:
+            //   • No explicit profile gyro → hardware is silently reset to 0; widget UI
+            //     is untouched, so the widget's own per-game LocalSettings push arrives
+            //     correctly and both UI and hardware end up at the right value.
+            //   • Explicit profile gyro → both hardware AND widget UI are updated.
 
-            if (profile.LegionGyroTarget.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroTarget: {profile.LegionGyroTarget.Value}");
-                legionManager.LegionGyroTarget.SetValue(profile.LegionGyroTarget.Value);
-                clawButtonMonitor?.SetGyroTarget(profile.LegionGyroTarget.Value);
-            }
-            else { Logger.Debug("LegionGyroTarget: null — skipping (widget owns gyro)"); }
+            int gyroButton          = profile.LegionGyroButton         ?? 0;
+            int gyroTarget          = profile.LegionGyroTarget          ?? 0;
+            int gyroSensX           = profile.LegionGyroSensitivityX    ?? 50;
+            int gyroSensY           = profile.LegionGyroSensitivityY    ?? 50;
+            bool gyroInvertX        = profile.LegionGyroInvertX         ?? false;
+            bool gyroInvertY        = profile.LegionGyroInvertY         ?? false;
+            int gyroMappingType     = profile.LegionGyroMappingType     ?? 0;
+            int gyroActivationMode  = profile.LegionGyroActivationMode  ?? 0;
+            int gyroDeadzone        = profile.LegionGyroDeadzone        ?? 10;
 
-            if (profile.LegionGyroSensitivityX.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroSensitivityX: {profile.LegionGyroSensitivityX.Value}");
-                legionManager.LegionGyroSensitivityX.SetValue(profile.LegionGyroSensitivityX.Value);
-                clawButtonMonitor?.SetGyroSensitivityX(profile.LegionGyroSensitivityX.Value);
-            }
-            else { Logger.Debug("LegionGyroSensitivityX: null — skipping"); }
+            // Track A: notify widget only when explicit
+            if (profile.LegionGyroButton.HasValue)        legionManager.LegionGyroActivationButton.SetValue(gyroButton);
+            if (profile.LegionGyroTarget.HasValue)        legionManager.LegionGyroTarget.SetValue(gyroTarget);
+            if (profile.LegionGyroSensitivityX.HasValue)  legionManager.LegionGyroSensitivityX.SetValue(gyroSensX);
+            if (profile.LegionGyroSensitivityY.HasValue)  legionManager.LegionGyroSensitivityY.SetValue(gyroSensY);
+            if (profile.LegionGyroInvertX.HasValue)       legionManager.LegionGyroInvertX.SetValue(gyroInvertX);
+            if (profile.LegionGyroInvertY.HasValue)       legionManager.LegionGyroInvertY.SetValue(gyroInvertY);
+            if (profile.LegionGyroMappingType.HasValue)   legionManager.LegionGyroMappingType.SetValue(gyroMappingType);
+            if (profile.LegionGyroActivationMode.HasValue) legionManager.LegionGyroActivationMode.SetValue(gyroActivationMode);
+            if (profile.LegionGyroDeadzone.HasValue)      legionManager.LegionGyroDeadzone.SetValue(gyroDeadzone);
 
-            if (profile.LegionGyroSensitivityY.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroSensitivityY: {profile.LegionGyroSensitivityY.Value}");
-                legionManager.LegionGyroSensitivityY.SetValue(profile.LegionGyroSensitivityY.Value);
-                clawButtonMonitor?.SetGyroSensitivityY(profile.LegionGyroSensitivityY.Value);
-            }
-            else { Logger.Debug("LegionGyroSensitivityY: null — skipping"); }
+            // Track B: always reset hardware (silent, no widget notification)
+            clawButtonMonitor?.SetGyroTarget(gyroTarget);
+            clawButtonMonitor?.SetGyroActivationMode(gyroActivationMode);
+            clawButtonMonitor?.SetGyroActivationButton(gyroButton);
+            clawButtonMonitor?.SetGyroSensitivityX(gyroSensX);
+            clawButtonMonitor?.SetGyroSensitivityY(gyroSensY);
+            clawButtonMonitor?.SetGyroInvertX(gyroInvertX);
+            clawButtonMonitor?.SetGyroInvertY(gyroInvertY);
+            clawButtonMonitor?.SetGyroDeadzone(gyroDeadzone);
 
-            if (profile.LegionGyroInvertX.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroInvertX: {profile.LegionGyroInvertX.Value}");
-                legionManager.LegionGyroInvertX.SetValue(profile.LegionGyroInvertX.Value);
-                clawButtonMonitor?.SetGyroInvertX(profile.LegionGyroInvertX.Value);
-            }
-            else { Logger.Debug("LegionGyroInvertX: null — skipping"); }
-
-            if (profile.LegionGyroInvertY.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroInvertY: {profile.LegionGyroInvertY.Value}");
-                legionManager.LegionGyroInvertY.SetValue(profile.LegionGyroInvertY.Value);
-                clawButtonMonitor?.SetGyroInvertY(profile.LegionGyroInvertY.Value);
-            }
-            else { Logger.Debug("LegionGyroInvertY: null — skipping"); }
-
-            if (profile.LegionGyroMappingType.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroMappingType: {profile.LegionGyroMappingType.Value}");
-                legionManager.LegionGyroMappingType.SetValue(profile.LegionGyroMappingType.Value);
-            }
-            else { Logger.Debug("LegionGyroMappingType: null — skipping"); }
-
-            if (profile.LegionGyroActivationMode.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroActivationMode: {profile.LegionGyroActivationMode.Value}");
-                legionManager.LegionGyroActivationMode.SetValue(profile.LegionGyroActivationMode.Value);
-                clawButtonMonitor?.SetGyroActivationMode(profile.LegionGyroActivationMode.Value);
-            }
-            else { Logger.Debug("LegionGyroActivationMode: null — skipping"); }
-
-            if (profile.LegionGyroDeadzone.HasValue)
-            {
-                Logger.Debug($"Applying LegionGyroDeadzone: {profile.LegionGyroDeadzone.Value}");
-                legionManager.LegionGyroDeadzone.SetValue(profile.LegionGyroDeadzone.Value);
-                clawButtonMonitor?.SetGyroDeadzone(profile.LegionGyroDeadzone.Value);
-            }
-            else { Logger.Debug("LegionGyroDeadzone: null — skipping"); }
+            Logger.Debug($"Gyro applied — target={gyroTarget}{(profile.LegionGyroTarget.HasValue ? "" : " (default, UI not notified)")}, " +
+                         $"mode={gyroActivationMode}{(profile.LegionGyroActivationMode.HasValue ? "" : " (default)")}, " +
+                         $"button={gyroButton}{(profile.LegionGyroButton.HasValue ? "" : " (default)")}");
 
             // Stick deadzones
             if (profile.LegionLeftStickDeadzone.HasValue)
