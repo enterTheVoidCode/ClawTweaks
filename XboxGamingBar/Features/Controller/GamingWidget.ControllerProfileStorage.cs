@@ -1345,7 +1345,15 @@ namespace XboxGamingBar
                 if (LegionVibrationModeComboBox != null)
                     LegionVibrationModeComboBox.SelectedIndex = profile.VibrationMode - 1; // Mode is 1-based, index is 0-based
 
-                // Apply gyro settings
+                // Apply gyro settings.
+                // Gate property pushes via HelperSyncCount so the gyro controls' SelectionChanged/
+                // ValueChanged handlers do NOT fire SetValue (helper push) while we load the profile.
+                // Otherwise each gyro control would push its loaded value AND fight the helper's value,
+                // making the gyro UI flip between active/disabled and corrupting the per-game profile.
+                // The per-game gyro is sent once below via SendControllerSettingsToHelper(profile).
+                XboxGamingBar.Data.WidgetSliderProperty.HelperSyncCount++;
+                try
+                {
                 if (LegionGyroTargetComboBox != null)
                     LegionGyroTargetComboBox.SelectedIndex = profile.GyroTarget;
                 if (LegionGyroSensitivityXSlider != null)
@@ -1377,6 +1385,11 @@ namespace XboxGamingBar
                     LegionGyroDeadzoneSlider.Value = profile.GyroDeadzone;
                     if (LegionGyroDeadzoneValue != null)
                         LegionGyroDeadzoneValue.Text = profile.GyroDeadzone.ToString();
+                }
+                }
+                finally
+                {
+                    XboxGamingBar.Data.WidgetSliderProperty.HelperSyncCount--;
                 }
 
                 // Apply stick deadzones

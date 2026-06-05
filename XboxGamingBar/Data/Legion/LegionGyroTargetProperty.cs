@@ -24,6 +24,9 @@ namespace XboxGamingBar.Data
 
         private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            // Skip while the UI is being updated programmatically (helper sync or profile load) —
+            // otherwise loading a profile pushes this value to the helper and fights its value.
+            if (WidgetSliderProperty.HelperSyncCount > 0) return;
             int newIndex = UI.SelectedIndex;
             if (newIndex >= 0 && newIndex != Value)
             {
