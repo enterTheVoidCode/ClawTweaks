@@ -197,6 +197,17 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Handle factory reset: the widget clears its own package data but the helper's
+                // global controller profile (gyro etc.) lives in the helper's own profile store
+                // (global.xml) and would otherwise survive — leaving gyro active after a reset.
+                if (pipeMsg.Extra.TryGetValue("FactoryReset", out object _frObj))
+                {
+                    Logger.Info("Pipe: FactoryReset received — resetting global controller profile to defaults");
+                    FactoryResetGlobalControllerProfile();
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+
                 // Handle Left MSI button double-click config update from the widget.
                 if (pipeMsg.Extra.TryGetValue("LeftMsiDoubleClick", out object dcObj) && dcObj is string dcJson)
                 {

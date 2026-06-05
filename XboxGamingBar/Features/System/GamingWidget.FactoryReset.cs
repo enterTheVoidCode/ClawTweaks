@@ -75,6 +75,23 @@ namespace XboxGamingBar
                     Logger.Warn($"FactoryReset: could not clear local folder: {ex.Message}");
                 }
 
+                // 4. Tell the helper to reset its OWN global controller profile (gyro + Legion
+                //    controller settings). These are persisted in the helper's profile store
+                //    (global.xml), which this widget-side reset does not touch — otherwise gyro
+                //    stays active after a reset. Gyro must default to OFF.
+                try
+                {
+                    if (App.IsConnected)
+                    {
+                        await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "FactoryReset", "1" } });
+                        Logger.Info("FactoryReset: sent reset command to helper (global controller profile)");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"FactoryReset: failed to notify helper: {ex.Message}");
+                }
+
                 Logger.Info("FactoryReset: complete — requesting app restart");
 
                 // Show brief success notice then exit (Xbox Game Bar will relaunch on next open)

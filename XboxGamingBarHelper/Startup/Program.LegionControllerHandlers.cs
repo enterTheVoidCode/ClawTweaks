@@ -290,5 +290,54 @@ namespace XboxGamingBarHelper
             }
         }
 
+        /// <summary>
+        /// Factory reset: clear the helper's GLOBAL controller profile (gyro + all Legion
+        /// controller settings) back to defaults and persist global.xml. The widget-side factory
+        /// reset only wipes the widget package; the helper's global.xml lives in the helper's own
+        /// profile store, so gyro (and other controller settings) would otherwise survive a reset.
+        /// Gyro must default to OFF.
+        /// </summary>
+        internal static void FactoryResetGlobalControllerProfile()
+        {
+            try
+            {
+                if (profileManager == null) return;
+
+                profileManager.RefreshGlobalProfile();
+                var g = profileManager.GlobalProfile;
+                if (g != null)
+                {
+                    // Button mappings
+                    g.LegionButtonY1 = null; g.LegionButtonY2 = null; g.LegionButtonY3 = null;
+                    g.LegionButtonM1 = null; g.LegionButtonM2 = null; g.LegionButtonM3 = null;
+                    g.LegionButtonDesktop = null; g.LegionButtonPage = null;
+                    // Gyro (null => helper applies its built-in defaults; Target default = 0 = OFF)
+                    g.LegionGyroTarget = null; g.LegionGyroSensitivityX = null; g.LegionGyroSensitivityY = null;
+                    g.LegionGyroInvertX = null; g.LegionGyroInvertY = null; g.LegionGyroMappingType = null;
+                    g.LegionGyroActivationMode = null; g.LegionGyroButton = null; g.LegionGyroDeadzone = null;
+                    // Stick deadzones / triggers / joystick-as-mouse
+                    g.LegionLeftStickDeadzone = null; g.LegionRightStickDeadzone = null;
+                    g.LegionLeftTriggerStart = null; g.LegionLeftTriggerEnd = null;
+                    g.LegionRightTriggerStart = null; g.LegionRightTriggerEnd = null;
+                    g.LegionHairTriggers = null;
+                    g.LegionJoystickAsMouseMode = null; g.LegionJoystickMouseSens = null;
+                    // Misc controller settings
+                    g.LegionGamepadMapping = null; g.LegionNintendoLayout = null;
+                    g.LegionVibration = null; g.LegionVibrationMode = null;
+                    g.LegionControllerProfileEnabled = null;
+                    g.Save();
+                    Logger.Info("FactoryReset: global controller profile cleared to defaults and saved");
+                }
+
+                // Apply gyro OFF live so it takes effect immediately (no reboot required).
+                try { legionManager?.LegionGyroTarget?.SetValue(0); } catch { }
+                try { clawButtonMonitor?.SetGyroTarget(0); } catch { }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"FactoryResetGlobalControllerProfile failed: {ex.Message}");
+            }
+        }
+
     }
 }
