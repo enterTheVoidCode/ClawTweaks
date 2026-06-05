@@ -404,6 +404,9 @@
     <Compile Include="Features\Devices\GamingWidget.MsiFanControl.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\Devices\GamingWidget.MsiClawSettings.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\Devices\GamingWidget.Display.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>

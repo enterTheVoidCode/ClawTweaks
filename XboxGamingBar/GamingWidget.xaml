@@ -3376,8 +3376,10 @@
                             </Grid>
                         </Border>
 
-                        <!-- Pro Tips Card -->
-                        <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
+                        <!-- ═══ MSI CLAW FEATURES — shown only on MSI Claw hardware ═══ -->
+
+                        <!-- LED Controller Color Card (MSI Claw A1M / A2VM) -->
+                        <Border x:Name="MsiLedColorCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -3385,159 +3387,80 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Pro Tips" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Controller navigation shortcuts"
-                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                        <TextBlock Text="Controller LED Color" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Set a fixed color for the MSI Claw controller LEDs"
+                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
                                     </StackPanel>
-                                    <ToggleButton x:Name="ProTipsExpandButton"
+                                    <ToggleButton x:Name="MsiLedExpandButton"
                                                   Grid.Column="1"
                                                   IsChecked="False"
                                                   VerticalAlignment="Top"
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
-                                                  Click="ProTipsExpandButton_Click">
-                                        <FontIcon x:Name="ProTipsExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                                  Click="MsiLedExpandButton_Click">
+                                        <FontIcon x:Name="MsiLedExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
-
-                                <StackPanel x:Name="ProTipsContent" Visibility="Collapsed" Margin="0,12,0,0" Spacing="8">
-                                    <!-- Tab Navigation -->
-                                    <StackPanel>
-                                        <TextBlock Text="Tab Navigation" FontSize="12" Foreground="#AAAAAA" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition/>
-                                                <RowDefinition/>
-                                            </Grid.RowDefinitions>
-                                            <Border Grid.Row="0" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
-                                                <TextBlock Text="LT / RT" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
-                                            </Border>
-                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Switch tabs left / right" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
-                                            <Border Grid.Row="1" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
-                                                <TextBlock Text="D-Pad ↓" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
-                                            </Border>
-                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="Enter content area from tab bar" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
-                                        </Grid>
-                                    </StackPanel>
-
-                                    <!-- Section Navigation -->
-                                    <StackPanel>
-                                        <TextBlock Text="Section Navigation" FontSize="12" Foreground="#AAAAAA" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition/>
-                                                <RowDefinition/>
-                                                <RowDefinition/>
-                                                <RowDefinition/>
-                                            </Grid.RowDefinitions>
-                                            <Border Grid.Row="0" Grid.Column="0" Background="#1A3A1A" BorderBrush="#336633" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
-                                                <TextBlock Text="Y" Foreground="#F5C518" FontSize="11" FontWeight="SemiBold"/>
-                                            </Border>
-                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Jump back to tab bar from anywhere" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
-                                            <Border Grid.Row="1" Grid.Column="0" Background="#1A2A3A" BorderBrush="#335599" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
-                                                <TextBlock Text="X" Foreground="#5B9BD5" FontSize="11" FontWeight="SemiBold"/>
-                                            </Border>
-                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="Collapse the currently open section" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
-                                            <Border Grid.Row="2" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
-                                                <TextBlock Text="A" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
-                                            </Border>
-                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Confirm / toggle focused control" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
-                                            <Border Grid.Row="3" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
-                                                <TextBlock Text="B" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
-                                            </Border>
-                                            <TextBlock Grid.Row="3" Grid.Column="1" Text="Cancel / close widget" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
-                                        </Grid>
-                                    </StackPanel>
-
-                                    <!-- Mouse Mode -->
-                                    <StackPanel>
-                                        <TextBlock Text="Virtual Mouse" FontSize="12" Foreground="#AAAAAA" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition/>
-                                                <RowDefinition/>
-                                                <RowDefinition/>
-                                            </Grid.RowDefinitions>
-                                            <Border Grid.Row="0" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
-                                                <TextBlock Text="RB" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
-                                            </Border>
-                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Left click (configurable)" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
-                                            <Border Grid.Row="1" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
-                                                <TextBlock Text="LB" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
-                                            </Border>
-                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="Right click (configurable)" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
-                                            <Border Grid.Row="2" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,0" HorizontalAlignment="Left">
-                                                <TextBlock Text="R-Stick" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
-                                            </Border>
-                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Move cursor — L-Stick scrolls" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center"/>
-                                        </Grid>
-                                    </StackPanel>
+                                <StackPanel x:Name="MsiLedContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <muxc:ColorPicker x:Name="MsiLedColorPicker"
+                                                      ColorSpectrumShape="Ring"
+                                                      IsAlphaEnabled="False"
+                                                      IsAlphaSliderVisible="False"
+                                                      IsHexInputVisible="True"
+                                                      IsMoreButtonVisible="False"
+                                                      HorizontalAlignment="Left"
+                                                      ColorChanged="MsiLedColorPicker_ColorChanged"/>
+                                    <Button x:Name="MsiLedApplyButton"
+                                            Content="Apply LED Color"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            HorizontalAlignment="Left"
+                                            Margin="0,8,0,0"
+                                            Click="MsiLedApplyButton_Click"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-
-
-                        <!-- DISPLAY SECTION (migrated from Display tab) -->
-                        <TextBlock Text="DISPLAY" Style="{StaticResource SectionHeaderStyle}"/>
-
-                        <!-- Resolution Card -->
-                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,0">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Resolution"
-                                           Style="{StaticResource CardTitleStyle}"
-                                           VerticalAlignment="Center"
-                                           Grid.Column="0"/>
-                                <ComboBox x:Name="ResolutionComboBox"
-                                          PlaceholderText="1920x1080"
-                                          Width="150"
-                                          Grid.Column="1"
-                                          IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          XYFocusUp="{x:Bind SystemNavItem}">
-                                    <x:String>1920x1080</x:String>
-                                </ComboBox>
-                            </Grid>
-                        </Border>
-
-                        <!-- Refresh Rate Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Refresh Rate"
-                                           Style="{StaticResource CardTitleStyle}"
-                                           VerticalAlignment="Center"
-                                           Grid.Column="0"/>
-                                <ComboBox x:Name="RefreshRatesComboBox"
-                                          PlaceholderText="60 Hz"
-                                          Width="120"
-                                          Grid.Column="1"
-                                          IsEnabled="False"
-                                          Style="{StaticResource ModernComboBoxStyle}"
-                                          XYFocusUp="{x:Bind SystemNavItem}">
-                                    <x:String>60 Hz</x:String>
-                                </ComboBox>
-                            </Grid>
+                        <!-- Charge Limit Card (MSI Claw A1M / A2VM) -->
+                        <Border x:Name="MsiChargeLimitCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Charge Limit" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Limit battery charging to extend long-term lifespan"
+                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="MsiChargeLimitToggle"
+                                                  Grid.Column="1"
+                                                  OnContent="" OffContent=""
+                                                  IsOn="False"
+                                                  Toggled="MsiChargeLimitToggle_Toggled"/>
+                                </Grid>
+                                <!-- Percentage selection — shown when toggle is on -->
+                                <StackPanel x:Name="MsiChargeLimitPercentPanel" Visibility="Collapsed" Margin="0,12,0,0" Spacing="4">
+                                    <TextBlock Text="Charge to at most:" FontSize="12" Foreground="#AAAAAA" Margin="0,0,0,4"/>
+                                    <RadioButton x:Name="MsiChargeLimit60"
+                                                 Content="60% — Best for long-term storage / always-plugged-in"
+                                                 GroupName="MsiChargeLimitGroup"
+                                                 FontSize="12"
+                                                 Checked="MsiChargeLimitPercent_Checked" Tag="60"/>
+                                    <RadioButton x:Name="MsiChargeLimit80"
+                                                 Content="80% — Recommended daily use"
+                                                 GroupName="MsiChargeLimitGroup"
+                                                 FontSize="12"
+                                                 IsChecked="True"
+                                                 Checked="MsiChargeLimitPercent_Checked" Tag="80" Margin="0,4,0,0"/>
+                                    <RadioButton x:Name="MsiChargeLimit100"
+                                                 Content="100% — No limit (default)"
+                                                 GroupName="MsiChargeLimitGroup"
+                                                 FontSize="12"
+                                                 Checked="MsiChargeLimitPercent_Checked" Tag="100" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
                         </Border>
 
                         <!-- Display Color Settings Card — hidden (not relevant for MSI Claw) -->
@@ -4548,6 +4471,110 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Navigation Infos Card (controller shortcuts reference) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Navigation Infos" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Controller navigation shortcuts"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="ProTipsExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Top"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="ProTipsExpandButton_Click">
+                                        <FontIcon x:Name="ProTipsExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+                                <StackPanel x:Name="ProTipsContent" Visibility="Collapsed" Margin="0,12,0,0" Spacing="8">
+                                    <!-- Tab Navigation -->
+                                    <StackPanel>
+                                        <TextBlock Text="Tab Navigation" FontSize="12" Foreground="#AAAAAA" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition/><RowDefinition/>
+                                            </Grid.RowDefinitions>
+                                            <Border Grid.Row="0" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
+                                                <TextBlock Text="LT / RT" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
+                                            </Border>
+                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Switch tabs left / right" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                                            <Border Grid.Row="1" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
+                                                <TextBlock Text="D-Pad ↓" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
+                                            </Border>
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="Enter content area from tab bar" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                                        </Grid>
+                                    </StackPanel>
+                                    <!-- Section Navigation -->
+                                    <StackPanel>
+                                        <TextBlock Text="Section Navigation" FontSize="12" Foreground="#AAAAAA" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                            </Grid.RowDefinitions>
+                                            <Border Grid.Row="0" Grid.Column="0" Background="#1A3A1A" BorderBrush="#336633" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
+                                                <TextBlock Text="Y" Foreground="#F5C518" FontSize="11" FontWeight="SemiBold"/>
+                                            </Border>
+                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Jump back to tab bar from anywhere" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                                            <Border Grid.Row="1" Grid.Column="0" Background="#1A2A3A" BorderBrush="#335599" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
+                                                <TextBlock Text="X" Foreground="#5B9BD5" FontSize="11" FontWeight="SemiBold"/>
+                                            </Border>
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="Collapse the currently open section" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                                            <Border Grid.Row="2" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
+                                                <TextBlock Text="A" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
+                                            </Border>
+                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Confirm / toggle focused control" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                                            <Border Grid.Row="3" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
+                                                <TextBlock Text="B" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
+                                            </Border>
+                                            <TextBlock Grid.Row="3" Grid.Column="1" Text="Cancel / close widget" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                                        </Grid>
+                                    </StackPanel>
+                                    <!-- Virtual Mouse -->
+                                    <StackPanel>
+                                        <TextBlock Text="Virtual Mouse" FontSize="12" Foreground="#AAAAAA" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition/><RowDefinition/><RowDefinition/>
+                                            </Grid.RowDefinitions>
+                                            <Border Grid.Row="0" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
+                                                <TextBlock Text="RB" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
+                                            </Border>
+                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Left click (configurable)" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                                            <Border Grid.Row="1" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,4" HorizontalAlignment="Left">
+                                                <TextBlock Text="LB" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
+                                            </Border>
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="Right click (configurable)" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                                            <Border Grid.Row="2" Grid.Column="0" Background="#2A2A2A" CornerRadius="3" Padding="6,2" Margin="0,0,8,0" HorizontalAlignment="Left">
+                                                <TextBlock Text="R-Stick" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
+                                            </Border>
+                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Move cursor — L-Stick scrolls" FontSize="11" Foreground="#CCCCCC" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <!-- About Card (Collapsible) -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -4780,6 +4807,56 @@
 
                         <TextBlock Text="Note: these affect the whole screen (desktop-wide), like Intel Graphics Software. They reset to your global profile when no game is running."
                                    Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+
+                        <!-- DISPLAY — Resolution and Refresh Rate (moved from System tab) -->
+                        <TextBlock Text="DISPLAY" Style="{StaticResource SectionHeaderStyle}" Margin="0,8,0,0"/>
+
+                        <!-- Resolution Card -->
+                        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Resolution"
+                                           Style="{StaticResource CardTitleStyle}"
+                                           VerticalAlignment="Center"
+                                           Grid.Column="0"/>
+                                <ComboBox x:Name="ResolutionComboBox"
+                                          PlaceholderText="1920x1080"
+                                          Width="150"
+                                          Grid.Column="1"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          XYFocusUp="{x:Bind DisplayNavItem}">
+                                    <x:String>1920x1080</x:String>
+                                </ComboBox>
+                            </Grid>
+                        </Border>
+
+                        <!-- Refresh Rate Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Refresh Rate"
+                                           Style="{StaticResource CardTitleStyle}"
+                                           VerticalAlignment="Center"
+                                           Grid.Column="0"/>
+                                <ComboBox x:Name="RefreshRatesComboBox"
+                                          PlaceholderText="60 Hz"
+                                          Width="120"
+                                          Grid.Column="1"
+                                          IsEnabled="False"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          XYFocusUp="{x:Bind DisplayNavItem}">
+                                    <x:String>60 Hz</x:String>
+                                </ComboBox>
+                            </Grid>
+                        </Border>
+
                     </StackPanel>
                 </ScrollViewer>
 
