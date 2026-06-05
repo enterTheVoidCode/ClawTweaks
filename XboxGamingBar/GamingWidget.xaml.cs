@@ -3305,30 +3305,26 @@ namespace XboxGamingBar
             //     so the user can create one (which copies the current global mapping).
             if (!gameActive)
             {
-                // No game → load + apply global profile; toggle off + disabled.
-                // Gyro is always disabled outside of games — send explicit 0 regardless
-                // of what the global profile contains. Gyro is a game-only feature.
+                // No game → load + apply global profile normally (UI reflects true settings).
+                // Gyro is game-only: after applying the profile we send an explicit gyro=0
+                // to hardware WITHOUT touching the profile or UI — so the card keeps showing
+                // the configured gyro (e.g. "Gyro:LStick") which is correct: it tells the
+                // user "gyro will activate when you next start a game without a per-game profile".
                 isSwitchingControllerProfile = true;
                 try
                 {
                     bool wasOn = LegionControllerProfileToggle.IsOn;
                     if (wasOn) LegionControllerProfileToggle.IsOn = false;
                     LoadControllerProfileFromStorage("Global", globalControllerProfile);
-                    // Force gyro off for the apply — do not inherit global profile gyro value
-                    var profileForApply = globalControllerProfile.Clone();
-                    profileForApply.GyroTarget = 0;
-                    profileForApply.GyroSensitivityX = 50;
-                    profileForApply.GyroSensitivityY = 50;
-                    profileForApply.GyroDeadzone = 1;
-                    profileForApply.GyroInvertX = false;
-                    profileForApply.GyroInvertY = false;
-                    profileForApply.GyroMappingType = 0;
-                    profileForApply.GyroActivationMode = 0;
-                    profileForApply.GyroActivationButton = 0;
-                    Logger.Info($"[CtrlProfile] No game — applying GLOBAL profile, gyro forced OFF (wasPerGame={wasOn})");
-                    ApplyControllerProfile(profileForApply);
-                    // Sync the in-memory global profile's gyro state to match what we sent
-                    globalControllerProfile.GyroTarget = 0;
+                    Logger.Info($"[CtrlProfile] No game — applying GLOBAL profile to UI (gyroTarget={globalControllerProfile.GyroTarget}, wasPerGame={wasOn})");
+                    ApplyControllerProfile(globalControllerProfile);
+                    // Gyro always off on hardware outside of games — explicit override
+                    // after the profile push (hardware: LStick→0, brief transition is fine).
+                    if (globalControllerProfile.GyroTarget != 0)
+                    {
+                        Logger.Info("[CtrlProfile] Gyro was active in global profile — forcing hardware OFF (profile setting preserved for next game start)");
+                        legionGyroTarget?.SetValue(0);
+                    }
                 }
                 finally { isSwitchingControllerProfile = false; }
                 LegionControllerProfileToggle.IsEnabled = false;
