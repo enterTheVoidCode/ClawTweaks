@@ -955,14 +955,6 @@
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
 
-                        <!-- TEMP NAV DIAGNOSTIC — shows the key received + focused element live -->
-                        <Border Background="#22FFFF00" CornerRadius="4" Padding="8,4" Margin="0,0,0,8">
-                            <TextBlock x:Name="NavDebugText"
-                                       Text="nav: (press a direction)"
-                                       FontSize="12" FontFamily="Consolas"
-                                       Foreground="#FFFF00" TextWrapping="Wrap"/>
-                        </Border>
-
                         <!-- Default Game Profile Card (Preview) - Hidden when no profile available -->
                         <Border x:Name="DefaultGameProfileCard"
                                 Style="{StaticResource CardStyle}"

@@ -201,22 +201,6 @@ namespace XboxGamingBar
 
         private void GamingWidget_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            // ── TEMPORARY NAV DIAGNOSTIC ────────────────────────────────────────────
-            // Shows the actual VirtualKey received + the currently focused element name,
-            // so we can see on-device exactly what the D-pad sends and where focus is.
-            try
-            {
-                if (NavDebugText != null)
-                {
-                    var fe = FocusManager.GetFocusedElement() as FrameworkElement;
-                    string focusName = fe?.Name;
-                    if (string.IsNullOrEmpty(focusName)) focusName = fe?.GetType().Name ?? "null";
-                    NavDebugText.Text = $"key={e.Key}  focus={focusName}";
-                }
-            }
-            catch { }
-            // ────────────────────────────────────────────────────────────────────────
-
             // LT / RT — tab navigation
             if (e.Key == VirtualKey.GamepadLeftTrigger)
             {
