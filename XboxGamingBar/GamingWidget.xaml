@@ -1125,6 +1125,8 @@
                                             TickPlacement="Outside"
                                             SnapsTo="StepValues"
                                             IsEnabled="False"
+                                            XYFocusUp="{x:Bind FPSStateCycleButton}"
+                                            XYFocusDown="{x:Bind FPSStateCycleButton}"
                                             KeyDown="FPSLimitSlider_KeyDown"/>
                                 </StackPanel>
 
@@ -1133,6 +1135,9 @@
                                         Grid.Column="2"
                                         Click="FPSStateCycleButton_Click"
                                         KeyDown="FPSStateCycleButton_KeyDown"
+                                        IsTabStop="True"
+                                        XYFocusUp="{x:Bind PerGameProfileToggle}"
+                                        XYFocusDown="{x:Bind TDPSlider}"
                                         VerticalAlignment="Stretch"
                                         HorizontalAlignment="Stretch"
                                         MinWidth="60"
@@ -1592,6 +1597,8 @@
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
                                         IsEnabled="False" Value="-5"
+                                        XYFocusUp="{x:Bind FPSStateCycleButton}"
+                                        XYFocusDown="{x:Bind TDPBoostToggle}"
                                         ValueChanged="TDPSlider_ValueChanged_UpdateDisplay"
                                         KeyDown="TDPSlider_KeyDown"/>
                                 <Grid Margin="0,4,0,0">
@@ -1646,6 +1653,8 @@
                                             TickFrequency="1" SnapsTo="Ticks"
                                             Value="3"
                                             IsEnabled="False"
+                                            XYFocusUp="{x:Bind TDPBoostToggle}"
+                                            XYFocusDown="{x:Bind TDPBoostToggle}"
                                             ValueChanged="TDPBoostFPPTSlider_ValueChanged"
                                             KeyDown="TDPBoostFPPTSliderCard_KeyDown"/>
                                 </StackPanel>
@@ -1656,6 +1665,8 @@
                                               Style="{StaticResource ModernToggleStyle}"
                                               IsEnabled="True" Width="52"
                                               VerticalAlignment="Center"
+                                              XYFocusUp="{x:Bind TDPSlider}"
+                                              XYFocusDown="{x:Bind OSPowerModeComboBox}"
                                               Toggled="TDPBoostToggle_Toggled"
                                               KeyDown="TDPBoostToggle_KeyDown"/>
                             </Grid>
