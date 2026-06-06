@@ -1424,7 +1424,7 @@ namespace XboxGamingBarHelper
                             }
                             else
                             {
-                                // Parse versions from folder names (e.g., XboxGamingBarPackage_0.3.98.0_Debug_Test)
+                                // Parse versions from folder names (e.g., XboxGamingBarPackage_0.1.285.323_Debug_Test)
                                 string latestFolder = null;
                                 string latestVersionStr = null;
                                 Version latestVersion = null;

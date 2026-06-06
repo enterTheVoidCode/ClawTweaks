@@ -493,11 +493,15 @@ namespace XboxGamingBarHelper
                 }
                 else
                 {
-                    // RTSS mode (or no cap)
-                    Logger.Info($"Restoring RTSS FPS limit={profile.FPSLimit} from profile");
+                    // Cap is off (or RTSS mode). Preserve the user's SELECTED mode (profile.FpsCapMode)
+                    // rather than forcing RTSS — otherwise an "Intel mode but currently off" profile
+                    // would reopen as RTSS and the tile would cycle the wrong limiter.
                     intelGpuManager.IntelFpsTier.SetValue(0);
-                    intelGpuManager.FpsCapMode.SetValue(0);
-                    rtssManager.FPSLimit.SetValue(profile.FPSLimit);
+                    intelGpuManager.FpsCapMode.SetValue(profile.FpsCapMode);
+                    // Only push an RTSS limit when RTSS is actually the selected mode.
+                    int rtssLimit = profile.FpsCapMode == 1 ? 0 : profile.FPSLimit;
+                    Logger.Info($"Restoring FPS limiter: mode={(profile.FpsCapMode == 1 ? "Intel(off)" : "RTSS")}, rtssLimit={rtssLimit}");
+                    rtssManager.FPSLimit.SetValue(rtssLimit);
                 }
             }
             finally
@@ -518,7 +522,9 @@ namespace XboxGamingBarHelper
             }
             else
             {
-                rtssManager?.SetFpsCapDisplay(profile.FPSLimit, false);
+                // Intel selected but off → no active cap; otherwise show the RTSS limit.
+                int rtssLimit = profile.FpsCapMode == 1 ? 0 : profile.FPSLimit;
+                rtssManager?.SetFpsCapDisplay(rtssLimit, false);
             }
         }
 
@@ -829,7 +835,8 @@ namespace XboxGamingBarHelper
         // Only one FPS limiter can be active at a time:
         //   • RTSS limit set to >0 → disable Intel tier, FpsCapMode=0
         //   • Intel tier set to >0 → disable RTSS limit, FpsCapMode=1
-        //   • Either set to 0    → FpsCapMode=0 (no cap)
+        //   • Either set to 0    → cap is off, but FpsCapMode (the user's selected mode) is
+        //                          PRESERVED so the tile keeps cycling within that mode.
         // _applyingFpsProfile prevents the mutual-exclusion handlers from firing
         // when we ourselves clear the other limiter (avoid recursive callbacks).
         private static bool _applyingFpsProfile = false;
@@ -946,13 +953,16 @@ namespace XboxGamingBarHelper
                     _applyingFpsProfile = false;
                 }
             }
-            else
-            {
-                intelGpuManager.FpsCapMode.SetValue(0);
-            }
+            // NOTE: when newTier == 0 we deliberately do NOT reset FpsCapMode to 0 (RTSS).
+            // Turning the Intel cap off must keep the user's *selected* mode = Intel, so the
+            // Quick Settings tile keeps cycling within Intel (Off → 60 → 40 → 30 → Off) instead
+            // of jumping to RTSS on the next toggle. The active cap is determined by the limiter
+            // values (FPSLimit / IntelFpsTier), not by FpsCapMode, so leaving it at 1 is safe.
+            // (RTSS already behaves this way: clearing the RTSS limit never flips the mode.)
 
-            // Save Intel FPS tier and cap mode to profile (uses FPSLimit save flag)
-            int capMode = newTier > 0 ? 1 : 0;
+            // Save Intel FPS tier and cap mode to profile (uses FPSLimit save flag).
+            // Preserve the current mode when the tier is cleared rather than forcing RTSS.
+            int capMode = newTier > 0 ? 1 : intelGpuManager.FpsCapMode.Value;
             if (!isApplyingProfile && !IsInProfileSwitchCooldown())
             {
                 RouteProfileSave(ProfileSaveFlagsState.FPSLimit, "IntelFpsTier",

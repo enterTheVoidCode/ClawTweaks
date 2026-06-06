@@ -286,7 +286,13 @@ namespace XboxGamingBar
             if (SaveFPSLimit && FPSLimitToggle != null && FPSLimitSlider != null)
             {
                 profile.FPSLimitEnabled = FPSLimitToggle.IsOn;
-                profile.FPSLimitValue = (int)FPSLimitSlider.Value;
+                // FPSLimitValue is the actual RTSS fps. The slider is INDEX-based now
+                // (0..6 → FpsRtssValues), so the raw slider value must NOT be stored — doing
+                // so produced bogus caps like "4" on the next launch. Use the helper's live RTSS
+                // value as the source of truth; keep the prior value when RTSS is off / Intel mode.
+                int rtssFps = fpsLimit?.Value ?? 0;
+                if (rtssFps > 0)
+                    profile.FPSLimitValue = rtssFps;
                 // Also persist the active limiter mode so the correct limiter is restored
                 profile.FpsCapMode = fpsCapMode?.Value ?? 0;
                 profile.IntelFpsTier = intelFpsTier?.Value ?? 0;

@@ -33,3 +33,6 @@ _ReSharper*/
 
 # Private build/packaging tooling — kept local, not published
 Build-Package.ps1
+
+# Internal test-build counter (per machine, advanced by Build-Package.ps1 -Mode Test)
+XboxGamingBarPackage/internal_build.txt

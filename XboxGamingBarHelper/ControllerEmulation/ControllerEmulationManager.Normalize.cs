@@ -410,22 +410,22 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseLeftClickButton", out int savedLeftClickButton))
                     mouseLeftClickButton = Math.Max(0, Math.Min(10, savedLeftClickButton)); // 0-10: None,A,B,X,Y,LB,RB,LS,RS,LT,RT
                 else
-                    mouseLeftClickButton = 6; // default RB
+                    mouseLeftClickButton = 10; // default RT (RB/LB don't work under Game Bar)
 
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseRightClickButton", out int savedRightClickButton))
                     mouseRightClickButton = Math.Max(0, Math.Min(10, savedRightClickButton));
                 else
-                    mouseRightClickButton = 5; // default LB
+                    mouseRightClickButton = 9; // default LT (RB/LB don't work under Game Bar)
 
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseCursorStick", out int savedCursorStick))
                     mouseCursorStick = Math.Max(0, Math.Min(1, savedCursorStick));
                 else
-                    mouseCursorStick = 0; // default Right Stick
+                    mouseCursorStick = 1; // default Left Stick
 
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseScrollStick", out int savedScrollStick))
                     mouseScrollStick = Math.Max(0, Math.Min(1, savedScrollStick));
                 else
-                    mouseScrollStick = 0; // default Left Stick
+                    mouseScrollStick = 1; // default Right Stick
 
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseAxis", out int savedAxis))
                 {

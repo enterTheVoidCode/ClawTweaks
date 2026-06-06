@@ -171,8 +171,11 @@ namespace XboxGamingBar
         {
             if (LightingSection != null)
             {
-                LightingSection.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-                Logger.Info($"Lighting section visibility set to: {visible}");
+                // The Controller-tab Lighting section was removed (duplicate of the System tab's
+                // "Controller LED Color" card). Keep it permanently hidden regardless of the
+                // device's RGB capability. The named controls are retained (not deleted) so the
+                // ~17 files that reference them still compile.
+                LightingSection.Visibility = Visibility.Collapsed;
             }
         }
 

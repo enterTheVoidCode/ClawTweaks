@@ -118,11 +118,12 @@ namespace XboxGamingBar
                             case "Resolution":
                                 CycleResolution();
                                 break;
-                            case "FpsLimiter":
-                                // Cycle FPS caps in the CURRENT mode (RTSS or Intel), incl. Off.
-                                // Reuses the existing mode-aware cycler — no mode switching here.
-                                CycleFPSForCurrentMode();
-                                break;
+                            // DISABLED: FPS Limiter tile removed from the grid (see QuickSettings.cs).
+                            // FPS limiting is handled only by the Performance-tab controls now.
+                            // case "FpsLimiter":
+                            //     // Cycle FPS caps in the CURRENT mode (RTSS or Intel), incl. Off.
+                            //     CycleFPSForCurrentMode();
+                            //     break;
                             case "ChargeLimiter":
                                 ToggleChargeLimiterTile();
                                 break;
@@ -168,7 +169,9 @@ namespace XboxGamingBar
                                 ToggleScreenSaver();
                                 break;
                             case "Keyboard":
-                                TriggerOnScreenKeyboard();
+                                // Open the keyboard AND dismiss Game Bar (delayed) — you always
+                                // leave Game Bar to type with the virtual keyboard.
+                                OpenKeyboardThenDismissGameBar();
                                 break;
                             case "LegionTouchpad":
                                 ToggleLegionTouchpad();
@@ -823,6 +826,30 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Keyboard tile: open the on-screen keyboard, then dismiss Game Bar after a short delay.
+        /// Typing with the virtual keyboard always targets the app behind Game Bar, so Game Bar has
+        /// to get out of the way (otherwise it keeps focus and swallows the keystrokes). Mirrors how
+        /// the Overlay (custom-shortcut) tiles close Game Bar via Win+G; only when running as a widget.
+        /// </summary>
+        private async void OpenKeyboardThenDismissGameBar()
+        {
+            TriggerOnScreenKeyboard();
+            try
+            {
+                if (widget != null)
+                {
+                    await Task.Delay(350);   // let the keyboard request reach the helper / TabTip begin showing
+                    await SendKeyboardShortcutViaHelper("Win+G");
+                    Logger.Info("Game Bar dismissed (Win+G) after opening on-screen keyboard");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"OpenKeyboardThenDismissGameBar: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Toggle RTSS OSD between off and last used level
         /// </summary>
         private void ToggleRTSSOsd()
@@ -1308,6 +1335,13 @@ namespace XboxGamingBar
 
             string[] tierLabels = { "Off", "Perf 60", "Bal 40", "Eff 30" };
             Logger.Info($"Intel FPS tier cycled from {currentTier} ({tierLabels[currentTier]}) to {nextTier} ({tierLabels[nextTier]})");
+
+            // Persist to the widget profile so a Game Bar reopen re-pushes THIS value.
+            // Mirror of CycleFPSLimit (RTSS): without this the Intel tier set from the tile is
+            // lost on reopen, because the stale widget profile gets pushed back to the helper.
+            // (QuickSettingsProperty_Changed only refreshes tile state — it does not save.)
+            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
+                SaveCurrentSettingsToProfile(currentProfileName);
         }
 
         // ── FPS-state cycle button ─────────────────────────────────────────────────

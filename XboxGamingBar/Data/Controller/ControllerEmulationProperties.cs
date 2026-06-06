@@ -469,7 +469,7 @@ namespace XboxGamingBar.Data
     internal class ControllerEmulationMouseLeftClickButtonProperty : WidgetControlProperty<int, ComboBox>
     {
         public ControllerEmulationMouseLeftClickButtonProperty(ComboBox inUI, Page inOwner)
-            : base(6, Function.ControllerEmulationMouseLeftClickButton, inUI, inOwner) // default 6=RB
+            : base(10, Function.ControllerEmulationMouseLeftClickButton, inUI, inOwner) // default 10=RT (RB/LB don't work under Game Bar)
         {
             if (UI != null) { UI.SelectionChanged += ComboBox_SelectionChanged; if (UI.Items.Count > Value) UI.SelectedIndex = Value; }
         }
@@ -482,7 +482,7 @@ namespace XboxGamingBar.Data
     internal class ControllerEmulationMouseRightClickButtonProperty : WidgetControlProperty<int, ComboBox>
     {
         public ControllerEmulationMouseRightClickButtonProperty(ComboBox inUI, Page inOwner)
-            : base(5, Function.ControllerEmulationMouseRightClickButton, inUI, inOwner) // default 5=LB
+            : base(9, Function.ControllerEmulationMouseRightClickButton, inUI, inOwner) // default 9=LT (RB/LB don't work under Game Bar)
         {
             if (UI != null) { UI.SelectionChanged += ComboBox_SelectionChanged; if (UI.Items.Count > Value) UI.SelectedIndex = Value; }
         }
@@ -495,7 +495,7 @@ namespace XboxGamingBar.Data
     internal class ControllerEmulationMouseCursorStickProperty : WidgetControlProperty<int, ComboBox>
     {
         public ControllerEmulationMouseCursorStickProperty(ComboBox inUI, Page inOwner)
-            : base(0, Function.ControllerEmulationMouseCursorStick, inUI, inOwner) // default 0=Right Stick
+            : base(1, Function.ControllerEmulationMouseCursorStick, inUI, inOwner) // default 1=Left Stick
         {
             if (UI != null) { UI.SelectionChanged += ComboBox_SelectionChanged; if (UI.Items.Count > Value) UI.SelectedIndex = Value; }
         }
@@ -508,7 +508,7 @@ namespace XboxGamingBar.Data
     internal class ControllerEmulationMouseScrollStickProperty : WidgetControlProperty<int, ComboBox>
     {
         public ControllerEmulationMouseScrollStickProperty(ComboBox inUI, Page inOwner)
-            : base(0, Function.ControllerEmulationMouseScrollStick, inUI, inOwner) // default 0=Left Stick
+            : base(1, Function.ControllerEmulationMouseScrollStick, inUI, inOwner) // default 1=Right Stick
         {
             if (UI != null) { UI.SelectionChanged += ComboBox_SelectionChanged; if (UI.Items.Count > Value) UI.SelectedIndex = Value; }
         }

@@ -102,7 +102,7 @@ namespace XboxGamingBarHelper.RTSS
         };
 
         // Layout settings
-        private int osdTextSize = 100;        // Percentage: 50=Small, 100=Medium, 150=Large, 200=X-Large
+        private int osdTextSize = 125;        // Percentage: 50=Small, 100=Medium, 125=Default, 150=Large, 200=X-Large
         private string osdTextColor = "FFFFFF";
         private string osdLabelColor = "DEFAULT";  // DEFAULT = use item-specific colors, or hex color code
         private string osdBackgroundColor = "80000000";
@@ -705,9 +705,9 @@ namespace XboxGamingBarHelper.RTSS
                         string minColor = ApplyOpacityToColor("00FF00");
                         string avgColor = ApplyOpacityToColor("FFFF00");
                         string maxColor = ApplyOpacityToColor("FF6600");
-                        // Reset to osdTextSize after the small stats label (not just <S> which resets to 100%)
-                        string sizeReset = osdTextSize != 100 ? $"<S={osdTextSize}>" : "<S>";
-                        statsLabel = $"\n<S=50><C={labelColor}>min:<C={minColor}>{currentMinFt:F1}ms <C={labelColor}>avg:<C={avgColor}>{currentAvgFt:F1}ms <C={labelColor}>max:<C={maxColor}>{currentMaxFt:F1}ms<C>{sizeReset}";
+                        // Small stats label; the trailing <S> reset is rewritten to the global base
+                        // size by ApplyOsdTextScale() (applied centrally just before the OSD is sent).
+                        statsLabel = $"\n<S=50><C={labelColor}>min:<C={minColor}>{currentMinFt:F1}ms <C={labelColor}>avg:<C={avgColor}>{currentAvgFt:F1}ms <C={labelColor}>max:<C={maxColor}>{currentMaxFt:F1}ms<C><S>";
                     }
 
                     // <G=<FT>> - RTSSSharedMemoryNET.ProcessGraphTags converts this to embedded graph object
@@ -722,11 +722,8 @@ namespace XboxGamingBarHelper.RTSS
             // Build OSD header
             string osdString = BuildOSDHeader();
 
-            // Apply text size if not default
-            if (osdTextSize != 100)
-            {
-                osdString += $"<S={osdTextSize}>";
-            }
+            // NOTE: Text-size scaling is applied GLOBALLY at the very end via ApplyOsdTextScale()
+            // so the whole overlay scales proportionally (not just the leading FPS value).
 
             // Apply default text color (use white as base for dynamic mode)
             var baseTextColor = osdTextColor == "DYNAMIC" ? "FFFFFF" : osdTextColor;
@@ -811,11 +808,7 @@ namespace XboxGamingBarHelper.RTSS
                 osdString += enabledItems[i];
             }
 
-            // Close text size tag if used
-            if (osdTextSize != 100)
-            {
-                osdString += "<S>";
-            }
+            // (No closing tag here — global text-size scaling is applied centrally below.)
 
             // Add pinned frametime graph at the end on its own line
             if (frametimeGraphPinned && !string.IsNullOrEmpty(frametimeGraphString) && IsItemEnabled("FrametimeGraph"))
@@ -845,6 +838,9 @@ namespace XboxGamingBarHelper.RTSS
                 _pendingNotification = null;
             }
 
+            // Scale the ENTIRE overlay by the configured Text Size (global, proportional).
+            osdString = ApplyOsdTextScale(osdString);
+
             try
             {
                 rtssOSD.Update(osdString);
@@ -853,6 +849,43 @@ namespace XboxGamingBarHelper.RTSS
             {
                 Logger.Debug($"Error updating OSD: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Applies the user's "Text Size" (osdTextSize, percent) as a GLOBAL, proportional scale over
+        /// the whole OSD string — not just the leading FPS value. RTSS &lt;S=N&gt; tags are absolute
+        /// percentages and a bare &lt;S&gt; resets to 100% (RTSS default), which is why everything after
+        /// the first reset (units, frametime stats, cap hint, notifications) used to ignore Text Size.
+        ///
+        /// Transform (only when size != 100%):
+        ///   - every explicit &lt;S=N&gt; -> &lt;S=round(N * size/100)&gt;   (relative sizes scale)
+        ///   - every bare    &lt;S&gt;    -> &lt;S=size&gt;                   (reset to the base, not 100%)
+        ///   - prepend a leading &lt;S=size&gt; so untagged text scales too
+        /// Graphs (&lt;G=...&gt;) are not text and keep their own (hardcoded) size.
+        /// </summary>
+        private string ApplyOsdTextScale(string osd)
+        {
+            if (string.IsNullOrEmpty(osd) || osdTextSize == 100)
+                return osd;
+
+            double m = osdTextSize / 100.0;
+
+            // Scale explicit sizes first (the regex never matches a bare <S>).
+            osd = System.Text.RegularExpressions.Regex.Replace(
+                osd, @"<S=(\d+)>",
+                mm =>
+                {
+                    int n = int.Parse(mm.Groups[1].Value);
+                    int scaled = (int)System.Math.Round(n * m);
+                    if (scaled < 1) scaled = 1;
+                    return $"<S={scaled}>";
+                });
+
+            // Bare resets go back to the global base size, not 100%.
+            osd = osd.Replace("<S>", $"<S={osdTextSize}>");
+
+            // Untagged text (the main metric values) scales via a leading base size.
+            return $"<S={osdTextSize}>" + osd;
         }
 
         /// <summary>

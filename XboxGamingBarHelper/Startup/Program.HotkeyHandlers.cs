@@ -233,9 +233,9 @@ namespace XboxGamingBarHelper
         {
             try
             {
-                Logger.Info("OpenOnScreenKeyboard: ensuring touch keyboard is shown");
-                TouchKeyboardHelper.EnsureOpen();
-                Logger.Info("OpenOnScreenKeyboard: touch keyboard ensured open");
+                Logger.Info("OpenOnScreenKeyboard: Toggling touch keyboard");
+                TouchKeyboardHelper.Toggle();
+                Logger.Info("OpenOnScreenKeyboard: Touch keyboard toggled");
             }
             catch (Exception ex)
             {
@@ -723,8 +723,8 @@ namespace XboxGamingBarHelper
                                     switch (capturedId)
                                     {
                                         case "Keyboard":
-                                            // Reliably show the on-screen / touch keyboard (same as the tile click).
-                                            TouchKeyboardHelper.EnsureOpen();
+                                            // Toggle the on-screen / touch keyboard (same as the tile click).
+                                            TouchKeyboardHelper.Toggle();
                                             break;
                                         case "FpsLimiter":
                                             // Cycle FPS cap in the current mode (RTSS/Intel) — helper-side
@@ -1149,60 +1149,28 @@ namespace XboxGamingBarHelper
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool IsWindowVisible(IntPtr hWnd);
 
-        [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
-        private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
-
-        // DWMWA_CLOAKED: a window can be styled visible (IsWindowVisible == true) yet be
-        // hidden by DWM (cloaked). The touch keyboard does exactly this — after it is first
-        // dismissed the IPTip_Main_Window is kept around and cloaked rather than destroyed,
-        // so IsWindowVisible alone gives a false "still visible" reading. That false positive
-        // made EnsureOpen() think the keyboard was already up and do nothing → the keyboard
-        // would not reopen after having been opened once. Checking the cloak flag fixes it.
-        private const int DWMWA_CLOAKED = 14;
-
         // Touch keyboard host window class. When the on-screen keyboard is shown this
-        // window is visible AND not cloaked; when hidden it is missing or cloaked.
+        // window is visible; when hidden it isn't (or doesn't exist yet).
         private const string TouchKeyboardWindowClass = "IPTip_Main_Window";
 
-        private static bool IsCloaked(IntPtr hwnd)
-        {
-            try { return DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0 && cloaked != 0; }
-            catch { return false; }
-        }
-
-        /// <summary>True when the on-screen / touch keyboard is actually shown (visible and not cloaked).</summary>
+        /// <summary>True when the on-screen / touch keyboard is currently shown.</summary>
         private static bool IsKeyboardVisible()
         {
             try
             {
                 IntPtr hwnd = FindWindow(TouchKeyboardWindowClass, null);
-                return hwnd != IntPtr.Zero && IsWindowVisible(hwnd) && !IsCloaked(hwnd);
+                return hwnd != IntPtr.Zero && IsWindowVisible(hwnd);
             }
             catch { return false; }
         }
 
-        /// <summary>Polls IsKeyboardVisible up to <paramref name="timeoutMs"/>, returns true as soon as it's shown.</summary>
-        private static bool WaitForVisible(int timeoutMs)
-        {
-            int waited = 0;
-            while (waited < timeoutMs)
-            {
-                if (IsKeyboardVisible()) return true;
-                System.Threading.Thread.Sleep(50);
-                waited += 50;
-            }
-            return IsKeyboardVisible();
-        }
-
         /// <summary>
-        /// Reliably SHOW the keyboard. Used by the "Keyboard" tile and the helper-side
-        /// keyboard shortcut — their intent is "open the keyboard", and it must ALWAYS work,
-        /// even after the keyboard was opened and dismissed earlier in the session.
-        ///
-        /// The COM Toggle flips TabTip's own notion of state, which can desync from the real
-        /// window (it cloaks rather than destroys on dismiss). A single blind toggle therefore
-        /// sometimes "closes" a phantom-open keyboard and nothing appears. We verify the result
-        /// and retry: toggle → wait → if still hidden toggle again → wait → else launch TabTip.
+        /// Reliably SHOW the keyboard. Used by the Quick Settings "Keyboard" tile, whose
+        /// intent is "open the keyboard" — unlike the controller hotkey which keeps the raw
+        /// COM toggle. Because <see cref="Toggle"/> is a blind toggle, clicking the tile while
+        /// the keyboard is already up (e.g. opened earlier via the hotkey) would close it and
+        /// look broken. Here we only toggle when it isn't already visible, so the tile always
+        /// ends with the keyboard shown.
         /// </summary>
         public static void EnsureOpen()
         {
@@ -1210,23 +1178,10 @@ namespace XboxGamingBarHelper
             {
                 if (IsKeyboardVisible())
                 {
-                    Logger.Info("Touch keyboard already visible — open is a no-op");
+                    Logger.Info("Touch keyboard already visible — tile open is a no-op");
                     return;
                 }
-
-                Toggle();                       // hidden → open
-                if (WaitForVisible(400)) return;
-
-                // Desync: TabTip considered it "open" (cloaked) so the toggle hid it instead.
-                Logger.Warn("Keyboard not visible after first toggle — retrying toggle");
-                Toggle();
-                if (WaitForVisible(400)) return;
-
-                // Last resort: make sure TabTip is running, then surface it.
-                Logger.Warn("Keyboard still hidden — launching TabTip.exe and toggling");
-                TryLaunchTabTip();
-                if (WaitForVisible(700)) return;
-                Toggle();
+                Toggle(); // closed → open
             }
             catch (Exception ex)
             {

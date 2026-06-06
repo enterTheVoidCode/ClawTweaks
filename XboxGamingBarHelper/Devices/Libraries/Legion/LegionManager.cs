@@ -2757,9 +2757,9 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             }
             else
             {
-                // Default: Cycle Through Apps (AltTabBack = 13)
-                DesktopButtonTileAction = 13;
-                Logger.Info("LegionManager: DesktopButtonTileAction defaulting to AltTabBack (13)");
+                // Default: Toggle Controller/Mouse (ToggleControllerMouseMode = 29)
+                DesktopButtonTileAction = 29;
+                Logger.Info("LegionManager: DesktopButtonTileAction defaulting to ToggleControllerMouseMode (29)");
             }
 
             if (Settings.LocalSettingsHelper.TryGetValue(DesktopButtonTileActionParamKey, out string savedParam))
