@@ -201,6 +201,22 @@ namespace XboxGamingBar
 
         private void GamingWidget_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
         {
+            // ── TEMPORARY NAV DIAGNOSTIC ────────────────────────────────────────────
+            // Shows the actual VirtualKey received + the currently focused element name,
+            // so we can see on-device exactly what the D-pad sends and where focus is.
+            try
+            {
+                if (NavDebugText != null)
+                {
+                    var fe = FocusManager.GetFocusedElement() as FrameworkElement;
+                    string focusName = fe?.Name;
+                    if (string.IsNullOrEmpty(focusName)) focusName = fe?.GetType().Name ?? "null";
+                    NavDebugText.Text = $"key={e.Key}  focus={focusName}";
+                }
+            }
+            catch { }
+            // ────────────────────────────────────────────────────────────────────────
+
             // LT / RT — tab navigation
             if (e.Key == VirtualKey.GamepadLeftTrigger)
             {
@@ -252,8 +268,9 @@ namespace XboxGamingBar
                 e.Handled = true;
                 return;
             }
-            // D-pad down from nav area → enter content at the FIRST element of the active tab.
-            else if (e.Key == VirtualKey.GamepadDPadDown)
+            // D-pad / arrow DOWN. Handle BOTH the gamepad key and the plain arrow key — we do not
+            // yet know which one the Claw actually emits, so cover both.
+            else if (e.Key == VirtualKey.GamepadDPadDown || e.Key == VirtualKey.Down)
             {
                 var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
                 if (focusedElement != null && IsInNavigationArea(focusedElement))
@@ -261,20 +278,24 @@ namespace XboxGamingBar
                     e.Handled = true;
                     FocusFirstTabContentElement();
                 }
-                else if (focusedElement is Windows.UI.Xaml.Controls.Slider)
+                else if (focusedElement is Windows.UI.Xaml.Controls.Slider sliderDown)
                 {
                     // ROOT CAUSE of "navigation skips the control below a slider":
-                    // A horizontal UWP Slider consumes ALL four arrow keys internally (Up/Down
-                    // included), so the slider's per-control KeyDown="..._KeyDown" Down branch
-                    // never fires — the downward spine hop is silently lost and focus falls
-                    // through to whatever the framework picks next (skipping the intended target).
-                    //
-                    // PreviewKeyDown is the TUNNELING phase: it fires BEFORE the slider sees the
-                    // key. Here we move focus down via XYFocusDown (TryMoveFocus honours it), the
-                    // exact mirror of the DPadUp handling below that already works reliably.
-                    if (FocusManager.TryMoveFocus(FocusNavigationDirection.Down))
+                    // A horizontal UWP Slider consumes arrow/D-pad keys internally, so the
+                    // slider's bubbling per-control KeyDown Down branch never fires. PreviewKeyDown
+                    // is the TUNNELING phase (fires BEFORE the slider), so we redirect here.
+                    // Use the slider's explicit XYFocusDown target (deterministic) rather than
+                    // spatial guessing, falling back to TryMoveFocus only if no target is set.
+                    var target = sliderDown.XYFocusDown as Control;
+                    if (target != null)
+                    {
+                        target.Focus(FocusState.Keyboard);
                         e.Handled = true;
-                    // If nothing below, leave unhandled so default handling can still act.
+                    }
+                    else if (FocusManager.TryMoveFocus(FocusNavigationDirection.Down))
+                    {
+                        e.Handled = true;
+                    }
                 }
             }
             // D-pad up from content area → let UWP spatial navigation try first.
@@ -286,7 +307,7 @@ namespace XboxGamingBar
             // We ALWAYS mark e.Handled here to prevent per-control KeyDown handlers from
             // double-navigating: PreviewKeyDown (tunneling) fires before KeyDown (bubbling),
             // so consuming the event here stops the per-control handler from also acting.
-            else if (e.Key == VirtualKey.GamepadDPadUp)
+            else if (e.Key == VirtualKey.GamepadDPadUp || e.Key == VirtualKey.Up)
             {
                 var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
                 if (focusedElement != null && !IsInNavigationArea(focusedElement))
