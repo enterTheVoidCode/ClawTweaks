@@ -1603,18 +1603,21 @@
                                            HorizontalAlignment="Center" VerticalAlignment="Bottom"
                                            Margin="0,0,0,4"/>
 
-                                <!-- Row 1, Col 0: limiter slider (far left) -->
-                                <Slider x:Name="FPSLimitSlider" Grid.Row="1" Grid.Column="0"
-                                        Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="0" Maximum="6"
-                                        StepFrequency="1" TickFrequency="1"
-                                        TickPlacement="Outside" SnapsTo="StepValues"
-                                        IsEnabled="False"
-                                        VerticalAlignment="Center"
-                                        XYFocusUp="{x:Bind FPSModeToggle}"
-                                        XYFocusDown="{x:Bind FPSModeToggle}"
-                                        XYFocusRight="{x:Bind FPSModeToggle}"
-                                        KeyDown="FPSLimitSlider_KeyDown"/>
+                                <!-- Row 1, Col 0: limiter slider (far left) + per-step FPS scale labels -->
+                                <StackPanel Grid.Row="1" Grid.Column="0" VerticalAlignment="Center">
+                                    <Slider x:Name="FPSLimitSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="6"
+                                            StepFrequency="1" TickFrequency="1"
+                                            TickPlacement="Outside" SnapsTo="StepValues"
+                                            IsEnabled="False"
+                                            XYFocusUp="{x:Bind FPSModeToggle}"
+                                            XYFocusDown="{x:Bind FPSModeToggle}"
+                                            XYFocusRight="{x:Bind FPSModeToggle}"
+                                            KeyDown="FPSLimitSlider_KeyDown"/>
+                                    <!-- Per-step FPS values, populated in code (RTSS vs Intel differ). -->
+                                    <Grid x:Name="FPSLimitScaleLabels" Margin="0,2,0,0"/>
+                                </StackPanel>
 
                                 <!-- Row 1, Col 2: mode toggle (middle) — DIRECT Grid child -->
                                 <ToggleSwitch x:Name="FPSModeToggle" Grid.Row="1" Grid.Column="2"

@@ -261,6 +261,21 @@ namespace XboxGamingBar
                     e.Handled = true;
                     FocusFirstTabContentElement();
                 }
+                else if (focusedElement is Windows.UI.Xaml.Controls.Slider)
+                {
+                    // ROOT CAUSE of "navigation skips the control below a slider":
+                    // A horizontal UWP Slider consumes ALL four arrow keys internally (Up/Down
+                    // included), so the slider's per-control KeyDown="..._KeyDown" Down branch
+                    // never fires — the downward spine hop is silently lost and focus falls
+                    // through to whatever the framework picks next (skipping the intended target).
+                    //
+                    // PreviewKeyDown is the TUNNELING phase: it fires BEFORE the slider sees the
+                    // key. Here we move focus down via XYFocusDown (TryMoveFocus honours it), the
+                    // exact mirror of the DPadUp handling below that already works reliably.
+                    if (FocusManager.TryMoveFocus(FocusNavigationDirection.Down))
+                        e.Handled = true;
+                    // If nothing below, leave unhandled so default handling can still act.
+                }
             }
             // D-pad up from content area → let UWP spatial navigation try first.
             // If TryMoveFocus(Up) fails — because all elements above the current focus are
