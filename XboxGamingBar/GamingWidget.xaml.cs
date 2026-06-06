@@ -520,8 +520,8 @@ namespace XboxGamingBar
         public ButtonMapping ButtonM1 { get; set; } = new ButtonMapping();
         public ButtonMapping ButtonM2 { get; set; } = new ButtonMapping();
         public ButtonMapping ButtonM3 { get; set; } = new ButtonMapping();
-        // Default: Action mode (Type=3), Cycle Through Apps (AltTabBack = 13)
-        public ButtonMapping ButtonDesktop { get; set; } = new ButtonMapping { Type = 3, GamepadAction = 13, GamepadActions = new System.Collections.Generic.List<int> { 13 } };
+        // Default: Action mode (Type=3), Toggle Controller/Mouse (ToggleControllerMouseMode = 29)
+        public ButtonMapping ButtonDesktop { get; set; } = new ButtonMapping { Type = 3, GamepadAction = 29, GamepadActions = new System.Collections.Generic.List<int> { 29 } };
         public ButtonMapping ButtonPage { get; set; } = new ButtonMapping();
         public bool NintendoLayout { get; set; } = false;
         public int VibrationLevel { get; set; } = 2;  // Medium
@@ -776,6 +776,72 @@ namespace XboxGamingBar
                 MetricsBackground  = Windows.UI.Color.FromArgb(255, 200, 40, 184),
                 MetricsBackground2 = Windows.UI.Color.FromArgb(255, 138, 26, 134),
                 MetricsBorder      = Windows.UI.Color.FromArgb(255, 255, 230, 0)
+            }},
+            // ClawTweaks brand: deep black → blood red with a glowing red accent (the dragon art).
+            { "Claw Tweaks", new ThemeColors {
+                Name = "Claw Tweaks",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 18, 8, 8),         // #120808 near-black
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 58, 10, 12),       // #3A0A0C dark blood red
+                CardBackground  = Windows.UI.Color.FromArgb(200, 40, 12, 14),       // translucent dark red (glass)
+                CardBorder      = Windows.UI.Color.FromArgb(255, 150, 40, 44),      // #96282C
+                AccentColor     = Windows.UI.Color.FromArgb(255, 229, 16, 28),      // #E5101C glowing red
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 252, 240, 240),    // near-white
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 232, 200, 200),    // #E8C8C8
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 42, 14, 14),       // #2A0E0E
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 122, 42, 42),      // #7A2A2A
+                TileOff         = Windows.UI.Color.FromArgb(180, 92, 26, 28),       // #5C1A1C @70% glossy top
+                TileOff2        = Windows.UI.Color.FromArgb(180, 22, 8, 8),         // #160808 deep bottom
+                TileOn          = Windows.UI.Color.FromArgb(255, 200, 16, 32),      // #C81020 red active
+                TileOn2         = Windows.UI.Color.FromArgb(255, 110, 8, 16),       // #6E0810
+                GlowColor       = Windows.UI.Color.FromArgb(255, 255, 58, 68),      // #FF3A44 red glow
+                TileIcon        = Windows.UI.Color.FromArgb(255, 255, 154, 154),    // #FF9A9A light red icons
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 200, 32, 42),   // #C8202A
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 138, 16, 24),   // #8A1018
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 255, 90, 96)    // #FF5A60
+            }},
+            // FC Barcelona "blaugrana": royal blue → garnet, garnet-red accent, gold icons/glow.
+            { "ViscaBarca", new ThemeColors {
+                Name = "ViscaBarca",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 0, 77, 152),       // #004D98 Barça blue
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 110, 0, 52),       // #6E0034 garnet
+                CardBackground  = Windows.UI.Color.FromArgb(200, 17, 36, 78),       // translucent deep blue (glass)
+                CardBorder      = Windows.UI.Color.FromArgb(255, 194, 24, 91),      // #C2185B garnet
+                AccentColor     = Windows.UI.Color.FromArgb(255, 225, 15, 74),      // #E10F4A garnet red
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 245, 240, 255),    // near-white
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 224, 200, 212),    // #E0C8D4
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 14, 42, 90),       // #0E2A5A
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 58, 90, 168),      // #3A5AA8
+                TileOff         = Windows.UI.Color.FromArgb(180, 18, 58, 120),      // #123A78 blue @70% glossy
+                TileOff2        = Windows.UI.Color.FromArgb(180, 10, 26, 64),       // #0A1A40 deep blue
+                TileOn          = Windows.UI.Color.FromArgb(255, 165, 0, 68),       // #A50044 garnet active
+                TileOn2         = Windows.UI.Color.FromArgb(255, 110, 0, 48),       // #6E0030
+                GlowColor       = Windows.UI.Color.FromArgb(255, 237, 187, 0),      // #EDBB00 Barça gold glow
+                TileIcon        = Windows.UI.Color.FromArgb(255, 255, 203, 5),      // #FFCB05 gold icons
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 0, 95, 184),    // #005FB8 blue
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 150, 0, 64),    // #960040 garnet
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 237, 187, 0)    // #EDBB00 gold
+            }},
+            // Borussia Dortmund: black → near-black with the bright BVB yellow accent + glow.
+            { "BVB", new ThemeColors {
+                Name = "BVB",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 10, 10, 10),       // #0A0A0A black
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 26, 24, 6),        // #1A1806 very dark yellow-black
+                CardBackground  = Windows.UI.Color.FromArgb(205, 24, 22, 10),       // translucent near-black (glass)
+                CardBorder      = Windows.UI.Color.FromArgb(255, 200, 180, 0),      // #C8B400 dim yellow
+                AccentColor     = Windows.UI.Color.FromArgb(255, 253, 225, 0),      // #FDE100 BVB yellow
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 255, 253, 224),    // near-white
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 232, 224, 160),    // #E8E0A0
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 28, 26, 12),       // #1C1A0C
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 200, 180, 0),      // #C8B400
+                TileOff         = Windows.UI.Color.FromArgb(180, 46, 42, 14),       // #2E2A0E @70% glossy
+                TileOff2        = Windows.UI.Color.FromArgb(180, 16, 15, 6),        // #100F06 deep
+                TileOn          = Windows.UI.Color.FromArgb(255, 200, 168, 0),      // #C8A800 gold active (keeps text readable)
+                TileOn2         = Windows.UI.Color.FromArgb(255, 138, 116, 0),      // #8A7400
+                GlowColor       = Windows.UI.Color.FromArgb(255, 253, 225, 0),      // #FDE100 yellow glow
+                TileIcon        = Windows.UI.Color.FromArgb(255, 253, 225, 0),      // #FDE100 yellow icons
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 200, 178, 0),   // #C8B200
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 130, 116, 0),   // #827400
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 253, 225, 0)    // #FDE100
             }},
             { "Default", new ThemeColors {
                 Name = "Default",

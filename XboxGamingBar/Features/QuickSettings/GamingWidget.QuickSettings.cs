@@ -307,7 +307,12 @@ namespace XboxGamingBar
             // Row 3 - Display
             // Resolution tile removed from the grid (logic kept: CycleResolution + the "Resolution"
             // click case + state text still exist). Replaced by the two new limiter tiles below.
-            AddTileDefinition("FpsLimiter",    "FPS Limit",    "\uE916", order: order++); // cycles caps in the current mode (RTSS/Intel) incl. Off
+            // DISABLED: FPS Limiter tile removed from the grid. The tile could never reliably mirror
+            // what the Performance-tab FPS controls already do (esp. the Intel-mode cycle/persist),
+            // so FPS limiting lives ONLY in the Performance tab (sliders / cycle button) for now.
+            // Re-enable by uncommenting this line + the "FpsLimiter" case in QuickSettings.Actions.cs
+            // + the state block in QuickSettings.TileStates.cs.
+            // AddTileDefinition("FpsLimiter",    "FPS Limit",    "\uE916", order: order++); // cycles caps in the current mode (RTSS/Intel) incl. Off
             AddTileDefinition("ChargeLimiter", "Charge Limit", "\uE83F", order: order++); // battery charge-limit on/off (must be set up in System tab first)
             // AddTileDefinition("Rotation", "Rotation", "\uE7AD", order: order++);  // removed: not used on MSI Claw
             // AddTileDefinition("HDR", "HDR", "\uE706", order: order++);  // removed: MSI Claw has no HDR output

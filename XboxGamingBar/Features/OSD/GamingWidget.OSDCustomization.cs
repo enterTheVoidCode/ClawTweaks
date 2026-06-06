@@ -118,7 +118,7 @@ namespace XboxGamingBar
         private ObservableCollection<OSDItemViewModel> osdItemViewModels = new ObservableCollection<OSDItemViewModel>();
 
         // Global OSD layout settings
-        private int osdTextSize = 100;    // Percentage: 50=Small, 100=Medium, 150=Large, 200=X-Large, 250=XX-Large, 300=XXX-Large
+        private int osdTextSize = 125;    // Percentage: 50=Small, 100=Medium, 125=Default, 150=Large, 200=X-Large, 250=XX-Large, 300=XXX-Large
         private string osdTextColor = "DYNAMIC";  // DYNAMIC = value-based colors, or hex color code
         private string osdLabelColor = "DEFAULT";  // DEFAULT = use item-specific colors, or hex color code
         private int osdProvider = 0;  // 0=RTSS, 1=AMD
@@ -632,9 +632,9 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // Default to 100 if no per-resolution setting exists
-                    osdTextSize = 100;
-                    Logger.Info($"No OSD text size saved for resolution {currentRes}, using default 100");
+                    // Default to 125 ("Default", between Medium and Large) if no per-resolution setting exists
+                    osdTextSize = 125;
+                    Logger.Info($"No OSD text size saved for resolution {currentRes}, using default 125");
                 }
                 if (settings.Values.TryGetValue("OSD_TextColor", out object textColorVal) && textColorVal is string textColor)
                 {

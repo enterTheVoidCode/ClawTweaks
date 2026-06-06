@@ -864,7 +864,9 @@ namespace XboxGamingBar
                     boostTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
                 }
 
-                // FPS Limiter tile — shows the current cap in the active mode (RTSS or Intel), or Off.
+                // DISABLED: FPS Limiter tile removed from the grid (see QuickSettings.cs). State block
+                // kept commented so it can be restored if the tile is ever re-enabled.
+                /*
                 if (qsTileMap.TryGetValue("FpsLimiter", out var fpsTile) && fpsTile.TileButton != null)
                 {
                     bool isIntel = fpsCapMode?.Value == 1;
@@ -886,6 +888,7 @@ namespace XboxGamingBar
                     fpsTile.StateText.Foreground = active ? accentForeground : offForeground;
                     fpsTile.TileButton.Background = active ? tileOnBrush : tileOffBrush;
                 }
+                */
 
                 // Charge Limiter tile — on/off; locked until set up in the System tab.
                 if (qsTileMap.TryGetValue("ChargeLimiter", out var chgTile) && chgTile.TileButton != null)
@@ -920,6 +923,16 @@ namespace XboxGamingBar
                     keyboardTile.StateText.Text = "Open";
                     keyboardTile.StateText.Foreground = accentForeground;
                     keyboardTile.TileButton.Background = tileTriggerBrush;
+                }
+
+                // Fullscreen trigger tile — momentary toggle of the foreground app's fullscreen,
+                // NOT a stateful setting. There is no reliable "is fullscreen" flag to read, so show
+                // a neutral action label (was a misleading, always-"Off" state) + the trigger style.
+                if (qsTileMap.TryGetValue("Fullscreen", out var fullscreenTile) && fullscreenTile.TileButton != null && fullscreenTile.StateText != null)
+                {
+                    fullscreenTile.StateText.Text = "Toggle";
+                    fullscreenTile.StateText.Foreground = accentForeground;
+                    fullscreenTile.TileButton.Background = tileTriggerBrush;
                 }
 
                 // Custom shortcut tiles
