@@ -16,13 +16,13 @@
 > |--------|--------|
 > | **MSI Claw 8 AI+ A2VM** (Lunar Lake, MS-1T52) | ✅ Supported |
 > | **MSI Claw 7 AI+ A2VM / A2VMX** (Lunar Lake, MS-1T42) | ✅ Supported |
-> | MSI Claw A1M (Meteor Lake) | ❌ Not supported — different processor, EC and HW controller |
-> | MSI Claw 8 EX (Panther Lake) | 🔮 Possible future support — shares Intel architecture |
-> | Other MSI Claw models | ❌ Not tested / not supported |
+> | MSI Claw A1M (Meteor Lake) | Not supported — different processor, EC and HW controller |
+> | MSI Claw 8 EX (Panther Lake) | Possible future support — shares Intel architecture |
+> | Other MSI Claw models | Not tested / not supported |
 >
 > **The installer will abort with an error message if run on an unsupported device.**
 
-> **⚠️ Beta Software** — ClawTweaks is actively developed. Use at your own risk.
+> **⚠️ Early Software** — ClawTweaks is actively developed. Use at your own risk.
 
 A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [GoTweaks](https://github.com/corando98/GoTweaks) (a Lenovo Legion Go widget), ClawTweaks replaces AMD-specific features with Intel equivalents, adds MSI Claw-specific hardware support, and introduces a wide range of new features alongside a streamlined UI.
 
