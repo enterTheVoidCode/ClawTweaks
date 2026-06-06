@@ -11,7 +11,7 @@
   <img src="Doku/ClawTweaks Logo Handheld.PNG" width="550" alt="Logo"><br>
 </p>
 
-> ### ✅ Supported Devices
+> ### Supported Devices
 > | Device | Status |
 > |--------|--------|
 > | **MSI Claw 8 AI+ A2VM** (Lunar Lake, MS-1T52) | ✅ Supported |
