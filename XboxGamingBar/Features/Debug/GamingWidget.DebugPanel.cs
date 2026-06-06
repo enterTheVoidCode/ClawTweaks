@@ -84,6 +84,15 @@ namespace XboxGamingBar
             currentThemeName = themeName;
             Logger.Info($"Applying theme: {themeName}");
 
+            // Mono theme: derive the entire palette from the single accent colour.
+            if (theme.MonoFromAccent)
+                theme = ComputeMonoTheme(theme);
+
+            // Drive every accent-coloured control (slider fill, toggle ON, focus, accent text)
+            // from THIS theme's accent — never the Windows system accent. Mutates shared brush
+            // instances so already-created controls update live.
+            ApplyAccentBrushes(theme.EffectiveAccent());
+
             // Update page background (diagonal gradient when the theme defines a second stop = glass look)
             var pageBrush = ThemeFill(theme.PageBackground, theme.PageBackground2, diagonal: true);
             this.Background = pageBrush;
@@ -155,6 +164,97 @@ namespace XboxGamingBar
             {
                 Logger.Error($"Error applying theme to visual tree: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Mutates the shared accent brush instances (defined in Page.Resources) to the given accent.
+        /// Controls reference these instances via {StaticResource}/{ThemeResource}, so changing the
+        /// brush colour updates slider fills, toggle ON state, accent text etc. live — no rebuild.
+        /// </summary>
+        /// <summary>Effective accent colour of the active in-app theme (replaces the Windows system accent).</summary>
+        internal Windows.UI.Color CurrentThemeAccent()
+        {
+            if (WidgetThemes.TryGetValue(currentThemeName, out var t))
+                return t.EffectiveAccent();
+            return Windows.UI.Color.FromArgb(255, 0, 200, 255);
+        }
+
+        private void ApplyAccentBrushes(Windows.UI.Color accent)
+        {
+            try
+            {
+                var accentLight = ThemeColors.Shade(accent, 0.40);  // brighter end of the slider gradient
+                var accentHi    = ThemeColors.Shade(accent, 0.20);  // pointer-over
+                var accentLo    = ThemeColors.Shade(accent, -0.15); // pressed
+
+                void SetSolid(string key, Windows.UI.Color c)
+                {
+                    if (Resources.TryGetValue(key, out var o) && o is SolidColorBrush b) b.Color = c;
+                }
+                void SetGrad(string key, Windows.UI.Color a, Windows.UI.Color b2)
+                {
+                    if (Resources.TryGetValue(key, out var o) && o is LinearGradientBrush g && g.GradientStops.Count >= 2)
+                    {
+                        g.GradientStops[0].Color = a;
+                        g.GradientStops[1].Color = b2;
+                    }
+                }
+
+                SetSolid("ThemeAccentBrush", accent);
+                SetSolid("SystemAccentBrush", accent);
+
+                SetGrad("SliderTrackValueFill",            accent, accentLight);
+                SetGrad("SliderTrackValueFillPointerOver", accentHi, ThemeColors.Shade(accentHi, 0.40));
+                SetGrad("SliderTrackValueFillPressed",     accentLo, ThemeColors.Shade(accentLo, 0.40));
+
+                SetSolid("ToggleSwitchFillOn",            accent);
+                SetSolid("ToggleSwitchFillOnPointerOver", accentHi);
+                SetSolid("ToggleSwitchFillOnPressed",     accentLo);
+                SetSolid("ToggleSwitchStrokeOn",            accent);
+                SetSolid("ToggleSwitchStrokeOnPointerOver", accentHi);
+                SetSolid("ToggleSwitchStrokeOnPressed",     accentLo);
+            }
+            catch (Exception ex) { Logger.Warn($"ApplyAccentBrushes: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// Builds a full ThemeColors palette derived from a single accent colour (the "Mono" look):
+        /// dark near-black surfaces shaded down from the accent, highlights shaded up. Changing only
+        /// the theme's AccentColor re-skins the entire theme.
+        /// </summary>
+        private static ThemeColors ComputeMonoTheme(ThemeColors baseTheme)
+        {
+            var a = baseTheme.AccentColor;
+            Windows.UI.Color S(double f) => ThemeColors.Shade(a, f);
+            Windows.UI.Color Sa(double f, byte alpha)
+            {
+                var c = ThemeColors.Shade(a, f);
+                return Windows.UI.Color.FromArgb(alpha, c.R, c.G, c.B);
+            }
+            return new ThemeColors
+            {
+                Name = baseTheme.Name,
+                MonoFromAccent = true,
+                ShimmerEnabled = baseTheme.ShimmerEnabled,
+                AccentColor      = a,
+                PageBackground   = S(-0.88),
+                PageBackground2  = S(-0.94),
+                CardBackground   = Sa(-0.80, 210),
+                CardBorder       = S(-0.45),
+                TextPrimary      = S(0.88),
+                TextSecondary    = S(0.30),
+                ButtonBackground = S(-0.78),
+                ButtonBorder     = S(-0.40),
+                TileOff          = S(-0.84),
+                TileOff2         = S(-0.92),
+                TileOn           = S(-0.25),
+                TileOn2          = S(-0.50),
+                GlowColor        = a,
+                TileIcon         = S(0.45),
+                MetricsBackground  = S(-0.40),
+                MetricsBackground2 = S(-0.62),
+                MetricsBorder      = S(-0.05)
+            };
         }
 
         /// <summary>

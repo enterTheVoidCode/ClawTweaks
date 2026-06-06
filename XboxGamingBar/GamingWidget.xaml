@@ -19,8 +19,43 @@
         <converter:SharpnessPercentStringConverter x:Key="SharpnessPercentStringConverter"/>
         <converter:RadeonBoostResolutionStringConverter x:Key="RadeonBoostResolutionStringConverter"/>
 
-        <!-- System Accent Color Brush (Light2 variant for dark theme text) -->
-        <SolidColorBrush x:Key="SystemAccentBrush" Color="{ThemeResource SystemAccentColorLight2}"/>
+        <!-- ════════════════════════════════════════════════════════════════════
+             THEME ACCENT BRUSHES — driven entirely by the in-app theme (NOT the
+             Windows system accent). Their colours are mutated at runtime in
+             ApplyTheme(); because controls reference these same brush INSTANCES via
+             {StaticResource}/{ThemeResource}, mutating .Color updates them live.
+             ════════════════════════════════════════════════════════════════════ -->
+        <SolidColorBrush x:Key="ThemeAccentBrush"  Color="#00C8FF"/>
+        <SolidColorBrush x:Key="SystemAccentBrush" Color="#00C8FF"/>
+
+        <!-- Slider: thicker track + themed gradient value fill. These override the
+             WinUI Slider lightweight-styling resources for every Slider on the page. -->
+        <x:Double x:Key="SliderTrackThemeHeight">7</x:Double>
+        <x:Double x:Key="SliderHorizontalThumbWidth">22</x:Double>
+        <x:Double x:Key="SliderHorizontalThumbHeight">22</x:Double>
+        <LinearGradientBrush x:Key="SliderTrackValueFill" StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="#00C8FF" Offset="0"/>
+            <GradientStop Color="#66E6FF" Offset="1"/>
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="SliderTrackValueFillPointerOver" StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="#00C8FF" Offset="0"/>
+            <GradientStop Color="#66E6FF" Offset="1"/>
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="SliderTrackValueFillPressed" StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="#00C8FF" Offset="0"/>
+            <GradientStop Color="#66E6FF" Offset="1"/>
+        </LinearGradientBrush>
+        <SolidColorBrush x:Key="SliderThumbBackground"            Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="SliderThumbBackgroundPressed"     Color="#E6F8FF"/>
+
+        <!-- ToggleSwitch: ON state uses the theme accent instead of the system accent. -->
+        <SolidColorBrush x:Key="ToggleSwitchFillOn"              Color="#00C8FF"/>
+        <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver"   Color="#33D6FF"/>
+        <SolidColorBrush x:Key="ToggleSwitchFillOnPressed"       Color="#00B0E0"/>
+        <SolidColorBrush x:Key="ToggleSwitchStrokeOn"            Color="#00C8FF"/>
+        <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#33D6FF"/>
+        <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed"     Color="#00B0E0"/>
 
         <!-- Tooth Theme Colors -->
         <SolidColorBrush x:Key="PageBackgroundBrush" Color="#25282C"/>
