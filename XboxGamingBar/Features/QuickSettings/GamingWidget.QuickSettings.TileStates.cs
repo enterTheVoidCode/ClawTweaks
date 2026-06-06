@@ -846,7 +846,10 @@ namespace XboxGamingBar
                         cap = fpsLimit?.Value ?? 0;            // 0 = Off
                     }
                     bool active = cap > 0;
-                    fpsTile.StateText.Text = active ? $"{cap} FPS" : "Off";
+                    // Always show the active mode (RTSS or Intel) — the tile only cycles within
+                    // the current mode's steps (incl. off); it never switches mode.
+                    string modeLabel = isIntel ? "Intel" : "RTSS";
+                    fpsTile.StateText.Text = active ? $"{modeLabel} · {cap} FPS" : $"{modeLabel} · Off";
                     fpsTile.StateText.Foreground = active ? accentForeground : offForeground;
                     fpsTile.TileButton.Background = active ? tileOnBrush : tileOffBrush;
                 }

@@ -468,6 +468,12 @@ namespace XboxGamingBar
         // ── Global glass effect toggle (theme-independent, user-controlled) ──────────
         private const string GlassEffectKey = "GlassEffectEnabled";
 
+        // Guards against the spurious Toggled event that fires when the ToggleSwitch's
+        // XAML default (IsOn="True") is applied on load. Without this, that default-driven
+        // event overwrote the saved value with "true" on every launch — so disabling glass
+        // never survived a restart. Saves are only honoured once restore has run.
+        private bool isGlassToggleInitialized;
+
         /// <summary>Whether the glass look (static sheen + travelling shimmer) is on. Default: on.</summary>
         internal bool IsGlassEffectEnabled()
         {
@@ -484,10 +490,13 @@ namespace XboxGamingBar
         {
             try { if (GlassEffectToggle != null) GlassEffectToggle.IsOn = IsGlassEffectEnabled(); }
             catch { }
+            finally { isGlassToggleInitialized = true; }
         }
 
         internal void GlassEffectToggle_Toggled(object sender, RoutedEventArgs e)
         {
+            // Ignore the initial XAML-default Toggled event — it would clobber the saved value.
+            if (!isGlassToggleInitialized) return;
             try
             {
                 bool on = GlassEffectToggle?.IsOn ?? true;
